@@ -1,0 +1,3 @@
+include README.rst
+recursive-include ppanggolin nem_exe
+recursive-include images
