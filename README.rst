@@ -169,19 +169,6 @@ For example, this command:
 
 will remove gene families having more than 10 repeated genes in at least one of the organism. Empirically, using a r-value of 10 will discard only few gene families (a dozen) .
 
-Undirected or Directed graph (-di option)
-------------------------------------------------------
-
-The pangenome graph can be directed or undirected. Directed graph provided more information but as genome can have multiple inversion around the origin of replication, it is sometime simpler to merge the directed edge into a undirected one.
-
-For example, this command :
-
-.. code:: bash
-
-	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -di
-
-Will generate a directed pangenome graph. Note that the partitioning method will not be impacted by this flag because in every case the partitioning approach considers the graph as undirected.
-
 Partionning parameter
 ---------------------------
 
