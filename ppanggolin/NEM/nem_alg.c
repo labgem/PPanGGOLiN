@@ -62,7 +62,6 @@ Vers-mod  Date         Who Description
 \*/
 
 #include "nem_typ.h"    /* DataT, ... */
-#include "nem_arg.h"    /* CritStrVC */
 #include "nem_nei.h"    /* FuncNeighNone, ... */
 #include "nem_mod.h"    /* EstimPara, ... */
 #include "nem_rnd.h"    /* RandomInteger */
@@ -576,7 +575,7 @@ int ClassifyByNem                                             /*V1.04-a*/
       break ;
 
     default:
-      fprintf( stderr , "Error : unkwnown beta estimation mode %d\n", 
+      fprintf( out_stderr , "Error : unkwnown beta estimation mode %d\n", 
 	       StatModelP->Spec.BetaModel ) ;
       sts = STS_E_FUNCARG ;
     }
@@ -808,13 +807,13 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
   Lfound = FALSE ;   /* Initialize values for likelihood heuristic */
   LlossThres= NemParaP->BtaHeuLLoss * DataP->NbPts;
 
-  fprintf( stderr, "* * Starting heuristic * *\n" ) ;
-  fprintf( stderr, "    Parameters : " ) ;
+  fprintf( out_stderr, "* * Starting heuristic * *\n" ) ;
+  fprintf( out_stderr, "    Parameters : " ) ;
   if ( StatModelP->Spec.BetaModel == BETA_HEUD )
-    fprintf( stderr, "Drop < %3.1f  or  (Dmax - D) < %3.1f (Dmax - Dmin)\n" ,
+    fprintf( out_stderr, "Drop < %3.1f  or  (Dmax - D) < %3.1f (Dmax - Dmin)\n" ,
 	     DdropThres, NemParaP->BtaHeuDLoss ) ;
   else
-    fprintf( stderr, "L < Lmax - %3.1f \n" , LlossThres ) ;
+    fprintf( out_stderr, "L < Lmax - %3.1f \n" , LlossThres ) ;
 
   for ( btatest = 0.0, nbta = 0, stop = FALSE ;
 	( btatest <= NemParaP->BtaHeuMax ) && ( ! stop ) ;
@@ -822,7 +821,7 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
     {
       StatusET sts ;
 
-      fprintf( stderr, "\n * * Testing beta = %5.2f * * \n" , btatest ) ;
+      fprintf( out_stderr, "\n * * Testing beta = %5.2f * * \n" , btatest ) ;
 
       StatModelP->Para.Beta = btatest ;
 
@@ -856,7 +855,7 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
     
     	      if ( nbta >= 3 )
     		{
-    		  fprintf( stderr, "    * Drop : %5.1f (threshold %5.1f) *\n", 
+    		  fprintf( out_stderr, "    * Drop : %5.1f (threshold %5.1f) *\n", 
     			       ( thisSlope - prevSlope ) , DdropThres ) ;
     
     		  if ( (! Ddrop) && (! Dincreas) ) {
@@ -865,7 +864,7 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
 
     		      Ddrop = TRUE ;
 		      if ( ! NemParaP->Debug )  stop = TRUE ;
-    		      fprintf( stderr, "    * ---> Drop detected *\n" ) ;
+    		      fprintf( out_stderr, "    * ---> Drop detected *\n" ) ;
     		      /* btaEst = btaV[ nbta - 2 ] ; V1.06-i*/
 		      btaEst = btaV[ nbta - 1 ] ; 
 
@@ -892,7 +891,7 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
     	      if ( nbta < 2 )  /* 1st beta */ {
 
 		  Lmax = CriterP->L ;
-		  fprintf( stderr, " * *  L threshold  :  %3.1f  * * \n" ,
+		  fprintf( out_stderr, " * *  L threshold  :  %3.1f  * * \n" ,
 			   Lmax - LlossThres ) ;
 		  memcpy( clasbestM, ClassifM, npt * nk * sizeof( float ) ) ;
 		}
@@ -901,7 +900,7 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
 		  if ( CriterP->L > Lmax )
 		    {
 		      Lmax = CriterP->L ;
-		      fprintf( stderr, " * *  L threshold  :  %3.1f  * * \n" ,
+		      fprintf( out_stderr, " * *  L threshold  :  %3.1f  * * \n" ,
 			       Lmax - LlossThres ) ;
 		    }
 
@@ -911,7 +910,7 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
 
     		      Lfound = TRUE ;
 		      if ( ! NemParaP->Debug )  stop = TRUE ;
-    		      fprintf( stderr, "    * ---> L loss detected *\n" ) ;
+    		      fprintf( out_stderr, "    * ---> L loss detected *\n" ) ;
     		      /* btaEst = btaV[ nbta - 2 ] ; V1.06-i*/
 		      btaEst = btaV[ nbta - 1 ] ; 
     		    }
@@ -952,7 +951,7 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
       btaEst = btaV[ ibta - 2 ] ;
     else {
 
-      fprintf( stderr , "Warning : heuristic failed to detect beta\n" ) ;
+      fprintf( out_stderr , "Warning : heuristic failed to detect beta\n" ) ;
       btaEst = 0.0 ;
     }
 
@@ -970,15 +969,15 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
     {
       /* btaEst = btaV[ nbta - 1 ] ; V1.06-i*/
       btaEst = btaV[ nbta ] ;
-      fprintf( stderr, "    * L loss not detected *\n" ) ;
+      fprintf( out_stderr, "    * L loss not detected *\n" ) ;
     }
 
   if ( fcri != NULL )
     fclose( fcri ) ;
 
-  fprintf( stderr , "\n * * *  Estimated beta : %3.2f * * *\n" , btaEst ) ;
+  fprintf( out_stderr , "\n * * *  Estimated beta : %3.2f * * *\n" , btaEst ) ;
   if ( StatModelP->Spec.BetaModel == BETA_HEUD )
-    fprintf( stderr , " * * *   Using %s * * *\n\n" , 
+    fprintf( out_stderr , " * * *   Using %s * * *\n\n" , 
 	     Ddrop ? "drop detection" : "loss thresholding" ) ;
 
 
@@ -1031,7 +1030,7 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
     }
 
 #ifdef __TURBOC__
-    fprintf( stderr, "\n Remaining memory after allocating : %lu bytes\n", 
+    fprintf( out_stderr, "\n Remaining memory after allocating : %lu bytes\n", 
              (unsigned long) coreleft() );
 #endif
 
@@ -1044,7 +1043,7 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
          ( ( working.Neighs.NeighsV == NULL ) && 
            ( SpatialP->MaxNeighs > 0 ) ) )
     {
-        fprintf( stderr, "Could not allocate NEM working variables\n" );
+        fprintf( out_stderr, "Could not allocate NEM working variables\n" );
         return STS_E_MEMORY ;
     }
 
@@ -1059,7 +1058,7 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
     switch( NemParaP->InitMode )
     {
     case INIT_SORT:    /* initial partition to be computed by sorting */
-        fprintf( stderr, 
+        fprintf( out_stderr, 
                  "Computing initial partition (sort variable %d) ...\n",
                   NemParaP->SortedVar + 1 ) ;
 
@@ -1113,7 +1112,7 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
 
 
     case INIT_LABEL:
-        fprintf( stderr, 
+        fprintf( out_stderr, 
 		 "Initializing centers from partially labeled sample\n");
 
         if ( flog != NULL ) {
@@ -1150,7 +1149,7 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
 
 
     case INIT_PARAM_FILE:
-        fprintf( stderr, 
+        fprintf( out_stderr, 
 		 "Initializing parameters from given value\n");
 
         if ( flog != NULL ) {
@@ -1342,7 +1341,7 @@ static int MakeParaFromLabeled
     if ( sts != STS_OK )
       {
 	if ( sts == STS_W_EMPTYCLASS )
-	  fprintf( stderr, "Class %d has no labeled observation\n", emptyk ) ;
+	  fprintf( out_stderr, "Class %d has no labeled observation\n", emptyk ) ;
 	return sts ;
       }
 
@@ -1353,7 +1352,7 @@ static int MakeParaFromLabeled
 	  /* If there is no observation, draw mean randomly in min-max range */
 	  if ( ParaP->NbObs_KD[ k * nd + d ] < EPSILON )
 	    {
-	      fprintf( stderr , 
+	      fprintf( out_stderr , 
 		       "Warning: no data in class k=%d, variable=%d\n" ,
 		       k + 1 , d + 1 );
 	      *misskP = k ;
@@ -1483,7 +1482,7 @@ static void StartLogFile( const char* LogName, int Npt, FILE** FlogP )
 
         if ( ( (*FlogP) = fopen( LogName, "w" ) ) == NULL )
         {
-            fprintf( stderr, "Could not open file '%s' in write mode\n", 
+            fprintf( out_stderr, "Could not open file '%s' in write mode\n", 
                      LogName ) ;
         }
         else
@@ -1627,7 +1626,7 @@ static StatusET RandNemAlgo
       irandom < NemParaP->NbRandomInits ; 
       irandom ++ )
   {
-    fprintf( stderr, 
+    fprintf( out_stderr, 
              "\nRandom initial partition  %d\n", irandom + 1 ) ;
 
     if ( Flog != NULL )
@@ -1719,13 +1718,13 @@ static StatusET RandNemAlgo
 
     *CriterP = bestCritS ;
 
-    fprintf( stderr, 
+    fprintf( out_stderr, 
              "Best start was %d (%s = %g)\n", bestTry+1, 
 	     CritStrVC[ NemParaP->Crit ] , 
 	     ChosenCrit( CriterP , NemParaP->Crit ) ) ;
 
     if ( CriterP->Errinfo.Kr != 0 )
-      fprintf( stderr, "Error of best start = %5.1f\n", 
+      fprintf( out_stderr, "Error of best start = %5.1f\n", 
 	       100.0 * CriterP->Errcur.Errorrate ) ;
 
     if ( Flog != NULL )
@@ -1782,8 +1781,8 @@ static int NemAlgo
     oldcrit = -MAXFLOAT ;
 
     WriteLogHeader( Flog, NemParaP->NbEIters, DataP->NbVars, SpecP ) ;
-    fprintf( stderr, "  Iterations : " ) ;
-    fprintf( stderr, "%4d ", 0 ) ;              /*V1.05-g*/
+    fprintf( out_stderr, "  Iterations : " ) ;
+    fprintf( out_stderr, "%4d ", 0 ) ;              /*V1.05-g*/
 
     /* For each iteration of NEM (until : 
        convergence, or iteration count reached, or empty class) */
@@ -1793,8 +1792,8 @@ static int NemAlgo
           ( err == STS_OK ) ; 
           iter ++ )
     {
-        fprintf( stderr, "\b\b\b\b\b" ) ;       /*V1.05-g*/
-        fprintf( stderr, "%4d ", iter ) ;       /*V1.05-g*/
+        fprintf( out_stderr, "\b\b\b\b\b" ) ;       /*V1.05-g*/
+        fprintf( out_stderr, "%4d ", iter ) ;       /*V1.05-g*/
 
         if ( Flog != NULL ) fprintf( Flog, "%4d ", iter ) ;
 
@@ -1831,7 +1830,7 @@ static int NemAlgo
         }
         else if ( err == STS_W_EMPTYCLASS ) /* Else -> class emptyk is empty */
         {
-            fprintf( stderr, "Class %d empty at iteration %d\n", 
+            fprintf( out_stderr, "Class %d empty at iteration %d\n", 
                      emptyk, iter ) ;
             if ( Flog != NULL )
                fprintf( Flog, " Class %d empty at iteration %d\n", 
@@ -1853,12 +1852,12 @@ static int NemAlgo
     ComputeCrit( npt, nk, ParaP->Beta, CM, SpatialP, WorkP, CriterP ) ;
     CalcError( CM, npt, 1, & CriterP->Errinfo, & CriterP->Errcur );
 
-    fprintf( stderr, "\n" ) ;  /* -> to end iterations count line */
-    fprintf( stderr, 
+    fprintf( out_stderr, "\n" ) ;  /* -> to end iterations count line */
+    fprintf( out_stderr, 
 	     "  criterion NEM = %6.3f / Ps-Like = %6.3f / Lmix = %6.3f\n" ,
 	     CriterP->U , CriterP->M , CriterP->L ) ;    /*V1.03-g*/
     if ( CriterP->Errinfo.Kr != 0 ) 
-      fprintf( stderr, "  error = %5.3f\n", CriterP->Errcur.Errorrate ) ;
+      fprintf( out_stderr, "  error = %5.3f\n", CriterP->Errcur.Errorrate ) ;
 
     /* If convergence test was requested and no error occurred */
     if ( ( NemParaP->CvTest != CVTEST_NONE ) && ( err == STS_OK ) )
@@ -1866,11 +1865,11 @@ static int NemAlgo
         /* Display message about convergence */
         if ( converged )
         {
-            fprintf( stderr, "  NEM converged after %d iterations\n", iter ) ;
+            fprintf( out_stderr, "  NEM converged after %d iterations\n", iter ) ;
         }
         else 
         {
-            fprintf( stderr, "  NEM did not converge after %d iterations\n", 
+            fprintf( out_stderr, "  NEM did not converge after %d iterations\n", 
                      iter ) ;
         }
     }
@@ -2609,7 +2608,7 @@ static int ComputeLocalProba
 
     if ( first ) {
       first = FALSE ;
-      fprintf( stderr, "Warning : pt %d density = 0\n", Ipt ) ;
+      fprintf( out_stderr, "Warning : pt %d density = 0\n", Ipt ) ;
     }
   }
 

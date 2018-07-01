@@ -1,5 +1,5 @@
 /*\
-    exememo.c
+    genmemo.c
 
     Specific routines for operating system memory allocation
 
@@ -17,7 +17,7 @@
 
 #include <stdlib.h>  /* calloc, free, size_t */
 #include <stdio.h>   /* stderr */
-
+#include "genmemo.h"
 /* ------------------------------------------------------------------- */
 void* GenAlloc
 (

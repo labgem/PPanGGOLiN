@@ -1,4 +1,4 @@
-PPanGGOLiN : Depicting microbial species diversity via a Partitioned Pangenome Graph
+PPanGGOLiN : Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors
 =========================================================================================
 
 .. image:: images/logo.png
@@ -25,7 +25,7 @@ PPanGGOLiN can be easily installed via:
 
 GCC (>=3.0) will be required, as well as Python 3 and the following modules : "networkx(>=2.00)", "ordered-set", "numpy", "scipy", "tqdm" and "python-highcharts"
 
-Optionally, in order to draw illustrative plots, R will be required  together with the following packages : ("ggplot2", "ggrepel(last version)",  "reshape2" and "data.table")
+Optionally, in order to draw illustrative plots, R will be required together with the following packages : ("ggplot2", "ggrepel(last version)",  "reshape2", "minpack.lm" and "data.table")
 
 Quick usage
 ============================
@@ -169,7 +169,7 @@ For example, this command:
 
 will remove gene families having more than 10 repeated genes in at least one of the organism. Empirically, using a r-value of 10 will discard only few gene families (a dozen) .
 
-Directed or Undirected graph (-ud option)
+Undirected or Directed graph (-di option)
 ------------------------------------------------------
 
 The pangenome graph can be directed or undirected. Directed graph provided more information but as genome can have multiple inversion around the origin of replication, it is sometime simpler to merge the directed edge into a undirected one.
@@ -178,16 +178,16 @@ For example, this command :
 
 .. code:: bash
 
-	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -ud
+	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -di
 
-Note that the partitioning method will not be impacted by this flag because in every case the partitioning approach considers the graph as undirected.
+Will generate a directed pangenome graph. Note that the partitioning method will not be impacted by this flag because in every case the partitioning approach considers the graph as undirected.
 
 Partionning parameter
 ---------------------------
 
 The partitioning method can be customized via 3 parameters:
 
-1. Partitioning by chunks (-ck VALUE option): When more than 500 organisms are processed it is advised to partition the pangenome by chunks. Actually, the method seems to saturate with an large number of dimensions. Chunks correspond to samples of the organisms to partition simultaneously. We advise to use chunks bigger than 200 organisms in order to obtain representative ones. Then the tools will partition the pangenome using multiple chunks in a way that every gene families must be partitionned in at least (total number of organisms)/(chunk size) times. Moreover each gene family must be partitionned mainly in one specific partition (>50% of cases), otherwise the partitioning will continue until validating this criteria.
+1. Partitioning by chunks (-ck VALUE option): When more than 500 organisms are processed it is advised to partition the pangenome by chunks. Actually, the method seems to saturate with an large number of dimensions. Chunks correspond to samples of the organisms to partition simultaneously. We advise to use chunks of 500 organisms in order to obtain representative ones. Then the tools will partition the pangenome using multiple chunks in a way that every gene families must be partitionned in at least (total number of organisms)/(chunk size) times. Moreover each gene family must be partitionned mainly in one specific partition (>50% of cases), otherwise the partitioning will continue until validating this criteria.
 
 	This feature can be executed using this command :
 
@@ -216,7 +216,7 @@ Evolution curve (-e option)
 
 Contrary to a pangenome where gene families are partionned in core genome or accessory genome based on a threshold of occurences, this approach esimates the best partitionning via a statistical approach. Thereby this processing required calculation steps so that it is not instantaneous. Performing a lot of resampling can thus require heavy calculations and this why it is not achieved by default. Nevertheless, it is possible to perform these resampling using the -e flag. Use this flag with caution.
 
-We also offer the possibility to customize the resampling using 4 parameters provided to the -ep option : RESAMPLING_RATIO, MINIMUN_SAMPLING, MAXIMUN_SAMPLING (See the figure below to obtain an idea of the effect of the 4 parameters). The last parameter allows jumping some combinations of organisms by a determined STEP to reduce the number of computation. For example purpose, to compute all the combinations (strongly discouraged !) RESAMPLING_RATIO must be equal to 1, MINIMUN_SAMPLING to 1, MAXIMUN_SAMPLING to Inf and STEP to 1.
+We also offer the possibility to customize the resampling using 4 parameters provided to the -ep option : RESAMPLING_RATIO, MINIMUN_SAMPLING, MAXIMUN_SAMPLING, STEP and LIMIT (See the figure below to obtain an idea of the effect of the parameters). The STEP parameter allows jumping some combinations of organisms by a determined STEP to reduce the number of computation and the LIMIT parameter specify the maximun of sample size. For example purpose, to compute all the combinations (strongly discouraged !) RESAMPLING_RATIO must be equal to 1, MINIMUN_SAMPLING to 1, MAXIMUN_SAMPLING to Inf, STEP to 1 and LIMIT to Inf.
 
 .. image:: images/resampling.png
 

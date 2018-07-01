@@ -47,8 +47,8 @@
 #define    FALSE            0
 
 #define    LEN_NOISEMODEL   20
-#define    LEN_FILENAME     100
-#define    LEN_LINE         500  /*V1.06-b*/
+#define    LEN_FILENAME     200
+#define    LEN_LINE         30000  /*V1.06-b*/
 
 
 #define    MAX_PTS          1000000L
@@ -60,9 +60,44 @@
 #define    EXT_OUTNAMEFUZZY ".uf"
 #define    EXT_MFNAME       ".mf"
 #define    EXT_LOGNAME      ".log"
+#define    EXT_INITPARAM    ".m"
 
 #define    EPSILON          1e-20  /* to check for FP zero or equality */
 #define    EPSILON_INV      1e20   /* multiply by this for small floats */
+
+#define DEFAULT_ALGO         ALGO_NEM
+#define DEFAULT_BETA         1.0
+#define DEFAULT_BTAMODE      BETA_FIX           /*V1.04-b*/
+#define DEFAULT_BTAHEUSTEP   0.1                /*V1.04-b*/
+#define DEFAULT_BTAHEUMAX    2.0                /*V1.04-b*/
+#define DEFAULT_BTAHEUDDROP  0.8                /*V1.04-b*/
+#define DEFAULT_BTAHEUDLOSS  0.5                /*V1.04-b*/
+#define DEFAULT_BTAHEULLOSS  0.02               /*V1.04-b*/
+#define DEFAULT_BTAGRADNIT   1                  /*V1.06-f*/
+#define DEFAULT_BTAGRADCVTH  0.001              /*V1.06-f*/
+#define DEFAULT_BTAGRADSTEP  0.0                /*V1.06-f*/
+#define DEFAULT_BTAGRADRAND  0              /*V1.06-f*/
+#define DEFAULT_CRIT         CRIT_M             /*V1.04-h*/
+#define DEFAULT_CVTHRES      0.01               /*V1.04-d*/
+#define DEFAULT_CVTEST       CVTEST_CLAS        /*V1.06-g*/
+#define DEFAULT_FAMILY       FAMILY_NORMAL      /*V1.06-b*/
+#define DEFAULT_DISPER       DISPER___          /*V1.06-b*/
+#define DEFAULT_PROPOR       PROPOR__           /*V1.06-b*/
+#define DEFAULT_FORMAT       FORMAT_HARD
+#define DEFAULT_INIT         INIT_SORT
+#define DEFAULT_MISSING      MISSING_REPLACE    /*V1.05-a*/
+#define DEFAULT_NO_PARAM_FILE NO_PARAM_FILE     /*V1.08-a*/
+#define DEFAULT_SORTEDVAR    0
+#define DEFAULT_NEIGHSPEC    NEIGH_FOUR
+#define DEFAULT_NBITERS      100
+#define DEFAULT_NBEITERS     1
+#define DEFAULT_NBRANDINITS  50                 /*V1.06-h*/
+#define DEFAULT_ORDER        ORDER_DIRECT       /*V1.04-f*/
+#define DEFAULT_UPDATE       UPDATE_SEQ         /*V1.06-d*/
+#define DEFAULT_TIE          TIE_RANDOM         /*V1.06-e*/
+
+#include <stdio.h>   /* FILE */
+FILE* out_stderr;
 
 /*
  *  Enumerated types
@@ -120,6 +155,18 @@ typedef enum {
         } 
         TypeET;
 
+
+typedef enum
+{
+  HELP_GENERAL,
+  HELP_OPTIONS,
+  HELP_EXAMPLES,
+  HELP_FILEIN,
+  HELP_FILEOUT,
+  HELP_VERSIONS,
+  HELP_NB
+
+} HelpET ;
 
 /*V1.06-a*/
 #if 0
@@ -482,6 +529,60 @@ typedef int GetNeighFT         /* ret : nb of neighbours */
                   const NeighDataT  *NeighDataP,    /* I : neighborhood data */
                   PtNeighsT         *PtNeighsP      /* O : indices/weights of neighbours */
                 ) ;
+
+
+
+
+
+static const char *TypeDesC[ TYPE_NB ] = { "Spatial", "Image", "NoSpatial" } ;
+static const char *AlgoDesC[ ALGO_NB ] = { "NEM" , "NCEM (C-step)" , 
+             "GEM (Monte-Carlo at E-step)" } ;
+static const char *BetaDesVC[ BETA_NB ] = { "fixed", 
+              "pseudo-likelihood gradient",
+              "heuristic Hathaway crit",
+              "heuristic mixture likelihood"} ;
+static const char *FamilyDesVC[ FAMILY_NB ] = { "Normal", "Laplace", 
+            "Bernoulli" } ;
+static const char *DisperDesVC[ DISPER_NB ] = { "S__", "SK_", "S_D", "S_KD" } ;
+static const char *ProporDesVC[ PROPOR_NB ] = { "P_", "Pk" } ;
+static const char *InitDesC[ INIT_NB ] = { "Sort_variables" ,
+             "Random_centers" , 
+             "Param_file" ,
+             "Full_labels" , 
+             "Partial_labels" } ;    /*V1.03-f*/
+
+static const char *TypeStrC[ TYPE_NB ] = { "S", "I", "N" } ; /*V1.06-a*/
+
+static const char *AlgoStrVC[ ALGO_NB ] = { "nem" , "ncem" , "gem" } ;
+static const char *BtaStrVC[ BETA_NB ] = { "fix" , "psgrad", 
+                       "heu_d" , "heu_l" } ;
+static const char *CritStrVC[ CRIT_NB ] = { "U" , "M", "D" , "L" } ;
+static const char *CvTestStrVC[ CVTEST_NB ] = { "none", "clas" , "crit" } ;
+static const char *FormatStrVC[ FORMAT_NB ] = { "hard", "fuzzy" } ;
+static const char *HelpStrVC[ HELP_NB ] = {
+  "general",
+  "options",
+  "examples",
+  "filein",
+  "fileout",
+  "versions"
+} ; /* V1.04-k*/
+
+static const char *InitStrVC[ INIT_NB ] = { "s", "r", "m", "f", "l" } ;
+/*V1.05-a*/
+static const char *MissStrVC[ MISSING_NB ] = { "replace" , "ignore" } ;
+/*V1.06-b*/
+static const char *FamilyStrVC[ FAMILY_NB ] = { "norm", "lapl", "bern" } ;
+static const char *DisperStrVC[ DISPER_NB ] = { "s__", "sk_", "s_d", "skd" } ;
+static const char *ProporStrVC[ PROPOR_NB ] = { "p_", "pk" } ;
+static const char *NeighStrVC[ NEIGH_NB ] = { "4", "f" } ;
+static const char *OrderStrVC[ ORDER_NB ] = { "direct", "random" } ;/*V1.04-f*/
+static const char *UpdateStrVC[ UPDATE_NB ] = { "seq", "para" } ;/*V1.06-d*/
+static const char *TieStrVC[ TIE_NB ] = { "random", "first" } ;/*V1.06-e*/
+
+
+static const char *OrderDesC[ ORDER_NB ] = { "Direct_order" , "Random_order" };
+
 
 
 #endif

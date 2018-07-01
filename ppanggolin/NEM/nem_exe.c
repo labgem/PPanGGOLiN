@@ -87,70 +87,15 @@ Vers-mod  Date         Who  Description
 1.08-a    20-JUI-2017  GG   Add param input by file rather than by arguments
 \*/
 
-#include "mainfunc.h"   /* Prototype of exported mainfunc() */
-
-#include "nem_typ.h"    /* DataT, ... */
-#include "nem_ver.h"    /* NemVersionStrC */
-#include "nem_arg.h"    /* NemArg, ... */
-#include "nem_alg.h"    /* ClassifyByNem, ... */
-#include "nem_rnd.h"    /* RandomInteger, ... */
-#include "lib_io.h"     /* ReadOpeningComments, ... */
-#include "genmemo.h"    /* GenAlloc, ... */
-
-#include <stdio.h>      /* printf, ... */
-#ifdef __TURBOC__
-#include <alloc.h>      /* coreleft, ... */ 
-#endif
-#include <string.h>     /* strncpy, ... */
-#include <math.h>       /* sqrt, ... */
-
-
-
-static const char *TypeDesC[ TYPE_NB ] = { "Spatial", "Image", "NoSpatial" } ;
-static const char *AlgoDesC[ ALGO_NB ] = { "NEM" , "NCEM (C-step)" , 
-					   "GEM (Monte-Carlo at E-step)" } ;
-static const char *BetaDesVC[ BETA_NB ] = { "fixed", 
-					    "pseudo-likelihood gradient",
-					    "heuristic Hathaway crit",
-					    "heuristic mixture likelihood"} ;
-static const char *FamilyDesVC[ FAMILY_NB ] = { "Normal", "Laplace", 
-						"Bernoulli" } ;
-static const char *DisperDesVC[ DISPER_NB ] = { "S__", "SK_", "S_D", "S_KD" } ;
-static const char *ProporDesVC[ PROPOR_NB ] = { "P_", "Pk" } ;
-static const char *InitDesC[ INIT_NB ] = { "Sort_variables" ,
-					   "Random_centers" , 
-					   "Param_file" ,
-					   "Full_labels" , 
-					   "Partial_labels" } ;    /*V1.03-f*/
-
-static const char *OrderDesC[ ORDER_NB ] = { "Direct_order" , "Random_order" };
-
-
-
+#include "nem_exe.h"   /* Prototype of exported mainfunc() */
 
 /* ==================== LOCAL FUNCTION PROTOTYPING =================== */
 
 
 /* Called by ClassifyByNem */
 
-    static int GetInputPara 
-        ( 
-          int           Argc,
-          const char    *Argv[],
-          DataT         *DataP,         /* O and allocated */
-          NemParaT      *NemParaP,      /* O */
-          SpatialT      *SpatialP,      /* O and allocated */
-          StatModelT    *StatModelP,    /* O and allocated */
-	  ErrinfoT      *ErrinfoP,      /* O and allocated */
-	  ErrcurT       *ErrcurP,       /* O and allocated */
-          float         **ClassifMP     /* O and allocated */
-        ) ;
-
     static int SaveResults
-        ( 
-	  const int          Argc,
-	  const char*        Argv[],
-          const int          Npt,                   /* I */
+        ( const int          Npt,                   /* I */
           const int          Nd,                    /* I */
           const float*       ClassifM,              /* I */
           const SpatialT*    SpatialP,              /* I */
@@ -169,18 +114,22 @@ static void FreeAllocatedData
 ) ;
 
 
-
-
-/* Called by GetInputPara */
-
-
     static int SetVisitOrder  /*V1.04-e*/
         ( 
 	     int         Npt,          /* I */
 	     OrderET     VisitOrder,   /* I */
 	     int**       SiteVisitVP   /* O and allocated (Npt) */
 	) ;
-                                     
+         
+    static int  ReadStrFile
+            (
+                const char*  BaseName,          /* I */
+                char*        CommentS,          /* O */
+                DataT*       DataP,             /* O */
+                ImageNeighT* ImageP,            /* O */
+                TypeET*      TypeP              /* O */
+            ) ;
+
     static int  ReadMatrixFile                     
          (                             
              const char  *FileName,     /* I */      /*V1.04-a*/
@@ -276,22 +225,36 @@ static int rec_permutations        /* ret 0 if OK, -1 if memory error */
 			       columns : K - A  -> K - 1 */
 ) ;
 
+int GetEnum( const char* S, const char* SV[], int SizeV ) ;
+void my_strupr( char *s ) ;
 
-/* Called by */
 
-
-
+//VERSION
+const char *NemVersionStrC = "1.08-a";
 
 /* ==================== GLOBAL FUNCTION DEFINITION =================== */
 
 
 /* ------------------------------------------------------------------- */
-int mainfunc( int argc, const char ** argv )
+int nem(const char* Fname,
+        const int nk,
+        const char* algo,
+        const float beta,
+        const char* convergence,
+        const float convergence_th,
+        const char* format,
+        const int it_max,
+        const int dolog,
+        const char* model_family,
+        const char* proportion,
+        const char* dispersion,
+        const int init_mode)
 /*\
-    NEM main program.
+    NEM function.
 \*/
 /* ------------------------------------------------------------------- */
 {
+    const char*             func = "nem" ;
     StatusET                err ;
     static  DataT           Data = {0} ;
     static  NemParaT        NemPara = {0} ;
@@ -300,27 +263,357 @@ int mainfunc( int argc, const char ** argv )
     static  float           *ClassifM = 0;
     CriterT                 Criteria = {0} ; /*V1.03-d*/
 
-
     /* main program algorithm :
        - read all necessary data into memory
        - compute partition by NEM method
        - save results to file
     */
 
-    fprintf( stderr , " * * * NEM (spatial data clustering) v%s * * *\n" ,
+    if(!dolog)
+    {
+        out_stderr = stderr;
+    }
+    else
+    {
+        char name_out_stderr[LEN_FILENAME];
+        strncpy( name_out_stderr , Fname , LEN_FILENAME ) ;  /*V1.04-a*/
+        strncat( name_out_stderr , ".stderr", LEN_FILENAME ) ;
+        out_stderr = fopen(name_out_stderr, "w");
+    }
+
+    fprintf( out_stderr , " * * * NEM (spatial data clustering) v%s * * *\n" ,
              NemVersionStrC ) ;
 
 #ifdef __TURBOC__
-    fprintf( stderr, "\n Initial free memory : %lu bytes\n\n", 
+    fprintf( out_stderr, "\n Initial free memory : %lu bytes\n\n", 
              (unsigned long) coreleft() );
 #endif
 
     /* RandomSeedByTime( ) ;  V1.04-d*/
 
-    if ( ( err = GetInputPara ( argc, argv, &Data, &NemPara, &Spatial, 
-                                &StatModel, &Criteria.Errinfo, 
-				&Criteria.Errcur, &ClassifM ) )
-	 == STS_OK )
+    char        datadescS[ LEN_LINE + 1 ] ;
+
+      StatModel.Spec.K = nk ;
+    if ( nk <= 0 )
+    {
+        fprintf( out_stderr, "Nb of classes must be > 0 (here %d)\n",
+               nk ) ;
+        return STS_E_ARG ;
+    }
+
+    if ( ( err = ReadStrFile( Fname, 
+                datadescS,
+                &Data, 
+                &Spatial.NeighData.Image,
+                &Spatial.Type) ) != STS_OK )
+    return err ;
+
+      /* !!! Allocate model parameters */ /*V1.06-a*/
+    StatModel.Para.Prop_K    = GenAlloc( nk, sizeof(float), 
+                       1, func, "Prop_K" ) ;
+    StatModel.Para.Disp_KD   = GenAlloc( nk * Data.NbVars, sizeof(float), 
+                         1, func, "Disp_KD" ) ;
+    StatModel.Para.Center_KD = GenAlloc( nk * Data.NbVars, sizeof(float), 
+                       1, func, "Center_KD" ) ;
+    StatModel.Para.NbObs_K   = GenAlloc( nk, sizeof(float), 
+                       1, func, "NbObs_K" ) ;
+    StatModel.Para.NbObs_KD  = GenAlloc( nk * Data.NbVars, sizeof(float), 
+                       1, func, "NbObs_KD" ) ;
+    StatModel.Para.Iner_KD   = GenAlloc( nk * Data.NbVars, sizeof(float), 
+                       1, func, "NbObs_KD" ) ;
+    StatModel.Desc.DispSam_D = GenAlloc( Data.NbVars, sizeof(float), 
+                        1, func, "DispSam_D" );
+    StatModel.Desc.MiniSam_D = GenAlloc( Data.NbVars, sizeof(float), 
+                        1, func, "MiniSam_D" );
+    StatModel.Desc.MaxiSam_D = GenAlloc( Data.NbVars, sizeof(float), 
+                        1, func, "MaxiSam_D" );
+    /* Set default value of optional parameters */
+    StatModel.Spec.ClassFamily = DEFAULT_FAMILY ;
+    StatModel.Spec.ClassDisper = DEFAULT_DISPER ;
+    StatModel.Spec.ClassPropor = DEFAULT_PROPOR ;
+    NemPara.Algo          = DEFAULT_ALGO ;
+    StatModel.Para.Beta   = DEFAULT_BETA ;          /*V1.06-b*/
+    StatModel.Spec.BetaModel = DEFAULT_BTAMODE ;       /*V1.04-b*/
+    NemPara.BtaHeuStep    = DEFAULT_BTAHEUSTEP ;    /*V1.04-b*/
+    NemPara.BtaHeuMax     = DEFAULT_BTAHEUMAX ;
+    NemPara.BtaHeuDDrop   = DEFAULT_BTAHEUDDROP ;
+    NemPara.BtaHeuDLoss   = DEFAULT_BTAHEUDLOSS ;
+    NemPara.BtaHeuLLoss   = DEFAULT_BTAHEULLOSS ;
+    NemPara.BtaPsGrad.NbIter    = DEFAULT_BTAGRADNIT  ;/*V1.06-g*/
+    NemPara.BtaPsGrad.ConvThres = DEFAULT_BTAGRADCVTH ;
+    NemPara.BtaPsGrad.Step      = DEFAULT_BTAGRADSTEP ;
+    NemPara.BtaPsGrad.RandInit  = DEFAULT_BTAGRADRAND ;
+    NemPara.Crit          = DEFAULT_CRIT ;          /*V1.04-h*/
+    NemPara.CvThres       = DEFAULT_CVTHRES ;       /*V1.04-d*/
+    NemPara.CvTest        = CVTEST_CLAS ;           /*V1.06-g*/
+    NemPara.DoLog         = FALSE ;                 /*V1.03-a previously TRUE*/
+    NemPara.NbIters       = DEFAULT_NBITERS ;
+    NemPara.NbEIters      = DEFAULT_NBEITERS ;
+    NemPara.NbRandomInits = DEFAULT_NBRANDINITS ;  /*V1.06-h*/
+    NemPara.Seed          = time( NULL ) ;          /*V1.04-e*/
+    NemPara.Format        = DEFAULT_FORMAT ;
+    NemPara.InitMode      = DEFAULT_INIT ;
+    NemPara.ParamFileMode = DEFAULT_NO_PARAM_FILE ;
+    NemPara.SortedVar     = DEFAULT_SORTEDVAR ;
+    NemPara.NeighSpec     = DEFAULT_NEIGHSPEC ;
+    NemPara.VisitOrder    = DEFAULT_ORDER ;         /*V1.04-f*/
+    NemPara.SiteUpdate    = DEFAULT_UPDATE ;        /*V1.06-d*/
+    NemPara.TieRule       = DEFAULT_TIE ;           /*V1.06-e*/
+    NemPara.Debug         = FALSE ;                 /*V1.04-g*/
+    strncpy( NemPara.OutBaseName, Fname, LEN_FILENAME ) ;
+    strncpy( NemPara.NeighName, Fname, LEN_FILENAME ) ;
+    strncpy( NemPara.ParamName, Fname, LEN_FILENAME ) ;
+    strncat( NemPara.ParamName, ".m", LEN_FILENAME ) ;
+    strncat( NemPara.NeighName, ".nei", LEN_FILENAME ) ;
+    strncpy( NemPara.RefName, "", LEN_FILENAME ) ;
+
+    //-----
+    NemPara.Algo = GetEnum( algo , AlgoStrVC, ALGO_NB ) ;
+    if ( NemPara.Algo == -1 )
+    {
+        fprintf( out_stderr, " Unknown type of algorithm %s\n", algo ) ;
+        err = STS_E_ARG ;
+    }
+    //-----
+    StatModel.Para.Beta = beta ;
+    //-----
+    NemPara.CvTest=GetEnum( convergence, CvTestStrVC, CVTEST_NB );
+    if ( NemPara.CvTest == -1 ) {
+      fprintf( out_stderr, " Unknown convergence test %s\n", convergence ) ;
+      err = STS_E_ARG ;
+    }
+    else if ( NemPara.CvTest != CVTEST_NONE ) /* get threshold */ {
+        NemPara.CvThres = convergence_th ;
+        if ( NemPara.CvThres <= 0 ) {
+            fprintf( out_stderr, " Conv threshold must be > 0 (here %f)\n", convergence_th ) ;
+            err = STS_E_ARG ;
+        } /* else threshold > 0 : OK */
+    } 
+    //-----
+    NemPara.Format=GetEnum( format , FormatStrVC, FORMAT_NB );
+    if ( NemPara.Format == -1 )
+    {
+        fprintf( out_stderr, " Unknown format %s\n", format) ;
+        err = STS_E_ARG ;
+    }
+    //-----
+    NemPara.NbIters = it_max ;
+    if ( NemPara.NbIters < 0 )
+    {
+        fprintf( out_stderr, "Nb iterations must be >= 0 (here %d)\n",  it_max ) ;
+        err = STS_E_ARG ;
+    }
+    //-----
+    if ( dolog )
+        NemPara.DoLog = TRUE ;
+    else
+        NemPara.DoLog = FALSE ;
+    //-----
+    StatModel.Spec.ClassFamily = GetEnum( model_family, FamilyStrVC, FAMILY_NB );
+    if ( StatModel.Spec.ClassFamily == -1 )
+    {
+        fprintf( out_stderr, " Unknown family %s\n", model_family ) ;
+        err = STS_E_ARG ;
+    }
+    //-----
+    StatModel.Spec.ClassPropor = GetEnum( proportion, ProporStrVC, PROPOR_NB );
+    if ( StatModel.Spec.ClassPropor == -1 )
+    {
+        fprintf( out_stderr, " Unknown proportion %s\n", proportion ) ;
+        err = STS_E_ARG ;
+    }
+    //-----
+    StatModel.Spec.ClassDisper = GetEnum( dispersion, DisperStrVC, DISPER_NB );
+    if ( StatModel.Spec.ClassDisper == -1 )
+    {
+        fprintf( out_stderr, " Unknown dispersion %s\n", dispersion) ;
+        err = STS_E_ARG ;
+    }
+    //-----
+    NemPara.NeighSpec = NEIGH_FILE;
+    //-----
+    NemPara.InitMode = init_mode;
+
+    strncpy( NemPara.OutName, NemPara.OutBaseName, LEN_FILENAME ) ;
+    strncat( NemPara.OutName, 
+           NemPara.Format == FORMAT_HARD ? EXT_OUTNAMEHARD : EXT_OUTNAMEFUZZY,
+           LEN_FILENAME ) ;
+
+    if ( NemPara.DoLog )
+    {
+      if ( strcmp( NemPara.OutBaseName , "-" ) != 0 ) /*V1.04-c*/
+        {
+      strncpy( NemPara.LogName, NemPara.OutBaseName, LEN_FILENAME ) ;
+      strncat( NemPara.LogName, EXT_LOGNAME, LEN_FILENAME ) ;
+        }
+      else
+        {
+      strncpy( NemPara.LogName, Fname , LEN_FILENAME ) ;
+      strncat( NemPara.LogName, EXT_LOGNAME, LEN_FILENAME ) ;   
+        }
+    }
+    else
+    {
+        strcpy( NemPara.LogName, "" ) ;
+    }
+
+    strncpy( NemPara.ParamName, NemPara.OutBaseName, LEN_FILENAME ) ;
+    strncat( NemPara.ParamName, EXT_INITPARAM, LEN_FILENAME ) ;
+
+    /* Read points */
+
+    char namedat[ LEN_FILENAME + 1 ] ;   /*V1.04-a*/
+    char neidescS[ LEN_LINE + 1 ] ;
+    int  klabelfile ;
+
+    strncpy( namedat , Fname , LEN_FILENAME ) ;  /*V1.04-a*/
+    strncat( namedat , ".dat", LEN_FILENAME ) ;
+    fprintf( out_stderr, "Reading points ...\n" ) ;
+    if ( ( err = ReadMatrixFile( namedat,        /*V1.04-a*/
+                                 Data.NbPts, 
+                                 Data.NbVars, 
+                                 &Data.PointsM ) ) != STS_OK )
+       return err ;
+    /* Count missing data */ /*V1.05-a*/
+    {
+          int i, j ;
+
+          Data.NbMiss = 0 ;
+          for ( i = 0 ; i < Data.NbPts ; i ++ )
+        {
+          for ( j = 0 ; j < Data.NbVars ; j ++ )
+            {
+              if ( isnan( Data.PointsM[ i * Data.NbVars + j ] ) )
+            Data.NbMiss ++ ;
+            }
+        }
+    }
+
+    /* Allocate and set sites visit order */
+    if ( ( err = SetVisitOrder( Data.NbPts,   /*V1.04-e*/
+                NemPara.VisitOrder,
+                & Data.SiteVisitV ) ) != STS_OK )
+      return err ;
+
+
+    /* Allocate and eventually read initial classification matrix */
+    Data.LabelV = NULL ; /*V1.05-d*/
+
+    switch( NemPara.InitMode )
+    {
+    case INIT_FILE:
+        fprintf( out_stderr, "Reading initial partition ...\n" ) ;
+        if ( ( err = ReadMatrixFile( NemPara.StartName,     /*V1.04-a*/
+				                     Data.NbPts,
+                                     StatModel.Spec.K, 
+                                     ClassifM ) ) != STS_OK )
+            return err ;
+        break ;
+
+    case INIT_PARAM_FILE:
+        fprintf( out_stderr, "Reading parameter file ...\n" ) ;
+        if ( ( err = ReadParamFile( NemPara.ParamName,
+                                    StatModel.Spec.ClassFamily,
+                                    StatModel.Spec.K,
+                                    Data.NbVars,
+                                    & NemPara.ParamFileMode,
+                                    & StatModel.Para ) ) != STS_OK ) return err ;
+    case INIT_SORT:    /* allocate partition (will be initialized later) */
+    case INIT_RANDOM:  /* allocate partition (will be initialized later) */
+        /* Allocate classification matrix */
+        if ( ( (ClassifM) = 
+	       GenAlloc( Data.NbPts * StatModel.Spec.K, sizeof( float ),
+			 0, func, "(ClassifM)" ) ) == NULL )
+	  return STS_E_MEMORY ;
+        break ;
+
+    case INIT_LABEL:
+      fprintf( out_stderr, "Reading known labels file ...\n" ) ;
+      if ( ( err = ReadLabelFile( NemPara.LabelName, Data.NbPts, 
+				                  & klabelfile,
+                                  & Data.LabelV,
+                                  ClassifM ) ) != STS_OK )
+        return err ;
+
+      if ( klabelfile != StatModel.Spec.K ) {
+	fprintf( out_stderr, 
+		 "Error : label file %d classes, command line %d classes\n",
+		 klabelfile, StatModel.Spec.K ) ;
+	return STS_E_FILE ;
+      }
+      break;
+
+    default: /* error */
+        fprintf( out_stderr, "Unknown initialization mode (%d)\n", 
+                 NemPara.InitMode );
+        return STS_E_FUNCARG ;
+    }
+
+
+    /* Eventually read reference class file */  /*V1.04-f*/
+    if ( ( err = MakeErrinfo( NemPara.RefName, Data.NbPts, 
+                  StatModel.Spec.K, NemPara.TieRule, 
+                  &Criteria.Errinfo, &Criteria.Errcur ) ) != STS_OK )
+      return err ;
+
+    /* Read neighborhood file */
+    if ( Spatial.Type != TYPE_NONSPATIAL )
+    {
+        fprintf( out_stderr, "Reading neighborhood information ...\n" ) ;
+        if ( ( err = ReadNeiFile( Fname, 
+                                  Data.NbPts, 
+                                  NemPara.NeighSpec ,
+                                  neidescS,
+                                  &Spatial ) ) != STS_OK )
+                return err ;
+    }
+    else
+    {
+        StatModel.Para.Beta = 0.0 ; /*V1.06-a*/
+        Spatial.MaxNeighs   = 0 ;
+    }
+
+    fprintf( out_stderr, "\nData : " ) ;
+    if ( strcmp( datadescS, "" ) ) fprintf( out_stderr, "%s\n", datadescS ) ;
+    else                          fprintf( out_stderr, "\n" ) ;
+
+    fprintf( out_stderr, "  file names =  %10s   |   nb points   = %10d\n", 
+             Fname, Data.NbPts ) ;
+    fprintf( out_stderr, "  type       =  %10s   |   dim         = %10d\n",
+             TypeDesC[ Spatial.Type ], Data.NbVars ) ;
+    if ( Spatial.Type == TYPE_IMAGE )
+    {
+    fprintf( out_stderr, "  image size =  (%4d,%4d)\n", 
+             Spatial.NeighData.Image.Nl, Spatial.NeighData.Image.Nc ) ;
+    }
+    if ( Data.NbMiss > 0 ) /*V1.05-a*/
+    {
+    fprintf( out_stderr, "  %d missing values / %d\n",
+         Data.NbMiss, Data.NbPts * Data.NbVars ) ;
+    }
+
+    if ( Spatial.Type != TYPE_NONSPATIAL )
+    {
+    fprintf( out_stderr, "Neighborhood system :\n  max neighb =  %10d\n",
+             Spatial.MaxNeighs ) ;
+    fprintf( out_stderr, "%s\n", neidescS ) ;
+    }
+
+    fprintf( out_stderr, "\n" ) ;
+    fprintf( out_stderr, "NEM parameters :\n" ) ;
+    fprintf( out_stderr, "Type of algorithm : '%s'\n" , AlgoDesC[ NemPara.Algo ] ) ;
+    fprintf( out_stderr, 
+         "  beta       =  %10.2f   |   nk                    = %3d\n", 
+             StatModel.Para.Beta, StatModel.Spec.K) ;
+    fprintf( out_stderr, 
+         "                %10s   |   model                 = %s, %s %s\n",
+             " ", 
+         FamilyDesVC[ StatModel.Spec.ClassFamily ],
+         ProporDesVC[ StatModel.Spec.ClassPropor ],
+         DisperDesVC[ StatModel.Spec.ClassDisper ]) ;
+    fprintf( out_stderr, "\n" ) ;
+
+    if ( err == STS_OK )
     {
 #ifdef __TURBOC__
       srand( (unsigned) NemPara.Seed ) ;
@@ -332,8 +625,8 @@ int mainfunc( int argc, const char ** argv )
                                     &StatModel, ClassifM, 
 				    &Criteria ) ) == STS_OK )
         {
-            fprintf( stderr, "Saving results ...\n" ) ;
-            SaveResults( argc, argv, Data.NbPts , Data.NbVars , ClassifM, 
+            fprintf( out_stderr, "Saving results ...\n" ) ;
+            SaveResults( Data.NbPts , Data.NbVars , ClassifM, 
                          &Spatial, &NemPara, &StatModel, &Criteria ) ;
         }
 
@@ -346,56 +639,66 @@ int mainfunc( int argc, const char ** argv )
         case STS_OK :
 	  if ( strcmp( NemPara.OutBaseName , "-" ) != 0 )  /*V1.04-b*/
 	    {
-	      fprintf( stderr, "NEM completed, classification in %s\n",
+	      fprintf( out_stderr, "NEM completed, classification in %s\n",
 		       NemPara.OutName ) ;
-	      fprintf( stderr, " criteria and parameters in %s%s\n",
+	      fprintf( out_stderr, " criteria and parameters in %s%s\n",
 		       NemPara.OutBaseName, EXT_MFNAME ) ;
 
 	      if ( NemPara.DoLog )
 		{
-		  fprintf( stderr, "Log of detailed running in %s\n",
+		  fprintf( out_stderr, "Log of detailed running in %s\n",
 			   NemPara.LogName );
 		}
 	    }
 	  else
 	    {
-	      fprintf( stderr, "NEM completed, classification to screen\n") ;
+	      fprintf( out_stderr, "NEM completed, classification to screen\n") ;
 	    }
+      fclose(out_stderr);
 	  return EXIT_OK ;
 
         case STS_W_EMPTYCLASS :
-             fprintf( stderr, "*** NEM warning status : empty class\n" );
+             fprintf( out_stderr, "*** NEM warning status : empty class\n" );
+             fclose(out_stderr);
              return EXIT_W_RESULT ;
              
         case STS_I_DONE :
+             fclose(out_stderr);
              return EXIT_OK ;
 
         case STS_E_ARG :
-             PrintUsage( argv[ 0 ] ) ;
+             fprintf( out_stderr, "*** NEM error status : bad arguments\n" );
+             //PrintUsage( argv[ 0 ] ) ;
+             fclose(out_stderr);
              return EXIT_E_ARGS ;
 
         case STS_E_MEMORY :
-             fprintf( stderr, "*** NEM error status : not enough memory\n" );
+             fprintf( out_stderr, "*** NEM error status : not enough memory\n" );
 #ifdef __TURBOC__
-             fprintf( stderr, "\n Memory left : %lu bytes\n", 
+             fprintf( out_stderr, "\n Memory left : %lu bytes\n", 
                       (unsigned long) coreleft() );
 #endif
+             fclose(out_stderr);
              return EXIT_E_MEMORY ;
 
         case STS_E_FILEIN :
-             fprintf( stderr, "*** NEM error status : can't open a file\n" );
+             fprintf( out_stderr, "*** NEM error status : can't open a file\n" );
+             fclose(out_stderr);
              return EXIT_E_FILE ;
 
         case STS_E_FILE :
-             fprintf( stderr, "*** NEM error status : wrong file format\n" );
+             fprintf( out_stderr, "*** NEM error status : wrong file format\n" );
+             fclose(out_stderr);
              return EXIT_E_FILE ;
 
         case STS_E_FUNCARG :
-             fprintf( stderr, "*** NEM internal error : bad arguments\n" );
+             fprintf( out_stderr, "*** NEM internal error : bad arguments\n" );
+             fclose(out_stderr);
              return EXIT_E_BUG ;
 
         default :
-             fprintf( stderr, "*** NEM unknown error status (%d)\n", err );
+             fprintf( out_stderr, "*** NEM unknown error status (%d)\n", err );
+             fclose(out_stderr);
              return EXIT_E_BUG ;
     } 
 } /* end of mainfunc() */
@@ -403,196 +706,6 @@ int mainfunc( int argc, const char ** argv )
 
 
 /* ==================== LOCAL FUNCTION DEFINITION =================== */
-
-
-/* ------------------------------------------------------------------- */
-static int GetInputPara 
-    (
-          int           Argc,
-          const char    *Argv[],
-          DataT         *DataP,         /* O and allocated */
-          NemParaT      *NemParaP,      /* O */
-          SpatialT      *SpatialP,      /* O and allocated */
-          StatModelT    *StatModelP,    /* O and allocated */
-	  ErrinfoT      *ErrinfoP,      /* O and allocated */
-	  ErrcurT       *ErrcurP,       /* O and allocated */
-          float         **ClassifMP     /* O and allocated */
-    ) 
-/* ------------------------------------------------------------------- */
-{
-    StatusET    err ;
-    const char* func = "GetInputPara" ;
-    char        fname[ LEN_FILENAME + 1 ] ;
-    char        namedat[ LEN_FILENAME + 1 ] ;   /*V1.04-a*/
-    char        datadescS[ LEN_LINE + 1 ] ;
-    char        neidescS[ LEN_LINE + 1 ] ;
-    int         klabelfile ;
-
-
-    /* Start of GetInputPara() */
-
-    if ( ( err = NemArgs( Argc, Argv, fname, StatModelP, NemParaP,
-			  datadescS, DataP, &SpatialP->NeighData.Image,
-			  &SpatialP->Type ) ) 
-        != STS_OK )
-      {
-        return err ;
-      }
-
-    /* Read points */
-    fprintf( stderr, "Reading points ...\n" ) ;
-    strncpy( namedat , fname , LEN_FILENAME ) ;  /*V1.04-a*/
-    strncat( namedat , ".dat", LEN_FILENAME ) ;
-
-
-    if ( ( err = ReadMatrixFile( namedat,        /*V1.04-a*/
-                                 DataP->NbPts, 
-                                 DataP->NbVars, 
-                                 &DataP->PointsM ) ) != STS_OK )
-       return err ;
-
-    /* Count missing data */ /*V1.05-a*/
-    {
-      int i, j ;
-
-      DataP->NbMiss = 0 ;
-      for ( i = 0 ; i < DataP->NbPts ; i ++ )
-	{
-	  for ( j = 0 ; j < DataP->NbVars ; j ++ )
-	    {
-	      if ( isnan( DataP->PointsM[ i * DataP->NbVars + j ] ) )
-		DataP->NbMiss ++ ;
-	    }
-	}
-    }
-
-    /* Allocate and set sites visit order */
-    if ( ( err = SetVisitOrder( DataP->NbPts,   /*V1.04-e*/
-				NemParaP->VisitOrder,
-				& DataP->SiteVisitV ) ) != STS_OK )
-      return err ;
-
-
-    /* Allocate and eventually read initial classification matrix */
-    DataP->LabelV = NULL ; /*V1.05-d*/
-    switch( NemParaP->InitMode )
-    {
-    case INIT_FILE:
-        fprintf( stderr, "Reading initial partition ...\n" ) ;
-        if ( ( err = ReadMatrixFile( NemParaP->StartName,     /*V1.04-a*/
-				     DataP->NbPts,
-                                     StatModelP->Spec.K, 
-                                     ClassifMP ) ) != STS_OK )
-            return err ;
-        break ;
-
-    case INIT_PARAM_FILE:
-        fprintf( stderr, "Reading parameter file ...\n" ) ;
-        if ( ( err = ReadParamFile( NemParaP->ParamName,
-                                    StatModelP->Spec.ClassFamily,
-                                    StatModelP->Spec.K,
-                                    DataP->NbVars,
-                                    & NemParaP->ParamFileMode,
-                                    & StatModelP->Para ) ) != STS_OK ) return err ;
-    case INIT_SORT:    /* allocate partition (will be initialized later) */
-    case INIT_RANDOM:  /* allocate partition (will be initialized later) */
-        /* Allocate classification matrix */
-        if ( ( (*ClassifMP) = 
-	       GenAlloc( DataP->NbPts * StatModelP->Spec.K, sizeof( float ),
-			 0, func, "(*ClassifMP)" ) ) == NULL )
-	  return STS_E_MEMORY ;
-        break ;
-
-    case INIT_LABEL:
-      fprintf( stderr, "Reading known labels file ...\n" ) ;
-      if ( ( err = ReadLabelFile( NemParaP->LabelName, DataP->NbPts, 
-				  & klabelfile,
-                                  & DataP->LabelV,
-                                  ClassifMP ) ) != STS_OK )
-        return err ;
-
-      if ( klabelfile != StatModelP->Spec.K ) {
-	fprintf( stderr, 
-		 "Error : label file %d classes, command line %d classes\n",
-		 klabelfile, StatModelP->Spec.K ) ;
-	return STS_E_FILE ;
-      }
-      break;
-
-    default: /* error */
-        fprintf( stderr, "Unknown initialization mode (%d)\n", 
-                 NemParaP->InitMode );
-        return STS_E_FUNCARG ;
-    }
-
-    /* Eventually read reference class file */  /*V1.04-f*/
-    if ( ( err = MakeErrinfo( NemParaP->RefName, DataP->NbPts, 
-			      StatModelP->Spec.K, NemParaP->TieRule, 
-			      ErrinfoP, ErrcurP ) ) != STS_OK )
-      return err ;
-
-    /* Read neighborhood file */
-    if ( SpatialP->Type != TYPE_NONSPATIAL )
-    {
-        fprintf( stderr, "Reading neighborhood information ...\n" ) ;
-        if ( ( err = ReadNeiFile( fname, 
-                                  DataP->NbPts, 
-                                  NemParaP->NeighSpec ,
-                                  neidescS,
-                                  SpatialP ) ) != STS_OK )
-                return err ;
-    }
-    else
-    {
-        StatModelP->Para.Beta = 0.0 ; /*V1.06-a*/
-        SpatialP->MaxNeighs   = 0 ;
-    }
-
-    fprintf( stderr, "\nData : " ) ;
-    if ( strcmp( datadescS, "" ) ) fprintf( stderr, "%s\n", datadescS ) ;
-    else                          fprintf( stderr, "\n" ) ;
-
-    fprintf( stderr, "  file names =  %10s   |   nb points   = %10d\n", 
-             fname, DataP->NbPts ) ;
-    fprintf( stderr, "  type       =  %10s   |   dim         = %10d\n",
-             TypeDesC[ SpatialP->Type ], DataP->NbVars ) ;
-    if ( SpatialP->Type == TYPE_IMAGE )
-    {
-    fprintf( stderr, "  image size =  (%4d,%4d)\n", 
-             SpatialP->NeighData.Image.Nl, SpatialP->NeighData.Image.Nc ) ;
-    }
-    if ( DataP->NbMiss > 0 ) /*V1.05-a*/
-    {
-    fprintf( stderr, "  %d missing values / %d\n",
-	     DataP->NbMiss, DataP->NbPts * DataP->NbVars ) ;
-    }
-
-    if ( SpatialP->Type != TYPE_NONSPATIAL )
-    {
-    fprintf( stderr, "Neighborhood system :\n  max neighb =  %10d\n",
-             SpatialP->MaxNeighs ) ;
-    fprintf( stderr, "%s\n", neidescS ) ;
-    }
-
-    fprintf( stderr, "\n" ) ;
-    fprintf( stderr, "NEM parameters :\n" ) ;
-    fprintf( stderr, "Type of algorithm : '%s'\n" , AlgoDesC[ NemParaP->Algo ] ) ;
-    fprintf( stderr, 
-	     "  beta       =  %10.2f   |   nk                    = %3d\n", 
-             StatModelP->Para.Beta, StatModelP->Spec.K) ;
-    fprintf( stderr, 
-	     "                %10s   |   model                 = %s, %s %s\n",
-             " ", 
-	     FamilyDesVC[ StatModelP->Spec.ClassFamily ],
-	     ProporDesVC[ StatModelP->Spec.ClassPropor ],
-	     DisperDesVC[ StatModelP->Spec.ClassDisper ]) ;
-    fprintf( stderr, "\n" ) ;
-
-
-    return STS_OK ;
-
-} /* end of GetInputPara() */
-
 
 /* ------------------------------------------------------------------- */
 static int SetVisitOrder   /*V1.04-e*/
@@ -623,6 +736,101 @@ static int SetVisitOrder   /*V1.04-e*/
 
 
 /* ------------------------------------------------------------------- */
+static int  ReadStrFile
+            (
+                const char*  BaseName,          /* I */
+                char*        CommentS,          /* O */
+                DataT*       DataP,             /* O */
+                ImageNeighT* ImageP,            /* O */
+                TypeET*      TypeP              /* O */
+            )
+/*\
+  Read structure file
+       expected format : 
+         type size nbvars
+           type : N | I | S
+           size : (if type == I) lx ly (if type == N or S) nbpts
+           nbvars : integer
+\*/
+/* ------------------------------------------------------------------- */
+{
+    char    infname[ LEN_FILENAME + 1 ] ;
+    FILE    *fstr ;
+    int     nbelts ;
+    char    type[100] ;  /* N | I | S */
+    int     n1, n2, n3 ;
+
+    void my_strupr( char *s ) ;
+
+    strncpy( infname, BaseName, LEN_FILENAME ) ;
+    strncat( infname, ".str" , LEN_FILENAME ) ;
+
+    if ( ReadOpeningComments( infname , "#" , LEN_LINE , 
+                              & fstr , CommentS ) == -1 )
+    {
+        fprintf( stderr, "File str %s does not exist\n", infname ) ;
+        return STS_E_FILEIN ;
+    }
+
+
+    /* Now we expect a line having structure : "I nl nc d" or "S n d" or
+       "N n d"
+    */
+    nbelts = fscanf( fstr, "%s %d %d %d", type, &n1, &n2, &n3 ) ;
+    fclose( fstr ) ;  /*V1.05-h*/
+
+    if ( nbelts < 3 )
+    {
+        fprintf( stderr, "Structure file (%s) not enough fields\n",
+                 infname ) ;
+        return STS_E_FILE ;        
+    }
+
+    my_strupr( type ) ;
+
+    if ( ! strcmp( type, TypeStrC[ TYPE_NONSPATIAL ] ) )
+    {
+        /* No spatial information */
+        DataP->NbPts  = n1 ;
+        DataP->NbVars = n2 ;
+        *TypeP        = TYPE_NONSPATIAL ;
+    }
+    else if ( ! strcmp( type, TypeStrC[ TYPE_SPATIAL ] ) )
+    {
+        /* Spatial irregular */
+        DataP->NbPts  = n1 ;
+        DataP->NbVars = n2 ;
+        *TypeP        = TYPE_SPATIAL ;
+    }
+    else if ( ! strcmp( type, TypeStrC[ TYPE_IMAGE ] ) )
+    {
+        /* Image */
+        if ( nbelts < 4 )
+        {
+            fprintf( stderr, "Structure file (%s) not enough fields\n",
+                     infname ) ;
+            return STS_E_FILE ;        
+        }             
+        ImageP->Nl    = n1 ;
+        ImageP->Nc    = n2 ;
+        DataP->NbPts  = ImageP->Nl * ImageP->Nc ;
+        DataP->NbVars = n3 ;
+        *TypeP = TYPE_IMAGE ;
+    }
+    else
+    {
+        /* default : Error in structure file */
+        fprintf( stderr, "Data type %s unknown in file %s\n", 
+                 type, infname ) ;
+        return STS_E_FILE ;
+    }
+
+    return STS_OK ;
+
+}  /* end of ReadStrFile() */
+
+
+/* ------------------------------------------------------------------- */
 static int ReadMatrixFile
          (
              const char  *FileName,    /* I */      /*V1.04-a*/
@@ -638,7 +846,6 @@ static int ReadMatrixFile
     int         ic ;
     float       x ;
 
-
     if ( ( *MatP = GenAlloc( Nl *  Nc, sizeof( float ),
 			     0, "ReadMatrixFile", FileName ) ) == NULL )
       return STS_E_MEMORY ;
@@ -648,7 +855,7 @@ static int ReadMatrixFile
       {
 	if ( ( fp = fopen( FileName, "r" ) ) == NULL )
 	  {
-	    fprintf( stderr, "File %s does not exist\n", FileName ) ;
+	    fprintf( stderr, "File matrix %s does not exist\n", FileName ) ;
 	    GenFree( Mat ) ;
 	    return STS_E_FILEIN ;
 	  }
@@ -709,7 +916,7 @@ static int  ReadLabelFile
 
     if ( ( fp = fopen( LabelName, "r" ) ) == NULL )
     {
-        fprintf( stderr, "File %s does not exist\n", LabelName ) ;
+        fprintf( stderr, "File label %s does not exist\n", LabelName ) ;
         return STS_E_FILEIN ;
     }
 
@@ -766,7 +973,7 @@ static int  ReadLabelFile
 static int  ReadParamFile /*V1.08-a*/
          ( 
              const char  *ParamName,    /* I */
-  	     const FamilyET Family,
+  	         const FamilyET Family,
              const int   K,          /* I : number of classes */
              const int   D,          /* I : number of variables */
              ParamFileET* ParamFileMode, /* O : specified if parameters will be used at begin or throughout the clustering process */
@@ -778,14 +985,13 @@ static int  ReadParamFile /*V1.08-a*/
 
    if ( ( fp = fopen( ParamName, "r" ) ) == NULL )
    {
-       fprintf( stderr, "File %s does not exist\n", ParamName ) ;
+       fprintf( stderr, "File param %s does not exist\n", ParamName ) ;
        return STS_E_FILEIN ;
    }
 
   /* Read if file correspond to parameters at beginning (1) or throughout the clustering process (2) */ /*V1.08-a*/
 
   int nbvalues = 1 + (K - 1) + K * D + K * D ;
-
   int miOrMf = 0; 
   if (fscanf( fp , "%d" , &miOrMf) == EOF)
   {
@@ -954,7 +1160,6 @@ static int  MakeErrinfo
     ErrcurP->Errorrate     = -1.0 ;
     return STS_OK ;
   }
-
 }  /* end of MakeErrinfo() */
 
 
@@ -1093,7 +1298,7 @@ static int  ReadNeiFile
         if ( ReadOpeningComments( infname , "#" , LEN_LINE , 
                                   & fnei , NeiDescS ) == -1 )
         {
-            fprintf( stderr, "File %s does not exist\n", infname ) ;
+            fprintf( stderr, "File Neigh %s File does not exist\n", infname ) ;
             return STS_E_FILEIN ;
         }
 
@@ -1111,7 +1316,7 @@ static int  ReadNeiFile
             if ( ReadOpeningComments( infname , "#" , LEN_LINE , 
 		                      & fnei , NeiDescS ) == -1 )
             {
-                fprintf( stderr, "File %s does not exist\n", infname ) ;
+                fprintf( stderr, "File Neigh %s does not exist\n", infname ) ;
                 return STS_E_FILEIN ;
             }
 
@@ -1124,6 +1329,7 @@ static int  ReadNeiFile
         }
 
         SpatialP->MaxNeighs = SpatialP->NeighData.Image.NbNeigh ;
+
     }
 
 
@@ -1388,10 +1594,7 @@ static int  SetImageNeigh
 
 /* ------------------------------------------------------------------- */
 static int SaveResults
-        ( 
-	  const int          Argc,
-	  const char*        Argv[],
-          const int          Npt,                   /* I */
+        ( const int          Npt,                   /* I */
           const int          Nd,                    /* I */
           const float*       ClassifM,              /* I */
           const SpatialT*    SpatialP,              /* I */
@@ -1404,7 +1607,6 @@ static int SaveResults
     FILE*       fout ;
     FILE*       fmf ;
     char        mfname[ LEN_FILENAME ] ;
-    int         iarg ;          /* arg counter   : 0..Argc-1 */
     int         ipt ;           /* point counter : 0..Npt */
     int         k ;             /* class counter : 0..nk-1 */
     int         d ;             /* dimension counter : 0..Nd-1 */
@@ -1502,12 +1704,6 @@ static int SaveResults
     else
       fmf = stderr ;
 
-    /*V1.03-f*/
-    fprintf( fmf, "Command line : \n\n  " ) ;
-    for ( iarg = 0 ; iarg < Argc ; iarg ++ )
-      fprintf( fmf, "%s " , Argv[ iarg ] ) ;
-    fprintf( fmf, "\n\n" ) ;
-
     /*V1.03-d*/ /*V1.03-e*/ /*V1.05-j*/
     fprintf( fmf, 
 	     "Criteria U=NEM, D=Hathaway, L=mixture, M=markov ps-like, error\n\n" );
@@ -1584,6 +1780,48 @@ static int SaveResults
 
 }  /* end of SaveResults() */
 
+/* ------------------------------------------------------------------- */
+int GetEnum( const char* S, const char* SV[], int SizeV ) /*V1.04-b*/
+/*\
+
+    Returns the position of string S in the array SV consisting of
+    SizeV strings (indiced from 0 to SizeV - 1).  Returns -1 if S is
+    not found in SV.
+
+\*/
+/* ------------------------------------------------------------------- */
+{
+  int pos ;
+  int found ;
+
+  for ( pos = 0 , found = FALSE ;
+    ( pos < SizeV ) && ( ! found ) ;
+    pos ++ )
+    {
+      if ( ! strcmp( S , SV[ pos ] ) )
+    found = TRUE ;
+    }
+
+  if ( found )
+    return ( pos - 1 ) ;  /* '- 1' because for() adds 1 after finding */
+  else
+    return -1 ;
+}
+
+/* ------------------------------------------------------------------- */
+
+void my_strupr( char *s )
+/* ------------------------------------------------------------------- */
+{
+    if ( s == NULL ) return ;
+    for ( ; (*s) != '\0' ; s ++ )
+    {
+        if ( ( (*s) > 'a' ) && ( (*s) < 'z' ) )
+        {
+            (*s) = (*s) + ( 'A' - 'a' ) ;
+        }
+    }
+}
 
 
 /* ------------------------------------------------------------------- */
@@ -1652,6 +1890,5 @@ static void FreeAllocatedData
   /* Free classification matrix */
   GenFree( ClassifM ) ;
 }
-
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~ END OF FILE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
