@@ -34,7 +34,7 @@ The minimal command is :
 
 .. code:: bash
 
-	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR
+	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR
 
 Input formats
 ---------------------------
@@ -165,7 +165,7 @@ For example, this command:
 
 .. code:: bash
 
-	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -r 10
+	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR -r 10
 
 will remove gene families having more than 10 repeated genes in at least one of the organism. Empirically, using a r-value of 10 will discard only few gene families (a dozen) .
 
@@ -180,7 +180,7 @@ The partitioning method can be customized via 3 parameters:
 
 	.. code:: bash
 
-		ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -ck 300
+		ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR -ck 300
 
 2. Smoothing strength (-b VALUE option): This option specify the strength of the smoothing (`:math:\beta`) of the partitions based on the graph topology (using a Markov Random Field). (`:math:\beta = 0`) means no smoothing whereas (`:math:\beta` = 1) means a strong smoothing (value higher than 1 are allowed but highly discouraged). (`:math:\beta` = 0.5`) is generally a good tradeoff.
 
@@ -188,7 +188,7 @@ The partitioning method can be customized via 3 parameters:
 
 	.. code:: bash
 
-		ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -b 1
+		ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR -b 1
 
 3. Free Dispersion around centroid vectors (-fd flag): This flag allows the dispersion vector around the centroid vector of the Bernoulli Mixture Model to be free to vary for all organisms in a vector. By default, dispersions are constrained to be the same for all organisms for each partition, that is to say, all organisms will have the same impact of the partitioning. 
 
@@ -196,7 +196,7 @@ The partitioning method can be customized via 3 parameters:
 
 	.. code:: bash
 
-		ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -fd
+		ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR -fd
 
 Evolution curve (-e option)
 ------------------------------------------------------
@@ -210,9 +210,9 @@ We also offer the possibility to customize the resampling using 4 parameters pro
 
 .. code:: bash
 
-	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -e -ep 0.01 10 50 1
+	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR -e -ep 0.01 10 50 1 100
 
-will generate 1% percent of all resampling with at minimum 10 combination for each size of the set of organisms and 50 maximum. The size of the combination will be increased by a step equals to 1.
+will generate 1% percent of all resampling with at minimum 10 combination for each size of the set of organisms and 50 maximum. The size of the combination will be increased by a step equals to 1 up to samples limited to a size of 100 organisms.
 
 The curves represent the evolution of the size of the partitions when more and more organisms are added to the pangenome. The plain lines connect medians (crosses) of the resampling distribution while shadows represent the interquartile ranges. Finally, a regression curve is drawn fitting a Heap's law ($F = \kappa N^{\gamma}$). 
 
@@ -226,7 +226,7 @@ It is possible to project the pangenome against one organism in order to visuali
 
 .. code:: bash
 
-	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -pr 1 7 9  
+	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR -pr 1 7 9  
 
 will project against the organisms 1, 7 and 9 the information about the pangenome (degrees of nodes and partitions).
 
@@ -266,7 +266,7 @@ METADATA_FILE is a tab-delimitated file. The first line contains the names of th
 
 .. code:: bash
 
-	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE -o OUTPUT_DIR -mt METADATA_FILE
+	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR -mt METADATA_FILE
 
 will add to each edge of the partitioned pangenome graph, the label "phylogroup" and the label "assembly". When an edge encompasses several organisms having different values associated with the same label, the values are sorted and merged (separated by a '|').
 
