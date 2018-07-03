@@ -34,7 +34,7 @@ The minimal command is :
 
 .. code:: bash
 
-	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE --output_directory OUTPUT_DIR
+	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE
 
 Input formats
 ---------------------------
