@@ -28,7 +28,7 @@ from fa2 import ForceAtlas2
 (GFF_seqname, GFF_source, GFF_feature, GFF_start, GFF_end, GFF_score, GFF_strand, GFF_frame, GFF_attribute) = range(0,9) 
 (MU,EPSILON,PROPORTION) = range(0, 3)
 (FAMILIES_PARTITION,PARTITION_PARAMETERS) = range(0, 2)
-RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes', 'community','subpartition_shell',"viz"])
+RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz"])
 SHORT_TO_LONG = {'A':'accessory','CE':'core_exact','P':'persistent','S':'shell','C':'cloud','U':'undefined'}
 COLORS = {"pangenome":"black", "accessory":"#EB37ED", "core_exact" :"#FF2828", "shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
 COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "core_exact" :{'r': 255, 'g': 40, 'b': 40, 'a': 0}, "shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
@@ -1706,13 +1706,14 @@ class PPanGGOLiN:
             :return: stats: 
             :rtype: dict 
         """ 
+        sep=","
         if self.is_partitionned:
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
                 nb_genes_file.write("org\tpersistent\tshell\tcloud\tcore_exact\taccessory\tpangenome\n")
                 for organism in organisms_to_project:
                     nb_genes_by_partition = defaultdict(int)
                     with open(out_dir+"/"+organism+".csv","w") as out_file:
-                        out_file.write("gene\tcontig\tcoord_start\tcoord_end\tstrand\tori\tfamily\tnb_copy_in_org\tpartition\tpersistent\tshell\tcloud\n")
+                        out_file.write(sep.join(["gene","contig","coord_start","coord_end","strand","ori","family","nb_copy_in_org","partition","persistent","shell","cloud"])+"\n")
                         for contig, contig_annot in self.annotations[organism].items():
                             for gene, gene_info in contig_annot.items():
                                 if gene_info[FAMILY] not in self.families_repeted:
@@ -1720,7 +1721,7 @@ class PPanGGOLiN:
                                     nb_genes_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition_exact"]]+=1
                                     nb_genes_by_partition["pangenome"]+=1
                                     nei_partitions = [self.neighbors_graph.node[nei]["partition"] for nei in nx.all_neighbors(self.neighbors_graph,gene_info[FAMILY])]
-                                    out_file.write("\t".join([gene,
+                                    out_file.write(sep.join([gene,
                                                               contig,
                                                               str(gene_info[START]),
                                                               str(gene_info[END]),

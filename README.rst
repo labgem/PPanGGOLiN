@@ -110,7 +110,7 @@ All the gene IDs found in the gff files must be associated with a gene family ev
 
 Reserved word
 ---------------------------
-To prevent any bug, the following words are fobidden to be any of the identifiers : "id", "label", "name", "weight", "partition", "partition_exact", "length", "length_min", "length_max", "length_avg", "length_med", "product", "nb_gene", "community". Moreover, "|" and "," are also fobidden to be contained in any of the identifiers.
+To prevent any bug, the following words are fobidden to be any of the identifiers: "id", "label", "name", "weight", "partition", "partition_exact", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz". Moreover, "|" and "," are also fobidden to be contained in any of the identifiers.
 
 Output
 ---------------------------
