@@ -207,7 +207,7 @@ for (org_csv in list.files(path = '"""+OUTPUTDIR+PROJECTION_DIR+"""', pattern = 
         colors_duplicated_fam <- rainbow(length(duplicated_fam))
         names(colors_duplicated_fam) <- duplicated_fam
 
-        data_melted <- melt(data, id.var=c("contig", "gene","family","nb_copy_in_org","partition","pos"))
+        data_melted <- melt(data, id.var=c("contig", "gene","family","nb_copy_in_org","partition","pos","strand","coord_start","coord_end"))
         data_melted$variable <- factor(data_melted$variable, levels = rev(c("persistent","shell","cloud")), ordered=TRUE)
 
         contig <- unique(data_melted$contig)
