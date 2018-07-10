@@ -1937,9 +1937,9 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
                 cloud_k = list(cloud_k)[0]
 
                 # but if the difference between epsilon_k of shell and cloud is tiny, we check using the sum of mu_k which basicaly must be lower in cloud
-                # if (sum_epsilon_k[shell_k]-sum_epsilon_k[cloud_k])<0.05 and sum_mu_k[shell_k]<sum_mu_k[cloud_k]:
-                #     # otherwise we permutate
-                #     (shell_k, cloud_k) = (cloud_k, shell_k)
+                if ((sum_epsilon_k[shell_k]-sum_epsilon_k[cloud_k])/nb_org)<0.1 and sum_mu_k[shell_k]<sum_mu_k[cloud_k]:
+                     # otherwise we permutate
+                     (shell_k, cloud_k) = (cloud_k, shell_k)
 
                 logging.getLogger().debug(sum_mu_k)
                 logging.getLogger().debug(sum_epsilon_k)

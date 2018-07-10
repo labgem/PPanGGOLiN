@@ -270,7 +270,8 @@ def resample(index):
                           inplace         = False,
                           just_stats      = True,
                           nb_threads      = 1)
-    shutil.rmtree(nem_dir_path)
+    if options.delete_nem_intermediate_files:
+        shutil.rmtree(nem_dir_path)
     evol.write(",".join([str(len(shuffled_comb[index])),
                           str(stats["persistent"]) if stats["undefined"] == 0 else "NA",
                           str(stats["shell"]) if stats["undefined"] == 0 else "NA",
@@ -301,8 +302,6 @@ def resample(index):
 #                           str(stats["core_exact"]+stats["accessory"])])+"\n")
 #     evol.flush()
 
-    if options.delete_nem_intermediate_files:
-        shutil.rmtree(TMP_DIR+EVOLUTION_DIR+"/nborg"+str(len(shuffled_comb[index]))+"_"+str(index))
 
 #### END - NEED TO BE AT THE HIGHEST LEVEL OF THE MODULE TO ALLOW MULTIPROCESSING
 
