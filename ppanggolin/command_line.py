@@ -536,7 +536,7 @@ def __main__():
     start_writing_output_file = time()
 
     if options.compute_layout:
-        pan.compute_layout(multiThreaded=options.cpu[0])
+        pan.compute_layout()#multiThreaded=options.cpu[0])
 
     #pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     logging.getLogger().info("Writing GEXF file")
