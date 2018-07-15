@@ -317,16 +317,16 @@ def __main__():
     The organism ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word.
     The second field is the gff file containing the annotations associated to the organism. 
     This path can be absolute or relative. 
-    The gff file must contain an ID feature for each CDS.
+    The gff file must contain an ID for each CDS feature.
     The contig ID and gene ID can be any string but must be unique and can't contain any space, quote, double quote, pipe and reserved words.
-    (optional). The next fields contain the name of perfectly assembled circular contigs. 
+    (optional): The next fields contain the name of perfectly assembled circular contigs (to take in account the link between the first and the last gene in the graph). 
     In this case, it is mandatory to provide the contig size in the gff files either by adding a "region" feature having the correct contig ID attribute or using a '##sequence-region' pragma.
     """, required=True)
     parser.add_argument('-gf', '--gene_families', type=argparse.FileType('r'), nargs=1, metavar=('FAMILIES_FILE'), help="""
     File: A tab-delimited file containing the gene families. Each row contains at least 2 fields.
     The first field is the family ID. The further fields are the gene IDs associated with this family.
     The family ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word.
-    Gene IDs can be any string corresponding to the ID features in the gff files. They must be uniques and can't contain any spaces, quote, double quote and reserved words.
+    Gene IDs can be any string corresponding to the IDs of the CDS features in the gff files. They must be uniques and can't contain any spaces, quote, double quote, pipe and reserved words.
     """,  required=True)
     parser.add_argument('-od', '--output_directory', type=str, nargs=1, default=["PPanGGOLiN_outputdir_"+strftime("%Y-%m-%d_%H.%M.%S", gmtime())], metavar=('OUTPUT_DIR'), help="""
     Dir: The output directory""")
