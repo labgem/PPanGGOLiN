@@ -489,7 +489,7 @@ class PPanGGOLiN:
                             (gene_start, gene_info_start) = contig_annot.popitem(last=False)
                 except KeyError:
                     continue
-                    
+
                 self.__add_gene(gene_info_start[FAMILY],
                                 organism,
                                 gene_start,
@@ -512,12 +512,14 @@ class PPanGGOLiN:
                                         gene_info[PRODUCT])
                         self.index[gene]=(organism,contig,pos+1)
                         self.neighbors_graph.add_node(family_id_nei)
-                        self.__add_link(gene_info[FAMILY],family_id_nei,organism, gene_info[START] - end_family_nei)
+                        if !(gene_info[FAMILY] == family_id_nei && (gene_info[START] - end_family_nei)<=0):
+                            self.__add_link(gene_info[FAMILY],family_id_nei,organism, gene_info[START] - end_family_nei)
                         family_id_nei  = gene_info[FAMILY]
                         end_family_nei = gene_info[END]
                 
                 if contig in self.circular_contig_size:#circularization
-                    self.__add_link(gene_info_start[FAMILY],family_id_nei,organism, (self.circular_contig_size[contig] - end_family_nei) + gene_info_start[START])
+                    if !(ggene_info_start[FAMILY] == family_id_nei && ( (self.circular_contig_size[contig] - end_family_nei) + gene_info_start[START])<=0):
+                        self.__add_link(gene_info_start[FAMILY],family_id_nei,organism, (self.circular_contig_size[contig] - end_family_nei) + gene_info_start[START])
 
                 if sys.version_info < (3,):
                     ordered_dict_prepend(contig_annot,gene_start,gene_info_start)#insert at the top
