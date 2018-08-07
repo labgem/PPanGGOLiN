@@ -51,7 +51,7 @@ if __name__ == "__main__":
             'console_scripts': [
             name+' = '+name+'.command_line:__main__'
           ]},
-        install_requires= ['cython', 'ordered-set', 'bidict', 'networkx >= 2.0', 'fa2', 'tqdm', 'python-highcharts','futures;python_version=="2.7"'],
+        install_requires= ['cython', 'ordered-set', 'bidict', 'networkx >= 2.0' , 'tqdm', 'ascii_graph','plotly','scipy','numpy','pandas','fa2','futures;python_version=="2.7"'],
         ext_modules = cythonize([Extension(name = "nem",sources =[NEM_dir_path+'nem.pyx',
                                                                   NEM_dir_path+'nem_exe.c',
                                                                   NEM_dir_path+'nem_alg.c',
