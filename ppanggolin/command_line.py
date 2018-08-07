@@ -12,7 +12,7 @@ from random import shuffle, sample
 from tqdm import tqdm
 tqdm.monitor_interval = 0
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from time import gmtime, strftime, time
+from time import strftime, time, localtime
 import subprocess
 import pkg_resources
 import traceback
@@ -26,6 +26,7 @@ TMP_DIR                     = None
 NEM_DIR                     = "/NEM_results/"
 FIGURE_DIR                  = "/figures/"
 PROJECTION_DIR              = "/projections/"
+METADATA_DIR                = "/metadata/"
 EVOLUTION_DIR               = "/evolutions/"
 PARTITION_DIR               = "/partitions/"
 GRAPH_FILE_PREFIX           = "/graph"
@@ -328,9 +329,9 @@ def __main__():
     The family ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word.
     Gene IDs can be any string corresponding to the IDs of the CDS features in the gff files. They must be uniques and can't contain any spaces, quote, double quote, pipe and reserved words.
     """,  required=True)
-    parser.add_argument('-od', '--output_directory', type=str, nargs=1, default=["PPanGGOLiN_outputdir_"+strftime("%Y-%m-%d_%H.%M.%S", gmtime())], metavar=('OUTPUT_DIR'), help="""
+    parser.add_argument('-od', '--output_directory', type=str, nargs=1, default=["PPanGGOLiN_outputdir_PID"+str(os.getpid())+"_"+strftime("DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())], metavar=('OUTPUT_DIR'), help="""
     Dir: The output directory""")
-    parser.add_argument('-td', '--temporary_directory', type=str, nargs=1, default=["/tmp/PPanGGOLiN_outputdir_"+strftime("%Y-%m-%d_%H.%M.%S", gmtime())], metavar=('TMP_DIR'), help="""
+    parser.add_argument('-td', '--temporary_directory', type=str, nargs=1, default=["/tmp/PPanGGOLiN_tempdir_PID"+str(os.getpid())+"_"+strftime("DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())], metavar=('TMP_DIR'), help="""
     Dir: Temporary directory to store nem intermediate files""")
     parser.add_argument('-f', '--force', action="store_true", help="""
     Flag: Force overwriting existing output directory""")
@@ -395,6 +396,8 @@ def __main__():
     METADATA_FILE is a tab-delimitated file. The first line contains the names of the attributes and the following lines contain associated information for each organism (in the same order as in the ORGANISM_FILE).
     Metadata can't contain reserved word or exact organism name.
     """)
+    parser.add_argument("-dc", "--distance_CDS_fragments", type = int, nargs = 1, default = [5], metavar=('DISTANCE_CDS_FRAGMENTS'), help = """
+    Number: When several consecutive genes belonging to the same gene families separated by less or equals than DISTANCE_CDS_FRAGMENTS (in nucleotides) are found, there are considered as CDS fragments and then no reflexive links are generated between the associated gene families. Negative values are considered as overlapping CDS fragments.""")
     parser.add_argument("-ss", "--subpartition_shell", default = 0, type=int, nargs=1, help = """
     Number: (in test) Subpartition the shell genome in k subpartitions, k can be detected automatically using k = -1, if k = 0 the partioning will used the first column of metadata to subpartition the shell""")
     parser.add_argument("-l", "--compute_layout", default = False, action="store_true", help = """
@@ -415,12 +418,19 @@ def __main__():
     logging.getLogger().info("Networkx version: "+nx.__version__)
     global OUTPUTDIR
     global TMP_DIR
+
+    
     OUTPUTDIR       = options.output_directory[0]
     TMP_DIR         = options.temporary_directory[0]
+
+    logging.getLogger().info("Output directory is: "+OUTPUTDIR)
+    logging.getLogger().info("Temporary directory is: "+TMP_DIR)
 
     list_dir        = ["",FIGURE_DIR,PARTITION_DIR]
     if options.projection:
         list_dir.append(PROJECTION_DIR)
+    if options.metadata[0]:
+        list_dir.append(METADATA_DIR)
     if options.evolution:
         list_dir.append(EVOLUTION_DIR)
         (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = options.evolution_resampling_param
@@ -429,7 +439,7 @@ def __main__():
         if not os.path.exists(OUTPUTDIR+directory):
             os.makedirs(OUTPUTDIR+directory)
         elif not options.force:
-            logging.getLogger().error(OUTPUTDIR+directory+" already exist")
+            logging.getLogger().error(OUTPUTDIR+directory+" already exists")
             exit(1)
 
     #-------------
@@ -452,6 +462,7 @@ def __main__():
                      options.gene_families[0],
                      options.remove_high_copy_number_families[0],
                      options.infer_singletons,
+                     options.distance_CDS_fragments[0],
                      #options.directed)
                      False)
 
@@ -484,6 +495,9 @@ def __main__():
     #-------------
     if options.metadata[0]:
         metadata = OrderedDict(zip(list(pan.organisms),metadata))
+        if options.force:
+            shutil.rmtree(OUTPUTDIR+METADATA_DIR)
+        pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)
 
     if options.subpartition_shell:
         if options.subpartition_shell[0] <0:
@@ -552,6 +566,7 @@ def __main__():
             if partition == "core_exact" or partition == "accessory":
                 pan_text.write("\n".join(families)+"\n")
             file.close()
+
     pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
     if options.projection:
         logging.getLogger().info("Projection...")
@@ -561,6 +576,7 @@ def __main__():
     end_writing_output_file = time()
 
     pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR)
+    pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     del pan.annotations # no more required for the following process
 
     # print(pan.partitions_by_organisms)
@@ -623,6 +639,112 @@ def __main__():
                     raise ex
         evol.close()
 
+        try:
+            import plotly.plotly as py
+            import plotly.offline as out_plotly
+            import plotly.graph_objs as go
+            import scipy.optimize as optimization
+            import pandas
+            import numpy
+
+            def heap_law(N, kappa, gamma):
+                return kappa*N**(gamma)
+
+            annotations=[]
+            traces = []
+            data_evol = pandas.read_csv("evol_stats.txt",index_col=False).dropna()
+            for partition in ["persistent","shell","cloud","accessory","core_exact","pangenome"]:
+                half_stds = pandas.Series({i:numpy.std(data_evol[data_evol["nb_org"]==i][partition])/2 for i in range(1,203+1)}).dropna()
+                mins = pandas.Series({i:numpy.min(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,203+1)}).dropna()
+                maxs = pandas.Series({i:numpy.max(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,203+1)}).dropna()
+                medians = pandas.Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,203+1)}).dropna()
+                initial_kappa_gamma = numpy.array([0.0, 0.0])
+                res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
+                kappa, gamma = res[0]
+                
+                annotations.append(dict(x=pan.nb_organisms,
+                                        y=heap_law(pan.nb_organisms,kappa, gamma),
+                                        ay=0,
+                                        ax=100,
+                                        text="F="+str(round(kappa))+"N"+"<sup>"+str(round(gamma,5))+"</sup>",
+                                        showarrow=True,
+                                        arrowhead=7,
+                                        font=dict(size=16,color='grey'),
+                                        align='center',
+                                        arrowcolor=COLORS[partition],
+                                        bordercolor='#c7c7c7',
+                                        borderwidth=2,
+                                        borderpad=4,
+                                        bgcolor=COLORS[partition],
+                                        opacity=0.8))
+                regression = numpy.apply_along_axis(heap_law, 0, range(1,203+1), kappa, gamma)
+                traces.append(go.Scatter(x=medians.index, 
+                                        y=medians, 
+                                        name = "medians",
+                                        mode="lines+markers",
+                                        error_y=dict(type='data',
+                                                        symmetric=False,
+                                                        array=maxs.subtract(medians),
+                                                        arrayminus=medians.subtract(mins),
+                                                        visible=True,
+                                                        color = COLORS[partition],
+                                                        thickness =1),
+                                        line = dict(color = COLORS[partition],
+                                                    width = 1),
+                                        marker=dict(color = COLORS[partition])))
+                up = medians.add(half_stds)
+                down = medians.subtract(half_stds)
+                sd_area = up.append(down[::-1])
+                traces.append(go.Scatter(x=sd_area.index, 
+                                        y=sd_area, 
+                                        name = "sd",
+                                        fill='toself',
+                                        mode="lines",
+                                        hoveron="points",
+                                        #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
+                                        line=dict(color=COLORS[partition]),
+                                        marker=dict(color = COLORS[partition])))
+                traces.append(go.Scatter(x=list(range(1,203+1)), 
+                                        y=regression, 
+                                        name = partition,
+                                        line = dict(color = COLORS[partition],
+                                                    width = 4,
+                                                    dash = 'dash')))
+            layout = go.Layout(
+                title = "Evolution curve ",
+                titlefont = dict(
+                    size = 10
+                ),
+                xaxis = dict(title='size of genome subsets (N)'),
+                yaxis = dict(title='# of gene families (F)'),
+                annotations=annotations)
+            fig = go.Figure(data=traces, layout=layout)
+            out_plotly.plot(fig, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/evolution.html", auto_open=False)
+
+        except ImportError as e:
+             logging.getLogger().info("Please install plotly, numpy and scipy to draw the evolution curve using plot.ly")
+
+        # evolution_curve = Highchart(width = 1800, height = 800)
+        # options_evolution_curve_plot={
+        # 'title': {'text':'Evolution curve of the pangenome metrics with a growing number of organisms'},
+        # 'xAxis': {'tickInterval': 1, 'categories': list(range(1,min(pan.nb_organisms,LIMIT)+1), 'title':{'text':'size of the subsets'}},
+        # 'yAxis': {'allowDecimals': False, 'title' : {'text':'# of families'}},
+        # 'tooltip': {'headerFormat': '<span style="font-size:11px"># of orgs: <b>{point.x}</b></span><br>',
+        #             'pointFormat': '<span style="color:{point.color}">{series.name}</span>: {point.y}<br/>',
+        #             'shared': True}
+        # }
+        # evolution_curve.set_dict_options(options_evolution_curve_plot)
+
+        # for i, line in enumerate(open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".txt","r")):
+        #     if i == 0:
+        #         continue
+        #     elements = [int(e.strip()) for e in line.split(",")]
+
+
+        
+        # pandas.read_csv(file_evol_path+"/projections/nb_genes.csv", sep = "\t").dropna()
+
+        # ushaped_plot.add_data_set(persistent_values,'column','Persistent', color = COLORS["persistent"])
         end_evolution = time()
         logging.disable(logging.NOTSET)#restaure info and warning messages 
 

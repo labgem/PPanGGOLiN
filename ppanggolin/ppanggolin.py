@@ -132,7 +132,7 @@ class PPanGGOLiN:
             :Example:
 
             >>>pan = PPanGGOLiN("file", organisms, gene_families, remove_high_copy_number_families)
-            >>>pan = PPanGGOLiN("args", annotations, organisms, circular_contig_size, families_repeted)# load direclty the main attributes
+            >>>pan = PPanGGOLiN("args", annotations, organisms, circular_contig_size, families_repeted, directed, distance_CDS_fragments)# load direclty the main attributes
         """ 
         self.directed                      = False
         self.annotations                   = dict()
@@ -158,6 +158,8 @@ class PPanGGOLiN:
         self.partitions_by_organism        = dict()
         self.subpartitions_shell_parameters = {}
         self.subpartition_shell            = {}
+        self.distance_CDS_fragments        = 0
+        self.gene_fragments                = {}
 
         if init_from == "file":
             self.__initialize_from_files(*args)
@@ -166,7 +168,8 @@ class PPanGGOLiN:
              self.organisms,
              self.circular_contig_size,
              self.families_repeted,
-             self.directed) = args 
+             self.directed,
+             self.distance_CDS_fragments) = args 
         elif init_from == "database":
             logging.getLogger().error("database is not yet implemented")
             pass
@@ -175,22 +178,24 @@ class PPanGGOLiN:
         self.nb_organisms = len(self.organisms)
 
         logging.getLogger().info("Computing gene neighborhood ...")
-        self.__neighborhood_computation(directed = self.directed)
+        self.__neighborhood_computation()
 
-    def __initialize_from_files(self, organisms_file, families_tsv_file, lim_occurence = 0, infer_singletons = False, directed = False):
+    def __initialize_from_files(self, organisms_file, families_tsv_file, lim_occurence = 0, infer_singletons = False, distance_CDS_fragments = 0, directed = False):
         """ 
             :param organisms_file: a file listing organims by compute, first column is organism name, second is path to gff file and optionnally other other to provide the name of circular contig
             :param families_tsv_file: a file listing families. The first element is the family identifier (by convention, we advice to use the identifier of the average gene of the family) and then the next elements are the identifiers of the genes belonging to this family.
             :param lim_occurence: a int containing the threshold of the maximum number copy of each families. Families exceeding this threshold are removed and are listed in the families_repeted attribute.
             :param infer_singletons: a bool specifying if singleton must be explicitely present in the families_tsv_file (False) or if single gene in gff files must be automatically infered as a singleton family (True)
-            :param directed: a bool specifying if the pangenome graph is directed or undirected
+             :param distance_CDS_fragments: an integer specifying the distance between two consecutive genes belonging to the same gene families to consider them as CDS fragments (and so to not add the reflexive links)            param directed: a bool specifying if the pangenome graph is directed or undirected
             :type file: 
             :type file: 
             :type int: 
             :type bool: 
+            :type int:
             :type bool: 
         """ 
         self.directed = directed
+        self.distance_CDS_fragments = distance_CDS_fragments
         logging.getLogger().info("Reading "+families_tsv_file.name+" the gene families file ...")
 
         families_tsv_file = read_compressed_or_not(families_tsv_file)
@@ -318,20 +323,42 @@ class PPanGGOLiN:
 
     def __str__(self):
         """ Return an overview of the statistics of the pangenome as a formated string """ 
+
+        def str_histogram(title, values, force_max_value=25):
+            try:
+                from ascii_graph import Pyasciigraph
+                ret = "\n".join([l for l in Pyasciigraph(force_max_value=force_max_value).graph(str(title), [("degree "+str(i),v) for i, v in enumerate(values[:force_max_value+1])])])
+                if len(values) > force_max_value:
+                    ret+="\n"
+                    ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
+                return(ret)
+            except ImportError:
+                return(title+str(values))
+
         pan_str ="\n"
         pan_str += "----------- Statistics -----------\n"
         pan_str += "Number of organisms: "+str(self.nb_organisms)+"\n"
         pan_str += "Pangenome size:"+str(self.pan_size)+"\n"
+        pan_str += "Number of edges in the pangenome graph: "+str(nx.number_of_edges(self.neighbors_graph))+"\n"
+        pan_str += str_histogram("Degree distribution of the pangenome graph: ",nx.degree_histogram(self.neighbors_graph))+"\n"
         pan_str += "\n"
-        if self.is_partitionned:    
-            pan_str += "Exact core-genome size:"+str(len(self.partitions["core_exact"]))+"\n"
-            pan_str += "Exact variable-genome size:"+str(self.pan_size-len(self.partitions["core_exact"]))+"\n"
+        if self.is_partitionned:
+            pan_str += "Exact core genome size:"+str(len(self.partitions["core_exact"]))+"\n"
+            pan_str += "Exact accessory genome size:"+str(len(self.partitions["accessory"]))+"\n"
             pan_str += "\n"
             pan_str += "Persistent genome size:"+str(len(self.partitions["persistent"]))+"\n"
             pan_str += "Shell genome size:"+str(len(self.partitions["shell"]))+"\n"
             pan_str += "Cloud genome cloud:"+str(len(self.partitions["cloud"]))+"\n"
             pan_str += "\n"
             pan_str += "Gene families with undefined partition:"+str(len(self.partitions["undefined"]))+"\n"
+            # pan_str += "\n"
+            # pan_str += str_histogram("Degree distribution of the core genome partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["core_exact"])))+"\n"
+            # pan_str += str_histogram("Degree distribution of the accessory genome partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["shell"])))+"\n"
+            # pan_str += "\n"
+            # pan_str += str_histogram("Degree distribution of the persistent partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["persistent"])))+"\n"
+            # pan_str += str_histogram("Degree distribution of the shell partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["shell"])))+"\n"
+            # pan_str += str_histogram("Degree distribution of the cloud partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["cloud"])))+"\n"
+            # pan_str += "\n"
         else:
             pan_str += "No partitioning have been performed on this PPanGGOLiN instance\n"
             pan_str += "Run the partition() method to obtain more detailled statistics...\n"
@@ -355,7 +382,7 @@ class PPanGGOLiN:
         self.partitions["core_exact"]  = list()
         self.partitions["accessory"]   = list()
         self.BIC                       = None 
-        self.__neighborhood_computation(self.neighbors_graph.is_directed(),update=new_orgs)
+        self.__neighborhood_computation(update=new_orgs)
 
     def __repr__(self):
         return(self.__str__())
@@ -460,16 +487,16 @@ class PPanGGOLiN:
         except KeyError:
             graph[fam_id][fam_id_nei]["length"]=set([length])
 
-    def __neighborhood_computation(self, directed = False, update=False):#,light = False, 
+    def __neighborhood_computation(self, update=False):#,light = False, 
         """ Use the information already loaded (annotation) to build the pangenome graph
-            :param directed: a bool specifying if the graph is directed or undirected
             :param update: an optional list of organism to update a previous graph
+            :type int: 
             :type bool: 
             :type list:
         """ 
         #:param light: a bool specifying is the annotation attribute must be detroyed at each step to save memory
         if self.neighbors_graph is None:
-            if directed:
+            if self.directed:
                 self.neighbors_graph = nx.DiGraph()
             else:
                 self.neighbors_graph = nx.Graph()
@@ -512,15 +539,18 @@ class PPanGGOLiN:
                                         gene_info[PRODUCT])
                         self.index[gene]=(organism,contig,pos+1)
                         self.neighbors_graph.add_node(family_id_nei)
-                        if !(gene_info[FAMILY] == family_id_nei && (gene_info[START] - end_family_nei)<=0):
+                        if not (gene_info[FAMILY] == family_id_nei and (gene_info[START] - end_family_nei) <= self.distance_CDS_fragments):# to avoid reflexive links with gene fragments
                             self.__add_link(gene_info[FAMILY],family_id_nei,organism, gene_info[START] - end_family_nei)
+                        else:
+                            self.gene_fragments[gene]=gene_info[FAMILY]
                         family_id_nei  = gene_info[FAMILY]
                         end_family_nei = gene_info[END]
                 
                 if contig in self.circular_contig_size:#circularization
-                    if !(ggene_info_start[FAMILY] == family_id_nei && ( (self.circular_contig_size[contig] - end_family_nei) + gene_info_start[START])<=0):
+                    if not (gene_info_start[FAMILY] == family_id_nei and ( (self.circular_contig_size[contig] - end_family_nei) + gene_info_start[START]) <= self.distance_CDS_fragments ):# to avoid reflexive links with gene fragments
                         self.__add_link(gene_info_start[FAMILY],family_id_nei,organism, (self.circular_contig_size[contig] - end_family_nei) + gene_info_start[START])
-
+                    else:
+                        self.gene_fragments[gene]=gene_info[FAMILY]
                 if sys.version_info < (3,):
                     ordered_dict_prepend(contig_annot,gene_start,gene_info_start)#insert at the top
                 else:
@@ -613,7 +643,6 @@ class PPanGGOLiN:
         def align_on_graph(path):
             extremities_seed_path = defaultdict(lambda: defaultdict(set))
 
-            
             path_complete=defaultdict(lambda : False)
 
             #print(path)
@@ -819,6 +848,40 @@ class PPanGGOLiN:
                                                 # think to non_valided_neibors
                                                 #refine validated_seed_paths
                     all_extremities_seed_path = None
+
+    def get_gene_families_related_to_metadata(self, metadata, output_path = None):
+        exclusively_in = dict()
+        never_in       = dict()
+        variables_and_possible_values = defaultdict(set)
+        for org, metaD in metadata.items():
+            for variable, value in metaD.items():
+                exclusively_in[variable] = defaultdict(set)
+                never_in[variable]       = defaultdict(set)
+                variables_and_possible_values[variable].add(value)
+        for node_name, node_organisms in self.neighbors_graph.nodes(data=True):
+            for variable, possible_values in variables_and_possible_values.items():
+                if output_path is not None:
+                    try:
+                        os.makedirs(output_path+"/exclusively_in/"+variable)
+                        os.makedirs(output_path+"/never_in/"+variable)
+                    except:
+                        pass
+                res = set([metadata[org][variable] for org in metadata if org in node_organisms])
+                opposite_res = (possible_values - res)
+
+                if len(res)==1:
+                    value = res.pop()
+                    if output_path is not None:
+                        with open(output_path+"/exclusively_in/"+variable+"/"+str(value),"a") as out_file:
+                            out_file.write(node_name+"\n")
+                    exclusively_in[variable][value].add(node_name)
+                elif len(opposite_res) == 1:
+                    value = opposite_res.pop()
+                    if output_path is not None:
+                        with open(output_path+"/never_in/"+variable+"/"+str(value),"a") as out_file:
+                            out_file.write(node_name+"\n")
+                    never_in[variable][value].add(node_name)
+        return ({"exclusively_in":exclusively_in,"never_in":never_in})
 
     def __write_nem_input_files(self, nem_dir_path, organisms, init = "default", low_disp=0.1, filter_by_partition = None):
         if len(organisms)<=10:# below 10 organisms a statistical computation do not make any sence
@@ -1491,74 +1554,97 @@ class PPanGGOLiN:
             :param outdir: a str containing the path of the output file
             :type str: 
         """ 
-        ushaped_plot = Highchart(width = 1800, height = 800)
+        try:
+            import plotly.plotly as py
+            import plotly.offline as out_plotly
+            import plotly.graph_objs as go
+        except:
+             logging.getLogger().info("Please install plotly to use this ushaped_plot feature")
+             return(None)
 
         count = defaultdict(lambda : defaultdict(int))
-
         for node, data in self.neighbors_graph.nodes(data=True):
             nb_org  = len([True for org in self.organisms if org in data])
             count[nb_org][data["partition"]]+=1
 
-        persistent_values = []
-        shell_values      = []
-        cloud_values      = []
+        data_plot = []
 
-        for nb_org in range(1,self.nb_organisms+1):
-            persistent_values.append(count[nb_org]["persistent"])
-            shell_values.append(count[nb_org]["shell"])
-            cloud_values.append(count[nb_org]["cloud"])
-        
-        options_ushaped_plot={
-        'title': {'text':'Distribution of gene families frequency in the pangenome'},
-        'xAxis': {'tickInterval': 1, 'categories': list(range(1,self.nb_organisms+1)), 'title':{'text':'# of organisms in which each family is present'}},
-        'yAxis': {'allowDecimals': False, 'title' : {'text':'# of families'}},
-        'tooltip': {'headerFormat': '<span style="font-size:11px"># of orgs: <b>{point.x}</b></span><br>',
-                    'pointFormat': '<span style="color:{point.color}">{series.name}</span>: {point.y}<br/>',
-                    'shared': True},
-        'plotOptions': {'column': {'stacking': 'normal'}}
-        }
-        ushaped_plot.set_dict_options(options_ushaped_plot)
-        ushaped_plot.add_data_set(persistent_values,'column','Persistent', color = COLORS["persistent"])
-        ushaped_plot.add_data_set(shell_values,'column','Shell', color = COLORS["shell"])
-        ushaped_plot.add_data_set(cloud_values,'column','Cloud', color = COLORS["cloud"])
+        if not len(self.partitions["undefined"]):
 
-        ushaped_plot.save_file(filename = outdir+"/ushaped_plot")
+            persistent_values = []
+            shell_values      = []
+            cloud_values      = []
 
-    # def tile_plot(self, outdir):
-    #     """
-    #         generate tile plot representation (not work for the moment)
-    #         :param outdir: a str containing the path of the output file
-    #         :type str: 
-    #     """ 
+            for nb_org in range(1,self.nb_organisms+1):
+                persistent_values.append(count[nb_org]["persistent"])
+                shell_values.append(count[nb_org]["shell"])
+                cloud_values.append(count[nb_org]["cloud"])
+            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=persistent_values,name='Persistent', marker=dict(color = COLORS["persistent"])))
+            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=shell_values,name='Shell', marker=dict(color = COLORS["shell"])))
+            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=cloud_values,name='Cloud', marker=dict(color = COLORS["cloud"])))
 
-    #     tile_plot = Highchart(width = 1600, height = 1280)
+            # ushaped_plot.add_data_set(persistent_values,'column','Persistent', color = COLORS["persistent"])
+            # ushaped_plot.add_data_set(shell_values,'column','Shell', color = COLORS["shell"])
+            # ushaped_plot.add_data_set(cloud_values,'column','Cloud', color = COLORS["cloud"])
 
-    #     binary_data = []
-    #     fam_order = []
-    #     cpt = 1
-    #     for node, data in self.neighbors_graph.nodes(data=True):
-    #         fam_order.append(node)
-    #         v = [[1,2,3] if org in data else [0,0,0] for org in self.organisms]
-    #         binary_data.append(v)
-    #         cpt+=1
-    #         if cpt>50:
-    #             break
-     
-    #     print(binary_data)
-    #     options_tile_plot={
-    #     'chart': {'type': 'heatmap', 'plotBorderWidth': 1},
-    #     'title': {'text':'Presence/Absence matrix'},
-    #     'xAxis': {'categories': fam_order},
-    #     'yAxis': {'categories': list(self.organisms)},
-    #     'colorAxis': {'min': 0, 'max': 1, 'minColor': '#FFFFFF', 'maxColor': '#7CB5EC'}
-    #     # ,
-    #     # 'legend', {'align': 'right', 'layout': 'vertical', 'margin': 0, 'verticalAlign': 'top', 'y': 25, 'symbolHeight': 280}   
-    #     }
-    #     print(options_tile_plot)
-    #     tile_plot.set_dict_options(options_tile_plot)
-    #     tile_plot.add_data_set(binary_data)
+        else:
+            undefined_values = []
+            for nb_org in range(1,self.nb_organisms+1):
+                undefined_values.append(count[nb_org]["undefined"])
+            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=undefined_values,name='Undefined', marker=dict(color = COLORS["undefined"])))
 
-    #     tile_plot.save_file(filename = outdir+"/tile_plot")
+            #ushaped_plot.add_data_set(cloud_values,'column','Undefined', color = COLORS["undefined"])
+
+
+        layout = go.Layout(
+            barmode='stack'
+        )
+
+        fig = go.Figure(data=data_plot, layout=layout)
+        out_plotly.plot(fig, filename = outdir+"/ushaped_plot.html", auto_open=False)
+
+    def tile_plot(self, outdir):
+        """
+            generate tile plot representation (not work for the moment)
+            :param outdir: a str containing the path of the output file
+            :type str: 
+        """ 
+
+        try:
+            import plotly.plotly as py
+            import plotly.offline as out_plotly
+            import plotly.graph_objs as go
+        except:
+             logging.getLogger().info("Please install plotly to use this tile_plot feature")
+             return(None)
+
+        binary_data = []
+        fam_order = []
+        cpt = 1
+        for node, data in self.neighbors_graph.nodes(data=True):
+            fam_order.append(node)
+            binary_data.append([1 if org in data else 0 for org in self.organisms])
+            cpt+=1
+            if cpt>1500:
+                break
+        binary_data = []
+        fam_order=[]
+        for org in self.organisms:
+            l = []
+            fam_order = []
+            for node, data in self.neighbors_graph.nodes(data=True):
+                fam_order.append(node)
+                if org in data:
+                    l.append(1)
+                else:
+                    l.append(0)
+            binary_data.append(l)
+        data_plot = go.Heatmap(z=binary_data,
+                               x=list(self.organisms),
+                               y=fam_order,
+                               colorscale=[[0, 'rgb(0, 0, 0)'],[0, 'rgb(1, 1, 1)']],
+                               colorbar={"tick0":0,"dtick":1})
+        out_plotly.plot([data_plot], filename = outdir+"/tile_plot.html", auto_open=False)
 
         ##########
 
