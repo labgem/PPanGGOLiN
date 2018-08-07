@@ -109,8 +109,9 @@ def standard_deviation(lst, population=True):
         variance = ssd / num_items
     else:
         variance = ssd / (num_items - 1)
-    sd = sqrt(variance)
+    sd = math.sqrt(variance)
 
+    return(sd)
 """insertion of element at the top of an OrderedDict (for compatibility with python 2.7)
 from : https://stackoverflow.com/questions/16664874/how-can-i-add-an-element-at-the-top-of-an-ordereddict-in-python/18326914
 """
