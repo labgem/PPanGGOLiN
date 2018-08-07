@@ -23,7 +23,7 @@ PPanGGOLiN can be easily installed via:
 
 	pip install ppanggolin
 
-GCC (>=3.0) will be required, as well as Python 3 and the following modules : "networkx(>=2.00)", "ordered-set", "numpy", "scipy", "tqdm" and "python-highcharts"
+GCC (>=3.0) will be required, as well as Python 3 and "cython". If there are not already installed the following packages will be automatically downloaded and installed :  'ordered-set', 'bidict', 'networkx >= 2.0' , 'tqdm', 'ascii_graph','plotly','scipy','numpy','pandas','fa2'
 
 Optionally, in order to draw illustrative plots, R will be required together with the following packages : ("ggplot2", "ggrepel(last version)",  "reshape2", "minpack.lm" and "data.table")
 
