@@ -134,32 +134,32 @@ class PPanGGOLiN:
             >>>pan = PPanGGOLiN("file", organisms, gene_families, remove_high_copy_number_families)
             >>>pan = PPanGGOLiN("args", annotations, organisms, circular_contig_size, families_repeted, directed, distance_CDS_fragments)# load direclty the main attributes
         """ 
-        self.directed                      = False
-        self.annotations                   = dict()
-        self.neighbors_graph               = None
-        self.untangled_neighbors_graph     = None
-        self.index                         = bidict()
-        self.organisms                     = OrderedSet()
-        self.nb_organisms                  = 0
-        self.circular_contig_size          = dict()
-        self.families_repeted_th           = 0
-        self.families_repeted              = set()
-        self.pan_size                      = 0
-        self.is_partitionned               = False
-        self.nem_intermediate_files        = None
-        self.partitions                    = {}
-        self.partitions["undefined"]       = list()
-        self.partitions["persistent"]      = list()
-        self.partitions["shell"]           = list()
-        self.partitions["cloud"]           = list()
-        self.partitions["core_exact"]      = list()
-        self.partitions["accessory"]       = list()
-        self.BIC                           = None # Bayesian Index Criterion
-        self.partitions_by_organism        = dict()
+        self.directed                       = False
+        self.annotations                    = dict()
+        self.neighbors_graph                = None
+        self.untangled_neighbors_graph      = None
+        self.index                          = bidict()
+        self.organisms                      = OrderedSet()
+        self.nb_organisms                   = 0
+        self.circular_contig_size           = dict()
+        self.families_repeted_th            = 0
+        self.families_repeted               = set()
+        self.pan_size                       = 0
+        self.is_partitionned                = False
+        self.nem_intermediate_files         = None
+        self.partitions                     = {}
+        self.partitions["undefined"]        = list()
+        self.partitions["persistent"]       = list()
+        self.partitions["shell"]            = list()
+        self.partitions["cloud"]            = list()
+        self.partitions["core_exact"]       = list()
+        self.partitions["accessory"]        = list()
+        self.BIC                            = None # Bayesian Index Criterion
+        self.partitions_by_organism         = dict()
         self.subpartitions_shell_parameters = {}
-        self.subpartition_shell            = {}
-        self.distance_CDS_fragments        = 0
-        self.gene_fragments                = {}
+        self.subpartition_shell             = {}
+        self.distance_CDS_fragments         = 0
+        self.CDS_fragments                  = {}
 
         if init_from == "file":
             self.__initialize_from_files(*args)
@@ -487,6 +487,17 @@ class PPanGGOLiN:
         except KeyError:
             graph[fam_id][fam_id_nei]["length"]=set([length])
 
+    def get_gene_info(self, gene):
+        """ return annotation info about a gene
+            :param gene: a gene identifier
+            :type str: 
+            :return: gene_info: a dict of info about the gene
+            :rtype: dict 
+        """ 
+        gene_index = self.index[gene]
+        info = self.annotations[gene_index[ORGANISM_INDEX]][gene_index[CONTIG_INDEX]][gene]
+        return(dict(zip(("ORGANISM","CONTIG","POSITION","TYPE", "FAMILY", "START", "END", "STRAND", "NAME", "PRODUCT"),list(gene_index)+info)))
+
     def __neighborhood_computation(self, update=False):#,light = False, 
         """ Use the information already loaded (annotation) to build the pangenome graph
             :param update: an optional list of organism to update a previous graph
@@ -525,7 +536,7 @@ class PPanGGOLiN:
                                 gene_info_start[PRODUCT])
                 self.index[gene_start]=(organism,contig,0)
 
-                family_id_nei, end_family_nei  = gene_info_start[FAMILY], gene_info_start[END]
+                gene_nei, gene_info_nei = gene_start, gene_info_start
                 logging.getLogger().debug(gene_info_start)
                 for pos, (gene, gene_info) in enumerate(contig_annot.items()):
                     logging.getLogger().debug(gene_info)
@@ -538,19 +549,34 @@ class PPanGGOLiN:
                                         gene_info[END]-gene_info[START],
                                         gene_info[PRODUCT])
                         self.index[gene]=(organism,contig,pos+1)
-                        self.neighbors_graph.add_node(family_id_nei)
-                        if not (gene_info[FAMILY] == family_id_nei and (gene_info[START] - end_family_nei) <= self.distance_CDS_fragments):# to avoid reflexive links with gene fragments
-                            self.__add_link(gene_info[FAMILY],family_id_nei,organism, gene_info[START] - end_family_nei)
+                        self.neighbors_graph.add_node(gene_info_nei[FAMILY])
+                        if not (gene_info[FAMILY] == gene_info_nei[FAMILY] and
+                                gene_info[STRAND] == gene_info_nei[STRAND] and
+                                (gene_info[START] - gene_info_nei[END]) <= self.distance_CDS_fragments):# to avoid reflexive links with gene fragments
+                            self.__add_link(gene_info[FAMILY],gene_info_nei[FAMILY],organism, gene_info[START] - gene_info_nei[END])
                         else:
-                            self.gene_fragments[gene]=gene_info[FAMILY]
-                        family_id_nei  = gene_info[FAMILY]
-                        end_family_nei = gene_info[END]
+                            print("here")
+                            print(gene)
+                            print(gene_info)
+                            print(gene_nei)
+                            print(gene_info_nei)
+                            self.CDS_fragments[gene]=gene_info[FAMILY]
+                            self.CDS_fragments[gene_nei]=gene_info[FAMILY]#or gene_info_nei[FAMILY]
+                        gene_nei, gene_info_nei = gene, gene_info
                 
                 if contig in self.circular_contig_size:#circularization
-                    if not (gene_info_start[FAMILY] == family_id_nei and ( (self.circular_contig_size[contig] - end_family_nei) + gene_info_start[START]) <= self.distance_CDS_fragments ):# to avoid reflexive links with gene fragments
-                        self.__add_link(gene_info_start[FAMILY],family_id_nei,organism, (self.circular_contig_size[contig] - end_family_nei) + gene_info_start[START])
+                    if not (gene_info_start[FAMILY] == gene_info_nei[FAMILY] and \
+                            gene_info_start[STRAND] == gene_info_nei[STRAND] and \
+                            (self.circular_contig_size[contig] - gene_info_nei[END] + gene_info_start[START]) <= self.distance_CDS_fragments):# to avoid reflexive links with gene fragments
+                        self.__add_link(gene_info_start[FAMILY],gene_info_nei[FAMILY],organism, (self.circular_contig_size[contig] - gene_info_nei[END]) + gene_info_start[START])
                     else:
-                        self.gene_fragments[gene]=gene_info[FAMILY]
+                        print("here2")
+                        print(gene_start)
+                        print(gene_info_start)
+                        print(gene_nei)
+                        print(gene_info_nei)
+                        self.CDS_fragments[gene]=gene_info[FAMILY]
+                        self.CDS_fragments[gene_nei]=gene_info[FAMILY]
                 if sys.version_info < (3,):
                     ordered_dict_prepend(contig_annot,gene_start,gene_info_start)#insert at the top
                 else:

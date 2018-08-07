@@ -35,7 +35,9 @@ USHAPE_PLOT_PREFIX          = "/Ushaped_plot"
 MATRIX_PLOT_PREFIX          = "/presence_absence_matrix_plot"
 EVOLUTION_CURVE_PREFIX      = "/evolution_curve"
 EVOLUTION_STATS_FILE_PREFIX = "/evol_stats"
+EVOLUTION_PARAM_FILE_PREFIX = "/evol_param"
 SUMMARY_STATS_FILE_PREFIX   = "/summary_stats"
+CDS_FRAGMENTS_FILE_PREFIX   = "/considered_as_CDS_fragments"
 SCRIPT_R_FIGURE             = "/generate_plots.R"
 
 def plot_Rscript(script_outfile, verbose=True):
@@ -109,8 +111,8 @@ library("ggrepel")
 library("data.table")
 library("minpack.lm")
 
-if (file.exists('"""+OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+""".txt')){
-    data <- read.csv('"""+OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+""".txt', header = TRUE)
+if (file.exists('"""+OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+""".csv')){
+    data <- read.csv('"""+OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+""".csv', header = TRUE)
     data <- melt(data, id = "nb_org")
     colnames(data) <- c("nb_org","partition","value")
 
@@ -329,9 +331,9 @@ def __main__():
     The family ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word.
     Gene IDs can be any string corresponding to the IDs of the CDS features in the gff files. They must be uniques and can't contain any spaces, quote, double quote, pipe and reserved words.
     """,  required=True)
-    parser.add_argument('-od', '--output_directory', type=str, nargs=1, default=["PPanGGOLiN_outputdir_PID"+str(os.getpid())+"_"+strftime("DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())], metavar=('OUTPUT_DIR'), help="""
+    parser.add_argument('-od', '--output_directory', type=str, nargs=1, default=["PPanGGOLiN_outputdir"+strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())+"_PID"+str(os.getpid())], metavar=('OUTPUT_DIR'), help="""
     Dir: The output directory""")
-    parser.add_argument('-td', '--temporary_directory', type=str, nargs=1, default=["/tmp/PPanGGOLiN_tempdir_PID"+str(os.getpid())+"_"+strftime("DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())], metavar=('TMP_DIR'), help="""
+    parser.add_argument('-td', '--temporary_directory', type=str, nargs=1, default=["/tmp/PPanGGOLiN_tempdir"+strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())+"_PID"+str(os.getpid())], metavar=('TMP_DIR'), help="""
     Dir: Temporary directory to store nem intermediate files""")
     parser.add_argument('-f', '--force', action="store_true", help="""
     Flag: Force overwriting existing output directory""")
@@ -396,8 +398,8 @@ def __main__():
     METADATA_FILE is a tab-delimitated file. The first line contains the names of the attributes and the following lines contain associated information for each organism (in the same order as in the ORGANISM_FILE).
     Metadata can't contain reserved word or exact organism name.
     """)
-    parser.add_argument("-dc", "--distance_CDS_fragments", type = int, nargs = 1, default = [5], metavar=('DISTANCE_CDS_FRAGMENTS'), help = """
-    Number: When several consecutive genes belonging to the same gene families separated by less or equals than DISTANCE_CDS_FRAGMENTS (in nucleotides) are found, there are considered as CDS fragments and then no reflexive links are generated between the associated gene families. Negative values are considered as overlapping CDS fragments.""")
+    parser.add_argument("-dc", "--distance_CDS_fragments", type = int, nargs = 1, default = [-5], metavar=('DISTANCE_CDS_FRAGMENTS'), help = """
+    Number: When several consecutive genes belonging to the same gene families separated by less or equals than DISTANCE_CDS_FRAGMENTS (in nucleotides) are found, there are considered as CDS fragments and then no reflexive links are generated between the associated gene families. Negative values are considered as overlapping CDS fragments (short gene overlapping seems to be frequent in bacteria https://doi.org/10.1186/1471-2164-15-721 ).""")
     parser.add_argument("-ss", "--subpartition_shell", default = 0, type=int, nargs=1, help = """
     Number: (in test) Subpartition the shell genome in k subpartitions, k can be detected automatically using k = -1, if k = 0 the partioning will used the first column of metadata to subpartition the shell""")
     parser.add_argument("-l", "--compute_layout", default = False, action="store_true", help = """
@@ -420,8 +422,8 @@ def __main__():
     global TMP_DIR
 
     
-    OUTPUTDIR       = options.output_directory[0]
-    TMP_DIR         = options.temporary_directory[0]
+    OUTPUTDIR = options.output_directory[0]
+    TMP_DIR   = options.temporary_directory[0]
 
     logging.getLogger().info("Output directory is: "+OUTPUTDIR)
     logging.getLogger().info("Temporary directory is: "+TMP_DIR)
@@ -466,7 +468,14 @@ def __main__():
                      #options.directed)
                      False)
 
-    
+    with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
+        CDS_fragments_file.write("CDS_fragment,CDS_fragment_length,corresponding_gene_family,gene_family_median_length,\n")
+        for gene, family in pan.CDS_fragments.items():
+            info = pan.get_gene_info(gene)
+            CDS_fragments_file.write(",".join([gene,
+                                               str(info["END"]-info["START"]),
+                                               family,
+                                               str(median(pan.neighbors_graph.node[family]["length"]))])+"\n")
 
     # # if options.update is not None:
     # #     pan.import_from_GEXF(options.update[0])
@@ -552,7 +561,6 @@ def __main__():
     if options.compute_layout:
         pan.compute_layout()#multiThreaded=options.cpu[0])
 
-    #pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     logging.getLogger().info("Writing GEXF file")
 
 
@@ -576,7 +584,7 @@ def __main__():
     end_writing_output_file = time()
 
     pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR)
-    pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
+    #pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     del pan.annotations # no more required for the following process
 
     # print(pan.partitions_by_organisms)
@@ -619,7 +627,7 @@ def __main__():
         shuffle(shuffled_comb)
 
         global evol
-        evol =  open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".txt","w")
+        evol =  open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv","w")
 
         evol.write(",".join(["nb_org","persistent","shell","cloud","core_exact","accessory","pangenome"])+"\n")
         evol.write(",".join([str(pan.nb_organisms),    
@@ -652,7 +660,9 @@ def __main__():
 
             annotations=[]
             traces = []
-            data_evol = pandas.read_csv("evol_stats.txt",index_col=False).dropna()
+            data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False).dropna()
+            params_file = open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_PARAM_FILE_PREFIX+".csv","w")
+            params_file.write("partition,kappa,gamma,epsilon_kappa,epsilon_gamma\n")
             for partition in ["persistent","shell","cloud","accessory","core_exact","pangenome"]:
                 half_stds = pandas.Series({i:numpy.std(data_evol[data_evol["nb_org"]==i][partition])/2 for i in range(1,203+1)}).dropna()
                 mins = pandas.Series({i:numpy.min(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,203+1)}).dropna()
@@ -661,6 +671,8 @@ def __main__():
                 initial_kappa_gamma = numpy.array([0.0, 0.0])
                 res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
                 kappa, gamma = res[0]
+                error_k,error_o = numpy.sqrt(numpy.diag(res[1]))
+                params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_o)]))
                 
                 annotations.append(dict(x=pan.nb_organisms,
                                         y=heap_law(pan.nb_organisms,kappa, gamma),
@@ -712,15 +724,13 @@ def __main__():
                                                     dash = 'dash')))
             layout = go.Layout(
                 title = "Evolution curve ",
-                titlefont = dict(
-                    size = 10
-                ),
+                titlefont = dict(size = 10),
                 xaxis = dict(title='size of genome subsets (N)'),
                 yaxis = dict(title='# of gene families (F)'),
                 annotations=annotations)
             fig = go.Figure(data=traces, layout=layout)
-            out_plotly.plot(fig, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/evolution.html", auto_open=False)
-
+            out_plotly.plot(fig, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/"+EVOLUTION_CURVE_PREFIX+".html", auto_open=False)
+            params_file.close()
         except ImportError as e:
              logging.getLogger().info("Please install plotly, numpy and scipy to draw the evolution curve using plot.ly")
 
