@@ -348,8 +348,8 @@ def __main__():
     parser.add_argument("-u", "--untangle", type=int, default = 0, nargs=1, help="""
     Flag: (in test) max size of the untangled paths to be untangled""")
     parser.add_argument("-b", "--beta_smoothing", default = [float("0.5")], type=float, nargs=1, metavar=('BETA_VALUE'), help = """
-    Positive Number: This option determines the strength of the smoothing (:math:beta) of the partitions based on the graph topology (using a Markov Random Field). 
-    b must be a positive float, b = 0.0 means to discard spatial smoothing and 1.00 means strong smoothing (can be more but it is not advised).
+    Positive Number: This option determines the strength of the smoothing (:math:beta) of the partitioning based on the graph topology (using a Markov Random Field). 
+    b must be a positive float, b = 0.0 means to discard spatial smoothing and 1.00 means strong smoothing (can be above 1.00 but it is not advised).
     0.5 is generally advised as a good trade off.
     """)
     parser.add_argument("-fd", "--free_dispersion", default = False, action="store_true", help = """
@@ -375,7 +375,7 @@ def __main__():
     parser.add_argument("-e", "--evolution", default=False, action="store_true", help="""
     Flag: Partition the pangenome using multiple subsamples of a croissant number of organisms in order to obtain a curve of the evolution of the pangenome metrics
     """)
-    parser.add_argument("-ep", "--evolution_resampling_param", nargs=5, default=[0.1,10,30,1,float("Inf")], metavar=('RESAMPLING_RATIO','MINIMUM_RESAMPLING','MAXIMUM_RESAMPLING','STEP','LIMIT'), help="""
+    parser.add_argument("-ep", "--evolution_resampling_param", nargs=5, default=[0.1,10,10,1,float("Inf")], metavar=('RESAMPLING_RATIO','MINIMUM_RESAMPLING','MAXIMUM_RESAMPLING','STEP','LIMIT'), help="""
     5 Positive Numbers (or Inf for the last one):
     1st argument is the resampling ratio (FLOAT)
     2st argument is the minimum number of resampling for each number of organisms (INTEGER)
@@ -662,7 +662,7 @@ def __main__():
             traces = []
             data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False).dropna()
             params_file = open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_PARAM_FILE_PREFIX+".csv","w")
-            params_file.write("partition,kappa,gamma,epsilon_kappa,epsilon_gamma\n")
+            params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error\n")
             for partition in ["persistent","shell","cloud","accessory","core_exact","pangenome"]:
                 half_stds = pandas.Series({i:numpy.std(data_evol[data_evol["nb_org"]==i][partition])/2 for i in range(1,203+1)}).dropna()
                 mins = pandas.Series({i:numpy.min(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,203+1)}).dropna()
@@ -671,8 +671,8 @@ def __main__():
                 initial_kappa_gamma = numpy.array([0.0, 0.0])
                 res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
                 kappa, gamma = res[0]
-                error_k,error_o = numpy.sqrt(numpy.diag(res[1]))
-                params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_o)]))
+                error_k,error_o = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
+                params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_o)])+"\n")
                 
                 annotations.append(dict(x=pan.nb_organisms,
                                         y=heap_law(pan.nb_organisms,kappa, gamma),
