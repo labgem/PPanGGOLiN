@@ -15,12 +15,15 @@ import tempfile
 from tqdm import tqdm
 from random import sample
 from multiprocessing import Pool, Semaphore
-from highcharts import Highchart
 import contextlib
 from nem import *
 from .utils import *
 import pdb
 from fa2 import ForceAtlas2
+import plotly.plotly as py
+import plotly.offline as out_plotly
+import plotly.graph_objs as go
+from ascii_graph import Pyasciigraph
 
 (TYPE, FAMILY, START, END, STRAND, NAME, PRODUCT) = range(0, 7)#data index in annotation
 (ORGANISM_INDEX,CONTIG_INDEX,POSITION_INDEX) = range(0, 3)#index
@@ -28,10 +31,10 @@ from fa2 import ForceAtlas2
 (GFF_seqname, GFF_source, GFF_feature, GFF_start, GFF_end, GFF_score, GFF_strand, GFF_frame, GFF_attribute) = range(0,9) 
 (MU,EPSILON,PROPORTION) = range(0, 3)
 (FAMILIES_PARTITION,PARTITION_PARAMETERS) = range(0, 2)
-RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz"])
-SHORT_TO_LONG = {'A':'accessory','CE':'core_exact','P':'persistent','S':'shell','C':'cloud','U':'undefined'}
-COLORS = {"pangenome":"black", "accessory":"#EB37ED", "core_exact" :"#FF2828", "shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
-COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "core_exact" :{'r': 255, 'g': 40, 'b': 40, 'a': 0}, "shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
+RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz"])
+SHORT_TO_LONG = {'EA':'exact_accessory','EC':'exact_core','SA':'soft_accessory','SC':'soft_core','P':'persistent','S':'shell','C':'cloud','U':'undefined'}
+COLORS = {"pangenome":"black", "exact_accessory":"#EB37ED", "exact_core" :"#FF2828", "soft_core":"#e6e600", "soft_accessory":"#996633","shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
+COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "exact_accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "exact_core" :{'r': 255, 'g': 40, 'b': 40, 'a': 0},  "soft_core":{'r': 255, 'g': 255, 'b': 0, 'a': 0}, "soft_accessory": {'r': 153, 'g': 102, 'b': 51, 'a': 0},"shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
 
 """
     :mod:`ppanggolin` -- Depict microbial diversity
@@ -110,8 +113,10 @@ class PPanGGOLiN:
             .. attribute:: partitions
 
                 a dict providing the families present in each partion:
-                    * partitions["core_exact"] contains the list of core families (core exact)
-                    * partitions["accessory"] contains the list of families not in the core exact
+                    * partitions["exact_core"] contains the list of core families (exact core)
+                    * partitions["exact_accessory"] contains the list of families not in the exact core 
+                    * partitions["soft_core"] contains the list of soft core families (core exact)
+                    * partitions["soft_accessory"] contains the list of families not in the soft core
                     * partitions["persistent"] contains the list of persistent families
                     * partitions["shell"] contains the list of shell families
                     * partitions["cloud"] contains the list of cloud families
@@ -121,6 +126,10 @@ class PPanGGOLiN:
 
                 a float providing the Bayesian Information Criterion. This Criterion give an estimation of the quality of the partionning (a low value means a good one)
                 . seealso:: https://en.wikipedia.org/wiki/Bayesian_information_criterion
+
+            .. attribute:: soft_core_th
+
+                a float between 0 and 1 providing the threshold ratio of presence to attribute a gene families to the soft core genome
     """ 
     def __init__(self, init_from = "args", *args):
         """ 
@@ -148,19 +157,15 @@ class PPanGGOLiN:
         self.is_partitionned                = False
         self.nem_intermediate_files         = None
         self.partitions                     = {}
-        self.partitions["undefined"]        = list()
-        self.partitions["persistent"]       = list()
-        self.partitions["shell"]            = list()
-        self.partitions["cloud"]            = list()
-        self.partitions["core_exact"]       = list()
-        self.partitions["accessory"]        = list()
+        for p in SHORT_TO_LONG.values():
+            self.partitions[p]              = list()
         self.BIC                            = None # Bayesian Index Criterion
         self.partitions_by_organism         = dict()
         self.subpartitions_shell_parameters = {}
         self.subpartition_shell             = {}
         self.distance_CDS_fragments         = 0
         self.CDS_fragments                  = {}
-
+        self.soft_core_th                   = None
         if init_from == "file":
             self.__initialize_from_files(*args)
         elif init_from == "args":
@@ -325,26 +330,23 @@ class PPanGGOLiN:
         """ Return an overview of the statistics of the pangenome as a formated string """ 
 
         def str_histogram(title, values, force_max_value=25):
-            try:
-                from ascii_graph import Pyasciigraph
-                ret = "\n".join([l for l in Pyasciigraph(force_max_value=force_max_value).graph(str(title), [("degree "+str(i),v) for i, v in enumerate(values[:force_max_value+1])])])
-                if len(values) > force_max_value:
-                    ret+="\n"
-                    ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
-                return(ret)
-            except ImportError:
-                return(title+str(values))
+            ret = "\n".join([l for l in Pyasciigraph(force_max_value=force_max_value).graph(str(title), [("degree "+str(i),v) for i, v in enumerate(values[:force_max_value+1])])])
+            if len(values) > force_max_value:
+                ret+="\n"
+                ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
+            return(ret)
 
         pan_str ="\n"
         pan_str += "----------- Statistics -----------\n"
         pan_str += "Number of organisms: "+str(self.nb_organisms)+"\n"
         pan_str += "Pangenome size:"+str(self.pan_size)+"\n"
-        pan_str += "Number of edges in the pangenome graph: "+str(nx.number_of_edges(self.neighbors_graph))+"\n"
-        pan_str += str_histogram("Degree distribution of the pangenome graph: ",nx.degree_histogram(self.neighbors_graph))+"\n"
         pan_str += "\n"
         if self.is_partitionned:
-            pan_str += "Exact core genome size:"+str(len(self.partitions["core_exact"]))+"\n"
-            pan_str += "Exact accessory genome size:"+str(len(self.partitions["accessory"]))+"\n"
+            pan_str += "Exact core genome size:"+str(len(self.partitions["exact_core"]))+"\n"
+            pan_str += "Exact accessory genome size:"+str(len(self.partitions["exact_accessory"]))+"\n"
+            pan_str += "\n"
+            pan_str += "Soft core (>="+str(self.soft_core_th*100)+"%) genome size:"+str(len(self.partitions["soft_core"]))+"\n"
+            pan_str += "Soft accessory (<"+str(self.soft_core_th*100)+"%) genome size:"+str(len(self.partitions["soft_accessory"]))+"\n"
             pan_str += "\n"
             pan_str += "Persistent genome size:"+str(len(self.partitions["persistent"]))+"\n"
             pan_str += "Shell genome size:"+str(len(self.partitions["shell"]))+"\n"
@@ -352,8 +354,8 @@ class PPanGGOLiN:
             pan_str += "\n"
             pan_str += "Gene families with undefined partition:"+str(len(self.partitions["undefined"]))+"\n"
             # pan_str += "\n"
-            # pan_str += str_histogram("Degree distribution of the core genome partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["core_exact"])))+"\n"
-            # pan_str += str_histogram("Degree distribution of the accessory genome partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["shell"])))+"\n"
+            # pan_str += str_histogram("Degree distribution of the core genome partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["exact_core"])))+"\n"
+            # pan_str += str_histogram("Degree distribution of the exact_accessory genome partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["shell"])))+"\n"
             # pan_str += "\n"
             # pan_str += str_histogram("Degree distribution of the persistent partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["persistent"])))+"\n"
             # pan_str += str_histogram("Degree distribution of the shell partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["shell"])))+"\n"
@@ -362,6 +364,10 @@ class PPanGGOLiN:
         else:
             pan_str += "No partitioning have been performed on this PPanGGOLiN instance\n"
             pan_str += "Run the partition() method to obtain more detailled statistics...\n"
+            pan_str += "\n"
+        pan_str += "Number of edges in the pangenome graph: "+str(nx.number_of_edges(self.neighbors_graph))+"\n"
+        pan_str += str_histogram("Degree distribution of the pangenome graph: ",nx.degree_histogram(self.neighbors_graph))+"\n"
+        pan_str += "\n"
         pan_str += "----------------------------------"
 
         return(pan_str)
@@ -374,14 +380,10 @@ class PPanGGOLiN:
         self.circular_contig_size.update(new_circular_contig_size)
         self.families_repeted = self.families_repeted + new_families_repeted
         self.delete_nem_intermediate_files()
-        self.partitions                = {}
-        self.partitions["undefined"]   = list()
-        self.partitions["persistent"]  = list()
-        self.partitions["shell"]       = list()
-        self.partitions["cloud"]       = list()
-        self.partitions["core_exact"]  = list()
-        self.partitions["accessory"]   = list()
-        self.BIC                       = None 
+        self.partitions                    = {}
+        for p in SHORT_TO_LONG.values():
+            self.partitions[p] = list()
+        self.BIC                           = None 
         self.__neighborhood_computation(update=new_orgs)
 
     def __repr__(self):
@@ -396,23 +398,19 @@ class PPanGGOLiN:
         """ add a pangenome to this pangenome (reset the partionning) """
 
         self.annotations.update(another_pan.annotations)
-        self.neighbors_graph          = None
-        self.organisms                = self.organisms.union(another_pan.organisms)
-        self.nb_organisms             = len(self.organisms)
-        self.circular_contig_size     = self.circular_contig_size.update(another_pan.circular_contig_size)
-        self.families_repeted         = self.families_repeted.union(another_pan.families_repeted)
-        self.pan_size                 = 0
-        self.is_partitionned          = False
+        self.neighbors_graph               = None
+        self.organisms                     = self.organisms.union(another_pan.organisms)
+        self.nb_organisms                  = len(self.organisms)
+        self.circular_contig_size          = self.circular_contig_size.update(another_pan.circular_contig_size)
+        self.families_repeted              = self.families_repeted.union(another_pan.families_repeted)
+        self.pan_size                      = 0
+        self.is_partitionned               = False
+        self.partitions                    = {}
+        for p in SHORT_TO_LONG.values():
+            self.partitions[p] = list()
+        self.BIC                           = None
+        
         self.delete_nem_intermediate_files()
-        self.partitions               = {}
-        self.partitions["undefined"]  = list()
-        self.partitions["persistent"] = list()
-        self.partitions["shell"]      = list()
-        self.partitions["cloud"]      = list()
-        self.partitions["core_exact"] = list()
-        self.partitions["accessory"]  = list()
-        self.BIC                      = None
-
         self.__neighborhood_computation()
 
         return(self)
@@ -511,7 +509,6 @@ class PPanGGOLiN:
                 self.neighbors_graph = nx.DiGraph()
             else:
                 self.neighbors_graph = nx.Graph()
-
         if update:
             orgs = update
         else:
@@ -555,11 +552,6 @@ class PPanGGOLiN:
                                 (gene_info[START] - gene_info_nei[END]) <= self.distance_CDS_fragments):# to avoid reflexive links with gene fragments
                             self.__add_link(gene_info[FAMILY],gene_info_nei[FAMILY],organism, gene_info[START] - gene_info_nei[END])
                         else:
-                            print("here")
-                            print(gene)
-                            print(gene_info)
-                            print(gene_nei)
-                            print(gene_info_nei)
                             self.CDS_fragments[gene]=gene_info[FAMILY]
                             self.CDS_fragments[gene_nei]=gene_info[FAMILY]#or gene_info_nei[FAMILY]
                         gene_nei, gene_info_nei = gene, gene_info
@@ -570,11 +562,6 @@ class PPanGGOLiN:
                             (self.circular_contig_size[contig] - gene_info_nei[END] + gene_info_start[START]) <= self.distance_CDS_fragments):# to avoid reflexive links with gene fragments
                         self.__add_link(gene_info_start[FAMILY],gene_info_nei[FAMILY],organism, (self.circular_contig_size[contig] - gene_info_nei[END]) + gene_info_start[START])
                     else:
-                        print("here2")
-                        print(gene_start)
-                        print(gene_info_start)
-                        print(gene_nei)
-                        print(gene_info_nei)
                         self.CDS_fragments[gene]=gene_info[FAMILY]
                         self.CDS_fragments[gene_nei]=gene_info[FAMILY]
                 if sys.version_info < (3,):
@@ -584,7 +571,6 @@ class PPanGGOLiN:
                     contig_annot.move_to_end(gene_start, last=False)#move to the beginning
             # if light:
             #     del self.annotations[organism]
-
         self.pan_size = nx.number_of_nodes(self.neighbors_graph)
 
     def untangle_neighbors_graph(self, K = 3):
@@ -766,12 +752,8 @@ class PPanGGOLiN:
                 LILO_seed_paths = deque(extends_seeds(validated_seed_paths))
                 validated_seed_paths = set()
             #pdb.set_trace()
-            inc= 0
             with tqdm(total=len(LILO_seed_paths)) as pbar:
                 while LILO_seed_paths:
-                    inc+=1
-                    
-
                     seed_path = LILO_seed_paths.popleft()
                     pbar.update(1)
                     
@@ -790,7 +772,6 @@ class PPanGGOLiN:
                     tested_extremities=set()
                     neighbors = set()
                     set_seed_path = set(seed_path)
-                    
                     try :
                         #if nx.degree(self.untangled_neighbors_graph,seed_path[0])>2 and nx.degree(self.untangled_neighbors_graph,seed_path[k-1])>2:
                         for nei_left in self.untangled_neighbors_graph.neighbors(seed_path[0]):
@@ -909,9 +890,9 @@ class PPanGGOLiN:
                     never_in[variable][value].add(node_name)
         return ({"exclusively_in":exclusively_in,"never_in":never_in})
 
-    def __write_nem_input_files(self, nem_dir_path, organisms, init = "default", low_disp=0.1, filter_by_partition = None):
-        if len(organisms)<=10:# below 10 organisms a statistical computation do not make any sence
-            logging.getLogger().warning("The number of organisms is too low ("+str(len(organisms))+" organisms used) to partition the pangenome graph in persistent, shell and cloud genome. Add new organisms to obtain more robust metrics.")
+    def __write_nem_input_files(self, nem_dir_path, select_organisms, init = "default", low_disp=0.1, filter_by_partition = None):
+        if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sence
+            logging.getLogger().warning("The number of selected organisms is too low ("+str(len(select_organisms))+" organisms used) to partition the pangenome graph in persistent, shell and cloud genome. Add new organisms to obtain more robust metrics.")
 
         if not os.path.exists(nem_dir_path):
             #NEM requires 5 files: nem_file.index, nem_file.str, nem_file.dat, nem_file.m and nem_file.nei
@@ -927,7 +908,7 @@ class PPanGGOLiN:
 
             nei_file.write("1\n")
             
-            org_file.write(" ".join(["\""+org+"\"" for org in organisms])+"\n")
+            org_file.write(" ".join(["\""+org+"\"" for org in select_organisms])+"\n")
             org_file.close()
 
             index_fam = OrderedDict()
@@ -935,10 +916,10 @@ class PPanGGOLiN:
                 if filter_by_partition is not None and "partition" in node_organisms and node_organisms["partition"] != filter_by_partition:
                     continue
                 logging.getLogger().debug(node_organisms)
-                logging.getLogger().debug(organisms)
+                logging.getLogger().debug(select_organisms)
                 
-                if not organisms.isdisjoint(node_organisms): # if at least one commun organism
-                    dat_file.write("\t".join(["1" if org in node_organisms else "0" for org in organisms])+"\n")
+                if not select_organisms.isdisjoint(node_organisms): # if at least one commun organism
+                    dat_file.write("\t".join(["1" if org in node_organisms else "0" for org in select_organisms])+"\n")
                     index_fam[node_name] = len(index_fam)+1
                     index_file.write(str(len(index_fam))+"\t"+str(node_name)+"\n")
             for node_name, index in index_fam.items():
@@ -953,20 +934,20 @@ class PPanGGOLiN:
                         if self.neighbors_graph.is_directed():
                             cov_sens, cov_antisens = (0,0)
                             try:
-                                cov_sens = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in organisms) and (org not in RESERVED_WORDS))])
+                                cov_sens = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
                             except KeyError:
                                 pass
                             try:
-                                cov_antisens = sum([pre_abs for org, pre_abs in self.neighbors_graph[neighbor][node_name].items() if ((org in organisms) and (org not in RESERVED_WORDS))])
+                                cov_antisens = sum([pre_abs for org, pre_abs in self.neighbors_graph[neighbor][node_name].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
                             except KeyError:
                                 pass
                             coverage = cov_sens + cov_antisens
                         else:
-                            coverage = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in organisms) and (org not in RESERVED_WORDS))])
+                            coverage = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
 
                         if coverage==0:
                             continue
-                        distance_score = coverage#/len(organisms)
+                        distance_score = coverage#/len(select_organisms)
                         row_fam.append(str(index_fam[neighbor]))
                         row_dist_score.append(str(round(distance_score,4)))
                         neighbor_number += 1
@@ -984,12 +965,12 @@ class PPanGGOLiN:
                 m_file.write("1 ")# 1 to initialize parameter,
                 if init == "default":
                     m_file.write("0.33333 0.33333 ")# 0.333 and 0.333 for to give one third of initial proportition to each class (last 0.33 is automaticaly determined by substraction)
-                    m_file.write(" ".join(["1"]*len(organisms))+" ") # persistent binary vector
-                    m_file.write(" ".join(["0.5"]*len(organisms))+" ") # shell binary vector (1 ou 0, whatever because dispersion will be of 0.5)
-                    m_file.write(" ".join(["0"]*len(organisms))+" ") # cloud binary vector
-                    m_file.write(" ".join([str(low_disp)]*len(organisms))+" ") # persistent dispersition vector (low)
-                    m_file.write(" ".join(["0.5"]*len(organisms))+" ") # shell dispersition vector (high)
-                    m_file.write(" ".join([str(low_disp)]*len(organisms))) # cloud dispersition vector (low)
+                    m_file.write(" ".join(["1"]*len(select_organisms))+" ") # persistent binary vector
+                    m_file.write(" ".join(["0.5"]*len(select_organisms))+" ") # shell binary vector (1 ou 0, whatever because dispersion will be of 0.5)
+                    m_file.write(" ".join(["0"]*len(select_organisms))+" ") # cloud binary vector
+                    m_file.write(" ".join([str(low_disp)]*len(select_organisms))+" ") # persistent dispersition vector (low)
+                    m_file.write(" ".join(["0.5"]*len(select_organisms))+" ") # shell dispersition vector (high)
+                    m_file.write(" ".join([str(low_disp)]*len(select_organisms))) # cloud dispersition vector (low)
                 elif isinstance(init,dict):
                     all_orgs_in_groups = set([org for orgs in init.values() for org in orgs])
                     (a,b,c)=(0,0,0)
@@ -999,65 +980,72 @@ class PPanGGOLiN:
 
                     for org_groups in init.values():
                         b+=1
-                        m_file.write(" ".join(["1" if org in org_groups else "0" if org in all_orgs_in_groups else "0.5" for org in organisms])+" ")
-                    m_file.write(" ".join(["0.5"]*len(organisms))+" ")
+                        m_file.write(" ".join(["1" if org in org_groups else "0" if org in all_orgs_in_groups else "0.5" for org in select_organisms])+" ")
+                    m_file.write(" ".join(["0.5"]*len(select_organisms))+" ")
                     for org_groups in init.values():
                         c+=1
-                        m_file.write(" ".join([str(low_disp) if org in org_groups else str(low_disp) if org in all_orgs_in_groups else "0.5" for org in organisms])+" ")
-                    m_file.write(" ".join(["0.5"]*len(organisms)))
+                        m_file.write(" ".join([str(low_disp) if org in org_groups else str(low_disp) if org in all_orgs_in_groups else "0.5" for org in select_organisms])+" ")
+                    m_file.write(" ".join(["0.5"]*len(select_organisms)))
 
                     print("a="+str(a)+"    b="+str(b)+"      c"+str(c))
                 elif isinstance(init,list):
                     m_file.write("0.33333 0.33333 ")
                     (positive,negative) = init
-                    m_file.write(" ".join(["1" if org in positive else "0" if org in negative else "0.5" for org in organisms])+" ")
-                    m_file.write(" ".join(["0" if org in positive else "1" if org in negative else "0.5" for org in organisms])+" ")
-                    m_file.write(" ".join(["0.5"]*len(organisms))+" ")
-                    m_file.write(" ".join([str(low_disp) if org in positive else str(low_disp) if org in negative else "0.5" for org in organisms])+" ")
-                    m_file.write(" ".join([str(low_disp) if org in positive else str(low_disp) if org in negative else "0.5" for org in organisms])+" ")
-                    m_file.write(" ".join(["0.5"]*len(organisms)))
+                    m_file.write(" ".join(["1" if org in positive else "0" if org in negative else "0.5" for org in select_organisms])+" ")
+                    m_file.write(" ".join(["0" if org in positive else "1" if org in negative else "0.5" for org in select_organisms])+" ")
+                    m_file.write(" ".join(["0.5"]*len(select_organisms))+" ")
+                    m_file.write(" ".join([str(low_disp) if org in positive else str(low_disp) if org in negative else "0.5" for org in select_organisms])+" ")
+                    m_file.write(" ".join([str(low_disp) if org in positive else str(low_disp) if org in negative else "0.5" for org in select_organisms])+" ")
+                    m_file.write(" ".join(["0.5"]*len(select_organisms)))
 
             str_file.write("S\t"+str(len(index_fam))+"\t"+
-                                 str(len(organisms))+"\n")
+                                 str(len(select_organisms))+"\n")
 
-    def partition(self, nem_dir_path    = tempfile.mkdtemp(),
-                        organisms       = None,
-                        beta            = 0.5,
-                        free_dispersion = False,
-                        chunck_size     = 500,
-                        inplace         = True,
-                        just_stats      = False,
-                        nb_threads      = 1):
+    def partition(self, nem_dir_path     = tempfile.mkdtemp(),
+                        select_organisms = None,
+                        beta             = 0.5,
+                        free_dispersion  = False,
+                        chunck_size      = 500,
+                        soft_core_th     = 0.95,
+                        inplace          = True,
+                        just_stats       = False,
+                        nb_threads       = 1):
         """
             Use the graph topology and the presence or absence of genes from each organism into families to partition the pangenome in three groups ('persistent', 'shell' and 'cloud')
             . seealso:: Read the Mo Dang's thesis to understand NEM, a summary is available here : http://www.kybernetika.cz/content/1998/4/393/paper.pdf
             :param nem_dir_path: a str containing a path to store temporary file of the NEM program
-            :param organisms: a list of organism to used to obtain the partition (must be included in the organism attributes of the object) or None to used all organisms in the object
+            :param select_organisms: a list of organism to used to obtain the partition (must be included in the organism attributes of the object) or None to used all organisms in the object
             :param beta: a float containing the spatial coefficient of smoothing of the clustering results using the weighted graph topology (0.00 turn off the spatial clustering)
             :param free_dispersion: a bool specyfing if the dispersion around the centroid vector of each paritition is the same for all the organisms or if the dispersion is free
             :param chunck_size: an int specifying the size of the chunks
+            :param soft_core_th a float between 0 and 1 providing the threshold ratio of presence to attribute a gene families to the soft core genome
             :param inplace: a boolean specifying if the partition must be stored in the object of returned (throw an error if inplace is true and organisms parameter i not None)
             :param just_stats: a boolean specifying if the partitions must be returned or just stats about them (number of families in each partition)
             :param nb_threads: an integer specifying the number of threads to use (works only if the number of organisms is higher than the chunck_size)
             :type str: 
             :type list: 
             :type float: 
-            :type bool: 
+            :type bool:
+            :type float
             :type int: 
             :type bool: 
             :type bool: 
             :type int: 
         """ 
         
-        if organisms is None:
-            organisms = self.organisms
+        if select_organisms is None:
+            select_organisms = self.organisms
         else:
-            organisms = OrderedSet(organisms)
-            if len(organisms - self.organisms)>0:
-                raise Exception("organisms parameter must be included in the organisms attribute of the objet")
+            select_organisms = OrderedSet(select_organisms)
+            if len(select_organisms - self.organisms)>0:
+                raise Exception("select_organisms parameter must be included in the organisms attribute of the objet")
             if inplace:
-                raise Exception("inplace can't be true if the organisms parameter has not the same size than organisms attribute")
+                raise Exception("inplace can't be true if the select_organisms parameter has not the same size than organisms attribute")
 
+        if soft_core_th > 1 or soft_core_th < 0:
+            raise Exception("soft_core_th parameter must be a float between 0 and 1")
+        if inplace:
+            self.soft_core_th = soft_core_th
         # if self.neighbors_graph is None:
         #     raise Exception("The neighbors_graph is not built, please use the function neighborhood_computation before")
         if self.is_partitionned and inplace:
@@ -1068,22 +1056,30 @@ class PPanGGOLiN:
             self.nem_intermediate_files = nem_dir_path
 
         stats = defaultdict(int)
-        partitions = []
+        partitionning_results = {}
         
-        #core exact first
+        #core first
         families = []
         for node_name, data_organisms in self.neighbors_graph.nodes(data=True):
-            compressed_vector = set([True if org in data_organisms else False for org in organisms])
-            if len(compressed_vector)>1:
-                families.append(node_name)
-                stats["accessory"]+=1
-            elif True in compressed_vector:# if size = 1 and contains just True, then core_exact
-                families.append(node_name)
-                stats["core_exact"]+=1
+            families.append(node_name)
+            pres_abs_vector = [True if org in data_organisms else False for org in select_organisms]
+            
+            nb_true  = pres_abs_vector.count(True)
+            if nb_true == 0:
+                continue # family absent of the selected_organisms
 
+            if nb_true==len(select_organisms):
+                stats["exact_core"]+=1
+            else:
+                stats["exact_accessory"]+=1
+
+            if nb_true>=len(select_organisms)*soft_core_th:
+                stats["soft_core"]+=1
+            else:
+                stats["soft_accessory"]+=1
         BIC = 0
         
-        if len(organisms) > chunck_size:
+        if len(select_organisms) > chunck_size:
 
             cpt_partition = OrderedDict()
             for fam in families:
@@ -1099,7 +1095,7 @@ class PPanGGOLiN:
             cpt=0
 
             if inplace:
-                bar = tqdm(total = stats["accessory"]+stats["core_exact"], unit = "families partitionned")
+                bar = tqdm(total = stats["exact_accessory"]+stats["exact_core"], unit = "families partitionned")
 
             sem = Semaphore(nb_threads)
 
@@ -1111,12 +1107,12 @@ class PPanGGOLiN:
                     for node,nem_class in partitions[FAMILIES_PARTITION].items():
                         cpt_partition[node][nem_class]+=1
                         sum_partionning = sum(cpt_partition[node].values())
-                        if (sum_partionning > len(organisms)/chunck_size and max(cpt_partition[node].values()) >= sum_partionning*0.5) or (sum_partionning > len(organisms)):
+                        if (sum_partionning > len(select_organisms)/chunck_size and max(cpt_partition[node].values()) >= sum_partionning*0.5) or (sum_partionning > len(select_organisms)):
                             if node not in validated:
                                 if inplace:
                                     bar.update()
                                 if max(cpt_partition[node].values()) < sum_partionning*0.5:
-                                    cpt_partition[node]["U"] = sys.maxsize #if despite len(organisms) partionning, the abosolute majority is found, then the families is set to undefined 
+                                    cpt_partition[node]["U"] = sys.maxsize #if despite len(select_organisms) partionning, the abosolute majority is found, then the families is set to undefined 
                                 validated.add(node)
                                 # if max(cpt_partition[node], key=cpt_partition[node].get) == "P" and cpt_partition[node]["S"]==0 and cpt_partition[node]["C"]==0:
                                         #     validated[node]="P"
@@ -1129,13 +1125,13 @@ class PPanGGOLiN:
 
             with contextlib.closing(Pool(processes = nb_threads)) if nb_threads>1 else empty_cm() as pool:
             
-                #proba_sample = OrderedDict(zip(organisms,[len(organisms)]*len(organisms)))
+                #proba_sample = OrderedDict(zip(select_organisms,[len(select_organisms)]*len(select_organisms)))
 
-                pan_size = stats["accessory"]+stats["core_exact"]
+                pan_size = stats["exact_accessory"]+stats["exact_core"]
                 
                 while len(validated)<pan_size:
                     if sem.acquire() if nb_threads>1 else True:#
-                        # print(organisms)
+                        # print(select_organisms)
                         # print(chunck_size)
                         # print(proba_sample.values())
                         # print(len(proba_sample.values()))
@@ -1143,21 +1139,21 @@ class PPanGGOLiN:
                         # max_o = max(proba_sample.values()) 
                         # range_o = max_o-min_o
                         # if min_o != max_o:
-                        #     p = [(p-min_o/range_o)/len(organisms) for p in proba_sample.values()]
+                        #     p = [(p-min_o/range_o)/len(select_organisms) for p in proba_sample.values()]
                         # else:
                         #     p = list(proba_sample.values())
                         # print(p)
                         #s = sum(proba_sample.values())
                         
-                        #orgs = np.random.choice(organisms, size = chunck_size, replace = False, p = [p/s for p in proba_sample.values()])#
-                        orgs = sample(organisms,chunck_size)
+                        #orgs = np.random.choice(select_organisms, size = chunck_size, replace = False, p = [p/s for p in proba_sample.values()])#
+                        orgs = sample(select_organisms,chunck_size)
                         orgs = OrderedSet(orgs)
 
                         # for org, p in proba_sample.items():
                         #     if org in orgs:
-                        #         proba_sample[org] = p - len(organisms)/chunck_size if p >1 else 1
+                        #         proba_sample[org] = p - len(select_organisms)/chunck_size if p >1 else 1
                         #     else:
-                        #         proba_sample[org] = p + len(organisms)/chunck_size
+                        #         proba_sample[org] = p + len(select_organisms)/chunck_size
 
                         index = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",
                                                              orgs)
@@ -1186,14 +1182,12 @@ class PPanGGOLiN:
                     pool.join() 
                 #BIC = total_BIC/cpt
                 BIC = 0
-            partitions = dict()
-
             # if just_stats:
             #     print('len(validated)= '+str(len(validated)))
             #     print('len(cpt_partition)= '+str(len(cpt_partition)))
 
             for fam, data in cpt_partition.items():
-                partitions[fam]=max(data, key=data.get)
+                partitionning_results[fam]=max(data, key=data.get)
 
             # if just_stats:
             #     print("stat")
@@ -1206,21 +1200,21 @@ class PPanGGOLiN:
             #     print('total '+str(c["P"]+c["S"]+c["C"]+c["U"]))
 
 
-            #     print('stats["accessory"] '+str(stats["accessory"]))
-            #     print('stats["core_exact"] '+str(stats["core_exact"]))
-            #     print('total '+str(stats["accessory"]+stats["core_exact"]))
+            #     print('stats["exact_accessory"] '+str(stats["exact_accessory"]))
+            #     print('stats["exact_core"] '+str(stats["exact_core"]))
+            #     print('total '+str(stats["exact_accessory"]+stats["exact_core"]))
             #     print(' ')
         else:
             self.__write_nem_input_files(nem_dir_path+"/",
-                                         organisms)
-            partitions = run_partitioning(nem_dir_path, len(organisms), beta, free_dispersion)[FAMILIES_PARTITION]
+                                         select_organisms)
+            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta, free_dispersion)[FAMILIES_PARTITION]
             
         if inplace:
             self.BIC = BIC
             if self.is_partitionned:
                 for p in SHORT_TO_LONG.values():
                     self.partitions[p] = list()# erase older values
-            for node, nem_class in partitions.items():
+            for node, nem_class in partitionning_results.items():
                 nb_orgs=0
                 for key in list(self.neighbors_graph.node[node].keys()):
                     if key not in RESERVED_WORDS:
@@ -1232,14 +1226,25 @@ class PPanGGOLiN:
                 self.partitions[SHORT_TO_LONG[nem_class]].append(node)
 
                 if nb_orgs == self.nb_organisms:
-                    self.partitions["core_exact"].append(node)#CORE EXACT
-                    self.neighbors_graph.node[node]["partition_exact"]="core_exact"
+                    self.partitions["exact_core"].append(node)#EXACT CORE
+                    self.neighbors_graph.node[node]["partition_exact"]="exact_core"
                 elif nb_orgs < self.nb_organisms:
-                    self.partitions["accessory"].append(node)#ACCESSORY
-                    self.neighbors_graph.node[node]["partition_exact"]="accessory"
+                    self.partitions["exact_accessory"].append(node)#EXACT ACCESSORY
+                    self.neighbors_graph.node[node]["partition_exact"]="exact_accessory"
                 else:
                     logging.getLogger().error("nb_orgs can't be > to self.nb_organisms")
                     exit(1)
+
+                if nb_orgs >= (self.nb_organisms)*self.soft_core_th:
+                    self.partitions["soft_core"].append(node)#SOFT CORE
+                    self.neighbors_graph.node[node]["partition_soft"]="soft_core"
+                elif nb_orgs < self.nb_organisms:
+                    self.partitions["soft_accessory"].append(node)#SOFT ACCESSORY
+                    self.neighbors_graph.node[node]["partition_soft"]="soft_accessory"
+                else:
+                    logging.getLogger().error("nb_orgs can't be > to self.nb_organisms")
+                    exit(1)
+
                 self.neighbors_graph.nodes[node]["viz"]={}
                 if nem_class != "U":
                     self.neighbors_graph.nodes[node]["viz"]['color']=COLORS_RGB[self.neighbors_graph.node[node]["partition"]]
@@ -1257,11 +1262,12 @@ class PPanGGOLiN:
             self.is_partitionned=True
         else:
             if just_stats:
-                for node_name, nem_class in partitions.items():
+                
+                for node_name, nem_class in partitionning_results.items():
                     stats[SHORT_TO_LONG[nem_class]]+=1
                 return stats
             else:
-                return partitions
+                return partitionning_results
 
     def partition_shell(self, nem_dir_path = tempfile.mkdtemp(),
                         subpart_name    = "subpartition_shell",
@@ -1560,8 +1566,8 @@ class PPanGGOLiN:
     #     self.partitions["persistent"] = list()
     #     self.partitions["shell"]      = list()
     #     self.partitions["cloud"]      = list()
-    #     self.partitions["core_exact"] = list()
-    #     self.partitions["accessory"]  = list()
+    #     self.partitions["exact_core"] = list()
+    #     self.partitions["exact_accessory"]  = list()
     #     self.BIC                      = None
     #     #self.partitions_by_organisms  = defaultdict(lambda: defaultdict(set))
 
@@ -1580,13 +1586,6 @@ class PPanGGOLiN:
             :param outdir: a str containing the path of the output file
             :type str: 
         """ 
-        try:
-            import plotly.plotly as py
-            import plotly.offline as out_plotly
-            import plotly.graph_objs as go
-        except:
-             logging.getLogger().info("Please install plotly to use this ushaped_plot feature")
-             return(None)
 
         count = defaultdict(lambda : defaultdict(int))
         for node, data in self.neighbors_graph.nodes(data=True):
@@ -1635,14 +1634,6 @@ class PPanGGOLiN:
             :param outdir: a str containing the path of the output file
             :type str: 
         """ 
-
-        try:
-            import plotly.plotly as py
-            import plotly.offline as out_plotly
-            import plotly.graph_objs as go
-        except:
-             logging.getLogger().info("Please install plotly to use this tile_plot feature")
-             return(None)
 
         binary_data = []
         fam_order = []
@@ -1823,7 +1814,7 @@ class PPanGGOLiN:
         sep=","
         if self.is_partitionned:
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
-                nb_genes_file.write("org\tpersistent\tshell\tcloud\tcore_exact\taccessory\tpangenome\n")
+                nb_genes_file.write("org\tpersistent\tshell\tcloud\texact_core\texact_accessory\tpangenome\n")
                 for organism in organisms_to_project:
                     nb_genes_by_partition = defaultdict(int)
                     with open(out_dir+"/"+organism+".csv","w") as out_file:
@@ -1833,6 +1824,7 @@ class PPanGGOLiN:
                                 if gene_info[FAMILY] not in self.families_repeted:
                                     nb_genes_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition"]]+=1
                                     nb_genes_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition_exact"]]+=1
+                                    nb_genes_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition_soft"]]+=1
                                     nb_genes_by_partition["pangenome"]+=1
                                     nei_partitions = [self.neighbors_graph.node[nei]["partition"] for nei in nx.all_neighbors(self.neighbors_graph,gene_info[FAMILY])]
                                     out_file.write(sep.join([gene,
@@ -1852,8 +1844,8 @@ class PPanGGOLiN:
                                                   str(nb_genes_by_partition["persistent"]),
                                                   str(nb_genes_by_partition["shell"]),
                                                   str(nb_genes_by_partition["cloud"]),
-                                                  str(nb_genes_by_partition["core_exact"]),
-                                                  str(nb_genes_by_partition["accessory"]),
+                                                  str(nb_genes_by_partition["exact_core"]),
+                                                  str(nb_genes_by_partition["exact_accessory"]),
                                                   str(nb_genes_by_partition["pangenome"])])+"\n")
         else:
             logging.getLogger().warning("The pangenome must be partionned before using this method (projection)")

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: iso-8859-1 -*-
 
+
+import numpy
+import scipy.optimize as optimization
+import pandas
 from collections import defaultdict, OrderedDict
 from ordered_set import OrderedSet
 import networkx as nx
@@ -19,6 +23,7 @@ import traceback
 import shutil
 from .ppanggolin import *
 from .utils import *
+
 
 ### PATH AND FILE NAME
 OUTPUTDIR                   = None 
@@ -49,7 +54,7 @@ options(show.error.locations = TRUE)
 library("ggplot2")
 library("reshape2")
 
-color_chart = c(pangenome="black", "accessory"="#EB37ED", "core_exact" ="#FF2828", shell = "#00D860", persistent="#F7A507", cloud = "#79DEFF")
+color_chart = c(pangenome="black", "exact_accessory"="#EB37ED", "exact_core" ="#FF2828",  "soft_core"="#e6e600", "soft_accessory"="#996633", shell = "#00D860", persistent="#F7A507", cloud = "#79DEFF")
 
 ########################### START U SHAPED PLOT #################################
 
@@ -82,10 +87,10 @@ nb_org                  <- ncol(binary_matrix)
 binary_matrix_hclust    <- hclust(dist(t(binary_matrix), method="binary"))
 binary_matrix           <- data.frame(binary_matrix,"NEM partitions" = classification_vector, occurences = occurences, check.names=FALSE)
 
-binary_matrix[occurences == nb_org, "Former partitions"] <- "core_exact"
-binary_matrix[occurences != nb_org, "Former partitions"] <- "accessory"
+binary_matrix[occurences == nb_org, "Former partitions"] <- "exact_core"
+binary_matrix[occurences != nb_org, "Former partitions"] <- "exact_accessory"
 binary_matrix = binary_matrix[order(match(binary_matrix$"NEM partitions",c("persistent", "shell", "cloud")),
-                                    match(binary_matrix$"Former partitions",c("core_exact", "accessory")),
+                                    match(binary_matrix$"Former partitions",c("exact_core", "exact_accessory")),
                                     -binary_matrix$occurences),
                               c(binary_matrix_hclust$label[binary_matrix_hclust$order],"NEM partitions","Former partitions")]
 
@@ -94,7 +99,7 @@ data = melt(binary_matrix, id.vars=c("familles"))
 
 colnames(data) = c("fam","org","value")
 
-data$value <- factor(data$value, levels = c(1,0,"persistent", "shell", "cloud", "core_exact", "accessory"), labels = c("presence","absence","persistent", "shell", "cloud", "core_exact", "accessory"))
+data$value <- factor(data$value, levels = c(1,0,"persistent", "shell", "cloud", "exact_core", "exact_accessory"), labels = c("presence","absence","persistent", "shell", "cloud", "exact_core", "exact_accessory"))
 
 plot <- ggplot(data = data)+
         geom_raster(aes_string(x="org",y="fam", fill="value"))+
@@ -132,7 +137,7 @@ if (file.exists('"""+OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+""".csv
 
     plot <- ggplot(data = data, aes_string(x="nb_org",y="value", colour = "partition"))+
             ggtitle(bquote(list("Rarefaction curve. Heap's law parameters based on Tettelin et al. 2008 approach", n == kappa~N^gamma)))+
-            geom_smooth(data        = median_by_nb_org[median_by_nb_org$partition %in% c("pangenome","shell","cloud","accessory", "persistent", "core_exact") ,],# 
+            geom_smooth(data        = median_by_nb_org[median_by_nb_org$partition %in% c("pangenome","shell","cloud","exact_accessory", "persistent", "exact_core") ,],# 
                         mapping     = aes_string(x="nb_org_comb",y="med",colour = "partition"),
                         method      = "nlsLM",
                         formula     = y~kapa*(x^gama),method.args =list(start=c(kapa=1000,gama=0)),
@@ -180,17 +185,17 @@ for (org_csv in list.files(path = '"""+OUTPUTDIR+PROJECTION_DIR+"""', pattern = 
         data.melted_shell <- data.melted_shell[is_outlier(data.melted_shell$nb_geness),]
         data.melted_cloud = data.melted[data.melted$partition =="cloud",]
         data.melted_cloud <- data.melted_cloud[is_outlier(data.melted_cloud$nb_geness),]
-        data.melted_core_exact = data.melted[data.melted$partition =="core_exact",]
-        data.melted_core_exact <- data.melted_core_exact[is_outlier(data.melted_core_exact$nb_geness),]
-        data.melted_accessory = data.melted[data.melted$partition =="accessory",]
-        data.melted_accessory <- data.melted_accessory[is_outlier(data.melted_accessory$nb_geness),]
+        data.melted_exact_core = data.melted[data.melted$partition =="exact_core",]
+        data.melted_exact_core <- data.melted_exact_core[is_outlier(data.melted_exact_core$nb_geness),]
+        data.melted_exact_accessory = data.melted[data.melted$partition =="exact_accessory",]
+        data.melted_exact_accessory <- data.melted_exact_accessory[is_outlier(data.melted_exact_accessory$nb_geness),]
         data.melted_pangenome = data.melted[data.melted$partition =="cloud",]
         data.melted_pangenome <- data.melted_pangenome[is_outlier(data.melted_pangenome$nb_geness),]
 
         plot = ggplot(data.melted)+
                ggtitle(paste0("number of genes resulting of the projection of the partionning on each organism (nb organism=", nrow(data),")"))+
                geom_boxplot(aes(x = partition,y = nb_geness, fill = partition))+
-               geom_text_repel(data = rbind(data.melted_persistent,data.melted_shell,data.melted_cloud, data.melted_core_exact, data.melted_accessory, data.melted_pangenome),
+               geom_text_repel(data = rbind(data.melted_persistent,data.melted_shell,data.melted_cloud, data.melted_exact_core, data.melted_exact_accessory, data.melted_pangenome),
                                aes(x=partition, y=nb_geness, label = org))+
                scale_fill_manual(name = "partitioning", values = color_chart)
     }
@@ -265,23 +270,27 @@ EVOLUTION = None
 def resample(index):
     global shuffled_comb
     nem_dir_path    = TMP_DIR+EVOLUTION_DIR+"/nborg"+str(len(shuffled_comb[index]))+"_"+str(index)
-    stats = pan.partition(nem_dir_path    = nem_dir_path,
-                          organisms       = shuffled_comb[index],
-                          beta            = options.beta_smoothing[0],
-                          free_dispersion = options.free_dispersion,
-                          chunck_size     = options.chunck_size[0],
-                          inplace         = False,
-                          just_stats      = True,
-                          nb_threads      = 1)
+    stats = pan.partition(nem_dir_path     = nem_dir_path,
+                          select_organisms = shuffled_comb[index],
+                          beta             = options.beta_smoothing[0],
+                          free_dispersion  = options.free_dispersion,
+                          chunck_size      = options.chunck_size[0],
+                          soft_core_th     = options.soft_core_threshold[0],
+                          inplace          = False,
+                          just_stats       = True,
+                          nb_threads       = 1)
     if options.delete_nem_intermediate_files:
         shutil.rmtree(nem_dir_path)
     evol.write(",".join([str(len(shuffled_comb[index])),
                           str(stats["persistent"]) if stats["undefined"] == 0 else "NA",
                           str(stats["shell"]) if stats["undefined"] == 0 else "NA",
                           str(stats["cloud"]) if stats["undefined"] == 0 else "NA",
-                          str(stats["core_exact"]),
-                          str(stats["accessory"]),
-                          str(stats["core_exact"]+stats["accessory"])])+"\n")
+                          str(stats["undefined"]),
+                          str(stats["exact_core"]),
+                          str(stats["exact_accessory"]),
+                          str(stats["soft_core"]),
+                          str(stats["soft_accessory"]),
+                          str(stats["exact_core"]+stats["exact_accessory"])])+"\n")
     evol.flush()
 
 # def replication(index):
@@ -292,7 +301,7 @@ def resample(index):
 #     for i in range(pan.nb_organisms):
 #         res = pan.partition(subset,just_stats=False,inplace=False)
 #         if old_res is not None:
-#             pangenome    = set(res["accessory"]+res["core_exact"])
+#             pangenome    = set(res["exact_accessory"]+res["exact_core"])
 #             new_families = pangenome - before_pangenome
 #             new_shell    = set(res["shell"]) - before_shell
 #     subset.add(random.sample(pan.organisms-subset,STEP))
@@ -300,9 +309,9 @@ def resample(index):
 #                           str(stats["persistent"]) if stats["undefined"] == 0 else "NA",
 #                           str(stats["shell"]) if stats["undefined"] == 0 else "NA",
 #                           str(stats["cloud"]) if stats["undefined"] == 0 else "NA",
-#                           str(stats["core_exact"]),
-#                           str(stats["accessory"]),
-#                           str(stats["core_exact"]+stats["accessory"])])+"\n")
+#                           str(stats["exact_core"]),
+#                           str(stats["exact_accessory"]),
+#                           str(stats["exact_core"]+stats["exact_accessory"])])+"\n")
 #     evol.flush()
 
 
@@ -348,10 +357,12 @@ def __main__():
     parser.add_argument("-u", "--untangle", type=int, default = 0, nargs=1, help="""
     Flag: (in test) max size of the untangled paths to be untangled""")
     parser.add_argument("-b", "--beta_smoothing", default = [float("0.5")], type=float, nargs=1, metavar=('BETA_VALUE'), help = """
-    Positive Number: This option determines the strength of the smoothing (:math:beta) of the partitioning based on the graph topology (using a Markov Random Field). 
+    Positive decimal number: This option determines the strength of the smoothing (:math:beta) of the partitioning based on the graph topology (using a Markov Random Field). 
     b must be a positive float, b = 0.0 means to discard spatial smoothing and 1.00 means strong smoothing (can be above 1.00 but it is not advised).
     0.5 is generally advised as a good trade off.
     """)
+    parser.add_argument("-th", "--soft_core_threshold", type = float, nargs = 1, default = [0.95], metavar=('SOFT_CORE_THRESHOLD'), help = """
+    Postitive decimal number: A value between 0 and 1 providing the threshold ratio of presence to attribute a gene families to the soft core genome""")
     parser.add_argument("-fd", "--free_dispersion", default = False, action="store_true", help = """
     Flag: Specify if the dispersion around the centroid vector of each partition is the same for all the organisms or if the dispersion is free
     """)
@@ -469,7 +480,7 @@ def __main__():
                      False)
 
     with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
-        CDS_fragments_file.write("CDS_fragment,CDS_fragment_length,corresponding_gene_family,gene_family_median_length,\n")
+        CDS_fragments_file.write(",".join(["CDS_fragment","CDS_fragment_length","corresponding_gene_family","gene_family_median_length"])+"\n")
         for gene, family in pan.CDS_fragments.items():
             info = pan.get_gene_info(gene)
             CDS_fragments_file.write(",".join([gene,
@@ -493,7 +504,6 @@ def __main__():
 
     start_partitioning = time()
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
-                  organisms       = None,
                   beta            = options.beta_smoothing[0],
                   free_dispersion = options.free_dispersion,
                   chunck_size     = options.chunck_size[0],
@@ -571,7 +581,7 @@ def __main__():
         for partition, families in pan.partitions.items(): 
             file = open(OUTPUTDIR+PARTITION_DIR+"/"+partition+".txt","w")
             file.write("\n".join(families)+"\n")
-            if partition == "core_exact" or partition == "accessory":
+            if partition in set(["exact_core","exact_accessory"]):
                 pan_text.write("\n".join(families)+"\n")
             file.close()
 
@@ -594,8 +604,8 @@ def __main__():
     #     partitions_by_organisms_file.write(org+"\t"+str(len(partitions["persistent"]))+
     #                                            "\t"+str(len(partitions["shell"]))+
     #                                            "\t"+str(len(partitions["cloud"]))+"\n")
-    #     exact_by_organisms_file.write(org+"\t"+str(len(partitions["core_exact"]))+
-    #                                       "\t"+str(len(partitions["accessory"]))+"\n")
+    #     exact_by_organisms_file.write(org+"\t"+str(len(partitions["exact_core"]))+
+    #                                       "\t"+str(len(partitions["exact_accessory"]))+"\n")
     # partitions_by_organisms_file.close()
     # exact_by_organisms_file.close()
     #-------------
@@ -629,14 +639,17 @@ def __main__():
         global evol
         evol =  open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv","w")
 
-        evol.write(",".join(["nb_org","persistent","shell","cloud","core_exact","accessory","pangenome"])+"\n")
+        evol.write(",".join(["nb_org","persistent","shell","cloud","undefined","exact_core","exact_accessory","soft_core","soft_accessory","pangenome"])+"\n")
         evol.write(",".join([str(pan.nb_organisms),    
                               str(len(pan.partitions["persistent"])),
                               str(len(pan.partitions["shell"])),
                               str(len(pan.partitions["cloud"])),
-                              str(len(pan.partitions["core_exact"])),
-                              str(len(pan.partitions["accessory"])),
-                              str(len(pan.partitions["accessory"])+len(pan.partitions["core_exact"]))])+"\n")
+                              str(len(pan.partitions["undefined"])),
+                              str(len(pan.partitions["exact_core"])),
+                              str(len(pan.partitions["exact_accessory"])),
+                              str(len(pan.partitions["soft_core"])),
+                              str(len(pan.partitions["soft_accessory"])),
+                              str(len(pan.partitions["exact_accessory"])+len(pan.partitions["exact_core"]))])+"\n")
         evol.flush()
         with ProcessPoolExecutor(options.cpu[0]) as executor:
             futures = [executor.submit(resample,i) for i in range(len(shuffled_comb))]
@@ -647,41 +660,44 @@ def __main__():
                     raise ex
         evol.close()
 
-        try:
-            import plotly.plotly as py
-            import plotly.offline as out_plotly
-            import plotly.graph_objs as go
-            import scipy.optimize as optimization
-            import pandas
-            import numpy
+        def heap_law(N, kappa, gamma):
+            return kappa*N**(gamma)
 
-            def heap_law(N, kappa, gamma):
-                return kappa*N**(gamma)
-
-            annotations=[]
-            traces = []
-            data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False).dropna()
-            params_file = open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_PARAM_FILE_PREFIX+".csv","w")
-            params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error\n")
-            for partition in ["persistent","shell","cloud","accessory","core_exact","pangenome"]:
-                half_stds = pandas.Series({i:numpy.std(data_evol[data_evol["nb_org"]==i][partition])/2 for i in range(1,203+1)}).dropna()
-                mins = pandas.Series({i:numpy.min(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,203+1)}).dropna()
-                maxs = pandas.Series({i:numpy.max(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,203+1)}).dropna()
-                medians = pandas.Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,203+1)}).dropna()
-                initial_kappa_gamma = numpy.array([0.0, 0.0])
-                res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
-                kappa, gamma = res[0]
-                error_k,error_o = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
+        annotations=[]
+        traces = []
+        data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False).dropna()
+        params_file = open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_PARAM_FILE_PREFIX+".csv","w")
+        params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error\n")
+        for partition in list(pan.partitions.keys())+["pangenome"]:
+            half_stds = pandas.Series({i:numpy.std(data_evol[data_evol["nb_org"]==i][partition])/2 for i in range(1,pan.nb_organisms+1)}).dropna()
+            mins = pandas.Series({i:numpy.min(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
+            maxs = pandas.Series({i:numpy.max(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
+            medians = pandas.Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
+            initial_kappa_gamma = numpy.array([0.0, 0.0])
+            res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
+            print(partition)
+            print(res)
+            kappa, gamma = res[0]
+            error_k,error_o = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
+            if numpy.isinf(error_k) and numpy.isinf(error_o):
+                params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
+            else:
                 params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_o)])+"\n")
-                
+                regression = numpy.apply_along_axis(heap_law, 0, range(1,pan.nb_organisms+1), kappa, gamma)
+                traces.append(go.Scatter(x=list(range(1,pan.nb_organisms+1)), 
+                                    y=regression, 
+                                    name = partition,
+                                    line = dict(color = COLORS[partition],
+                                                width = 4,
+                                                dash = 'dash')))
                 annotations.append(dict(x=pan.nb_organisms,
                                         y=heap_law(pan.nb_organisms,kappa, gamma),
                                         ay=0,
                                         ax=100,
-                                        text="F="+str(round(kappa))+"N"+"<sup>"+str(round(gamma,5))+"</sup>",
+                                        text="F="+str(round(kappa,0))+"N"+"<sup>"+str(round(gamma,5))+"</sup>",
                                         showarrow=True,
                                         arrowhead=7,
-                                        font=dict(size=16,color='grey'),
+                                        font=dict(size=16,color='white'),
                                         align='center',
                                         arrowcolor=COLORS[partition],
                                         bordercolor='#c7c7c7',
@@ -689,50 +705,42 @@ def __main__():
                                         borderpad=4,
                                         bgcolor=COLORS[partition],
                                         opacity=0.8))
-                regression = numpy.apply_along_axis(heap_law, 0, range(1,203+1), kappa, gamma)
-                traces.append(go.Scatter(x=medians.index, 
+            
+            traces.append(go.Scatter(x=medians.index, 
                                         y=medians, 
-                                        name = "medians",
-                                        mode="lines+markers",
-                                        error_y=dict(type='data',
-                                                        symmetric=False,
-                                                        array=maxs.subtract(medians),
-                                                        arrayminus=medians.subtract(mins),
-                                                        visible=True,
-                                                        color = COLORS[partition],
-                                                        thickness =1),
-                                        line = dict(color = COLORS[partition],
-                                                    width = 1),
-                                        marker=dict(color = COLORS[partition])))
-                up = medians.add(half_stds)
-                down = medians.subtract(half_stds)
-                sd_area = up.append(down[::-1])
-                traces.append(go.Scatter(x=sd_area.index, 
-                                        y=sd_area, 
-                                        name = "sd",
-                                        fill='toself',
-                                        mode="lines",
-                                        hoveron="points",
-                                        #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
-                                        line=dict(color=COLORS[partition]),
-                                        marker=dict(color = COLORS[partition])))
-                traces.append(go.Scatter(x=list(range(1,203+1)), 
-                                        y=regression, 
-                                        name = partition,
-                                        line = dict(color = COLORS[partition],
-                                                    width = 4,
-                                                    dash = 'dash')))
-            layout = go.Layout(
-                title = "Evolution curve ",
-                titlefont = dict(size = 10),
-                xaxis = dict(title='size of genome subsets (N)'),
-                yaxis = dict(title='# of gene families (F)'),
-                annotations=annotations)
-            fig = go.Figure(data=traces, layout=layout)
-            out_plotly.plot(fig, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/"+EVOLUTION_CURVE_PREFIX+".html", auto_open=False)
-            params_file.close()
-        except ImportError as e:
-             logging.getLogger().info("Please install plotly, numpy and scipy to draw the evolution curve using plot.ly")
+                                    name = "medians",
+                                    mode="lines+markers",
+                                    error_y=dict(type='data',
+                                                    symmetric=False,
+                                                    array=maxs.subtract(medians),
+                                                    arrayminus=medians.subtract(mins),
+                                                    visible=True,
+                                                    color = COLORS[partition],
+                                                    thickness =1),
+                                    line = dict(color = COLORS[partition],
+                                                width = 1),
+                                    marker=dict(color = COLORS[partition])))
+            up = medians.add(half_stds)
+            down = medians.subtract(half_stds)
+            sd_area = up.append(down[::-1])
+            traces.append(go.Scatter(x=sd_area.index, 
+                                    y=sd_area, 
+                                    name = "sd",
+                                    fill='toself',
+                                    mode="lines",
+                                    hoveron="points",
+                                    #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
+                                    line=dict(color=COLORS[partition]),
+                                    marker=dict(color = COLORS[partition])))
+        layout = go.Layout(
+            title = "Evolution curve ",
+            titlefont = dict(size = 20),
+            xaxis = dict(title='size of genome subsets (N)'),
+            yaxis = dict(title='# of gene families (F)'),
+            annotations=annotations)
+        fig = go.Figure(data=traces, layout=layout)
+        out_plotly.plot(fig, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/"+EVOLUTION_CURVE_PREFIX+".html", auto_open=False)
+        params_file.close()
 
         # evolution_curve = Highchart(width = 1800, height = 800)
         # options_evolution_curve_plot={
