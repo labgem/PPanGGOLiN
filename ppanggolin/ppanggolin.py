@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: iso-8859-1 -*-
+
+import warnings
+warnings.filterwarnings("ignore")
 from collections import defaultdict, OrderedDict, Counter, deque
 from bidict import bidict
 from ordered_set import OrderedSet
@@ -334,7 +337,7 @@ class PPanGGOLiN:
             if len(values) > force_max_value:
                 ret+="\n"
                 ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
-            return(ret)
+            return("↵"+ret)
 
         pan_str ="\n"
         pan_str += "----------- Statistics -----------\n"
@@ -1580,53 +1583,49 @@ class PPanGGOLiN:
             shutil.rmtree(self.nem_intermediate_files)
             self.nem_intermediate_files = None
 
-    def ushaped_plot(self, outdir):
+    def ushaped_plot(self, out_file):
         """
             generate ushaped representation
-            :param outdir: a str containing the path of the output file
+            :param out_file: a str containing the path of the output file
             :type str: 
         """ 
-
+        max_bar = 0
         count = defaultdict(lambda : defaultdict(int))
         for node, data in self.neighbors_graph.nodes(data=True):
             nb_org  = len([True for org in self.organisms if org in data])
-            count[nb_org][data["partition"]]+=1
-
+            if self.is_partitionned:
+                count[nb_org][data["partition"]]+=1
+            count[nb_org]["pangenome"]+=1
+            max_bar = count[nb_org]["pangenome"] if count[nb_org]["pangenome"] > max_bar else max_bar
         data_plot = []
 
-        if not len(self.partitions["undefined"]):
-
+        if self.is_partitionned and len(self.partitions["undefined"]) == 0:
             persistent_values = []
             shell_values      = []
             cloud_values      = []
-
             for nb_org in range(1,self.nb_organisms+1):
                 persistent_values.append(count[nb_org]["persistent"])
                 shell_values.append(count[nb_org]["shell"])
                 cloud_values.append(count[nb_org]["cloud"])
-            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=persistent_values,name='Persistent', marker=dict(color = COLORS["persistent"])))
-            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=shell_values,name='Shell', marker=dict(color = COLORS["shell"])))
-            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=cloud_values,name='Cloud', marker=dict(color = COLORS["cloud"])))
-
-            # ushaped_plot.add_data_set(persistent_values,'column','Persistent', color = COLORS["persistent"])
-            # ushaped_plot.add_data_set(shell_values,'column','Shell', color = COLORS["shell"])
-            # ushaped_plot.add_data_set(cloud_values,'column','Cloud', color = COLORS["cloud"])
-
+            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=persistent_values,name='persistent', marker=dict(color = COLORS["persistent"])))
+            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=shell_values,name='shell', marker=dict(color = COLORS["shell"])))
+            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=cloud_values,name='cloud', marker=dict(color = COLORS["cloud"])))
         else:
+            text = 'undefined' if len(self.partitions["undefined"]) else "pangenome"
             undefined_values = []
             for nb_org in range(1,self.nb_organisms+1):
-                undefined_values.append(count[nb_org]["undefined"])
-            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=undefined_values,name='Undefined', marker=dict(color = COLORS["undefined"])))
-
-            #ushaped_plot.add_data_set(cloud_values,'column','Undefined', color = COLORS["undefined"])
-
-
-        layout = go.Layout(
-            barmode='stack'
-        )
+                undefined_values.append(count[nb_org][text])
+            data_plot.append(go.Bar(x=list(range(1,self.nb_organisms+1)),y=undefined_values,name=text, marker=dict(color = COLORS[text])))
+        layout = None
+        if self.soft_core_th:
+            x = self.nb_organisms*self.soft_core_th
+            print(str(x))
+            layout =  go.Layout(barmode='stack', shapes=[dict(type='line', x0=x, x1=x, y0=0, y1=max_bar, line = dict(dict(width=5, dash='dashdot', color="grey")))])
+        else:
+            layout = go.Layout(barmode='stack')
 
         fig = go.Figure(data=data_plot, layout=layout)
-        out_plotly.plot(fig, filename = outdir+"/ushaped_plot.html", auto_open=False)
+        out_plotly.plot(fig, filename = out_file+".html", auto_open=False)
 
     def tile_plot(self, outdir):
         """

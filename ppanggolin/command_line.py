@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: iso-8859-1 -*-
 
-
+import warnings
+warnings.filterwarnings("ignore")
 import numpy
 import scipy.optimize as optimization
 import pandas
@@ -23,7 +24,6 @@ import traceback
 import shutil
 from .ppanggolin import *
 from .utils import *
-
 
 ### PATH AND FILE NAME
 OUTPUTDIR                   = None 
@@ -470,14 +470,14 @@ def __main__():
 
     start_loading = time()
     global pan
+
     pan = PPanGGOLiN("file",
                      options.organisms[0],
                      options.gene_families[0],
                      options.remove_high_copy_number_families[0],
                      options.infer_singletons,
                      options.distance_CDS_fragments[0],
-                     #options.directed)
-                     False)
+                     False)#options.directed)
 
     with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
         CDS_fragments_file.write(",".join(["CDS_fragment","CDS_fragment_length","corresponding_gene_family","gene_family_median_length"])+"\n")
@@ -507,6 +507,7 @@ def __main__():
                   beta            = options.beta_smoothing[0],
                   free_dispersion = options.free_dispersion,
                   chunck_size     = options.chunck_size[0],
+                  soft_core_th    = options.soft_core_threshold[0],
                   inplace         = True,
                   just_stats      = False,
                   nb_threads      = options.cpu[0])
@@ -529,8 +530,6 @@ def __main__():
             pan.partition_shell(init_using_qual=init)
         else:
             pan.partition_shell(options.subpartition_shell[0])
-
-    
 
     #-------------
     # start_identify_communities = time.time()
@@ -593,7 +592,7 @@ def __main__():
         end_projection = time()
     end_writing_output_file = time()
 
-    pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR)
+    pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
     #pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     del pan.annotations # no more required for the following process
 
@@ -675,8 +674,6 @@ def __main__():
             medians = pandas.Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
             initial_kappa_gamma = numpy.array([0.0, 0.0])
             res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
-            print(partition)
-            print(res)
             kappa, gamma = res[0]
             error_k,error_o = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
             if numpy.isinf(error_k) and numpy.isinf(error_o):

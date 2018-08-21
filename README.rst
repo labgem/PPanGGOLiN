@@ -145,13 +145,11 @@ The software generates several output files:
 
 5. A folder *partitions* in which each file contain the list of the gene families in each partition
 
-6. A folder *NEM_results* containing the temporary data of the computation (removed if flag '-df' is provided)
+6. A folder *partitions* containing one file by partition. Each file stores the name of the families in its associated partition.
 
-7. A folder *partitions* containing one file by partition. Each file stores the name of the families in its associated partition.
+7. optional: a folder *evolutions* containing the temporary data of the computation of all the resampling and the file (stat_evol.txt) summarizing this evolution (if flag '-e' is provided)
 
-8. optional: a folder *evolutions* containing the temporary data of the computation of all the resampling and the file (stat_evol.txt) summarizing this evolution (if flag '-e' is provided)
-
-9. optional: a folder *projections* containing a tabulated file for each organism providing information about the projection of the graph against each selected organism (if argument '-pr' followed by the line number in the ORGANISM_FILE is provided)
+8. optional: a folder *projections* containing a csv file for each organism providing information about the projection of the graph against each selected organism (if argument '-pr' followed by the line number in the ORGANISM_FILE is provided)
 
 Options
 ============================
