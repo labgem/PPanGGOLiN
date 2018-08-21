@@ -337,7 +337,7 @@ class PPanGGOLiN:
             if len(values) > force_max_value:
                 ret+="\n"
                 ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
-            return("↵"+ret)
+            return('↵'.encode('utf-8')+ret)
 
         pan_str ="\n"
         pan_str += "----------- Statistics -----------\n"
