@@ -369,7 +369,10 @@ class PPanGGOLiN:
             pan_str += "Run the partition() method to obtain more detailled statistics...\n"
             pan_str += "\n"
         pan_str += "Number of edges in the pangenome graph: "+str(nx.number_of_edges(self.neighbors_graph))+"\n"
-        pan_str += str_histogram("Degree distribution of the pangenome graph: ",nx.degree_histogram(self.neighbors_graph))+"\n"
+        try:
+            pan_str += str_histogram("Degree distribution of the pangenome graph: ",nx.degree_histogram(self.neighbors_graph))+"\n"
+        except:
+            pan_str += "Degree distribution of the pangenome graph: "+str(nx.degree_histogram(self.neighbors_graph))+"\n"
         pan_str += "\n"
         pan_str += "----------------------------------"
 
