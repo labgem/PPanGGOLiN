@@ -54,7 +54,7 @@ options(show.error.locations = TRUE)
 library("ggplot2")
 library("reshape2")
 
-color_chart = c(pangenome="black", "exact_accessory"="#EB37ED", "exact_core" ="#FF2828",  "soft_core"="#e6e600", "soft_accessory"="#996633", shell = "#00D860", persistent="#F7A507", cloud = "#79DEFF")
+color_chart = c(pangenome="black", "exact_accessory"="#EB37ED", "exact_core" ="#FF2828",  "soft_core"="#e6e600", "soft_accessory"="#996633", shell = "#00D860", persistent="#F7A507", cloud = "#79DEFF","soft_core"="#e6e600", "soft_accessory"="#996633","undefined"="#828282")
 
 ########################### START U SHAPED PLOT #################################
 
@@ -409,8 +409,8 @@ def __main__():
     METADATA_FILE is a tab-delimitated file. The first line contains the names of the attributes and the following lines contain associated information for each organism (in the same order as in the ORGANISM_FILE).
     Metadata can't contain reserved word or exact organism name.
     """)
-    parser.add_argument("-dc", "--distance_CDS_fragments", type = int, nargs = 1, default = [-5], metavar=('DISTANCE_CDS_FRAGMENTS'), help = """
-    Number: When several consecutive genes belonging to the same gene families separated by less or equals than DISTANCE_CDS_FRAGMENTS (in nucleotides) are found, there are considered as CDS fragments and then no reflexive links are generated between the associated gene families. Negative values are considered as overlapping CDS fragments (short gene overlapping seems to be frequent in bacteria https://doi.org/10.1186/1471-2164-15-721 ).""")
+    #parser.add_argument("-dc", "--distance_CDS_fragments", type = int, nargs = 1, default = [-9], metavar=('DISTANCE_CDS_FRAGMENTS'), help = """
+    #Number: When several consecutive genes belonging to the same gene families separated by less or equals than DISTANCE_CDS_FRAGMENTS (in nucleotides) are found, there are considered as CDS fragments and then no reflexive links are generated between the associated gene families. Negative values are considered as overlapping CDS fragments (short gene overlapping seems to be frequent in bacteria https://doi.org/10.1186/1471-2164-15-721 ).""")
     parser.add_argument("-ss", "--subpartition_shell", default = 0, type=int, nargs=1, help = """
     Number: (in test) Subpartition the shell genome in k subpartitions, k can be detected automatically using k = -1, if k = 0 the partioning will used the first column of metadata to subpartition the shell""")
     parser.add_argument("-l", "--compute_layout", default = False, action="store_true", help = """
@@ -476,17 +476,16 @@ def __main__():
                      options.gene_families[0],
                      options.remove_high_copy_number_families[0],
                      options.infer_singletons,
-                     options.distance_CDS_fragments[0],
                      False)#options.directed)
 
-    with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
-        CDS_fragments_file.write(",".join(["CDS_fragment","CDS_fragment_length","corresponding_gene_family","gene_family_median_length"])+"\n")
-        for gene, family in pan.CDS_fragments.items():
-            info = pan.get_gene_info(gene)
-            CDS_fragments_file.write(",".join([gene,
-                                               str(info["END"]-info["START"]),
-                                               family,
-                                               str(median(pan.neighbors_graph.node[family]["length"]))])+"\n")
+    # with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
+    #     CDS_fragments_file.write(",".join(["CDS_fragment","CDS_fragment_length","corresponding_gene_family","gene_family_median_length"])+"\n")
+    #     for gene, family in pan.CDS_fragments.items():
+    #         info = pan.get_gene_info(gene)
+    #         CDS_fragments_file.write(",".join([gene,
+    #                                            str(info["END"]-info["START"]),
+    #                                            family,
+    #                                            str(median(pan.neighbors_graph.node[family]["length"]))])+"\n")
 
     # # if options.update is not None:
     # #     pan.import_from_GEXF(options.update[0])
@@ -577,11 +576,12 @@ def __main__():
     logging.getLogger().info("Writing GEXF light file")
     pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light"+(".gz" if options.compress_graph else ""), options.compress_graph, metadata, False,False)
     with open(OUTPUTDIR+"/pangenome.txt","w") as pan_text:
-        for partition, families in pan.partitions.items(): 
+        for partition, families in pan.partitions.items():
             file = open(OUTPUTDIR+PARTITION_DIR+"/"+partition+".txt","w")
-            file.write("\n".join(families)+"\n")
-            if partition in set(["exact_core","exact_accessory"]):
-                pan_text.write("\n".join(families)+"\n")
+            if len(families):
+                file.write("\n".join(families)+"\n")
+                if partition in set(["exact_core","exact_accessory"]):
+                    pan_text.write("\n".join(families)+"\n")
             file.close()
 
     pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
@@ -664,7 +664,7 @@ def __main__():
 
         annotations=[]
         traces = []
-        data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False).dropna()
+        data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False)
         params_file = open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_PARAM_FILE_PREFIX+".csv","w")
         params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error\n")
         for partition in list(pan.partitions.keys())+["pangenome"]:
