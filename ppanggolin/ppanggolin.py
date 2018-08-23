@@ -144,7 +144,7 @@ class PPanGGOLiN:
             :Example:
 
             >>>pan = PPanGGOLiN("file", organisms, gene_families, remove_high_copy_number_families)
-            >>>pan = PPanGGOLiN("args", annotations, organisms, circular_contig_size, families_repeted, directed, distance_CDS_fragments)# load direclty the main attributes
+            >>>pan = PPanGGOLiN("args", annotations, organisms, circular_contig_size, families_repeted, directed)# load direclty the main attributes
         """ 
         self.directed                       = False
         self.annotations                    = dict()
@@ -166,7 +166,6 @@ class PPanGGOLiN:
         self.partitions_by_organism         = dict()
         self.subpartitions_shell_parameters = {}
         self.subpartition_shell             = {}
-        self.distance_CDS_fragments         = 0
         self.CDS_fragments                  = {}
         self.soft_core_th                   = None
         if init_from == "file":
@@ -176,8 +175,7 @@ class PPanGGOLiN:
              self.organisms,
              self.circular_contig_size,
              self.families_repeted,
-             self.directed,
-             self.distance_CDS_fragments) = args 
+             self.directed)
         elif init_from == "database":
             logging.getLogger().error("database is not yet implemented")
             pass
@@ -188,13 +186,12 @@ class PPanGGOLiN:
         logging.getLogger().info("Computing gene neighborhood ...")
         self.__neighborhood_computation()
 
-    def __initialize_from_files(self, organisms_file, families_tsv_file, lim_occurence = 0, infer_singletons = False, distance_CDS_fragments = 0, directed = False):
+    def __initialize_from_files(self, organisms_file, families_tsv_file, lim_occurence = 0, infer_singletons = False, directed = False):
         """ 
             :param organisms_file: a file listing organims by compute, first column is organism name, second is path to gff file and optionnally other other to provide the name of circular contig
             :param families_tsv_file: a file listing families. The first element is the family identifier (by convention, we advice to use the identifier of the average gene of the family) and then the next elements are the identifiers of the genes belonging to this family.
             :param lim_occurence: a int containing the threshold of the maximum number copy of each families. Families exceeding this threshold are removed and are listed in the families_repeted attribute.
             :param infer_singletons: a bool specifying if singleton must be explicitely present in the families_tsv_file (False) or if single gene in gff files must be automatically infered as a singleton family (True)
-             :param distance_CDS_fragments: an integer specifying the distance between two consecutive genes belonging to the same gene families to consider them as CDS fragments (and so to not add the reflexive links)            param directed: a bool specifying if the pangenome graph is directed or undirected
             :type file: 
             :type file: 
             :type int: 
@@ -203,7 +200,6 @@ class PPanGGOLiN:
             :type bool: 
         """ 
         self.directed = directed
-        self.distance_CDS_fragments = distance_CDS_fragments
         logging.getLogger().info("Reading "+families_tsv_file.name+" the gene families file ...")
 
         families_tsv_file = read_compressed_or_not(families_tsv_file)
@@ -211,14 +207,14 @@ class PPanGGOLiN:
         families    = dict()
         first_iter  = True
         for line in families_tsv_file:
-            elements = [el.strip() for el in line.split()]
-            for gene in elements[1:]:
-                families[gene]=elements[0]
+            elements = [el.strip() for el in line.split()] # 2 or 3 fields expected
+            (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
+            families[gene_id]          = fam_id
+            if is_frag == "F":
+                self.CDS_fragments[gene_id] = fam_id
 
         self.circular_contig_size = {}
-
         logging.getLogger().info("Reading "+organisms_file.name+" the list of organism files ...")
-
         bar = tqdm(organisms_file,total=get_num_lines(organisms_file), unit = "gff file")
 
         for line in bar:
@@ -258,7 +254,6 @@ class PPanGGOLiN:
 
             ctp_prev = 1
             cpt_fam_occ = defaultdict(int)
-
             gene_id_auto = False
 
             with read_compressed_or_not(gff_file_path) as gff_file:
@@ -333,7 +328,7 @@ class PPanGGOLiN:
         """ Return an overview of the statistics of the pangenome as a formated string """ 
 
         def str_histogram(title, values, force_max_value=25):
-            ret = "\n".join([l for l in Pyasciigraph(force_max_value=force_max_value).graph(str(title), [("degree "+str(i),v) for i, v in enumerate(values[:force_max_value+1])])])
+            ret = "\n".join([l for l in Pyasciigraph(force_max_value=force_max_value, graphsymbol='*').graph(str(title), [("degree "+str(i),v) for i, v in enumerate(values[:force_max_value+1])])])
             if len(values) > force_max_value:
                 ret+="\n"
                 ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
@@ -555,21 +550,16 @@ class PPanGGOLiN:
                         self.neighbors_graph.add_node(gene_info_nei[FAMILY])
                         if not (gene_info[FAMILY] == gene_info_nei[FAMILY] and
                                 gene_info[STRAND] == gene_info_nei[STRAND] and
-                                (gene_info[START] - gene_info_nei[END]) <= self.distance_CDS_fragments):# to avoid reflexive links with gene fragments
+                                (gene in self.CDS_fragments or gene_nei in self.CDS_fragments)):# to avoid reflexive links with gene fragments
                             self.__add_link(gene_info[FAMILY],gene_info_nei[FAMILY],organism, gene_info[START] - gene_info_nei[END])
-                        else:
-                            self.CDS_fragments[gene]=gene_info[FAMILY]
-                            self.CDS_fragments[gene_nei]=gene_info[FAMILY]#or gene_info_nei[FAMILY]
                         gene_nei, gene_info_nei = gene, gene_info
                 
                 if contig in self.circular_contig_size:#circularization
-                    if not (gene_info_start[FAMILY] == gene_info_nei[FAMILY] and \
-                            gene_info_start[STRAND] == gene_info_nei[STRAND] and \
-                            (self.circular_contig_size[contig] - gene_info_nei[END] + gene_info_start[START]) <= self.distance_CDS_fragments):# to avoid reflexive links with gene fragments
+                    if not (gene_info_start[FAMILY] == gene_info_nei[FAMILY] and 
+                            gene_info_start[STRAND] == gene_info_nei[STRAND] and 
+                            (gene in self.CDS_fragments or gene_start in self.CDS_fragments)):# to avoid reflexive links with gene fragments
                         self.__add_link(gene_info_start[FAMILY],gene_info_nei[FAMILY],organism, (self.circular_contig_size[contig] - gene_info_nei[END]) + gene_info_start[START])
-                    else:
-                        self.CDS_fragments[gene]=gene_info[FAMILY]
-                        self.CDS_fragments[gene_nei]=gene_info[FAMILY]
+
                 if sys.version_info < (3,):
                     ordered_dict_prepend(contig_annot,gene_start,gene_info_start)#insert at the top
                 else:
