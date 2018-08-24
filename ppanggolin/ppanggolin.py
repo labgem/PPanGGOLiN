@@ -31,10 +31,10 @@ from ascii_graph import Pyasciigraph
 (TYPE, FAMILY, START, END, STRAND, NAME, PRODUCT) = range(0, 7)#data index in annotation
 (ORGANISM_INDEX,CONTIG_INDEX,POSITION_INDEX) = range(0, 3)#index
 (ORGANISM_ID, ORGANISM_GFF_FILE) = range(0, 2)#data index in the file listing organisms 
-(GFF_seqname, GFF_source, GFF_feature, GFF_start, GFF_end, GFF_score, GFF_strand, GFF_frame, GFF_attribute) = range(0,9) 
+(GFF_seqname, GFF_source, GFF_type, GFF_start, GFF_end, GFF_score, GFF_strand, GFF_frame, GFF_attribute) = range(0,9) 
 (MU,EPSILON,PROPORTION) = range(0, 3)
 (FAMILIES_PARTITION,PARTITION_PARAMETERS) = range(0, 2)
-RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz"])
+RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz","type"])
 SHORT_TO_LONG = {'EA':'exact_accessory','EC':'exact_core','SA':'soft_accessory','SC':'soft_core','P':'persistent','S':'shell','C':'cloud','U':'undefined'}
 COLORS = {"pangenome":"black", "exact_accessory":"#EB37ED", "exact_core" :"#FF2828", "soft_core":"#e6e600", "soft_accessory":"#996633","shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
 COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "exact_accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "exact_core" :{'r': 255, 'g': 40, 'b': 40, 'a': 0},  "soft_core":{'r': 255, 'g': 255, 'b': 0, 'a': 0}, "soft_accessory": {'r': 153, 'g': 102, 'b': 51, 'a': 0},"shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
@@ -182,21 +182,22 @@ class PPanGGOLiN:
         else:
             raise ValueError("init_from parameter is required")
         self.nb_organisms = len(self.organisms)
-
         logging.getLogger().info("Computing gene neighborhood ...")
         self.__neighborhood_computation()
 
-    def __initialize_from_files(self, organisms_file, families_tsv_file, lim_occurence = 0, infer_singletons = False, directed = False):
+    def __initialize_from_files(self, organisms_file, families_tsv_file, lim_occurence = 0, infer_singletons = False, add_rna_to_the_pangenome = False, directed = False):
         """ 
             :param organisms_file: a file listing organims by compute, first column is organism name, second is path to gff file and optionnally other other to provide the name of circular contig
             :param families_tsv_file: a file listing families. The first element is the family identifier (by convention, we advice to use the identifier of the average gene of the family) and then the next elements are the identifiers of the genes belonging to this family.
             :param lim_occurence: a int containing the threshold of the maximum number copy of each families. Families exceeding this threshold are removed and are listed in the families_repeted attribute.
+            :param add_rna_to_the_pangenome: a bool specifying if the rna genes must be added to the pangenome or not.
             :param infer_singletons: a bool specifying if singleton must be explicitely present in the families_tsv_file (False) or if single gene in gff files must be automatically infered as a singleton family (True)
             :type file: 
             :type file: 
             :type int: 
             :type bool: 
             :type int:
+            :type bool: 
             :type bool: 
         """ 
         self.directed = directed
@@ -223,25 +224,27 @@ class PPanGGOLiN:
             bar.refresh()
             if len(elements)>2:
                 self.circular_contig_size.update({contig_id: None for contig_id in elements[2:len(elements)]})  # size of the circular contig is initialized to None (waiting to read the gff files to fill the dictionnaries with the correct values)
-            self.annotations[elements[0]] = self.__load_gff(elements[ORGANISM_GFF_FILE], families, elements[ORGANISM_ID], lim_occurence, infer_singletons)
+            self.annotations[elements[0]] = self.__load_gff(elements[ORGANISM_GFF_FILE], families, elements[ORGANISM_ID], lim_occurence, infer_singletons, add_rna_to_the_pangenome)
         check_circular_contigs = {contig: size for contig, size in self.circular_contig_size.items() if size == None }
         if len(check_circular_contigs) > 0:
             logging.getLogger().error("""
-                The following identifiers of circular contigs in the file listing organisms have not been found in any region feature of the gff files: '"""+"'\t'".join(check_circular_contigs.keys())+"'")
+                The following identifiers of circular contigs in the file listing organisms have not been found in any region type of the gff files: '"""+"'\t'".join(check_circular_contigs.keys())+"'")
             exit()
 
-    def __load_gff(self, gff_file_path, families, organism, lim_occurence = 0, infer_singletons = False):
+    def __load_gff(self, gff_file_path, families, organism, lim_occurence = 0, infer_singletons = False, add_rna_to_the_pangenome = False):
         """
             Load the content of a gff file
-            :param gff_file_path: a valid gff file path where only feature of the type 'CDS' will be imported as genes. Each 'CDS' feature must have a uniq ID as attribute (afterall called gene id).
+            :param gff_file_path: a valid gff file path where only type 'CDS' will be imported as genes. Each 'CDS' type must have a uniq ID as attribute (afterall called gene id).
             :param families: a dictionary having the gene as key and the identifier of the associated family as value. Depending on the infer_singletons attribute, singleton must be explicetly present on the dictionnary or not
             :param organism: a str containing the organim name
             :param lim_occurence: a int containing the threshold of the maximum number copy of each families. Families exceeding this threshold are removed and are listed in the next attribute.
             :param infer_singletons: a bool specifying if singleton must be explicitely present in the families parameter (False) or if single gene automatically infered as a singleton family (True)
+            :param add_rna_to_the_pangenome: a bool specifying if the rna genes must be added to the pangenome or not.
             :type str: 
             :type dict: 
             :type str: 
             :type int: 
+            :type bool: 
             :type bool: 
             :return: annot: 
             :rtype: dict 
@@ -255,7 +258,6 @@ class PPanGGOLiN:
             ctp_prev = 1
             cpt_fam_occ = defaultdict(int)
             gene_id_auto = False
-
             with read_compressed_or_not(gff_file_path) as gff_file:
                 for line in gff_file:
                     if line.startswith('##',0,2):
@@ -269,12 +271,11 @@ class PPanGGOLiN:
                                 logging.getLogger().debug(fields[1]+" is not circular")
                         continue
                     gff_fields = [el.strip() for el in line.split('\t')]
-                    if GFF_feature == 'region':
+                    if GFF_type == 'region':
                         if GFF_seqname in self.circular_contig_size:
                             self.circular_contig_size = int(GFF_end)
                             continue
-
-                    elif gff_fields[GFF_feature] == 'CDS':
+                    elif gff_fields[GFF_type] == 'CDS' or (add_rna_to_the_pangenome and gff_fields[GFF_type].find("RNA")):
                         attributes_field = [f for f in gff_fields[GFF_attribute].strip().split(';') if len(f)>0]
                         attributes = {}
                         for att in attributes_field:
@@ -283,7 +284,7 @@ class PPanGGOLiN:
                         try:
                             protein = attributes["ID"]
                         except:
-                            logging.getLogger().error("Each CDS feature of the gff files must own a unique ID attribute. Not the case for file: "+gff_file_path)
+                            logging.getLogger().error("Each CDS type of the gff files must own a unique ID attribute. Not the case for file: "+gff_file_path)
                             exit(1)
                         try:
                             family = families[protein]
@@ -311,7 +312,7 @@ class PPanGGOLiN:
                         except KeyError:
                             product = ""
 
-                        annot[gff_fields[GFF_seqname]][protein] = ["CDS",family,int(gff_fields[GFF_start]),int(gff_fields[GFF_end]),gff_fields[GFF_strand], name, product]
+                        annot[gff_fields[GFF_seqname]][protein] = [gff_fields[GFF_type],family,int(gff_fields[GFF_start]),int(gff_fields[GFF_end]),gff_fields[GFF_strand], name, product]
 
             for seq_id in list(annot):#sort genes by annotation start coordinate
                 annot[seq_id] = OrderedDict(sorted(annot[seq_id].items(), key = lambda item: item[1][START]))
@@ -328,7 +329,7 @@ class PPanGGOLiN:
         """ Return an overview of the statistics of the pangenome as a formated string """ 
 
         def str_histogram(title, values, force_max_value=25):
-            ret = "\n".join([l for l in Pyasciigraph(force_max_value=force_max_value, graphsymbol='*').graph(str(title), [("degree "+str(i),v) for i, v in enumerate(values[:force_max_value+1])])])
+            ret = "\n".join([l for l in Pyasciigraph(force_max_value=force_max_value, graphsymbol='*').graph(str(title), [("node(s) having degree "+str(i),v) for i, v in enumerate(values[:force_max_value+1])])])
             if len(values) > force_max_value:
                 ret+="\n"
                 ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
@@ -416,7 +417,7 @@ class PPanGGOLiN:
 
         return(self)
 
-    def __add_gene(self, fam_id, org, gene, name, length, product, graph_type = "neighbors_graph"):
+    def __add_gene(self, fam_id, org, gene, name, length, product, type="CDS", graph_type = "neighbors_graph"):
         """
             Add gene to the pangenome graph
             :param fam_id: The family identifier
@@ -449,7 +450,7 @@ class PPanGGOLiN:
         except KeyError:
             graph.node[fam_id][org] = set([gene])
 
-        for attribute in ["name","length","product"]:
+        for attribute in ["name","length","product","type"]:
             try:
                 graph.node[fam_id][attribute].add(locals()[attribute])
             except KeyError:
@@ -531,7 +532,8 @@ class PPanGGOLiN:
                                 gene_start,
                                 gene_info_start[NAME],
                                 gene_info_start[END]-gene_info_start[START],
-                                gene_info_start[PRODUCT])
+                                gene_info_start[PRODUCT],
+                                gene_info_start[TYPE])
                 self.index[gene_start]=(organism,contig,0)
 
                 gene_nei, gene_info_nei = gene_start, gene_info_start
@@ -545,7 +547,8 @@ class PPanGGOLiN:
                                         gene,
                                         gene_info[NAME],
                                         gene_info[END]-gene_info[START],
-                                        gene_info[PRODUCT])
+                                        gene_info[PRODUCT],
+                                        gene_info[TYPE])
                         self.index[gene]=(organism,contig,pos+1)
                         self.neighbors_graph.add_node(gene_info_nei[FAMILY])
                         if not (gene_info[FAMILY] == gene_info_nei[FAMILY] and

@@ -329,16 +329,21 @@ def __main__():
     The organism ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word.
     The second field is the gff file containing the annotations associated to the organism. 
     This path can be absolute or relative. 
-    The gff file must contain an ID for each CDS feature.
+    The gff file must contain an ID for each line.
+    Accepted types are CDS or xRNA (rRNA,tRNA,tmRNA) in the type column.
     The contig ID and gene ID can be any string but must be unique and can't contain any space, quote, double quote, pipe and reserved words.
     (optional): The next fields contain the name of perfectly assembled circular contigs (to take in account the link between the first and the last gene in the graph). 
-    In this case, it is mandatory to provide the contig size in the gff files either by adding a "region" feature having the correct contig ID attribute or using a '##sequence-region' pragma.
+    In this case, it is mandatory to provide the contig size in the gff files either by adding a "region" type having the correct contig ID attribute or using a '##sequence-region' pragma.
     """, required=True)
     parser.add_argument('-gf', '--gene_families', type=argparse.FileType('r'), nargs=1, metavar=('FAMILIES_FILE'), help="""
-    File: A tab-delimited file containing the gene families. Each row contains at least 2 fields.
-    The first field is the family ID. The further fields are the gene IDs associated with this family.
-    The family ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word.
-    Gene IDs can be any string corresponding to the IDs of the CDS features in the gff files. They must be uniques and can't contain any spaces, quote, double quote, pipe and reserved words.
+    File: A tab-delimited file containing the gene families. Each row contains 2 or 3 fields.
+    The first field is the family ID. 
+    The second field is the gene IDs associated with this family. 
+    The third field (optional) is a flag "F" to specify if the gene is a gene fragment (empty otherwise).
+    If several consecutive genes belonging to the same gene families have the flag, then the no reflexive links are drawn between them in the graph.
+    The family ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word. 
+    The family ID is often the name of the most representative sequence of the family.
+    Gene IDs can be any string corresponding to the IDs of the gff files. They must be uniques and can't contain any spaces, quote, double quote, pipe and reserved words.
     """,  required=True)
     parser.add_argument('-od', '--output_directory', type=str, nargs=1, default=["PPanGGOLiN_outputdir"+strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())+"_PID"+str(os.getpid())], metavar=('OUTPUT_DIR'), help="""
     Dir: The output directory""")
@@ -409,6 +414,8 @@ def __main__():
     METADATA_FILE is a tab-delimitated file. The first line contains the names of the attributes and the following lines contain associated information for each organism (in the same order as in the ORGANISM_FILE).
     Metadata can't contain reserved word or exact organism name.
     """)
+    parser.add_argument("-ra", "--add_rna_to_the_pangenome", default = False, action="store_true", help = """
+    Flag: If the specified the xRNA (rRNA,tRNA,tmRNA...) are added to the pangenome graph, (as for proteins, RNA genes need to be clustered)""")
     #parser.add_argument("-dc", "--distance_CDS_fragments", type = int, nargs = 1, default = [-9], metavar=('DISTANCE_CDS_FRAGMENTS'), help = """
     #Number: When several consecutive genes belonging to the same gene families separated by less or equals than DISTANCE_CDS_FRAGMENTS (in nucleotides) are found, there are considered as CDS fragments and then no reflexive links are generated between the associated gene families. Negative values are considered as overlapping CDS fragments (short gene overlapping seems to be frequent in bacteria https://doi.org/10.1186/1471-2164-15-721 ).""")
     parser.add_argument("-ss", "--subpartition_shell", default = 0, type=int, nargs=1, help = """
@@ -476,6 +483,7 @@ def __main__():
                      options.gene_families[0],
                      options.remove_high_copy_number_families[0],
                      options.infer_singletons,
+                     options.add_rna_to_the_pangenome,
                      False)#options.directed)
 
     # with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
@@ -570,7 +578,6 @@ def __main__():
         pan.compute_layout()#multiThreaded=options.cpu[0])
 
     logging.getLogger().info("Writing GEXF file")
-
 
     pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
     logging.getLogger().info("Writing GEXF light file")
@@ -686,7 +693,8 @@ def __main__():
                                     name = partition,
                                     line = dict(color = COLORS[partition],
                                                 width = 4,
-                                                dash = 'dash')))
+                                                dash = 'dash'),
+                                    visible = "legendonly" if partition == "undefined" else True))
                 annotations.append(dict(x=pan.nb_organisms,
                                         y=heap_law(pan.nb_organisms,kappa, gamma),
                                         ay=0,
@@ -704,31 +712,34 @@ def __main__():
                                         opacity=0.8))
             
             traces.append(go.Scatter(x=medians.index, 
-                                        y=medians, 
-                                    name = "medians",
-                                    mode="lines+markers",
-                                    error_y=dict(type='data',
-                                                    symmetric=False,
-                                                    array=maxs.subtract(medians),
-                                                    arrayminus=medians.subtract(mins),
-                                                    visible=True,
-                                                    color = COLORS[partition],
-                                                    thickness =1),
-                                    line = dict(color = COLORS[partition],
-                                                width = 1),
-                                    marker=dict(color = COLORS[partition])))
+                                     y=medians, 
+                                     name = "medians",
+                                     mode="lines+markers",
+                                     error_y=dict(type='data',
+                                                     symmetric=False,
+                                                     array=maxs.subtract(medians),
+                                                     arrayminus=medians.subtract(mins),
+                                                     visible=True,
+                                                     color = COLORS[partition],
+                                                     thickness =1),
+                                     line = dict(color = COLORS[partition],
+                                                 width = 1),
+                                     marker=dict(color = COLORS[partition]),
+                                     visible = "legendonly" if partition == "undefined" else True))
             up = medians.add(half_stds)
             down = medians.subtract(half_stds)
+            down[down < 0] = 0
             sd_area = up.append(down[::-1])
             traces.append(go.Scatter(x=sd_area.index, 
-                                    y=sd_area, 
-                                    name = "sd",
-                                    fill='toself',
-                                    mode="lines",
-                                    hoveron="points",
-                                    #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
-                                    line=dict(color=COLORS[partition]),
-                                    marker=dict(color = COLORS[partition])))
+                                     y=sd_area, 
+                                     name = "sd",
+                                     fill='toself',
+                                     mode="lines",
+                                     hoveron="points",
+                                     #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
+                                     line=dict(color=COLORS[partition]),
+                                     marker=dict(color = COLORS[partition]),
+                                     visible = "legendonly" if partition == "undefined" else True))
         layout = go.Layout(
             title = "Evolution curve ",
             titlefont = dict(size = 20),
