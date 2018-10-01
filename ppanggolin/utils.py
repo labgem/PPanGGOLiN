@@ -6,7 +6,7 @@ import gzip
 from decimal import Decimal
 from collections import defaultdict, OrderedDict
 import math
-from random import sample
+from random import sample, random
 from io import TextIOWrapper
 import mmap
 
@@ -60,14 +60,13 @@ def samplingCombinations(items, sample_ratio, sample_min, sample_max=100, step =
         combNb = Decimal(comb_k_n(item_size, k))
         combNb = sys.float_info.max if combNb>sys.float_info.max else combNb # to avoid to reach infinit values
         combNb_sample = math.ceil(Decimal(combNb)/Decimal(sample_ratio))
-        # Plus petit echantillonage possible pour un k donn<C3><A9> = sample_min
+        # Plus petit echantillonage possible pour un k donné = sample_min
         if ((combNb_sample < sample_min) and k != item_size):
             combNb_sample = sample_min
         # Plus grand echantillonage possible
         if (sample_max != None and (combNb_sample > sample_max)):
             combNb_sample = sample_max
-        
-        i = 0;
+        i = 0
         while(i < combNb_sample):
             comb_sub = sample(items,k)
             # Echantillonnage sans remise
@@ -130,3 +129,39 @@ def ordered_dict_prepend(dct, key, value, dict_setitem=dict.__setitem__):
     else:
         root[1] = first[0] = dct._OrderedDict__map[key] = [root, first, key]
         dict_setitem(dct, key, value)
+import pdb
+def diff_col(c1,c2,min_diff=1):
+    r_diff = abs(c1["r"]-c2["r"])
+    g_diff = abs(c1["g"]-c2["g"])
+    b_diff = abs(c1["b"]-c2["b"])
+    if (r_diff+g_diff+b_diff)<min_diff:
+        return(False)
+    else:
+        return(True)
+def colors(n,min_diff=10, maxiter=float("inf"), except_list = []):
+    ret = []
+    iter = 0
+    while len(ret) < n and iter<maxiter:
+        r = int(random() * 256)
+        g = int(random() * 256)
+        b = int(random() * 256)
+        new_element = {'r': r, 'g': g, 'b': b, 'a': 0}
+        valid = True
+        for previous_element in ret:
+            if not diff_col(new_element,previous_element, min_diff):
+                valid = False
+                break
+        for previous_element in except_list:
+            if not diff_col(new_element,previous_element, min_diff):
+                valid = False
+                break
+        if valid:
+            ret.append({'r': r, 'g': g, 'b': b, 'a': 0}) 
+        iter += 1
+    return ret
+
+def average_color(c1,c2):
+    r_average = int(round(math.sqrt((c1["r"]^2 + c2["r"]^2)/2),0))
+    g_average = int(round(math.sqrt((c1["g"]^2 + c2["g"]^2)/2),0))
+    b_average = int(round(math.sqrt((c1["b"]^2 + c2["b"]^2)/2),0))
+    return ({'r': r_average, 'g': g_average, 'b': b_average, 'a': 0})

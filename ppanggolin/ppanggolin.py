@@ -3,6 +3,9 @@
 
 import warnings
 warnings.filterwarnings("ignore")
+import pandas
+import numpy
+import scipy
 from collections import defaultdict, OrderedDict, Counter, deque
 from bidict import bidict
 from ordered_set import OrderedSet
@@ -27,6 +30,10 @@ import plotly.plotly as py
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
 from ascii_graph import Pyasciigraph
+from scipy.spatial.distance import squareform, pdist
+from scipy.sparse import csr_matrix
+from scipy.stats import iqr
+import markov_clustering as mc
 
 (TYPE, FAMILY, START, END, STRAND, NAME, PRODUCT) = range(0, 7)#data index in annotation
 (ORGANISM_INDEX,CONTIG_INDEX,POSITION_INDEX) = range(0, 3)#index
@@ -34,7 +41,7 @@ from ascii_graph import Pyasciigraph
 (GFF_seqname, GFF_source, GFF_type, GFF_start, GFF_end, GFF_score, GFF_strand, GFF_frame, GFF_attribute) = range(0,9) 
 (MU,EPSILON,PROPORTION) = range(0, 3)
 (FAMILIES_PARTITION,PARTITION_PARAMETERS) = range(0, 2)
-RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz","type"])
+RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz","type","path","correlated_paths"])
 SHORT_TO_LONG = {'EA':'exact_accessory','EC':'exact_core','SA':'soft_accessory','SC':'soft_core','P':'persistent','S':'shell','C':'cloud','U':'undefined'}
 COLORS = {"pangenome":"black", "exact_accessory":"#EB37ED", "exact_core" :"#FF2828", "soft_core":"#e6e600", "soft_accessory":"#996633","shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
 COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "exact_accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "exact_core" :{'r': 255, 'g': 40, 'b': 40, 'a': 0},  "soft_core":{'r': 255, 'g': 255, 'b': 0, 'a': 0}, "soft_accessory": {'r': 153, 'g': 102, 'b': 51, 'a': 0},"shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
@@ -168,6 +175,8 @@ class PPanGGOLiN:
         self.subpartition_shell             = {}
         self.CDS_fragments                  = {}
         self.soft_core_th                   = None
+        self.path_groups_vectors            = {}
+
         if init_from == "file":
             self.__initialize_from_files(*args)
         elif init_from == "args":
@@ -861,9 +870,11 @@ class PPanGGOLiN:
         variables_and_possible_values = defaultdict(set)
         for org, metaD in metadata.items():
             for variable, value in metaD.items():
-                exclusively_in[variable] = defaultdict(set)
-                never_in[variable]       = defaultdict(set)
-                variables_and_possible_values[variable].add(value)
+                if metaD is not None:
+                    exclusively_in[variable] = defaultdict(set)
+                    never_in[variable]       = defaultdict(set)
+                    if value is not None:
+                        variables_and_possible_values[variable].add(value)
         for node_name, node_organisms in self.neighbors_graph.nodes(data=True):
             for variable, possible_values in variables_and_possible_values.items():
                 if output_path is not None:
@@ -872,9 +883,8 @@ class PPanGGOLiN:
                         os.makedirs(output_path+"/never_in/"+variable)
                     except:
                         pass
-                res = set([metadata[org][variable] for org in metadata if org in node_organisms])
+                res = set([metadata[org][variable] for org in metadata if org in node_organisms]) - set([None])
                 opposite_res = (possible_values - res)
-
                 if len(res)==1:
                     value = res.pop()
                     if output_path is not None:
@@ -882,7 +892,7 @@ class PPanGGOLiN:
                             out_file.write(node_name+"\n")
                     exclusively_in[variable][value].add(node_name)
                 elif len(opposite_res) == 1:
-                    value = opposite_res.pop()
+                    value = opposite_res.pop()       
                     if output_path is not None:
                         with open(output_path+"/never_in/"+variable+"/"+str(value),"a") as out_file:
                             out_file.write(node_name+"\n")
@@ -1344,7 +1354,7 @@ class PPanGGOLiN:
             return(Q)
             
     def compute_layout(self,
-                       iterations = 500,
+                       iterations = 5,
                        graph_type = "neighbors_graph",
                        outboundAttractionDistribution=True,  
                        linLogMode=False,  
@@ -1354,7 +1364,7 @@ class PPanGGOLiN:
                        barnesHutOptimize=True,
                        barnesHutTheta=1.2,
                        multiThreaded=False,
-                       scalingRatio=50000,
+                       scalingRatio=500,
                        strongGravityMode=True,
                        gravity=1.0,
                        verbose=False):
@@ -1431,26 +1441,40 @@ class PPanGGOLiN:
             graph_to_save[node_i][node_j]["length_min"] = min(l)
             graph_to_save[node_i][node_j]["length_max"] = max(l)
             del graph_to_save[node_i][node_j]["length"]
-            
             atts = set()
             for key in data.keys():
-                
                 if key in self.organisms:
                     if metadata:
                         for att, value in metadata[key].items():
-                            atts.add(att)
-                            try:
-                                graph_to_save[node_i][node_j][att].add(value)
-                            except KeyError:
-                                graph_to_save[node_i][node_j][att]=set([value])
+                            if value is not None:
+                                atts.add(att)
+                                try:
+                                    graph_to_save[node_i][node_j][att].add(value)
+                                except KeyError:
+                                    graph_to_save[node_i][node_j][att]=set([value])
                     if not all_edge_attributes:
-                        del graph_to_save[node_i][node_j][key] 
-
+                        del graph_to_save[node_i][node_j][key]
+                if key == "path_group":
+                    
+                    if metadata:
+                        path_group = self.neighbors_graph[node_i][node_j]["path_group"]
+                        orgs = set([org for org, v in self.path_groups_vectors[path_group].items() if round(v)>0]) & data.keys()
+                        for o in orgs:
+                            for att, value in metadata[o].items():
+                                if value is not None:
+                                    try:
+                                        graph_to_save[node_i][node_j]["path_group_"+att].add(value)
+                                    except KeyError:
+                                        graph_to_save[node_i][node_j]["path_group_"+att]=set([value])
             for att in atts:
                 graph_to_save[node_i][node_j][att]="|".join(sorted(graph_to_save[node_i][node_j][att]))
-
-            graph_to_save[node_i][node_j]["viz"]={"thickness":graph_to_save[node_i][node_j]["weight"]}
-
+                if "path_group_"+att in graph_to_save[node_i][node_j]:
+                    graph_to_save[node_i][node_j]["path_group_"+att]="|".join(sorted(graph_to_save[node_i][node_j]["path_group_"+att]))
+            try:
+                graph_to_save[node_i][node_j]["viz"]["thickness"] = graph_to_save[node_i][node_j]["weight"]
+            except:
+                graph_to_save[node_i][node_j]["viz"] = {"thickness" : graph_to_save[node_i][node_j]["weight"]}
+            graph_to_save[node_i][node_j]["viz"]["color"] = average_color(graph_to_save.node[node_i]["viz"]["color"],graph_to_save.node[node_j]["viz"]["color"])
         graph_output_path = graph_output_path+".gexf"
         if compressed:
             graph_output_path = gzip.open(graph_output_path+".gz","w")
@@ -1531,8 +1555,8 @@ class PPanGGOLiN:
                                                str(nb_org),#4
                                                str(data["nb_genes"]),#5
                                                str(round(data["nb_genes"]/nb_org,2)),#6
-                                               '""',#data["subpartition_shell"],#7
-                                               '""',#8
+                                               data["path_group"] if "path_group" in data else "NA",#7
+                                               data["path"] if "path" in data else "NA",#8
                                                '""',#9
                                                '""',#10
                                                '""',#11
@@ -1615,7 +1639,6 @@ class PPanGGOLiN:
         layout = None
         if self.soft_core_th:
             x = self.nb_organisms*self.soft_core_th
-            print(str(x))
             layout =  go.Layout(barmode='stack', shapes=[dict(type='line', x0=x, x1=x, y0=0, y1=max_bar, line = dict(dict(width=5, dash='dashdot', color="grey")))])
         else:
             layout = go.Layout(barmode='stack')
@@ -1794,6 +1817,60 @@ class PPanGGOLiN:
     #                 classes = [pos for pos, prob in enumerate(elements) if prob == max_prob]
 
     #                 self.neighbors_graph.node[index_inv[i+1]]["subshell"]=str(classes[0])
+
+    def extract_shell_paths(self,hamming_similarity = 0.7, inflation_mcl_path_groups = 2, breaker_th = 0.2):
+        graph   = nx.Graph.subgraph(self.neighbors_graph,self.partitions["shell"]).copy()
+        mat_p_a = pandas.DataFrame(False, columns=graph.nodes(data=False), index=self.organisms, dtype=numpy.bool)
+        for node_name, node_organisms in graph.nodes(data=True):
+            line = [True if org in node_organisms else False for org in self.organisms]#TODO restrict the set of organisms
+            mat_p_a[node_name] = line
+        mat_p_a = mat_p_a.transpose()
+        mat_hamming = pandas.DataFrame(squareform(pdist(mat_p_a.values, metric='jaccard')), index = mat_p_a.index, columns = mat_p_a.index)
+        mat_similarity_hamming  = mat_hamming.apply(lambda row: [-x+1 for x in row])
+        mat_similarity_hamming[mat_similarity_hamming < hamming_similarity] = 0
+        numpy.fill_diagonal(mat_similarity_hamming.values, 0)
+        nodes_indexes = mat_similarity_hamming.index
+        self.path_groups_vectors = {}
+        path_groups = mc.get_clusters(mc.run_mcl(csr_matrix(mat_similarity_hamming.values), inflation= inflation_mcl_path_groups))
+        bar = tqdm(path_groups,total=len(path_groups), unit = "path groups")
+        for i, path_group_index in enumerate(bar):
+            bar.set_description("Extracting path groups "+str(i))
+            bar.refresh()
+            path_group = [nodes_indexes[n] for n in path_group_index]
+            self.path_groups_vectors[str(i)]=dict((mat_p_a.loc[path_group].apply(pandas.value_counts).fillna(0).iloc[0]/len(path_group)))
+            if len(path_group)>1:
+                subg = nx.Graph.subgraph(graph,path_group).copy()
+                all_weights = list(nx.get_edge_attributes(subg,"weight").values())
+                subg.remove_edges_from([(u,v) for u,v,d in subg.edges(data=True) if d["weight"] < numpy.median(all_weights)*breaker_th])
+                subg.remove_edges_from([(u,v) for u,v,d in subg.edges(data=True) if subg.degree(u)>2 or subg.degree(v)>2])
+                for j, path in enumerate(nx.algorithms.components.connected_components(subg)):
+                    for node in path:
+                        self.neighbors_graph.nodes[node]["path"]=str(i)+"."+str(j)
+                        self.neighbors_graph.nodes[node]["path_group"] = str(i)
+                        subg.node[node]["path"]=str(i)+"."+str(j)
+                    path_graph = nx.Graph.subgraph(subg,path)
+                    for u, v in path_graph.edges():
+                        self.neighbors_graph[u][v]["path"]=str(i)+"."+str(j)
+                        self.neighbors_graph[u][v]["path_group"] = str(i)
+            else:
+                node = path_group.pop()
+                self.neighbors_graph.nodes[node]["path"]=str(i)+".1"
+                self.neighbors_graph.nodes[node]["path_group"] = str(i)
+
+        
+        all_paths = list(set(nx.get_node_attributes(self.neighbors_graph,"path").values()))
+        needed_col = colors(len(all_paths), except_list = [COLORS_RGB["persistent"],COLORS_RGB["shell"],COLORS_RGB["cloud"]])
+        all_paths_colors = dict(zip(all_paths,needed_col))
+        for n, d in self.neighbors_graph.nodes(data=True):
+            if "path" in d:
+                self.neighbors_graph.node[n]["viz"]['color']=all_paths_colors[d["path"]]
+        # for u, v, d in self.neighbors_graph.edges(data=True):
+        #     if "path" in d:
+        #         try:
+        #             self.neighbors_graph[u][v]["viz"]['color']=all_paths_colors[d["path"]]
+        #         except
+        #             self.neighbors_graph[u][v]["viz"]={'color':all_paths_colors[d["path"]]}
+        return(self.path_groups_vectors)
 
     def projection(self, out_dir, organisms_to_project):
         """

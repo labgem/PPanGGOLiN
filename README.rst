@@ -120,6 +120,8 @@ The software generates several output files:
 
 .. image:: images/gephi.gif
 
+Note that the ForceAtlas2 layout can also be computed or refined using the following CLI tool (fully customizable and parallelizable): https://github.com/lukauskas/gephi-toolkit-forceatlas2-standalone
+
 2. *matrix.csv* and *matrix.Rtab* correspond to the gene presences-absences matrix formatted as did in Roary (https://sanger-pathogens.github.io/Roary/) except that the second column corresponds to the partition instead of an alternative gene ID. When several genes are present in a single gene family of an organism, identifiers of the gene are merged with a "|" separator.
 
 3. A file generate_plots.R able to generate some figures to visualize some metrics about the pangenome. This file can be executed using the following command : 

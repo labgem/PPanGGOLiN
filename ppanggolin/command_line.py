@@ -34,6 +34,7 @@ PROJECTION_DIR              = "/projections/"
 METADATA_DIR                = "/metadata/"
 EVOLUTION_DIR               = "/evolutions/"
 PARTITION_DIR               = "/partitions/"
+PATH_DIR                    = "/paths/"
 GRAPH_FILE_PREFIX           = "/graph"
 MATRIX_FILES_PREFIX         = "/matrix"
 USHAPE_PLOT_PREFIX          = "/Ushaped_plot"
@@ -42,7 +43,7 @@ EVOLUTION_CURVE_PREFIX      = "/evolution_curve"
 EVOLUTION_STATS_FILE_PREFIX = "/evol_stats"
 EVOLUTION_PARAM_FILE_PREFIX = "/evol_param"
 SUMMARY_STATS_FILE_PREFIX   = "/summary_stats"
-CDS_FRAGMENTS_FILE_PREFIX   = "/considered_as_CDS_fragments"
+CORRELATED_PATHS_PREFIX     = "/correlated_paths_prefix"
 SCRIPT_R_FIGURE             = "/generate_plots.R"
 
 def plot_Rscript(script_outfile, verbose=True):
@@ -279,7 +280,7 @@ def resample(index):
                           inplace          = False,
                           just_stats       = True,
                           nb_threads       = 1)
-    if options.delete_nem_intermediate_files:
+    if not options.keep_nem_temporary_files:
         shutil.rmtree(nem_dir_path)
     evol.write(",".join([str(len(shuffled_comb[index])),
                           str(stats["persistent"]) if stats["undefined"] == 0 else "NA",
@@ -371,8 +372,8 @@ def __main__():
     parser.add_argument("-fd", "--free_dispersion", default = False, action="store_true", help = """
     Flag: Specify if the dispersion around the centroid vector of each partition is the same for all the organisms or if the dispersion is free
     """)
-    parser.add_argument("-df", "--delete_nem_intermediate_files", default=False, action="store_true", help="""
-    Flag: Delete intermediate files used by NEM""")
+    parser.add_argument("-kf", "--keep_nem_temporary_files", default=False, action="store_true", help="""
+    Flag: Delete temporary files used by NEM""")
     parser.add_argument("-cg", "--compress_graph", default=False, action="store_true", help="""
     Flag: Compress (using gzip) the files containing the partionned pangenome graph""")
     parser.add_argument("-c", "--cpu", default=[1],  type=int, nargs=1, metavar=('NB_CPU'), help="""
@@ -418,8 +419,8 @@ def __main__():
     Flag: If the specified the xRNA (rRNA,tRNA,tmRNA...) are added to the pangenome graph, (as for proteins, RNA genes need to be clustered)""")
     #parser.add_argument("-dc", "--distance_CDS_fragments", type = int, nargs = 1, default = [-9], metavar=('DISTANCE_CDS_FRAGMENTS'), help = """
     #Number: When several consecutive genes belonging to the same gene families separated by less or equals than DISTANCE_CDS_FRAGMENTS (in nucleotides) are found, there are considered as CDS fragments and then no reflexive links are generated between the associated gene families. Negative values are considered as overlapping CDS fragments (short gene overlapping seems to be frequent in bacteria https://doi.org/10.1186/1471-2164-15-721 ).""")
-    parser.add_argument("-ss", "--subpartition_shell", default = 0, type=int, nargs=1, help = """
-    Number: (in test) Subpartition the shell genome in k subpartitions, k can be detected automatically using k = -1, if k = 0 the partioning will used the first column of metadata to subpartition the shell""")
+    # parser.add_argument("-ss", "--subpartition_shell", default = 0, type=int, nargs=1, help = """
+    # Number: (in test) Subpartition the shell genome in k subpartitions, k can be detected automatically using k = -1, if k = 0 the partioning will used the first column of metadata to subpartition the shell""")
     parser.add_argument("-l", "--compute_layout", default = False, action="store_true", help = """
     Flag: (in test) precalculated the ForceAtlas2 layout""")
 
@@ -446,7 +447,7 @@ def __main__():
     logging.getLogger().info("Output directory is: "+OUTPUTDIR)
     logging.getLogger().info("Temporary directory is: "+TMP_DIR)
 
-    list_dir        = ["",FIGURE_DIR,PARTITION_DIR]
+    list_dir = ["",FIGURE_DIR,PARTITION_DIR,PATH_DIR]
     if options.projection:
         list_dir.append(PROJECTION_DIR)
     if options.metadata[0]:
@@ -473,6 +474,7 @@ def __main__():
             if num == 0:
                 attribute_names = elements
             else:
+                elements = [e if e != "" else None for e in elements]
                 metadata.append(dict(zip(attribute_names,elements)))
 
     start_loading = time()
@@ -526,24 +528,18 @@ def __main__():
             shutil.rmtree(OUTPUTDIR+METADATA_DIR)
         pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)
 
-    if options.subpartition_shell:
-        if options.subpartition_shell[0] <0:
-            Q = pan.partition_shell(Q = "auto")
-            logging.getLogger().info(str(Q)+" subpartitions has been used to subpartition the shell genome...")
-        elif options.subpartition_shell[0]==0:
-            init=defaultdict(set)
-            for orgs, metad in metadata.items():
-                init[metad].add(orgs)
-            pan.partition_shell(init_using_qual=init)
-        else:
-            pan.partition_shell(options.subpartition_shell[0])
+    # if options.subpartition_shell:
+    #     if options.subpartition_shell[0] <0:
+    #         Q = pan.partition_shell(Q = "auto")
+    #         logging.getLogger().info(str(Q)+" subpartitions has been used to subpartition the shell genome...")
+    #     elif options.subpartition_shell[0]==0:
+    #         init=defaultdict(set)
+    #         for orgs, metad in metadata.items():
+    #             init[metad].add(orgs)
+    #         pan.partition_shell(init_using_qual=init)
+    #     else:
+    #         pan.partition_shell(options.subpartition_shell[0])
 
-    #-------------
-    # start_identify_communities = time.time()
-    # pan.identify_communities_in_each_partition()
-    # end_identify_communities = time.time()
-    #pan.identify_shell_subpaths()
-    #-------------
 
     #-------------
     # th = 100
@@ -574,11 +570,28 @@ def __main__():
     #-------------
     start_writing_output_file = time()
 
+    logging.getLogger().info("Extract and label paths")
+    start_paths = time()
+    correlated_paths = pan.extract_shell_paths()
+    end_paths = time()
+
+    with open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_vectors.csv","w") as correlated_paths_vectors, open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_confidences.csv","w") as correlated_paths_confidences:
+        header = []
+        for i, (path, vector) in enumerate(correlated_paths.items()):
+            if i==0:
+                header = list(vector.keys())
+                correlated_paths_vectors.write(",".join(["Gene","Non-unique Gene name","Annotation","No. isolates","No. sequences","Avg sequences per isolate","Accessory Fragment","Genome Fragment","Order within Fragment","Accessory Order with Fragment","QC","Min group size nuc","Max group size nuc","Avg group size nuc"]+header)+"\n")
+                correlated_paths_confidences.write(",".join(["correlated_paths"]+header)+"\n")
+            correlated_paths_vectors.write(",".join([path]+["","",str(sum(vector.values())),str(sum(vector.values())),"","","","","","","","",""]+[str(int(round(v))) for v in vector.values()])+("\n" if i < len(correlated_paths)-1 else ""))
+            correlated_paths_confidences.write(",".join([path]+["","",str(sum(vector.values())),str(sum(vector.values())),"","","","","","","","",""]+[str(v) for v in vector.values()])+("\n" if i < len(correlated_paths)-1 else ""))
+
     if options.compute_layout:
+        logging.getLogger().info("Computing layout")
+        start_layout = time()
         pan.compute_layout()#multiThreaded=options.cpu[0])
+        end_layout = time()
 
     logging.getLogger().info("Writing GEXF file")
-
     pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
     logging.getLogger().info("Writing GEXF light file")
     pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light"+(".gz" if options.compress_graph else ""), options.compress_graph, metadata, False,False)
@@ -590,7 +603,6 @@ def __main__():
                 if partition in set(["exact_core","exact_accessory"]):
                     pan_text.write("\n".join(families)+"\n")
             file.close()
-
     pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
     if options.projection:
         logging.getLogger().info("Projection...")
@@ -598,11 +610,9 @@ def __main__():
         pan.projection(OUTPUTDIR+PROJECTION_DIR, [pan.organisms.__getitem__(index-1) for index in options.projection] if options.projection[0] > 0 else list(pan.organisms))
         end_projection = time()
     end_writing_output_file = time()
-
     pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
     #pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     del pan.annotations # no more required for the following process
-
     # print(pan.partitions_by_organisms)
     # partitions_by_organisms_file = open(OUTPUTDIR+"/partitions_by_organisms.txt","w")
     # exact_by_organisms_file = open(OUTPUTDIR+"/exacte_by_organisms.txt","w")
@@ -624,6 +634,8 @@ def __main__():
     if options.untangle>0:
         pan.untangle_neighbors_graph(options.untangle[0])
         pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata,"untangled_neighbors_graph" )
+
+    
 
     plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
 
@@ -798,12 +810,11 @@ def __main__():
 
     logging.getLogger().info("\n"+
     "Execution time of loading and neighborhood computation: """ +str(round(end_loading-start_loading, 2))+" s\n"+
-    #"Execution time of neighborhood computation: " +str(round(end_neighborhood_computation-start_neighborhood_computation, 2))+" s\n"+
     "Execution time of partitioning: " +str(round(end_partitioning-start_partitioning, 2))+" s\n"+
-    #"Execution time of community identification: " +str(round(end_identify_communities-start_identify_communities, 2))+" s\n"+
+    "Execution time of path detection: " +str(round(end_paths-start_paths, 2))+" s\n"+
+    (("Execution time of layout computation: " +str(round(end_layout-start_layout, 2))+" s\n") if options.compute_layout else "")+
     "Execution time of writing output files: " +str(round(end_writing_output_file-start_writing_output_file, 2))+" s\n"+
     (("Execution time of evolution: " +str(round(end_evolution-start_evolution, 2))+" s\n") if options.evolution else "")+
-
     "Total execution time: " +str(round(time()-start_loading, 2))+" s\n")
 
     logging.getLogger().info("""The pangenome computation is complete.""")
@@ -819,7 +830,7 @@ def __main__():
         proc = subprocess.Popen(cmd, shell=True)
         proc.communicate()
 
-    if options.delete_nem_intermediate_files:
+    if not options.keep_nem_temporary_files:
         pan.delete_nem_intermediate_files()  
 
     logging.getLogger().info("Finished !")
