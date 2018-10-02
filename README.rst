@@ -242,26 +242,26 @@ It is possible to add metainformation to the pangenome graph. This information m
 METADATA_FILE is a tab-delimitated file. The first line contains the names of the attributes and the following lines contain associated information for each organism (in the same order as in the ORGANISM_FILE).
 ::
 
-	phylogroup	assembly
-	D	complete
-	A	complete
-	B2	complete
-	B1	complete
-	B2	complete
-	C	complete
-	B2	complete
-	B2	complete
-	C	complete
-	B2	complete
-	A	complete
-	A	complete
-	A	complete
-	A	complete
-	A	complete
-	A	complete
-	A	complete
-	A	complete
-	A	complete
+	org	phylogroup	assembly
+	org1	D	complete
+	org2	A	complete
+	org3	B2	complete
+	org4	B1	complete
+	org5	B2	complete
+	org6	C	complete
+	org7	B2	draft
+	org8	B2	complete
+	org9	C	complete
+	org10	B2	complete
+	org11	A	complete
+	org12	A	complete
+	org13	A	draft
+	org14	A	complete
+	org15	A	draft
+	org16	A	draft
+	org17	A	draft
+	org18	A	draft
+	org19	A	complete
 	...
 
 .. code:: bash

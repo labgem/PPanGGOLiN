@@ -412,7 +412,12 @@ def __main__():
     """)
     parser.add_argument("-mt", "--metadata", type=argparse.FileType('r'), default = [None], nargs=1, metavar=('METADATA_FILE'), help="""
     File: It is possible to add metainformation to the pangenome graph. These information must be associated to each organism via a METADATA_FILE. During the construction of the graph, metainformation about the organisms are used to label the covered edges.
-    METADATA_FILE is a tab-delimitated file. The first line contains the names of the attributes and the following lines contain associated information for each organism (in the same order as in the ORGANISM_FILE).
+    METADATA_FILE is a tab-delimitated file. The first line contains the names of the attributes and the following lines contain associated information for each organism.
+    Ex:
+    org metadata1   metadata2
+    org1    x1  y1
+    org2    x2  y1
+    ...
     Metadata can't contain reserved word or exact organism name.
     """)
     parser.add_argument("-ra", "--add_rna_to_the_pangenome", default = False, action="store_true", help = """
@@ -469,14 +474,18 @@ def __main__():
     if options.metadata[0]:
         metadata = list()
         attribute_names = list()
+        metadata = OrderedDict()
         for num, line in enumerate(options.metadata[0]):
             elements = [el.strip() for el in line.split("\t")]
             if num == 0:
                 attribute_names = elements
             else:
+                o = elements[0]
+                if o == "":
+                    logging.getLogger().error("Organism name empty in metadata file is empty")
+                    exit(1)
                 elements = [e if e != "" else None for e in elements]
-                metadata.append(dict(zip(attribute_names,elements)))
-
+                metadata[o]=dict(zip(attribute_names,elements))
     start_loading = time()
     global pan
 
@@ -523,7 +532,6 @@ def __main__():
     end_partitioning = time()
     #-------------
     if options.metadata[0]:
-        metadata = OrderedDict(zip(list(pan.organisms),metadata))
         if options.force:
             shutil.rmtree(OUTPUTDIR+METADATA_DIR)
         pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)

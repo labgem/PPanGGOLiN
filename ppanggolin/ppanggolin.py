@@ -238,7 +238,7 @@ class PPanGGOLiN:
         if len(check_circular_contigs) > 0:
             logging.getLogger().error("""
                 The following identifiers of circular contigs in the file listing organisms have not been found in any region type of the gff files: '"""+"'\t'".join(check_circular_contigs.keys())+"'")
-            exit()
+            exit(1)
 
     def __load_gff(self, gff_file_path, families, organism, lim_occurence = 0, infer_singletons = False, add_rna_to_the_pangenome = False):
         """
@@ -1444,7 +1444,7 @@ class PPanGGOLiN:
             atts = set()
             for key in data.keys():
                 if key in self.organisms:
-                    if metadata:
+                    if metadata and key in metadata:
                         for att, value in metadata[key].items():
                             if value is not None:
                                 atts.add(att)
@@ -1455,17 +1455,17 @@ class PPanGGOLiN:
                     if not all_edge_attributes:
                         del graph_to_save[node_i][node_j][key]
                 if key == "path_group":
-                    
                     if metadata:
                         path_group = self.neighbors_graph[node_i][node_j]["path_group"]
                         orgs = set([org for org, v in self.path_groups_vectors[path_group].items() if round(v)>0]) & data.keys()
                         for o in orgs:
-                            for att, value in metadata[o].items():
-                                if value is not None:
-                                    try:
-                                        graph_to_save[node_i][node_j]["path_group_"+att].add(value)
-                                    except KeyError:
-                                        graph_to_save[node_i][node_j]["path_group_"+att]=set([value])
+                            if o in metadata:
+                                for att, value in metadata[o].items():
+                                    if value is not None:
+                                        try:
+                                            graph_to_save[node_i][node_j]["path_group_"+att].add(value)
+                                        except KeyError:
+                                            graph_to_save[node_i][node_j]["path_group_"+att]=set([value])
             for att in atts:
                 graph_to_save[node_i][node_j][att]="|".join(sorted(graph_to_save[node_i][node_j][att]))
                 if "path_group_"+att in graph_to_save[node_i][node_j]:
