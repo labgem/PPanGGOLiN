@@ -615,7 +615,7 @@ def __main__():
                 results = pandas.DataFrame(index = correlated_paths.keys(),columns=["cramer_phi"]+list(possible_values_index.keys()))
 
                 for path, path_vector in correlated_paths.items():
-                     ctg_table = pandas.crosstab(pandas.Series(path_vector.round(0),index=metadata.index),metadata[col])
+                     ctg_table = pandas.crosstab(pandas.Series([round(val,0) for val in path_vector],index=metadata.index),metadata[col])
                      results.loc[path,"cramer_phi"]=cramers_corrected_stat(ctg_table.values)
 
                 for value in list(possible_values_index.keys()):
