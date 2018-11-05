@@ -248,7 +248,9 @@ int nem(const char* Fname,
         const char* model_family,
         const char* proportion,
         const char* dispersion,
-        const int init_mode)
+        const int init_mode,
+        const char* init_file,
+        const char* out_file_prefix)
 /*\
     NEM function.
 \*/
@@ -276,7 +278,7 @@ int nem(const char* Fname,
     else
     {
         char name_out_stderr[LEN_FILENAME];
-        strncpy( name_out_stderr , Fname , LEN_FILENAME ) ;  /*V1.04-a*/
+        strncpy( name_out_stderr , out_file_prefix , LEN_FILENAME ) ;  /*V1.04-a*/
         strncat( name_out_stderr , ".stderr", LEN_FILENAME ) ;
         out_stderr = fopen(name_out_stderr, "w");
     }
@@ -350,7 +352,7 @@ int nem(const char* Fname,
     NemPara.NbIters       = DEFAULT_NBITERS ;
     NemPara.NbEIters      = DEFAULT_NBEITERS ;
     NemPara.NbRandomInits = DEFAULT_NBRANDINITS ;  /*V1.06-h*/
-    NemPara.Seed          = time( NULL ) ;          /*V1.04-e*/
+    NemPara.Seed          = 2;//time( NULL ) ;          /*V1.04-e*/
     NemPara.Format        = DEFAULT_FORMAT ;
     NemPara.InitMode      = DEFAULT_INIT ;
     NemPara.ParamFileMode = DEFAULT_NO_PARAM_FILE ;
@@ -360,10 +362,9 @@ int nem(const char* Fname,
     NemPara.SiteUpdate    = DEFAULT_UPDATE ;        /*V1.06-d*/
     NemPara.TieRule       = DEFAULT_TIE ;           /*V1.06-e*/
     NemPara.Debug         = FALSE ;                 /*V1.04-g*/
-    strncpy( NemPara.OutBaseName, Fname, LEN_FILENAME ) ;
+    strncpy( NemPara.OutBaseName, out_file_prefix, LEN_FILENAME ) ;
     strncpy( NemPara.NeighName, Fname, LEN_FILENAME ) ;
-    strncpy( NemPara.ParamName, Fname, LEN_FILENAME ) ;
-    strncat( NemPara.ParamName, ".m", LEN_FILENAME ) ;
+    strncpy( NemPara.ParamName, init_file, LEN_FILENAME ) ;
     strncat( NemPara.NeighName, ".nei", LEN_FILENAME ) ;
     strncpy( NemPara.RefName, "", LEN_FILENAME ) ;
 
@@ -448,7 +449,7 @@ int nem(const char* Fname,
         }
       else
         {
-      strncpy( NemPara.LogName, Fname , LEN_FILENAME ) ;
+      strncpy( NemPara.LogName, NemPara.OutBaseName , LEN_FILENAME ) ;
       strncat( NemPara.LogName, EXT_LOGNAME, LEN_FILENAME ) ;   
         }
     }
@@ -457,8 +458,7 @@ int nem(const char* Fname,
         strcpy( NemPara.LogName, "" ) ;
     }
 
-    strncpy( NemPara.ParamName, NemPara.OutBaseName, LEN_FILENAME ) ;
-    strncat( NemPara.ParamName, EXT_INITPARAM, LEN_FILENAME ) ;
+    strncpy( NemPara.ParamName, init_file, LEN_FILENAME ) ;
 
     /* Read points */
 
@@ -1033,7 +1033,7 @@ static int  ReadParamFile /*V1.08-a*/
   }
   ParaP->Prop_K[ K - 1 ] = pK ;
   if ( pK <= 0.0 ) {
-    fprintf( stderr, "Last class has pK = %5.2f <= 0\n", pK ) ;
+    //fprintf( stderr, "Last class has pK = %5.2f <= 0\n", pK ) ;
     sts = STS_E_FILE ;
   }
 
@@ -1706,9 +1706,9 @@ static int SaveResults
 
     /*V1.03-d*/ /*V1.03-e*/ /*V1.05-j*/
     fprintf( fmf, 
-	     "Criteria U=NEM, D=Hathaway, L=mixture, M=markov ps-like, error\n\n" );
-    fprintf( fmf, "  %g    %g    %g    %g   %g\n\n", 
-	     CriterP->U, CriterP->D, CriterP->L, CriterP->M, 
+	     "Criteria U=NEM, D=Hathaway, L=mixture, M=markov ps-like, Z=log pseudo-l, error\n\n" );
+    fprintf( fmf, "  %g    %g    %g    %g   %g   %g\n\n", 
+	     CriterP->U, CriterP->D, CriterP->L, CriterP->M, CriterP->Z,
 	     CriterP->Errcur.Errorrate ) ; 
 
     fprintf( fmf, "Beta (%s)\n", BetaDesVC[ ModelP->Spec.BetaModel ] );

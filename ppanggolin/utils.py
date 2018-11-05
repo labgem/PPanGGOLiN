@@ -4,11 +4,14 @@
 import sys
 import gzip
 from decimal import Decimal
+import contextlib
 from collections import defaultdict, OrderedDict
 import math
 from random import sample, random
 from io import TextIOWrapper
 import mmap
+import numpy
+from scipy.stats import chi2_contingency
 
 """ argument can be a file descriptor (compressed or not) or file path (compressed or not) and return a readable file descriptor"""
 def read_compressed_or_not(file_or_file_path):
@@ -111,6 +114,26 @@ def standard_deviation(lst, population=True):
     sd = math.sqrt(variance)
 
     return(sd)
+
+def cramers_corrected_stat(confusion_matrix):
+    """ calculate Cramers V statistic for categorical-categorical association.
+        uses correction from Bergsma and Wicher, 
+        Journal of the Korean Statistical Society 42 (2013): 323-328
+
+        source: https://stackoverflow.com/questions/51859894/how-to-plot-a-cramer-s-v-heatmap-for-categorical-features
+    """
+    chi2 = chi2_contingency(confusion_matrix)[0]
+    n = confusion_matrix.sum().sum()
+    phi2 = chi2/n
+    r,k = confusion_matrix.shape
+    phi2corr = max(0, phi2 - ((k-1)*(r-1))/(n-1))    
+    rcorr = r - ((r-1)**2)/(n-1)
+    kcorr = k - ((k-1)**2)/(n-1)
+    return numpy.sqrt(phi2corr / min( (kcorr-1), (rcorr-1)))
+
+def calculate_BIC(log_likelihood,nb_params,nb_points):
+    return( - 2 * log_likelihood + math.log(nb_points) * nb_params)
+
 """insertion of element at the top of an OrderedDict (for compatibility with python 2.7)
 from : https://stackoverflow.com/questions/16664874/how-can-i-add-an-element-at-the-top-of-an-ordereddict-in-python/18326914
 """
@@ -129,7 +152,24 @@ def ordered_dict_prepend(dct, key, value, dict_setitem=dict.__setitem__):
     else:
         root[1] = first[0] = dct._OrderedDict__map[key] = [root, first, key]
         dict_setitem(dct, key, value)
-import pdb
+
+def jaccard_similarities(mat,jaccard_similarity_th):
+    cols_sum = mat.getnnz(axis=0)
+    ab = mat.T * mat
+    # for rows
+    aa = numpy.repeat(cols_sum, ab.getnnz(axis=0))
+    # for columns
+    bb = cols_sum[ab.indices]
+    similarities = ab.copy()
+    similarities.data /= (aa + bb - ab.data)
+    similarities.data[similarities.data<jaccard_similarity_th] = 0
+    similarities.eliminate_zeros()
+    return similarities
+
+@contextlib.contextmanager
+def empty_cm():
+    yield None
+
 def diff_col(c1,c2,min_diff=1):
     r_diff = abs(c1["r"]-c2["r"])
     g_diff = abs(c1["g"]-c2["g"])

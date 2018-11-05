@@ -21,7 +21,6 @@ import tempfile
 from tqdm import tqdm
 from random import sample
 from multiprocessing import Pool, Semaphore
-import contextlib
 from nem import *
 from .utils import *
 import pdb
@@ -29,22 +28,29 @@ from fa2 import ForceAtlas2
 import plotly.plotly as py
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
+import plotly.figure_factory as ff
 from ascii_graph import Pyasciigraph
 from scipy.spatial.distance import squareform, pdist
-from scipy.sparse import csr_matrix
-from scipy.stats import iqr
+from scipy.sparse import csr_matrix, bsr_matrix, csc_matrix
+from scipy.stats import iqr, linregress, pearsonr
+from scipy.cluster.hierarchy import linkage, dendrogram
 import markov_clustering as mc
+from kneed import KneeLocator
+import io
+from contextlib import redirect_stdout
+
 
 (TYPE, FAMILY, START, END, STRAND, NAME, PRODUCT) = range(0, 7)#data index in annotation
 (ORGANISM_INDEX,CONTIG_INDEX,POSITION_INDEX) = range(0, 3)#index
-(ORGANISM_ID, ORGANISM_GFF_FILE) = range(0, 2)#data index in the file listing organisms 
-(GFF_seqname, GFF_source, GFF_type, GFF_start, GFF_end, GFF_score, GFF_strand, GFF_frame, GFF_attribute) = range(0,9) 
+(ORGANISM_ID, ORGANISM_GFF_FILE) = range(0, 2)#data index in the file listing organisms
+(GFF_seqname, GFF_source, GFF_type, GFF_start, GFF_end, GFF_score, GFF_strand, GFF_frame, GFF_attribute) = range(0,9)
 (MU,EPSILON,PROPORTION) = range(0, 3)
 (FAMILIES_PARTITION,PARTITION_PARAMETERS) = range(0, 2)
 RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition_shell',"viz","type","path","correlated_paths"])
 SHORT_TO_LONG = {'EA':'exact_accessory','EC':'exact_core','SA':'soft_accessory','SC':'soft_core','P':'persistent','S':'shell','C':'cloud','U':'undefined'}
 COLORS = {"pangenome":"black", "exact_accessory":"#EB37ED", "exact_core" :"#FF2828", "soft_core":"#e6e600", "soft_accessory":"#996633","shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
 COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "exact_accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "exact_core" :{'r': 255, 'g': 40, 'b': 40, 'a': 0},  "soft_core":{'r': 255, 'g': 255, 'b': 0, 'a': 0}, "soft_accessory": {'r': 153, 'g': 102, 'b': 51, 'a': 0},"shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
+MAX_Q = 10
 
 """
     :mod:`ppanggolin` -- Depict microbial diversity
@@ -170,12 +176,14 @@ class PPanGGOLiN:
         for p in SHORT_TO_LONG.values():
             self.partitions[p]              = list()
         self.BIC                            = None # Bayesian Index Criterion
+        self.Q                              = None
         self.partitions_by_organism         = dict()
         self.subpartitions_shell_parameters = {}
         self.subpartition_shell             = {}
         self.CDS_fragments                  = {}
         self.soft_core_th                   = None
         self.path_groups_vectors            = {}
+        self.path_vectors                   = {}
 
         if init_from == "file":
             self.__initialize_from_files(*args)
@@ -215,7 +223,6 @@ class PPanGGOLiN:
         families_tsv_file = read_compressed_or_not(families_tsv_file)
         organisms_file    = read_compressed_or_not(organisms_file)
         families    = dict()
-        first_iter  = True
         for line in families_tsv_file:
             elements = [el.strip() for el in line.split()] # 2 or 3 fields expected
             (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
@@ -360,6 +367,8 @@ class PPanGGOLiN:
             pan_str += "Shell genome size:"+str(len(self.partitions["shell"]))+"\n"
             pan_str += "Cloud genome cloud:"+str(len(self.partitions["cloud"]))+"\n"
             pan_str += "\n"
+            pan_str += "Q="+str(self.Q)+"\n"
+            pan_str += "BIC="+str(self.BIC)+"\n"
             pan_str += "Gene families with undefined partition:"+str(len(self.partitions["undefined"]))+"\n"
             # pan_str += "\n"
             # pan_str += str_histogram("Degree distribution of the core genome partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["exact_core"])))+"\n"
@@ -383,7 +392,7 @@ class PPanGGOLiN:
 
         return(pan_str)
 
-    def add_organism(self, new_orgs, new_annotations, new_circular_contig_size, new_families_repeted):
+    def add_organisms(self, new_orgs, new_annotations, new_circular_contig_size, new_families_repeted):
         self.annotations.update(new_annotations)
         self.index                     = bidict()
         self.organisms = self.organisms + new_orgs
@@ -544,7 +553,6 @@ class PPanGGOLiN:
                                 gene_info_start[PRODUCT],
                                 gene_info_start[TYPE])
                 self.index[gene_start]=(organism,contig,0)
-
                 gene_nei, gene_info_nei = gene_start, gene_info_start
                 logging.getLogger().debug(gene_info_start)
                 for pos, (gene, gene_info) in enumerate(contig_annot.items()):
@@ -571,7 +579,6 @@ class PPanGGOLiN:
                             gene_info_start[STRAND] == gene_info_nei[STRAND] and 
                             (gene in self.CDS_fragments or gene_start in self.CDS_fragments)):# to avoid reflexive links with gene fragments
                         self.__add_link(gene_info_start[FAMILY],gene_info_nei[FAMILY],organism, (self.circular_contig_size[contig] - gene_info_nei[END]) + gene_info_start[START])
-
                 if sys.version_info < (3,):
                     ordered_dict_prepend(contig_annot,gene_start,gene_info_start)#insert at the top
                 else:
@@ -619,7 +626,6 @@ class PPanGGOLiN:
                     try:
                         for nei in self.untangled_neighbors_graph.neighbors(p[0]):
                             path = (nei,)+p
-                            
                             #absolute_orientation(path)# give an absolute orientation
                             all_path_k_p_1.add(absolute_orientation(path))
                     except nx.exception.NetworkXError as e:
@@ -899,21 +905,21 @@ class PPanGGOLiN:
                     never_in[variable][value].add(node_name)
         return ({"exclusively_in":exclusively_in,"never_in":never_in})
 
-    def __write_nem_input_files(self, nem_dir_path, select_organisms, init = "default", low_disp=0.1, filter_by_partition = None):
-        if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sence
+    def __write_nem_input_files(self, nem_dir_path, select_organisms):
+        
+        if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sene
             logging.getLogger().warning("The number of selected organisms is too low ("+str(len(select_organisms))+" organisms used) to partition the pangenome graph in persistent, shell and cloud genome. Add new organisms to obtain more robust metrics.")
 
         if not os.path.exists(nem_dir_path):
             #NEM requires 5 files: nem_file.index, nem_file.str, nem_file.dat, nem_file.m and nem_file.nei
             os.makedirs(nem_dir_path)
 
-        logging.getLogger().debug("Writing nem_file.str nem_file.index nem_file.nei nem_file.dat and nem_file.m files")
+        logging.getLogger().debug("Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files")
         with open(nem_dir_path+"/nem_file.str", "w") as str_file,\
-             open(nem_dir_path+"/nem_file.index", "w") as index_file,\
-             open(nem_dir_path+"/column_org_file", "w") as org_file,\
-             open(nem_dir_path+"/nem_file.nei", "w") as nei_file,\
-             open(nem_dir_path+"/nem_file.dat", "w") as dat_file,\
-             open(nem_dir_path+"/nem_file.m", "w") as m_file:
+            open(nem_dir_path+"/nem_file.index", "w") as index_file,\
+            open(nem_dir_path+"/column_org_file", "w") as org_file,\
+            open(nem_dir_path+"/nem_file.nei", "w") as nei_file,\
+            open(nem_dir_path+"/nem_file.dat", "w") as dat_file:
 
             nei_file.write("1\n")
             
@@ -922,8 +928,6 @@ class PPanGGOLiN:
 
             index_fam = OrderedDict()
             for node_name, node_organisms in self.neighbors_graph.nodes(data=True):
-                if filter_by_partition is not None and "partition" in node_organisms and node_organisms["partition"] != filter_by_partition:
-                    continue
                 logging.getLogger().debug(node_organisms)
                 logging.getLogger().debug(select_organisms)
                 
@@ -937,8 +941,6 @@ class PPanGGOLiN:
                 neighbor_number = 0
                 try:
                     for neighbor in set(nx.all_neighbors(self.neighbors_graph, node_name)):
-                        if filter_by_partition is not None and "partition" in self.neighbors_graph.node[neighbor] and self.neighbors_graph.node[neighbor]["partition"] == filter_by_partition:
-                            continue
                         coverage = 0
                         if self.neighbors_graph.is_directed():
                             cov_sens, cov_antisens = (0,0)
@@ -970,48 +972,109 @@ class PPanGGOLiN:
                     logging.getLogger().debug("The family: "+node_name+" is an isolated family")
                     nei_file.write(str(index_fam[node_name])+"\t0\n")
 
-            if init is not None:
-                m_file.write("1 ")# 1 to initialize parameter,
-                if init == "default":
-                    m_file.write("0.33333 0.33333 ")# 0.333 and 0.333 for to give one third of initial proportition to each class (last 0.33 is automaticaly determined by substraction)
-                    m_file.write(" ".join(["1"]*len(select_organisms))+" ") # persistent binary vector
-                    m_file.write(" ".join(["0.5"]*len(select_organisms))+" ") # shell binary vector (1 ou 0, whatever because dispersion will be of 0.5)
-                    m_file.write(" ".join(["0"]*len(select_organisms))+" ") # cloud binary vector
-                    m_file.write(" ".join([str(low_disp)]*len(select_organisms))+" ") # persistent dispersition vector (low)
-                    m_file.write(" ".join(["0.5"]*len(select_organisms))+" ") # shell dispersition vector (high)
-                    m_file.write(" ".join([str(low_disp)]*len(select_organisms))) # cloud dispersition vector (low)
-                elif isinstance(init,dict):
-                    all_orgs_in_groups = set([org for orgs in init.values() for org in orgs])
-                    (a,b,c)=(0,0,0)
-                    for p in range(0,len(init)):
-                        a+=1
-                        m_file.write(str(round(float(1)/len(init),4))+" ")
-
-                    for org_groups in init.values():
-                        b+=1
-                        m_file.write(" ".join(["1" if org in org_groups else "0" if org in all_orgs_in_groups else "0.5" for org in select_organisms])+" ")
-                    m_file.write(" ".join(["0.5"]*len(select_organisms))+" ")
-                    for org_groups in init.values():
-                        c+=1
-                        m_file.write(" ".join([str(low_disp) if org in org_groups else str(low_disp) if org in all_orgs_in_groups else "0.5" for org in select_organisms])+" ")
-                    m_file.write(" ".join(["0.5"]*len(select_organisms)))
-
-                    print("a="+str(a)+"    b="+str(b)+"      c"+str(c))
-                elif isinstance(init,list):
-                    m_file.write("0.33333 0.33333 ")
-                    (positive,negative) = init
-                    m_file.write(" ".join(["1" if org in positive else "0" if org in negative else "0.5" for org in select_organisms])+" ")
-                    m_file.write(" ".join(["0" if org in positive else "1" if org in negative else "0.5" for org in select_organisms])+" ")
-                    m_file.write(" ".join(["0.5"]*len(select_organisms))+" ")
-                    m_file.write(" ".join([str(low_disp) if org in positive else str(low_disp) if org in negative else "0.5" for org in select_organisms])+" ")
-                    m_file.write(" ".join([str(low_disp) if org in positive else str(low_disp) if org in negative else "0.5" for org in select_organisms])+" ")
-                    m_file.write(" ".join(["0.5"]*len(select_organisms)))
-
             str_file.write("S\t"+str(len(index_fam))+"\t"+
-                                 str(len(select_organisms))+"\n")
+                            str(len(select_organisms))+"\n")
+
+    def __evaluate_nb_partitions(self, nem_dir_path = tempfile.mkdtemp(),
+                                 select_organisms   = None,
+                                 free_dispersion    = False,
+                                 max_Q              = MAX_Q,
+                                 nb_threads         = 1):
+        if select_organisms is None:
+            select_organisms = self.organisms
+        else:
+            select_organisms = OrderedSet(select_organisms)
+            if len(select_organisms - self.organisms)>0:
+                raise Exception("select_organisms parameter must be included in the organisms attribute of the objet")
+
+        self.__write_nem_input_files(nem_dir_path,select_organisms)
+
+        def run_several_quick_partitioning (all_Q_to_partition):
+            all_log_likelihood = []
+            with contextlib.closing(Pool(processes = nb_threads)) if nb_threads>1 else empty_cm() as pool:
+                logging.disable(logging.INFO)# disable INFO message
+                logging.disable(logging.WARNING)# disable WARNING message
+                if nb_threads>1:
+                    all_log_likelihood = pool.starmap(run_partitioning, [(nem_dir_path,
+                                                                        len(select_organisms),
+                                                                        0,#quick, beta=0
+                                                                        free_dispersion,
+                                                                        q,
+                                                                        "param_file",
+                                                                        5,#quick, only 5 iterations
+                                                                        True) for q in all_Q_to_partition])
+                else:
+                    for q in all_Q_to_partition:
+                        all_log_likelihood.append(run_partitioning(nem_dir_path,
+                                                                   len(select_organisms),
+                                                                   0, #quick, beta=0
+                                                                   free_dispersion,
+                                                                   q,
+                                                                   "param_file",
+                                                                   5,#quick, only 5 iterations
+                                                                   True))
+            logging.disable(logging.NOTSET)# restaure message
+            valid_Q , all_BICs = ([],[])
+            for Q_candidate, log_likelihood in zip(all_Q_to_partition,all_log_likelihood):
+                if log_likelihood is not None:
+                    valid_Q.append(Q_candidate)
+                    all_BICs.append(calculate_BIC(log_likelihood,Q_candidate * (len(select_organisms) + 1 + (len(select_organisms) if free_dispersion else 1)),self.pan_size))
+            return(valid_Q , all_BICs)
+        kneedle    = None
+        best_Q     = None
+        slope      = 0
+        intercept  = 0
+        (Qs, BICs) = run_several_quick_partitioning(list(range(3,max_Q+1)))
+        slope, intercept, r_value, p_value, std_err = (0,0,None,None,None)
+        if len(Qs)>3:
+            slope, intercept, r_value, p_value, std_err = linregress(Qs, BICs)
+            if slope < 0:
+                try:
+                    with redirect_stdout(io.StringIO()):# to capture error message from KneeLocator
+                        kneedle = KneeLocator(Qs, BICs, direction='decreasing',curve='convex')
+                    if kneedle.knee is None or kneedle.knee < 3 or r_value < -0.9:
+                        best_Q = max_Q if self.Q is None else self.Q# if no knee was found, its means that no discrete gain is obtain by increasing Q
+                    else:
+                        best_Q = kneedle.knee
+                        print(" ".join([str(Qs[Q_idx]) for Q_idx in kneedle.xmx_idx]))
+                except ValueError:
+                    best_Q = 3# if KneeLocator raise a ValueError it means that overpartionning do not works, so that a unique central shell partition is enough
+            else:
+                best_Q = 3# if slope is increasing it means that increasing the number of partitions is useless, so 3 partition is enough
+        else:
+            best_Q = 3# not enough data, so 3 partition is enough
+        # otherwise add new point ?
+        # putative_best_Q = kneedle.knee
+        #all_log_likelihood = run_several_quick_partitioning([putative_best_Q-1,putative_best_Q+1])
+        # valid_Q , all_BICs = ([],[])
+        # for Q, log_likelihood in zip(all_Q,all_log_likelihood):
+        #     if log_likelihood is not None:
+        #         valid_Q.append(Q)
+        #         all_BICs.append(calculate_BIC(log_likelihood,Q * (len(select_organisms) + 1 + (len(select_organisms) if free_dispersion else 1)),self.pan_size))
+        # print(valid_Q)
+        # print(all_BICs)
+        # kneedle = KneeLocator(valid_Q, all_BICs,direction='decreasing',curve='convex')
+        # # otherwise add new point ?
+        if len(Qs)>0:
+            traces = []
+            traces.append(go.Scatter(x=Qs,
+                                     y=BICs,
+                                     name = "BICs",
+                                     mode="lines+markers"))
+            layout = go.Layout(title = "BIC curve, "+ ("y = "+str(slope)+"x + "+str(intercept)+", r = "+str(r_value) if r_value else ""),
+                               titlefont = dict(size = 20),
+                               xaxis = dict(title='number of overpartitions'),
+                               yaxis = dict(title='BIC'),
+                               shapes=[dict(type='line', x0=best_Q, x1=best_Q, y0=0, y1=max(BICs), line = dict(dict(width=5, dash='dashdot', color="black"))),
+                                       dict(type='line', x0=3, x1=max_Q, y0=(3*slope)+intercept, y1=(max_Q*slope)+intercept, line = dict(dict(width=5, dash='dashdot', color="grey")))])
+            fig = go.Figure(data=traces, layout=layout)
+            out_plotly.plot(fig, filename=nem_dir_path+"/BIC_curve_Q"+str(best_Q)+".html", auto_open=False)
+
+        return(best_Q)
 
     def partition(self, nem_dir_path     = tempfile.mkdtemp(),
                         select_organisms = None,
+                        Q                = -1,
                         beta             = 0.5,
                         free_dispersion  = False,
                         chunck_size      = 500,
@@ -1086,20 +1149,29 @@ class PPanGGOLiN:
                 stats["soft_core"]+=1
             else:
                 stats["soft_accessory"]+=1
-        BIC = 0
         
+        def run_evaluate_nb_partitions(orgs, Q):
+            if Q == -1:
+                if self.Q == 3:
+                    Q = 3
+                    self.__write_nem_input_files(nem_dir_path,orgs)
+                else:
+                    Q = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
+                                                      select_organisms = orgs,
+                                                      free_dispersion  = False,
+                                                      max_Q            = MAX_Q if self.Q is None else self.Q + 1,
+                                                      nb_threads       = nb_threads)
+            else:
+                self.__write_nem_input_files(nem_dir_path,orgs)
+            return(Q)
         if len(select_organisms) > chunck_size:
+
+            Q = run_evaluate_nb_partitions(sample(select_organisms,chunck_size),Q)
 
             cpt_partition = OrderedDict()
             for fam in families:
                 cpt_partition[fam]= {"P":0,"S":0,"C":0,"U":0}
             
-            total_BIC = 0
-
-            @contextlib.contextmanager
-            def empty_cm():
-                yield None
-
             validated = set()
             cpt=0
 
@@ -1139,7 +1211,7 @@ class PPanGGOLiN:
                 pan_size = stats["exact_accessory"]+stats["exact_core"]
                 
                 while len(validated)<pan_size:
-                    if sem.acquire() if nb_threads>1 else True:#
+                    if (sem.acquire() if nb_threads>1 else True):#
                         # print(select_organisms)
                         # print(chunck_size)
                         # print(proba_sample.values())
@@ -1171,13 +1243,15 @@ class PPanGGOLiN:
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                            len(orgs),
                                                            beta,
-                                                           free_dispersion),                                                        
+                                                           free_dispersion,
+                                                           Q),                                                        
                                                    callback = validate_family)
                         else:
                             res = run_partitioning(nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                    len(orgs),
                                                    beta,
-                                                   free_dispersion)
+                                                   free_dispersion,
+                                                   Q)
                             validate_family(res)
                         cpt +=1
                     else:
@@ -1214,12 +1288,53 @@ class PPanGGOLiN:
             #     print('total '+str(stats["exact_accessory"]+stats["exact_core"]))
             #     print(' ')
         else:
-            self.__write_nem_input_files(nem_dir_path+"/",
-                                         select_organisms)
-            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta, free_dispersion)[FAMILIES_PARTITION]
+            Q = run_evaluate_nb_partitions(select_organisms,Q)
+            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta, free_dispersion, Q=Q)
+            partitionning_results = partitionning_results[FAMILIES_PARTITION]
+            # all_Q = []
+            # all_BIC = []
+            # pool.map(f, range(10))
+            # for i in range(3,20):
+            #     print("here (__write_nem_input_files) "+str(i)+ "   "+nem_dir_path+"Q_"+str(i)+"/")
+            #     self.__write_nem_input_files(nem_dir_path+"Q_"+str(i)+"/",select_organisms, Q=i)
+            #     print("here (run_partitioning) "+str(i))
+            #     partitionning_results = run_partitioning(nem_dir_path+"Q_"+str(i)+"/", len(select_organisms), beta, free_dispersion, Q=i)
+            #     BIC = partitionning_results[2]
+
+            #     all_Q.append(i)
+            #     all_BIC.append(BIC)
+
+            #     print("here (after run_partitioning) "+str(i)+"   BIC="+str(BIC))
+            # kneedle = KneeLocator(all_Q, all_BIC, curve='concave', direction='increasing')
+            # best_Q = kneedle.knee
+            # print("here (__write_nem_input_files) "+str(i)+ "   "+nem_dir_path+"best_Q_"+str(best_Q)+"/")
+            # print("here (run_partitioning) "+str(best_Q))
+
             
+            # s=0
+            # p=0
+            # #
+            # try:
+            #     for k, (mu,epsilon,prop) in partitionning_results[PARTITION_PARAMETERS].items():
+            #         if k!= 0 and k!= i:
+            #             s += sum([e*prop for e in epsilon])
+            #             p += prop
+            #     #print(s/p/len(select_organisms))
+            # except:
+            #     pass
+
+            #= s*i
+            
+            #pdb.set_trace()
+        
+            # #if partitionning_results[]
+
+            
+            # #partitionning_results = partitionning_results[PARTITION_PARAMETERS]                
+                
         if inplace:
-            self.BIC = BIC
+            #self.BIC = BIC
+            self.Q   = Q
             if self.is_partitionned:
                 for p in SHORT_TO_LONG.values():
                     self.partitions[p] = list()# erase older values
@@ -1231,7 +1346,6 @@ class PPanGGOLiN:
                         nb_orgs+=1
 
                 self.neighbors_graph.node[node]["partition"]=SHORT_TO_LONG[nem_class]
-                
                 self.partitions[SHORT_TO_LONG[nem_class]].append(node)
 
                 if nb_orgs == self.nb_organisms:
@@ -1278,81 +1392,6 @@ class PPanGGOLiN:
             else:
                 return partitionning_results
 
-    def partition_shell(self, nem_dir_path = tempfile.mkdtemp(),
-                        subpart_name    = "subpartition_shell",
-                        beta            = 0.5,
-                        free_dispersion = False,
-                        Q               = "auto",
-                        exclusity_th    = 0.1,
-                        init_using_qual = None):
-        """
-
-        """ 
-        if not self.is_partitionned:
-            logging.getLogger().warning("The pangenome must be already partionned to subpartition the shell genome")
-        else:
-            if Q == "auto":
-                if init_using_qual is None:
-                    stats = self.projection(nem_dir_path,self.organisms)
-                    Q = float(len(self.partitions["shell"]))/stats[1]
-                    Q = int(round(Q, 0))+1 # +1 to store unexclusive families
-                else:
-                    if isinstance(init_using_qual,dict):
-                        Q = len(init_using_qual)+1
-                    elif isinstance(init_using_qual,list):
-                        Q = 3
-                    else:
-                        print("else")
-            elif Q <= 1:
-                logging.getLogger().error('Q must be above 1 or equals to "auto"')
-                return()
-            self.__write_nem_input_files(nem_dir_path+"/",
-                                        self.organisms,
-                                        init=init_using_qual,
-                                        filter_by_partition="shell")
-            subpartitions = run_partitioning(nem_dir_path, self.nb_organisms, beta, free_dispersion, Q = Q, init="random" if init_using_qual is None else "param_file")
-            self.subpartitions_shell_parameters = {} 
-            self.organisms_subpartitions_shell = defaultdict(set)
-            proportion_exclusive = 0
-            labels = {}
-            for k, parameters in subpartitions[PARTITION_PARAMETERS].items():
-                #pdb.set_trace()
-                label = str(k)
-
-                if mean(parameters[EPSILON])<exclusity_th:
-                    label = label+"_exclusive:"+str(round(mean(parameters[EPSILON]),2))
-                    proportion_exclusive+=parameters[PROPORTION]
-                else:
-                    label = label+"_shared:"+str(round(mean(parameters[EPSILON]),2))
-                if isinstance(init_using_qual,dict):
-                    coverages = {}
-                    for group_name, set_org in init_using_qual.items():
-                        k_set = set([org for (org, boolean) in zip(self.organisms, parameters[MU]) if boolean])
-                        coverage=0
-                        if len(k_set)>0:
-                            coverage = float(len(k_set & set_org))/float(len(set_org))
-                            if coverage >= 0.5:
-                                coverages[group_name]=coverage
-                        print(group_name+"size:"+str(len(set_org))+"  "+label+"  size: "+str(len(k_set))+"      inter:"+str(len(k_set & set_org))+"    coverage:"+str(coverage)) 
-                    label = label+"_"+"|".join(sorted(coverages, key=coverages.get)) if len(coverages)>0 else label
-
-                self.subpartitions_shell_parameters[label]=([org for (org, boolean) in zip(self.organisms, parameters[MU]) if boolean],
-                                                       mean(parameters[EPSILON]),
-                                                       parameters[PROPORTION],)
-                for org in self.subpartitions_shell_parameters[label][0]:
-                    self.organisms_subpartitions_shell[org].add(label)
-                labels[k]=label
-                print(parameters[EPSILON])
-                print(parameters[PROPORTION])
-                
-            self.subpartition_shell = defaultdict(list)
-            nx.set_node_attributes(self.neighbors_graph,nx.get_node_attributes(self.neighbors_graph, "partition"),subpart_name)
-            for node, nem_class in subpartitions[FAMILIES_PARTITION].items():
-                nb_orgs = 0
-                self.neighbors_graph.node[node][subpart_name]=labels[nem_class]
-                self.subpartition_shell[labels[nem_class]].append(node)
-            return(Q)
-            
     def compute_layout(self,
                        iterations = 5,
                        graph_type = "neighbors_graph",
@@ -1444,32 +1483,32 @@ class PPanGGOLiN:
             atts = set()
             for key in data.keys():
                 if key in self.organisms:
-                    if metadata and key in metadata:
-                        for att, value in metadata[key].items():
-                            if value is not None:
-                                atts.add(att)
-                                try:
-                                    graph_to_save[node_i][node_j][att].add(value)
-                                except KeyError:
-                                    graph_to_save[node_i][node_j][att]=set([value])
+                    # if metadata and key in metadata:
+                    #     for att, value in metadata[key].items():
+                    #         if value is not None:
+                    #             atts.add(att)
+                    #             try:
+                    #                 graph_to_save[node_i][node_j][att].add(value)
+                    #             except KeyError:
+                    #                 graph_to_save[node_i][node_j][att]=set([value])
                     if not all_edge_attributes:
                         del graph_to_save[node_i][node_j][key]
-                if key == "path_group":
-                    if metadata:
-                        path_group = self.neighbors_graph[node_i][node_j]["path_group"]
-                        orgs = set([org for org, v in self.path_groups_vectors[path_group].items() if round(v)>0]) & data.keys()
-                        for o in orgs:
-                            if o in metadata:
-                                for att, value in metadata[o].items():
-                                    if value is not None:
-                                        try:
-                                            graph_to_save[node_i][node_j]["path_group_"+att].add(value)
-                                        except KeyError:
-                                            graph_to_save[node_i][node_j]["path_group_"+att]=set([value])
+                # if key == "path_group":
+                #     if metadata:
+                #         path_group = self.neighbors_graph[node_i][node_j]["path_group"]
+                #         orgs = set([org for org, v in self.path_groups_vectors[path_group].items() if round(v)>0]) & data.keys()
+                #         for o in orgs:
+                #             if o in metadata:
+                #                 for att, value in metadata[o].items():
+                #                     if value is not None:
+                #                         try:
+                #                             graph_to_save[node_i][node_j]["path_group_"+att].add(value)
+                #                         except KeyError:
+                #                             graph_to_save[node_i][node_j]["path_group_"+att]=set([value])
             for att in atts:
                 graph_to_save[node_i][node_j][att]="|".join(sorted(graph_to_save[node_i][node_j][att]))
-                if "path_group_"+att in graph_to_save[node_i][node_j]:
-                    graph_to_save[node_i][node_j]["path_group_"+att]="|".join(sorted(graph_to_save[node_i][node_j]["path_group_"+att]))
+                # if "path_group_"+att in graph_to_save[node_i][node_j]:
+                #     graph_to_save[node_i][node_j]["path_group_"+att]="|".join(sorted(graph_to_save[node_i][node_j]["path_group_"+att]))
             try:
                 graph_to_save[node_i][node_j]["viz"]["thickness"] = graph_to_save[node_i][node_j]["weight"]
             except:
@@ -1516,6 +1555,14 @@ class PPanGGOLiN:
     #             del self.neighbors_graph[source][target]['id']
     #         except KeyError:
     #             logging.getLogger().warnings("No previous edge id found in gexf input file for edge: "+source+" <-> "+target)
+
+    def write_melted_matrix(self, path):
+        if self.is_partitionned:
+            with open(path+".csv","w") as melted_matrix:
+                for node, data in self.neighbors_graph.nodes(data=True):
+                    for key, d in data.items():
+                        if key in self.organisms:
+                            melted_matrix.write(",".join([node,key]+list(d))+"\n")
 
     def write_matrix(self, path, header=True, csv = True, Rtab = True):
         """
@@ -1572,27 +1619,6 @@ class PPanGGOLiN:
                 write_file("Rtab",False,"\t")
         else:
             logging.getLogger().error("The pangenome need to be partionned before being exported to a file matrix")
-    # def delete_pangenome_graph(self, delete_NEM_files = False):
-    #     """
-    #         Delete all the pangenome graph of eventuelly the statistic of the partionning process (including the temporary file)
-    #     """ 
-    #     if delete_NEM_files:
-    #         self.delete_nem_intermediate_files()
-
-    #     self.nem_output               = None
-    #     self.neighbors_graph          = None
-    #     self.pan_size                 = 0
-    #     self.nem_output               = None
-    #     self.is_partitionned          = False
-    #     self.partitions               = {}
-    #     self.partitions["undefined"]  = list()
-    #     self.partitions["persistent"] = list()
-    #     self.partitions["shell"]      = list()
-    #     self.partitions["cloud"]      = list()
-    #     self.partitions["exact_core"] = list()
-    #     self.partitions["exact_accessory"]  = list()
-    #     self.BIC                      = None
-    #     #self.partitions_by_organisms  = defaultdict(lambda: defaultdict(set))
 
     def delete_nem_intermediate_files(self):
         """
@@ -1618,6 +1644,9 @@ class PPanGGOLiN:
             count[nb_org]["pangenome"]+=1
             max_bar = count[nb_org]["pangenome"] if count[nb_org]["pangenome"] > max_bar else max_bar
         data_plot = []
+        chao = "NA"
+        if count[1]["pangenome"] > 0:
+            chao = self.pan_size + ((count[0]["pangenome"]^2)/(count[1]["pangenome"]*2))
 
         if self.is_partitionned and len(self.partitions["undefined"]) == 0:
             persistent_values = []
@@ -1639,211 +1668,156 @@ class PPanGGOLiN:
         layout = None
         if self.soft_core_th:
             x = self.nb_organisms*self.soft_core_th
-            layout =  go.Layout(barmode='stack', shapes=[dict(type='line', x0=x, x1=x, y0=0, y1=max_bar, line = dict(dict(width=5, dash='dashdot', color="grey")))])
+            layout =  go.Layout(title = "Gene frequency distribution (U shape), chao="+str(chao),
+                                xaxis = dict(title='Occurring in x genomes'),
+                                yaxis = dict(title='# of gene families (F)'),
+                                barmode='stack', shapes=[dict(type='line', x0=x, x1=x, y0=0, y1=max_bar, line = dict(dict(width=5, dash='dashdot', color="grey")))])
         else:
-            layout = go.Layout(barmode='stack')
+            layout = go.Layout(title = "Gene frequency distribution (U shape), chao="+str(chao),
+                               xaxis = dict(title='Occurring in x genomes'),
+                               yaxis = dict(title='# of gene families (F)'),
+                               barmode='stack')
 
         fig = go.Figure(data=data_plot, layout=layout)
         out_plotly.plot(fig, filename = out_file+".html", auto_open=False)
 
     def tile_plot(self, outdir):
         """
-            generate tile plot representation (not work for the moment)
+            generate tile plot representation
             :param outdir: a str containing the path of the output file
             :type str: 
         """ 
+        data        = []
+        all_indexes = []
+        all_columns = []
+        nodes_order = bidict()
+        for row, (node_name, node_organisms) in enumerate(self.neighbors_graph.nodes(data=True)):
+            new_col=[i for i, org in enumerate(self.organisms) if org in node_organisms]
+            all_indexes.extend([row]*len(new_col))
+            all_columns.extend(new_col)
+            data.extend([1.0]*len(new_col))
+            nodes_order[row]=node_name
+
+        mat_p_a = csc_matrix((data, (all_indexes,all_columns)), shape = (len(self.neighbors_graph),self.nb_organisms), dtype='float')
+        dist    = pdist(1 - jaccard_similarities(mat_p_a,0).todense())
+        hc      = linkage(dist, 'single')
+
+        dendro = dendrogram(hc)
+        order_organisms = self.organisms[dendro['leaves']]
 
         binary_data = []
-        fam_order = []
-        cpt = 1
-        for node, data in self.neighbors_graph.nodes(data=True):
+        text_data   = []
+        fam_order   = []
+
+        ordored_nodes_p = sorted(self.partitions["persistent"], key=lambda n:len(self.neighbors_graph.nodes[n]), reverse=True)
+        ordored_nodes_s = sorted(self.partitions["shell"], key=lambda n:len(self.neighbors_graph.nodes[n]), reverse=True)
+        ordored_nodes_c = sorted(self.partitions["cloud"], key=lambda n:len(self.neighbors_graph.nodes[n]), reverse=True)
+
+        for node in ordored_nodes_p+ordored_nodes_s+ordored_nodes_c:
             fam_order.append(node)
-            binary_data.append([1 if org in data else 0 for org in self.organisms])
-            cpt+=1
-            if cpt>1500:
-                break
-        binary_data = []
-        fam_order=[]
-        for org in self.organisms:
-            l = []
-            fam_order = []
-            for node, data in self.neighbors_graph.nodes(data=True):
-                fam_order.append(node)
-                if org in data:
-                    l.append(1)
-                else:
-                    l.append(0)
-            binary_data.append(l)
-        data_plot = go.Heatmap(z=binary_data,
-                               x=list(self.organisms),
-                               y=fam_order,
-                               colorscale=[[0, 'rgb(0, 0, 0)'],[0, 'rgb(1, 1, 1)']],
-                               colorbar={"tick0":0,"dtick":1})
-        out_plotly.plot([data_plot], filename = outdir+"/tile_plot.html", auto_open=False)
+            data = self.neighbors_graph.nodes[node]
+            binary_data.append([len(data[org]) if org in data else numpy.nan for org in order_organisms])
+            text_data.append([("\n".join(data[org])) if org in data else numpy.nan for org in order_organisms])
+        # fam_order=[]
+        # for org in self.organisms:
+        #     l = []
+        #     fam_order = []
+        #     for node, data in self.neighbors_graph.nodes(data=True):
+        #         fam_order.append(node)
+        #         if org in data:
+        #             l.append(1)
+        #         else:
+        #             l.append(0)
+        #     binary_data.append(l)
 
-        ##########
+        heatmap = go.Heatmap(z    = binary_data,
+                             x    = list(self.organisms),
+                             y    = fam_order,
+                             text = text_data,
+                             zauto = False,
+                             zmin = 1,
+                             zmax = 2,
+                             autocolorscale = False,
+                             colorscale=[[0.50, 'rgb(100, 15, 78)'],[1, 'rgb(59, 157, 50)']],
+                             colorbar = dict(title     = 'Presence/Absence',
+                                             titleside = 'top',
+                                             tickmode  = 'array',
+                                             tickvals  = [1,2],
+                                             ticktext  = ['Presence','Multicopy'],
+                                          #    tick0    = 0,
+                                          #    dtick    = 0.333,
+                                          #    nticks   = 3,
+                                             ticks     = 'outside'))
 
-    # def identify_communities_in_each_partition(self):
-    #     """
-    #         Use the Louvain's algorithm to label the nodes by their community in each partition
-    #     """ 
-    #     size_communities=defaultdict(lambda : defaultdict(int))
-    #     for partition in ["persistent","shell", "cloud"]:
-    #         subgraph = self.neighbors_graph.subgraph([nodes for nodes,data in self.neighbors_graph.nodes(data=True) if data['partition']==partition])
-    #         comm = community.best_partition(subgraph)# = nx.algorithms.community.asyn_fluidc(subgraph, 100)
-    #         for node, id_com in comm.items():
-    #             self.neighbors_graph.node[node]['community'] = partition+"_"+str(id_com)
-    #             size_communities[partition][id_com]+=1
+        sep1 = len(ordored_nodes_p)-0.5
+        sep2 = sep1 + len(ordored_nodes_s)
+        sep3 = sep2 + len(ordored_nodes_c)
 
-    # def identify_shell_subpaths(self, k_range = range(2,10),nem_dir_path = tempfile.mkdtemp()):
+        layout = go.Layout(title  = "presence/absence matrix",
+                           xaxis  = dict(title='gene families'),
+                           yaxis  = dict(title='organisms'),
+                           shapes = [dict(type='line', x0=-1, x1=-1, y0=0, y1=sep1, line = dict(dict(width=10, color=COLORS["persistent"]))),
+                                     dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=0, y1=sep1, line = dict(dict(width=10, color=COLORS["persistent"]))),
+                                     dict(type='line', x0=-1, x1=self.nb_organisms, y0=sep1, y1=sep1, line = dict(dict(width=1, color=COLORS["persistent"]))),
+                                     dict(type='line', x0=-1, x1=-1, y0=sep1, y1=sep2, line = dict(dict(width=10, color=COLORS["shell"]))),
+                                     dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=sep1, y1=sep2, line = dict(dict(width=10, color=COLORS["shell"]))),
+                                     dict(type='line', x0=-1, x1=self.nb_organisms, y0=sep2, y1=sep2, line = dict(dict(width=1, color=COLORS["shell"]))),
+                                     dict(type='line', x0=-1, x1=-1, y0=sep2, y1=sep3, line = dict(dict(width=10, color=COLORS["cloud"]))),
+                                     dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=sep2, y1=sep3, line = dict(dict(width=10, color=COLORS["cloud"])))])
+
+        # figure = ff.create_dendrogram(mat_p_a, orientation='bottom', labels=self.organisms,distfun = lambda x: dist, linkagefun = lambda x: hc)
+        # for i in range(len(figure['data'])):
+        #     figure['data'][i]['yaxis'] = 'y2'
+        # pdb.set_trace()
+        # heatmap[0]['x'] = figure['layout']['xaxis']['tickvals']
+        # figure.add_traces(heatmap)
         
-    #     subgraph = self.neighbors_graph.subgraph([nodes for nodes,data in self.neighbors_graph.nodes(data=True) if data['partition']=='Shell'])
+        out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename = outdir+"/tile_plot.html", auto_open=False)
 
-    #     if not os.path.exists(nem_dir_path):
-    #         #NEM requires 5 files: nem_file.index, nem_file.str, nem_file.dat, nem_file.m and nem_file.nei
-    #         os.makedirs(nem_dir_path)
-    #     self.nem_intermediate_files = nem_dir_path
-
-    #     logging.getLogger().info("Writing nem_file.str nem_file.index nem_file.nei nem_file.dat and nem_file.m files")
-    #     str_file   = open(nem_dir_path+"/nem_file.str", "w")
-    #     index_file = open(nem_dir_path+"/nem_file.index", "w")
-    #     org_file   = open(nem_dir_path+"/column_org_file", "w")
-    #     nei_file   = open(nem_dir_path+"/nem_file.nei", "w")
-    #     dat_file   = open(nem_dir_path+"/nem_file.dat", "w")
-
-    #     str_file.write("S\t"+str(nx.number_of_nodes(subgraph))+"\t"+str(self.nb_organisms)+"\n")
-    #     str_file.close()
-
-    #     nei_file.write("1\n")#to enable weigthed partionning
-        
-    #     index = {node: index+1 for index, node in enumerate(subgraph.nodes(data=False))}
-    #     index_inv = {i: node for node, i in index.items()}
-    #     org_file.write(" ".join([org for org in self.organisms])+"\n")
-    #     org_file.close()
-
-    #     for node_name, node_organisms in subgraph.nodes(data=True):
-
-    #         index_file.write(str(index[node_name])+"\t"+str(node_name)+"\n")
-    #         logging.getLogger().debug(node_organisms)
-    #         logging.getLogger().debug(self.organisms)
-    #         dat_file.write("\t".join(["1" if org in node_organisms else "0" for org in self.organisms])+"\n")
-
-    #         row_fam         = []
-    #         row_dist_score  = []
-    #         neighbor_number = 0
-    #         try:
-    #             for neighbor in nx.all_neighbors(subgraph, node_name):
-    #                 #nb_presences = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if org not in RESERVED_WORDS])
-    #                 #self.neighbors_graph[node_name][neighbor]["weight"]= nb_presences
-    #                 distance_score = subgraph[node_name][neighbor]["weight"]/self.nb_organisms
-    #                 row_fam.append(str(index[neighbor]))
-    #                 row_dist_score.append(str(round(distance_score,4)))
-    #                 neighbor_number += 1
-    #             if neighbor_number>0:
-    #                 nei_file.write("\t".join([str(item) for sublist in [[index[node_name]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
-    #                 #logging.getLogger().debug("\t".join([str(item) for sublist in [[[index[node_name]]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
-    #             else:
-    #                 raise nx.exception.NetworkXError("no neighbors in selected organismss")
-    #         except nx.exception.NetworkXError as nxe:
-    #             logging.getLogger().debug("The family: "+node_name+" is an isolated family")
-    #             nei_file.write(str(index[node_name])+"\t0\n")
-
-    #     index_file.close()
-    #     nei_file.close()
-    #     dat_file.close()
-
-    #     for k in k_range:
-
-    #         logging.getLogger().info("Running NEM uing "+str(k)+" class")
-    #         # weighted_degree = sum(list(self.neighbors_graph.degree(weight="weight")).values())/nx.number_of_edges(self.neighbors_graph)
-    #         # logging.getLogger().debug("weighted_degree: "+str(weighted_degree))
-    #         # logging.getLogger().debug("org/weighted_degree: "+str(self.nb_organisms/weighted_degree))    
-    #         #weighted_degree = sum(self.neighbors_graph.degree(weight="weight").values())/nx.number_of_edges(self.neighbors_graph)
-
-
-    #         ALGO           = "ncem" #fuzzy classification by mean field approximation
-    #         ITERMAX        = 100 # number of iteration max 
-    #         MODEL          = "bern" # multivariate Bernoulli mixture model
-    #         PROPORTION     = "pk" #equal proportion :  "p_"     varying proportion : "pk"
-    #         VARIANCE_MODEL = "sk_" #one variance per partition and organism : "sdk"      one variance per partition, same in all organisms : "sd_"   one variance per organism, same in all partion : "s_d"    same variance in organisms and partitions : "s__" 
-    #         NEIGHBOUR_SPEC = "f"# "f" specify to use all neighbors, orther argument is "4" to specify to use only the 4 neighbors with the higher weight (4 because for historic reason due to the 4 pixel neighbors of each pixel)
-    #         CONVERGENCE_TH = "clas "+str(0.000001)
-
-    #         HEURISTIC      = "heu_d"# "psgrad" = pseudo-likelihood gradient ascent, "heu_d" = heuristic using drop of fuzzy within cluster inertia, "heu_l" = heuristic using drop of mixture likelihood
-    #         STEP_HEURISTIC = 1 # step of beta increase
-    #         BETA_MAX       = float(self.nb_organisms) #maximal value of beta to test,
-    #         DDROP          = 0.8 #threshold of allowed D drop (higher = less detection)
-    #         DLOSS          = 0.5 #threshold of allowed D loss (higher = less detection)
-    #         LLOSS          = 0.02 #threshold of allowed L loss (higher = less detection)
-            
-    #         BETA = ["-B",HEURISTIC,"-H",str(STEP_HEURISTIC),str(BETA_MAX),str(DDROP),str(DLOSS),str(LLOSS)]
-
-    #         command = " ".join([NEM_LOCATION, 
-    #                             nem_dir_path+"/nem_file",
-    #                             str(k),
-    #                             "-a", ALGO,
-    #                             "-i", str(ITERMAX),
-    #                             "-m", MODEL, PROPORTION, VARIANCE_MODEL,
-    #                             "-s r 5",
-    #                             *BETA,
-    #                             "-n", NEIGHBOUR_SPEC,
-    #                             "-c", CONVERGENCE_TH,
-    #                             "-f fuzzy",
-    #                             "-l y"])
-         
-    #         logging.getLogger().info(command)
-    #         proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #         (out,err) = proc.communicate()  
-    #         logging.getLogger().debug(out)
-    #         logging.getLogger().debug(err)
-
-    #         if os.path.isfile(nem_dir_path+"/nem_file.uf"):
-    #             logging.getLogger().info("Reading NEM results...")
-    #         else:
-    #             logging.getLogger().error("No NEM output file found")
-            
-    #         with open(nem_dir_path+"/nem_file.uf","r") as classification_nem_file, open(nem_dir_path+"/nem_file.mf","r") as parameter_nem_file:
-    #             classification = []
+        if self.path_vectors:
+            for path, vector in self.path_vectors.items():
                 
-    #             parameter = parameter_nem_file.readlines()
-    #             M = float(parameter[6].split()[3]) # M is markov ps-like
-    #             BIC = -2 * M - (k * self.nb_organisms * 2 + k - 1) * math.log(len(self.partitions["Shell"]))
+    def extract_shell_paths(self,jaccard_similarity_th = 0.7, inflation_mcl_path_groups = 1.5, breaker_th = 1.0/3.0):
+        #graph   = nx.Graph.subgraph(self.neighbors_graph,self.partitions["shell"]).copy()
+        #graph   = self.neighbors_graph.copy()
+        #mat_p_a = pandas.DataFrame(False, columns=graph.nodes(data=False), index=self.organisms, dtype=numpy.bool)
+        data        = []
+        all_indexes = []
+        all_columns = []
+        graph       = nx.Graph.subgraph(self.neighbors_graph,self.partitions["shell"])
+        nodes_order = bidict()
+        for col, (node_name, node_organisms) in enumerate(graph.nodes(data=True)):
+            new_ind=[i for i, org in enumerate(self.organisms) if org in node_organisms]
+            all_indexes.extend(new_ind)
+            all_columns.extend([col]*len(new_ind))
+            data.extend([1.0]*len(new_ind))
+            nodes_order[col]=node_name
+        mat_p_a     = csc_matrix((data, (all_indexes,all_columns)), shape = (self.nb_organisms,len(graph)), dtype='float')#, dtype=numpy.bool_
+        path_groups = mc.get_clusters(mc.run_mcl(jaccard_similarities(mat_p_a,jaccard_similarity_th), inflation = inflation_mcl_path_groups))
 
-    #             logging.getLogger().info("The Bayesian Criterion Index of the partionning for "+str(k)+" is "+str(BIC))
-
-    #             for i, line in enumerate(classification_nem_file):
-    #                 elements = [float(el) for el in line.split()]
-    #                 max_prob = max([float(el) for el in elements])
-    #                 classes = [pos for pos, prob in enumerate(elements) if prob == max_prob]
-
-    #                 self.neighbors_graph.node[index_inv[i+1]]["subshell"]=str(classes[0])
-
-    def extract_shell_paths(self,hamming_similarity = 0.7, inflation_mcl_path_groups = 2, breaker_th = 0.2):
-        graph   = nx.Graph.subgraph(self.neighbors_graph,self.partitions["shell"]).copy()
-        mat_p_a = pandas.DataFrame(False, columns=graph.nodes(data=False), index=self.organisms, dtype=numpy.bool)
-        for node_name, node_organisms in graph.nodes(data=True):
-            line = [True if org in node_organisms else False for org in self.organisms]#TODO restrict the set of organisms
-            mat_p_a[node_name] = line
-        mat_p_a = mat_p_a.transpose()
-        mat_hamming = pandas.DataFrame(squareform(pdist(mat_p_a.values, metric='jaccard')), index = mat_p_a.index, columns = mat_p_a.index)
-        mat_similarity_hamming  = mat_hamming.apply(lambda row: [-x+1 for x in row])
-        mat_similarity_hamming[mat_similarity_hamming < hamming_similarity] = 0
-        numpy.fill_diagonal(mat_similarity_hamming.values, 0)
-        nodes_indexes = mat_similarity_hamming.index
+        # pdb.set_trace()
+        # mat_hamming = pandas.DataFrame(squareform(pdist(mat_p_a.values, metric='jaccard')), index = mat_p_a.index, columns = mat_p_a.index)
+        # mat_similarity_hamming  = mat_hamming.apply(lambda row: [-x+1 for x in row])
+        # mat_similarity_hamming[mat_similarity_hamming < hamming_similarity] = 0
+        # numpy.fill_diagonal(mat_similarity_hamming.values, 0)
+        # nodes_indexes = mat_similarity_hamming.index
         self.path_groups_vectors = {}
-        path_groups = mc.get_clusters(mc.run_mcl(csr_matrix(mat_similarity_hamming.values), inflation= inflation_mcl_path_groups))
+        self.path_vectors = {}
+        #path_groups = mc.get_clusters(mc.run_mcl(csr_matrix(mat_similarity_hamming.values), inflation= inflation_mcl_path_groups))
         bar = tqdm(path_groups,total=len(path_groups), unit = "path groups")
         for i, path_group_index in enumerate(bar):
             bar.set_description("Extracting path groups "+str(i))
             bar.refresh()
-            path_group = [nodes_indexes[n] for n in path_group_index]
-            self.path_groups_vectors[str(i)]=dict((mat_p_a.loc[path_group].apply(pandas.value_counts).fillna(0).iloc[0]/len(path_group)))
+            path_group = [nodes_order[ind] for ind in path_group_index]
+            self.path_groups_vectors[str(i)]=numpy.asarray(mat_p_a[:,path_group_index].sum(axis=1)/len(path_group)).flatten()
             if len(path_group)>1:
-                subg = nx.Graph.subgraph(graph,path_group).copy()
+                subg        = nx.Graph.subgraph(graph,path_group).copy()
                 all_weights = list(nx.get_edge_attributes(subg,"weight").values())
                 subg.remove_edges_from([(u,v) for u,v,d in subg.edges(data=True) if d["weight"] < numpy.median(all_weights)*breaker_th])
                 subg.remove_edges_from([(u,v) for u,v,d in subg.edges(data=True) if subg.degree(u)>2 or subg.degree(v)>2])
                 for j, path in enumerate(nx.algorithms.components.connected_components(subg)):
+                    path_index = [nodes_order.inv[n] for n in path]
+                    self.path_vectors[str(i)+"."+str(j)]=numpy.asarray(mat_p_a[:,path_index].sum(axis=1)/len(path_index)).flatten()
                     for node in path:
                         self.neighbors_graph.nodes[node]["path"]=str(i)+"."+str(j)
                         self.neighbors_graph.nodes[node]["path_group"] = str(i)
@@ -1856,21 +1830,20 @@ class PPanGGOLiN:
                 node = path_group.pop()
                 self.neighbors_graph.nodes[node]["path"]=str(i)+".1"
                 self.neighbors_graph.nodes[node]["path_group"] = str(i)
-
-        
         all_paths = list(set(nx.get_node_attributes(self.neighbors_graph,"path").values()))
         needed_col = colors(len(all_paths), except_list = [COLORS_RGB["persistent"],COLORS_RGB["shell"],COLORS_RGB["cloud"]])
         all_paths_colors = dict(zip(all_paths,needed_col))
         for n, d in self.neighbors_graph.nodes(data=True):
             if "path" in d:
                 self.neighbors_graph.node[n]["viz"]['color']=all_paths_colors[d["path"]]
+        
         # for u, v, d in self.neighbors_graph.edges(data=True):
         #     if "path" in d:
         #         try:
         #             self.neighbors_graph[u][v]["viz"]['color']=all_paths_colors[d["path"]]
-        #         except
+        #         except:
         #             self.neighbors_graph[u][v]["viz"]={'color':all_paths_colors[d["path"]]}
-        return(self.path_groups_vectors)
+        return(self.path_groups_vectors,self.path_vectors)
 
     def projection(self, out_dir, organisms_to_project):
         """
@@ -1936,22 +1909,53 @@ class PPanGGOLiN:
 
 ################ FUNCTION run_partitioning ################
 """ """
-def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="param_file_default"):
-    
+def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="param_file", itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("Running NEM...")
+    if init=="param_file":
+        with open(nem_dir_path+"/nem_file_init_"+str(Q)+".m", "w") as m_file:
+            m_file.write("1 ")# 1 to initialize parameter, 
+            try:           
+                m_file.write(" ".join([str(round(1/float(Q),2)) for q in range(Q-1)])+" ")# 1/Q give the initial proportition to each class (the last proportion is automaticaly determined by substraction in nem)
+            except TypeError:
+                pdb.set_trace()
+            mu=[]
+            epsilon=[]
+            # mu = ["1"]*len(select_organisms)+ ["0"]*len(select_organisms)# persistent binary vector and cloud binary vector
+            # epsilon = [str(low_disp)]*2*len(select_organisms)# persistent dispersition vector and cloud dispersition vector
+
+            # for q in range(1,Q-1):
+            #     mu += numpy.random.choice(["0","1"],len(select_organisms)).tolist()  # shell binary vector (1 ou 0, whatever because dispersion will be of 0.5)
+            #     epsilon += ["0.5"]*len(select_organisms) # shell dispersition vector (high)
+            if Q%2==0:
+                step = 0.5/((Q/2))
+            else:
+                step = 0.5/(math.ceil(Q/2))
+            inc = step
+            for q in range(1,Q+1):
+                if q <= Q/2:
+                    mu += ["1"]*nb_org
+                    epsilon += [str(inc)]*nb_org
+                    if q != Q/2:
+                        inc+=step
+                else:
+                    mu += ["0"]*nb_org
+                    epsilon += [str(inc)]*nb_org
+                    inc-=step
+            
+            m_file.write(" ".join(mu)+" "+" ".join(epsilon))
+
     # weighted_degree = sum(list(self.neighbors_graph.degree(weight="weight")).values())/nx.number_of_edges(self.neighbors_graph)
     # logging.getLogger().debug("weighted_degree: "+str(weighted_degree))
     # logging.getLogger().debug("org/weighted_degree: "+str(self.nb_organisms/weighted_degree))    
-    #weighted_degree = sum(self.neighbors_graph.degree(weight="weight").values())/nx.number_of_edges(self.neighbors_graph)
+    # weighted_degree = sum(self.neighbors_graph.degree(weight="weight").values())/nx.number_of_edges(self.neighbors_graph)
 
     ALGO           = b"ncem" #fuzzy classification by mean field approximation
-    ITERMAX        = 100 # number of iteration max 
     MODEL          = b"bern" # multivariate Bernoulli mixture model
     PROPORTION     = b"pk" #equal proportion :  "p_"     varying proportion : "pk"
     VARIANCE_MODEL = b"skd" if free_dispersion else b"sk_"#one variance per partition and organism : "sdk"      one variance per partition, same in all organisms : "sd_"   one variance per organism, same in all partion : "s_d"    same variance in organisms and partitions : "s__" 
     #NEIGHBOUR_SPEC = "f"# "f" specify to use all neighbors, orther argument is "4" to specify to use only the 4 neighbors with the higher weight (4 because for historic reason due to the 4 pixel neighbors of each pixel)
     CONVERGENCE    = b"clas"
-    CONVERGENCE_TH = 0.00000001
+    CONVERGENCE_TH = 0.01
     (INIT_SORT, INIT_RANDOM, INIT_PARAM_FILE, INIT_FILE, INIT_LABEL, INIT_NB) = range(0,6)
 
     # HEURISTIC      = "heu_d"# "psgrad" = pseudo-likelihood gradient ascent, "heu_d" = heuristic using drop of fuzzy within cluster inertia, "heu_l" = heuristic using drop of mixture likelihood
@@ -1989,19 +1993,21 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
 
     # logging.getLogger().debug(out)
     #logging.getLogger().debug(err)
-    nem(Fname          = nem_dir_path.encode('ascii')+b"/nem_file",
-        nk             = Q,
-        algo           = ALGO,
-        beta           = beta,
-        convergence    = CONVERGENCE,
-        convergence_th = CONVERGENCE_TH,
-        format         = b"fuzzy",
-        it_max         = ITERMAX,
-        dolog          = True,
-        model_family   = MODEL,
-        proportion     = PROPORTION,
-        dispersion     = VARIANCE_MODEL,
-        init_mode      = INIT_PARAM_FILE if init.startswith("param_file") else INIT_RANDOM)
+    nem(Fname           = nem_dir_path.encode('ascii')+b"/nem_file",
+        nk              = Q,
+        algo            = ALGO,
+        beta            = beta,
+        convergence     = CONVERGENCE,
+        convergence_th  = CONVERGENCE_TH,
+        format          = b"fuzzy",
+        it_max          = itermax,
+        dolog           = True,
+        model_family    = MODEL,
+        proportion      = PROPORTION,
+        dispersion      = VARIANCE_MODEL,
+        init_mode       = INIT_PARAM_FILE if init == "param_file" else INIT_RANDOM,
+        init_file       = nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
+        out_file_prefix = nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'))
     # arguments_nem = [str.encode(s) for s in ["nem", 
     #                  nem_dir_path+"/nem_file",
     #                  str(Q),
@@ -2061,27 +2067,37 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
     #                     Lmix = float(elements[len(elements)-1].strip())
     #                     beta_evol_file.write(str(beta)+"\t"+str(Lmix)+"\n")
     
-    if os.path.isfile(nem_dir_path+"/nem_file.uf"):
+    if os.path.isfile(nem_dir_path+"/nem_file_"+str(Q)+".uf"):
         logging.getLogger().debug("Reading NEM results...")
     else:
-        logging.getLogger().warning("No NEM output file found: "+ nem_dir_path+"/nem_file.uf")
+        logging.getLogger().warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(Q)+".uf")
     index_fam = []
+    log_likelihood=None
+
+    if just_log_likelihood:
+        try:
+            with open(nem_dir_path+"/nem_file_"+str(Q)+".mf","r") as parameter_nem_file:
+                parameter = parameter_nem_file.readlines()
+                log_likelihood = float(parameter[2].split()[3]) # M
+                return(log_likelihood)
+        except:
+            return None
+    
     with open(nem_dir_path+"/nem_file.index","r") as index_nem_file:
         for line in index_nem_file:
             index_fam.append(line.split("\t")[1].strip())
-    
+
     partitions_list = ["U"] * len(index_fam)
     all_parameters = {}
+    
     try:
-        with open(nem_dir_path+"/nem_file.uf","r") as partitions_nem_file, open(nem_dir_path+"/nem_file.mf","r") as parameter_nem_file:
+        with open(nem_dir_path+"/nem_file_"+str(Q)+".uf","r") as partitions_nem_file, open(nem_dir_path+"/nem_file_"+str(Q)+".mf","r") as parameter_nem_file:
             parameter = parameter_nem_file.readlines()
-            M = float(parameter[2].split()[3]) # M is markov ps-like
-            BIC = -2 * M - (Q * nb_org * 2 + Q - 1) * math.log(len(index_fam))
+            #log_likelihood = float(parameter[2].split()[2]) # L
             
             sum_mu_k = []
             sum_epsilon_k = []
 
-            logging.getLogger().debug("The Bayesian Criterion Index of the partionning is "+str(BIC))
             for k, line in enumerate(parameter[-Q:]):
                 logging.getLogger().debug(line)
                 vector = line.split() 
@@ -2089,10 +2105,10 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
                 logging.getLogger().debug(mu_k)
                 logging.getLogger().debug(len(mu_k))
 
-                epsilon_k = [float(epsilon_kj) for epsilon_kj in vector[nb_org+1:]]
+                epsilon_k = [round(float(epsilon_kj),2) for epsilon_kj in vector[nb_org+1:]]
                 logging.getLogger().debug(epsilon_k)
                 logging.getLogger().debug(len(epsilon_k))
-                proportion = float(vector[nb_org])
+                proportion = round(float(vector[nb_org]),2)
                 logging.getLogger().debug(proportion)
                 sum_mu_k.append(sum(mu_k))
                 logging.getLogger().debug(sum(mu_k))
@@ -2100,54 +2116,51 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
                 logging.getLogger().debug(sum(epsilon_k))
                 all_parameters[k]=(mu_k,epsilon_k,proportion)
 
-            if init=="param_file_default":
-                
-                #persistent is defined by a sum of mu near of nb_organism and a low sum of epsilon
-                max_mu_k     = max(sum_mu_k)
-                persistent_k = sum_mu_k.index(max_mu_k)
+            # #persistent is defined by a sum of mu near of nb_organism and a low sum of epsilon
+            # max_mu_k     = max(sum_mu_k)
+            # persistent_k = sum_mu_k.index(max_mu_k)
 
-                #shell is defined by an higher sum of epsilon_k
-                max_epsilon_k = max(sum_epsilon_k)
-                shell_k       = sum_epsilon_k.index(max_epsilon_k)
+            # #shell is defined by an higher sum of epsilon_k
+            # max_epsilon_k = max(sum_epsilon_k)
+            # shell_k       = sum_epsilon_k.index(max_epsilon_k)
 
-                # the other one should be cloud (basicaly with low sum_mu_k and low epsilon_k)
-                cloud_k = set([0,1,2]) - set([persistent_k, shell_k])
-                cloud_k = list(cloud_k)[0]
+            # # the other one should be cloud (basicaly with low sum_mu_k and low epsilon_k)
+            # cloud_k = set([0,1,2]) - set([persistent_k, shell_k])
+            # cloud_k = list(cloud_k)[0]
 
-                # but if the difference between epsilon_k of shell and cloud is tiny, we check using the sum of mu_k which basicaly must be lower in cloud
-                if ((sum_epsilon_k[shell_k]-sum_epsilon_k[cloud_k])/nb_org)<0.1 and sum_mu_k[shell_k]<sum_mu_k[cloud_k]:
-                     # otherwise we permutate
-                     (shell_k, cloud_k) = (cloud_k, shell_k)
+            # # but if the difference between epsilon_k of shell and cloud is tiny, we check using the sum of mu_k which basicaly must be lower in cloud
+            # if ((sum_epsilon_k[shell_k]-sum_epsilon_k[cloud_k])/nb_org)<0.1 and sum_mu_k[shell_k]<sum_mu_k[cloud_k]:
+            #     # otherwise we permutate
+            #     (shell_k, cloud_k) = (cloud_k, shell_k)
 
-                logging.getLogger().debug(sum_mu_k)
-                logging.getLogger().debug(sum_epsilon_k)
+            # logging.getLogger().debug(sum_mu_k)
+            # logging.getLogger().debug(sum_epsilon_k)
 
-                logging.getLogger().debug(persistent_k)
-                logging.getLogger().debug(shell_k)
-                logging.getLogger().debug(cloud_k)
+            # logging.getLogger().debug(persistent_k)
+            # logging.getLogger().debug(shell_k)
+            # logging.getLogger().debug(cloud_k)
 
-                partition               = {}
-                partition[persistent_k] = "P"#PERSISTENT
-                partition[shell_k]      = "S"#SHELL
-                partition[cloud_k]      = "C"#CLOUD
+            partition               = {}
+            # partition[persistent_k] = "P"#PERSISTENT
+            # partition[shell_k]      = "S"#SHELL
+            # partition[cloud_k]      = "C"#CLOUD
 
-                if partition[0] != "P" or partition[1] != "S" or partition[2] != "C":
-                    raise ValueError("vector mu_k and epsilon_k value in the mf file are not consistent with the initialisation value in the .m file")
-
+            # if partition[0] != "P" or partition[1] != "S" or partition[2] != "C":
+            #     raise ValueError("vector mu_k and epsilon_k value in the mf file are not consistent with the initialisation value in the .m file")
+            partition[0]="P"#PERSISTENT
+            partition[Q-1]="C"#CLOUD
+            for i in range(1,Q-1):
+                partition[i]="S"
             for i, line in enumerate(partitions_nem_file):
                 elements = [float(el) for el in line.split()]
                 max_prob = max([float(el) for el in elements])
                 positions_max_prob = [pos for pos, prob in enumerate(elements) if prob == max_prob]
                 logging.getLogger().debug(positions_max_prob)
                 logging.getLogger().debug(i)
-                
-                if init=="param_file_default":
-                    if (len(positions_max_prob)>1):
-                        partitions_list[i]="S"#SHELL in case of doubt (equiprobable partition), gene families is attributed to shell
-                    else:
-                        partitions_list[i]=partition[positions_max_prob.pop()]
+                if (len(positions_max_prob)>1 or max_prob<1):
+                    partitions_list[i]="S"#SHELL in case of doubt gene families is attributed to shell
                 else:
-                    partitions_list[i]=positions_max_prob.pop()
+                    partitions_list[i]=partition[positions_max_prob.pop()]
 
             #logging.getLogger().debug(index.keys())
     except IOError:
@@ -2155,6 +2168,6 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
     except ValueError:
         ## return the default partitions_list which correspond to undefined
         pass
-    return((dict(zip(index_fam, partitions_list)),all_parameters))
+    return((dict(zip(index_fam, partitions_list)),all_parameters,log_likelihood))
 
 ################ END OF FILE ################

@@ -11,4 +11,6 @@ cdef extern from "nem_exe.h":
         const char* model_family,
         const char* proportion,
         const char* dispersion,
-        const int init_mode);
+        const int init_mode,
+        const char* init_file,
+        const char* out_file_prefix);

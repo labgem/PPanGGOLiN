@@ -5,6 +5,8 @@ import warnings
 warnings.filterwarnings("ignore")
 import numpy
 import scipy.optimize as optimization
+from scipy.stats import spearmanr
+from scipy.spatial.distance import jaccard, hamming
 import pandas
 from collections import defaultdict, OrderedDict
 from ordered_set import OrderedSet
@@ -37,6 +39,7 @@ PARTITION_DIR               = "/partitions/"
 PATH_DIR                    = "/paths/"
 GRAPH_FILE_PREFIX           = "/graph"
 MATRIX_FILES_PREFIX         = "/matrix"
+MATRIX_MELTED_FILE_PREFIX   = "/matrix_melted"
 USHAPE_PLOT_PREFIX          = "/Ushaped_plot"
 MATRIX_PLOT_PREFIX          = "/presence_absence_matrix_plot"
 EVOLUTION_CURVE_PREFIX      = "/evolution_curve"
@@ -273,6 +276,7 @@ def resample(index):
     nem_dir_path    = TMP_DIR+EVOLUTION_DIR+"/nborg"+str(len(shuffled_comb[index]))+"_"+str(index)
     stats = pan.partition(nem_dir_path     = nem_dir_path,
                           select_organisms = shuffled_comb[index],
+                          Q                = options.overpartionning[0],# 
                           beta             = options.beta_smoothing[0],
                           free_dispersion  = options.free_dispersion,
                           chunck_size      = options.chunck_size[0],
@@ -348,7 +352,7 @@ def __main__():
     """,  required=True)
     parser.add_argument('-od', '--output_directory', type=str, nargs=1, default=["PPanGGOLiN_outputdir"+strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())+"_PID"+str(os.getpid())], metavar=('OUTPUT_DIR'), help="""
     Dir: The output directory""")
-    parser.add_argument('-td', '--temporary_directory', type=str, nargs=1, default=["/tmp/PPanGGOLiN_tempdir"+strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())+"_PID"+str(os.getpid())], metavar=('TMP_DIR'), help="""
+    parser.add_argument('-td', '--temporary_directory', type=str, nargs=1, default=["/dev/shm/PPanGGOLiN_tempdir"+strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())+"_PID"+str(os.getpid())], metavar=('TMP_DIR'), help="""
     Dir: Temporary directory to store nem intermediate files""")
     parser.add_argument('-f', '--force', action="store_true", help="""
     Flag: Force overwriting existing output directory""")
@@ -358,7 +362,7 @@ def __main__():
     parser.add_argument('-s', '--infer_singletons', default=False, action="store_true", help="""
     Flag: If a gene id found in a gff file is absent of the gene families file, the singleton will be automatically infered as a gene families having a single element. 
     if this argument is not set, the program will raise KeyError exception if a gene id found in a gff file is absent of the gene families file.""")
-    #    parser.add_argument("-up", "--update", default = None, type=argparse.FileType('r'), nargs=1, help="""
+    parser.add_argument("-up", "--update", default = None, type=argparse.FileType('r'), nargs=1, help="""
     # Pangenome Graph to be updated (in gexf format)""")
     parser.add_argument("-u", "--untangle", type=int, default = 0, nargs=1, help="""
     Flag: (in test) max size of the untangled paths to be untangled""")
@@ -410,6 +414,9 @@ def __main__():
     Positive Number: Size of the chunks to perform the partioning by chunks.
     If the number of organisms used is higher than SIZE, the partioning will be performed by chunks of size SIZE
     """)
+    parser.add_argument("-op", "--overpartionning", type = int, nargs = 1, default = [-1], metavar=('NB_PARTITIONS'), help="""
+    Positive Number: Number of partitions to overpartion the pangenome (must be higher or equal to 3).
+    """)
     parser.add_argument("-mt", "--metadata", type=argparse.FileType('r'), default = [None], nargs=1, metavar=('METADATA_FILE'), help="""
     File: It is possible to add metainformation to the pangenome graph. These information must be associated to each organism via a METADATA_FILE. During the construction of the graph, metainformation about the organisms are used to label the covered edges.
     METADATA_FILE is a tab-delimitated file. The first line contains the names of the attributes and the following lines contain associated information for each organism.
@@ -445,7 +452,6 @@ def __main__():
     global OUTPUTDIR
     global TMP_DIR
 
-    
     OUTPUTDIR = options.output_directory[0]
     TMP_DIR   = options.temporary_directory[0]
 
@@ -471,21 +477,25 @@ def __main__():
     #-------------
     metadata = None
 
+    if options.overpartionning[0]!= -1 and options.overpartionning[0] < 3:
+        logging.getLogger().error("The overpartionning option must be equal or above 3 partitions or equal to -1 (default) meaning automatic ajustment")
+
     if options.metadata[0]:
-        metadata = list()
-        attribute_names = list()
-        metadata = OrderedDict()
-        for num, line in enumerate(options.metadata[0]):
-            elements = [el.strip() for el in line.split("\t")]
-            if num == 0:
-                attribute_names = elements
-            else:
-                o = elements[0]
-                if o == "":
-                    logging.getLogger().error("Organism name empty in metadata file is empty")
-                    exit(1)
-                elements = [e if e != "" else None for e in elements]
-                metadata[o]=dict(zip(attribute_names,elements))
+        metadata = pandas.read_csv(options.metadata[0], sep='\t', index_col=0, header=0)
+        #pdb.set_trace()
+        # attribute_names = list()
+        # metadata = OrderedDict()
+        # for num, line in enumerate(options.metadata[0]):
+        #     elements = [el.strip() for el in line.split("\t")]
+        #     if num == 0:
+        #         attribute_names = elements
+        #     else:
+        #         o = elements[0]
+        #         if o == "":
+        #             logging.getLogger().error("Organism name empty in metadata file is empty")
+        #             exit(1)
+        #         elements = [e if e != "" else None for e in elements]
+        #         metadata[o]=dict(zip(attribute_names,elements))
     start_loading = time()
     global pan
 
@@ -522,6 +532,7 @@ def __main__():
 
     start_partitioning = time()
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
+                  Q               = options.overpartionning[0],
                   beta            = options.beta_smoothing[0],
                   free_dispersion = options.free_dispersion,
                   chunck_size     = options.chunck_size[0],
@@ -534,7 +545,7 @@ def __main__():
     if options.metadata[0]:
         if options.force:
             shutil.rmtree(OUTPUTDIR+METADATA_DIR)
-        pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)
+        #pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)
 
     # if options.subpartition_shell:
     #     if options.subpartition_shell[0] <0:
@@ -580,19 +591,52 @@ def __main__():
 
     logging.getLogger().info("Extract and label paths")
     start_paths = time()
-    correlated_paths = pan.extract_shell_paths()
+    correlated_path_groups, correlated_paths = pan.extract_shell_paths()
     end_paths = time()
 
-    with open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_vectors.csv","w") as correlated_paths_vectors, open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_confidences.csv","w") as correlated_paths_confidences:
-        header = []
-        for i, (path, vector) in enumerate(correlated_paths.items()):
-            if i==0:
-                header = list(vector.keys())
-                correlated_paths_vectors.write(",".join(["Gene","Non-unique Gene name","Annotation","No. isolates","No. sequences","Avg sequences per isolate","Accessory Fragment","Genome Fragment","Order within Fragment","Accessory Order with Fragment","QC","Min group size nuc","Max group size nuc","Avg group size nuc"]+header)+"\n")
-                correlated_paths_confidences.write(",".join(["correlated_paths"]+header)+"\n")
-            correlated_paths_vectors.write(",".join([path]+["","",str(sum(vector.values())),str(sum(vector.values())),"","","","","","","","",""]+[str(int(round(v))) for v in vector.values()])+("\n" if i < len(correlated_paths)-1 else ""))
-            correlated_paths_confidences.write(",".join([path]+["","",str(sum(vector.values())),str(sum(vector.values())),"","","","","","","","",""]+[str(v) for v in vector.values()])+("\n" if i < len(correlated_paths)-1 else ""))
+    # with open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_vectors.csv","w") as correlated_paths_vectors, open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_confidences.csv","w") as correlated_paths_confidences:
+    #     header = []
+    #     for i, (path, vector) in enumerate(correlated_paths.items()):
 
+    #         if i==0:
+    #             header = list(vector.keys())
+    #             correlated_paths_vectors.write(",".join(["Gene","Non-unique Gene name","Annotation","No. isolates","No. sequences","Avg sequences per isolate","Accessory Fragment","Genome Fragment","Order within Fragment","Accessory Order with Fragment","QC","Min group size nuc","Max group size nuc","Avg group size nuc"]+header)+"\n")
+    #             correlated_paths_confidences.write(",".join(["correlated_paths"]+header)+"\n")
+    #         correlated_paths_vectors.write(",".join([path]+["","",str(sum(vector.values())),str(sum(vector.values())),"","","","","","","","",""]+[str(int(round(v))) for v in vector.values()])+("\n" if i < len(correlated_paths)-1 else ""))
+    #         correlated_paths_confidences.write(",".join([path]+["","",str(sum(vector.values())),str(sum(vector.values())),"","","","","","","","",""]+[str(v) for v in vector.values()])+("\n" if i < len(correlated_paths)-1 else ""))
+
+    if options.metadata[0]:
+        
+        for col in tqdm(metadata.columns,total=metadata.shape[1], unit = "variable"):
+            results=None
+            if not numpy.issubdtype(metadata[col].dtype, numpy.number):
+                
+                possible_values_index = {v:i for i,v in enumerate(list(set(metadata[col].dropna())))}
+                results = pandas.DataFrame(index = correlated_paths.keys(),columns=["cramer_phi"]+list(possible_values_index.keys()))
+
+                for path, path_vector in correlated_paths.items():
+                     ctg_table = pandas.crosstab(pandas.Series(path_vector.round(0),index=metadata.index),metadata[col])
+                     results.loc[path,"cramer_phi"]=cramers_corrected_stat(ctg_table.values)
+
+                for value in list(possible_values_index.keys()):
+                    value_vector = (metadata[col] == value)
+                    value_vector[metadata[col].isna()]=numpy.nan
+                    for path, path_vector in correlated_paths.items():
+                        #res   = kendalltau(value_vector.values,path_vector.round(0), nan_policy="omit")
+                        #pdb.set_trace()
+                        results.loc[path,value] = hamming(value_vector[~numpy.isnan(value_vector)].values,path_vector.round(0)[~numpy.isnan(value_vector)])
+                results.sort_values(by="cramer_phi",axis=0,ascending=False, inplace = True)
+            else:
+                results = pandas.DataFrame(index = correlated_paths.keys(),columns=["spearman_r"])
+                for path, path_vector in correlated_paths.items():
+                    results.loc[path,"spearman_r"] = spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit")
+                
+                results.sort_values(by="spearman_r",axis=0,ascending=False, inplace = True)
+            #pdb.set_trace()
+            
+            
+            #results = results.reindex_axis(results.min(axis=1).sort_values(ascending=False).index, axis=0)
+            results.to_csv(OUTPUTDIR+METADATA_DIR+"/results_"+str(col))
     if options.compute_layout:
         logging.getLogger().info("Computing layout")
         start_layout = time()
@@ -612,6 +656,8 @@ def __main__():
                     pan_text.write("\n".join(families)+"\n")
             file.close()
     pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
+    pan.write_melted_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
+    pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
     if options.projection:
         logging.getLogger().info("Projection...")
         start_projection = time()
@@ -619,12 +665,12 @@ def __main__():
         end_projection = time()
     end_writing_output_file = time()
     pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
-    #pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
+    pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     del pan.annotations # no more required for the following process
     # print(pan.partitions_by_organisms)
     # partitions_by_organisms_file = open(OUTPUTDIR+"/partitions_by_organisms.txt","w")
     # exact_by_organisms_file = open(OUTPUTDIR+"/exacte_by_organisms.txt","w")
-    # for org, partitions in pan.partitions_by_organisms.items(): 
+    # for org, partitions in pan.partitions_by_organisms.items():
     #     partitions_by_organisms_file.write(org+"\t"+str(len(partitions["persistent"]))+
     #                                            "\t"+str(len(partitions["shell"]))+
     #                                            "\t"+str(len(partitions["cloud"]))+"\n")
@@ -685,7 +731,7 @@ def __main__():
                     executor.shutdown(wait=False)
                     raise ex
         evol.close()
-
+        logging.disable(logging.NOTSET)
         def heap_law(N, kappa, gamma):
             return kappa*N**(gamma)
 
@@ -700,36 +746,41 @@ def __main__():
             maxs = pandas.Series({i:numpy.max(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
             medians = pandas.Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
             initial_kappa_gamma = numpy.array([0.0, 0.0])
-            res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
-            kappa, gamma = res[0]
-            error_k,error_o = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
-            if numpy.isinf(error_k) and numpy.isinf(error_o):
-                params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
-            else:
-                params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_o)])+"\n")
-                regression = numpy.apply_along_axis(heap_law, 0, range(1,pan.nb_organisms+1), kappa, gamma)
-                traces.append(go.Scatter(x=list(range(1,pan.nb_organisms+1)), 
-                                    y=regression, 
-                                    name = partition,
-                                    line = dict(color = COLORS[partition],
-                                                width = 4,
-                                                dash = 'dash'),
-                                    visible = "legendonly" if partition == "undefined" else True))
-                annotations.append(dict(x=pan.nb_organisms,
-                                        y=heap_law(pan.nb_organisms,kappa, gamma),
-                                        ay=0,
-                                        ax=100,
-                                        text="F="+str(round(kappa,0))+"N"+"<sup>"+str(round(gamma,5))+"</sup>",
-                                        showarrow=True,
-                                        arrowhead=7,
-                                        font=dict(size=16,color='white'),
-                                        align='center',
-                                        arrowcolor=COLORS[partition],
-                                        bordercolor='#c7c7c7',
-                                        borderwidth=2,
-                                        borderpad=4,
-                                        bgcolor=COLORS[partition],
-                                        opacity=0.8))
+            try:
+                res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
+                kappa, gamma = res[0]
+                error_k,error_o = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
+                if numpy.isinf(error_k) and numpy.isinf(error_o):
+                    params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
+                else:
+                    params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_o)])+"\n")
+                    regression = numpy.apply_along_axis(heap_law, 0, range(1,pan.nb_organisms+1), kappa, gamma)
+                    traces.append(go.Scatter(x=list(range(1,pan.nb_organisms+1)), 
+                                             y=regression, 
+                                             name = partition,
+                                             line = dict(color = COLORS[partition],
+                                                         width = 4,
+                                                         dash = 'dash'),
+                                             visible = "legendonly" if partition == "undefined" else True))
+                    annotations.append(dict(x=pan.nb_organisms,
+                                            y=heap_law(pan.nb_organisms,kappa, gamma),
+                                            ay=0,
+                                            ax=100,
+                                            text="F="+str(round(kappa,0))+"N"+"<sup>"+str(round(gamma,5))+"</sup>",
+                                            showarrow=True,
+                                            arrowhead=7,
+                                            font=dict(size=16,color='white'),
+                                            align='center',
+                                            arrowcolor=COLORS[partition],
+                                            bordercolor='#c7c7c7',
+                                            borderwidth=2,
+                                            borderpad=4,
+                                            bgcolor=COLORS[partition],
+                                            opacity=0.8))
+            except RuntimeError as rt:# if fitting doesn't work
+                if numpy.isinf(error_k) and numpy.isinf(error_o):
+                    params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
+            
             
             traces.append(go.Scatter(x=medians.index, 
                                      y=medians, 
@@ -760,6 +811,7 @@ def __main__():
                                      line=dict(color=COLORS[partition]),
                                      marker=dict(color = COLORS[partition]),
                                      visible = "legendonly" if partition == "undefined" else True))
+                                     
         layout = go.Layout(
             title = "Evolution curve ",
             titlefont = dict(size = 20),
@@ -792,7 +844,7 @@ def __main__():
 
         # ushaped_plot.add_data_set(persistent_values,'column','Persistent', color = COLORS["persistent"])
         end_evolution = time()
-        logging.disable(logging.NOTSET)#restaure info and warning messages 
+        #restaure info and warning messages 
 
     # if options.new_genes_evolution:
     #     logging.getLogger().info("New genes evolution...")
