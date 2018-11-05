@@ -1801,9 +1801,6 @@ class PPanGGOLiN:
                                             #    nticks   = 3,
                                                 ticks     = 'outside'))
             
-
-            for
-
             out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename = outdir+"/tile_plot_paths.html", auto_open=False)
 
     def extract_shell_paths(self,jaccard_similarity_th = 0.7, inflation_mcl_path_groups = 1.5, breaker_th = 1.0/3.0):
