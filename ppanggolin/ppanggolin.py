@@ -1646,7 +1646,7 @@ class PPanGGOLiN:
         data_plot = []
         chao = "NA"
         if count[1]["pangenome"] > 0:
-            chao = self.pan_size + ((count[0]["pangenome"]^2)/(count[1]["pangenome"]*2))
+            chao = round(self.pan_size + ((count[0]["pangenome"]^2)/(count[1]["pangenome"]*2)),2)
 
         if self.is_partitionned and len(self.partitions["undefined"]) == 0:
             persistent_values = []
@@ -1754,8 +1754,8 @@ class PPanGGOLiN:
         sep3 = sep2 + len(ordored_nodes_c)
 
         layout = go.Layout(title  = "presence/absence matrix",
-                           xaxis  = dict(title='gene families'),
-                           yaxis  = dict(title='organisms'),
+                           xaxis  = dict(title='organisms'),
+                           yaxis  = dict(title='gene families'),
                            shapes = [dict(type='line', x0=-1, x1=-1, y0=0, y1=sep1, line = dict(dict(width=10, color=COLORS["persistent"]))),
                                      dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=0, y1=sep1, line = dict(dict(width=10, color=COLORS["persistent"]))),
                                      dict(type='line', x0=-1, x1=self.nb_organisms, y0=sep1, y1=sep1, line = dict(dict(width=1, color=COLORS["persistent"]))),
@@ -1774,9 +1774,38 @@ class PPanGGOLiN:
         
         out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename = outdir+"/tile_plot.html", auto_open=False)
 
+        binary_data = []
+        path_order  = []
         if self.path_vectors:
+            layout = go.Layout(title  = "presence/absence matrix",
+                            xaxis  = dict(title='organisms'),
+                            yaxis  = dict(title='paths'))
             for path, vector in self.path_vectors.items():
-                
+                path_order.append("p"+path)
+                binary_data.append(vector)
+            heatmap = go.Heatmap(z   = binary_data,
+                                x    = list(self.organisms),
+                                y    = path_order,
+                                zauto = False,
+                                zmin = 0,
+                                zmax = 1,
+                                autocolorscale = False,
+                                colorscale=[[0.50, 'rgb(100, 15, 78)'],[1, 'rgb(59, 157, 50)']],
+                                colorbar = dict(title     = 'Presence ratio',
+                                                titleside = 'top',
+                                                # tickmode  = 'array',
+                                                # tickvals  = [0,1],
+                                                # ticktext  = ['Presence','Multicopy'],
+                                            #    tick0    = 0,
+                                            #    dtick    = 0.333,
+                                            #    nticks   = 3,
+                                                ticks     = 'outside'))
+            
+
+            for
+
+            out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename = outdir+"/tile_plot_paths.html", auto_open=False)
+
     def extract_shell_paths(self,jaccard_similarity_th = 0.7, inflation_mcl_path_groups = 1.5, breaker_th = 1.0/3.0):
         #graph   = nx.Graph.subgraph(self.neighbors_graph,self.partitions["shell"]).copy()
         #graph   = self.neighbors_graph.copy()
@@ -1817,7 +1846,7 @@ class PPanGGOLiN:
                 subg.remove_edges_from([(u,v) for u,v,d in subg.edges(data=True) if subg.degree(u)>2 or subg.degree(v)>2])
                 for j, path in enumerate(nx.algorithms.components.connected_components(subg)):
                     path_index = [nodes_order.inv[n] for n in path]
-                    self.path_vectors[str(i)+"."+str(j)]=numpy.asarray(mat_p_a[:,path_index].sum(axis=1)/len(path_index)).flatten()
+                    self.path_vectors[str(i)+"."+str(j)]=numpy.asarray(mat_p_a[:,path_index].sum(axis=1)/len(path_index)).flatten().tolist()
                     for node in path:
                         self.neighbors_graph.nodes[node]["path"]=str(i)+"."+str(j)
                         self.neighbors_graph.nodes[node]["path_group"] = str(i)
@@ -1830,6 +1859,7 @@ class PPanGGOLiN:
                 node = path_group.pop()
                 self.neighbors_graph.nodes[node]["path"]=str(i)+".1"
                 self.neighbors_graph.nodes[node]["path_group"] = str(i)
+                self.path_vectors[str(i)+".1"]=numpy.asarray(mat_p_a[:,nodes_order.inv[node]].todense()).flatten().tolist()
         all_paths = list(set(nx.get_node_attributes(self.neighbors_graph,"path").values()))
         needed_col = colors(len(all_paths), except_list = [COLORS_RGB["persistent"],COLORS_RGB["shell"],COLORS_RGB["cloud"]])
         all_paths_colors = dict(zip(all_paths,needed_col))
