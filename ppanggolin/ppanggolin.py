@@ -1702,7 +1702,7 @@ class PPanGGOLiN:
         dist    = pdist(1 - jaccard_similarities(mat_p_a,0).todense())
         hc      = linkage(dist, 'single')
 
-        dendro = dendrogram(hc)
+        dendro = dendrogram(hc,no_plot=True)
         order_organisms = self.organisms[dendro['leaves']]
 
         binary_data = []
