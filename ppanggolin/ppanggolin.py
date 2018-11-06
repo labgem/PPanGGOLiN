@@ -1843,20 +1843,20 @@ class PPanGGOLiN:
                 subg.remove_edges_from([(u,v) for u,v,d in subg.edges(data=True) if subg.degree(u)>2 or subg.degree(v)>2])
                 for j, path in enumerate(nx.algorithms.components.connected_components(subg)):
                     path_index = [nodes_order.inv[n] for n in path]
-                    self.path_vectors[str(i)+"."+str(j)]=numpy.asarray(mat_p_a[:,path_index].sum(axis=1)/len(path_index)).flatten()
+                    self.path_vectors[str(i)+"#"+str(j)]=numpy.asarray(mat_p_a[:,path_index].sum(axis=1)/len(path_index)).flatten()
                     for node in path:
-                        self.neighbors_graph.nodes[node]["path"]=str(i)+"."+str(j)
+                        self.neighbors_graph.nodes[node]["path"]=str(i)+"#"+str(j)
                         self.neighbors_graph.nodes[node]["path_group"] = str(i)
-                        subg.node[node]["path"]=str(i)+"."+str(j)
+                        subg.node[node]["path"]=str(i)+"#"+str(j)
                     path_graph = nx.Graph.subgraph(subg,path)
                     for u, v in path_graph.edges():
-                        self.neighbors_graph[u][v]["path"]=str(i)+"."+str(j)
+                        self.neighbors_graph[u][v]["path"]=str(i)+"#"+str(j)
                         self.neighbors_graph[u][v]["path_group"] = str(i)
             else:
                 node = path_group.pop()
-                self.neighbors_graph.nodes[node]["path"]=str(i)+".1"
+                self.neighbors_graph.nodes[node]["path"]=str(i)+"#1"
                 self.neighbors_graph.nodes[node]["path_group"] = str(i)
-                self.path_vectors[str(i)+".1"]=numpy.asarray(mat_p_a[:,nodes_order.inv[node]].todense()).flatten()
+                self.path_vectors[str(i)+"#1"]=numpy.asarray(mat_p_a[:,nodes_order.inv[node]].todense()).flatten()
         all_paths = list(set(nx.get_node_attributes(self.neighbors_graph,"path").values()))
         needed_col = colors(len(all_paths), except_list = [COLORS_RGB["persistent"],COLORS_RGB["shell"],COLORS_RGB["cloud"]])
         all_paths_colors = dict(zip(all_paths,needed_col))

@@ -624,7 +624,7 @@ def __main__():
                     for path, path_vector in correlated_paths.items():
                         #res   = kendalltau(value_vector.values,path_vector.round(0), nan_policy="omit")
                         #pdb.set_trace()
-                        results.loc[path,value] = jaccard(value_vector[~numpy.isnan(value_vector)].values,path_vector.round(0)[~numpy.isnan(value_vector)])
+                        results.loc[path,value] = round(jaccard(value_vector[~numpy.isnan(value_vector)].values,path_vector.round(0)[~numpy.isnan(value_vector)]),2)
                 results.sort_values(by="cramer_phi",axis=0,ascending=False, inplace = True)
             else:
                 results = pandas.DataFrame(index = correlated_paths.keys(),columns=["spearman_r"])
@@ -632,8 +632,6 @@ def __main__():
                     results.loc[path,"spearman_r"] = spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit")
                 results.sort_values(by="spearman_r",axis=0,ascending=False, inplace = True)
             #pdb.set_trace()
-            
-            
             #results = results.reindex_axis(results.min(axis=1).sort_values(ascending=False).index, axis=0)
             results.to_csv(OUTPUTDIR+METADATA_DIR+"/results_"+str(col))
     if options.compute_layout:
