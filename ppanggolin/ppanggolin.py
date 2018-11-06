@@ -1843,7 +1843,7 @@ class PPanGGOLiN:
                 subg.remove_edges_from([(u,v) for u,v,d in subg.edges(data=True) if subg.degree(u)>2 or subg.degree(v)>2])
                 for j, path in enumerate(nx.algorithms.components.connected_components(subg)):
                     path_index = [nodes_order.inv[n] for n in path]
-                    self.path_vectors[str(i)+"."+str(j)]=numpy.asarray(mat_p_a[:,path_index].sum(axis=1)/len(path_index)).flatten().tolist()
+                    self.path_vectors[str(i)+"."+str(j)]=numpy.asarray(mat_p_a[:,path_index].sum(axis=1)/len(path_index)).flatten()
                     for node in path:
                         self.neighbors_graph.nodes[node]["path"]=str(i)+"."+str(j)
                         self.neighbors_graph.nodes[node]["path_group"] = str(i)
@@ -1856,7 +1856,7 @@ class PPanGGOLiN:
                 node = path_group.pop()
                 self.neighbors_graph.nodes[node]["path"]=str(i)+".1"
                 self.neighbors_graph.nodes[node]["path_group"] = str(i)
-                self.path_vectors[str(i)+".1"]=numpy.asarray(mat_p_a[:,nodes_order.inv[node]].todense()).flatten().tolist()
+                self.path_vectors[str(i)+".1"]=numpy.asarray(mat_p_a[:,nodes_order.inv[node]].todense()).flatten()
         all_paths = list(set(nx.get_node_attributes(self.neighbors_graph,"path").values()))
         needed_col = colors(len(all_paths), except_list = [COLORS_RGB["persistent"],COLORS_RGB["shell"],COLORS_RGB["cloud"]])
         all_paths_colors = dict(zip(all_paths,needed_col))
@@ -2100,7 +2100,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
         logging.getLogger().warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(Q)+".uf")
     index_fam = []
     log_likelihood=None
-
+    all_parameters = {}
     if just_log_likelihood:
         try:
             with open(nem_dir_path+"/nem_file_"+str(Q)+".mf","r") as parameter_nem_file:
@@ -2125,6 +2125,8 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
             sum_mu_k = []
             sum_epsilon_k = []
 
+            inertia = 0
+
             for k, line in enumerate(parameter[-Q:]):
                 logging.getLogger().debug(line)
                 vector = line.split() 
@@ -2140,8 +2142,15 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
                 sum_mu_k.append(sum(mu_k))
                 logging.getLogger().debug(sum(mu_k))
                 sum_epsilon_k.append(sum(epsilon_k))
-                logging.getLogger().debug(sum(epsilon_k))
-                all_parameters[k]=(mu_k,epsilon_k,proportion)
+                logging.getLogger().debug(sum(epsilon_k))  
+
+                # for k2, (mu_k_2,epsilon_k_2,proportion_2) in all_parameters.items():
+                #     for i in range(nb_org):
+                #         inertia += (0.5-epsilon_k_2[i])(0.5-epsilon_k[i])(abs(mu_k_2[i]-mu_k[i]))
+
+                # all_parameters[k]=(mu_k,epsilon_k,proportion)
+
+
 
             # #persistent is defined by a sum of mu near of nb_organism and a low sum of epsilon
             # max_mu_k     = max(sum_mu_k)
