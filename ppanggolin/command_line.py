@@ -366,10 +366,10 @@ def __main__():
     # Pangenome Graph to be updated (in gexf format)""")
     parser.add_argument("-u", "--untangle", type=int, default = 0, nargs=1, help="""
     Flag: (in test) max size of the untangled paths to be untangled""")
-    parser.add_argument("-b", "--beta_smoothing", default = [float("0.5")], type=float, nargs=1, metavar=('BETA_VALUE'), help = """
+    parser.add_argument("-b", "--beta_smoothing", default = [float("0.1")], type=float, nargs=1, metavar=('BETA_VALUE'), help = """
     Positive decimal number: This option determines the strength of the smoothing (:math:beta) of the partitioning based on the graph topology (using a Markov Random Field). 
-    b must be a positive float, b = 0.0 means to discard spatial smoothing and 1.00 means strong smoothing (can be above 1.00 but it is not advised).
-    0.5 is generally advised as a good trade off.
+    b must be a positive float, b = 0.0 means to discard spatial smoothing and 1.00 means very strong smoothing (can be above 1.00 but it is not advised).
+    0.1 is the default value producing a light smoothing.
     """)
     parser.add_argument("-th", "--soft_core_threshold", type = float, nargs = 1, default = [0.95], metavar=('SOFT_CORE_THRESHOLD'), help = """
     Postitive decimal number: A value between 0 and 1 providing the threshold ratio of presence to attribute a gene families to the soft core genome""")
@@ -624,13 +624,12 @@ def __main__():
                     for path, path_vector in correlated_paths.items():
                         #res   = kendalltau(value_vector.values,path_vector.round(0), nan_policy="omit")
                         #pdb.set_trace()
-                        results.loc[path,value] = hamming(value_vector[~numpy.isnan(value_vector)].values,path_vector.round(0)[~numpy.isnan(value_vector)])
+                        results.loc[path,value] = jaccard(value_vector[~numpy.isnan(value_vector)].values,path_vector.round(0)[~numpy.isnan(value_vector)])
                 results.sort_values(by="cramer_phi",axis=0,ascending=False, inplace = True)
             else:
                 results = pandas.DataFrame(index = correlated_paths.keys(),columns=["spearman_r"])
                 for path, path_vector in correlated_paths.items():
                     results.loc[path,"spearman_r"] = spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit")
-                
                 results.sort_values(by="spearman_r",axis=0,ascending=False, inplace = True)
             #pdb.set_trace()
             
