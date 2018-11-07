@@ -615,7 +615,9 @@ def __main__():
             else:
                 results = pandas.DataFrame(index = correlated_paths.keys(),columns=["spearman_r"])
                 for path, path_vector in correlated_paths.items():
-                    results.loc[path,"spearman_r"] = round(spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit"),2)
+                    res_spearman = spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit")
+                    results.loc[path,"spearman_r"] = round(res_spearman[0],3)
+                    results.loc[path,"pvalue"] = res_spearman[1]
                 results.sort_values(by="spearman_r",axis=0,ascending=False, inplace = True)
             #pdb.set_trace()
             #results = results.reindex_axis(results.min(axis=1).sort_values(ascending=False).index, axis=0)
