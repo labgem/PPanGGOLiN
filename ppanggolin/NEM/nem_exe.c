@@ -352,7 +352,7 @@ int nem(const char* Fname,
     NemPara.NbIters       = DEFAULT_NBITERS ;
     NemPara.NbEIters      = DEFAULT_NBEITERS ;
     NemPara.NbRandomInits = DEFAULT_NBRANDINITS ;  /*V1.06-h*/
-    NemPara.Seed          = 2;//time( NULL ) ;          /*V1.04-e*/
+    NemPara.Seed          = time( NULL ) ;          /*V1.04-e*/
     NemPara.Format        = DEFAULT_FORMAT ;
     NemPara.InitMode      = DEFAULT_INIT ;
     NemPara.ParamFileMode = DEFAULT_NO_PARAM_FILE ;

@@ -24,6 +24,7 @@ import subprocess
 import pkg_resources
 import traceback
 import shutil
+import glob
 from .ppanggolin import *
 from .utils import *
 
@@ -498,7 +499,6 @@ def __main__():
         #         metadata[o]=dict(zip(attribute_names,elements))
     start_loading = time()
     global pan
-
     pan = PPanGGOLiN("file",
                      options.organisms[0],
                      options.gene_families[0],
@@ -506,7 +506,6 @@ def __main__():
                      options.infer_singletons,
                      options.add_rna_to_the_pangenome,
                      False)#options.directed)
-
     # with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
     #     CDS_fragments_file.write(",".join(["CDS_fragment","CDS_fragment_length","corresponding_gene_family","gene_family_median_length"])+"\n")
     #     for gene, family in pan.CDS_fragments.items():
@@ -515,21 +514,14 @@ def __main__():
     #                                            str(info["END"]-info["START"]),
     #                                            family,
     #                                            str(median(pan.neighbors_graph.node[family]["length"]))])+"\n")
-
     # # if options.update is not None:
     # #     pan.import_from_GEXF(options.update[0])
     # end_loading_file = time.time()
     # #-------------
-
-    # #-------------
-    
     # start_neighborhood_computation = time.time()
     end_loading = time()
     #-------------
-
-    #-------------
     logging.getLogger().info("Partitioning...")
-
     start_partitioning = time()
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
                   Q               = options.overpartionning[0],
@@ -540,13 +532,14 @@ def __main__():
                   inplace         = True,
                   just_stats      = False,
                   nb_threads      = options.cpu[0])
+    for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
+        shutil.move(plot, OUTPUTDIR+FIGURE_DIR)
     end_partitioning = time()
     #-------------
     if options.metadata[0]:
         if options.force:
             shutil.rmtree(OUTPUTDIR+METADATA_DIR)
-        #pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)
-
+    #pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)
     # if options.subpartition_shell:
     #     if options.subpartition_shell[0] <0:
     #         Q = pan.partition_shell(Q = "auto")
@@ -558,15 +551,11 @@ def __main__():
     #         pan.partition_shell(init_using_qual=init)
     #     else:
     #         pan.partition_shell(options.subpartition_shell[0])
-
-
     #-------------
     # th = 100
-
     # cpt_partition = {}
     # for fam in pan.neighbors_graph.node:
     #     cpt_partition[fam]= {"persistent":0,"shell":0,"cloud":0}
-
     # cpt = 0
     # validated = set()
     # while(len(validated)<pan.pan_size):
@@ -578,14 +567,10 @@ def __main__():
     #         cpt_partition[node][data["partition"]]+=1
     #         if sum(cpt_partition[node].values()) > th:
     #             validated.add(node)
-
     # for fam, data in cpt_partition.items():
     #     pan.neighbors_graph.nodes[fam]["partition_bis"]= max(data, key=data.get)
-
-
     # print(cpt_partition)
     #-------------
-
     #-------------
     start_writing_output_file = time()
 
@@ -594,16 +579,17 @@ def __main__():
     correlated_path_groups, correlated_paths = pan.extract_shell_paths()
     end_paths = time()
 
-    # with open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_vectors.csv","w") as correlated_paths_vectors, open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_confidences.csv","w") as correlated_paths_confidences:
-    #     header = []
-    #     for i, (path, vector) in enumerate(correlated_paths.items()):
+    with open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_vectors.csv","w") as correlated_paths_vectors, open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_confidences.csv","w") as correlated_paths_confidences:
+        header = []
+        for i, (path, vector) in enumerate(correlated_paths.items()):
 
-    #         if i==0:
-    #             header = list(vector.keys())
-    #             correlated_paths_vectors.write(",".join(["Gene","Non-unique Gene name","Annotation","No. isolates","No. sequences","Avg sequences per isolate","Accessory Fragment","Genome Fragment","Order within Fragment","Accessory Order with Fragment","QC","Min group size nuc","Max group size nuc","Avg group size nuc"]+header)+"\n")
-    #             correlated_paths_confidences.write(",".join(["correlated_paths"]+header)+"\n")
-    #         correlated_paths_vectors.write(",".join([path]+["","",str(sum(vector.values())),str(sum(vector.values())),"","","","","","","","",""]+[str(int(round(v))) for v in vector.values()])+("\n" if i < len(correlated_paths)-1 else ""))
-    #         correlated_paths_confidences.write(",".join([path]+["","",str(sum(vector.values())),str(sum(vector.values())),"","","","","","","","",""]+[str(v) for v in vector.values()])+("\n" if i < len(correlated_paths)-1 else ""))
+            if i==0:
+                header = list(pan.organisms)
+                binary_vector = [int(round(v)) for v in vector]
+                correlated_paths_vectors.write(",".join(["Gene","Non-unique Gene name","Annotation","No. isolates","No. sequences","Avg sequences per isolate","Accessory Fragment","Genome Fragment","Order within Fragment","Accessory Order with Fragment","QC","Min group size nuc","Max group size nuc","Avg group size nuc"]+header)+"\n")
+                correlated_paths_confidences.write(",".join(["correlated_paths"]+header)+"\n")
+            correlated_paths_vectors.write(",".join([path]+["","",str(sum(binary_vector)),str(sum(binary_vector)),"","","","","","","","",""]+[str(v) for v in binary_vector])+("\n" if i < len(correlated_paths)-1 else ""))
+            correlated_paths_confidences.write(",".join([path]+["","",str(sum(binary_vector)),str(sum(binary_vector)),"","","","","","","","",""]+[str(v) for v in vector])+("\n" if i < len(correlated_paths)-1 else ""))
 
     if options.metadata[0]:
         
@@ -616,7 +602,7 @@ def __main__():
 
                 for path, path_vector in correlated_paths.items():
                      ctg_table = pandas.crosstab(pandas.Series([round(val,0) for val in path_vector],index=metadata.index),metadata[col])
-                     results.loc[path,"cramer_phi"]=cramers_corrected_stat(ctg_table.values)
+                     results.loc[path,"cramer_phi"]=round(cramers_corrected_stat(ctg_table.values),2)
 
                 for value in list(possible_values_index.keys()):
                     value_vector = (metadata[col] == value)
@@ -629,7 +615,7 @@ def __main__():
             else:
                 results = pandas.DataFrame(index = correlated_paths.keys(),columns=["spearman_r"])
                 for path, path_vector in correlated_paths.items():
-                    results.loc[path,"spearman_r"] = spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit")
+                    results.loc[path,"spearman_r"] = round(spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit"),2)
                 results.sort_values(by="spearman_r",axis=0,ascending=False, inplace = True)
             #pdb.set_trace()
             #results = results.reindex_axis(results.min(axis=1).sort_values(ascending=False).index, axis=0)
@@ -685,8 +671,6 @@ def __main__():
     if options.untangle>0:
         pan.untangle_neighbors_graph(options.untangle[0])
         pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata,"untangled_neighbors_graph" )
-
-    
 
     plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
 
@@ -889,6 +873,10 @@ def __main__():
 
     if not options.keep_nem_temporary_files:
         pan.delete_nem_intermediate_files()  
+    else:
+        logging.getLogger().info("Temporary directory is: "+TMP_DIR)
+
+    logging.getLogger().info("Output directory is: "+OUTPUTDIR)
 
     logging.getLogger().info("Finished !")
     exit(0)

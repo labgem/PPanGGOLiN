@@ -1024,7 +1024,7 @@ class PPanGGOLiN:
         best_Q     = None
         slope      = 0
         intercept  = 0
-        (Qs, BICs) = run_several_quick_partitioning(list(range(3,max_Q+1)))
+        (Qs, BICs) = run_several_quick_partitioning(list(range(2,max_Q+1)))
         slope, intercept, r_value, p_value, std_err = (0,0,None,None,None)
         if len(Qs)>3:
             slope, intercept, r_value, p_value, std_err = linregress(Qs, BICs)
@@ -1032,11 +1032,11 @@ class PPanGGOLiN:
                 try:
                     with redirect_stdout(io.StringIO()):# to capture error message from KneeLocator
                         kneedle = KneeLocator(Qs, BICs, direction='decreasing',curve='convex')
-                    if kneedle.knee is None or kneedle.knee < 3 or r_value < -0.9:
+                    if kneedle.knee is None or kneedle.knee < 3:
                         best_Q = max_Q if self.Q is None else self.Q# if no knee was found, its means that no discrete gain is obtain by increasing Q
                     else:
                         best_Q = kneedle.knee
-                        print(" ".join([str(Qs[Q_idx]) for Q_idx in kneedle.xmx_idx]))
+                        logging.getLogger().debug(" ".join([str(Qs[Q_idx]) for Q_idx in kneedle.xmx_idx]))
                 except ValueError:
                     best_Q = 3# if KneeLocator raise a ValueError it means that overpartionning do not works, so that a unique central shell partition is enough
             else:
@@ -1061,7 +1061,7 @@ class PPanGGOLiN:
                                      y=BICs,
                                      name = "BICs",
                                      mode="lines+markers"))
-            layout = go.Layout(title = "BIC curve, "+ ("y = "+str(slope)+"x + "+str(intercept)+", r = "+str(r_value) if r_value else ""),
+            layout = go.Layout(title = "BIC curve, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""),
                                titlefont = dict(size = 20),
                                xaxis = dict(title='number of overpartitions'),
                                yaxis = dict(title='BIC'),
@@ -1938,6 +1938,10 @@ class PPanGGOLiN:
 """ """
 def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="param_file", itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("Running NEM...")
+
+    if (Q<3 and not just_log_likelihood) or Q<2:
+        logging.getLogger().error("Bad usage, Q must be higher or equal to 3 except for testing just_log_likelihood of a 2 paritions model")
+
     if init=="param_file":
         with open(nem_dir_path+"/nem_file_init_"+str(Q)+".m", "w") as m_file:
             m_file.write("1 ")# 1 to initialize parameter, 
