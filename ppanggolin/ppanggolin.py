@@ -1066,7 +1066,7 @@ class PPanGGOLiN:
                                xaxis = dict(title='number of overpartitions'),
                                yaxis = dict(title='BIC'),
                                shapes=[dict(type='line', x0=best_Q, x1=best_Q, y0=0, y1=max(BICs), line = dict(dict(width=5, dash='dashdot', color="black"))),
-                                       dict(type='line', x0=3, x1=max_Q, y0=(3*slope)+intercept, y1=(max_Q*slope)+intercept, line = dict(dict(width=5, dash='dashdot', color="grey")))])
+                                       dict(type='line', x0=2, x1=max_Q, y0=(3*slope)+intercept, y1=(max_Q*slope)+intercept, line = dict(dict(width=5, dash='dashdot', color="grey")))])
             fig = go.Figure(data=traces, layout=layout)
             out_plotly.plot(fig, filename=nem_dir_path+"/BIC_curve_Q"+str(best_Q)+".html", auto_open=False)
 

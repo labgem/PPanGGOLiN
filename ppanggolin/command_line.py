@@ -639,7 +639,6 @@ def __main__():
                     pan_text.write("\n".join(families)+"\n")
             file.close()
     pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
-    pan.write_melted_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
     pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
     if options.projection:
         logging.getLogger().info("Projection...")
