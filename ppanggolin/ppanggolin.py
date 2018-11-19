@@ -914,6 +914,8 @@ class PPanGGOLiN:
             #NEM requires 5 files: nem_file.index, nem_file.str, nem_file.dat, nem_file.m and nem_file.nei
             os.makedirs(nem_dir_path)
 
+        # nx.set_edge_attributes(self.neighbors_graph,'tmp',nx.get_edge_attributes(self.neighbors_graph,"weight"))
+
         logging.getLogger().debug("Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files")
         with open(nem_dir_path+"/nem_file.str", "w") as str_file,\
             open(nem_dir_path+"/nem_file.index", "w") as index_file,\
@@ -939,6 +941,7 @@ class PPanGGOLiN:
                 row_fam         = []
                 row_dist_score  = []
                 neighbor_number = 0
+                # if not self.is_partitionned or self.neighbors_graph.node["partition"]!="shell":
                 try:
                     for neighbor in set(nx.all_neighbors(self.neighbors_graph, node_name)):
                         coverage = 0
@@ -962,6 +965,62 @@ class PPanGGOLiN:
                         row_fam.append(str(index_fam[neighbor]))
                         row_dist_score.append(str(round(distance_score,4)))
                         neighbor_number += 1
+                    if neighbor_number>0:
+                        nei_file.write("\t".join([str(item) for sublist in [[index_fam[node_name]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
+                    else:
+                        nei_file.write(str(index_fam[node_name])+"\t0\n")
+                        logging.getLogger().debug("The family: "+node_name+" is an isolated family in the selected organisms")
+                # else:
+                #     try:
+                #         all_neighbors   = set(nx.all_neighbors(self.neighbors_graph, node_name))
+                #         already_browsed = set()
+                #         for neighbor_a in all_neighbors:
+                #             already_browsed.add(neighbor_a)
+                #             if neighbor_a self.neighbors_graph.node[neighbor_a]["partition"]!="persistent":
+                #                 pass
+                #             if len(all_neighbors - already_browsed):
+                #                 for neighbor_b in all_neighbors - already_browsed:
+                #                     path_cost = self.neighbors_graph[node_name][neighbor_a]['weight'] + self.neighbors_graph[node_name][neighbor_b]['weight']
+                #                     alternative_path_cost = 0
+                #                     total_alternative_path_cost = 0
+                #                     removed_nodes_for_view = set()
+                #                     removed_nodes_for_view.add(node_name)
+                #                     def rule_filter_nodes(n):
+                #                         if n in removed_nodes_for_view:
+                #                             return(False)
+                #                         else:
+                #                             return(True)
+                #                     while alternative_path_cost < path_cost:
+                #                         total_alternative_path_cost+=alternative_path_cost
+                #                         v = nx.classes.graphviews.subgraph_view(self.neighbors_graph, rule_filter_nodes)
+                #                         try:
+                #                             alternative_path = nx.dijkstra_path(v,neighbor_a,neighbor_b, weight = "weight")
+                #                             alternative_path_cost = sum([d['weight'] for u,v,d in nx.subgraph(v,alternative_path).edges(data=True)])
+                #                             removed_nodes_for_view.add(alternative_path[1])
+                #                             removed_nodes_for_view.add(alternative_path[len(alternative_path)-1])
+                #                         except nx.NetworkXNoPath:
+                #                             break
+                #                     self.neighbors_graph[node_name][neighbor_b]['tmp'] = self.neighbors_graph[node_name][neighbor_a]['tmp']-total_alternative_path_cost/2
+                #                     self.neighbors_graph[node_name][neighbor_b]['tmp'] = self.neighbors_graph[node_name][neighbor_b]['tmp']-total_alternative_path_cost/2
+                            
+                                
+                        # if self.neighbors_graph.is_directed():
+                        #     cov_sens, cov_antisens = (0,0)
+                        #     try:
+                        #         cov_sens = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+                        #     except KeyError:
+                        #         pass
+                        #     try:
+                        #         cov_antisens = sum([pre_abs for org, pre_abs in self.neighbors_graph[neighbor][node_name].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+                        #     except KeyError:
+                        #         pass
+                        #     coverage = cov_sens + cov_antisens
+                        # else:
+                        #     coverage = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+
+                        # if coverage==0:
+                        #     continue
+                            
                     if neighbor_number>0:
                         nei_file.write("\t".join([str(item) for sublist in [[index_fam[node_name]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
                     else:
@@ -1001,7 +1060,7 @@ class PPanGGOLiN:
                                                                         free_dispersion,
                                                                         q,
                                                                         "param_file",
-                                                                        5,#quick, only 5 iterations
+                                                                        10,#quick, only 5 iterations
                                                                         True) for q in all_Q_to_partition])
                 else:
                     for q in all_Q_to_partition:
@@ -1011,7 +1070,7 @@ class PPanGGOLiN:
                                                                    free_dispersion,
                                                                    q,
                                                                    "param_file",
-                                                                   5,#quick, only 5 iterations
+                                                                   10,#quick, only 5 iterations
                                                                    True))
             logging.disable(logging.NOTSET)# restaure message
             valid_Q , all_BICs = ([],[])
@@ -1980,7 +2039,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, init="p
     # logging.getLogger().debug("org/weighted_degree: "+str(self.nb_organisms/weighted_degree))    
     # weighted_degree = sum(self.neighbors_graph.degree(weight="weight").values())/nx.number_of_edges(self.neighbors_graph)
 
-    ALGO           = b"ncem" #fuzzy classification by mean field approximation
+    ALGO           = b"nem" #fuzzy classification by mean field approximation
     MODEL          = b"bern" # multivariate Bernoulli mixture model
     PROPORTION     = b"pk" #equal proportion :  "p_"     varying proportion : "pk"
     VARIANCE_MODEL = b"skd" if free_dispersion else b"sk_"#one variance per partition and organism : "sdk"      one variance per partition, same in all organisms : "sd_"   one variance per organism, same in all partion : "s_d"    same variance in organisms and partitions : "s__" 
