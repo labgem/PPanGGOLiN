@@ -30,11 +30,18 @@ Optionally, in order to draw illustrative plots, R will be required together wit
 Quick usage
 ============================
 
-The minimal command is :
+The minimal command is:
 
 .. code:: bash
 
 	ppanggolin --organisms ORGANISMS_FILE --gene_families FAMILIES_FILE
+
+Testing example:
+
+.. code:: bash
+
+	cd testing_dataset_C_trachomatis
+	ppanggolin --organisms orgs.list --gene_families families.tsv -od results
 
 Input formats
 ---------------------------
