@@ -226,6 +226,9 @@ class PPanGGOLiN:
         families    = dict()
         for line in families_tsv_file:
             elements = [el.strip() for el in line.split()] # 2 or 3 fields expected
+            if len(elements)<=1:
+                logging.getLogger().error("No tabulation separator found in gene families file")
+                exit(1)
             (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
             families[gene_id]          = fam_id
             if is_frag == "F":
@@ -237,12 +240,15 @@ class PPanGGOLiN:
 
         for line in bar:
             elements = [el.strip() for el in line.split("\t")]
+            if len(elements)<=1:
+                logging.getLogger().error("No tabulation separator found in organisms file")
+                exit(1)
             try:
                 bar.set_description("Processing "+elements[ORGANISM_GFF_FILE])
                 bar.refresh()
             except:
-            if len(elements)>2:
-                self.circular_contig_size.update({contig_id: None for contig_id in elements[2:len(elements)]})  # size of the circular contig is initialized to None (waiting to read the gff files to fill the dictionnaries with the correct values)
+                if len(elements)>2:
+                    self.circular_contig_size.update({contig_id: None for contig_id in elements[2:len(elements)]})  # size of the circular contig is initialized to None (waiting to read the gff files to fill the dictionnaries with the correct values)
             self.annotations[elements[0]] = self.__load_gff(elements[ORGANISM_GFF_FILE], families, elements[ORGANISM_ID], lim_occurence, infer_singletons, add_rna_to_the_pangenome)
         check_circular_contigs = {contig: size for contig, size in self.circular_contig_size.items() if size == None }
         if len(check_circular_contigs) > 0:
@@ -1241,7 +1247,7 @@ class PPanGGOLiN:
                     self.__write_nem_input_files(nem_dir_path,orgs)
                 else:
                     if inplace:
-                        logging.getLogger().info("Evaluation of the best number of partitions...")
+                        logging.getLogger().info("Evaluation of the optimal number of partitions...")
                     Q = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
                                                       select_organisms = orgs,
                                                       free_dispersion  = False,
