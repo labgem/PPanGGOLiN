@@ -13,4 +13,5 @@ cdef extern from "nem_exe.h":
         const char* dispersion,
         const int init_mode,
         const char* init_file,
-        const char* out_file_prefix);
+        const char* out_file_prefix,
+        const int seed);
