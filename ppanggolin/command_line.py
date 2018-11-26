@@ -417,8 +417,8 @@ def __main__():
     Positive Number: Size of the chunks to perform the partioning by chunks.
     If the number of organisms used is higher than SIZE, the partioning will be performed by chunks of size SIZE
     """)
-    parser.add_argument("-op", "--overpartionning", type = int, nargs = 1, default = [-1], metavar=('NB_PARTITIONS'), help="""
-    Positive Number: Number of partitions to overpartion the pangenome (must be higher or equal to 3).
+    parser.add_argument("-Q", "--overpartionning", type = int, nargs = 1, default = [-1], metavar=('NB_PARTITIONS'), help="""
+    Positive Number: Number of partitions to overpartition the pangenome (must be higher or equal to 3, that is to say one for persistent genome, one for the cloud genome and at least for the shell genome).
     """)
     parser.add_argument("-mt", "--metadata", type=argparse.FileType('r'), default = [None], nargs=1, metavar=('METADATA_FILE'), help="""
     File: It is possible to add metainformation to the pangenome graph. These information must be associated to each organism via a METADATA_FILE. During the construction of the graph, metainformation about the organisms are used to label the covered edges.

@@ -1074,7 +1074,6 @@ class PPanGGOLiN:
                                                                             10,#quick, only 10 iterations
                                                                             True) for q in all_Q_to_partition]))
                 else:
-                    
                     for q in all_Q_to_partition:
                         all_log_likelihood.append(run_partitioning(nem_dir_path,
                                                                 len(select_organisms),
@@ -1252,6 +1251,7 @@ class PPanGGOLiN:
                                                       select_organisms = orgs,
                                                       free_dispersion  = False,
                                                       max_Q            = MAX_Q if self.Q is None else self.Q + 1,
+                                                      seed             = seed,
                                                       nb_threads       = nb_threads)
             else:
                 self.__write_nem_input_files(nem_dir_path,orgs)
@@ -1377,7 +1377,7 @@ class PPanGGOLiN:
             Q = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
-            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta, free_dispersion, Q=Q, seed = seed)
+            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta, free_dispersion, Q = Q, seed = seed)
             partitionning_results = partitionning_results[FAMILIES_PARTITION]
             # all_Q = []
             # all_BIC = []
@@ -1757,7 +1757,7 @@ class PPanGGOLiN:
         layout = None
         if self.soft_core_th:
             x = self.nb_organisms*self.soft_core_th
-            layout =  go.Layout(title = "Gene frequency distribution (U shape), chao="+str(chao),
+            layout =  go.Layout(title = "Gene families frequency distribution (U shape), chao="+str(chao),
                                 xaxis = dict(title='Occurring in x genomes'),
                                 yaxis = dict(title='# of gene families (F)'),
                                 barmode='stack', shapes=[dict(type='line', x0=x, x1=x, y0=0, y1=max_bar, line = dict(dict(width=5, dash='dashdot', color="grey")))])
