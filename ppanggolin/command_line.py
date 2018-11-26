@@ -8,14 +8,14 @@ import scipy.optimize as optimization
 from scipy.stats import spearmanr
 from scipy.spatial.distance import jaccard, hamming
 import pandas
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict, Counter
 from ordered_set import OrderedSet
 import networkx as nx
 import logging
 import sys
 import os
 import argparse
-from random import shuffle, sample
+import random
 from tqdm import tqdm
 tqdm.monitor_interval = 0
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -284,7 +284,8 @@ def resample(index):
                           soft_core_th     = options.soft_core_threshold[0],
                           inplace          = False,
                           just_stats       = True,
-                          nb_threads       = 1)
+                          nb_threads       = 1,
+                          seed             = options.seed[0])
     if not options.keep_nem_temporary_files:
         shutil.rmtree(nem_dir_path)
     evol.write(",".join([str(len(shuffled_comb[index])),
@@ -368,9 +369,10 @@ def __main__():
     parser.add_argument("-u", "--untangle", type=int, default = 0, nargs=1, help="""
     Flag: (in test) max size of the untangled paths to be untangled""")
     parser.add_argument("-b", "--beta_smoothing", default = [float("0.1")], type=float, nargs=1, metavar=('BETA_VALUE'), help = """
-    Positive decimal number: This option determines the strength of the smoothing (:math:beta) of the partitioning based on the graph topology (using a Markov Random Field). 
+    Decimal number: This option determines the strength of the smoothing (:math:beta) of the partitioning based on the graph topology (using a Markov Random Field). 
     b must be a positive float, b = 0.0 means to discard spatial smoothing and 1.00 means very strong smoothing (can be above 1.00 but it is not advised).
     0.1 is the default value producing a light smoothing.
+    But the beta value can also be estimated by PPanGGOLiN by specifying -1 (or any negative value), in this case, the partitionning step will be much longer. 
     """)
     parser.add_argument("-th", "--soft_core_threshold", type = float, nargs = 1, default = [0.95], metavar=('SOFT_CORE_THRESHOLD'), help = """
     Postitive decimal number: A value between 0 and 1 providing the threshold ratio of presence to attribute a gene families to the soft core genome""")
@@ -436,6 +438,9 @@ def __main__():
     # Number: (in test) Subpartition the shell genome in k subpartitions, k can be detected automatically using k = -1, if k = 0 the partioning will used the first column of metadata to subpartition the shell""")
     parser.add_argument("-l", "--compute_layout", default = False, action="store_true", help = """
     Flag: (in test) precalculated the ForceAtlas2 layout""")
+    parser.add_argument("-se", "--seed", type = int, nargs = 1, default = [42], metavar=('SEED'), help="""
+    Positive Number: seed used to generate random number
+    """)
 
     global options
     options = parser.parse_args()
@@ -450,6 +455,9 @@ def __main__():
     logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
     logging.getLogger().info("Python version: "+sys.version)
     logging.getLogger().info("Networkx version: "+nx.__version__)
+
+    random.seed(options.seed[0])
+    numpy.random.seed(options.seed[0])
     global OUTPUTDIR
     global TMP_DIR
 
@@ -521,7 +529,7 @@ def __main__():
     # start_neighborhood_computation = time.time()
     end_loading = time()
     #-------------
-    logging.getLogger().info("Partitioning...")
+    
     start_partitioning = time()
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
                   Q               = options.overpartionning[0],
@@ -531,7 +539,8 @@ def __main__():
                   soft_core_th    = options.soft_core_threshold[0],
                   inplace         = True,
                   just_stats      = False,
-                  nb_threads      = options.cpu[0])
+                  nb_threads      = options.cpu[0],
+                  seed            = options.seed[0])
     for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
         shutil.move(plot, OUTPUTDIR+FIGURE_DIR)
     end_partitioning = time()
@@ -582,27 +591,26 @@ def __main__():
     with open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_vectors.csv","w") as correlated_paths_vectors, open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_confidences.csv","w") as correlated_paths_confidences:
         header = []
         for i, (path, vector) in enumerate(correlated_paths.items()):
-
             if i==0:
                 header = list(pan.organisms)
-                binary_vector = [int(round(v)) for v in vector]
                 correlated_paths_vectors.write(",".join(["Gene","Non-unique Gene name","Annotation","No. isolates","No. sequences","Avg sequences per isolate","Accessory Fragment","Genome Fragment","Order within Fragment","Accessory Order with Fragment","QC","Min group size nuc","Max group size nuc","Avg group size nuc"]+header)+"\n")
                 correlated_paths_confidences.write(",".join(["correlated_paths"]+header)+"\n")
+            binary_vector = [int(round(v)) for v in vector]
             correlated_paths_vectors.write(",".join([path]+["","",str(sum(binary_vector)),str(sum(binary_vector)),"","","","","","","","",""]+[str(v) for v in binary_vector])+("\n" if i < len(correlated_paths)-1 else ""))
             correlated_paths_confidences.write(",".join([path]+["","",str(sum(binary_vector)),str(sum(binary_vector)),"","","","","","","","",""]+[str(v) for v in vector])+("\n" if i < len(correlated_paths)-1 else ""))
 
     if options.metadata[0]:
-        
         for col in tqdm(metadata.columns,total=metadata.shape[1], unit = "variable"):
             results=None
             if not numpy.issubdtype(metadata[col].dtype, numpy.number):
-                
                 possible_values_index = {v:i for i,v in enumerate(list(set(metadata[col].dropna())))}
-                results = pandas.DataFrame(index = correlated_paths.keys(),columns=["cramer_phi"]+list(possible_values_index.keys()))
-
+                results = pandas.DataFrame(index = correlated_paths.keys(),columns=["cramer_phi","chi2_pvalue","bonferroni_chi2_pvalue"]+["sensitivity_"+v for v in possible_values_index.keys()]+["specifity_"+v for v in possible_values_index.keys()]+["F1score_"+v for v in possible_values_index.keys()])
                 for path, path_vector in correlated_paths.items():
                      ctg_table = pandas.crosstab(pandas.Series([round(val,0) for val in path_vector],index=metadata.index),metadata[col])
-                     results.loc[path,"cramer_phi"]=round(cramers_corrected_stat(ctg_table.values),2)
+                     chi2_pvalue, cramerphi = cramers_corrected_stat(ctg_table.values)
+                     results.loc[path,"cramer_phi"]  = round(cramerphi,2)
+                     results.loc[path,"chi2_pvalue"] = chi2_pvalue
+                     results.loc[path,"bonferroni_chi2_pvalue"]  = chi2_pvalue/len(correlated_paths)
 
                 for value in list(possible_values_index.keys()):
                     value_vector = (metadata[col] == value)
@@ -610,7 +618,16 @@ def __main__():
                     for path, path_vector in correlated_paths.items():
                         #res   = kendalltau(value_vector.values,path_vector.round(0), nan_policy="omit")
                         #pdb.set_trace()
-                        results.loc[path,value] = round(jaccard(value_vector[~numpy.isnan(value_vector)].values,path_vector.round(0)[~numpy.isnan(value_vector)]),2)
+                        pres_abs_vector = path_vector.round(0)[~numpy.isnan(value_vector)]
+                        value_vector    = value_vector[~numpy.isnan(value_vector)].values
+                        pdb.set_trace()
+                        true_positive  = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 1))[True]
+                        false_positive = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 0))[True]
+                        true_negative  = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 1))[True]
+                        false_negative = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 0))[True]
+                        results.loc[path,"sensitivity_"+value] = round(true_positive/false_negative,2)
+                        results.loc[path,"specifity_"+value] = round(true_negative/false_positive,2)
+                        results.loc[path,"F1score_"+value] = (2 * true_positive)/(2 * true_positive+false_positive+false_negative)
                 results.sort_values(by="cramer_phi",axis=0,ascending=False, inplace = True)
             else:
                 results = pandas.DataFrame(index = correlated_paths.keys(),columns=["spearman_r"])
@@ -648,8 +665,16 @@ def __main__():
         pan.projection(OUTPUTDIR+PROJECTION_DIR, [pan.organisms.__getitem__(index-1) for index in options.projection] if options.projection[0] > 0 else list(pan.organisms))
         end_projection = time()
     end_writing_output_file = time()
+
+    logging.getLogger().info("Generating some plots")
+    start_plots = time()
     pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
-    pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
+    if pan.nb_organisms<=1000:
+        pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
+    else:
+        pan.tile_plot(OUTPUTDIR+FIGURE_DIR,shell_persistent_only=False)
+        logging.getLogger().warnings("Too mush organisms (>1000) to display the cloud genome in the dynamic heatmap")
+    end_plots = time()
     del pan.annotations # no more required for the following process
     # print(pan.partitions_by_organisms)
     # partitions_by_organisms_file = open(OUTPUTDIR+"/partitions_by_organisms.txt","w")
@@ -688,7 +713,7 @@ def __main__():
         global shuffled_comb
         shuffled_comb = combinations
         shuffled_comb = [OrderedSet(comb) for nb_org, combs in combinations.items() for comb in combs if nb_org%STEP == 0 and nb_org<=LIMIT]
-        shuffle(shuffled_comb)
+        random.shuffle(shuffled_comb)
 
         global evol
         evol =  open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv","w")

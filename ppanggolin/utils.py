@@ -7,7 +7,7 @@ from decimal import Decimal
 import contextlib
 from collections import defaultdict, OrderedDict
 import math
-from random import sample, random
+import random
 from io import TextIOWrapper
 import mmap
 import numpy
@@ -71,7 +71,7 @@ def samplingCombinations(items, sample_ratio, sample_min, sample_max=100, step =
             combNb_sample = sample_max
         i = 0
         while(i < combNb_sample):
-            comb_sub = sample(items,k)
+            comb_sub = random.sample(items,k)
             # Echantillonnage sans remise
             if (comb_sub not in tmp_comb):
                 tmp_comb.append(comb_sub)
@@ -117,22 +117,21 @@ def standard_deviation(lst, population=True):
 
 def cramers_corrected_stat(confusion_matrix):
     """ calculate Cramers V statistic for categorical-categorical association.
-        uses correction from Bergsma and Wicher, 
+        uses correction from Bergsma Wicher, 
         Journal of the Korean Statistical Society 42 (2013): 323-328
-
         source: https://stackoverflow.com/questions/51859894/how-to-plot-a-cramer-s-v-heatmap-for-categorical-features
     """
-    chi2 = chi2_contingency(confusion_matrix)[0]
+    chi2 = chi2_contingency(confusion_matrix)
     n = confusion_matrix.sum().sum()
-    phi2 = chi2/n
+    phi2 = chi2[0]/n
     r,k = confusion_matrix.shape
-    phi2corr = max(0, phi2 - ((k-1)*(r-1))/(n-1))    
+    phi2corr = max(0, phi2 - ((k-1)*(r-1))/(n-1))
     rcorr = r - ((r-1)**2)/(n-1)
     kcorr = k - ((k-1)**2)/(n-1)
-    return numpy.sqrt(phi2corr / min( (kcorr-1), (rcorr-1)))
+    return (tuple([chi2[1], numpy.sqrt(phi2corr / min( (kcorr-1), (rcorr-1)))]))
 
 def calculate_BIC(log_likelihood,nb_params,nb_points):
-    return( - 2 * log_likelihood + math.log(nb_points) * nb_params)
+    return( log_likelihood - 0.5 *(math.log(nb_points) * nb_params))
 
 """insertion of element at the top of an OrderedDict (for compatibility with python 2.7)
 from : https://stackoverflow.com/questions/16664874/how-can-i-add-an-element-at-the-top-of-an-ordereddict-in-python/18326914
@@ -182,9 +181,9 @@ def colors(n,min_diff=10, maxiter=float("inf"), except_list = []):
     ret = []
     iter = 0
     while len(ret) < n and iter<maxiter:
-        r = int(random() * 256)
-        g = int(random() * 256)
-        b = int(random() * 256)
+        r = int(random.random() * 256)
+        g = int(random.random() * 256)
+        b = int(random.random() * 256)
         new_element = {'r': r, 'g': g, 'b': b, 'a': 0}
         valid = True
         for previous_element in ret:
