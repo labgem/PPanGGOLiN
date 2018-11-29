@@ -969,7 +969,7 @@ class PPanGGOLiN:
 
                         if coverage==0:
                             continue
-                        distance_score = coverage#/len(select_organisms)
+                        distance_score = coverage/len(select_organisms)
                         row_fam.append(str(index_fam[neighbor]))
                         row_dist_score.append(str(round(distance_score,4)))
                         neighbor_number += 1
@@ -1158,7 +1158,6 @@ class PPanGGOLiN:
                                        dict(type='line', x0=2, x1=max_Q, y0=(3*slope)+intercept, y1=(max_Q*slope)+intercept, line = dict(dict(width=1, dash='dashdot', color="grey")))])
             fig = go.Figure(data=traces, layout=layout)
             out_plotly.plot(fig, filename=nem_dir_path+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
-
         return(best_Q)
 
     def partition(self, nem_dir_path     = tempfile.mkdtemp(),
@@ -1246,7 +1245,7 @@ class PPanGGOLiN:
                     self.__write_nem_input_files(nem_dir_path,orgs)
                 else:
                     if inplace:
-                        logging.getLogger().info("Evaluation of the optimal number of partitions...")
+                        logging.getLogger().info("Estimating of the optimal number of partitions...")
                     Q = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
                                                       select_organisms = orgs,
                                                       free_dispersion  = False,

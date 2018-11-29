@@ -531,6 +531,7 @@ def __main__():
     #-------------
     
     start_partitioning = time()
+    #for b in [round(b*0.05,3) for b in range(0,200)]:
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
                   Q               = options.overpartionning[0],
                   beta            = options.beta_smoothing[0],
@@ -541,6 +542,7 @@ def __main__():
                   just_stats      = False,
                   nb_threads      = options.cpu[0],
                   seed            = options.seed[0])
+    #print(str(b)+"   "+" ".join([str(m) for m in r.values()]))
     for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
         shutil.move(plot, OUTPUTDIR+FIGURE_DIR)
     end_partitioning = time()
@@ -617,10 +619,9 @@ def __main__():
                     value_vector[metadata[col].isna()]=numpy.nan
                     for path, path_vector in correlated_paths.items():
                         #res   = kendalltau(value_vector.values,path_vector.round(0), nan_policy="omit")
-                        #pdb.set_trace()
+
                         pres_abs_vector = path_vector.round(0)[~numpy.isnan(value_vector)]
                         value_vector    = value_vector[~numpy.isnan(value_vector)].values
-                        pdb.set_trace()
                         true_positive  = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 1))[True]
                         false_positive = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 0))[True]
                         true_negative  = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 1))[True]
@@ -636,7 +637,7 @@ def __main__():
                     results.loc[path,"spearman_r"] = round(res_spearman[0],3)
                     results.loc[path,"pvalue"] = res_spearman[1]
                 results.sort_values(by="spearman_r",axis=0,ascending=False, inplace = True)
-            #pdb.set_trace()
+
             #results = results.reindex_axis(results.min(axis=1).sort_values(ascending=False).index, axis=0)
             results.to_csv(OUTPUTDIR+METADATA_DIR+"/results_"+str(col))
     if options.compute_layout:
