@@ -621,7 +621,7 @@ def __main__():
                         #res   = kendalltau(value_vector.values,path_vector.round(0), nan_policy="omit")
 
                         pres_abs_vector = path_vector.round(0)[~numpy.isnan(value_vector)]
-                        value_vector    = value_vector[~numpy.isnan(value_vector)].values
+                        value_vector    = value_vector[~numpy.isnan(value_vector)]
                         true_positive  = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 1))[True]
                         false_positive = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 0))[True]
                         true_negative  = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 1))[True]
