@@ -35,7 +35,6 @@ from scipy.sparse import csr_matrix, bsr_matrix, csc_matrix
 from scipy.stats import iqr, linregress, pearsonr
 from scipy.cluster.hierarchy import linkage, dendrogram
 import markov_clustering as mc
-from kneed import KneeLocator
 import io
 from contextlib import redirect_stdout
 
@@ -392,6 +391,9 @@ class PPanGGOLiN:
             pan_str += "Run the partition() method to obtain more detailled statistics...\n"
             pan_str += "\n"
         pan_str += "Number of edges in the pangenome graph: "+str(nx.number_of_edges(self.neighbors_graph))+"\n"
+        weight = sum(nx.get_edge_attributes(self.neighbors_graph, "weight").values())
+        pan_str += "Sum of edges weight in the pangenome graph: "+str(weight)+"\n"
+        pan_str += "Sum of normalized edges weight (divided by # of genomes) in the pangenome graph: "+str(round(weight/self.nb_organisms, 2))+"\n"
         try:
             pan_str += str_histogram("Degree distribution of the pangenome graph: ",nx.degree_histogram(self.neighbors_graph))+"\n"
         except:
@@ -924,6 +926,8 @@ class PPanGGOLiN:
 
         # nx.set_edge_attributes(self.neighbors_graph,'tmp',nx.get_edge_attributes(self.neighbors_graph,"weight"))
 
+        total_edges_weight = 0
+
         logging.getLogger().debug("Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files")
         with open(nem_dir_path+"/nem_file.str", "w") as str_file,\
             open(nem_dir_path+"/nem_file.index", "w") as index_file,\
@@ -970,14 +974,10 @@ class PPanGGOLiN:
                         if coverage==0:
                             continue
                         distance_score = coverage/len(select_organisms)
+                        total_edges_weight+=distance_score
                         row_fam.append(str(index_fam[neighbor]))
                         row_dist_score.append(str(round(distance_score,4)))
                         neighbor_number += 1
-                    if neighbor_number>0:
-                        nei_file.write("\t".join([str(item) for sublist in [[index_fam[node_name]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
-                    else:
-                        nei_file.write(str(index_fam[node_name])+"\t0\n")
-                        logging.getLogger().debug("The family: "+node_name+" is an isolated family in the selected organisms")
                 # else:
                 #     try:
                 #         all_neighbors   = set(nx.all_neighbors(self.neighbors_graph, node_name))
@@ -1041,6 +1041,7 @@ class PPanGGOLiN:
 
             str_file.write("S\t"+str(len(index_fam))+"\t"+
                             str(len(select_organisms))+"\n")
+        return(total_edges_weight)
 
     def __evaluate_nb_partitions(self, nem_dir_path = tempfile.mkdtemp(),
                                  select_organisms   = None,
@@ -1056,7 +1057,7 @@ class PPanGGOLiN:
             if len(select_organisms - self.organisms)>0:
                 raise Exception("select_organisms parameter must be included in the organisms attribute of the objet")
 
-        self.__write_nem_input_files(nem_dir_path,select_organisms)
+        edges_weight = self.__write_nem_input_files(nem_dir_path,select_organisms)
 
         def run_several_quick_partitioning (all_Q_to_partition):
             all_log_likelihood = []
@@ -1091,10 +1092,10 @@ class PPanGGOLiN:
             for Q_candidate, log_likelihood, entropy in all_log_likelihood:
                 if log_likelihood is not None:
                     all_BICs[Q_candidate] = calculate_BIC(log_likelihood,Q_candidate * (len(select_organisms) + 1 + (len(select_organisms) if free_dispersion else 1)),self.pan_size)
-                    all_ICLs[Q_candidate] = all_BICs[Q_candidate] + entropy
+                    all_ICLs[Q_candidate] = all_BICs[Q_candidate] - entropy
                     all_LLs[Q_candidate] = log_likelihood
             return(tuple([all_BICs,all_ICLs,all_LLs]))
-        kneedle    = None
+        #kneedle    = None
         best_Q     = None
         slope      = 0
         intercept  = 0
@@ -1158,7 +1159,7 @@ class PPanGGOLiN:
                                        dict(type='line', x0=2, x1=max_Q, y0=(3*slope)+intercept, y1=(max_Q*slope)+intercept, line = dict(dict(width=1, dash='dashdot', color="grey")))])
             fig = go.Figure(data=traces, layout=layout)
             out_plotly.plot(fig, filename=nem_dir_path+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
-        return(best_Q)
+        return(best_Q, edges_weight)
 
     def partition(self, nem_dir_path     = tempfile.mkdtemp(),
                         select_organisms = None,
@@ -1212,7 +1213,6 @@ class PPanGGOLiN:
         if self.is_partitionned and inplace:
             logging.getLogger().warning("The pangenome was already partionned, inplace=true parameter will erase previous nem file intermediate files, partitions and subpartitions")
             self.delete_nem_intermediate_files()
-
         if inplace:
             self.nem_intermediate_files = nem_dir_path
 
@@ -1242,21 +1242,22 @@ class PPanGGOLiN:
             if Q == -1:
                 if self.Q == 3:
                     Q = 3
-                    self.__write_nem_input_files(nem_dir_path,orgs)
+                    edges_weight = self.__write_nem_input_files(nem_dir_path,orgs)
                 else:
                     if inplace:
                         logging.getLogger().info("Estimating of the optimal number of partitions...")
-                    Q = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
-                                                      select_organisms = orgs,
-                                                      free_dispersion  = False,
-                                                      max_Q            = MAX_Q if self.Q is None else self.Q + 1,
-                                                      seed             = seed,
-                                                      nb_threads       = nb_threads)
+                    
+                    (Q,edges_weight) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
+                                                                     select_organisms = orgs,
+                                                                     free_dispersion  = False,
+                                                                     max_Q            = MAX_Q if self.Q is None else self.Q + 1,
+                                                                     seed             = seed,
+                                                                     nb_threads       = nb_threads)
             else:
-                self.__write_nem_input_files(nem_dir_path,orgs)
-            return(Q)
+                edges_weight = self.__write_nem_input_files(nem_dir_path,orgs)
+            return(Q, edges_weight)
         if len(select_organisms) > chunck_size:
-            Q = run_evaluate_nb_partitions(OrderedSet(random.sample(select_organisms,chunck_size)),Q)
+            Q,edges_weight = run_evaluate_nb_partitions(OrderedSet(random.sample(select_organisms,chunck_size)),Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
             cpt_partition = OrderedDict()
@@ -1319,13 +1320,12 @@ class PPanGGOLiN:
                         #     else:
                         #         proba_sample[org] = p + len(select_organisms)/chunck_size
 
-                        index = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",
-                                                             orgs)
+                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs)
                         if nb_threads>1:
                             res = pool.apply_async(run_partitioning,
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                            len(orgs),
-                                                           beta,
+                                                           beta*(len(orgs)/edges_weight),
                                                            free_dispersion,
                                                            Q,
                                                            seed),                                                        
@@ -1333,7 +1333,7 @@ class PPanGGOLiN:
                         else:
                             res = run_partitioning(nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                    len(orgs),
-                                                   beta,
+                                                   beta*(len(orgs)/edges_weight),
                                                    free_dispersion,
                                                    Q,
                                                    seed)
@@ -1373,10 +1373,10 @@ class PPanGGOLiN:
             #     print('total '+str(stats["exact_accessory"]+stats["exact_core"]))
             #     print(' ')
         else:
-            Q = run_evaluate_nb_partitions(select_organisms,Q)
+            Q,edges_weight = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
-            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta, free_dispersion, Q = Q, seed = seed)
+            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta * (len(select_organisms)/edges_weight) , free_dispersion, Q = Q, seed = seed)
             partitionning_results = partitionning_results[FAMILIES_PARTITION]
             # all_Q = []
             # all_BIC = []
@@ -1871,8 +1871,8 @@ class PPanGGOLiN:
         path_order  = []
         if self.path_vectors:
             layout = go.Layout(title  = "presence/absence matrix",
-                            xaxis  = dict(title='organisms'),
-                            yaxis  = dict(title='paths'))
+                               xaxis  = dict(title='organisms'),
+                               yaxis  = dict(title='paths'))
             for path, vector in self.path_vectors.items():
                 path_order.append("p"+path)
                 binary_data.append(vector)
@@ -2210,15 +2210,15 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
             index_fam.append(line.split("\t")[1].strip())
 
     partitions_list = ["U"] * len(index_fam)
-    all_parameters = {}
-    log_likelihood =None
-    entropy        = None
+    all_parameters  = {}
+    log_likelihood  = None
+    entropy         = None
     try:
         with open(nem_dir_path+"/nem_file_"+str(Q)+".uf","r") as partitions_nem_file, open(nem_dir_path+"/nem_file_"+str(Q)+".mf","r") as parameter_nem_file:
-            parameter = parameter_nem_file.readlines()
+            parameter      = parameter_nem_file.readlines()
             log_likelihood = float(parameter[2].split()[3])
-            sum_mu_k = []
-            sum_epsilon_k = []
+            sum_mu_k       = []
+            sum_epsilon_k  = []
 
             for k, line in enumerate(parameter[-Q:]):
                 logging.getLogger().debug(line)
@@ -2226,7 +2226,6 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
                 mu_k = [bool(float(mu_kj)) for mu_kj in vector[0:nb_org]]
                 logging.getLogger().debug(mu_k)
                 logging.getLogger().debug(len(mu_k))
-
                 epsilon_k = [round(float(epsilon_kj),2) for epsilon_kj in vector[nb_org+1:]]
                 logging.getLogger().debug(epsilon_k)
                 logging.getLogger().debug(len(epsilon_k))
@@ -2240,11 +2239,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
                 # for k2, (mu_k_2,epsilon_k_2,proportion_2) in all_parameters.items():
                 #     for i in range(nb_org):
                 #         inertia += (0.5-epsilon_k_2[i])(0.5-epsilon_k[i])(abs(mu_k_2[i]-mu_k[i]))
-
                 # all_parameters[k]=(mu_k,epsilon_k,proportion)
-
-
-
             # #persistent is defined by a sum of mu near of nb_organism and a low sum of epsilon
             # max_mu_k     = max(sum_mu_k)
             # persistent_k = sum_mu_k.index(max_mu_k)
@@ -2276,8 +2271,8 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
 
             # if partition[0] != "P" or partition[1] != "S" or partition[2] != "C":
             #     raise ValueError("vector mu_k and epsilon_k value in the mf file are not consistent with the initialisation value in the .m file")
-            partition[0]="P"#PERSISTENT
-            partition[Q-1]="C"#CLOUD
+            partition[0]   = "P"#PERSISTENT
+            partition[Q-1] = "C"#CLOUD
             for i in range(1,Q-1):
                 partition[i]="S"+str(Q-1)
             entropy = 0

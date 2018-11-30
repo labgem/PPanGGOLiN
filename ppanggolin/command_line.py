@@ -544,7 +544,8 @@ def __main__():
                   seed            = options.seed[0])
     #print(str(b)+"   "+" ".join([str(m) for m in r.values()]))
     for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
-        shutil.move(plot, OUTPUTDIR+FIGURE_DIR)
+        basename_plot = os.path.basename(plot)
+        shutil.move(plot, OUTPUTDIR+FIGURE_DIR+basename_plot)
     end_partitioning = time()
     #-------------
     if options.metadata[0]:
@@ -626,8 +627,8 @@ def __main__():
                         false_positive = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 0))[True]
                         true_negative  = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 1))[True]
                         false_negative = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 0))[True]
-                        results.loc[path,"sensitivity_"+value] = round(true_positive/false_negative,2)
-                        results.loc[path,"specifity_"+value] = round(true_negative/false_positive,2)
+                        results.loc[path,"sensitivity_"+value] = round(true_positive/(true_positive+false_positive),2)
+                        results.loc[path,"specifity_"+value] = round(true_negative/(false_negative+true_negative),2)
                         results.loc[path,"F1score_"+value] = (2 * true_positive)/(2 * true_positive+false_positive+false_negative)
                 results.sort_values(by="cramer_phi",axis=0,ascending=False, inplace = True)
             else:
