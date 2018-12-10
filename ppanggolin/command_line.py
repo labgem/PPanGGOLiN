@@ -49,7 +49,7 @@ EVOLUTION_PARAM_FILE_PREFIX = "/evol_param"
 SUMMARY_STATS_FILE_PREFIX   = "/summary_stats"
 CORRELATED_PATHS_PREFIX     = "/correlated_paths_prefix"
 SCRIPT_R_FIGURE             = "/generate_plots.R"
-
+PARAMETER_FILE              = "/parameters"
 def plot_Rscript(script_outfile, verbose=True):
     """
     """
@@ -439,7 +439,10 @@ def __main__():
     parser.add_argument("-l", "--compute_layout", default = False, action="store_true", help = """
     Flag: (in test) precalculated the ForceAtlas2 layout""")
     parser.add_argument("-se", "--seed", type = int, nargs = 1, default = [42], metavar=('SEED'), help="""
-    Positive Number: seed used to generate random number
+    Positive Number: seed used to generate random numbers
+    """)
+    parser.add_argument("-eb", "--explore_beta", nargs=3, default=[None,None,None], metavar=('BETA_MIN','BETA_MAX','STEP'), help="""
+    3 Positive float numbers
     """)
 
     global options
@@ -513,7 +516,9 @@ def __main__():
                      options.remove_high_copy_number_families[0],
                      options.infer_singletons,
                      options.add_rna_to_the_pangenome,
-                     False)#options.directed)
+                     False)
+
+    #options.directed)
     # with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
     #     CDS_fragments_file.write(",".join(["CDS_fragment","CDS_fragment_length","corresponding_gene_family","gene_family_median_length"])+"\n")
     #     for gene, family in pan.CDS_fragments.items():
@@ -531,18 +536,71 @@ def __main__():
     #-------------
     
     start_partitioning = time()
-    #for b in [round(b*0.05,3) for b in range(0,200)]:
+    if options.explore_beta[0] is not None:
+        # Q = pan.__evaluate_nb_partitions(nem_dir_path    = TMP_DIR+NEM_DIR,
+        #                                  free_dispersion = options.free_dispersion,
+        #                                  nb_threads      = options.cpu[0],
+        #                                  seed            = options.seed[0])
+        # logging.getLogger().info("Best Q is "+str(Q))
+        with open(OUTPUTDIR+"/beta.txt","w") as beta_metrics:
+            for b in seq(float(options.explore_beta[0]),float(options.explore_beta[1]),float(options.explore_beta[2])):
+                b = round(b,3)
+
+                pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
+                              Q               = options.overpartionning[0],
+                              beta            = b,
+                              free_dispersion = options.free_dispersion,
+                              chunck_size     = options.chunck_size[0],
+                              soft_core_th    = options.soft_core_threshold[0],
+                              inplace         = True,
+                              just_stats      = False,
+                              nb_threads      = options.cpu[0],
+                              seed            = options.seed[0])
+
+                to_recover_shell=0
+                for gf_shell in pan.partitions["shell"]:
+                    if nx.degree(pan.neighbors_graph,gf_shell)<=10:
+                        p_neighbors = set()
+                        for n in nx.all_neighbors(pan.neighbors_graph,gf_shell):
+                            if pan.neighbors_graph.node[n]["partition"] == "shell":
+                                p_neighbors.add(n)
+                        p_neighbors_neighbors = set()
+                        for p in p_neighbors:
+                            for n in nx.all_neighbors(pan.neighbors_graph,p):
+                                if pan.neighbors_graph.node[n]["partition"] == "shell" and n != gf_shell:
+                                    p_neighbors_neighbors.add(n)
+                        if len(p_neighbors_neighbors):
+                            to_recover_shell+=1
+                print("to_recover_shell:"+str(to_recover_shell))
+                
+                beta_metrics.write(str(b)+"   "+str(len(pan.partitions["persistent"]))+"   "+str(len(pan.partitions["shell"]))+"   "+str(len(pan.partitions["cloud"]))+"\n")
+                beta_metrics.flush()
+                print(str(b)+"   "+str(len(pan.partitions["persistent"]))+"   "+str(len(pan.partitions["shell"]))+"   "+str(len(pan.partitions["cloud"])))
+                os.makedirs(OUTPUTDIR+"/partitions_"+str(b))
+
+                for partition, families in pan.partitions.items():
+                    file = open(OUTPUTDIR+"/partitions_"+str(b)+"/"+partition+".txt","w")
+                    if len(families):
+                        file.write("\n".join(families)+"\n")
+                    file.close()
+                for partition, families in pan.subpartitions_shell.items():
+                    file = open(OUTPUTDIR+"/partitions_"+str(b)+"/"+partition+".txt","w")
+                    if len(families):
+                        file.write("\n".join(families)+"\n")
+                    file.close()
+
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
-                  Q               = options.overpartionning[0],
-                  beta            = options.beta_smoothing[0],
-                  free_dispersion = options.free_dispersion,
-                  chunck_size     = options.chunck_size[0],
-                  soft_core_th    = options.soft_core_threshold[0],
-                  inplace         = True,
-                  just_stats      = False,
-                  nb_threads      = options.cpu[0],
-                  seed            = options.seed[0])
-    #print(str(b)+"   "+" ".join([str(m) for m in r.values()]))
+                    Q               = options.overpartionning[0],
+                    beta            = options.beta_smoothing[0],
+                    free_dispersion = options.free_dispersion,
+                    chunck_size     = options.chunck_size[0],
+                    soft_core_th    = options.soft_core_threshold[0],
+                    inplace         = True,
+                    just_stats      = False,
+                    nb_threads      = options.cpu[0],
+                    seed            = options.seed[0])
+    
+
     for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
         basename_plot = os.path.basename(plot)
         shutil.move(plot, OUTPUTDIR+FIGURE_DIR+basename_plot)
@@ -651,6 +709,8 @@ def __main__():
     pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
     logging.getLogger().info("Writing GEXF light file")
     pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light"+(".gz" if options.compress_graph else ""), options.compress_graph, metadata, False,False)
+    
+    
     with open(OUTPUTDIR+"/pangenome.txt","w") as pan_text:
         for partition, families in pan.partitions.items():
             file = open(OUTPUTDIR+PARTITION_DIR+"/"+partition+".txt","w")
@@ -659,8 +719,17 @@ def __main__():
                 if partition in set(["exact_core","exact_accessory"]):
                     pan_text.write("\n".join(families)+"\n")
             file.close()
+        for partition, families in pan.subpartitions_shell.items():
+            file = open(OUTPUTDIR+PARTITION_DIR+"/"+partition+".txt","w")
+            if len(families):
+                file.write("\n".join(families)+"\n")
+            file.close()
+    
     pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
     pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
+    if pan.nb_organisms<=options.chunck_size[0]:
+        pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
+
     if options.projection:
         logging.getLogger().info("Projection...")
         start_projection = time()
