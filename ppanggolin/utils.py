@@ -115,6 +115,15 @@ def standard_deviation(lst, population=True):
 
     return(sd)
 
+def seq(start, stop, step=1):
+    n = int(round((stop - start)/float(step)))
+    if n > 1:
+        return([start + step*i for i in range(n+1)])
+    elif n == 1:
+        return([start])
+    else:
+        return([])
+
 def cramers_corrected_stat(confusion_matrix):
     """ calculate Cramers V statistic for categorical-categorical association.
         uses correction from Bergsma Wicher, 
