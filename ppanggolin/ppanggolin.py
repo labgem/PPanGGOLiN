@@ -976,7 +976,8 @@ class PPanGGOLiN:
 
                             if coverage==0:
                                 continue
-                            distance_score = coverage/len(select_organisms)
+                            
+                            distance_score = coverage/len(((set(self.neighbors_graph.node[node_name]) & set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)                          
                             total_edges_weight+=distance_score
                             row_fam.append(str(index_fam[neighbor]))
                             row_dist_score.append(str(round(distance_score,4)))
@@ -1081,7 +1082,7 @@ class PPanGGOLiN:
                                                                                nb_iter,#quick
                                                                                True) for q in all_Q_to_partition]))
                 else:
-                    for q in tqdm(all_Q_to_partition, total=max_Q, unit = "q"):
+                    for q in all_Q_to_partition:
                         all_log_likelihood.append(run_partitioning(nem_dir_path,
                                                                 len(select_organisms),
                                                                 0, #quick, beta=0
@@ -1112,11 +1113,9 @@ class PPanGGOLiN:
         if len(BICs)>3:
             slope, intercept, r_value, p_value, std_err = linregress(list(ICLs.keys()), list(ICLs.values()))
             if slope > 0:
-                max_icl_Q     = max(ICLs, key=ICLs.get)
-                
-                delta_ICL = (ICLs[max_icl_Q]-min(ICLs.values()))*th_ICL
-                best_icl_Q    = min({q for q, icl in ICLs.items() if icl>=ICLs[max_icl_Q]-delta_ICL})
-                
+                max_icl_Q  = max(ICLs, key=ICLs.get)
+                delta_ICL  = (ICLs[max_icl_Q]-min(ICLs.values()))*th_ICL
+                best_icl_Q = min({q for q, icl in ICLs.items() if icl>=ICLs[max_icl_Q]-delta_ICL})                
                 # try:
                 #     with redirect_stdout(io.StringIO()):# to capture error message from KneeLocator
                 #         kneedle = KneeLocator(Qs, BICs, direction='decreasing',curve='convex')
@@ -1340,7 +1339,7 @@ class PPanGGOLiN:
                             res = pool.apply_async(run_partitioning,
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                            len(orgs),
-                                                           beta*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
+                                                           beta,#*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
                                                            free_dispersion,
                                                            Q,
                                                            seed),                                                        
@@ -1348,7 +1347,7 @@ class PPanGGOLiN:
                         else:
                             res = run_partitioning(nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                    len(orgs),
-                                                   beta*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
+                                                   beta,#*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
                                                    free_dispersion,
                                                    Q,
                                                    seed)
@@ -1393,7 +1392,7 @@ class PPanGGOLiN:
             Q,edges_weight = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
-            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight) , free_dispersion, Q = Q, seed = seed)
+            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta , free_dispersion, Q = Q, seed = seed)# * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight)
             #partitionning_results = partitionning_results[FAMILIES_PARTITION]
             # all_Q = []
             # all_BIC = []
@@ -1478,7 +1477,6 @@ class PPanGGOLiN:
                 else:
                     logging.getLogger().error("nb_orgs can't be > to self.nb_organisms")
                     exit(1)
-
                 self.neighbors_graph.nodes[node]["viz"]={}
                 if nem_class != "U":
                     self.neighbors_graph.nodes[node]["viz"]['color']=COLORS_RGB[self.neighbors_graph.node[node]["partition"]]
