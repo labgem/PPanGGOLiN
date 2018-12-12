@@ -959,7 +959,7 @@ class PPanGGOLiN:
                     never_in[variable][value].add(node_name)
         return ({"exclusively_in":exclusively_in,"never_in":never_in})
 
-    def __write_nem_input_files(self, nem_dir_path, select_organisms, th_degree = float("inf") , old_nem_dir = None):
+    def __write_nem_input_files(self, nem_dir_path, select_organisms, old_nem_dir = None, th_degree = float("inf") ):
         
         if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sence
             logging.getLogger().warning("The number of selected organisms is too low ("+str(len(select_organisms))+" organisms used) to partition the pangenome graph in persistent, shell and cloud genome. Add new organisms to obtain more robust metrics.")
@@ -1114,7 +1114,7 @@ class PPanGGOLiN:
         else:
             init = "param_file"
         
-        edges_weight = self.__write_nem_input_files(nem_dir_path,select_organisms, old_nem_dir)
+        edges_weight = self.__write_nem_input_files(nem_dir_path,select_organisms, old_nem_dir = old_nem_dir)
 
         def run_several_quick_partitioning (all_Q_to_partition):
             all_log_likelihood = []
@@ -1374,7 +1374,7 @@ class PPanGGOLiN:
             if Q == -1:
                 if self.Q == 3:
                     Q = 3
-                    edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir)
+                    edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir)
                 else:
                     if inplace:
                         logging.getLogger().info("Estimating the optimal number of partitions...")
@@ -1389,7 +1389,7 @@ class PPanGGOLiN:
                     if inplace:
                         logging.getLogger().info("Best Q is "+str(Q))
             else:
-                edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir)
+                edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir)
             return(Q, edges_weight)
         
         if len(select_organisms) > chunck_size:
@@ -1459,7 +1459,7 @@ class PPanGGOLiN:
                         #     else:
                         #         proba_sample[org] = p + len(select_organisms)/chunck_size
 
-                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir)
+                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir = old_nem_dir)
                         if nb_threads>1:
                             res = pool.apply_async(run_partitioning,
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
