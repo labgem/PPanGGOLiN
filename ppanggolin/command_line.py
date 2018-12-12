@@ -31,6 +31,7 @@ from .utils import *
 ### PATH AND FILE NAME
 OUTPUTDIR                   = None 
 TMP_DIR                     = None
+FORMER_NEM                  = None
 NEM_DIR                     = "/NEM_results/"
 FIGURE_DIR                  = "/figures/"
 PROJECTION_DIR              = "/projections/"
@@ -381,6 +382,9 @@ def __main__():
     """)
     parser.add_argument("-kf", "--keep_nem_temporary_files", default=False, action="store_true", help="""
     Flag: Delete temporary files used by NEM""")
+    parser.add_argument("-uf", "--use_old_partition", type=str, default = None, nargs =1, metavar = ('FORMER_NEM'), help="""
+    Dir: Directory where configuration files from an old partition of the same pangenome are stored.
+    """)
     parser.add_argument("-cg", "--compress_graph", default=False, action="store_true", help="""
     Flag: Compress (using gzip) the files containing the partionned pangenome graph""")
     parser.add_argument("-c", "--cpu", default=[1],  type=int, nargs=1, metavar=('NB_CPU'), help="""
@@ -460,13 +464,18 @@ def __main__():
     numpy.random.seed(options.seed[0])
     global OUTPUTDIR
     global TMP_DIR
-
+    global FORMER_NEM 
+    
     OUTPUTDIR = options.output_directory[0]
     TMP_DIR   = options.temporary_directory[0]
-
+    if options.use_old_partition:
+        FORMER_NEM = options.use_old_partition[0]
+        logging.getLogger().info("Former partition to reuse is stored in: "+FORMER_NEM)
+        
     logging.getLogger().info("Output directory is: "+OUTPUTDIR)
     logging.getLogger().info("Temporary directory is: "+TMP_DIR)
-
+        
+        
     list_dir = ["",FIGURE_DIR,PARTITION_DIR,PATH_DIR]
     if options.projection:
         list_dir.append(PROJECTION_DIR)
@@ -482,7 +491,30 @@ def __main__():
         elif not options.force:
             logging.getLogger().error(OUTPUTDIR+directory+" already exists")
             exit(1)
+            
+            
+    if FORMER_NEM:
+        if not os.path.isdir(FORMER_NEM):
+            raise FileNotFoundError(" Directory provided for old NEM results ('" + FORMER_NEM + "') does not exist.")
+        if not os.path.exists(FORMER_NEM + "/column_org_file"):
+            raise FileNotFoundError(" column_org_file expected in the provided directory for old NEM results ('" + FORMER_NEM + "') does not exist.")
+        fileList = glob.glob(FORMER_NEM + "*summary.mf", recursive = False)## should be unique...
+        if len(fileList) == 1:
+            fname = fileList[0]
+            with open(fname,"r") as summary_nem_file:
+                summ = summary_nem_file.readlines()
+                oldQ = len(summ)
+                if options.overpartionning[0] != -1:
+                    logging.getLogger().warning("You provided both old NEM files, and a number of partitions. Ignoring the given provided number of partitions to use the number of partitions found in the NEM files.")
+                options.overpartionning[0] = oldQ
+                logging.getLogger().info("partitionning in " + str(options.overpartionning[0]) + " partitions, based on former NEM files.")
+        else:
+            logging.getLogger().error(FORMER_NEM + " directory contained " + str(len(fileList)) + " output parameter file(s) of NEM ( *summary.mf  ). Expecting only one.")
+        
+        
 
+    
+    
     #-------------
     metadata = None
 
@@ -533,6 +565,7 @@ def __main__():
     start_partitioning = time()
     #for b in [round(b*0.05,3) for b in range(0,200)]:
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
+                  old_nem_dir     = FORMER_NEM,
                   Q               = options.overpartionning[0],
                   beta            = options.beta_smoothing[0],
                   free_dispersion = options.free_dispersion,
@@ -899,10 +932,14 @@ def __main__():
         proc = subprocess.Popen(cmd, shell=True)
         proc.communicate()
 
-    if not options.keep_nem_temporary_files:
-        pan.delete_nem_intermediate_files()  
-    else:
+    if options.keep_nem_temporary_files:
+        if os.path.exists(OUTPUTDIR + "/nem") and options.force:## if dir exists and we allow overwriting
+            shutil.rmtree(OUTPUTDIR + "/nem")## deleting former nem directory...
+        pan.keep_nem_intermediate_files(OUTPUTDIR + "/nem")## else an error will be raised here.
+        logging.getLogger().info("Temporary used NEM files saved in: " +OUTPUTDIR + "/nem")
         logging.getLogger().info("Temporary directory is: "+TMP_DIR)
+    else:
+        pan.delete_nem_intermediate_files() 
 
     logging.getLogger().info("Output directory is: "+OUTPUTDIR)
 

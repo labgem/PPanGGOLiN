@@ -38,6 +38,7 @@ import markov_clustering as mc
 import io
 from contextlib import redirect_stdout
 
+import glob
 
 (TYPE, FAMILY, START, END, STRAND, NAME, PRODUCT) = range(0, 7)#data index in annotation
 (ORGANISM_INDEX,CONTIG_INDEX,POSITION_INDEX) = range(0, 3)#index
@@ -956,7 +957,7 @@ class PPanGGOLiN:
                     never_in[variable][value].add(node_name)
         return ({"exclusively_in":exclusively_in,"never_in":never_in})
 
-    def __write_nem_input_files(self, nem_dir_path, select_organisms):
+    def __write_nem_input_files(self, nem_dir_path, select_organisms, old_nem_dir = None):
         
         if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sene
             logging.getLogger().warning("The number of selected organisms is too low ("+str(len(select_organisms))+" organisms used) to partition the pangenome graph in persistent, shell and cloud genome. Add new organisms to obtain more robust metrics.")
@@ -966,7 +967,7 @@ class PPanGGOLiN:
             os.makedirs(nem_dir_path)
 
         # nx.set_edge_attributes(self.neighbors_graph,'tmp',nx.get_edge_attributes(self.neighbors_graph,"weight"))
-
+        
         total_edges_weight = 0
 
         logging.getLogger().debug("Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files")
@@ -975,8 +976,10 @@ class PPanGGOLiN:
             open(nem_dir_path+"/column_org_file", "w") as org_file,\
             open(nem_dir_path+"/nem_file.nei", "w") as nei_file,\
             open(nem_dir_path+"/nem_file.dat", "w") as dat_file:
-
+            
             nei_file.write("1\n")
+            if old_nem_dir:
+                select_organisms = self.__write_nem_param_from_file(nem_dir_path, select_organisms, old_nem_dir) ## Writing NEM file to run NEM using former nem output.
             
             org_file.write(" ".join(["\""+org+"\"" for org in select_organisms])+"\n")
             org_file.close()
@@ -1082,9 +1085,11 @@ class PPanGGOLiN:
 
             str_file.write("S\t"+str(len(index_fam))+"\t"+
                             str(len(select_organisms))+"\n")
+        
         return(total_edges_weight)
 
     def __evaluate_nb_partitions(self, nem_dir_path = tempfile.mkdtemp(),
+                                 old_nem_dir        = None,
                                  select_organisms   = None,
                                  free_dispersion    = False,
                                  max_Q              = MAX_Q,
@@ -1097,8 +1102,12 @@ class PPanGGOLiN:
             select_organisms = OrderedSet(select_organisms)
             if len(select_organisms - self.organisms)>0:
                 raise Exception("select_organisms parameter must be included in the organisms attribute of the objet")
-
-        edges_weight = self.__write_nem_input_files(nem_dir_path,select_organisms)
+        if old_nem_dir:
+            init = "init_from_old"
+        else:
+            init = "param_file"
+        
+        edges_weight = self.__write_nem_input_files(nem_dir_path,select_organisms, old_nem_dir)
 
         def run_several_quick_partitioning (all_Q_to_partition):
             all_log_likelihood = []
@@ -1112,7 +1121,7 @@ class PPanGGOLiN:
                                                                             free_dispersion,
                                                                             q,
                                                                             seed,
-                                                                            "param_file",
+                                                                            init,
                                                                             10,#quick, only 10 iterations
                                                                             True) for q in all_Q_to_partition]))
                 else:
@@ -1123,7 +1132,7 @@ class PPanGGOLiN:
                                                                 free_dispersion,
                                                                 q,
                                                                 seed,
-                                                                "param_file",
+                                                                init,
                                                                 10,#quick, only 10 iterations
                                                                 True))
             logging.disable(logging.NOTSET)# restaure message
@@ -1202,7 +1211,69 @@ class PPanGGOLiN:
             out_plotly.plot(fig, filename=nem_dir_path+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
         return(best_Q, edges_weight)
 
+    def __write_nem_param_from_file(self, nem_dir_path, select_organisms, old_nem_dir):
+        
+        old_orgs = open(old_nem_dir + "/column_org_summary","r").readline().replace('"','').split() ## former organisms used in precedent partitionning.
+        new_orgs = [ orgs for orgs in select_organisms if orgs not in old_orgs ]## listing the new organisms
+        ## listing removed organisms index (to not write the variables from the nem files corresponding to this organism)
+        rmOrgsIndex = []
+        kept_old = []
+        for org in range(len(old_orgs)):
+            if old_orgs[org] not in select_organisms:
+                rmOrgsIndex.append(org)## saving the index of the organism not present in selected_organisms
+            else:
+                kept_old.append(old_orgs[org])## else saving the organism.
+        select_organisms = OrderedSet(kept_old + new_orgs)## ordered of the kept organisms is known and the same than former NEM files.
+        oldOrgsLen = len(old_orgs)
+        newOrgsLen = len(new_orgs)
+        
+        fname = glob.glob(old_nem_dir + "*summary.mf", recursive = False)[0]
+        with open(fname,"r") as parameter_nem_file:
+            parameter = parameter_nem_file.readlines()
+            
+            MuLists = []
+            EpsLists = []
+            PkList = []
+            for line in parameter:
+                currParams = line.split()
+                
+                currMu = currParams[0:oldOrgsLen]
+                PkList.append(currParams[oldOrgsLen])
+                currEps = currParams[oldOrgsLen+1:]
+
+                MuList = [currMu[index] for index in range(oldOrgsLen) if index not in rmOrgsIndex ]
+                EpsList = [currEps[index] for index in range(oldOrgsLen) if index not in rmOrgsIndex ]
+                
+                nbs = []
+                for val in MuList:
+                    if val == '0.5':## cause int('0.5') raises an error.
+                        nbs.append(0.5)## setting to 1 at random.
+                    else:
+                        nbs.append(int(val))
+                
+                MuList.extend([str(int(median(nbs)))] * newOrgsLen)
+                EpsList.extend([str(median(map(float, EpsList)))] * newOrgsLen)
+                
+                ### NEM does not allow epsilon to be 0, so in case of 0s we fix epsilon to 1e10-6
+                for n, i in enumerate(EpsList):
+                    if float(i) == 0:
+                        EpsList[n] = "0.000001"
+                
+                MuLists.append(MuList)
+                EpsLists.append(EpsList)
+                
+        with open(nem_dir_path+"/nem_file_init_"+str(len(MuLists))+".m", "w") as m_file:
+            m_file.write("1 ")# 1 to initialize parameter, 
+            m_file.write(" ".join(PkList[:-1]) + " ")
+            for MuList in MuLists:
+                m_file.write( " ".join(MuList) + " ")
+            for EpsList in EpsLists:
+                m_file.write( " ".join(EpsList) + " ")
+                
+        return select_organisms
+                                    
     def partition(self, nem_dir_path     = tempfile.mkdtemp(),
+                        old_nem_dir      = None,
                         select_organisms = None,
                         Q                = -1,
                         beta             = 0.5,
@@ -1216,7 +1287,8 @@ class PPanGGOLiN:
         """
             Use the graph topology and the presence or absence of genes from each organism into families to partition the pangenome in three groups ('persistent', 'shell' and 'cloud')
             . seealso:: Read the Mo Dang's thesis to understand NEM, a summary is available here : http://www.kybernetika.cz/content/1998/4/393/paper.pdf
-            :param nem_dir_path: a str containing a path to store temporary file of the NEM program
+            :param nem_dir_path: a str containing a path to store temporary file of the NEM program.
+            :param old_nem_dir: a str containing a path where nem files from another run are stored.
             :param select_organisms: a list of organism to used to obtain the partition (must be included in the organism attributes of the object) or None to used all organisms in the object
             :param beta: a float containing the spatial coefficient of smoothing of the clustering results using the weighted graph topology (0.00 turn off the spatial clustering)
             :param free_dispersion: a bool specyfing if the dispersion around the centroid vector of each paritition is the same for all the organisms or if the dispersion is free
@@ -1226,6 +1298,7 @@ class PPanGGOLiN:
             :param just_stats: a boolean specifying if the partitions must be returned or just stats about them (number of families in each partition)
             :param nb_threads: an integer specifying the number of threads to use (works only if the number of organisms is higher than the chunck_size)
             :type str: 
+            :type str:
             :type list: 
             :type float: 
             :type bool:
@@ -1244,7 +1317,7 @@ class PPanGGOLiN:
                 raise Exception("select_organisms parameter must be included in the organisms attribute of the objet")
             if inplace:
                 raise Exception("inplace can't be true if the select_organisms parameter has not the same size than organisms attribute")
-
+        
         if soft_core_th > 1 or soft_core_th < 0:
             raise Exception("soft_core_th parameter must be a float between 0 and 1")
         if inplace:
@@ -1256,7 +1329,12 @@ class PPanGGOLiN:
             self.delete_nem_intermediate_files()
         if inplace:
             self.nem_intermediate_files = nem_dir_path
-
+        
+        if old_nem_dir:## then the NEM files will be written before run_partitionning.
+            init = "init_from_old"
+        else:## else, write generic nem files
+            init = "param_file"
+        
         stats = defaultdict(int)
         partitionning_results = {}
         
@@ -1279,24 +1357,27 @@ class PPanGGOLiN:
                 stats["soft_core"]+=1
             else:
                 stats["soft_accessory"]+=1
+        
         def run_evaluate_nb_partitions(orgs, Q):
             if Q == -1:
                 if self.Q == 3:
                     Q = 3
-                    edges_weight = self.__write_nem_input_files(nem_dir_path,orgs)
+                    edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir)
                 else:
                     if inplace:
                         logging.getLogger().info("Estimating of the optimal number of partitions...")
                     
                     (Q,edges_weight) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
+                                                                     old_nem_dir      = old_nem_dir,
                                                                      select_organisms = orgs,
                                                                      free_dispersion  = False,
                                                                      max_Q            = MAX_Q if self.Q is None else self.Q + 1,
                                                                      seed             = seed,
                                                                      nb_threads       = nb_threads)
             else:
-                edges_weight = self.__write_nem_input_files(nem_dir_path,orgs)
+                edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir)
             return(Q, edges_weight)
+        
         if len(select_organisms) > chunck_size:
             Q,edges_weight = run_evaluate_nb_partitions(OrderedSet(random.sample(select_organisms,chunck_size)),Q)
             if inplace:
@@ -1309,6 +1390,7 @@ class PPanGGOLiN:
             if inplace:
                 bar = tqdm(total = stats["exact_accessory"]+stats["exact_core"], unit = "families partitionned")
             sem = Semaphore(nb_threads)
+            
             def validate_family(result):
                 #nonlocal total_BIC
                 try:
@@ -1332,6 +1414,8 @@ class PPanGGOLiN:
                                         #     validated[node]="S" 
                 finally:
                     sem.release()
+                    
+                    
             with contextlib.closing(Pool(processes = nb_threads)) if nb_threads>1 else empty_cm() as pool:
                 #proba_sample = OrderedDict(zip(select_organisms,[len(select_organisms)]*len(select_organisms)))
                 pan_size = stats["exact_accessory"]+stats["exact_core"]
@@ -1361,7 +1445,7 @@ class PPanGGOLiN:
                         #     else:
                         #         proba_sample[org] = p + len(select_organisms)/chunck_size
 
-                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs)
+                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir)
                         if nb_threads>1:
                             res = pool.apply_async(run_partitioning,
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
@@ -1369,7 +1453,8 @@ class PPanGGOLiN:
                                                            beta*(len(orgs)/edges_weight),
                                                            free_dispersion,
                                                            Q,
-                                                           seed),                                                        
+                                                           seed,
+                                                           init),                                                        
                                                    callback = validate_family)
                         else:
                             res = run_partitioning(nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
@@ -1377,7 +1462,8 @@ class PPanGGOLiN:
                                                    beta*(len(orgs)/edges_weight),
                                                    free_dispersion,
                                                    Q,
-                                                   seed)
+                                                   seed,
+                                                   init)
                             validate_family(res)
                         cpt +=1
                     else:
@@ -1417,7 +1503,7 @@ class PPanGGOLiN:
             Q,edges_weight = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
-            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta * (len(select_organisms)/edges_weight) , free_dispersion, Q = Q, seed = seed)
+            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta * (len(select_organisms)/edges_weight) , free_dispersion, Q = Q, seed = seed, init = init)
             partitionning_results = partitionning_results[FAMILIES_PARTITION]
             # all_Q = []
             # all_BIC = []
@@ -1757,7 +1843,101 @@ class PPanGGOLiN:
             logging.getLogger().info("delete "+self.nem_intermediate_files)
             shutil.rmtree(self.nem_intermediate_files)
             self.nem_intermediate_files = None
-
+            
+    def keep_nem_intermediate_files(self, outdir):
+        """
+            Saves the temporary files used to partition the pangenome, and creates summary files to reuse for futur partitionning.
+            :param out_file: a str containing the path of the output directory for nem files
+            :type str: 
+        """
+        if self.nem_intermediate_files:
+            shutil.copytree(self.nem_intermediate_files, outdir)
+            ## checking if the analysis has outputs in chunks
+            subdirs = [ x[0] for x in os.walk(self.nem_intermediate_files) if x[0] != self.nem_intermediate_files ]
+            
+            if len(subdirs) > 0:
+                ## then create a summary matrice... ?
+                self.make_nem_matrix_summary(subdirs, outdir)
+            # ~ for subdir in subdirs:
+                # ~ basename = os.path.basename(subdir)
+                # ~ shutil.copytree(subdir, outdir + "/" + basename)
+            ## copying files of the corresponding partition
+            else:
+                self.make_nem_matrix_summary([self.nem_intermediate_files], outdir)
+            
+    def make_nem_matrix_summary(self, subdirs, outdir):
+        """
+            Saves a resulting global matrix from NEM submatrices.
+            :param outdir: a str containing the path of the output directory for nem files
+            :param subdirs: a list containing the subdirectories of the temporary directory where the nem files are stored
+            :type str: 
+            :type list:
+        """
+        matrice = dict()
+        OrgSet = OrderedSet()
+        PkLists = []
+        
+        for i in range(self.Q):
+            PkLists.append([])
+        ## gathering data
+        for subdir in subdirs:
+            fname = glob.glob(subdir + "/*_" + str(self.Q) + ".mf", recursive = False)[0]
+            orgs = open(subdir + "/column_org_file","r").readline().replace('"','').split() ## orgs present in this subpartitionning.
+            
+            for org in orgs:
+                if org not in OrgSet:
+                    matrice[org] = {"mu":[], "eps":[]}
+                    for x in range(self.Q):
+                        matrice[org]["mu"].append([])
+                        matrice[org]["eps"].append([])
+                    OrgSet.add(org)
+            
+            
+                            
+            with open(fname,"r") as parameter_nem_file:
+                parameter = parameter_nem_file.readlines()
+                MuLists = []
+                EpsLists = []
+                currPkList = []
+                lineNb=0
+                for line in parameter[8:]:
+                    currParams = line.split()
+                    for paramIndex in range(len(orgs)):
+                        matrice[orgs[paramIndex]]["mu"][lineNb].append(currParams[paramIndex])
+                        matrice[orgs[paramIndex]]["eps"][lineNb].append(currParams[len(orgs)+ 1 + paramIndex])
+                        
+                    currPkList.append(currParams[len(orgs)])
+                    lineNb+=1
+                
+                for pk in range(len(currPkList)):
+                    PkLists[pk].append(currPkList[pk])
+        PkList = []
+        
+        org_file = open(outdir + "/column_org_summary","w")
+        org_file.write(" ".join(["\""+org+"\"" for org in OrgSet])+"\n")
+        org_file.close()
+        mf_file = open(outdir+"/nem_file_summary.mf", "w")
+        
+        for i in range(self.Q):
+            currMu = []
+            currEps = []
+            PkList.append(str(median(map(float, PkLists[i]))))
+            
+            for org in OrgSet:
+                nbs = []
+                for val in matrice[org]["mu"][i]:
+                    if val == '0.5':## cause int('0.5') raises an error.
+                        nbs.append(0.5)## setting to 1 at random.
+                    else:
+                        nbs.append(int(val))
+                
+                currMu.append(str(int(median(nbs))))
+                currEps.append(str(round(median(map(float, matrice[org]["eps"][i])), 6)))
+               
+            mf_file.write( " ".join(currMu) + " ")
+            mf_file.write(str(median(map(float, PkLists[i]))) + " ")
+            mf_file.write( " ".join(currEps) + "\n")
+            
     def ushaped_plot(self, out_file):
         """
             generate ushaped representation
@@ -2166,7 +2346,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
         model_family    = MODEL,
         proportion      = PROPORTION,
         dispersion      = VARIANCE_MODEL,
-        init_mode       = INIT_PARAM_FILE if init == "param_file" else INIT_RANDOM,
+        init_mode       = INIT_PARAM_FILE if init in ["param_file","init_from_old"] else INIT_RANDOM,
         init_file       = nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
         out_file_prefix = nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'),
         seed            = seed)
