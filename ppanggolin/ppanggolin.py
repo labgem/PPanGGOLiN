@@ -265,15 +265,44 @@ class PPanGGOLiN:
             :param lim_occurence: a int containing the threshold of the maximum number copy of each families. Families exceeding this threshold are removed and are listed in the next attribute.
             :param infer_singletons: a bool specifying if singleton must be explicitely present in the families parameter (False) or if single gene automatically infered as a singleton family (True)
             :param add_rna_to_the_pangenome: a bool specifying if the rna genes must be added to the pangenome or not.
-            :type str: 
-            :type dict: 
-            :type str: 
-            :type int: 
-            :type bool: 
-            :type bool: 
-            :return: annot: 
-            :rtype: dict 
-        """ 
+            :type str:
+            :type dict:
+            :type str:
+            :type int:
+            :type bool:
+            :type bool:
+            :return: annot:
+            :rtype: dict
+        """
+
+        def getGffAttributes(gff_fields):
+            """
+                Parses the gff attribute's line and outputs the attributes in a dict structure.
+                :param gff_fields: a gff line stored as a list. Each element of the list is a column of the gff.
+                :type list:
+                :return: attributes:
+                :rtype: dict
+            """
+            attributes_field = [f for f in gff_fields[GFF_attribute].strip().split(';') if len(f)>0]
+            attributes = {}
+            for att in attributes_field:
+                (key, value) = att.strip().split('=')
+                attributes[key.upper()]=value
+            return attributes
+
+        def getIDAttribute(attribute):
+            """
+                Gets the ID of the element from which the provided attributes were extracted. Raises an error if no ID is found.
+                :param attribute:
+                :type dict:
+                :return: ElementID:
+                :rtype: string
+            """
+            ElementID = attributes.get("ID")
+            if not ElementID:
+                logging.getLogger().error("Each CDS type of the gff files must own a unique ID attribute. Not the case for file: "+gff_file_path)
+                exit(1)
+            return ElementID
 
         logging.getLogger().debug("Reading "+gff_file_path+" file ...")
         if organism not in self.organisms:
@@ -284,6 +313,7 @@ class PPanGGOLiN:
             cpt_fam_occ = defaultdict(int)
             gene_id_auto = False
             with read_compressed_or_not(gff_file_path) as gff_file:
+                prevPseudoID = ""## default value. Can be anything but None, and should not be found in the ID field, for the default value.
                 for line in gff_file:
                     if line.startswith('##',0,2):
                         if line.startswith('FASTA',2,7):
@@ -295,31 +325,38 @@ class PPanGGOLiN:
                             else:
                                 logging.getLogger().debug(fields[1]+" is not circular")
                         continue
+                    if line.startswith('#!',0,2):## special refseq comment lines for versionning softs, assemblies and annotations.
+                        continue
                     gff_fields = [el.strip() for el in line.split('\t')]
+
+                    attributes = getGffAttributes(gff_fields)
+
+
                     if GFF_type == 'region':
                         if GFF_seqname in self.circular_contig_size:
                             self.circular_contig_size = int(GFF_end)
                             continue
                     elif gff_fields[GFF_type] == 'CDS' or (add_rna_to_the_pangenome and gff_fields[GFF_type].find("RNA")):
-                        attributes_field = [f for f in gff_fields[GFF_attribute].strip().split(';') if len(f)>0]
-                        attributes = {}
-                        for att in attributes_field:
-                            (key, value) = att.strip().split('=')
-                            attributes[key.upper()]=value
-                        try:
-                            protein = attributes["ID"]
-                        except:
-                            logging.getLogger().error("Each CDS type of the gff files must own a unique ID attribute. Not the case for file: "+gff_file_path)
-                            exit(1)
-                        try:
-                            family = families[protein]
-                        except KeyError:
-                            if infer_singletons:
+                        if "PSEUDO" in attributes:## if it is a pseudogene, this CDS is not actually translated.
+                            continue
+                        parent = attributes.get("PARENT")
+                        if parent == prevPseudoID:## if the CDS has a Parent attribute and this parent corresponds to the last pseudogene element that was seen, this CDS is not actually translated.
+                            continue
+                        protein = getIDAttribute(attributes)
+                        family = families.get(protein)
+                        if not family:## the protein id was not found under "ID", searching elsewhere
+                            proteinID = attributes.get("PROTEIN_ID")
+                            if proteinID:
+                                protein = proteinID
+                                family = families.get(protein)
+
+                        if not family:
+                            if infer_singletons:## if we did not find the associated family at some point above, and if infer_singletons is set
                                 families[protein] = protein
                                 family            = families[protein]
                                 logging.getLogger().info("infered singleton: "+protein)
                             else:
-                                raise KeyError("Unknown families:"+protein, ", check your families file or run again the program using the option to infer singleton")
+                                raise KeyError("Unknown families:"+protein+ ", check your families file or run again the program using the option to infer singleton")
 
                         cpt_fam_occ[family]+=1
                         prev = families[protein]
@@ -338,6 +375,10 @@ class PPanGGOLiN:
                             product = ""
 
                         annot[gff_fields[GFF_seqname]][protein] = [gff_fields[GFF_type],family,int(gff_fields[GFF_start]),int(gff_fields[GFF_end]),gff_fields[GFF_strand], name, product]
+
+                    if attributes.get("PSEUDO") or attributes.get("PSEUDOGENE"):## if the element has the attribute pseudo, or pseudogene.
+                        prevPseudoID = getIDAttribute(attributes)
+
 
             for seq_id in list(annot):#sort genes by annotation start coordinate
                 annot[seq_id] = OrderedDict(sorted(annot[seq_id].items(), key = lambda item: item[1][START]))
