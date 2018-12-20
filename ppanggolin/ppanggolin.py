@@ -1095,10 +1095,10 @@ class PPanGGOLiN:
                                  select_organisms   = None,
                                  free_dispersion    = False,
                                  max_Q              = MAX_Q,
-                                 nb_threads         = 1,
-                                 seed               = 42,
+                                 ICL_th             = 0.01,
                                  nb_iter            = 10,
-                                 th_ICL             = 0.02):
+                                 nb_threads         = 1,
+                                 seed               = 42):
         if select_organisms is None:
             select_organisms = self.organisms
         else:
@@ -1156,7 +1156,7 @@ class PPanGGOLiN:
             slope, intercept, r_value, p_value, std_err = linregress(list(ICLs.keys()), list(ICLs.values()))
             if slope > 0:
                 max_icl_Q  = max(ICLs, key=ICLs.get)
-                delta_ICL  = (ICLs[max_icl_Q]-min(ICLs.values()))*th_ICL
+                delta_ICL  = (ICLs[max_icl_Q]-min(ICLs.values()))*ICL_th
                 best_icl_Q = min({q for q, icl in ICLs.items() if icl>=ICLs[max_icl_Q]-delta_ICL})                
                 # try:
                 #     with redirect_stdout(io.StringIO()):# to capture error message from KneeLocator
@@ -1202,7 +1202,7 @@ class PPanGGOLiN:
                                      y=list(LLs.values()),
                                      name = "log likelihood",
                                      mode = "lines+markers"))
-            layout = go.Layout(title = 'ICL curve (best Q is '+str(best_icl_Q)+', th_ICL is '+str(th_ICL)+")",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
+            layout = go.Layout(title = 'ICL curve (best Q is '+str(best_icl_Q)+', ICL_th= is '+str(ICL_th)+")",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
                                titlefont = dict(size = 20),
                                xaxis = dict(title='number of overpartitions'),
                                yaxis = dict(title='ICL, BIC, log likelihood'),
@@ -1222,6 +1222,7 @@ class PPanGGOLiN:
                         free_dispersion  = False,
                         chunck_size      = 500,
                         soft_core_th     = 0.95,
+                        ICL_th           = 0.01,
                         inplace          = True,
                         just_stats       = False,
                         nb_threads       = 1,
@@ -1303,10 +1304,12 @@ class PPanGGOLiN:
                     
                     (Q,edges_weight) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
                                                                      select_organisms = orgs,
-                                                                     free_dispersion  = False,
+                                                                     free_dispersion  = free_dispersion,
                                                                      max_Q            = MAX_Q if self.Q is None else self.Q + 1,
-                                                                     seed             = seed,
-                                                                     nb_threads       = nb_threads)
+                                                                     ICL_th           = ICL_th,
+                                                                     nb_iter          = 10,
+                                                                     nb_threads       = nb_threads,
+                                                                     seed             = seed)
                     if inplace:
                         logging.getLogger().info("Best Q is "+str(Q))
             else:
