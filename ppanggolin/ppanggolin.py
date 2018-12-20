@@ -1018,7 +1018,8 @@ class PPanGGOLiN:
                             if coverage==0:
                                 continue
                             
-                            distance_score = coverage/len(((set(self.neighbors_graph.node[node_name]) & set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)                          
+                            #distance_score = coverage/len(select_organisms)# len((set(self.neighbors_graph.node[node_name]) & set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)                          
+                            distance_score = coverage/len(((set(self.neighbors_graph.node[node_name]) | set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)
                             total_edges_weight+=distance_score
                             row_fam.append(str(index_fam[neighbor]))
                             row_dist_score.append(str(round(distance_score,4)))
@@ -1201,10 +1202,10 @@ class PPanGGOLiN:
                                      y=list(LLs.values()),
                                      name = "log likelihood",
                                      mode = "lines+markers"))
-            layout = go.Layout(title = "ICL curve",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
+            layout = go.Layout(title = 'ICL curve (best Q is '+str(best_icl_Q)+', th_ICL is '+str(th_ICL)+")",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
                                titlefont = dict(size = 20),
                                xaxis = dict(title='number of overpartitions'),
-                               yaxis = dict(title='ICL curve (best Q is '+str(best_icl_Q)+', th_ICL is '+str(th_ICL)+")"),
+                               yaxis = dict(title='ICL, BIC, log likelihood'),
                                shapes=[dict(type='line', x0=best_icl_Q, x1=best_icl_Q, y0=0, y1=ICLs[best_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                        dict(type='line', x0=max_icl_Q, x1=max_icl_Q, y0=0, y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                        dict(type='line', x0=best_icl_Q, x1=max_icl_Q, y0=ICLs[max_icl_Q], y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
@@ -1433,7 +1434,7 @@ class PPanGGOLiN:
             Q,edges_weight = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
-            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta , free_dispersion, Q = Q, seed = seed)# * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight)
+            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta, free_dispersion, Q = Q, seed = seed)# * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight) 
             #partitionning_results = partitionning_results[FAMILIES_PARTITION]
             # all_Q = []
             # all_BIC = []

@@ -762,6 +762,10 @@ def __main__():
 
     logging.getLogger().info(pan)
     with open(OUTPUTDIR+"/"+SUMMARY_STATS_FILE_PREFIX+".txt","w") as file_stats:
+        file_stats.write("Command: "+" ".join([arg for arg in sys.argv])+"\n")
+        file_stats.write("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version+"\n")
+        file_stats.write("Python version: "+sys.version+"\n")
+        file_stats.write("Networkx version: "+nx.__version__+"\n")
         file_stats.write(str(pan))
     #-------------
 
