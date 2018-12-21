@@ -1021,7 +1021,8 @@ class PPanGGOLiN:
                             if coverage==0:
                                 continue
                             
-                            distance_score = coverage/len(((set(self.neighbors_graph.node[node_name]) & set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)                          
+                            #distance_score = coverage/len(select_organisms)# len((set(self.neighbors_graph.node[node_name]) & set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)                          
+                            distance_score = coverage/len(((set(self.neighbors_graph.node[node_name]) | set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)
                             total_edges_weight+=distance_score
                             row_fam.append(str(index_fam[neighbor]))
                             row_dist_score.append(str(round(distance_score,4)))
@@ -1099,10 +1100,10 @@ class PPanGGOLiN:
                                  select_organisms   = None,
                                  free_dispersion    = False,
                                  max_Q              = MAX_Q,
-                                 nb_threads         = 1,
-                                 seed               = 42,
+                                 ICL_th             = 0.01,
                                  nb_iter            = 10,
-                                 th_ICL             = 0.02):
+                                 nb_threads         = 1,
+                                 seed               = 42):
         if select_organisms is None:
             select_organisms = self.organisms
         else:
@@ -1164,7 +1165,7 @@ class PPanGGOLiN:
             slope, intercept, r_value, p_value, std_err = linregress(list(ICLs.keys()), list(ICLs.values()))
             if slope > 0:
                 max_icl_Q  = max(ICLs, key=ICLs.get)
-                delta_ICL  = (ICLs[max_icl_Q]-min(ICLs.values()))*th_ICL
+                delta_ICL  = (ICLs[max_icl_Q]-min(ICLs.values()))*ICL_th
                 best_icl_Q = min({q for q, icl in ICLs.items() if icl>=ICLs[max_icl_Q]-delta_ICL})                
                 # try:
                 #     with redirect_stdout(io.StringIO()):# to capture error message from KneeLocator
@@ -1210,10 +1211,10 @@ class PPanGGOLiN:
                                      y=list(LLs.values()),
                                      name = "log likelihood",
                                      mode = "lines+markers"))
-            layout = go.Layout(title = "ICL curve",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
+            layout = go.Layout(title = 'ICL curve (best Q is '+str(best_icl_Q)+', ICL_th= is '+str(ICL_th)+")",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
                                titlefont = dict(size = 20),
                                xaxis = dict(title='number of overpartitions'),
-                               yaxis = dict(title='ICL curve (best Q is '+str(best_icl_Q)+', th_ICL is '+str(th_ICL)+")"),
+                               yaxis = dict(title='ICL, BIC, log likelihood'),
                                shapes=[dict(type='line', x0=best_icl_Q, x1=best_icl_Q, y0=0, y1=ICLs[best_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                        dict(type='line', x0=max_icl_Q, x1=max_icl_Q, y0=0, y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                        dict(type='line', x0=best_icl_Q, x1=max_icl_Q, y0=ICLs[max_icl_Q], y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
@@ -1292,6 +1293,7 @@ class PPanGGOLiN:
                         free_dispersion  = False,
                         chunck_size      = 500,
                         soft_core_th     = 0.95,
+                        ICL_th           = 0.01,
                         inplace          = True,
                         just_stats       = False,
                         nb_threads       = 1,
@@ -1382,10 +1384,12 @@ class PPanGGOLiN:
                     (Q,edges_weight) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
                                                                      old_nem_dir      = old_nem_dir,
                                                                      select_organisms = orgs,
-                                                                     free_dispersion  = False,
+                                                                     free_dispersion  = free_dispersion,
                                                                      max_Q            = MAX_Q if self.Q is None else self.Q + 1,
-                                                                     seed             = seed,
-                                                                     nb_threads       = nb_threads)
+                                                                     ICL_th           = ICL_th,
+                                                                     nb_iter          = 10,
+                                                                     nb_threads       = nb_threads,
+                                                                     seed             = seed)
                     if inplace:
                         logging.getLogger().info("Best Q is "+str(Q))
             else:
@@ -1519,8 +1523,9 @@ class PPanGGOLiN:
             Q,edges_weight = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
-            
+
             partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta , free_dispersion, Q = Q, seed = seed, init = init)# * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight)
+
             #partitionning_results = partitionning_results[FAMILIES_PARTITION]
 
             # all_Q = []

@@ -283,6 +283,7 @@ def resample(index):
                           free_dispersion  = options.free_dispersion,
                           chunck_size      = options.chunck_size[0],
                           soft_core_th     = options.soft_core_threshold[0],
+                          ICL_th          = options.ICL_margin[0],
                           inplace          = False,
                           just_stats       = True,
                           nb_threads       = 1,
@@ -423,6 +424,9 @@ def __main__():
     """)
     parser.add_argument("-Q", "--overpartionning", type = int, nargs = 1, default = [-1], metavar=('NB_PARTITIONS'), help="""
     Positive Number: Number of partitions to overpartition the pangenome (must be higher or equal to 3, that is to say one for persistent genome, one for the cloud genome and at least for the shell genome).
+    """)
+    parser.add_argument("-im", "--ICL_margin", type = float, nargs = 1, default = [0.01], metavar=('ICL_margin'), help="""
+    Positive decimal Number: 
     """)
     parser.add_argument("-mt", "--metadata", type=argparse.FileType('r'), default = [None], nargs=1, metavar=('METADATA_FILE'), help="""
     File: It is possible to add metainformation to the pangenome graph. These information must be associated to each organism via a METADATA_FILE. During the construction of the graph, metainformation about the organisms are used to label the covered edges.
@@ -584,6 +588,7 @@ def __main__():
                               free_dispersion = options.free_dispersion,
                               chunck_size     = options.chunck_size[0],
                               soft_core_th    = options.soft_core_threshold[0],
+                              ICL_th          = options.ICL_margin[0],
                               inplace         = True,
                               just_stats      = False,
                               nb_threads      = options.cpu[0],
@@ -632,7 +637,7 @@ def __main__():
                   just_stats      = False,
                   nb_threads      = options.cpu[0],
                   seed            = options.seed[0])
-    #print(str(b)+"   "+" ".join([str(m) for m in r.values()]))
+    
     for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
         basename_plot = os.path.basename(plot)
         shutil.move(plot, OUTPUTDIR+FIGURE_DIR+basename_plot)
@@ -794,8 +799,11 @@ def __main__():
 
     logging.getLogger().info(pan)
     with open(OUTPUTDIR+"/"+SUMMARY_STATS_FILE_PREFIX+".txt","w") as file_stats:
+        file_stats.write("Command: "+" ".join([arg for arg in sys.argv])+"\n")
+        file_stats.write("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version+"\n")
+        file_stats.write("Python version: "+sys.version+"\n")
+        file_stats.write("Networkx version: "+nx.__version__+"\n")
         file_stats.write(str(pan))
-    #-------------
 
     if options.untangle>0:
         pan.untangle_neighbors_graph(options.untangle[0])
