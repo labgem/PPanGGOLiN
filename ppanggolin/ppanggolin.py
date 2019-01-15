@@ -175,10 +175,11 @@ class PPanGGOLiN:
         self.partitions                     = {}
         for p in SHORT_TO_LONG.values():
             self.partitions[p]              = list()
-        self.BIC                            = None # Bayesian Index Criterion
         self.Q                              = None
         self.beta                           = None
         self.free_dispersion                = None
+        self.th_degree                      = None
+        self.chunk_size                     = None
         self.partitions_by_organism         = dict()
         self.subpartitions_shell             = defaultdict(list)
         self.partition_parameters           = {}
@@ -421,6 +422,9 @@ class PPanGGOLiN:
             pan_str += "Q:"+str(self.Q)+"\n"
             pan_str += "beta:"+str(self.beta)+"\n"
             pan_str += "free dispersion:"+str(self.free_dispersion)+"\n"
+            pan_str += "max node degree for smoothing:"+str(self.th_degree)+"\n"
+            pan_str += "chunk size:"+"not partitionned by chunks" if self.chunk_size is None else str(self.chunk_size)+"\n"
+
             pan_str += "Gene families with undefined partition:"+str(len(self.partitions["undefined"]))+"\n"
             # pan_str += "\n"
             # pan_str += str_histogram("Degree distribution of the core genome partition: ",nx.degree_histogram(self.neighbors_graph.subgraph(self.partitions["exact_core"])))+"\n"
@@ -959,7 +963,7 @@ class PPanGGOLiN:
                     never_in[variable][value].add(node_name)
         return ({"exclusively_in":exclusively_in,"never_in":never_in})
 
-    def __write_nem_input_files(self, nem_dir_path, select_organisms, old_nem_dir = None, th_degree = float("inf") ):
+    def __write_nem_input_files(self, nem_dir_path, select_organisms, old_nem_dir = None, th_degree = 20 ):
         
         if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sence
             logging.getLogger().warning("The number of selected organisms is too low ("+str(len(select_organisms))+" organisms used) to partition the pangenome graph in persistent, shell and cloud genome. Add new organisms to obtain more robust metrics.")
@@ -1099,7 +1103,7 @@ class PPanGGOLiN:
                                  old_nem_dir        = None,
                                  select_organisms   = None,
                                  free_dispersion    = False,
-                                 max_Q              = MAX_Q,
+                                 Qmin_Qmax          = [3,MAX_Q],
                                  ICL_th             = 0.01,
                                  nb_iter            = 10,
                                  nb_threads         = 1,
@@ -1158,7 +1162,7 @@ class PPanGGOLiN:
         max_icl_Q      = 0
         slope      = 0
         intercept  = 0
-        BICs,ICLs,LLs = run_several_quick_partitioning(list(range(2,max_Q+1)))
+        BICs,ICLs,LLs = run_several_quick_partitioning(list(range(Qmin_Qmax[0]-1,Qmin_Qmax[1]+1)))
         #mean_BICs = {q: mean(q_BICs) for q, q_BICs in BICs.items()}
         slope, intercept, r_value, p_value, std_err = (0,0,None,None,None)
         if len(BICs)>3:
@@ -1218,7 +1222,7 @@ class PPanGGOLiN:
                                shapes=[dict(type='line', x0=best_icl_Q, x1=best_icl_Q, y0=0, y1=ICLs[best_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                        dict(type='line', x0=max_icl_Q, x1=max_icl_Q, y0=0, y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                        dict(type='line', x0=best_icl_Q, x1=max_icl_Q, y0=ICLs[max_icl_Q], y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
-                                       dict(type='line', x0=2, x1=MAX_Q, y0=ICLs[best_icl_Q], y1=ICLs[best_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black")))])
+                                       dict(type='line', x0=2, x1=Qmin_Qmax[1], y0=ICLs[best_icl_Q], y1=ICLs[best_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black")))])
                                        #dict(type='line', x0=2, x1=max_icl_Q, y0=(3*slope)+intercept, y1=(max_icl_Q*slope)+intercept, line = dict(dict(width=1, dash='dashdot', color="grey")))])
             fig = go.Figure(data=traces, layout=layout)
             out_plotly.plot(fig, filename=nem_dir_path+"/ICL_curve_Q"+str(best_icl_Q)+".html", auto_open=False)
@@ -1289,7 +1293,9 @@ class PPanGGOLiN:
                         old_nem_dir      = None,
                         select_organisms = None,
                         Q                = -1,
+                        Qmin_Qmax        = [3,MAX_Q],
                         beta             = 0.5,
+                        th_degree        = float("inf"),
                         free_dispersion  = False,
                         chunck_size      = 500,
                         soft_core_th     = 0.95,
@@ -1376,16 +1382,15 @@ class PPanGGOLiN:
             if Q == -1:
                 if self.Q == 3:
                     Q = 3
-                    edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir)
+                    edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
                 else:
                     if inplace:
                         logging.getLogger().info("Estimating the optimal number of partitions...")
-                    
                     (Q,edges_weight) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
                                                                      old_nem_dir      = old_nem_dir,
                                                                      select_organisms = orgs,
                                                                      free_dispersion  = free_dispersion,
-                                                                     max_Q            = MAX_Q if self.Q is None else self.Q + 1,
+                                                                     Qmin_Qmax        = Qmin_Qmax if self.Q is None else [3,self.Q],
                                                                      ICL_th           = ICL_th,
                                                                      nb_iter          = 10,
                                                                      nb_threads       = nb_threads,
@@ -1393,13 +1398,14 @@ class PPanGGOLiN:
                     if inplace:
                         logging.getLogger().info("Best Q is "+str(Q))
             else:
-                edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir)
+                edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
             return(Q, edges_weight)
         
         if len(select_organisms) > chunck_size:
             Q,edges_weight = run_evaluate_nb_partitions(OrderedSet(random.sample(select_organisms,chunck_size)),Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
+                self.chunck_size = chunck_size
             cpt_partition = OrderedDict()
             for fam in families:
                 cpt_partition[fam]= {"P":0,"S":0,"C":0,"U":0}
@@ -1574,6 +1580,7 @@ class PPanGGOLiN:
             self.Q                    = Q
             self.beta                 = beta
             self.free_dispersion      = free_dispersion
+            self.th_degree            = th_degree
             self.partition_parameters = partitionning_results[PARTITION_PARAMETERS]
             if self.is_partitionned:
                 for p in SHORT_TO_LONG.values():
