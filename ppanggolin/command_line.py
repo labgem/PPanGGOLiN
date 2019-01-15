@@ -278,12 +278,14 @@ def resample(index):
     nem_dir_path    = TMP_DIR+EVOLUTION_DIR+"/nborg"+str(len(shuffled_comb[index]))+"_"+str(index)
     stats = pan.partition(nem_dir_path     = nem_dir_path,
                           select_organisms = shuffled_comb[index],
-                          Q                = options.overpartionning[0],# 
+                          Q                = options.overpartionning[0],
+                          Qmin_Qmax        = options.QminQmax,
                           beta             = options.beta_smoothing[0],
+                          th_degree        = options.max_node_degree_smoothing[0],
                           free_dispersion  = options.free_dispersion,
                           chunck_size      = options.chunck_size[0],
                           soft_core_th     = options.soft_core_threshold[0],
-                          ICL_th          = options.ICL_margin[0],
+                          ICL_th           = options.ICL_margin[0],
                           inplace          = False,
                           just_stats       = True,
                           nb_threads       = 1,
@@ -370,11 +372,12 @@ def __main__():
     # Pangenome Graph to be updated (in gexf format)""")
     parser.add_argument("-u", "--untangle", type=int, default = 0, nargs=1, help="""
     Flag: (in test) max size of the untangled paths to be untangled""")
-    parser.add_argument("-b", "--beta_smoothing", default = [float("0.1")], type=float, nargs=1, metavar=('BETA_VALUE'), help = """
+    parser.add_argument("-b", "--beta_smoothing", default = [0.0], type=float, nargs=1, metavar=('BETA_VALUE'), help = """
     Decimal number: This option determines the strength of the smoothing (:math:beta) of the partitioning based on the graph topology (using a Markov Random Field). 
-    b must be a positive float, b = 0.0 means to discard spatial smoothing and 1.00 means very strong smoothing (can be above 1.00 but it is not advised).
-    0.1 is the default value producing a light smoothing.
-    But the beta value can also be estimated by PPanGGOLiN by specifying -1 (or any negative value), in this case, the partitionning step will be much longer. 
+    b must be a positive float, b = 0.0 means to discard spatial smoothing
+    """)
+    parser.add_argument("-ms", "--max_node_degree_smoothing", default = [float("inf")], type=float, nargs=1, metavar=('MAX_DEGREE'), help = """
+    Positive number: degree max of the nodes to be included in the smoothing process
     """)
     parser.add_argument("-th", "--soft_core_threshold", type = float, nargs = 1, default = [0.95], metavar=('SOFT_CORE_THRESHOLD'), help = """
     Postitive decimal number: A value between 0 and 1 providing the threshold ratio of presence to attribute a gene families to the soft core genome""")
@@ -425,8 +428,15 @@ def __main__():
     parser.add_argument("-Q", "--overpartionning", type = int, nargs = 1, default = [-1], metavar=('NB_PARTITIONS'), help="""
     Positive Number: Number of partitions to overpartition the pangenome (must be higher or equal to 3, that is to say one for persistent genome, one for the cloud genome and at least for the shell genome).
     """)
-    parser.add_argument("-im", "--ICL_margin", type = float, nargs = 1, default = [0.01], metavar=('ICL_margin'), help="""
-    Positive decimal Number: 
+    parser.add_argument("-Qmm", "--QminQmax", type = int, nargs = 2, default = [3,20], metavar=('NB_PARTITIONS_MIN','NB_PARTITIONS_MAX'), help="""
+    2 Positive Number: If the Q parameter is not set or equal to -1, the best Q is automatically determined by maximizing ICL. 
+    This parameters give the boundaries of the Q values to test.
+    The first parameter is the minimun Q to test (minimun 3) and the second is the maximun Q.
+    """)
+    parser.add_argument("-im", "--ICL_margin", type = float, nargs = 1, default = [0.05], metavar=('ICL_margin'), help="""
+    Positive decimal Number: If the Q parameter is not set or equal to -1, the best Q is automatically determined by maximizing ICL. 
+    Neveless the less, the value of Q maximizing ICL could be high without significative gain depending on lower Q values.
+    This argument add a margin allowing to select not the most likely Q value but the lower Q value having an associated ICL higher than MAX_ICL - (MAX_ICL-MIN_ICL) * margin
     """)
     parser.add_argument("-mt", "--metadata", type=argparse.FileType('r'), default = [None], nargs=1, metavar=('METADATA_FILE'), help="""
     File: It is possible to add metainformation to the pangenome graph. These information must be associated to each organism via a METADATA_FILE. During the construction of the graph, metainformation about the organisms are used to label the covered edges.
@@ -517,10 +527,6 @@ def __main__():
                 logging.getLogger().info("partitionning in " + str(options.overpartionning[0]) + " partitions, based on former NEM files.")
         else:
             logging.getLogger().error(FORMER_NEM + " directory contained " + str(len(fileList)) + " output parameter file(s) of NEM ( *summary.mf  ). Expecting only one.")
-        
-        
-
-    
     
     #-------------
     metadata = None
@@ -584,7 +590,9 @@ def __main__():
 
                 pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
                               Q               = options.overpartionning[0],
+                              Qmin_Qmax       = options.QminQmax,
                               beta            = b,
+                              th_degree       = options.max_node_degree_smoothing[0],
                               free_dispersion = options.free_dispersion,
                               chunck_size     = options.chunck_size[0],
                               soft_core_th    = options.soft_core_threshold[0],
@@ -629,10 +637,13 @@ def __main__():
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
                   old_nem_dir     = FORMER_NEM,
                   Q               = options.overpartionning[0],
+                  Qmin_Qmax       = options.QminQmax,
                   beta            = options.beta_smoothing[0],
+                  th_degree       = options.max_node_degree_smoothing[0],
                   free_dispersion = options.free_dispersion,
                   chunck_size     = options.chunck_size[0],
                   soft_core_th    = options.soft_core_threshold[0],
+                  ICL_th          = options.ICL_margin[0],
                   inplace         = True,
                   just_stats      = False,
                   nb_threads      = options.cpu[0],
@@ -782,7 +793,7 @@ def __main__():
         pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     else:
         pan.tile_plot(OUTPUTDIR+FIGURE_DIR,shell_persistent_only=False)
-        logging.getLogger().warnings("Too mush organisms (>1000) to display the cloud genome in the dynamic heatmap")
+        logging.getLogger().warning("Too mush organisms (>1000) to display the cloud genome in the dynamic heatmap")
     end_plots = time()
     del pan.annotations # no more required for the following process
     # print(pan.partitions_by_organisms)
