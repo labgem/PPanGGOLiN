@@ -746,7 +746,8 @@ def __main__():
     pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
     logging.getLogger().info("Writing GEXF light file")
     pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light"+(".gz" if options.compress_graph else ""), options.compress_graph, metadata, False,False)
-    
+    logging.getLogger().info("Writing JSON")
+    pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
     
     with open(OUTPUTDIR+"/pangenome.txt","w") as pan_text:
         for partition, families in pan.partitions.items():

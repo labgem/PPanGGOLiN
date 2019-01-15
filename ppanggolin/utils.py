@@ -3,6 +3,7 @@
 
 import sys
 import gzip
+import json
 from decimal import Decimal
 import contextlib
 from collections import defaultdict, OrderedDict
@@ -50,7 +51,7 @@ def comb_k_n(k,n):
         return 0
     result = 1
     for i in range(0, k):
-        result *= float(n - i)/(i + 1);
+        result *= float(n - i)/(i + 1)
     return sys.maxsize if result==float("Inf") else int(round(result)) 
 
 # proportional sampling
@@ -213,3 +214,13 @@ def average_color(c1,c2):
     g_average = int(round(math.sqrt((c1["g"]^2 + c2["g"]^2)/2),0))
     b_average = int(round(math.sqrt((c1["b"]^2 + c2["b"]^2)/2),0))
     return ({'r': r_average, 'g': g_average, 'b': b_average, 'a': 0})
+
+class PanEncoder(json.JSONEncoder):
+	"""
+		json encoder class for specific list-like or dict-like python classes.
+	"""
+	def default(self, obj):
+		if isinstance(obj, set):
+			return list(obj)# turns sets into a list.
+			# Let the base class default method raise the TypeError in case there is a problem
+		return json.JSONEncoder.default(self, obj)

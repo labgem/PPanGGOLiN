@@ -17,6 +17,7 @@ from time import time, sleep
 import os
 import shutil
 import gzip
+import json
 import tempfile
 from tqdm import tqdm
 import random
@@ -529,7 +530,7 @@ class PPanGGOLiN:
             except KeyError:
                 graph.node[fam_id][attribute]=set([locals()[attribute]])
 
-    def __add_link(self, fam_id, fam_id_nei, org, length, graph_type = "neighbors_graph"):
+    def __add_link(self, fam_id, id, fam_id_nei, id_nei, organism, length, graph_type = "neighbors_graph"):
         """
             Add line between families of a the pangenome graph
             :param fam_id: The family identifier the first node (need to be have at least one gene belonging to this family already added to the graph via the method __add_gene())
@@ -547,10 +548,14 @@ class PPanGGOLiN:
         if not self.neighbors_graph.has_edge(fam_id,fam_id_nei):
             graph.add_edge(fam_id, fam_id_nei)
             # logging.getLogger().debug([str(i) for i in [fam_id, fam_id_nei, org]])
+
         try:
-            graph[fam_id][fam_id_nei][org]+=1
-        except KeyError:
-            graph[fam_id][fam_id_nei][org]=1
+            graph[fam_id][fam_id_nei][organism].append({"source":id_nei,"target":id,"length":length})
+        except:
+            graph[fam_id][fam_id_nei][organism]= [ { "source" : id_nei,
+                                                "target" : id,
+                                                "length" : length}]
+                                                             
             try:
                 graph[fam_id][fam_id_nei]["weight"]+=1.0
             except KeyError:
@@ -626,14 +631,24 @@ class PPanGGOLiN:
                         if not (gene_info[FAMILY] == gene_info_nei[FAMILY] and
                                 gene_info[STRAND] == gene_info_nei[STRAND] and
                                 (gene in self.CDS_fragments or gene_nei in self.CDS_fragments)):# to avoid reflexive links with gene fragments
-                            self.__add_link(gene_info[FAMILY],gene_info_nei[FAMILY],organism, gene_info[START] - gene_info_nei[END])
+                            self.__add_link(fam_id      = gene_info[FAMILY],
+                                            id          = gene,
+                                            fam_id_nei  = gene_info_nei[FAMILY],
+                                            id_nei      = gene_nei,
+                                            organism   = organism,
+                                            length      = gene_info[START] - gene_info_nei[END])
                         gene_nei, gene_info_nei = gene, gene_info
                 
                 if contig in self.circular_contig_size:#circularization
                     if not (gene_info_start[FAMILY] == gene_info_nei[FAMILY] and 
                             gene_info_start[STRAND] == gene_info_nei[STRAND] and 
                             (gene in self.CDS_fragments or gene_start in self.CDS_fragments)):# to avoid reflexive links with gene fragments
-                        self.__add_link(gene_info_start[FAMILY],gene_info_nei[FAMILY],organism, (self.circular_contig_size[contig] - gene_info_nei[END]) + gene_info_start[START])
+                        self.__add_link(fam_id      = gene_info_start[FAMILY],
+                                        id          = gene_start,
+                                        fam_id_nei  = gene_info_nei[FAMILY],
+                                        id_nei      = gene_nei,
+                                        organism   = organism,
+                                        length      = (self.circular_contig_size[contig] - gene_info_nei[END]) + gene_info_start[START])
                 if sys.version_info < (3,):
                     ordered_dict_prepend(contig_annot,gene_start,gene_info_start)#insert at the top
                 else:
@@ -907,9 +922,15 @@ class PPanGGOLiN:
                                                 # circular cases
                                                 
                                                 length = (gene_info[START] - gene_info_prec[END]) if (gene_info_prec[START] < gene_info[START]) else (gene_info_prec[START] - gene_info[END])
-                                                self.__add_link(self.annotations[org][self.index[gene][CONTIG_INDEX]][gene][FAMILY], gene_info_prec[FAMILY], org, length,"untangled_neighbors_graph")
+                                                self.__add_link(fam_id = self.annotations[org][self.index[gene][CONTIG_INDEX]][gene][FAMILY],
+                                                                id = gene,
+                                                                fam_id_nei = gene_info_prec[FAMILY],
+                                                                id_nei = gene_prec,
+                                                                organism = org,
+                                                                length = length,
+                                                                graph_type = "untangled_neighbors_graph")
                                                 
-                                                gene_info_prec = gene_info
+                                                gene_prec, gene_info_prec = gene, gene_info
 
                                             LILO_seed_paths.extend(tuple(new_seed_path[1:len(new_seed_path)-1]))
                                             #pdb.set_trace()
@@ -1007,16 +1028,16 @@ class PPanGGOLiN:
                             if self.neighbors_graph.is_directed():
                                 cov_sens, cov_antisens = (0,0)
                                 try:
-                                    cov_sens = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+                                    cov_sens = sum([len(pre_abs) for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
                                 except KeyError:
                                     pass
                                 try:
-                                    cov_antisens = sum([pre_abs for org, pre_abs in self.neighbors_graph[neighbor][node_name].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+                                    cov_antisens = sum([len(pre_abs) for org, pre_abs in self.neighbors_graph[neighbor][node_name].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
                                 except KeyError:
                                     pass
                                 coverage = cov_sens + cov_antisens
                             else:
-                                coverage = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+                                coverage = sum([len(pre_abs) for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
 
                             if coverage==0:
                                 continue
@@ -1678,6 +1699,154 @@ class PPanGGOLiN:
                     z=(1,)
             self.neighbors_graph.nodes[node]["viz"]['position']=dict(zip(["x","y","z"],pos_x_y+z))
 
+    def export_to_json(self, graph_output_path, compressed = False, metadata = None, all_node_attributes = True, all_edge_attributes = True, graph_type = "neighbors_graph"):
+        """
+            Export the Partionned Pangenome Graph Of Linked Neighbors to a JSON file  
+            :param graph_output_path: a str containing the path of the JSON output file
+            :param compressed: a bool specifying if the file must be compressed in gzip or not
+            :param metadata: a dict having the organisms as key emcompassing a dict having metadata as keys of its value as value 
+            :param all_node_attributes: a bool specifying if organisms and genes attributes of each family node must be in the file or not.
+            :param all_edge_attributes: a bool specifying if organisms count of each edge must be in the file or not.
+            :type str: 
+            :type bool: 
+            :type bool: 
+            :type dict: 
+        """
+
+        def setOrgsAsNodeAttr(graph):
+            """
+                Creates an organisms set and stores it as a graph attribute. Stores in nodes every protein ID from every organism belonging to the gene family.
+                Assumes the ppanggolin organisation of the pangenome graph with networkx.
+                Runs in roughly O(nm log(m)) in worst case? n nodes and m max nb of attributes. Worst case is every node has the same number of attribute.
+            """		
+            # ~ start = time.time()
+            def fillGene(annotation_data, position):
+                geneDict = { "position" : position, "length":annotation_data[END] - annotation_data[START], "name":annotation_data[NAME], "product":annotation_data[PRODUCT] }
+                return geneDict
+
+            def fillContig(annotation_data, position, gene):
+                contigDict = { gene : fillGene(annotation_data, position)}
+                return contigDict
+
+            def fillOrg(annotation_data, position, gene, contig_name):
+                orgDict = { contig_name : fillContig(annotation_data, position, gene)}
+                return orgDict
+            ## prepare annotation object to parse the data faster than using self.annotations directly.
+            annotation = self.annotations.copy()
+            for org in self.annotations.keys():
+                for contig, genes in self.annotations[org].items():
+                    annotation[org][contig] = list(genes.values())
+
+            for node in graph.nodes.data():
+                
+                nodeObj = graph.nodes[node[0]]
+                ## Counters to establish the most commun name, product and length of the gene family represented by this node.
+                names_count = Counter()
+                product_count = Counter()
+                length_count = Counter()
+
+                attrs = node[1].copy()
+                nodeObj["organisms"] = {}
+                for att in attrs:
+                    if att in self.organisms:## then att is an organism.
+                        del nodeObj[att]## deleting the attribute as it is in the node's attributes.
+
+                        if type(attrs[att]) == str:
+                            nodeObj["organisms"][att].add(attrs[att])
+                        elif type(attrs[att]) in [ list, set ]:
+                            for gene in attrs[att]:
+                                gene_data = self.index[gene]
+                                annotation_data = annotation[gene_data[0]][gene_data[1]][gene_data[2]]
+                                names_count[annotation_data[NAME]] += 1
+                                product_count[annotation_data[PRODUCT]] += 1
+                                length_count[annotation_data[END] - annotation_data[START]] +=1
+
+                                ## Process the structure and add stuff depending on what's already present.
+                                org = nodeObj["organisms"].get(gene_data[0])
+                                if not org :## There's no gene from that organism for now, we add the organism, with the contig and the gene
+                                    nodeObj["organisms"][gene_data[0]] = fillOrg(annotation_data, gene_data[2], gene, gene_data[1])
+                                else:## there's already a gene from this gene_data[0] organism in this family
+                                    contig = org.get(gene_data[1])
+                                    if not contig:## no gene from that contig in this gene family for now, we add the contig with the gene
+                                        org[gene_data[1]] = fillContig(annotation_data, gene_data[2], gene)
+                                    else:## there's already a gene from this gene_data[1] contig in this organism in this family, we add the gene.
+                                        contig[gene] = fillGene(annotation_data, gene_data[2])
+
+                                # nodeObj["organisms"][att].add(gene)
+                        else:
+                            raise TypeError("Unexpected type in a node attribute, expecting only str or list.")
+                
+                nodeObj["name"] = names_count.most_common(1)[0][0]
+                nodeObj["product"] = product_count.most_common(1)[0][0]
+                nodeObj["length"] = length_count.most_common(1)[0][0]
+                ## assuming that a gene family cannot really have different type?
+                if len(nodeObj["type"]) > 1:## this is assuming the data is stored in a set. Remove the warning from code if you change that in the data structure.
+                    logging.getLogger().warning("For the gene family" + str(node[0]) + " multiple sequence types were found. This is unexpected from a gene family. Only the first one was kept.")
+                nodeObj["type"] = list(nodeObj["type"])[0]
+        
+        def setOrgsAsEdgeAttr(graph):
+            """
+                Stores in edge attribute 'orgs' the presence of an edge in an organism.
+            """
+            # ~ start = time.time()            
+            for node_i, node_j, data in graph.edges(data = True):
+                orgsPA = {}
+                currData = data.copy()
+                for att in currData:
+                    if att in self.organisms:
+                        orgsPA[att] = currData[att]
+                        del graph[node_i][node_j][att]
+                
+                graph[node_i][node_j]["organisms"] = orgsPA
+
+        def setGraphAttr(graph):
+            """
+                Fills the graph with attributes and parameters to save.
+            """
+
+            ## organisms names, their affiliated contigs, and whether they are circular or not
+            graph.graph["organisms"] = {}
+            for org in self.annotations.keys():
+                graph.graph["organisms"][org] = {}
+                for contig in self.annotations[org].keys():
+                    ## filling the graph's 'organisms' attribute
+                    if contig in self.circular_contig_size.keys():
+                        graph.graph["organisms"][org][contig] = { "is_circular" : True }
+                    else:
+                        graph.graph["organisms"][org][contig] = { "is_circular" : False }
+
+            ## output parameters of each nem partition.
+            graph.graph["params"] = {}
+            for key, val in self.partition_parameters.items():
+                graph.graph["params"][key] = { "mu":[ int(mu) for mu in val[0] ] , "eps":val[1],"pk":val[2] }
+            
+
+            # graph.graph["threshold_soft_core"] = self.threshold_soft_core # don't have that paremeter in current version.
+
+            
+        graph = None
+        if graph_type =="neighbors_graph":
+            graph = self.neighbors_graph.copy()
+        elif graph_type == "untangled_neighbors_graph":
+            graph = self.neighbors_graph.copy()
+
+        logging.getLogger().debug("Setting orgs as node attributes")
+        setOrgsAsNodeAttr(graph)
+        logging.getLogger().debug("Setting orgs as edge attributes")
+        setOrgsAsEdgeAttr(graph)
+        logging.getLogger().debug("setting the graph attributes")
+        setGraphAttr(graph)
+        logging.getLogger().debug("Turning graph into JSON-friendly datastructure and writing JSON file.")
+        
+        graph_output_path = graph_output_path+".json"
+        if compressed:
+            graph_output_path = gzip.open(graph_output_path+".gz","wt")
+        else:
+            graph_output_path = open(graph_output_path, "w")
+
+        json.dump(nx.node_link_data(graph), graph_output_path, cls = PanEncoder, indent = None)
+
+
     def export_to_GEXF(self, graph_output_path, compressed=False, metadata = None, all_node_attributes = True, all_edge_attributes = True, graph_type = "neighbors_graph"):
         """
             Export the Partionned Pangenome Graph Of Linked Neighbors to a GEXF file  
@@ -1735,6 +1904,8 @@ class PPanGGOLiN:
                     #                 graph_to_save[node_i][node_j][att]=set([value])
                     if not all_edge_attributes:
                         del graph_to_save[node_i][node_j][key]
+                    else:
+                        graph_to_save[node_i][node_j][key] = len(graph_to_save[node_i][node_j][key])
                 # if key == "path_group":
                 #     if metadata:
                 #         path_group = self.neighbors_graph[node_i][node_j]["path_group"]
