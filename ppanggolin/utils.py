@@ -12,6 +12,7 @@ from io import TextIOWrapper
 import mmap
 import numpy
 from scipy.stats import chi2_contingency
+import pdb
 
 """ argument can be a file descriptor (compressed or not) or file path (compressed or not) and return a readable file descriptor"""
 def read_compressed_or_not(file_or_file_path):
@@ -57,10 +58,9 @@ def comb_k_n(k,n):
 def samplingCombinations(items, sample_ratio, sample_min, sample_max=100, step = 1):
     samplingCombinationList = defaultdict(list)
     item_size = len(items)
-    combTotNb = pow(2,item_size)-1
     for k in range(1, item_size, step):
         tmp_comb = []
-        combNb = Decimal(comb_k_n(item_size, k))
+        combNb = Decimal(comb_k_n(k,item_size))
         combNb = sys.float_info.max if combNb>sys.float_info.max else combNb # to avoid to reach infinit values
         combNb_sample = math.ceil(Decimal(combNb)/Decimal(sample_ratio))
         # Plus petit echantillonage possible pour un k donné = sample_min

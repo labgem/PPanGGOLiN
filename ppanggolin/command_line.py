@@ -400,7 +400,7 @@ def __main__():
     #parser.add_argument("-l", "--freemem", default=False, action="store_true", help="""
     #Free the memory elements which are no longer used""")
     parser.add_argument("-p", "--plots", default=False, action="store_true", help="""
-    Flag: Run the Rscript generating the plots (required: R in the path and the packages ggplot2, ggrepel, data.table, minpack.lm and reshape2 to be installed).""")
+    Flag: Run the Rscript generating the plots (required: R in the path and the following R packages: ggplot2, ggrepel, data.table, minpack.lm and reshape2 installed).""")
     # parser.add_argument("-di", "--directed", default=False, action="store_true", help="""
     # generate directed graph
     # """)
@@ -863,7 +863,6 @@ def __main__():
         logging.disable(logging.NOTSET)
         def heap_law(N, kappa, gamma):
             return kappa*N**(gamma)
-
         annotations=[]
         traces = []
         data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False)

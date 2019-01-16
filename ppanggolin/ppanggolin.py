@@ -423,7 +423,7 @@ class PPanGGOLiN:
             pan_str += "beta:"+str(self.beta)+"\n"
             pan_str += "free dispersion:"+str(self.free_dispersion)+"\n"
             pan_str += "max node degree for smoothing:"+str(self.th_degree)+"\n"
-            pan_str += "chunk size:"+"not partitionned by chunks" if self.chunk_size is None else str(self.chunk_size)+"\n"
+            pan_str += "chunk size:"+"not partitionned by chunks\n " if self.chunk_size is None else str(self.chunk_size)+"\n"
 
             pan_str += "Gene families with undefined partition:"+str(len(self.partitions["undefined"]))+"\n"
             # pan_str += "\n"
@@ -1483,7 +1483,7 @@ class PPanGGOLiN:
                         else:
                             res = run_partitioning(nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                    len(orgs),
-                                                   beta,#*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
+                                                   beta, #*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
                                                    free_dispersion,
                                                    Q,
                                                    seed,
@@ -1821,7 +1821,7 @@ class PPanGGOLiN:
                 for node, data in self.neighbors_graph.nodes(data=True):
                     for key, d in data.items():
                         if key in self.organisms:
-                            melted_matrix.write(",".join([node,key]+list(d))+"\n")
+                            melted_matrix.write('"'+'"'.join([node,key]+list(d))+'"\n')
 
     def write_matrix(self, path, header=True, csv = True, Rtab = True):
         """
