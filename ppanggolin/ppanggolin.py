@@ -1170,7 +1170,7 @@ class PPanGGOLiN:
             if slope > 0:
                 max_icl_Q  = max(ICLs, key=ICLs.get)
                 delta_ICL  = (ICLs[max_icl_Q]-min(ICLs.values()))*ICL_th
-                best_icl_Q = min({q for q, icl in ICLs.items() if icl>=ICLs[max_icl_Q]-delta_ICL})                
+                best_Q = min({q for q, icl in ICLs.items() if icl>=ICLs[max_icl_Q]-delta_ICL})                
                 # try:
                 #     with redirect_stdout(io.StringIO()):# to capture error message from KneeLocator
                 #         kneedle = KneeLocator(Qs, BICs, direction='decreasing',curve='convex')
@@ -1185,6 +1185,7 @@ class PPanGGOLiN:
                 best_Q = 3# if slope is increasing it means that increasing the number of partitions is useless, so 3 partition is enough
         else:
             best_Q = 3# not enough data, so 3 partition is enough
+        best_Q = 3 if best_Q < 3 else best_Q
         # otherwise add new point ?
         # putative_best_Q = kneedle.knee
         #all_log_likelihood = run_several_quick_partitioning([putative_best_Q-1,putative_best_Q+1])
@@ -1215,18 +1216,18 @@ class PPanGGOLiN:
                                      y=list(LLs.values()),
                                      name = "log likelihood",
                                      mode = "lines+markers"))
-            layout = go.Layout(title = 'ICL curve (best Q is '+str(best_icl_Q)+', ICL_th= is '+str(ICL_th)+")",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
+            layout = go.Layout(title = 'ICL curve (best Q is '+str(best_Q)+', ICL_th= is '+str(ICL_th)+")",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
                                titlefont = dict(size = 20),
                                xaxis = dict(title='number of overpartitions'),
                                yaxis = dict(title='ICL, BIC, log likelihood'),
-                               shapes=[dict(type='line', x0=best_icl_Q, x1=best_icl_Q, y0=0, y1=ICLs[best_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
+                               shapes=[dict(type='line', x0=best_Q, x1=best_Q, y0=0, y1=ICLs[best_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                        dict(type='line', x0=max_icl_Q, x1=max_icl_Q, y0=0, y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
-                                       dict(type='line', x0=best_icl_Q, x1=max_icl_Q, y0=ICLs[max_icl_Q], y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
-                                       dict(type='line', x0=2, x1=Qmin_Qmax[1], y0=ICLs[best_icl_Q], y1=ICLs[best_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black")))])
+                                       dict(type='line', x0=best_Q, x1=max_icl_Q, y0=ICLs[max_icl_Q], y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
+                                       dict(type='line', x0=2, x1=Qmin_Qmax[1], y0=ICLs[best_Q], y1=ICLs[best_Q], line = dict(dict(width=1, dash='dashdot', color="black")))])
                                        #dict(type='line', x0=2, x1=max_icl_Q, y0=(3*slope)+intercept, y1=(max_icl_Q*slope)+intercept, line = dict(dict(width=1, dash='dashdot', color="grey")))])
             fig = go.Figure(data=traces, layout=layout)
-            out_plotly.plot(fig, filename=nem_dir_path+"/ICL_curve_Q"+str(best_icl_Q)+".html", auto_open=False)
-        return(best_icl_Q, edges_weight)
+            out_plotly.plot(fig, filename=nem_dir_path+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
+        return(best_Q, edges_weight)
 
     def __write_nem_param_from_file(self, nem_dir_path, select_organisms, old_nem_dir):
         
@@ -2300,6 +2301,7 @@ class PPanGGOLiN:
 
 ################ FUNCTION run_partitioning ################
 """ """
+
 def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("Running NEM...")
     if (Q<3 and not just_log_likelihood) or Q<2:
