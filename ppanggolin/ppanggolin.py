@@ -1866,7 +1866,7 @@ class PPanGGOLiN:
         else:
             graph_output_path = open(graph_output_path, "w")
 
-        json.dump(nx.node_link_data(graph), graph_output_path, cls = PanEncoder, indent = 4)
+        json.dump(nx.node_link_data(graph), graph_output_path, cls = PanEncoder, indent = None)
 
     def import_from_json(self, graph_input_path, lim_occurence = 0, infer_singletons = False, add_rna_to_the_pangenome = False, directed = False):
         """
