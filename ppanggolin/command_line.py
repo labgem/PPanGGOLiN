@@ -345,7 +345,7 @@ def __main__():
     The contig ID and gene ID can be any string but must be unique and can't contain any space, quote, double quote, pipe and reserved words.
     (optional): The next fields contain the name of perfectly assembled circular contigs (to take in account the link between the first and the last gene in the graph). 
     In this case, it is mandatory to provide the contig size in the gff files either by adding a "region" type having the correct contig ID attribute or using a '##sequence-region' pragma.
-    """, required=True)
+    """)
     parser.add_argument('-gf', '--gene_families', type=argparse.FileType('r'), nargs=1, metavar=('FAMILIES_FILE'), help="""
     File: A tab-delimited file containing the gene families. Each row contains 2 or 3 fields.
     The first field is the family ID. 
@@ -355,7 +355,7 @@ def __main__():
     The family ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word. 
     The family ID is often the name of the most representative sequence of the family.
     Gene IDs can be any string corresponding to the IDs of the gff files. They must be uniques and can't contain any spaces, quote, double quote, pipe and reserved words.
-    """,  required=True)
+    """)
     parser.add_argument('-od', '--output_directory', type=str, nargs=1, default=["PPanGGOLiN_outputdir"+strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())+"_PID"+str(os.getpid())], metavar=('OUTPUT_DIR'), help="""
     Dir: The output directory""")
     parser.add_argument('-td', '--temporary_directory', type=str, nargs=1, default=["/dev/shm/PPanGGOLiN_tempdir"+strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", localtime())+"_PID"+str(os.getpid())], metavar=('TMP_DIR'), help="""
@@ -365,6 +365,9 @@ def __main__():
     parser.add_argument('-r', '--remove_high_copy_number_families', type=int, nargs=1, default=[0], metavar=('REPETITION_THRESHOLD'), help="""
     Positive Number: Remove families having a number of copy of gene in a single family above or equal to this threshold in at least one organism (0 or negative values are ignored). 
     """)#When -update is set, only work on new organisms added
+    parser.add_argument('-i','--input_file', type=str, nargs = 1, default = None, help = """
+    Input file from a precedent partitionning from ppanggolin in a JSON format only. Will reconstruct the graph using the informations from the nodes, edges and graph's attributes.
+    """)
     parser.add_argument('-s', '--infer_singletons', default=False, action="store_true", help="""
     Flag: If a gene id found in a gff file is absent of the gene families file, the singleton will be automatically infered as a gene families having a single element. 
     if this argument is not set, the program will raise KeyError exception if a gene id found in a gff file is absent of the gene families file.""")
@@ -465,7 +468,10 @@ def __main__():
 
     global options
     options = parser.parse_args()
-
+    if options.input_file == None:
+        if (not options.gene_families or not options.organisms):
+            parser.error("the following arguments are required: -o/--organisms and -gf/--gene_families, or -i/--input_file")
+    
     level = logging.INFO
     if options.verbose:
         level = logging.DEBUG
@@ -552,7 +558,11 @@ def __main__():
         #         metadata[o]=dict(zip(attribute_names,elements))
     start_loading = time()
     global pan
-    pan = PPanGGOLiN("file",
+
+    if options.input_file:
+        pan = PPanGGOLiN("json", options.input_file)
+    else:
+        pan = PPanGGOLiN("file",
                      options.organisms[0],
                      options.gene_families[0],
                      options.remove_high_copy_number_families[0],
@@ -781,13 +791,13 @@ def __main__():
 
     if options.projection:
         logging.getLogger().info("Projection...")
-        start_projection = time()
+        # start_projection = time()
         pan.projection(OUTPUTDIR+PROJECTION_DIR, [pan.organisms.__getitem__(index-1) for index in options.projection] if options.projection[0] > 0 else list(pan.organisms))
-        end_projection = time()
+        # end_projection = time()
     end_writing_output_file = time()
 
     logging.getLogger().info("Generating some plots")
-    start_plots = time()
+    # start_plots = time()
     pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
     if pan.nb_organisms<=1000:
         pan.tile_plot(OUTPUTDIR+FIGURE_DIR)

@@ -181,13 +181,12 @@ class PPanGGOLiN:
         self.free_dispersion                = None
         self.th_degree                      = None
         self.chunk_size                     = None
-        self.partitions_by_organism         = dict()
         self.subpartitions_shell             = defaultdict(list)
         self.partition_parameters           = {}
         self.CDS_fragments                  = {}
         self.soft_core_th                   = None
-        self.path_groups_vectors            = {}
-        self.path_vectors                   = {}
+        self.path_groups_vectors            = {}## key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
+        self.path_vectors                   = {}## key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
 
         if init_from == "file":
             self.__initialize_from_files(*args)
@@ -200,11 +199,15 @@ class PPanGGOLiN:
         elif init_from == "database":
             logging.getLogger().error("database is not yet implemented")
             pass
+        elif init_from == "json":
+            self.import_from_json(*args)
         else:
             raise ValueError("init_from parameter is required")
         self.nb_organisms = len(self.organisms)
-        logging.getLogger().info("Computing gene neighborhood ...")
-        self.__neighborhood_computation()
+
+        if init_from != "json":
+            logging.getLogger().info("Computing gene neighborhood ...")
+            self.__neighborhood_computation()
 
     def __initialize_from_files(self, organisms_file, families_tsv_file, lim_occurence = 0, infer_singletons = False, add_rna_to_the_pangenome = False, directed = False):
         """ 
@@ -1706,6 +1709,129 @@ class PPanGGOLiN:
                     z=(1,)
             self.neighbors_graph.nodes[node]["viz"]['position']=dict(zip(["x","y","z"],pos_x_y+z))
 
+    def _setOrgsAsNodeAttr(self, graph):
+        """
+            Creates an organisms set and stores it as a graph attribute. Stores in nodes every protein ID from every organism belonging to the gene family.
+            Assumes the ppanggolin organisation of the pangenome graph with networkx.
+            Saves also the annotation data for each gene beloning to the processed node.
+        """		
+        # ~ start = time.time()
+        def fillGene(annotation_data, position):
+            geneDict = { "position" : position, "strand" : annotation_data[STRAND], "end" : annotation_data[END], "start" : annotation_data[START], "name" : annotation_data[NAME], "product" : annotation_data[PRODUCT] }
+            return geneDict
+
+        def fillContig(annotation_data, position, gene):
+            contigDict = { gene : fillGene(annotation_data, position)}
+            return contigDict
+
+        def fillOrg(annotation_data, position, gene, contig_name):
+            orgDict = { contig_name : fillContig(annotation_data, position, gene)}
+            return orgDict
+        ## prepare annotation object to parse the data faster than using self.annotations directly.
+        annotation = self.annotations.copy()
+        for org in self.annotations.keys():
+            for contig, genes in self.annotations[org].items():
+                annotation[org][contig] = list(genes.values())
+
+        for node in graph.nodes.data():
+            
+            nodeObj = graph.nodes[node[0]]
+            ## Counters to establish the most commun name, product and length of the gene family represented by this node.
+            names_count = Counter()
+            product_count = Counter()
+            length_count = Counter()
+
+            attrs = node[1].copy()
+            nodeObj["organisms"] = {}
+            for att in attrs:
+                if att in self.organisms:## then att is an organism.
+                    
+
+                    if type(attrs[att]) == str:
+                        nodeObj["organisms"][att].add(attrs[att])
+                    elif type(attrs[att]) in [ list, set ]:
+                        for gene in attrs[att]:
+                            gene_data = self.index[gene]
+                            annotation_data = annotation[gene_data[0]][gene_data[1]][gene_data[2]]
+                            names_count[annotation_data[NAME]] += 1
+                            product_count[annotation_data[PRODUCT]] += 1
+                            length_count[annotation_data[END] - annotation_data[START]] +=1
+
+                            ## Process the structure and add stuff depending on what's already present.
+                            org = nodeObj["organisms"].get(gene_data[0])
+                            if not org :## There's no gene from that organism for now, we add the organism, with the contig and the gene
+                                nodeObj["organisms"][gene_data[0]] = fillOrg(annotation_data, gene_data[2], gene, gene_data[1])
+                            else:## there's already a gene from this gene_data[0] organism in this family
+                                contig = org.get(gene_data[1])
+                                if not contig:## no gene from that contig in this gene family for now, we add the contig with the gene
+                                    org[gene_data[1]] = fillContig(annotation_data, gene_data[2], gene)
+                                else:## there's already a gene from this gene_data[1] contig in this organism in this family, we add the gene.
+                                    contig[gene] = fillGene(annotation_data, gene_data[2])
+
+                            # nodeObj["organisms"][att].add(gene)    
+                    else:
+                        raise TypeError("Unexpected type in a node attribute, expecting only str or list.")
+                    
+                    del nodeObj[att]## deleting the attribute as it is be in the node's organisms attribute.
+            
+            nodeObj["name"] = names_count.most_common(1)[0][0]
+            nodeObj["product"] = product_count.most_common(1)[0][0]
+            nodeObj["length"] = length_count.most_common(1)[0][0]
+            ## assuming that a gene family cannot really have different type?
+            if len(nodeObj["type"]) > 1:## this is assuming the data is stored in a set. Remove the warning from code if you change that in the data structure.
+                logging.getLogger().warning("For the gene family " + str(node[0]) + " multiple sequence types were found ( " + ",".join(nodeObj["type"]) + "). This is quite unexpected from a gene family. Only the first one was kept.")
+            nodeObj["type"] = list(nodeObj["type"])[0]
+    
+    def _setOrgsAsEdgeAttr(self, graph):
+        """
+            Stores in edge attribute 'organisms' the presence of an edge in an organism.
+        """
+        # ~ start = time.time()            
+        for node_i, node_j, data in graph.edges(data = True):
+            orgsPA = {}
+            currData = data.copy()
+            length_count = Counter()
+            for att in currData:
+                if att in self.organisms:
+                    orgsPA[att] = currData[att]
+                    for link in currData[att]:## usually there is only one, but there can be more.
+                        length_count[link["length"]] +=1
+                    
+                    del graph[node_i][node_j][att]
+
+            graph[node_i][node_j]["length"] = length_count.most_common(1)[0][0]
+            graph[node_i][node_j]["organisms"] = orgsPA
+
+    def _setGraphAttr(self, graph):
+        """
+            Fills the graph with attributes and parameters to save.
+        """
+
+        ## organisms names, their affiliated contigs, and whether they are circular or not
+        graph.graph["organisms"] = {}
+        for org in self.annotations.keys():
+            graph.graph["organisms"][org] = {}
+            for contig in self.annotations[org].keys():
+                ## filling the graph's 'organisms' attribute
+                if contig in self.circular_contig_size.keys():
+                    graph.graph["organisms"][org][contig] = { "is_circular" : True }
+                else:
+                    graph.graph["organisms"][org][contig] = { "is_circular" : False }
+
+        ## output parameters of each nem partition.
+        graph.graph["params"] = {}
+        for key, val in self.partition_parameters.items():
+            graph.graph["params"][key] = { "mu":[ int(mu) for mu in val[0] ] , "eps":val[1],"pk":val[2] }
+        
+        graph.graph["soft_core_threshold"] = self.soft_core_th 
+        graph.graph["number_of_partitions"] = self.Q
+        graph.graph["beta"] = self.beta
+        graph.graph["free_dispersion"] = self.free_dispersion
+        graph.graph["pan_size"] = self.pan_size
+        graph.graph["is_partitionned"] = self.is_partitionned
+        graph.graph["th_degree"] = self.th_degree
+        graph.graph["families_repeted_th"] = self.families_repeted_th
+    
     def export_to_json(self, graph_output_path, compressed = False, metadata = None, all_node_attributes = True, all_edge_attributes = True, graph_type = "neighbors_graph"):
         """
             Export the Partionned Pangenome Graph Of Linked Neighbors to a JSON file  
@@ -1720,117 +1846,6 @@ class PPanGGOLiN:
             :type dict: 
         """
 
-        def setOrgsAsNodeAttr(graph):
-            """
-                Creates an organisms set and stores it as a graph attribute. Stores in nodes every protein ID from every organism belonging to the gene family.
-                Assumes the ppanggolin organisation of the pangenome graph with networkx.
-                Runs in roughly O(nm log(m)) in worst case? n nodes and m max nb of attributes. Worst case is every node has the same number of attribute.
-            """		
-            # ~ start = time.time()
-            def fillGene(annotation_data, position):
-                geneDict = { "position" : position, "length":annotation_data[END] - annotation_data[START], "name":annotation_data[NAME], "product":annotation_data[PRODUCT] }
-                return geneDict
-
-            def fillContig(annotation_data, position, gene):
-                contigDict = { gene : fillGene(annotation_data, position)}
-                return contigDict
-
-            def fillOrg(annotation_data, position, gene, contig_name):
-                orgDict = { contig_name : fillContig(annotation_data, position, gene)}
-                return orgDict
-            ## prepare annotation object to parse the data faster than using self.annotations directly.
-            annotation = self.annotations.copy()
-            for org in self.annotations.keys():
-                for contig, genes in self.annotations[org].items():
-                    annotation[org][contig] = list(genes.values())
-
-            for node in graph.nodes.data():
-                
-                nodeObj = graph.nodes[node[0]]
-                ## Counters to establish the most commun name, product and length of the gene family represented by this node.
-                names_count = Counter()
-                product_count = Counter()
-                length_count = Counter()
-
-                attrs = node[1].copy()
-                nodeObj["organisms"] = {}
-                for att in attrs:
-                    if att in self.organisms:## then att is an organism.
-                        del nodeObj[att]## deleting the attribute as it is in the node's attributes.
-
-                        if type(attrs[att]) == str:
-                            nodeObj["organisms"][att].add(attrs[att])
-                        elif type(attrs[att]) in [ list, set ]:
-                            for gene in attrs[att]:
-                                gene_data = self.index[gene]
-                                annotation_data = annotation[gene_data[0]][gene_data[1]][gene_data[2]]
-                                names_count[annotation_data[NAME]] += 1
-                                product_count[annotation_data[PRODUCT]] += 1
-                                length_count[annotation_data[END] - annotation_data[START]] +=1
-
-                                ## Process the structure and add stuff depending on what's already present.
-                                org = nodeObj["organisms"].get(gene_data[0])
-                                if not org :## There's no gene from that organism for now, we add the organism, with the contig and the gene
-                                    nodeObj["organisms"][gene_data[0]] = fillOrg(annotation_data, gene_data[2], gene, gene_data[1])
-                                else:## there's already a gene from this gene_data[0] organism in this family
-                                    contig = org.get(gene_data[1])
-                                    if not contig:## no gene from that contig in this gene family for now, we add the contig with the gene
-                                        org[gene_data[1]] = fillContig(annotation_data, gene_data[2], gene)
-                                    else:## there's already a gene from this gene_data[1] contig in this organism in this family, we add the gene.
-                                        contig[gene] = fillGene(annotation_data, gene_data[2])
-
-                                # nodeObj["organisms"][att].add(gene)
-                        else:
-                            raise TypeError("Unexpected type in a node attribute, expecting only str or list.")
-                
-                nodeObj["name"] = names_count.most_common(1)[0][0]
-                nodeObj["product"] = product_count.most_common(1)[0][0]
-                nodeObj["length"] = length_count.most_common(1)[0][0]
-                ## assuming that a gene family cannot really have different type?
-                if len(nodeObj["type"]) > 1:## this is assuming the data is stored in a set. Remove the warning from code if you change that in the data structure.
-                    logging.getLogger().warning("For the gene family" + str(node[0]) + " multiple sequence types were found. This is unexpected from a gene family. Only the first one was kept.")
-                nodeObj["type"] = list(nodeObj["type"])[0]
-        
-        def setOrgsAsEdgeAttr(graph):
-            """
-                Stores in edge attribute 'orgs' the presence of an edge in an organism.
-            """
-            # ~ start = time.time()            
-            for node_i, node_j, data in graph.edges(data = True):
-                orgsPA = {}
-                currData = data.copy()
-                for att in currData:
-                    if att in self.organisms:
-                        orgsPA[att] = currData[att]
-                        del graph[node_i][node_j][att]
-                
-                graph[node_i][node_j]["organisms"] = orgsPA
-
-        def setGraphAttr(graph):
-            """
-                Fills the graph with attributes and parameters to save.
-            """
-
-            ## organisms names, their affiliated contigs, and whether they are circular or not
-            graph.graph["organisms"] = {}
-            for org in self.annotations.keys():
-                graph.graph["organisms"][org] = {}
-                for contig in self.annotations[org].keys():
-                    ## filling the graph's 'organisms' attribute
-                    if contig in self.circular_contig_size.keys():
-                        graph.graph["organisms"][org][contig] = { "is_circular" : True }
-                    else:
-                        graph.graph["organisms"][org][contig] = { "is_circular" : False }
-
-            ## output parameters of each nem partition.
-            graph.graph["params"] = {}
-            for key, val in self.partition_parameters.items():
-                graph.graph["params"][key] = { "mu":[ int(mu) for mu in val[0] ] , "eps":val[1],"pk":val[2] }
-            
-
-            # graph.graph["threshold_soft_core"] = self.threshold_soft_core # don't have that paremeter in current version.
-
-            
         graph = None
         if graph_type =="neighbors_graph":
             graph = self.neighbors_graph.copy()
@@ -1838,11 +1853,11 @@ class PPanGGOLiN:
             graph = self.neighbors_graph.copy()
 
         logging.getLogger().debug("Setting orgs as node attributes")
-        setOrgsAsNodeAttr(graph)
+        self._setOrgsAsNodeAttr(graph)
         logging.getLogger().debug("Setting orgs as edge attributes")
-        setOrgsAsEdgeAttr(graph)
+        self._setOrgsAsEdgeAttr(graph)
         logging.getLogger().debug("setting the graph attributes")
-        setGraphAttr(graph)
+        self._setGraphAttr(graph)
         logging.getLogger().debug("Turning graph into JSON-friendly datastructure and writing JSON file.")
         
         graph_output_path = graph_output_path+".json"
@@ -1851,8 +1866,98 @@ class PPanGGOLiN:
         else:
             graph_output_path = open(graph_output_path, "w")
 
-        json.dump(nx.node_link_data(graph), graph_output_path, cls = PanEncoder, indent = None)
+        json.dump(nx.node_link_data(graph), graph_output_path, cls = PanEncoder, indent = 4)
 
+    def import_from_json(self, graph_input_path, lim_occurence = 0, infer_singletons = False, add_rna_to_the_pangenome = False, directed = False):
+        """
+            Import the Partionned Pangenome Graph Of Linked Neighbors from a JSON file  
+            :param graph_output_path: a str containing the path of the JSON input file
+            :type str: 
+        """
+        if type(graph_input_path) == list:
+            if len(graph_input_path) ==1:
+                graph_input_path = graph_input_path[0]
+
+        def readNodesAttr(graph):
+            #self.annotations # Dict [key = organism], of dict [ key = contig ID] of OrderedDict [ keys = gene IDs, values = tuple of annotation_data ordered as (TYPE, FAMILY, START, END, STRAND, NAME, PRODUCT)  ]
+            #self.index, Dict [key = gene ID], values is tuple of ( organism, contig, position on contig)
+            for node in graph.nodes:
+                gene_type = graph.nodes[node]["type"]
+                for org in graph.nodes[node]["organisms"]:
+                    graph.nodes[node][org] = [] ##
+                    for contig in graph.nodes[node]["organisms"][org]:
+                        for gene in graph.nodes[node]["organisms"][org][contig]:
+                            gene_data = graph.nodes[node]["organisms"][org][contig][gene]
+                            self.annotations[org][contig][gene] = (gene_type, node, gene_data["start"], gene_data["end"], gene_data["strand"], gene_data["name"], gene_data["product"])
+                            self.index[gene] = (org, contig, gene_data["position"])
+                            graph.nodes[node][org].append(gene)
+                
+                del graph.nodes[node]["organisms"]
+
+
+            ## need to sort the OrderedDict of self.annotations as the order they are supposed to be in :
+            logging.getLogger().debug("Done with storing data in self.annotations and self.index. Now need to order self.annotations[orgs][contig] OrderedDicts properly.")
+            for org in self.annotations.keys():
+                for contig in self.annotations[org].keys():
+                    self.annotations[org][contig] = OrderedDict(sorted(self.annotations[org][contig].items(), key = lambda t : self.index[t[0]][2] ))## ordered by the gene position stored in index !
+                    
+
+            for node in graph.nodes:
+                for attr in graph.nodes[node].keys():
+                    if attr in ["name","length","product","type"]:
+                        graph.nodes[node][attr] = set([graph.nodes[node][attr]])## storing as set since it is initialized as such when using gff files and protein clusters.
+                    if attr in SHORT_TO_LONG.keys():
+                        self.partitions[SHORT_TO_LONG[attr]].append(node)
+                
+                if graph.nodes[node]["partition"] == "shell":
+                    self.subpartitions_shell[graph.nodes[node]["subpartition"]].append(node)
+
+        def readEdgesAttr(graph):
+            for node_i, node_j in graph.edges():
+
+                length_list = set()## stored as a set currently.
+                for org in graph[node_i][node_j]["organisms"]:
+                    ## changing to the organisation used in ppanggolin currently.
+                    graph[node_i][node_j][org] = graph[node_i][node_j]["organisms"][org].copy()
+                    length_list.update([ contig["length"] for contig in graph[node_i][node_j]["organisms"][org] ])
+                del graph[node_i][node_j]["organisms"]
+
+                graph[node_i][node_j]["length"] = length_list
+
+        def readGraphAttr(graph):
+            for org in graph.graph["organisms"].keys():
+                self.organisms.add(org)
+                self.annotations[org] = {}
+                for contig in graph.graph["organisms"][org].keys():
+                    self.annotations[org][contig] = OrderedDict()
+                    if graph.graph["organisms"][org][contig]["is_circular"] == True:
+                        self.circular_contig_size[contig] = None### value of the intergenic region of the genes at the contig's "extremities" is unknown from the graph attributes alone. Saving those informations for later.
+
+            for key in graph.graph["params"].keys():
+                vals = graph.graph["params"][key]
+                self.partition_parameters[key] = ([str(mu) for mu in vals["mu"] ], vals["eps"], vals["pk"])
+            
+            self.soft_core_th  = graph.graph["soft_core_threshold"]
+            self.Q = graph.graph["number_of_partitions"]
+            self.beta = graph.graph["beta"]
+            self.free_dispersion = graph.graph["free_dispersion"]
+            self.pan_size = graph.graph["pan_size"]
+            self.is_partitionned = graph.graph["is_partitionned"]
+            self.th_degree = graph.graph["th_degree"]
+            self.families_repeted_th = graph.graph["families_repeted_th"]
+
+
+        logging.getLogger().debug("Getting the graph object and metadata from json, uncompressing if need be")
+        graph = nx.node_link_graph(json.load(read_compressed_or_not(graph_input_path)))
+        
+        logging.getLogger().debug("Reading graph attributes")
+        readGraphAttr(graph)
+        logging.getLogger().debug("Reading edges attributes")
+        readEdgesAttr(graph)
+        logging.getLogger().debug("Reading nodes attributes")
+        readNodesAttr(graph)
+        logging.getLogger().info("done with loading data from " +graph_input_path )
+        self.neighbors_graph = graph
 
     def export_to_GEXF(self, graph_output_path, compressed=False, metadata = None, all_node_attributes = True, all_edge_attributes = True, graph_type = "neighbors_graph"):
         """
