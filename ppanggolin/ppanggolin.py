@@ -1609,8 +1609,9 @@ class PPanGGOLiN:
             if self.is_partitionned:
                 for p in SHORT_TO_LONG.values():
                     self.partitions[p] = list()# erase older values
-                for p in self.subpartitions_shell:
-                    self.subpartitions_shell[p] = list()# erase older values
+                self.subpartitions_shell = defaultdict(list)
+                # for p in self.subpartitions_shell:
+                #     self.subpartitions_shell[p] = list()# erase older values
             for node, nem_class in partitionning_results[FAMILIES_PARTITION].items():
                 nb_orgs=0
                 for key in list(self.neighbors_graph.node[node].keys()):
