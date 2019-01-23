@@ -1947,17 +1947,15 @@ class PPanGGOLiN:
             self.th_degree = graph.graph["th_degree"]
             self.families_repeted_th = graph.graph["families_repeted_th"]
 
-
+        logging.getLogger().info("Loading the pangenome graph from the provided json file :" + graph_input_path)
         logging.getLogger().debug("Getting the graph object and metadata from json, uncompressing if need be")
         graph = nx.node_link_graph(json.load(read_compressed_or_not(graph_input_path)))
-        
         logging.getLogger().debug("Reading graph attributes")
         readGraphAttr(graph)
         logging.getLogger().debug("Reading edges attributes")
         readEdgesAttr(graph)
         logging.getLogger().debug("Reading nodes attributes")
         readNodesAttr(graph)
-        logging.getLogger().info("done with loading data from " +graph_input_path )
         self.neighbors_graph = graph
 
     def export_to_GEXF(self, graph_output_path, compressed=False, metadata = None, all_node_attributes = True, all_edge_attributes = True, graph_type = "neighbors_graph"):
