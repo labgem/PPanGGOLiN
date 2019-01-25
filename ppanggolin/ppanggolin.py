@@ -1821,8 +1821,12 @@ class PPanGGOLiN:
 
         ## output parameters of each nem partition.
         graph.graph["params"] = {}
-        for key, val in self.partition_parameters.items():
-            graph.graph["params"][key] = { "mu":[ int(mu) for mu in val[0] ] , "eps":val[1],"pk":val[2] }
+        # print(self.partition_parameters)
+        ## self.partition_parameters is inconsistent and empty when multithreaded...
+        ## For now saving only if it has the expected organisation, which is a dictionnary with the partition ID as key and a 3-values tuple as value.
+        if isinstance(self.partition_parameters, dict):
+            for key, val in self.partition_parameters.items():
+                graph.graph["params"][key] = { "mu":[ int(mu) for mu in val[0] ] , "eps":val[1],"pk":val[2] }
         
         graph.graph["soft_core_threshold"] = self.soft_core_th 
         graph.graph["number_of_partitions"] = self.Q
