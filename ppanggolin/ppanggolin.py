@@ -1025,8 +1025,8 @@ class PPanGGOLiN:
                             if coverage==0:
                                 continue
                             
-                            #distance_score = coverage/len(select_organisms)# len((set(self.neighbors_graph.node[node_name]) & set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)                          
-                            distance_score = coverage/len(((set(self.neighbors_graph.node[node_name]) | set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)
+                            distance_score = coverage/len(select_organisms)# len((set(self.neighbors_graph.node[node_name]) & set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)                          
+                            #distance_score = coverage/len(((set(self.neighbors_graph.node[node_name]) | set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)
                             total_edges_weight+=distance_score
                             row_fam.append(str(index_fam[neighbor]))
                             row_dist_score.append(str(round(distance_score,4)))
@@ -1475,7 +1475,7 @@ class PPanGGOLiN:
                             res = pool.apply_async(run_partitioning,
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                            len(orgs),
-                                                           beta,#*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
+                                                           beta*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
                                                            free_dispersion,
                                                            Q,
                                                            seed,
@@ -1484,7 +1484,7 @@ class PPanGGOLiN:
                         else:
                             res = run_partitioning(nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                    len(orgs),
-                                                   beta, #*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
+                                                   beta*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
                                                    free_dispersion,
                                                    Q,
                                                    seed,
@@ -1531,7 +1531,7 @@ class PPanGGOLiN:
             if inplace:
                 logging.getLogger().info("Partitioning...")
 
-            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta , free_dispersion, Q = Q, seed = seed, init = init)# * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight)
+            partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight), free_dispersion, Q = Q, seed = seed, init = init)# 
 
             #partitionning_results = partitionning_results[FAMILIES_PARTITION]
 
