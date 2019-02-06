@@ -1730,8 +1730,9 @@ class PPanGGOLiN:
             orgDict = { contig_name : fillContig(annotation_data, position, gene)}
             return orgDict
         ## prepare annotation object to parse the data faster than using self.annotations directly.
-        annotation = self.annotations.copy()
+        annotation = {}
         for org in self.annotations.keys():
+            annotation[org] = {}
             for contig, genes in self.annotations[org].items():
                 annotation[org][contig] = list(genes.values())
 
@@ -2555,7 +2556,7 @@ class PPanGGOLiN:
                                                               str(nei_partitions.count("persistent")),
                                                               str(nei_partitions.count("shell")),
                                                               str(nei_partitions.count("cloud"))])+"\n")
-                    self.partitions_by_organism[organism]=nb_genes_by_partition
+                    # self.partitions_by_organism[organism]=nb_genes_by_partition
                     nb_genes_file.write("\t".join([organism,
                                                   str(nb_genes_by_partition["persistent"]),
                                                   str(nb_genes_by_partition["shell"]),
@@ -2569,10 +2570,10 @@ class PPanGGOLiN:
         shell_stats = []
         cloud_stats = []
             
-        for org, part in self.partitions_by_organism.items():
-            persistent_stats.append(part["persistent"])
-            shell_stats.append(part["shell"])
-            cloud_stats.append(part["cloud"])
+        # for org, part in self.partitions_by_organism.items():
+        #     persistent_stats.append(part["persistent"])
+        #     shell_stats.append(part["shell"])
+        #     cloud_stats.append(part["cloud"])
             
         return((mean(persistent_stats),mean(shell_stats),mean(cloud_stats),))
     
