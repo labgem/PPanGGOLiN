@@ -249,12 +249,10 @@ class PPanGGOLiN:
             if len(elements)<=1:
                 logging.getLogger().error("No tabulation separator found in organisms file")
                 exit(1)
-            try:
-                bar.set_description("Processing "+elements[ORGANISM_GFF_FILE])
-                bar.refresh()
-            except:
-                if len(elements)>2:
-                    self.circular_contig_size.update({contig_id: None for contig_id in elements[2:len(elements)]})  # size of the circular contig is initialized to None (waiting to read the gff files to fill the dictionnaries with the correct values)
+            bar.set_description("Processing "+elements[ORGANISM_GFF_FILE])
+            bar.refresh()
+            if len(elements)>2:
+                self.circular_contig_size.update({contig_id: None for contig_id in elements[2:len(elements)]})  # size of the circular contig is initialized to None (waiting to read the gff files to fill the dictionnaries with the correct values)
             self.annotations[elements[0]] = self.__load_gff(elements[ORGANISM_GFF_FILE], families, elements[ORGANISM_ID], lim_occurence, infer_singletons, add_rna_to_the_pangenome)
         check_circular_contigs = {contig: size for contig, size in self.circular_contig_size.items() if size == None }
         if len(check_circular_contigs) > 0:
