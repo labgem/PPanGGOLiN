@@ -253,8 +253,9 @@ class PPanGGOLiN:
                 bar.set_description("Processing "+elements[ORGANISM_GFF_FILE])
                 bar.refresh()
             except:
-                if len(elements)>2:
-                    self.circular_contig_size.update({contig_id: None for contig_id in elements[2:len(elements)]})  # size of the circular contig is initialized to None (waiting to read the gff files to fill the dictionnaries with the correct values)
+                pass
+            if len(elements)>2:
+                self.circular_contig_size.update({contig_id: None for contig_id in elements[2:len(elements)]})  # size of the circular contig is initialized to None (waiting to read the gff files to fill the dictionnaries with the correct values)
             self.annotations[elements[0]] = self.__load_gff(elements[ORGANISM_GFF_FILE], families, elements[ORGANISM_ID], lim_occurence, infer_singletons, add_rna_to_the_pangenome)
         check_circular_contigs = {contig: size for contig, size in self.circular_contig_size.items() if size == None }
         if len(check_circular_contigs) > 0:
@@ -450,6 +451,14 @@ class PPanGGOLiN:
             pan_str += str_histogram("Degree distribution of the pangenome graph: ",nx.degree_histogram(self.neighbors_graph))+"\n"
         except:
             pan_str += "Degree distribution of the pangenome graph: "+str(nx.degree_histogram(self.neighbors_graph))+"\n"
+        if self.is_partitionned:
+            for p, families in self.partitions.items():
+                if len(families) > 0:
+                    try:
+                        pan_str += str_histogram("Degree distribution of the "+p+" connected component: ",nx.degree_histogram(self.neighbors_graph.subgraph(families)))+"\n"
+                    except:
+                        pan_str += "Degree distribution of the "+p+" connected component: "+str(nx.degree_histogram(self.neighbors_graph.subgraph(families)))+"\n"
+
         pan_str += "\n"
         pan_str += "----------------------------------"
 
@@ -1464,7 +1473,6 @@ class PPanGGOLiN:
                 finally:
                     sem.release()
                     
-                    
             with contextlib.closing(Pool(processes = nb_threads)) if nb_threads>1 else empty_cm() as pool:
                 #proba_sample = OrderedDict(zip(select_organisms,[len(select_organisms)]*len(select_organisms)))
                 pan_size = stats["exact_accessory"]+stats["exact_core"]
@@ -1607,6 +1615,7 @@ class PPanGGOLiN:
             self.free_dispersion      = free_dispersion
             self.th_degree            = th_degree
             self.partition_parameters = partitionning_results[PARTITION_PARAMETERS]
+            self.chunk_size           = chunck_size if len(select_organisms) > chunck_size else None
             if self.is_partitionned:
                 for p in SHORT_TO_LONG.values():
                     self.partitions[p] = list()# erase older values

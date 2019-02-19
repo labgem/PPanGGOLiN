@@ -594,10 +594,15 @@ def __main__():
         #                                  nb_threads      = options.cpu[0],
         #                                  seed            = options.seed[0])
         # logging.getLogger().info("Best Q is "+str(Q))
+        persistent_freq = {} 
+        shell_freq = {} 
+        cloud_freq = {} 
+        traces_persistent =[]
+        traces_shell =[]
+        traces_cloud =[]
         with open(OUTPUTDIR+"/beta.txt","w") as beta_metrics:
             for b in seq(float(options.explore_beta[0]),float(options.explore_beta[1]),float(options.explore_beta[2])):
                 b = round(b,3)
-
                 pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
                               Q               = options.overpartionning[0],
                               Qmin_Qmax       = options.QminQmax,
@@ -611,7 +616,30 @@ def __main__():
                               just_stats      = False,
                               nb_threads      = options.cpu[0],
                               seed            = options.seed[0])
-
+                persistent_freq[b]= {}
+                for f in set(pan.partitions["persistent"]) - set(persistent_freq[0.0]):
+                    persistent_freq[b][f] = len([org for org in pan.neighbors_graph.node[f].keys() if ((org in pan.organisms) and (org not in RESERVED_WORDS))])/pan.nb_organisms
+                traces_persistent.append(go.Box(y = list(persistent_freq[b].values()),
+                                     name = str(b),
+                                     jitter = 0.5,
+                                     pointpos = 0,
+                                     boxpoints = 'all'))
+                shell_freq[b]= {}
+                for f in set(pan.partitions["shell"]) - set(shell_freq[0.0]):
+                    shell_freq[b][f] = len([org for org in pan.neighbors_graph.node[f].keys() if ((org in pan.organisms) and (org not in RESERVED_WORDS))])/pan.nb_organisms
+                traces_shell.append(go.Box(y = list(shell_freq[b].values()),
+                                     name = str(b),
+                                     jitter = 0.5,
+                                     pointpos = 0,
+                                     boxpoints = 'all'))
+                cloud_freq[b]= {}
+                for f in set(pan.partitions["cloud"]) - set(cloud_freq[0.0]):
+                    cloud_freq[b][f] = len([org for org in pan.neighbors_graph.node[f].keys() if ((org in pan.organisms) and (org not in RESERVED_WORDS))])/pan.nb_organisms
+                traces_cloud.append(go.Box(y = list(cloud_freq[b].values()),
+                                     name = str(b),
+                                     jitter = 0.5,
+                                     pointpos = 0,
+                                     boxpoints = 'all'))
                 to_recover_shell=0
                 for gf_shell in pan.partitions["shell"]:
                     if nx.degree(pan.neighbors_graph,gf_shell)<=10:
@@ -643,7 +671,9 @@ def __main__():
                     if len(families):
                         file.write("\n".join(families)+"\n")
                     file.close()
-
+        out_plotly.plot(traces_persistent, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_persistent_beta_evolution.html", auto_open=False)
+        out_plotly.plot(traces_shell, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_shell_beta_evolution.html", auto_open=False)
+        out_plotly.plot(traces_cloud, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_cloud_beta_evolution.html", auto_open=False)
     pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
                   old_nem_dir     = FORMER_NEM,
                   Q               = options.overpartionning[0],
