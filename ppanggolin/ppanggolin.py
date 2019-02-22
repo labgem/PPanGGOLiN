@@ -2376,7 +2376,7 @@ class PPanGGOLiN:
         #     binary_data.append(l)
 
         heatmap = go.Heatmap(z              = binary_data,
-                             x              = list(self.organisms),
+                             x              = list(order_organisms),
                              y              = fam_order,
                              text           = text_data,
                              zauto          = False,
@@ -2399,8 +2399,16 @@ class PPanGGOLiN:
         sep3 = sep2 + len(ordored_nodes_c)
 
         layout = go.Layout(title  = "presence/absence matrix",
-                           xaxis  = dict(title='organisms'),
-                           yaxis  = dict(title='gene families'),
+                           xaxis  = go.layout.XAxis(ticktext=list(order_organisms),
+                                                    title='organisms',
+                                                    tickvals=list(order_organisms),
+                                                    automargin=True,
+                                                    tickfont=dict(size=10)),
+                           yaxis  = go.layout.YAxis(ticktext=fam_order,
+                                                    tickvals=fam_order,
+                                                    title='gene families',
+                                                    automargin=True,
+                                                    tickfont=dict(size=10)),
                            shapes = [dict(type='line', x0=-1, x1=-1, y0=0, y1=sep1, line = dict(dict(width=10, color=COLORS["persistent"]))),
                                      dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=0, y1=sep1, line = dict(dict(width=10, color=COLORS["persistent"]))),
                                      dict(type='line', x0=-1, x1=self.nb_organisms, y0=sep1, y1=sep1, line = dict(dict(width=1, color=COLORS["persistent"]))),
