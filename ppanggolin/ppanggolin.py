@@ -336,9 +336,9 @@ class PPanGGOLiN:
                     attributes = getGffAttributes(gff_fields)
 
 
-                    if GFF_type == 'region':
-                        if GFF_seqname in self.circular_contig_size:
-                            self.circular_contig_size = int(GFF_end)
+                    if gff_fields[GFF_type] == 'region':
+                        if gff_fields[GFF_seqname] in self.circular_contig_size:
+                            self.circular_contig_size[gff_fields[GFF_seqname]] = int(gff_fields[GFF_end])
                             continue
                     elif gff_fields[GFF_type] == 'CDS' or (add_rna_to_the_pangenome and gff_fields[GFF_type].find("RNA")):
                         if "PSEUDO" in attributes:## if it is a pseudogene, this CDS is not actually translated.
