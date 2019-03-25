@@ -51,6 +51,7 @@ SUMMARY_STATS_FILE_PREFIX   = "/summary_stats"
 CORRELATED_PATHS_PREFIX     = "/correlated_paths_prefix"
 SCRIPT_R_FIGURE             = "/generate_plots.R"
 PARAMETER_FILE              = "/parameters"
+
 def plot_Rscript(script_outfile, verbose=True):
     """
     """

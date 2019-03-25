@@ -22,7 +22,7 @@ import tempfile
 from tqdm import tqdm
 import random
 from multiprocessing import Pool, Semaphore
-from nem import *
+from nem_stats import *
 from .utils import *
 import pdb
 from fa2 import ForceAtlas2
@@ -160,6 +160,7 @@ class PPanGGOLiN:
             >>>pan = PPanGGOLiN("file", organisms, gene_families, remove_high_copy_number_families)
             >>>pan = PPanGGOLiN("args", annotations, organisms, circular_contig_size, families_repeted, directed)# load direclty the main attributes
         """ 
+
         self.directed                       = False
         self.annotations                    = dict()
         self.neighbors_graph                = None
@@ -185,9 +186,9 @@ class PPanGGOLiN:
         self.partition_parameters           = {}
         self.CDS_fragments                  = {}
         self.soft_core_th                   = None
-        self.path_groups_vectors            = {}## key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
-        self.path_vectors                   = {}## key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
-
+        self.path_groups_vectors            = {}# key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
+        self.path_vectors                   = {}# key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
+        
         if init_from == "file":
             self.__initialize_from_files(*args)
         elif init_from == "args":
@@ -195,10 +196,10 @@ class PPanGGOLiN:
              self.organisms,
              self.circular_contig_size,
              self.families_repeted,
-             self.directed)
+             self.directed) = args
         elif init_from == "database":
             logging.getLogger().error("database is not yet implemented")
-            pass
+            exit(1)
         elif init_from == "json":
             self.import_from_json(*args)
         else:
@@ -1919,8 +1920,8 @@ class PPanGGOLiN:
                 for attr in graph.nodes[node].keys():
                     if attr in ["name","length","product","type"]:
                         graph.nodes[node][attr] = set([graph.nodes[node][attr]])## storing as set since it is initialized as such when using gff files and protein clusters.
-                    if attr in SHORT_TO_LONG.keys():
-                        self.partitions[SHORT_TO_LONG[attr]].append(node)
+                self.partitions[graph.nodes[node]["partition"]].append(node)
+                self.partitions[graph.nodes[node]["partition_exact"]].append(node)
                 
                 if graph.nodes[node]["partition"] == "shell":
                     self.subpartitions_shell[graph.nodes[node]["subpartition"]].append(node)
@@ -2008,12 +2009,13 @@ class PPanGGOLiN:
                             graph_to_save.node[node]["length_max"] = max(l)
                             del graph_to_save.node[node]["length"]
         for node_i, node_j, data in self.neighbors_graph.edges(data = True):
-            l = list(data["length"])
-            graph_to_save[node_i][node_j]["length_avg"] = float(mean(l))
-            graph_to_save[node_i][node_j]["length_med"] = float(median(l))
-            graph_to_save[node_i][node_j]["length_min"] = min(l)
-            graph_to_save[node_i][node_j]["length_max"] = max(l)
-            del graph_to_save[node_i][node_j]["length"]
+            if "length" in data:
+                l = list(data["length"])
+                graph_to_save[node_i][node_j]["length_avg"] = float(mean(l))
+                graph_to_save[node_i][node_j]["length_med"] = float(median(l))
+                graph_to_save[node_i][node_j]["length_min"] = min(l)
+                graph_to_save[node_i][node_j]["length_max"] = max(l)
+                del graph_to_save[node_i][node_j]["length"]
             atts = set()
             for key in data.keys():
                 if key in self.organisms:
@@ -2055,7 +2057,7 @@ class PPanGGOLiN:
             graph_output_path = gzip.open(graph_output_path+".gz","w")
         #pdb.set_trace()
         nx.write_gexf(graph_to_save, graph_output_path)
-
+        return(graph_to_save)
     # def import_from_GEXF(self, path_graph_to_update):
     #     """
     #         Import an already built Partionned Pangenome Graph Of Linked Neighbors from a GEXF file  
@@ -2430,7 +2432,7 @@ class PPanGGOLiN:
         binary_data = []
         path_order  = []
         if self.path_vectors:
-            layout = go.Layout(title  = "presence/absence matrix",
+            layout = go.Layout(title  = "paths presence/absence matrix",
                                xaxis  = dict(title='organisms'),
                                yaxis  = dict(title='paths'))
             for path, vector in self.path_vectors.items():
