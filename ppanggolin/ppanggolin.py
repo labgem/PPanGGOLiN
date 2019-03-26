@@ -426,7 +426,8 @@ class PPanGGOLiN:
             pan_str += "beta:"+str(self.beta)+"\n"
             pan_str += "free dispersion:"+str(self.free_dispersion)+"\n"
             pan_str += "max node degree for smoothing:"+str(self.th_degree)+"\n"
-            pan_str += "chunk size:"+"not partitionned by chunks\n " if self.chunk_size is None else str(self.chunk_size)+"\n"
+            pan_str += "chunk size:"
+            pan_str += "not partitionned by chunks\n" if self.chunk_size is None else str(self.chunk_size)+"\n"
 
             pan_str += "Gene families with undefined partition:"+str(len(self.partitions["undefined"]))+"\n"
             # pan_str += "\n"
