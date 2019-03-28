@@ -406,6 +406,8 @@ class PPanGGOLiN:
                 ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
             return(ret)
 
+
+
         pan_str ="\n"
         pan_str += "----------- Statistics -----------\n"
         pan_str += "Number of organisms:"+str(self.nb_organisms)+"\n"
@@ -418,15 +420,18 @@ class PPanGGOLiN:
             pan_str += "Soft core (>="+str(self.soft_core_th*100)+"%) genome size:"+str(len(self.partitions["soft_core"]))+"\n"
             pan_str += "Soft accessory (<"+str(self.soft_core_th*100)+"%) genome size:"+str(len(self.partitions["soft_accessory"]))+"\n"
             pan_str += "\n"
-            pan_str += "Persistent genome size:"+str(len(self.partitions["persistent"]))+"\n"
-            pan_str += "Shell genome size:"+str(len(self.partitions["shell"]))+"\n"
-            pan_str += "Cloud genome cloud:"+str(len(self.partitions["cloud"]))+"\n"
+            freq_p = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)]
+            freq_s = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["shell"]).nodes(data=True)]
+            freq_c = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["cloud"]).nodes(data=True)]
+            pan_str += "Persistent (mean="+str(round(mean(freq_p),2))+"%;sd="+str(round(standard_deviation(freq_p),2))+"%) genome size:"+str(len(self.partitions["persistent"]))+"\n"
+            pan_str += "Shell (mean="+str(round(mean(freq_s),2))+"%;sd="+str(round(standard_deviation(freq_s),2))+"%) genome size:"+str(len(self.partitions["shell"]))+"\n"
+            pan_str += "Cloud (mean="+str(round(mean(freq_c),2))+"%;sd="+str(round(standard_deviation(freq_c),2))+"%) genome size:"+str(len(self.partitions["cloud"]))+"\n"
             pan_str += "\n"
             pan_str += "Q:"+str(self.Q)+"\n"
             pan_str += "beta:"+str(self.beta)+"\n"
             pan_str += "free dispersion:"+str(self.free_dispersion)+"\n"
             pan_str += "max node degree for smoothing:"+str(self.th_degree)+"\n"
-            pan_str += "chunk size:"+"not partitionned by chunks\n " if self.chunk_size is None else str(self.chunk_size)+"\n"
+            pan_str += "chunk size:"+("not partitionned by chunks\n " if self.chunk_size is None else str(self.chunk_size))+"\n"
 
             pan_str += "Gene families with undefined partition:"+str(len(self.partitions["undefined"]))+"\n"
             # pan_str += "\n"
