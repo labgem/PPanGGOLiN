@@ -318,7 +318,6 @@ class PPanGGOLiN:
             cpt_fam_occ = defaultdict(int)
             gene_id_auto = False
             with read_compressed_or_not(gff_file_path) as gff_file:
-                prevPseudoID = ""## default value. Can be anything but None, and should not be found in the ID field, for the default value.
                 for line in gff_file:
                     if line.startswith('##',0,2):
                         if line.startswith('FASTA',2,7):
@@ -342,11 +341,7 @@ class PPanGGOLiN:
                             self.circular_contig_size[gff_fields[GFF_seqname]] = int(gff_fields[GFF_end])
                             continue
                     elif gff_fields[GFF_type] == 'CDS' or (add_rna_to_the_pangenome and gff_fields[GFF_type].find("RNA")):
-                        if "PSEUDO" in attributes:## if it is a pseudogene, this CDS is not actually translated.
-                            continue
                         parent = attributes.get("PARENT")
-                        if parent == prevPseudoID:## if the CDS has a Parent attribute and this parent corresponds to the last pseudogene element that was seen, this CDS is not actually translated.
-                            continue
                         protein = getIDAttribute(attributes)
                         family = families.get(protein)
                         if not family:## the protein id was not found under "ID", searching elsewhere
@@ -380,10 +375,6 @@ class PPanGGOLiN:
                             product = ""
 
                         annot[gff_fields[GFF_seqname]][protein] = [gff_fields[GFF_type],family,int(gff_fields[GFF_start]),int(gff_fields[GFF_end]),gff_fields[GFF_strand], name, product]
-
-                    if attributes.get("PSEUDO") or attributes.get("PSEUDOGENE"):## if the element has the attribute pseudo, or pseudogene.
-                        prevPseudoID = getIDAttribute(attributes)
-
 
             for seq_id in list(annot):#sort genes by annotation start coordinate
                 annot[seq_id] = OrderedDict(sorted(annot[seq_id].items(), key = lambda item: item[1][START]))
