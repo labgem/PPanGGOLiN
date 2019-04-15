@@ -51,7 +51,7 @@ SUMMARY_STATS_FILE_PREFIX   = "/summary_stats"
 CORRELATED_PATHS_PREFIX     = "/correlated_paths_prefix"
 SCRIPT_R_FIGURE             = "/generate_plots.R"
 PARAMETER_FILE              = "/parameters"
-GENOME_QC_FILE              = "/genome_qc.csv"
+GENOME_QC_FILE              = "/genome_qc"
 
 def plot_Rscript(script_outfile, verbose=True):
     """
@@ -794,11 +794,11 @@ def __main__():
         end_layout = time()
 
     logging.getLogger().info("Writing GEXF file")
-    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
+    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
     logging.getLogger().info("Writing GEXF light file")
-    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light", options.compress_graph, metadata, False,False)
+    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light"+(".gz" if options.compress_graph else ""), options.compress_graph, metadata, False,False)
     logging.getLogger().info("Writing JSON")
-    pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
+    pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
     
     with open(OUTPUTDIR+"/pangenome.txt","w") as pan_text:
         for partition, families in pan.partitions.items():
@@ -816,7 +816,8 @@ def __main__():
     
     pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
     pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
-    pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
+    if pan.nb_organisms<=options.chunck_size[0]:
+        pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
 
     if options.projection:
         logging.getLogger().info("Projection...")
@@ -858,14 +859,12 @@ def __main__():
 
     if options.untangle>0:
         pan.untangle_neighbors_graph(options.untangle[0])
-        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata,"untangled_neighbors_graph" )
+        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata,"untangled_neighbors_graph" )
 
     plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
 
     if options.evolution:
-
         logging.getLogger().info("Evolution...")
-
         start_evolution = time()
         if not options.verbose:
             logging.disable(logging.INFO)# disable INFO message to not disturb the progess bar
