@@ -2549,7 +2549,7 @@ class PPanGGOLiN:
             organisms_to_project = self.organisms
         if self.is_partitionned:
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
-                nb_genes_file.write("org\tpersistent\tshell\tcloud\texact_core\texact_accessory\tpangenome\tpersistent_nb_copy\tshell_nb_copy\tcloud_nb_copy\texact_core_nb_copy\texact_accessory_nb_copy\tpangenome_nb_copy\tcompleteness\tcontamination\n")
+                nb_genes_file.write("org\tpersistent\tshell\tcloud\texact_core\texact_accessory\tpangenome\tpersistent_nb_copy\tshell_nb_copy\tcloud_nb_copy\texact_core_nb_copy\texact_accessory_nb_copy\tpangenome_nb_copy\tcompleteness\tcontamination\tnb_single_copy_markers_used\n")
                 for organism in organisms_to_project:
                     nb_genes_by_partition = defaultdict(int)
                     already_counted = set()
@@ -2606,7 +2606,8 @@ class PPanGGOLiN:
                                                   str(nb_genes_by_partition["exact_accessory"]),
                                                   str(nb_genes_by_partition["pangenome"]),
                                                   str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)),
-                                                  str(round(len(contamination)/len(single_copy_markers)*100,4))])+"\n")
+                                                  str(round(len(contamination)/len(single_copy_markers)*100,4)),
+                                                  str(len(single_copy_markers))])+"\n")
         else:
             logging.getLogger().warning("The pangenome must be partionned before using this method (projection)")
         persistent_stats = []
