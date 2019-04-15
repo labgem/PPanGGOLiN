@@ -51,6 +51,7 @@ SUMMARY_STATS_FILE_PREFIX   = "/summary_stats"
 CORRELATED_PATHS_PREFIX     = "/correlated_paths_prefix"
 SCRIPT_R_FIGURE             = "/generate_plots.R"
 PARAMETER_FILE              = "/parameters"
+GENOME_QC_FILE              = "/genome_qc.csv"
 
 def plot_Rscript(script_outfile, verbose=True):
     """
@@ -667,11 +668,9 @@ def __main__():
                     if len(families):
                         file.write("\n".join(families)+"\n")
                     file.close()
-                for partition, families in pan.subpartitions_shell.items():
-                    file = open(OUTPUTDIR+"/partitions_"+str(b)+"/"+partition+".txt","w")
-                    if len(families):
-                        file.write("\n".join(families)+"\n")
-                    file.close()
+                with open(OUTPUTDIR+"/partitions_"+str(b)+"/Q.txt","w") as Q_file:
+                    Q_file.write("Q:"+str(pan.Q))
+                    
         out_plotly.plot(traces_persistent, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_persistent_beta_evolution.html", auto_open=False)
         out_plotly.plot(traces_shell, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_shell_beta_evolution.html", auto_open=False)
         out_plotly.plot(traces_cloud, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_cloud_beta_evolution.html", auto_open=False)
@@ -817,8 +816,7 @@ def __main__():
     
     pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
     pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
-    if pan.nb_organisms<=options.chunck_size[0]:
-        pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
+    pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
 
     if options.projection:
         logging.getLogger().info("Projection...")
@@ -830,11 +828,11 @@ def __main__():
     logging.getLogger().info("Generating some plots")
     # start_plots = time()
     pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
-    if pan.nb_organisms<=1000:
+    if pan.nb_organisms<=500:
         pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
     else:
-        pan.tile_plot(OUTPUTDIR+FIGURE_DIR,shell_persistent_only=False)
-        logging.getLogger().warning("Too mush organisms (>1000) to display the cloud genome in the dynamic heatmap")
+        #pan.tile_plot(OUTPUTDIR+FIGURE_DIR,shell_persistent_only=False)
+        logging.getLogger().warning("Too mush organisms (>1000) to display the tile plot using plot.ly, please use the Rscript to draw a static version of the tile plot")
     end_plots = time()
     del pan.annotations # no more required for the following process
     # print(pan.partitions_by_organisms)

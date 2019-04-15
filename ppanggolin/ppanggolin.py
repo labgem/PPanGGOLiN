@@ -188,7 +188,6 @@ class PPanGGOLiN:
         self.soft_core_th                   = None
         self.path_groups_vectors            = {}# key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
         self.path_vectors                   = {}# key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
-        
         if init_from == "file":
             self.__initialize_from_files(*args)
         elif init_from == "args":
@@ -417,15 +416,16 @@ class PPanGGOLiN:
             pan_str += "Exact core genome size:"+str(len(self.partitions["exact_core"]))+"\n"
             pan_str += "Exact accessory genome size:"+str(len(self.partitions["exact_accessory"]))+"\n"
             pan_str += "\n"
-            pan_str += "Soft core (>="+str(self.soft_core_th*100)+"%) genome size:"+str(len(self.partitions["soft_core"]))+"\n"
-            pan_str += "Soft accessory (<"+str(self.soft_core_th*100)+"%) genome size:"+str(len(self.partitions["soft_accessory"]))+"\n"
-            pan_str += "\n"
+            freq_sc = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["soft_core"]).nodes(data=True)]
             freq_p = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)]
             freq_s = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["shell"]).nodes(data=True)]
             freq_c = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["cloud"]).nodes(data=True)]
-            pan_str += "Persistent (mean="+str(round(mean(freq_p),2))+"%;sd="+str(round(standard_deviation(freq_p),2))+"%) genome size:"+str(len(self.partitions["persistent"]))+"\n"
-            pan_str += "Shell (mean="+str(round(mean(freq_s),2))+"%;sd="+str(round(standard_deviation(freq_s),2))+"%) genome size:"+str(len(self.partitions["shell"]))+"\n"
-            pan_str += "Cloud (mean="+str(round(mean(freq_c),2))+"%;sd="+str(round(standard_deviation(freq_c),2))+"%) genome size:"+str(len(self.partitions["cloud"]))+"\n"
+            pan_str += "Soft core (average="+str(round(mean(freq_sc)*100,2))+"%;sd="+str(round(standard_deviation(freq_sc)*100,2))+"%;min="+str(round(min(freq_sc)*100,2))+"%;max="+str(round(max(freq_sc)*100,2))+"%) genome size:"+str(len(self.partitions["soft_core"]))+"\n"
+            pan_str += "Soft accessory (<"+str(self.soft_core_th*100)+"%) genome size:"+str(len(self.partitions["soft_accessory"]))+"\n"
+            pan_str += "\n"
+            pan_str += "Persistent (average="+str(round(mean(freq_p)*100,2))+"%;sd="+str(round(standard_deviation(freq_p)*100,2))+"%;min="+str(round(min(freq_p)*100,2))+"%;max="+str(round(max(freq_p)*100,2))+"%) genome size:"+str(len(self.partitions["persistent"]))+"\n"
+            pan_str += "Shell (average="+str(round(mean(freq_s)*100,2))+"%;sd="+str(round(standard_deviation(freq_s)*100,2))+"%;min="+str(round(min(freq_s)*100,2))+"%;max="+str(round(max(freq_s)*100,2))+"%) genome size:"+str(len(self.partitions["shell"]))+"\n"
+            pan_str += "Cloud (average="+str(round(mean(freq_c)*100,2))+"%;sd="+str(round(standard_deviation(freq_c)*100,2))+"%;min="+str(round(min(freq_c)*100,2))+"%;max="+str(round(max(freq_c)*100,2))+"%) genome size:"+str(len(self.partitions["cloud"]))+"\n"
             pan_str += "\n"
             pan_str += "Q:"+str(self.Q)+"\n"
             pan_str += "beta:"+str(self.beta)+"\n"
@@ -680,7 +680,6 @@ class PPanGGOLiN:
     def untangle_neighbors_graph(self, K = 3):
         
         self.untangled_neighbors_graph = self.neighbors_graph.copy()
-        
         separation_tree = defaultdict(set)
 
         def absolute_orientation(a_list):
@@ -1325,7 +1324,7 @@ class PPanGGOLiN:
                 m_file.write( " ".join(EpsList) + " ")
                 
         return select_organisms
-                                    
+
     def partition(self, nem_dir_path     = tempfile.mkdtemp(),
                         old_nem_dir      = None,
                         select_organisms = None,
@@ -1479,6 +1478,7 @@ class PPanGGOLiN:
             with contextlib.closing(Pool(processes = nb_threads)) if nb_threads>1 else empty_cm() as pool:
                 #proba_sample = OrderedDict(zip(select_organisms,[len(select_organisms)]*len(select_organisms)))
                 pan_size = stats["exact_accessory"]+stats["exact_core"]
+                random.seed(seed)
                 while len(validated)<pan_size:
                     if (sem.acquire() if nb_threads>1 else True):#
                         # print(select_organisms)
@@ -2538,23 +2538,35 @@ class PPanGGOLiN:
         else:
             logging.getLogger().error("The pangenome is not partitionned")
 
-    def projection(self, out_dir, organisms_to_project):
+        
+    def projection(self, out_dir, organisms_to_project = None, duplication_margin=0.1):
         """
             generate files about the projection of the partition of the graph on the organisms
             return statistics about the number of genes in each organism to project for each partition in the file out_dir/nb_genes.csv
             :param outdir: a str containing the path of the output directory (name of files will be the name of organisms)
             :param organisms_to_project: a list of str containing the name of the organism
+            :param duplication_margin: a float indicating the margin to considerer a gene families as a single copy gene families
             :type str:
             :type list
+            :type float
             :return: stats: 
             :rtype: dict 
         """ 
         sep=","
+        if organisms_to_project is None:
+            organisms_to_project = self.organisms
         if self.is_partitionned:
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
-                nb_genes_file.write("org\tpersistent\tshell\tcloud\texact_core\texact_accessory\tpangenome\n")
+                nb_genes_file.write("org\tpersistent\tshell\tcloud\texact_core\texact_accessory\tpangenome\tpersistent_nb_copy\tshell_nb_copy\tcloud_nb_copy\texact_core_nb_copy\texact_accessory_nb_copy\tpangenome_nb_copy\tcompleteness\tcontamination\n")
                 for organism in organisms_to_project:
                     nb_genes_by_partition = defaultdict(int)
+                    already_counted = set()
+                    nb_genes_families_by_partition = defaultdict(int)
+
+                    duplications        = {node : [len(data[org]) for org in (set(data) & (set(self.organisms)|set(organism)))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
+                    mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
+                    single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
+                    contamination       = {}
                     with open(out_dir+"/"+organism+".csv","w") as out_file:
                         out_file.write(sep.join(["gene","contig","coord_start","coord_end","strand","ori","family","nb_copy_in_org","partition","persistent","shell","cloud"])+"\n")
                         for contig, contig_annot in self.annotations[organism].items():
@@ -2564,6 +2576,16 @@ class PPanGGOLiN:
                                     nb_genes_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition_exact"]]+=1
                                     nb_genes_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition_soft"]]+=1
                                     nb_genes_by_partition["pangenome"]+=1
+                                    if gene_info[FAMILY] not in already_counted:
+                                        nb_genes_families_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition"]]+=1
+                                        nb_genes_families_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition_exact"]]+=1
+                                        nb_genes_families_by_partition[self.neighbors_graph.node[gene_info[FAMILY]]["partition_soft"]]+=1
+                                        nb_genes_families_by_partition["pangenome"]+=1
+                                        already_counted.add(gene_info[FAMILY])
+                                    else:
+                                        if gene_info[FAMILY] in single_copy_markers:
+                                            contamination[gene_info[FAMILY]] = 1
+
                                     nei_partitions = [self.neighbors_graph.node[nei]["partition"] for nei in nx.all_neighbors(self.neighbors_graph,gene_info[FAMILY])]
                                     out_file.write(sep.join([gene,
                                                               contig,
@@ -2579,17 +2601,25 @@ class PPanGGOLiN:
                                                               str(nei_partitions.count("cloud"))])+"\n")
                     # self.partitions_by_organism[organism]=nb_genes_by_partition
                     nb_genes_file.write("\t".join([organism,
+                                                  str(nb_genes_families_by_partition["persistent"]),
+                                                  str(nb_genes_families_by_partition["shell"]),
+                                                  str(nb_genes_families_by_partition["cloud"]),
+                                                  str(nb_genes_families_by_partition["exact_core"]),
+                                                  str(nb_genes_families_by_partition["exact_accessory"]),
+                                                  str(nb_genes_families_by_partition["pangenome"]),
                                                   str(nb_genes_by_partition["persistent"]),
                                                   str(nb_genes_by_partition["shell"]),
                                                   str(nb_genes_by_partition["cloud"]),
                                                   str(nb_genes_by_partition["exact_core"]),
                                                   str(nb_genes_by_partition["exact_accessory"]),
-                                                  str(nb_genes_by_partition["pangenome"])])+"\n")
+                                                  str(nb_genes_by_partition["pangenome"]),
+                                                  str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)),
+                                                  str(round(len(contamination)/len(single_copy_markers)*100,4))])+"\n")
         else:
             logging.getLogger().warning("The pangenome must be partionned before using this method (projection)")
         persistent_stats = []
-        shell_stats = []
-        cloud_stats = []
+        cloud_stats      = []
+        shell_stats      = []
             
         # for org, part in self.partitions_by_organism.items():
         #     persistent_stats.append(part["persistent"])
