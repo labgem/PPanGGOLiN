@@ -2528,7 +2528,7 @@ class PPanGGOLiN:
             logging.getLogger().error("The pangenome is not partitionned")
 
         
-    def projection(self, out_dir, organisms_to_project = None, duplication_margin=0.1):
+    def projection(self, out_dir, organisms_to_project = None, duplication_margin=0.1, sep= ","):
         """
             generate files about the projection of the partition of the graph on the organisms
             return statistics about the number of genes in each organism to project for each partition in the file out_dir/nb_genes.csv
@@ -2540,18 +2540,16 @@ class PPanGGOLiN:
             :type float
             :return: stats: 
             :rtype: dict 
-        """ 
-        sep=","
+        """
         if organisms_to_project is None:
             organisms_to_project = self.organisms
         if self.is_partitionned:
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
-                nb_genes_file.write("org\tnb_persistent_families\tnb_shell_families\tnb_cloud_families\tnb_exact_core_families\tnb_exact_accessory_families\tnb_soft_core_families\tnb_soft_accessory_families\tnb_gene_families\tnb_persistent_genes\tnb_shell_genes\tnb_cloud_genes\tnb_exact_core_genes\tnb_exact_accessory_genes\tnb_pangenome_genes\tcompleteness\tstrain_contamination\tnb_single_copy_markers\n")
+                nb_genes_file.write(sep.join(["org","nb_persistent_families","nb_shell_families","nb_cloud_families","nb_exact_core_families","nb_exact_accessory_families","nb_soft_core_families","nb_soft_accessory_families","nb_gene_families","nb_persistent_genes","nb_shell_genes","nb_cloud_genes","nb_exact_core_genes","nb_exact_accessory_genes","nb_soft_core_families","nb_soft_accessory_families","nb_pangenome_genes","completeness","strain_contamination","nb_single_copy_markers"])+"\n")
                 for organism in organisms_to_project:
                     nb_genes_by_partition = defaultdict(int)
                     already_counted = set()
                     nb_genes_families_by_partition = defaultdict(int)
-
                     duplications        = {node : [len(data[org]) for org in (set(data) & (set(self.organisms)|set(organism)))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
                     mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
                     single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
@@ -2589,7 +2587,7 @@ class PPanGGOLiN:
                                                               str(nei_partitions.count("shell")),
                                                               str(nei_partitions.count("cloud"))])+"\n")
                     # self.partitions_by_organism[organism]=nb_genes_by_partition
-                    nb_genes_file.write("\t".join([organism,
+                    nb_genes_file.write(sep.join([organism,
                                                   str(nb_genes_families_by_partition["persistent"]),
                                                   str(nb_genes_families_by_partition["shell"]),
                                                   str(nb_genes_families_by_partition["cloud"]),
@@ -2609,6 +2607,7 @@ class PPanGGOLiN:
                                                   str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)),
                                                   str(round(len(contamination)/len(single_copy_markers)*100,4)),
                                                   str(len(single_copy_markers))])+"\n")
+                    
         else:
             logging.getLogger().warning("The pangenome must be partionned before using this method (projection)")
         persistent_stats = []
