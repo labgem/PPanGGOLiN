@@ -388,15 +388,12 @@ class PPanGGOLiN:
 
     def __str__(self):
         """ Return an overview of the statistics of the pangenome as a formated string """ 
-
         def str_histogram(title, values, force_max_value=25):
             ret = "\n".join([l for l in Pyasciigraph(force_max_value=force_max_value, graphsymbol='*').graph(str(title), [("node(s) having degree "+str(i),v) for i, v in enumerate(values[:force_max_value+1])])])
             if len(values) > force_max_value:
                 ret+="\n"
                 ret+="And "+str(sum(values[50:]))+" nodes having degree above "+str(force_max_value)+"..."
             return(ret)
-
-
 
         pan_str ="\n"
         pan_str += "----------- Statistics -----------\n"
@@ -406,17 +403,17 @@ class PPanGGOLiN:
         if self.is_partitionned:
             pan_str += "Exact core genome size:"+str(len(self.partitions["exact_core"]))+"\n"
             pan_str += "Exact accessory genome size:"+str(len(self.partitions["exact_accessory"]))+"\n"
-            pan_str += "\n"
+            pan_str += "\n" 
             freq_sc = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["soft_core"]).nodes(data=True)]
-            freq_p = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)]
-            freq_s = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["shell"]).nodes(data=True)]
-            freq_c = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["cloud"]).nodes(data=True)]
-            pan_str += "Soft core (average="+str(round(mean(freq_sc)*100,2))+"%;sd="+str(round(standard_deviation(freq_sc)*100,2))+"%;min="+str(round(min(freq_sc)*100,2))+"%;max="+str(round(max(freq_sc)*100,2))+"%) genome size:"+str(len(self.partitions["soft_core"]))+"\n"
-            pan_str += "Soft accessory (<"+str(self.soft_core_th*100)+"%) genome size:"+str(len(self.partitions["soft_accessory"]))+"\n"
+            freq_p  = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)]
+            freq_s  = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["shell"]).nodes(data=True)]
+            freq_c  = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["cloud"]).nodes(data=True)]
+            pan_str += "Soft core genome (average="+str(round(mean(freq_sc)*100,2))+"%;sd="+str(round(standard_deviation(freq_sc)*100,2))+"%;min="+str(round(min(freq_sc)*100,2))+"%;max="+str(round(max(freq_sc)*100,2))+"%):"+str(len(self.partitions["soft_core"]))+"\n"
+            pan_str += "Soft accessory genome genome (<"+str(self.soft_core_th*100)+"%):"+str(len(self.partitions["soft_accessory"]))+"\n"
             pan_str += "\n"
-            pan_str += "Persistent (average="+str(round(mean(freq_p)*100,2))+"%;sd="+str(round(standard_deviation(freq_p)*100,2))+"%;min="+str(round(min(freq_p)*100,2))+"%;max="+str(round(max(freq_p)*100,2))+"%) genome size:"+str(len(self.partitions["persistent"]))+"\n"
-            pan_str += "Shell (average="+str(round(mean(freq_s)*100,2))+"%;sd="+str(round(standard_deviation(freq_s)*100,2))+"%;min="+str(round(min(freq_s)*100,2))+"%;max="+str(round(max(freq_s)*100,2))+"%) genome size:"+str(len(self.partitions["shell"]))+"\n"
-            pan_str += "Cloud (average="+str(round(mean(freq_c)*100,2))+"%;sd="+str(round(standard_deviation(freq_c)*100,2))+"%;min="+str(round(min(freq_c)*100,2))+"%;max="+str(round(max(freq_c)*100,2))+"%) genome size:"+str(len(self.partitions["cloud"]))+"\n"
+            pan_str += "Persistent genome (average="+str(round(mean(freq_p)*100,2))+"%;sd="+str(round(standard_deviation(freq_p)*100,2))+"%;min="+str(round(min(freq_p)*100,2))+"%;max="+str(round(max(freq_p)*100,2))+"%):"+str(len(self.partitions["persistent"]))+"\n"
+            pan_str += "Shell genome (average="+str(round(mean(freq_s)*100,2))+"%;sd="+str(round(standard_deviation(freq_s)*100,2))+"%;min="+str(round(min(freq_s)*100,2))+"%;max="+str(round(max(freq_s)*100,2))+"%):"+str(len(self.partitions["shell"]))+"\n"
+            pan_str += "Cloud genome (average="+str(round(mean(freq_c)*100,2))+"%;sd="+str(round(standard_deviation(freq_c)*100,2))+"%;min="+str(round(min(freq_c)*100,2))+"%;max="+str(round(max(freq_c)*100,2))+"%):"+str(len(self.partitions["cloud"]))+"\n"
             pan_str += "\n"
             pan_str += "Q:"+str(self.Q)+"\n"
             pan_str += "beta:"+str(self.beta)+"\n"
@@ -2549,7 +2546,7 @@ class PPanGGOLiN:
             organisms_to_project = self.organisms
         if self.is_partitionned:
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
-                nb_genes_file.write("org\tpersistent\tshell\tcloud\texact_core\texact_accessory\tpangenome\tpersistent_nb_copy\tshell_nb_copy\tcloud_nb_copy\texact_core_nb_copy\texact_accessory_nb_copy\tpangenome_nb_copy\tcompleteness\tcontamination\tnb_single_copy_markers_used\n")
+                nb_genes_file.write("org\tnb_persistent_families\tnb_shell_families\tnb_cloud_families\tnb_exact_core_families\tnb_exact_accessory_families\tnb_soft_core_families\tnb_soft_accessory_families\tnb_gene_families\tnb_persistent_genes\tnb_shell_genes\tnb_cloud_genes\tnb_exact_core_genes\tnb_exact_accessory_genes\tnb_pangenome_genes\tcompleteness\tstrain_contamination\tnb_single_copy_markers\n")
                 for organism in organisms_to_project:
                     nb_genes_by_partition = defaultdict(int)
                     already_counted = set()
@@ -2598,12 +2595,16 @@ class PPanGGOLiN:
                                                   str(nb_genes_families_by_partition["cloud"]),
                                                   str(nb_genes_families_by_partition["exact_core"]),
                                                   str(nb_genes_families_by_partition["exact_accessory"]),
+                                                  str(nb_genes_families_by_partition["soft_core"]),
+                                                  str(nb_genes_families_by_partition["soft_accessory"]),
                                                   str(nb_genes_families_by_partition["pangenome"]),
                                                   str(nb_genes_by_partition["persistent"]),
                                                   str(nb_genes_by_partition["shell"]),
                                                   str(nb_genes_by_partition["cloud"]),
                                                   str(nb_genes_by_partition["exact_core"]),
                                                   str(nb_genes_by_partition["exact_accessory"]),
+                                                  str(nb_genes_by_partition["soft_core"]),
+                                                  str(nb_genes_by_partition["soft_accessory"]),
                                                   str(nb_genes_by_partition["pangenome"]),
                                                   str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)),
                                                   str(round(len(contamination)/len(single_copy_markers)*100,4)),
