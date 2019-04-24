@@ -303,7 +303,8 @@ def resample(index):
                           str(stats["exact_accessory"]),
                           str(stats["soft_core"]),
                           str(stats["soft_accessory"]),
-                          str(stats["exact_core"]+stats["exact_accessory"])])+"\n")
+                          str(stats["exact_core"]+stats["exact_accessory"]),
+                          str(stats["Q"])])+"\n")
     evol.flush()
 
 # def replication(index):
@@ -879,7 +880,7 @@ def __main__():
         global evol
         evol =  open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv","w")
 
-        evol.write(",".join(["nb_org","persistent","shell","cloud","undefined","exact_core","exact_accessory","soft_core","soft_accessory","pangenome"])+"\n")
+        evol.write(",".join(["nb_org","persistent","shell","cloud","undefined","exact_core","exact_accessory","soft_core","soft_accessory","pangenome","Q"])+"\n")
         evol.write(",".join([str(pan.nb_organisms),    
                               str(len(pan.partitions["persistent"])),
                               str(len(pan.partitions["shell"])),
@@ -889,7 +890,8 @@ def __main__():
                               str(len(pan.partitions["exact_accessory"])),
                               str(len(pan.partitions["soft_core"])),
                               str(len(pan.partitions["soft_accessory"])),
-                              str(len(pan.partitions["exact_accessory"])+len(pan.partitions["exact_core"]))])+"\n")
+                              str(len(pan.partitions["exact_accessory"])+len(pan.partitions["exact_core"])),
+                              str(pan.Q)])+"\n")
         evol.flush()
         with ProcessPoolExecutor(options.cpu[0]) as executor:
             futures = [executor.submit(resample,i) for i in range(len(shuffled_comb))]

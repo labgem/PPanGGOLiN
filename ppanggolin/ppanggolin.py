@@ -1664,6 +1664,7 @@ class PPanGGOLiN:
             if just_stats:
                 for node_name, nem_class in partitionning_results[FAMILIES_PARTITION].items():
                     stats[SHORT_TO_LONG[nem_class[0]]]+=1
+                stats["Q"]=Q
                 return stats
             else:
                 return partitionning_results
