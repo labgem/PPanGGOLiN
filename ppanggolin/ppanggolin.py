@@ -2545,15 +2545,16 @@ class PPanGGOLiN:
         if organisms_to_project is None:
             organisms_to_project = self.organisms
         if self.is_partitionned:
+            duplications        = {node : [len(data[org]) for org in (set(data) & set(organisms_to_project))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
+            mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
+            single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
+
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
                 nb_genes_file.write(sep.join(["org","nb_persistent_families","nb_shell_families","nb_cloud_families","nb_exact_core_families","nb_exact_accessory_families","nb_soft_core_families","nb_soft_accessory_families","nb_gene_families","nb_persistent_genes","nb_shell_genes","nb_cloud_genes","nb_exact_core_genes","nb_exact_accessory_genes","nb_soft_core_families","nb_soft_accessory_families","nb_pangenome_genes","completeness","strain_contamination","nb_single_copy_markers"])+"\n")
                 for organism in organisms_to_project:
                     nb_genes_by_partition = defaultdict(int)
                     already_counted = set()
                     nb_genes_families_by_partition = defaultdict(int)
-                    duplications        = {node : [len(data[org]) for org in (set(data) & (set(self.organisms)|set(organism)))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
-                    mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
-                    single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
                     contamination       = {}
                     with open(out_dir+"/"+organism+".csv","w") as out_file:
                         out_file.write(sep.join(["gene","contig","coord_start","coord_end","strand","ori","family","nb_copy_in_org","partition","persistent","shell","cloud"])+"\n")
