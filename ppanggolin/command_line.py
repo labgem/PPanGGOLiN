@@ -870,11 +870,13 @@ def __main__():
         if not options.verbose:
             logging.disable(logging.INFO)# disable INFO message to not disturb the progess bar
             logging.disable(logging.WARNING)# disable WARNING message to not disturb the progess bar
-        combinations = samplingCombinations(list(pan.organisms), sample_ratio=RESAMPLING_RATIO, sample_min=RESAMPLING_MIN, sample_max=RESAMPLING_MAX)
+        combinations = samplingCombinations(list(pan.organisms), sample_ratio=RESAMPLING_RATIO, sample_min=RESAMPLING_MIN, sample_max=RESAMPLING_MAX, seed=options.seed[0])
         
         global shuffled_comb
         shuffled_comb = combinations
         shuffled_comb = [OrderedSet(comb) for nb_org, combs in combinations.items() for comb in combs if nb_org%STEP == 0 and nb_org<=LIMIT]
+
+        random.seed(options.seed[0])
         random.shuffle(shuffled_comb)
 
         global evol
@@ -893,6 +895,7 @@ def __main__():
                               str(len(pan.partitions["exact_accessory"])+len(pan.partitions["exact_core"])),
                               str(pan.Q)])+"\n")
         evol.flush()
+        
         with ProcessPoolExecutor(options.cpu[0]) as executor:
             futures = [executor.submit(resample,i) for i in range(len(shuffled_comb))]
             for f in tqdm(as_completed(futures), total = len(shuffled_comb), unit = 'pangenome resampled'):

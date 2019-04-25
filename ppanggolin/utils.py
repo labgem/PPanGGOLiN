@@ -56,7 +56,8 @@ def comb_k_n(k,n):
     return sys.maxsize if result==float("Inf") else int(round(result)) 
 
 # proportional sampling
-def samplingCombinations(items, sample_ratio, sample_min, sample_max=100, step = 1):
+def samplingCombinations(items, sample_ratio, sample_min, sample_max=100, step = 1, seed=42):
+    random.seed(seed)
     samplingCombinationList = defaultdict(list)
     item_size = len(items)
     for k in range(1, item_size, step):
