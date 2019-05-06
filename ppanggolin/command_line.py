@@ -901,8 +901,8 @@ def __main__():
             for f in tqdm(as_completed(futures), total = len(shuffled_comb), unit = 'pangenome resampled'):
                 ex = f.exception()
                 if ex:
-                    executor.shutdown(wait=False)
-                    raise ex
+                    print(ex)
+                    f.cancel()
         evol.close()
         logging.disable(logging.NOTSET)
         def heap_law(N, kappa, gamma):

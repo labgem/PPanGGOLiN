@@ -286,7 +286,6 @@ int nem(const char* Fname,
 
     fprintf( out_stderr , " * * * NEM (spatial data clustering) v%s * * *\n" ,
              NemVersionStrC ) ;
-
 #ifdef __TURBOC__
     fprintf( out_stderr, "\n Initial free memory : %lu bytes\n\n", 
              (unsigned long) coreleft() );

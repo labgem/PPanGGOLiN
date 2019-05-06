@@ -192,7 +192,7 @@ static float mknan()
         ) ;
 
 
-    static void ComputePartitionFromPara
+    static int ComputePartitionFromPara
         ( 
 	 const int          Needinit,    /* I : 1 if need init, 0 if normal */
 	 const DataT*       DataP,       /* I */
@@ -1047,7 +1047,6 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
         return STS_E_MEMORY ;
     }
 
-
     if ( NemParaP->DoLog )
     {
         StartLogFile( NemParaP->LogName, DataP->NbPts, &flog ) ;
@@ -1151,7 +1150,6 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
     case INIT_PARAM_FILE:
         fprintf( out_stderr, 
 		 "Initializing parameters from given value\n");
-
         if ( flog != NULL ) {
 	  fprintf( flog, "Initializing parameters from given value :\n" ) ;
 	  fprintf( flog, "%4d ", 0 ) ;
@@ -1759,6 +1757,7 @@ static int NemAlgo
 /* ------------------------------------------------------------------- */
 {
     StatusET        err         = STS_OK ;
+    StatusET        sts         = STS_OK ;
     int             npt         = DataP->NbPts;
     int             nk          = SpecP->K ;
 
@@ -1817,7 +1816,7 @@ static int NemAlgo
             /* E-Step (Expectation) : compute current partition from
                current model parameters and old partition */
 
-	    ComputePartitionFromPara( 0, DataP, NemParaP, SpecP, ParaP, 
+	    sts = ComputePartitionFromPara( 0, DataP, NemParaP, SpecP, ParaP, 
 				      SpatialP, 
 				      CM, CriterP, Flog, WorkP ) ;
 
@@ -1827,6 +1826,13 @@ static int NemAlgo
 				      (Flog==NULL), ParaP->Beta, SpatialP,
 				      NemParaP->Crit,
 				      CriterP, WorkP ) ;  /*V1.06-o*/
+        if ( sts == STS_E_INFINITE){
+            err=sts;
+            fprintf( out_stderr, "FATAL ERROR, NEM criteria reach infinite value\n");
+            if ( Flog != NULL )
+               fprintf( Flog, "FATAL ERROR, NEM criteria reach infinite value\n");
+        }
+
         }
         else if ( err == STS_W_EMPTYCLASS ) /* Else -> class emptyk is empty */
         {
@@ -1836,7 +1842,7 @@ static int NemAlgo
                fprintf( Flog, " Class %d empty at iteration %d\n", 
                         emptyk, iter ) ;
         }
-
+         
     } /* end for ( iter = 1, converged = FALSE ... ) */
 
     iter = iter - 1 ;  /*V1.05-g*/
@@ -1948,7 +1954,7 @@ static void WriteLogHeader
 
 
 /* ------------------------------------------------------------------- */
-static void ComputePartitionFromPara
+static int ComputePartitionFromPara
         ( 
 	 const int          Needinit,    /* I : 1 if need init, 0 if normal */
 	 const DataT*       DataP,       /* I */
@@ -1963,21 +1969,22 @@ static void ComputePartitionFromPara
 	)
 /* ------------------------------------------------------------------- */
 {
+StatusET err = STS_OK ;
+
   /* Compute density of each point relatively to each class */
   ComputePkFkiM( DataP, SpecP, ParaP, 
                  WorkingP->PkFkiM, WorkingP->LogPkFkiM ) ;
-
   if ( Needinit ) {
     /* Compute initial partition by "blind" segmentation */
     float beta = ParaP->Beta ;
     ParaP->Beta = 0.0 ;
-    ComputePartition( SpecP, ParaP, DataP, SpatialP, NemParaP, 
+   ComputePartition( SpecP, ParaP, DataP, SpatialP, NemParaP, 
 		      NULL, C_NK, WorkingP, CriterP ) ;
     ParaP->Beta = beta ;
   }
 
   /* Compute partition from parameters and previous partition */
-  ComputePartition( SpecP, ParaP, DataP, SpatialP, NemParaP, 
+ err = ComputePartition( SpecP, ParaP, DataP, SpatialP, NemParaP, 
 		    Flog, C_NK, WorkingP, CriterP ) ;
 
   /* Write parameters to file */
@@ -1986,9 +1993,9 @@ static void ComputePartitionFromPara
   if ( ( Needinit ) && ( Flog != NULL ) )
     fprintf( Flog, "\n" ) ;
 
+return(err);
+
 }   /* end of ComputePartitionFromPara() */
-
-
 
 
 /* ------------------------------------------------------------------- */
@@ -2319,8 +2326,6 @@ static int ComputePartition
 				 Flog, CM, WorkP, CriterP ) ;
     }
 
-  return sts ;
-
 }   /* end of ComputePartition() */
 
 
@@ -2349,7 +2354,6 @@ static int ComputePartitionNEM
     int             npt   = DataP->NbPts;
     int             nk    = SpecP->K ;
     GetNeighFT*     fGetNeigh ;     /*V1.06-c*/
-
 
 
     /* Get function specific to chosen spatial model */
@@ -2400,8 +2404,11 @@ static int ComputePartitionNEM
 
     } /* end for ( itere = 0 ; itere < NemParaP->NbEIters ; itere ++ ) */
 
+if( CriterP->U == -INFINITY && CriterP->M == -INFINITY && isnan(CriterP->Errcur.Errorrate)){
+    return(STS_E_INFINITE);
+}else{
     return STS_OK ;
-
+}
 }   /* end of ComputePartitionNEM() */
 
 

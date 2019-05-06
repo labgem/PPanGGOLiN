@@ -112,7 +112,8 @@ typedef enum {
         STS_E_FILEIN,
         STS_E_FILEOUT,
         STS_E_FILE,
-        STS_E_FUNCARG
+        STS_E_FUNCARG,
+        STS_E_INFINITE
         } 
         StatusET ;
 
