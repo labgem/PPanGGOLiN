@@ -950,8 +950,7 @@ def __main__():
                                             bgcolor=COLORS[partition],
                                             opacity=0.8))
             except RuntimeError as rt:# if fitting doesn't work
-                if numpy.isinf(error_k) and numpy.isinf(error_o):
-                    params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
+                params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
             
             
             traces.append(go.Scatter(x=medians.index, 
