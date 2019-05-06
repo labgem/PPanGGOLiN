@@ -408,12 +408,17 @@ class PPanGGOLiN:
             freq_p  = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)]
             freq_s  = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["shell"]).nodes(data=True)]
             freq_c  = [len(data & self.organisms)/self.nb_organisms for node, data in self.neighbors_graph.subgraph(self.partitions["cloud"]).nodes(data=True)]
-            pan_str += "Soft core genome (average="+str(round(mean(freq_sc)*100,2))+"%;sd="+str(round(standard_deviation(freq_sc)*100,2))+"%;min="+str(round(min(freq_sc)*100,2))+"%;max="+str(round(max(freq_sc)*100,2))+"%):"+str(len(self.partitions["soft_core"]))+"\n"
-            pan_str += "Soft accessory genome genome (<"+str(self.soft_core_th*100)+"%):"+str(len(self.partitions["soft_accessory"]))+"\n"
+            pan_str += ("Soft core genome (average="+str(round(mean(freq_sc)*100,2))+"%;sd="+str(round(standard_deviation(freq_sc)*100,2))+"%;min="+str(round(min(freq_sc)*100,2))+"%;max="+str(round(max(freq_sc)*100,2))+"%):"+str(len(self.partitions["soft_core"]))) if len(freq_sc) > 0 else "Soft core genome:0"
+            pan_str += "\n" 
+            pan_str += "Soft accessory genome genome (<"+str(self.soft_core_th*100)+"%):"+str(len(self.partitions["soft_accessory"]))
+            pan_str += "\n" 
             pan_str += "\n"
-            pan_str += "Persistent genome (average="+str(round(mean(freq_p)*100,2))+"%;sd="+str(round(standard_deviation(freq_p)*100,2))+"%;min="+str(round(min(freq_p)*100,2))+"%;max="+str(round(max(freq_p)*100,2))+"%):"+str(len(self.partitions["persistent"]))+"\n"
-            pan_str += "Shell genome (average="+str(round(mean(freq_s)*100,2))+"%;sd="+str(round(standard_deviation(freq_s)*100,2))+"%;min="+str(round(min(freq_s)*100,2))+"%;max="+str(round(max(freq_s)*100,2))+"%):"+str(len(self.partitions["shell"]))+"\n"
-            pan_str += "Cloud genome (average="+str(round(mean(freq_c)*100,2))+"%;sd="+str(round(standard_deviation(freq_c)*100,2))+"%;min="+str(round(min(freq_c)*100,2))+"%;max="+str(round(max(freq_c)*100,2))+"%):"+str(len(self.partitions["cloud"]))+"\n"
+            pan_str += ("Persistent genome (average="+str(round(mean(freq_p)*100,2))+"%;sd="+str(round(standard_deviation(freq_p)*100,2))+"%;min="+str(round(min(freq_p)*100,2))+"%;max="+str(round(max(freq_p)*100,2))+"%):"+str(len(self.partitions["persistent"]))) if len(freq_p) > 0 else "Persistent genome:0"
+            pan_str += "\n" 
+            pan_str += ("Shell genome (average="+str(round(mean(freq_s)*100,2))+"%;sd="+str(round(standard_deviation(freq_s)*100,2))+"%;min="+str(round(min(freq_s)*100,2))+"%;max="+str(round(max(freq_s)*100,2))+"%):"+str(len(self.partitions["shell"]))) if len(freq_s) > 0 else "Shell genome:0"
+            pan_str += "\n" 
+            pan_str += ("Cloud genome (average="+str(round(mean(freq_c)*100,2))+"%;sd="+str(round(standard_deviation(freq_c)*100,2))+"%;min="+str(round(min(freq_c)*100,2))+"%;max="+str(round(max(freq_c)*100,2))+"%):"+str(len(self.partitions["cloud"]))) if len(freq_c) > 0 else "Cloud genome:0"
+            pan_str += "\n" 
             pan_str += "\n"
             pan_str += "Q:"+str(self.Q)+"\n"
             pan_str += "beta:"+str(self.beta)+"\n"
@@ -1031,6 +1036,8 @@ class PPanGGOLiN:
                 try:
                     if nx.degree(self.neighbors_graph,node_name) < th_degree:
                         for neighbor in set(nx.all_neighbors(self.neighbors_graph, node_name)):
+                            if neighbor not in index_fam:
+                                 pass
                             coverage = 0
                             if self.neighbors_graph.is_directed():
                                 cov_sens, cov_antisens = (0,0)
@@ -1055,8 +1062,8 @@ class PPanGGOLiN:
                             row_fam.append(str(index_fam[neighbor]))
                             row_dist_score.append(str(round(distance_score,4)))
                             neighbor_number += 1
-                        else:
-                            logging.getLogger().debug("The family: "+node_name+" has a too high degree > "+str(th_degree)+" and will not be included in the spatial smoothing")
+                    else:
+                        logging.getLogger().debug("The family: "+node_name+" has a too high degree > "+str(th_degree)+" and will not be included in the spatial smoothing")
                 # else:
                 #     try:
                 #         all_neighbors   = set(nx.all_neighbors(self.neighbors_graph, node_name))
@@ -1494,7 +1501,7 @@ class PPanGGOLiN:
                         #     else:
                         #         proba_sample[org] = p + len(select_organisms)/chunck_size
 
-                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir = old_nem_dir)
+                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
                         if nb_threads>1:
                             res = pool.apply_async(run_partitioning,
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
@@ -2545,9 +2552,11 @@ class PPanGGOLiN:
         if organisms_to_project is None:
             organisms_to_project = self.organisms
         if self.is_partitionned:
-            duplications        = {node : [len(data[org]) for org in (set(data) & set(organisms_to_project))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
-            mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
-            single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
+            single_copy_markers = None
+            if len(self.partitions["persistent"])>0:
+                 duplications        = {node : [len(data[org]) for org in (set(data) & set(organisms_to_project))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
+                 mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
+                 single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
 
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
                 nb_genes_file.write(sep.join(["org","nb_persistent_families","nb_shell_families","nb_cloud_families","nb_exact_core_families","nb_exact_accessory_families","nb_soft_core_families","nb_soft_accessory_families","nb_gene_families","nb_persistent_genes","nb_shell_genes","nb_cloud_genes","nb_exact_core_genes","nb_exact_accessory_genes","nb_soft_core_families","nb_soft_accessory_families","nb_pangenome_genes","completeness","strain_contamination","nb_single_copy_markers"])+"\n")
@@ -2572,7 +2581,7 @@ class PPanGGOLiN:
                                         nb_genes_families_by_partition["pangenome"]+=1
                                         already_counted.add(gene_info[FAMILY])
                                     else:
-                                        if gene_info[FAMILY] in single_copy_markers:
+                                        if single_copy_markers is not None and gene_info[FAMILY] in single_copy_markers:
                                             contamination[gene_info[FAMILY]] = 1
 
                                     nei_partitions = [self.neighbors_graph.node[nei]["partition"] for nei in nx.all_neighbors(self.neighbors_graph,gene_info[FAMILY])]
@@ -2607,7 +2616,7 @@ class PPanGGOLiN:
                                                   str(nb_genes_by_partition["soft_accessory"]),
                                                   str(nb_genes_by_partition["pangenome"]),
                                                   str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)),
-                                                  str(round(len(contamination)/len(single_copy_markers)*100,4)),
+                                                  str(round(len(contamination)/len(single_copy_markers)*100,4)) if single_copy_markers is not None else "NA",
                                                   str(len(single_copy_markers))])+"\n")
                     
         else:
@@ -2629,7 +2638,7 @@ class PPanGGOLiN:
 """ """
 
 def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", itermax=100, just_log_likelihood=False):
-    logging.getLogger().debug("Running NEM...")
+    logging.getLogger().debug("run_partitioning...")
     if (Q<3 and not just_log_likelihood) or Q<2:
         logging.getLogger().error("Bad usage, Q must be higher or equal to 3 except for testing just_log_likelihood of a 2 paritions model")
 
@@ -2708,6 +2717,23 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
 
     # logging.getLogger().debug(out)
     #logging.getLogger().debug(err)
+    logging.getLogger().debug("Running NEM...")
+    logging.getLogger().debug([nem_dir_path.encode('ascii')+b"/nem_file",
+           Q,
+           ALGO,
+           beta,
+        CONVERGENCE,
+        CONVERGENCE_TH,
+        b"fuzzy",
+        itermax,
+        True,
+        MODEL,
+        PROPORTION,
+        VARIANCE_MODEL,
+        INIT_PARAM_FILE if init in ["param_file","init_from_old"] else INIT_RANDOM,
+        nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
+        nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'),
+        seed])
     nem(Fname           = nem_dir_path.encode('ascii')+b"/nem_file",
         nk              = Q,
         algo            = ALGO,
@@ -2724,6 +2750,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
         init_file       = nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
         out_file_prefix = nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'),
         seed            = seed)
+    logging.getLogger().debug("After running NEM...")
     # arguments_nem = [str.encode(s) for s in ["nem", 
     #                  nem_dir_path+"/nem_file",
     #                  str(Q),
@@ -2812,9 +2839,9 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
         with open(nem_dir_path+"/nem_file_"+str(Q)+".uf","r") as partitions_nem_file, open(nem_dir_path+"/nem_file_"+str(Q)+".mf","r") as parameters_nem_file:
             parameters      = parameters_nem_file.readlines()
             U,D,L,log_likelihood,Z,error = [float(p) for p in parameters[2].split()]
-            print("U="+str(U))
-            print("D="+str(D))
-            print("log_likelihood="+str(log_likelihood))
+            logging.getLogger().debug("U="+str(U))
+            logging.getLogger().debug("D="+str(D))
+            logging.getLogger().debug("log_likelihood="+str(log_likelihood))
             sum_mu_k       = []
             sum_epsilon_k  = []
 

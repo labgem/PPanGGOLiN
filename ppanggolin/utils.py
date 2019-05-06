@@ -83,8 +83,10 @@ def samplingCombinations(items, sample_ratio, sample_min, sample_max=100, step =
 
 """simple arithmetic mean"""
 def mean(numbers):
-    return float(sum(numbers)) / max(len(numbers), 1)
-
+    try:
+        return float(sum(numbers)) / len(numbers)
+    except ZeroDivisionError:
+        return(float("nan"))
 """simple median"""
 def median(numbers):
     numbers = sorted(numbers)
@@ -101,21 +103,19 @@ def standard_deviation(lst, population=True):
     """Calculates the standard deviation for a list of numbers.
     from https://codeselfstudy.com/blogs/how-to-calculate-standard-deviation-in-python"""
     num_items = len(lst)
-    mean = sum(lst) / num_items
-    differences = [x - mean for x in lst]
-    sq_differences = [d ** 2 for d in differences]
-    ssd = sum(sq_differences)
- 
-    # Note: it would be better to return a value and then print it outside
-    # the function, but this is just a quick way to print out the values along
-    # the way.
-    if population is True:
-        variance = ssd / num_items
+    if num_items>0:
+        mean = sum(lst) / num_items
+        differences = [x - mean for x in lst]
+        sq_differences = [d ** 2 for d in differences]
+        ssd = sum(sq_differences)
+        if population is True:
+            variance = ssd / num_items
+        else:
+            variance = ssd / (num_items - 1)
+        sd = math.sqrt(variance)
+        return(sd)
     else:
-        variance = ssd / (num_items - 1)
-    sd = math.sqrt(variance)
-
-    return(sd)
+        return(float("nan"))
 
 def seq(start, stop, step=1):
     n = int(round((stop - start)/float(step)))
