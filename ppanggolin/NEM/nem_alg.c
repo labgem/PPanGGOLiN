@@ -2314,7 +2314,6 @@ static int ComputePartition
 {
   StatusET sts ;
 
-
   if ( NemParaP->Algo == ALGO_GEM ) 
     {
       sts = ComputePartitionGEM( SpecP, ParaP, DataP, SpatialP, NemParaP, 
@@ -2325,7 +2324,7 @@ static int ComputePartition
       sts = ComputePartitionNEM( SpecP, ParaP, DataP, SpatialP, NemParaP, 
 				 Flog, CM, WorkP, CriterP ) ;
     }
-
+  return sts;
 }   /* end of ComputePartition() */
 
 
