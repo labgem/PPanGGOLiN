@@ -1301,12 +1301,12 @@ static float ChosenCrit( const CriterT* CriterP , CritET Which )  /*V1.04-f*/
 static int MakeParaFromLabeled
         ( 
             const DataT*        DataP,      /* I */
-	    const float*        C_NK,       /* I */
-	    const ModelSpecT*   SpecP,      /* I */
+	          const float*        C_NK,       /* I */
+	          const ModelSpecT*   SpecP,      /* I */
             const SampleDesT*   DescP,      /* I */
-	    ModelParaT*         ParaP,      /* O */
-	    int                 *misskP,    /* O */
-	    int                 *missdP     /* O */
+	          ModelParaT*         ParaP,      /* O */
+	          int                 *misskP,    /* O */
+	          int                 *missdP     /* O */
         ) 
 /*\
 
