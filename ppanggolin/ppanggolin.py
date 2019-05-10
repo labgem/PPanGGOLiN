@@ -1393,12 +1393,12 @@ class PPanGGOLiN:
         #core first
         families = []
         for node_name, data_organisms in self.neighbors_graph.nodes(data=True):
-            families.append(node_name)
             pres_abs_vector = [True if org in data_organisms else False for org in select_organisms]
-            
             nb_true  = pres_abs_vector.count(True)
             if nb_true == 0:
                 continue # family absent of the selected_organisms
+
+            families.append(node_name)
 
             if nb_true==len(select_organisms):
                 stats["exact_core"]+=1
@@ -1409,7 +1409,7 @@ class PPanGGOLiN:
                 stats["soft_core"]+=1
             else:
                 stats["soft_accessory"]+=1
-        
+                
         def run_evaluate_nb_partitions(orgs, Q):
             if Q == -1:
                 if self.Q == 3:
