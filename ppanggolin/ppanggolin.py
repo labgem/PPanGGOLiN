@@ -2505,8 +2505,8 @@ class PPanGGOLiN:
                         path_index = [nodes_order.inv[n] for n in path]
                         self.path_vectors[subpartition+"#"+str(i)+"#"+str(j)]=numpy.asarray(mat_p_a[:,path_index].sum(axis=1)/len(path_index)).flatten()
                         for node in path:
-                            self.neighbors_graph.nodes[node]["path"]=str(i)+"#"+str(j)
-                            self.neighbors_graph.nodes[node]["path_group"] = str(i)
+                            self.neighbors_graph.nodes[node]["path"]=subpartition+"#"+str(i)+"#"+str(j)
+                            self.neighbors_graph.nodes[node]["path_group"] = subpartition+"#"+str(i)
                             subg.node[node]["path"]=subpartition+"#"+str(i)+"#"+str(j)
                         path_graph = nx.Graph.subgraph(subg,path)
                         for u, v in path_graph.edges():
