@@ -466,8 +466,12 @@ def __main__():
     Positive Number: seed used to generate random numbers
     """)
     parser.add_argument("-eb", "--explore_beta", nargs=3, default=[None,None,None], metavar=('BETA_MIN','BETA_MAX','STEP'), help="""
-    3 Positive float numbers
+    3 Positive float numbers: (in test)
     """)
+    parser.add_argument("-dm", "--duplication_margin", type = float, nargs=1, default=[0.2], metavar=('MARGIN_RATIO'), help="""
+    1 Positive float number: specify the tolerance to estimate the set of not duplicated gene families. For example MARGIN_RATIO=0.1 imposes that the mean of occurence of the genes families in organisms is below 1.1.
+    """)
+    
 
     global options
     options = parser.parse_args()
@@ -795,11 +799,11 @@ def __main__():
         end_layout = time()
 
     logging.getLogger().info("Writing GEXF file")
-    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
+    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
     logging.getLogger().info("Writing GEXF light file")
-    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light"+(".gz" if options.compress_graph else ""), options.compress_graph, metadata, False,False)
+    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light", options.compress_graph, metadata, False,False)
     logging.getLogger().info("Writing JSON")
-    pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata)
+    pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
     
     with open(OUTPUTDIR+"/pangenome.txt","w") as pan_text:
         for partition, families in pan.partitions.items():
@@ -823,7 +827,7 @@ def __main__():
     if options.projection:
         logging.getLogger().info("Projection...")
         # start_projection = time()
-        pan.projection(OUTPUTDIR+PROJECTION_DIR, [pan.organisms.__getitem__(index-1) for index in options.projection] if options.projection[0] > 0 else list(pan.organisms))
+        pan.projection(OUTPUTDIR+PROJECTION_DIR, [pan.organisms.__getitem__(index-1) for index in options.projection] if options.projection[0] > 0 else list(pan.organisms), duplication_margin=options.duplication_margin[0])
         # end_projection = time()
     end_writing_output_file = time()
 
@@ -860,7 +864,7 @@ def __main__():
 
     if options.untangle>0:
         pan.untangle_neighbors_graph(options.untangle[0])
-        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+(".gz" if options.compress_graph else ""), options.compress_graph, metadata,"untangled_neighbors_graph" )
+        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata,"untangled_neighbors_graph" )
 
     plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
 

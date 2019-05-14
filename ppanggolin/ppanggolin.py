@@ -47,7 +47,7 @@ import glob
 (GFF_seqname, GFF_source, GFF_type, GFF_start, GFF_end, GFF_score, GFF_strand, GFF_frame, GFF_attribute) = range(0,9)
 (MU,EPSILON,PROPORTION) = range(0, 3)
 (FAMILIES_PARTITION,PARTITION_PARAMETERS, LOG_LIKELIHOOD) = range(0, 3)
-RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition',"viz","type","path","correlated_paths"])
+RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition',"viz","type","path","correlated_paths","mean_duplication"])
 SHORT_TO_LONG = {'EA':'exact_accessory','EC':'exact_core','SA':'soft_accessory','SC':'soft_core','P':'persistent','S':'shell','C':'cloud','U':'undefined'}
 COLORS = {"pangenome":"black", "exact_accessory":"#EB37ED", "exact_core" :"#FF2828", "soft_core":"#e6e600", "soft_accessory":"#996633","shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
 COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "exact_accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "exact_core" :{'r': 255, 'g': 40, 'b': 40, 'a': 0},  "soft_core":{'r': 255, 'g': 255, 'b': 0, 'a': 0}, "soft_accessory": {'r': 153, 'g': 102, 'b': 51, 'a': 0},"shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
@@ -991,8 +991,8 @@ class PPanGGOLiN:
                             out_file.write(node_name+"\n")
                     never_in[variable][value].add(node_name)
         return ({"exclusively_in":exclusively_in,"never_in":never_in})
-
-    def __write_nem_input_files(self, nem_dir_path, select_organisms, old_nem_dir = None, th_degree = 20 ):
+    
+    def __write_nem_input_files(self, nem_dir_path, select_organisms, old_nem_dir = None, th_degree = 20 , neighbors_graph = None):
         
         if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sence
             logging.getLogger().warning("The number of selected organisms is too low ("+str(len(select_organisms))+" organisms used) to partition the pangenome graph in persistent, shell and cloud genome. Add new organisms to obtain more robust metrics.")
@@ -1007,10 +1007,10 @@ class PPanGGOLiN:
 
         logging.getLogger().debug("Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files")
         with open(nem_dir_path+"/nem_file.str", "w") as str_file,\
-            open(nem_dir_path+"/nem_file.index", "w") as index_file,\
-            open(nem_dir_path+"/column_org_file", "w") as org_file,\
-            open(nem_dir_path+"/nem_file.nei", "w") as nei_file,\
-            open(nem_dir_path+"/nem_file.dat", "w") as dat_file:
+             open(nem_dir_path+"/nem_file.index", "w") as index_file,\
+             open(nem_dir_path+"/column_org_file", "w") as org_file,\
+             open(nem_dir_path+"/nem_file.nei", "w") as nei_file,\
+             open(nem_dir_path+"/nem_file.dat", "w") as dat_file:
             
             nei_file.write("1\n")
             if old_nem_dir:
@@ -1023,35 +1023,51 @@ class PPanGGOLiN:
             for node_name, node_organisms in self.neighbors_graph.nodes(data=True):
                 logging.getLogger().debug(node_organisms)
                 logging.getLogger().debug(select_organisms)
-                
                 if not select_organisms.isdisjoint(node_organisms): # if at least one commun organism
                     dat_file.write("\t".join(["1" if org in node_organisms else "0" for org in select_organisms])+"\n")
                     index_fam[node_name] = len(index_fam)+1
                     index_file.write(str(len(index_fam))+"\t"+str(node_name)+"\n")
-            for node_name, index in index_fam.items():
+            
+            if neighbors_graph is None:
+                if len(select_organisms) < len(self.organisms):
+                    all_edges = set([])
+                    for node_1, node_2, edge_organisms in self.neighbors_graph.edges(data=True):
+                        if not select_organisms.isdisjoint(edge_organisms): 
+                            all_edges.add(tuple([node_1, node_2]))
+                    neighbors_graph = self.neighbors_graph.edge_subgraph(all_edges)
+                    isolate_to_add = set(index_fam.keys()) - set(neighbors_graph.nodes)
+                    neighbors_graph = nx.algorithms.operators.binary.union(neighbors_graph, nx.create_empty_copy(self.neighbors_graph.subgraph(isolate_to_add), with_data=True))
+                else:
+                    neighbors_graph = self.neighbors_graph
+            for node_name in index_fam.keys():
                 row_fam         = []
                 row_dist_score  = []
                 neighbor_number = 0
                 # if not self.is_partitionned or self.neighbors_graph.node["partition"]!="shell":
                 try:
-                    if nx.degree(self.neighbors_graph,node_name) < th_degree:
-                        for neighbor in set(nx.all_neighbors(self.neighbors_graph, node_name)):
+                    try : 
+                        if len(nx.degree(neighbors_graph,node_name)) == 0:
+                            print(node_name)
+                    except :
+                        pass
+                    if nx.degree(neighbors_graph,node_name) < th_degree:
+                        for neighbor in set(nx.all_neighbors(neighbors_graph, node_name)):
                             if neighbor not in index_fam:
                                  pass
                             coverage = 0
-                            if self.neighbors_graph.is_directed():
+                            if neighbors_graph.is_directed():
                                 cov_sens, cov_antisens = (0,0)
                                 try:
-                                    cov_sens = sum([len(pre_abs) for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+                                    cov_sens = sum([len(pre_abs) for org, pre_abs in neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
                                 except KeyError:
                                     pass
                                 try:
-                                    cov_antisens = sum([len(pre_abs) for org, pre_abs in self.neighbors_graph[neighbor][node_name].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+                                    cov_antisens = sum([len(pre_abs) for org, pre_abs in neighbors_graph[neighbor][node_name].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
                                 except KeyError:
                                     pass
                                 coverage = cov_sens + cov_antisens
                             else:
-                                coverage = sum([len(pre_abs) for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
+                                coverage = sum([len(pre_abs) for org, pre_abs in neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
 
                             if coverage==0:
                                 continue
@@ -1409,7 +1425,7 @@ class PPanGGOLiN:
                 stats["soft_core"]+=1
             else:
                 stats["soft_accessory"]+=1
-                
+
         def run_evaluate_nb_partitions(orgs, Q):
             if Q == -1:
                 if self.Q == 3:
@@ -1470,7 +1486,17 @@ class PPanGGOLiN:
                                         #     validated[node]="S" 
                 finally:
                     sem.release()
-                    
+            neighbors_graph = None
+            if len(select_organisms) < len(self.organisms):
+                all_edges = set([])
+                for node_1, node_2, edge_organisms in self.neighbors_graph.edges(data=True):
+                    if not select_organisms.isdisjoint(edge_organisms): 
+                        all_edges.add(tuple([node_1, node_2]))
+                
+                neighbors_graph = self.neighbors_graph.edge_subgraph(all_edges)
+                isolate_to_add = set(families) - set(neighbors_graph.nodes)
+                neighbors_graph = nx.algorithms.operators.binary.union(neighbors_graph, nx.create_empty_copy(self.neighbors_graph.subgraph(isolate_to_add), with_data=True))
+
             with contextlib.closing(Pool(processes = nb_threads)) if nb_threads>1 else empty_cm() as pool:
                 #proba_sample = OrderedDict(zip(select_organisms,[len(select_organisms)]*len(select_organisms)))
                 pan_size = stats["exact_accessory"]+stats["exact_core"]
@@ -1500,8 +1526,8 @@ class PPanGGOLiN:
                         #         proba_sample[org] = p - len(select_organisms)/chunck_size if p >1 else 1
                         #     else:
                         #         proba_sample[org] = p + len(select_organisms)/chunck_size
-
-                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
+                        use_the_whole_graph_degree = True if len(select_organisms)==self.organisms else False
+                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
                         if nb_threads>1:
                             res = pool.apply_async(run_partitioning,
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
@@ -2557,7 +2583,7 @@ class PPanGGOLiN:
                  duplications        = {node : [len(data[org]) for org in (set(data) & set(organisms_to_project))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
                  mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
                  single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
-
+            single_copy_markers = None if len(single_copy_markers) == 0 else single_copy_markers 
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
                 nb_genes_file.write(sep.join(["org","nb_persistent_families","nb_shell_families","nb_cloud_families","nb_exact_core_families","nb_exact_accessory_families","nb_soft_core_families","nb_soft_accessory_families","nb_gene_families","nb_persistent_genes","nb_shell_genes","nb_cloud_genes","nb_exact_core_genes","nb_exact_accessory_genes","nb_soft_core_families","nb_soft_accessory_families","nb_pangenome_genes","completeness","strain_contamination","nb_single_copy_markers"])+"\n")
                 for organism in organisms_to_project:
@@ -2617,20 +2643,16 @@ class PPanGGOLiN:
                                                   str(nb_genes_by_partition["pangenome"]),
                                                   str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)),
                                                   str(round(len(contamination)/len(single_copy_markers)*100,4)) if single_copy_markers is not None else "NA",
-                                                  str(len(single_copy_markers))])+"\n")
-                    
+                                                  str(len(single_copy_markers)) if single_copy_markers is not None else "0"])+"\n")
+            
+            with open(out_dir+"/mean_duplication.csv","w") as mean_duplication_file:
+                mean_duplication_file.write("#duplication_margin="+str(round(duplication_margin,3))+"\n")
+                mean_duplication_file.write(sep.join(["persistent_gene_families","duplication_ratio","is_single_copy_marker"])+"\n")
+                if len(self.partitions["persistent"])>0:
+                    for gene_families, duplication_ratio in mean_duplication.items():
+                        mean_duplication_file.write(sep.join([gene_families,str(round(duplication_ratio,3)),str(True if duplication_ratio < 1+duplication_margin else False)])+"\n")
         else:
             logging.getLogger().warning("The pangenome must be partionned before using this method (projection)")
-        persistent_stats = []
-        cloud_stats      = []
-        shell_stats      = []
-            
-        # for org, part in self.partitions_by_organism.items():
-        #     persistent_stats.append(part["persistent"])
-        #     shell_stats.append(part["shell"])
-        #     cloud_stats.append(part["cloud"])
-            
-        return((mean(persistent_stats),mean(shell_stats),mean(cloud_stats),))
     
 ################ END OF CLASS PPanGGOLiN ################
 
