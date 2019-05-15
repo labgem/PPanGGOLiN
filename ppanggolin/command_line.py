@@ -413,6 +413,9 @@ def __main__():
     parser.add_argument("-e", "--evolution", default=False, action="store_true", help="""
     Flag: Partition the pangenome using multiple subsamples of a croissant number of organisms in order to obtain a curve of the evolution of the pangenome metrics
     """)
+    parser.add_argument("-je", "--just_evolution", default=False, action="store_true", help="""
+    Flag: Just compute and draw evolution curve (do not output the graph).
+    """)
     parser.add_argument("-ep", "--evolution_resampling_param", nargs=5, default=[0.1,10,10,1,float("Inf")], metavar=('RESAMPLING_RATIO','MINIMUM_RESAMPLING','MAXIMUM_RESAMPLING','STEP','LIMIT'), help="""
     5 Positive Numbers (or Inf for the last one):
     1st argument is the resampling ratio (FLOAT)
@@ -472,7 +475,7 @@ def __main__():
     1 Positive float number: specify the tolerance to estimate the set of not duplicated gene families. For example MARGIN_RATIO=0.1 imposes that the mean of occurence of the genes families in organisms is below 1.1.
     """)
     
-
+    time_report=""
     global options
     options = parser.parse_args()
     if options.input_file == None:
@@ -511,7 +514,7 @@ def __main__():
         list_dir.append(PROJECTION_DIR)
     if options.metadata[0]:
         list_dir.append(METADATA_DIR)
-    if options.evolution:
+    if options.evolution or options.just_evolution:
         list_dir.append(EVOLUTION_DIR)
         (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = options.evolution_resampling_param
         (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = (float(RESAMPLING_RATIO), int(RESAMPLING_MIN), int(RESAMPLING_MAX) if str(RESAMPLING_MAX).upper() != "Inf" else sys.maxsize, int(STEP), int(LIMIT) if str(LIMIT).upper() != "INF" else sys.maxsize)
@@ -576,7 +579,8 @@ def __main__():
                      options.infer_singletons,
                      options.add_rna_to_the_pangenome,
                      False)
-
+    end_loading = time()
+    time_report+= "Execution time of loading and neighborhood computation: """ +str(round(end_loading-start_loading, 2))+" s\n"
     #options.directed)
     # with open(OUTPUTDIR+CDS_FRAGMENTS_FILE_PREFIX+".csv","w") as CDS_fragments_file:
     #     CDS_fragments_file.write(",".join(["CDS_fragment","CDS_fragment_length","corresponding_gene_family","gene_family_median_length"])+"\n")
@@ -591,10 +595,10 @@ def __main__():
     # end_loading_file = time.time()
     # #-------------
     # start_neighborhood_computation = time.time()
-    end_loading = time()
+
     #-------------
     
-    start_partitioning = time()
+    
     if options.explore_beta[0] is not None:
         # Q = pan.__evaluate_nb_partitions(nem_dir_path    = TMP_DIR+NEM_DIR,
         #                                  free_dispersion = options.free_dispersion,
@@ -607,6 +611,7 @@ def __main__():
         traces_persistent =[]
         traces_shell =[]
         traces_cloud =[]
+        start_explore_beta = time()
         with open(OUTPUTDIR+"/beta.txt","w") as beta_metrics:
             for b in seq(float(options.explore_beta[0]),float(options.explore_beta[1]),float(options.explore_beta[2])):
                 b = round(b,3)
@@ -679,201 +684,210 @@ def __main__():
         out_plotly.plot(traces_persistent, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_persistent_beta_evolution.html", auto_open=False)
         out_plotly.plot(traces_shell, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_shell_beta_evolution.html", auto_open=False)
         out_plotly.plot(traces_cloud, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/freq_cloud_beta_evolution.html", auto_open=False)
-    pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
-                  old_nem_dir     = FORMER_NEM,
-                  Q               = options.overpartionning[0],
-                  Qmin_Qmax       = options.QminQmax,
-                  beta            = options.beta_smoothing[0],
-                  th_degree       = options.max_node_degree_smoothing[0],
-                  free_dispersion = options.free_dispersion,
-                  chunck_size     = options.chunck_size[0],
-                  soft_core_th    = options.soft_core_threshold[0],
-                  ICL_th          = options.ICL_margin[0],
-                  inplace         = True,
-                  just_stats      = False,
-                  nb_threads      = options.cpu[0],
-                  seed            = options.seed[0])
+        
+        end_explore_beta = time()
+        time_report+= "Execution time of beta exploration: """ +str(round(end_explore_beta-start_explore_beta, 2))+" s\n"
+
+    if not options.just_evolution:
+        start_partitioning = time()
+        pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
+                      old_nem_dir     = FORMER_NEM,
+                      Q               = options.overpartionning[0],
+                      Qmin_Qmax       = options.QminQmax,
+                      beta            = options.beta_smoothing[0],
+                      th_degree       = options.max_node_degree_smoothing[0],
+                      free_dispersion = options.free_dispersion,
+                      chunck_size     = options.chunck_size[0],
+                      soft_core_th    = options.soft_core_threshold[0],
+                      ICL_th          = options.ICL_margin[0],
+                      inplace         = True,
+                      just_stats      = False,
+                      nb_threads      = options.cpu[0],
+                      seed            = options.seed[0])
     
-    for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
-        basename_plot = os.path.basename(plot)
-        shutil.move(plot, OUTPUTDIR+FIGURE_DIR+basename_plot)
-    end_partitioning = time()
-    #-------------
-    if options.metadata[0]:
-        if options.force:
-            shutil.rmtree(OUTPUTDIR+METADATA_DIR)
-    #pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)
-    # if options.subpartition_shell:
-    #     if options.subpartition_shell[0] <0:
-    #         Q = pan.partition_shell(Q = "auto")
-    #         logging.getLogger().info(str(Q)+" subpartitions has been used to subpartition the shell genome...")
-    #     elif options.subpartition_shell[0]==0:
-    #         init=defaultdict(set)
-    #         for orgs, metad in metadata.items():
-    #             init[metad].add(orgs)
-    #         pan.partition_shell(init_using_qual=init)
-    #     else:
-    #         pan.partition_shell(options.subpartition_shell[0])
-    #-------------
-    # th = 100
-    # cpt_partition = {}
-    # for fam in pan.neighbors_graph.node:
-    #     cpt_partition[fam]= {"persistent":0,"shell":0,"cloud":0}
-    # cpt = 0
-    # validated = set()
-    # while(len(validated)<pan.pan_size):
-    #     sample = pan.sample(n=100)
-    #     sample.neighborhood_computation(options.undirected, light=True)
-    #     sample.partition(EVOLUTION+"/"+str(cpt), float(50), options.free_dispersion)#options.beta_smoothing[0]
-    #     cpt+=1
-    #     for node,data in pan.neighbors_graph.nodes(data=True):
-    #         cpt_partition[node][data["partition"]]+=1
-    #         if sum(cpt_partition[node].values()) > th:
-    #             validated.add(node)
-    # for fam, data in cpt_partition.items():
-    #     pan.neighbors_graph.nodes[fam]["partition_bis"]= max(data, key=data.get)
-    # print(cpt_partition)
-    #-------------
-    #-------------
-    start_writing_output_file = time()
+        for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
+            basename_plot = os.path.basename(plot)
+            shutil.move(plot, OUTPUTDIR+FIGURE_DIR+basename_plot)
+        end_partitioning = time()
+        time_report+= "Execution time of partitioning: """ +str(round(end_partitioning-start_partitioning, 2))+" s\n"
+        #-------------
+        # if options.metadata[0]:
+        #     if options.force:
+        #         shutil.rmtree(OUTPUTDIR+METADATA_DIR)
+        #pan.get_gene_families_related_to_metadata(metadata,OUTPUTDIR+METADATA_DIR)
+        # if options.subpartition_shell:
+        #     if options.subpartition_shell[0] <0:
+        #         Q = pan.partition_shell(Q = "auto")
+        #         logging.getLogger().info(str(Q)+" subpartitions has been used to subpartition the shell genome...")
+        #     elif options.subpartition_shell[0]==0:
+        #         init=defaultdict(set)
+        #         for orgs, metad in metadata.items():
+        #             init[metad].add(orgs)
+        #         pan.partition_shell(init_using_qual=init)
+        #     else:
+        #         pan.partition_shell(options.subpartition_shell[0])
+        #-------------
+        # th = 100
+        # cpt_partition = {}
+        # for fam in pan.neighbors_graph.node:
+        #     cpt_partition[fam]= {"persistent":0,"shell":0,"cloud":0}
+        # cpt = 0
+        # validated = set()
+        # while(len(validated)<pan.pan_size):
+        #     sample = pan.sample(n=100)
+        #     sample.neighborhood_computation(options.undirected, light=True)
+        #     sample.partition(EVOLUTION+"/"+str(cpt), float(50), options.free_dispersion)#options.beta_smoothing[0]
+        #     cpt+=1
+        #     for node,data in pan.neighbors_graph.nodes(data=True):
+        #         cpt_partition[node][data["partition"]]+=1
+        #         if sum(cpt_partition[node].values()) > th:
+        #             validated.add(node)
+        # for fam, data in cpt_partition.items():
+        #     pan.neighbors_graph.nodes[fam]["partition_bis"]= max(data, key=data.get)
+        # print(cpt_partition)
+        #-------------
+        #-------------
+        logging.getLogger().info("Extract and label paths")
+        start_paths = time()
+        correlated_path_groups, correlated_paths = pan.extract_shell_paths()
+        
 
-    logging.getLogger().info("Extract and label paths")
-    start_paths = time()
-    correlated_path_groups, correlated_paths = pan.extract_shell_paths()
-    end_paths = time()
+        with open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_vectors.csv","w") as correlated_paths_vectors, open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_confidences.csv","w") as correlated_paths_confidences:
+            header = []
+            for i, (path, vector) in enumerate(correlated_paths.items()):
+                if i==0:
+                    header = list(pan.organisms)
+                    correlated_paths_vectors.write(",".join(["Gene","Non-unique Gene name","Annotation","No. isolates","No. sequences","Avg sequences per isolate","Accessory Fragment","Genome Fragment","Order within Fragment","Accessory Order with Fragment","QC","Min group size nuc","Max group size nuc","Avg group size nuc"]+header)+"\n")
+                    correlated_paths_confidences.write(",".join(["correlated_paths"]+header)+"\n")
+                binary_vector = [int(round(v)) for v in vector]
+                correlated_paths_vectors.write(",".join([path]+["","",str(sum(binary_vector)),str(sum(binary_vector)),"","","","","","","","",""]+[str(v) for v in binary_vector])+("\n" if i < len(correlated_paths)-1 else ""))
+                correlated_paths_confidences.write(",".join([path]+["","",str(sum(binary_vector)),str(sum(binary_vector)),"","","","","","","","",""]+[str(v) for v in vector])+("\n" if i < len(correlated_paths)-1 else ""))
 
-    with open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_vectors.csv","w") as correlated_paths_vectors, open(OUTPUTDIR+"/"+PATH_DIR+"/"+CORRELATED_PATHS_PREFIX+"_confidences.csv","w") as correlated_paths_confidences:
-        header = []
-        for i, (path, vector) in enumerate(correlated_paths.items()):
-            if i==0:
-                header = list(pan.organisms)
-                correlated_paths_vectors.write(",".join(["Gene","Non-unique Gene name","Annotation","No. isolates","No. sequences","Avg sequences per isolate","Accessory Fragment","Genome Fragment","Order within Fragment","Accessory Order with Fragment","QC","Min group size nuc","Max group size nuc","Avg group size nuc"]+header)+"\n")
-                correlated_paths_confidences.write(",".join(["correlated_paths"]+header)+"\n")
-            binary_vector = [int(round(v)) for v in vector]
-            correlated_paths_vectors.write(",".join([path]+["","",str(sum(binary_vector)),str(sum(binary_vector)),"","","","","","","","",""]+[str(v) for v in binary_vector])+("\n" if i < len(correlated_paths)-1 else ""))
-            correlated_paths_confidences.write(",".join([path]+["","",str(sum(binary_vector)),str(sum(binary_vector)),"","","","","","","","",""]+[str(v) for v in vector])+("\n" if i < len(correlated_paths)-1 else ""))
-
-    if options.metadata[0]:
-        for col in tqdm(metadata.columns,total=metadata.shape[1], unit = "variable"):
-            results=None
-            if not numpy.issubdtype(metadata[col].dtype, numpy.number):
-                possible_values_index = {v:i for i,v in enumerate(list(set(metadata[col].dropna())))}
-                results = pandas.DataFrame(index = correlated_paths.keys(),columns=["cramer_phi","chi2_pvalue","bonferroni_chi2_pvalue"]+["sensitivity_"+v for v in possible_values_index.keys()]+["specifity_"+v for v in possible_values_index.keys()]+["F1score_"+v for v in possible_values_index.keys()])
-                for path, path_vector in correlated_paths.items():
-                     ctg_table = pandas.crosstab(pandas.Series([round(val,0) for val in path_vector],index=metadata.index),metadata[col])
-                     chi2_pvalue, cramerphi = cramers_corrected_stat(ctg_table.values)
-                     results.loc[path,"cramer_phi"]  = round(cramerphi,2)
-                     results.loc[path,"chi2_pvalue"] = chi2_pvalue
-                     results.loc[path,"bonferroni_chi2_pvalue"]  = chi2_pvalue/len(correlated_paths)
-
-                for value in list(possible_values_index.keys()):
-                    value_vector = (metadata[col] == value)
-                    value_vector[metadata[col].isna()]=numpy.nan
+        if options.metadata[0]:
+            for col in tqdm(metadata.columns,total=metadata.shape[1], unit = "variable"):
+                results=None
+                if not numpy.issubdtype(metadata[col].dtype, numpy.number):
+                    possible_values_index = {v:i for i,v in enumerate(list(set(metadata[col].dropna())))}
+                    results = pandas.DataFrame(index = correlated_paths.keys(),columns=["cramer_phi","chi2_pvalue","bonferroni_chi2_pvalue"]+["sensitivity_"+v for v in possible_values_index.keys()]+["specifity_"+v for v in possible_values_index.keys()]+["F1score_"+v for v in possible_values_index.keys()])
                     for path, path_vector in correlated_paths.items():
-                        #res   = kendalltau(value_vector.values,path_vector.round(0), nan_policy="omit")
+                        ctg_table = pandas.crosstab(pandas.Series([round(val,0) for val in path_vector],index=metadata.index),metadata[col])
+                        chi2_pvalue, cramerphi = cramers_corrected_stat(ctg_table.values)
+                        results.loc[path,"cramer_phi"]  = round(cramerphi,2)
+                        results.loc[path,"chi2_pvalue"] = chi2_pvalue
+                        results.loc[path,"bonferroni_chi2_pvalue"]  = chi2_pvalue/len(correlated_paths)
 
-                        pres_abs_vector = path_vector.round(0)[~numpy.isnan(value_vector)]
-                        value_vector    = value_vector[~numpy.isnan(value_vector)]
-                        true_positive  = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 1))[True]
-                        false_positive = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 0))[True]
-                        true_negative  = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 1))[True]
-                        false_negative = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 0))[True]
-                        results.loc[path,"sensitivity_"+value] = round(true_positive/(true_positive+false_positive),2)
-                        results.loc[path,"specifity_"+value] = round(true_negative/(false_negative+true_negative),2)
-                        results.loc[path,"F1score_"+value] = (2 * true_positive)/(2 * true_positive+false_positive+false_negative)
-                results.sort_values(by="cramer_phi",axis=0,ascending=False, inplace = True)
-            else:
-                results = pandas.DataFrame(index = correlated_paths.keys(),columns=["spearman_r"])
-                for path, path_vector in correlated_paths.items():
-                    res_spearman = spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit")
-                    results.loc[path,"spearman_r"] = round(res_spearman[0],3)
-                    results.loc[path,"pvalue"] = res_spearman[1]
-                results.sort_values(by="spearman_r",axis=0,ascending=False, inplace = True)
+                    for value in list(possible_values_index.keys()):
+                        value_vector = (metadata[col] == value)
+                        value_vector[metadata[col].isna()]=numpy.nan
+                        for path, path_vector in correlated_paths.items():
+                            #res   = kendalltau(value_vector.values,path_vector.round(0), nan_policy="omit")
 
-            #results = results.reindex_axis(results.min(axis=1).sort_values(ascending=False).index, axis=0)
-            results.to_csv(OUTPUTDIR+METADATA_DIR+"/results_"+str(col))
-    if options.compute_layout:
-        logging.getLogger().info("Computing layout")
-        start_layout = time()
-        pan.compute_layout()#multiThreaded=options.cpu[0])
-        end_layout = time()
+                            pres_abs_vector = path_vector.round(0)[~numpy.isnan(value_vector)]
+                            value_vector    = value_vector[~numpy.isnan(value_vector)]
+                            true_positive  = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 1))[True]
+                            false_positive = Counter((value_vector == pres_abs_vector) & (pres_abs_vector == 0))[True]
+                            true_negative  = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 1))[True]
+                            false_negative = Counter((value_vector != pres_abs_vector) & (pres_abs_vector == 0))[True]
+                            results.loc[path,"sensitivity_"+value] = round(true_positive/(true_positive+false_positive),2)
+                            results.loc[path,"specifity_"+value] = round(true_negative/(false_negative+true_negative),2)
+                            results.loc[path,"F1score_"+value] = (2 * true_positive)/(2 * true_positive+false_positive+false_negative)
+                    results.sort_values(by="cramer_phi",axis=0,ascending=False, inplace = True)
+                else:
+                    results = pandas.DataFrame(index = correlated_paths.keys(),columns=["spearman_r"])
+                    for path, path_vector in correlated_paths.items():
+                        res_spearman = spearmanr(metadata[col].values,path_vector.round(0), nan_policy="omit")
+                        results.loc[path,"spearman_r"] = round(res_spearman[0],3)
+                        results.loc[path,"pvalue"] = res_spearman[1]
+                    results.sort_values(by="spearman_r",axis=0,ascending=False, inplace = True)
 
-    logging.getLogger().info("Writing GEXF file")
-    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
-    logging.getLogger().info("Writing GEXF light file")
-    pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light", options.compress_graph, metadata, False,False)
-    logging.getLogger().info("Writing JSON")
-    pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
-    
-    with open(OUTPUTDIR+"/pangenome.txt","w") as pan_text:
-        for partition, families in pan.partitions.items():
-            file = open(OUTPUTDIR+PARTITION_DIR+"/"+partition+".txt","w")
-            if len(families):
-                file.write("\n".join(families)+"\n")
-                if partition in set(["exact_core","exact_accessory"]):
-                    pan_text.write("\n".join(families)+"\n")
-            file.close()
-        for partition, families in pan.subpartitions_shell.items():
-            file = open(OUTPUTDIR+PARTITION_DIR+"/"+partition+".txt","w")
-            if len(families):
-                file.write("\n".join(families)+"\n")
-            file.close()
-    
-    pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
-    pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
-    if pan.nb_organisms<=options.chunck_size[0]:
-        pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
+                #results = results.reindex_axis(results.min(axis=1).sort_values(ascending=False).index, axis=0)
+                results.to_csv(OUTPUTDIR+METADATA_DIR+"/results_"+str(col))
+        end_paths = time()
+        time_report+= "Execution time of path detection and labelling: """ +str(round(end_paths-start_paths, 2))+" s\n"
+        if options.compute_layout:
+            logging.getLogger().info("Computing layout")
+            start_layout = time()
+            pan.compute_layout()#multiThreaded=options.cpu[0])
+            end_layout = time()
+            time_report+= "Execution time of layout computation: """ +str(round(end_layout-start_layout, 2))+" s\n"
+        start_writing_output_file = time()
+        logging.getLogger().info("Writing GEXF file")
+        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
+        logging.getLogger().info("Writing GEXF light file")
+        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light", options.compress_graph, metadata, False,False)
+        logging.getLogger().info("Writing JSON")
+        pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
+        
+        with open(OUTPUTDIR+"/pangenome.txt","w") as pan_text:
+            for partition, families in pan.partitions.items():
+                file = open(OUTPUTDIR+PARTITION_DIR+"/"+partition+".txt","w")
+                if len(families):
+                    file.write("\n".join(families)+"\n")
+                    if partition in set(["exact_core","exact_accessory"]):
+                        pan_text.write("\n".join(families)+"\n")
+                file.close()
+            for partition, families in pan.subpartitions_shell.items():
+                file = open(OUTPUTDIR+PARTITION_DIR+"/"+partition+".txt","w")
+                if len(families):
+                    file.write("\n".join(families)+"\n")
+                file.close()
+        
+        pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
+        pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
+        if pan.nb_organisms<=options.chunck_size[0]:
+            pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
 
-    if options.projection:
-        logging.getLogger().info("Projection...")
-        # start_projection = time()
-        pan.projection(OUTPUTDIR+PROJECTION_DIR, [pan.organisms.__getitem__(index-1) for index in options.projection] if options.projection[0] > 0 else list(pan.organisms), duplication_margin=options.duplication_margin[0])
-        # end_projection = time()
-    end_writing_output_file = time()
+        if options.projection:
+            logging.getLogger().info("Projection...")
+            # start_projection = time()
+            pan.projection(OUTPUTDIR+PROJECTION_DIR, [pan.organisms.__getitem__(index-1) for index in options.projection] if options.projection[0] > 0 else list(pan.organisms), duplication_margin=options.duplication_margin[0])
+            # end_projection = time()
+        end_writing_output_file = time()
+        time_report+= "Execution time of writing output files: """ +str(round(end_writing_output_file-start_writing_output_file, 2))+" s\n"
+        logging.getLogger().info("Generating some plots")
+        start_plots = time()
+        pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
+        if pan.nb_organisms<=500:
+            pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
+        else:
+            #pan.tile_plot(OUTPUTDIR+FIGURE_DIR,shell_persistent_only=False)
+            logging.getLogger().warning("Too mush organisms (>1000) to display the tile plot using plot.ly, please use the Rscript to draw a static version of the tile plot")
+        end_plots = time()
+        time_report+= "Execution time of the generation of plots: """ +str(round(end_plots-start_plots, 2))+" s\n"
+        del pan.annotations # no more required for the following process
+        # print(pan.partitions_by_organisms)
+        # partitions_by_organisms_file = open(OUTPUTDIR+"/partitions_by_organisms.txt","w")
+        # exact_by_organisms_file = open(OUTPUTDIR+"/exacte_by_organisms.txt","w")
+        # for org, partitions in pan.partitions_by_organisms.items():
+        #     partitions_by_organisms_file.write(org+"\t"+str(len(partitions["persistent"]))+
+        #                                            "\t"+str(len(partitions["shell"]))+
+        #                                            "\t"+str(len(partitions["cloud"]))+"\n")
+        #     exact_by_organisms_file.write(org+"\t"+str(len(partitions["exact_core"]))+
+        #                                       "\t"+str(len(partitions["exact_accessory"]))+"\n")
+        # partitions_by_organisms_file.close()
+        # exact_by_organisms_file.close()
+        #-------------
 
-    logging.getLogger().info("Generating some plots")
-    # start_plots = time()
-    pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
-    if pan.nb_organisms<=500:
-        pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
-    else:
-        #pan.tile_plot(OUTPUTDIR+FIGURE_DIR,shell_persistent_only=False)
-        logging.getLogger().warning("Too mush organisms (>1000) to display the tile plot using plot.ly, please use the Rscript to draw a static version of the tile plot")
-    end_plots = time()
-    del pan.annotations # no more required for the following process
-    # print(pan.partitions_by_organisms)
-    # partitions_by_organisms_file = open(OUTPUTDIR+"/partitions_by_organisms.txt","w")
-    # exact_by_organisms_file = open(OUTPUTDIR+"/exacte_by_organisms.txt","w")
-    # for org, partitions in pan.partitions_by_organisms.items():
-    #     partitions_by_organisms_file.write(org+"\t"+str(len(partitions["persistent"]))+
-    #                                            "\t"+str(len(partitions["shell"]))+
-    #                                            "\t"+str(len(partitions["cloud"]))+"\n")
-    #     exact_by_organisms_file.write(org+"\t"+str(len(partitions["exact_core"]))+
-    #                                       "\t"+str(len(partitions["exact_accessory"]))+"\n")
-    # partitions_by_organisms_file.close()
-    # exact_by_organisms_file.close()
-    #-------------
+        logging.getLogger().info(pan)
+        with open(OUTPUTDIR+"/"+SUMMARY_STATS_FILE_PREFIX+".txt","w") as file_stats:
+            file_stats.write("Command: "+" ".join([arg for arg in sys.argv])+"\n")
+            file_stats.write("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version+"\n")
+            file_stats.write("Python version: "+sys.version+"\n")
+            file_stats.write("Networkx version: "+nx.__version__+"\n")
+            file_stats.write(str(pan))
 
-    logging.getLogger().info(pan)
-    with open(OUTPUTDIR+"/"+SUMMARY_STATS_FILE_PREFIX+".txt","w") as file_stats:
-        file_stats.write("Command: "+" ".join([arg for arg in sys.argv])+"\n")
-        file_stats.write("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version+"\n")
-        file_stats.write("Python version: "+sys.version+"\n")
-        file_stats.write("Networkx version: "+nx.__version__+"\n")
-        file_stats.write(str(pan))
+        if options.untangle>0:
+            pan.untangle_neighbors_graph(options.untangle[0])
+            pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata,"untangled_neighbors_graph" )
 
-    if options.untangle>0:
-        pan.untangle_neighbors_graph(options.untangle[0])
-        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata,"untangled_neighbors_graph" )
+        plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
 
-    plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
-
-    if options.evolution:
-        logging.getLogger().info("Evolution...")
+    if options.evolution or options.just_evolution:
+        logging.getLogger().info("Evolution... (if WARNING messages occurs about the low number of selected organisms during the computation of evolution, its must be ignored)")
         start_evolution = time()
-        if not options.verbose:
-            logging.disable(logging.INFO)# disable INFO message to not disturb the progess bar
-            logging.disable(logging.WARNING)# disable WARNING message to not disturb the progess bar
+        # if not options.verbose:
+        #     logging.disable(logging.INFO)# disable INFO message to not disturb the progess bar
+        #     logging.disable(logging.WARNING)# disable WARNING message to not disturb the progess bar
         combinations = samplingCombinations(list(pan.organisms), sample_ratio=RESAMPLING_RATIO, sample_min=RESAMPLING_MIN, sample_max=RESAMPLING_MAX, seed=options.seed[0])
         
         global shuffled_comb
@@ -887,17 +901,18 @@ def __main__():
         evol =  open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv","w")
 
         evol.write(",".join(["nb_org","persistent","shell","cloud","undefined","exact_core","exact_accessory","soft_core","soft_accessory","pangenome","Q"])+"\n")
-        evol.write(",".join([str(pan.nb_organisms),    
-                              str(len(pan.partitions["persistent"])),
-                              str(len(pan.partitions["shell"])),
-                              str(len(pan.partitions["cloud"])),
-                              str(len(pan.partitions["undefined"])),
-                              str(len(pan.partitions["exact_core"])),
-                              str(len(pan.partitions["exact_accessory"])),
-                              str(len(pan.partitions["soft_core"])),
-                              str(len(pan.partitions["soft_accessory"])),
-                              str(len(pan.partitions["exact_accessory"])+len(pan.partitions["exact_core"])),
-                              str(pan.Q)])+"\n")
+        if pan.is_partitionned and LIMIT >= pan.nb_organisms:
+            evol.write(",".join([str(pan.nb_organisms),    
+                                 str(len(pan.partitions["persistent"])),
+                                 str(len(pan.partitions["shell"])),
+                                 str(len(pan.partitions["cloud"])),
+                                 str(len(pan.partitions["undefined"])),
+                                 str(len(pan.partitions["exact_core"])),
+                                 str(len(pan.partitions["exact_accessory"])),
+                                 str(len(pan.partitions["soft_core"])),
+                                 str(len(pan.partitions["soft_accessory"])),
+                                 str(len(pan.partitions["exact_accessory"])+len(pan.partitions["exact_core"])),
+                                 str(pan.Q)])+"\n")
         evol.flush()
         
         with ProcessPoolExecutor(options.cpu[0]) as executor:
@@ -1019,6 +1034,7 @@ def __main__():
 
         # ushaped_plot.add_data_set(persistent_values,'column','Persistent', color = COLORS["persistent"])
         end_evolution = time()
+        time_report+= "Execution time of the computation of evolution: """ +str(round(end_evolution-start_evolution, 2))+" s\n"
         #restaure info and warning messages 
 
     # if options.new_genes_evolution:
@@ -1043,16 +1059,16 @@ def __main__():
     #     logging.disable(logging.NOTSET)#restaure info and warning messages 
     #-------------
 
-    logging.getLogger().info("\n"+
-    "Execution time of loading and neighborhood computation: """ +str(round(end_loading-start_loading, 2))+" s\n"+
-    "Execution time of partitioning: " +str(round(end_partitioning-start_partitioning, 2))+" s\n"+
-    "Execution time of path detection: " +str(round(end_paths-start_paths, 2))+" s\n"+
-    (("Execution time of layout computation: " +str(round(end_layout-start_layout, 2))+" s\n") if options.compute_layout else "")+
-    "Execution time of writing output files: " +str(round(end_writing_output_file-start_writing_output_file, 2))+" s\n"+
-    (("Execution time of evolution: " +str(round(end_evolution-start_evolution, 2))+" s\n") if options.evolution else "")+
-    "Total execution time: " +str(round(time()-start_loading, 2))+" s\n")
+    logging.getLogger().info("\n"+time_report)
 
-    logging.getLogger().info("""The pangenome computation is complete.""")
+    # "Execution time of loading and neighborhood computation: """ +str(round(end_loading-start_loading, 2))+" s\n"+
+    # "Execution time of partitioning: " +str(round(end_partitioning-start_partitioning, 2))+" s\n"+
+    # "Execution time of path detection: " +str(round(end_paths-start_paths, 2))+" s\n"+
+    # (("Execution time of layout computation: " +str(round(end_layout-start_layout, 2))+" s\n") if options.compute_layout else "")+
+    # "Execution time of writing output files: " +str(round(end_writing_output_file-start_writing_output_file, 2))+" s\n"+
+    # (("Execution time of evolution: " +str(round(end_evolution-start_evolution, 2))+" s\n") if options.evolution else "")+
+    # "Total execution time: " +str(round(time()-start_loading, 2))+" s\n"
+    logging.getLogger().info("""PPanGGOLiN is complete.""")
 
     if options.plots:
         logging.getLogger().info("Running R script generating plot")
