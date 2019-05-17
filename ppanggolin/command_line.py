@@ -832,8 +832,8 @@ def __main__():
                     file.write("\n".join(families)+"\n")
                 file.close()
         
-        pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
-        pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
+        pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX, compress = options.compress_graph)
+        pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX,  compress = options.compress_graph)
         if pan.nb_organisms<=options.chunck_size[0]:
             pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
 
