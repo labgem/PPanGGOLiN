@@ -486,7 +486,18 @@ def __main__():
     if options.verbose:
         level = logging.DEBUG
 
+    global OUTPUTDIR
+    global TMP_DIR
+    OUTPUTDIR = options.output_directory[0]
+    TMP_DIR   = options.temporary_directory[0]
+    
+
     logging.basicConfig(stream=sys.stdout, level = level, format = '\n%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+    fhandler = logging.FileHandler(filename = OUTPUTDIR + "/PPanGGOLiN.log",mode = "w")
+    fhandler.setFormatter(logging.Formatter(fmt = "\n%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
+    fhandler.setLevel(level)
+    logging.getLogger().addHandler(fhandler)
 
     logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
     logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
@@ -495,12 +506,10 @@ def __main__():
 
     random.seed(options.seed[0])
     numpy.random.seed(options.seed[0])
-    global OUTPUTDIR
-    global TMP_DIR
+   
     global FORMER_NEM 
     
-    OUTPUTDIR = options.output_directory[0]
-    TMP_DIR   = options.temporary_directory[0]
+    
     if options.use_old_partition:
         FORMER_NEM = options.use_old_partition[0]
         logging.getLogger().info("Former partition to reuse is stored in: "+FORMER_NEM)

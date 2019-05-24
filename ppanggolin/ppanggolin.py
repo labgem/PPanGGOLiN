@@ -259,6 +259,11 @@ class PPanGGOLiN:
             logging.getLogger().error("""
                 The following identifiers of circular contigs in the file listing organisms have not been found in any region type of the gff files: '"""+"'\t'".join(check_circular_contigs.keys())+"'")
             exit(1)
+        
+        #closing file objects.
+        families_tsv_file.close()
+        organisms_file.close()
+
 
     def __load_gff(self, gff_file_path, families, organism, lim_occurence = 0, infer_singletons = False, add_rna_to_the_pangenome = False):
         """
