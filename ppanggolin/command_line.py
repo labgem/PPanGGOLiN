@@ -490,9 +490,24 @@ def __main__():
     global TMP_DIR
     OUTPUTDIR = options.output_directory[0]
     TMP_DIR   = options.temporary_directory[0]
-    
 
     logging.basicConfig(stream=sys.stdout, level = level, format = '\n%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+    list_dir = ["",FIGURE_DIR,PARTITION_DIR,PATH_DIR]
+    if options.projection:
+        list_dir.append(PROJECTION_DIR)
+    if options.metadata[0]:
+        list_dir.append(METADATA_DIR)
+    if options.evolution or options.just_evolution:
+        list_dir.append(EVOLUTION_DIR)
+        (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = options.evolution_resampling_param
+        (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = (float(RESAMPLING_RATIO), int(RESAMPLING_MIN), int(RESAMPLING_MAX) if str(RESAMPLING_MAX).upper() != "Inf" else sys.maxsize, int(STEP), int(LIMIT) if str(LIMIT).upper() != "INF" else sys.maxsize)
+    for directory in list_dir:
+        if not os.path.exists(OUTPUTDIR+directory):
+            os.makedirs(OUTPUTDIR+directory)
+        elif not options.force:
+            logging.getLogger().error(OUTPUTDIR+directory+" already exists")
+            exit(1)
 
     fhandler = logging.FileHandler(filename = OUTPUTDIR + "/PPanGGOLiN.log",mode = "w")
     fhandler.setFormatter(logging.Formatter(fmt = "\n%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
@@ -516,25 +531,10 @@ def __main__():
         
     logging.getLogger().info("Output directory is: "+OUTPUTDIR)
     logging.getLogger().info("Temporary directory is: "+TMP_DIR)
-        
-        
-    list_dir = ["",FIGURE_DIR,PARTITION_DIR,PATH_DIR]
-    if options.projection:
-        list_dir.append(PROJECTION_DIR)
-    if options.metadata[0]:
-        list_dir.append(METADATA_DIR)
-    if options.evolution or options.just_evolution:
-        list_dir.append(EVOLUTION_DIR)
-        (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = options.evolution_resampling_param
-        (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = (float(RESAMPLING_RATIO), int(RESAMPLING_MIN), int(RESAMPLING_MAX) if str(RESAMPLING_MAX).upper() != "Inf" else sys.maxsize, int(STEP), int(LIMIT) if str(LIMIT).upper() != "INF" else sys.maxsize)
-    for directory in list_dir:
-        if not os.path.exists(OUTPUTDIR+directory):
-            os.makedirs(OUTPUTDIR+directory)
-        elif not options.force:
-            logging.getLogger().error(OUTPUTDIR+directory+" already exists")
-            exit(1)
-            
-            
+
+
+
+
     if FORMER_NEM:
         if not os.path.isdir(FORMER_NEM):
             raise FileNotFoundError(" Directory provided for old NEM results ('" + FORMER_NEM + "') does not exist.")
