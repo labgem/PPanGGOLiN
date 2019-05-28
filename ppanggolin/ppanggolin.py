@@ -188,6 +188,7 @@ class PPanGGOLiN:
         self.soft_core_th                   = None
         self.path_groups_vectors            = {}# key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
         self.path_vectors                   = {}# key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
+        (self.all_BICs, self.all_ICLs, self.all_LLs)    = (None,None,None)
         if init_from == "file":
             self.__initialize_from_files(*args)
         elif init_from == "args":
@@ -472,7 +473,7 @@ class PPanGGOLiN:
         self.partitions                    = {}
         for p in SHORT_TO_LONG.values():
             self.partitions[p] = list()
-        self.BIC                           = None 
+        (self.all_BICs, self.all_ICLs, self.all_LLs)    = (None,None,None)
         self.__neighborhood_computation(update=new_orgs)
 
     def __repr__(self):
@@ -497,7 +498,7 @@ class PPanGGOLiN:
         self.partitions                    = {}
         for p in SHORT_TO_LONG.values():
             self.partitions[p] = list()
-        self.BIC                           = None
+        (self.all_BICs, self.all_ICLs, self.all_LLs)    = (None,None,None)
         
         self.delete_nem_intermediate_files()
         self.__neighborhood_computation()
@@ -1144,7 +1145,7 @@ class PPanGGOLiN:
             str_file.write("S\t"+str(len(index_fam))+"\t"+
                             str(len(select_organisms))+"\n")
         
-        return(total_edges_weight)
+        return(total_edges_weight,len(index_fam))
 
     def __evaluate_nb_partitions(self, nem_dir_path = tempfile.mkdtemp(),
                                  old_nem_dir        = None,
@@ -1166,7 +1167,7 @@ class PPanGGOLiN:
         else:
             init = "param_file"
         
-        edges_weight = self.__write_nem_input_files(nem_dir_path,select_organisms, old_nem_dir = old_nem_dir)
+        edges_weight,nb_fam = self.__write_nem_input_files(nem_dir_path,select_organisms, old_nem_dir = old_nem_dir)
 
         def run_several_quick_partitioning (all_Q_to_partition):
             all_log_likelihood = []
@@ -1181,6 +1182,7 @@ class PPanGGOLiN:
                                                                                q,
                                                                                seed,
                                                                                init,
+                                                                               True,
                                                                                nb_iter,#quick
                                                                                True) for q in all_Q_to_partition]))
                 else:
@@ -1192,6 +1194,7 @@ class PPanGGOLiN:
                                                                 q,
                                                                 seed,
                                                                 init,
+                                                                True,
                                                                 nb_iter,#quick, only 10 iterations
                                                                 True))
             logging.disable(logging.NOTSET)# restaure message
@@ -1200,7 +1203,7 @@ class PPanGGOLiN:
             all_LLs  = defaultdict(float)
             for Q_candidate, log_likelihood, entropy in all_log_likelihood:
                 if log_likelihood is not None:
-                    all_BICs[Q_candidate] = calculate_BIC(log_likelihood,Q_candidate * (len(select_organisms) + 1 + (len(select_organisms) if free_dispersion else 1)),self.pan_size)
+                    all_BICs[Q_candidate] = calculate_BIC(log_likelihood,Q_candidate * (len(select_organisms) + 1 + (len(select_organisms) if free_dispersion else 1)),nb_fam)
                     all_ICLs[Q_candidate] = all_BICs[Q_candidate] - entropy
                     all_LLs[Q_candidate]  = log_likelihood
             return(tuple([all_BICs,all_ICLs,all_LLs]))
@@ -1274,7 +1277,7 @@ class PPanGGOLiN:
                                        #dict(type='line', x0=2, x1=max_icl_Q, y0=(3*slope)+intercept, y1=(max_icl_Q*slope)+intercept, line = dict(dict(width=1, dash='dashdot', color="grey")))])
             fig = go.Figure(data=traces, layout=layout)
             out_plotly.plot(fig, filename=nem_dir_path+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
-        return(best_Q, edges_weight)
+        return(best_Q, edges_weight, BICs, ICLs, LLs)
 
     def __write_nem_param_from_file(self, nem_dir_path, select_organisms, old_nem_dir):
         
@@ -1351,6 +1354,7 @@ class PPanGGOLiN:
                         inplace          = True,
                         just_stats       = False,
                         nb_threads       = 1,
+                        keep_temp_files  = True,
                         seed             = 42):
         """
             Use the graph topology and the presence or absence of genes from each organism into families to partition the pangenome in three groups ('persistent', 'shell' and 'cloud')
@@ -1426,15 +1430,18 @@ class PPanGGOLiN:
             else:
                 stats["soft_accessory"]+=1
 
+        BICs, ICLs, LLs = None, None, None
+
         def run_evaluate_nb_partitions(orgs, Q):
+            bics, icls, lls = None, None, None
             if Q == -1:
                 if self.Q == 3:
                     Q = 3
-                    edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
+                    edges_weight,nb_fam = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
                 else:
                     if inplace:
                         logging.getLogger().info("Estimating the optimal number of partitions...")
-                    (Q,edges_weight) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
+                    (Q,edges_weight, bics, icls, lls) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
                                                                      old_nem_dir      = old_nem_dir,
                                                                      select_organisms = orgs,
                                                                      free_dispersion  = free_dispersion,
@@ -1446,11 +1453,11 @@ class PPanGGOLiN:
                     if inplace:
                         logging.getLogger().info("Best Q is "+str(Q))
             else:
-                edges_weight = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
-            return(Q, edges_weight)
+                edges_weight,nb_fam = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
+            return(Q, edges_weight, bics, icls, lls)
         
         if len(select_organisms) > chunck_size:
-            Q,edges_weight = run_evaluate_nb_partitions(OrderedSet(random.sample(select_organisms,chunck_size)),Q)
+            Q, edges_weight, BICs, ICLs, LLs = run_evaluate_nb_partitions(OrderedSet(random.sample(select_organisms,chunck_size)),Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
                 self.chunck_size = chunck_size
@@ -1499,7 +1506,7 @@ class PPanGGOLiN:
 
             with contextlib.closing(Pool(processes = nb_threads)) if nb_threads>1 else empty_cm() as pool:
                 #proba_sample = OrderedDict(zip(select_organisms,[len(select_organisms)]*len(select_organisms)))
-                pan_size = stats["exact_accessory"]+stats["exact_core"]
+                pan_size = len(neighbors_graph) if neighbors_graph is not None else len(self.neighbors_graph)
                 random.seed(seed)
                 while len(validated)<pan_size:
                     if (sem.acquire() if nb_threads>1 else True):#
@@ -1526,26 +1533,28 @@ class PPanGGOLiN:
                         #         proba_sample[org] = p - len(select_organisms)/chunck_size if p >1 else 1
                         #     else:
                         #         proba_sample[org] = p + len(select_organisms)/chunck_size
-                        use_the_whole_graph_degree = True if len(select_organisms)==self.organisms else False
-                        edges_weight = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
+                        #use_the_whole_graph_degree = True if len(select_organisms)==self.organisms else False
+                        edges_weight, nb_fam = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
                         if nb_threads>1:
                             res = pool.apply_async(run_partitioning,
                                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                            len(orgs),
-                                                           beta*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
+                                                           beta*(nb_fam/edges_weight),
                                                            free_dispersion,
                                                            Q,
                                                            seed,
-                                                           init),                                                        
+                                                           init,
+                                                           keep_temp_files),                                                        
                                                    callback = validate_family)
                         else:
                             res = run_partitioning(nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
                                                    len(orgs),
-                                                   beta*((stats["exact_accessory"]+stats["exact_core"])/edges_weight),
+                                                   beta*(nb_fam/edges_weight),
                                                    free_dispersion,
                                                    Q,
                                                    seed,
-                                                   init)
+                                                   init,
+                                                   keep_temp_files)
                             validate_family(res)
                         cpt +=1
                     else:
@@ -1558,7 +1567,6 @@ class PPanGGOLiN:
                     pool.close()
                     pool.join() 
                 #BIC = total_BIC/cpt
-                BIC = 0
             # if just_stats:
             #     print('len(validated)= '+str(len(validated)))
             #     print('len(cpt_partition)= '+str(len(cpt_partition)))
@@ -1584,7 +1592,7 @@ class PPanGGOLiN:
             #     print('total '+str(stats["exact_accessory"]+stats["exact_core"]))
             #     print(' ')
         else:
-            Q,edges_weight = run_evaluate_nb_partitions(select_organisms,Q)
+            Q, edges_weight, BICs, ICLs, LLs  = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
 
@@ -1634,7 +1642,7 @@ class PPanGGOLiN:
             # #partitionning_results = partitionning_results[PARTITION_PARAMETERS]                
                 
         if inplace:
-            #self.BIC = BIC
+            (self.all_BICs, self.all_ICLs, self.all_LLs) = BICs, ICLs, LLs
             self.Q                    = Q
             self.beta                 = beta
             self.free_dispersion      = free_dispersion
@@ -2658,7 +2666,7 @@ class PPanGGOLiN:
 ################ FUNCTION run_partitioning ################
 """ """
 
-def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", itermax=100, just_log_likelihood=False):
+def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", keep_files = True, itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("run_partitioning...")
     if (Q<3 and not just_log_likelihood) or Q<2:
         logging.getLogger().error("Bad usage, Q must be higher or equal to 3 except for testing just_log_likelihood of a 2 paritions model")
@@ -2943,12 +2951,24 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
             #logging.getLogger().debug(index.keys())
     except IOError:
         if not just_log_likelihood:
-            logging.getLogger().warning("Statistical partitioning do not works (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file.log")
+            logging.getLogger().warning("Statistical partitioning do not works (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(Q)+".log")
         else:
-            logging.getLogger().debug("Statistical partitioning do not works (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file.log")
+            logging.getLogger().debug("Statistical partitioning do not works (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(Q)+".log")
     except ValueError:
         ## return the default partitions_list which correspond to undefined
         pass
+
+    if not keep_files:
+        os.remove(nem_dir_path+"/nem_file_"+str(Q)+".uf")
+        os.remove(nem_dir_path+"/nem_file_"+str(Q)+".mf")
+        os.remove(nem_dir_path+"/nem_file_"+str(Q)+".log")
+        os.remove(nem_dir_path+"/nem_file_"+str(Q)+".stderr")
+        os.remove(nem_dir_path+"/nem_file_init_"+str(Q)+".m")
+        os.remove(nem_dir_path+"/nem_file.index")
+        os.remove(nem_dir_path+"/nem_file.dat")
+        os.remove(nem_dir_path+"/nem_file.nei")
+        os.remove(nem_dir_path+"/nem_file.str")
+
     if just_log_likelihood:
         return (tuple([Q,log_likelihood,entropy]))
     else:

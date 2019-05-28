@@ -291,6 +291,7 @@ def resample(index):
                           inplace          = False,
                           just_stats       = True,
                           nb_threads       = 1,
+                          keep_temp_files  = options.keep_nem_temporary_files,
                           seed             = options.seed[0])
     if not options.keep_nem_temporary_files:
         shutil.rmtree(nem_dir_path)
@@ -627,6 +628,7 @@ def __main__():
                               inplace         = True,
                               just_stats      = False,
                               nb_threads      = options.cpu[0],
+                              keep_temp_files = options.keep_nem_temporary_files,
                               seed            = options.seed[0])
                 persistent_freq[b]= {}
                 for f in set(pan.partitions["persistent"]) - set(persistent_freq[0.0]):
@@ -703,6 +705,7 @@ def __main__():
                       inplace         = True,
                       just_stats      = False,
                       nb_threads      = options.cpu[0],
+                      keep_temp_files = options.keep_nem_temporary_files,
                       seed            = options.seed[0])
     
         for plot in glob.glob(TMP_DIR+NEM_DIR+"*.html", recursive=False):
@@ -883,7 +886,7 @@ def __main__():
         plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
 
     if options.evolution or options.just_evolution:
-        logging.getLogger().info("Evolution... (if WARNING messages occurs about the low number of selected organisms during the computation of evolution, its must be ignored)")
+        logging.getLogger().info("Evolution... (if WARNING messages occurs about the low number of selected organisms during the computation of evolution, it must be ignored)")
         start_evolution = time()
         # if not options.verbose:
         #     logging.disable(logging.INFO)# disable INFO message to not disturb the progess bar
