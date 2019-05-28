@@ -260,6 +260,11 @@ class PPanGGOLiN:
             logging.getLogger().error("""
                 The following identifiers of circular contigs in the file listing organisms have not been found in any region type of the gff files: '"""+"'\t'".join(check_circular_contigs.keys())+"'")
             exit(1)
+        
+        #closing file objects.
+        families_tsv_file.close()
+        organisms_file.close()
+
 
     def __load_gff(self, gff_file_path, families, organism, lim_occurence = 0, infer_singletons = False, add_rna_to_the_pangenome = False):
         """
@@ -2140,15 +2145,15 @@ class PPanGGOLiN:
                     parameters_file.write("pi_q:"+str(pi)+"\n")
                     parameters_file.write("===\n")
 
-    def write_melted_matrix(self, path):
+    def write_melted_matrix(self, path, compress = False):
         if self.is_partitionned:
-            with open(path+".csv","w") as melted_matrix:
+            with write_compressed_or_not(path, compress) as melted_matrix:
                 for node, data in self.neighbors_graph.nodes(data=True):
                     for key, d in data.items():
                         if key in self.organisms:
                             melted_matrix.write('"'+'"'.join([node,key]+list(d))+'"\n')
 
-    def write_matrix(self, path, header=True, csv = True, Rtab = True):
+    def write_matrix(self, path, compress=False, header=True, csv = True, Rtab = True):
         """
             Export the pangenome as a csv_matrix similar to the csv et Rtab matrix exported by Roary (https://sanger-pathogens.github.io/Roary/)
             :param nem_dir_path: a str containing the path of the out files (csv+Rtab)
@@ -2158,7 +2163,7 @@ class PPanGGOLiN:
         """ 
         if self.is_partitionned:
             def write_file(ext, gene_or_not, sep):
-                with open(path+"."+ext,"w") as matrix:
+                with write_compressed_or_not(path+"."+ext,compress) as matrix:
                     if header:
                         matrix.write(sep.join(['"Gene"',#1
                                                '"Non-unique Gene name"',#2

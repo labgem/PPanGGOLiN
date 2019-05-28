@@ -36,6 +36,15 @@ def read_compressed_or_not(file_or_file_path):
         file = open(file.name,"r")
         return(file)
 
+def write_compressed_or_not(file_path, compress):
+    """
+        Returns a file-like object, compressed or not.
+    """
+    if compress:
+        return gzip.open(file_path + ".gz", mode="wt")
+    else:
+        return open(file_path, "w")
+
 def get_num_lines(file):
     fp = open(file.name, "r+")
     buf = mmap.mmap(fp.fileno(), 0)

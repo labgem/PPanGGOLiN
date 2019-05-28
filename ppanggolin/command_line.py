@@ -487,29 +487,13 @@ def __main__():
     if options.verbose:
         level = logging.DEBUG
 
-    logging.basicConfig(stream=sys.stdout, level = level, format = '\n%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-
-    logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
-    logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
-    logging.getLogger().info("Python version: "+sys.version)
-    logging.getLogger().info("Networkx version: "+nx.__version__)
-
-    random.seed(options.seed[0])
-    numpy.random.seed(options.seed[0])
     global OUTPUTDIR
     global TMP_DIR
-    global FORMER_NEM 
-    
     OUTPUTDIR = options.output_directory[0]
     TMP_DIR   = options.temporary_directory[0]
-    if options.use_old_partition:
-        FORMER_NEM = options.use_old_partition[0]
-        logging.getLogger().info("Former partition to reuse is stored in: "+FORMER_NEM)
-        
-    logging.getLogger().info("Output directory is: "+OUTPUTDIR)
-    logging.getLogger().info("Temporary directory is: "+TMP_DIR)
-        
-        
+
+    logging.basicConfig(stream=sys.stdout, level = level, format = '\n%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
     list_dir = ["",FIGURE_DIR,PARTITION_DIR,PATH_DIR]
     if options.projection:
         list_dir.append(PROJECTION_DIR)
@@ -525,8 +509,33 @@ def __main__():
         elif not options.force:
             logging.getLogger().error(OUTPUTDIR+directory+" already exists")
             exit(1)
-            
-            
+
+    fhandler = logging.FileHandler(filename = OUTPUTDIR + "/PPanGGOLiN.log",mode = "w")
+    fhandler.setFormatter(logging.Formatter(fmt = "\n%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
+    fhandler.setLevel(level)
+    logging.getLogger().addHandler(fhandler)
+
+    logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
+    logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
+    logging.getLogger().info("Python version: "+sys.version)
+    logging.getLogger().info("Networkx version: "+nx.__version__)
+
+    random.seed(options.seed[0])
+    numpy.random.seed(options.seed[0])
+   
+    global FORMER_NEM 
+    
+    
+    if options.use_old_partition:
+        FORMER_NEM = options.use_old_partition[0]
+        logging.getLogger().info("Former partition to reuse is stored in: "+FORMER_NEM)
+        
+    logging.getLogger().info("Output directory is: "+OUTPUTDIR)
+    logging.getLogger().info("Temporary directory is: "+TMP_DIR)
+
+
+
+
     if FORMER_NEM:
         if not os.path.isdir(FORMER_NEM):
             raise FileNotFoundError(" Directory provided for old NEM results ('" + FORMER_NEM + "') does not exist.")
@@ -835,8 +844,8 @@ def __main__():
                     file.write("\n".join(families)+"\n")
                 file.close()
         
-        pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX)
-        pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX)
+        pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX, compress = options.compress_graph)
+        pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX,  compress = options.compress_graph)
         if pan.nb_organisms<=options.chunck_size[0]:
             pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
 
