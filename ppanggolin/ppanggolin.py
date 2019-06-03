@@ -2653,7 +2653,7 @@ class PPanGGOLiN:
                                                   str(nb_genes_by_partition["soft_core"]),
                                                   str(nb_genes_by_partition["soft_accessory"]),
                                                   str(nb_genes_by_partition["pangenome"]),
-                                                  str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)),
+                                                  str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)) if len(self.partitions["persistent"]) > 0 else "NA",
                                                   str(round(len(contamination)/len(single_copy_markers)*100,4)) if single_copy_markers is not None else "NA",
                                                   str(len(single_copy_markers)) if single_copy_markers is not None else "0"])+"\n")
             
