@@ -938,16 +938,18 @@ def __main__():
         logging.disable(logging.NOTSET)
         def heap_law(N, kappa, gamma):
             return kappa*N**(gamma)
-        annotations=[]
-        traces = []
+        annotations = []
+        traces      = []
         data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False)
         params_file = open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_PARAM_FILE_PREFIX+".csv","w")
         params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error\n")
         for partition in list(pan.partitions.keys())+["pangenome"]:
-            half_stds = pandas.Series({i:numpy.std(data_evol[data_evol["nb_org"]==i][partition])/2 for i in range(1,pan.nb_organisms+1)}).dropna()
-            mins = pandas.Series({i:numpy.min(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
-            maxs = pandas.Series({i:numpy.max(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
-            medians = pandas.Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,pan.nb_organisms+1)}).dropna()
+            percentiles_75      = pandas.Series({i:numpy.nanpercentile(data_evol[data_evol["nb_org"]==i][partition],75) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
+            percentiles_25      = pandas.Series({i:numpy.nanpercentile(data_evol[data_evol["nb_org"]==i][partition],25) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
+            mins                = pandas.Series({i:numpy.min(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
+            maxs                = pandas.Series({i:numpy.max(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
+            medians             = pandas.Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
+            means               = pandas.Series({i:numpy.mean(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
             initial_kappa_gamma = numpy.array([0.0, 0.0])
             try:
                 res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
@@ -957,16 +959,16 @@ def __main__():
                     params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
                 else:
                     params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_o)])+"\n")
-                    regression = numpy.apply_along_axis(heap_law, 0, range(1,pan.nb_organisms+1), kappa, gamma)
-                    traces.append(go.Scatter(x=list(range(1,pan.nb_organisms+1)), 
+                    regression = numpy.apply_along_axis(heap_law, 0, range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa, gamma)
+                    traces.append(go.Scatter(x=list(range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
                                              y=regression, 
-                                             name = partition,
+                                             name = partition+": Heaps' law fitting medians",
                                              line = dict(color = COLORS[partition],
                                                          width = 4,
                                                          dash = 'dash'),
                                              visible = "legendonly" if partition == "undefined" else True))
-                    annotations.append(dict(x=pan.nb_organisms,
-                                            y=heap_law(pan.nb_organisms,kappa, gamma),
+                    annotations.append(dict(x=(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms),
+                                            y=heap_law((LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms),kappa, gamma),
                                             ay=0,
                                             ax=100,
                                             text="F="+str(round(kappa,0))+"N"+"<sup>"+str(round(gamma,5))+"</sup>",
@@ -983,10 +985,9 @@ def __main__():
             except RuntimeError as rt:# if fitting doesn't work
                 params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
             
-            
             traces.append(go.Scatter(x=medians.index, 
                                      y=medians, 
-                                     name = "medians",
+                                     name = partition+" : medians",
                                      mode="lines+markers",
                                      error_y=dict(type='data',
                                                      symmetric=False,
@@ -994,32 +995,54 @@ def __main__():
                                                      arrayminus=medians.subtract(mins),
                                                      visible=True,
                                                      color = COLORS[partition],
-                                                     thickness =1),
+                                                     thickness =0.5),
                                      line = dict(color = COLORS[partition],
                                                  width = 1),
-                                     marker=dict(color = COLORS[partition]),
+                                     marker=dict(color = COLORS[partition], symbol=3,size = 8,opacity = 0.5),
                                      visible = "legendonly" if partition == "undefined" else True))
-            up = medians.add(half_stds)
-            down = medians.subtract(half_stds)
-            down[down < 0] = 0
-            sd_area = up.append(down[::-1])
-            traces.append(go.Scatter(x=sd_area.index, 
-                                     y=sd_area, 
-                                     name = "sd",
-                                     fill='toself',
+            traces.append(go.Scatter(x=means.index, 
+                                     y=means, 
+                                     name = partition+" : means",
+                                     mode="markers",
+                                     marker=dict(color = COLORS[partition], symbol=4,size= 8,opacity = 0.5),
+                                     visible = "legendonly" if partition == "undefined" else True))
+            # up = percentiles_75
+            # down = percentiles_25
+            # IQR_area = up.append(down[::-1])
+            # traces.append(go.Scatter(x=IQR_area.index, 
+            #                          y=IQR_area, 
+            #                          name = "IQR",
+            #                          fill='toself',
+            #                          mode="lines",
+            #                          hoveron="points",
+            #                          #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
+            #                          line=dict(color=COLORS[partition]),
+            #                          marker=dict(color = COLORS[partition]),
+            #                          visible = "legendonly" if partition == "undefined" else True))
+            traces.append(go.Scatter(x=percentiles_75.index, 
+                                     y=percentiles_75, 
+                                     name = partition+" : 3rd quartile",
                                      mode="lines",
                                      hoveron="points",
                                      #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
                                      line=dict(color=COLORS[partition]),
                                      marker=dict(color = COLORS[partition]),
                                      visible = "legendonly" if partition == "undefined" else True))
-                                     
-        layout = go.Layout(
-            title = "Evolution curve ",
-            titlefont = dict(size = 20),
-            xaxis = dict(title='size of genome subsets (N)'),
-            yaxis = dict(title='# of gene families (F)'),
-            annotations=annotations)
+            traces.append(go.Scatter(x=percentiles_25.index, 
+                                     y=percentiles_25, 
+                                     name = partition+" : 1st quartile",
+                                     fill='tonexty',
+                                     mode="lines",
+                                     hoveron="points",
+                                     #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
+                                     line=dict(color=COLORS[partition]),
+                                     marker=dict(color = COLORS[partition]),
+                                     visible = "legendonly" if partition == "undefined" else True))                             
+        layout = go.Layout(title     = "Evolution curve ",
+                           titlefont = dict(size = 20),
+                           xaxis     = dict(title='size of genome subsets (N)'),
+                           yaxis     = dict(title='# of gene families (F)'),
+                           annotations=annotations)
         fig = go.Figure(data=traces, layout=layout)
         out_plotly.plot(fig, filename=OUTPUTDIR+"/"+FIGURE_DIR+"/"+EVOLUTION_CURVE_PREFIX+".html", auto_open=False)
         params_file.close()
