@@ -1766,12 +1766,15 @@ class PPanGGOLiN:
             Saves also the annotation data for each gene beloning to the processed node.
         """		
         # ~ start = time.time()
-        def fillGene(annotation_data, position):
-            geneDict = { "position" : position, "strand" : annotation_data[STRAND], "end" : annotation_data[END], "start" : annotation_data[START], "name" : annotation_data[NAME], "product" : annotation_data[PRODUCT] }
+        def fillGene(annotation_data, position, is_frag):
+            geneDict = { "is_fragment" : is_frag, "position" : position, "strand" : annotation_data[STRAND], "end" : annotation_data[END], "start" : annotation_data[START], "name" : annotation_data[NAME], "product" : annotation_data[PRODUCT] }
             return geneDict
 
         def fillContig(annotation_data, position, gene):
-            contigDict = { gene : fillGene(annotation_data, position)}
+            is_frag = False
+            if gene in self.CDS_fragments:
+                is_frag = True
+            contigDict = { gene : fillGene(annotation_data, position, is_frag)}
             return contigDict
 
         def fillOrg(annotation_data, position, gene, contig_name):
@@ -1817,7 +1820,10 @@ class PPanGGOLiN:
                                 if not contig:## no gene from that contig in this gene family for now, we add the contig with the gene
                                     org[gene_data[1]] = fillContig(annotation_data, gene_data[2], gene)
                                 else:## there's already a gene from this gene_data[1] contig in this organism in this family, we add the gene.
-                                    contig[gene] = fillGene(annotation_data, gene_data[2])
+                                    is_frag = False
+                                    if gene in self.CDS_fragments:
+                                        is_frag = True
+                                    contig[gene] = fillGene(annotation_data, gene_data[2], is_frag)
 
                             # nodeObj["organisms"][att].add(gene)    
                     else:
