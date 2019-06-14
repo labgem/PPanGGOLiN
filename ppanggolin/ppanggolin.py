@@ -21,7 +21,7 @@ import json
 import tempfile
 from tqdm import tqdm
 import random
-from multiprocessing import Pool, Semaphore
+from multiprocessing import Pool#, Semaphore
 from nem_stats import *
 from .utils import *
 import pdb
@@ -1436,6 +1436,8 @@ class PPanGGOLiN:
                 stats["soft_accessory"]+=1
 
         BICs, ICLs, LLs = None, None, None
+        cpt = 0
+        start_partitionning = time()
 
         def run_evaluate_nb_partitions(orgs, Q):
             bics, icls, lls = None, None, None
@@ -1473,31 +1475,28 @@ class PPanGGOLiN:
             cpt=0
             if inplace:
                 bar = tqdm(total = stats["exact_accessory"]+stats["exact_core"], unit = "families partitionned")
-            sem = Semaphore(nb_threads)
             
             def validate_family(result):
                 #nonlocal total_BIC
-                try:
-                    partitions = result
-                    #total_BIC += BIC
-                    for node,nem_class in partitions[FAMILIES_PARTITION].items():
-                        cpt_partition[node][nem_class[0]]+=1
-                        sum_partionning = sum(cpt_partition[node].values())
-                        if (sum_partionning > len(select_organisms)/chunck_size and max(cpt_partition[node].values()) >= sum_partionning*0.5) or (sum_partionning > len(select_organisms)):
-                            if node not in validated:
-                                if inplace:
-                                    bar.update()
-                                if max(cpt_partition[node].values()) < sum_partionning*0.5:
-                                    cpt_partition[node]["U"] = sys.maxsize #if despite len(select_organisms) partionning, an abosolute majority is not found then the families is set to undefined 
-                                validated.add(node)
-                                # if max(cpt_partition[node], key=cpt_partition[node].get) == "P" and cpt_partition[node]["S"]==0 and cpt_partition[node]["C"]==0:
-                                        #     validated[node]="P"
-                                        # elif cpt_partition[node]["S"]==0:
-                                        #     validated[node]="C"
-                                        # else:
-                                        #     validated[node]="S" 
-                finally:
-                    sem.release()
+                partitions = result
+                #total_BIC += BIC
+                for node,nem_class in partitions[FAMILIES_PARTITION].items():
+                    cpt_partition[node][nem_class[0]]+=1
+                    sum_partionning = sum(cpt_partition[node].values())
+                    if (sum_partionning > len(select_organisms)/chunck_size and max(cpt_partition[node].values()) >= sum_partionning*0.5) or (sum_partionning > len(select_organisms)):
+                        if node not in validated:
+                            if inplace:
+                                bar.update()
+                            if max(cpt_partition[node].values()) < sum_partionning*0.5:
+                                cpt_partition[node]["U"] = sys.maxsize #if despite len(select_organisms) partionning, an abosolute majority is not found then the families is set to undefined 
+                            validated.add(node)
+                            # if max(cpt_partition[node], key=cpt_partition[node].get) == "P" and cpt_partition[node]["S"]==0 and cpt_partition[node]["C"]==0:
+                                    #     validated[node]="P"
+                                    # elif cpt_partition[node]["S"]==0:
+                                    #     validated[node]="C"
+                                    # else:
+                                    #     validated[node]="S" 
+
             neighbors_graph = None
             if len(select_organisms) < len(self.organisms):
                 all_edges = set([])
@@ -1509,143 +1508,59 @@ class PPanGGOLiN:
                 isolate_to_add = set(families) - set(neighbors_graph.nodes)
                 neighbors_graph = nx.algorithms.operators.binary.union(neighbors_graph, nx.create_empty_copy(self.neighbors_graph.subgraph(isolate_to_add), with_data=True))
 
-            with contextlib.closing(Pool(processes = nb_threads)) if nb_threads>1 else empty_cm() as pool:
-                #proba_sample = OrderedDict(zip(select_organisms,[len(select_organisms)]*len(select_organisms)))
+            with Pool(processes = nb_threads) as p:
+                ## Initial partitionning
                 pan_size = len(neighbors_graph) if neighbors_graph is not None else len(self.neighbors_graph)
                 random.seed(seed)
-                while len(validated)<pan_size:
-                    if (sem.acquire() if nb_threads>1 else True):#
-                        # print(select_organisms)
-                        # print(chunck_size)
-                        # print(proba_sample.values())
-                        # print(len(proba_sample.values()))
-                        # min_o = min(proba_sample.values()) 
-                        # max_o = max(proba_sample.values()) 
-                        # range_o = max_o-min_o
-                        # if min_o != max_o:
-                        #     p = [(p-min_o/range_o)/len(select_organisms) for p in proba_sample.values()]
-                        # else:
-                        #     p = list(proba_sample.values())
-                        # print(p)
-                        #s = sum(proba_sample.values())
-                        
-                        #orgs = np.random.choice(select_organisms, size = chunck_size, replace = False, p = [p/s for p in proba_sample.values()])#
-                        orgs = random.sample(select_organisms,chunck_size)
-                        orgs = OrderedSet(orgs)
+                org_samples = []
+                org_nb_sample = Counter()
+                for org in select_organisms:
+                    org_nb_sample[org] = 0
+                while not all(val >= len(select_organisms)/chunck_size for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunck_size times.
+                    shuffled_orgs = list(select_organisms)#copy select_organisms
+                    random.shuffle(shuffled_orgs)#shuffle the copied list
+                    while len(shuffled_orgs) > chunck_size:
+                        org_samples.append(set(shuffled_orgs[:chunck_size]))
+                        for org in org_samples[-1]:
+                            org_nb_sample[org] +=1
+                        shuffled_orgs = shuffled_orgs[chunck_size:]
+                all_res = []
+                for samp in org_samples:
+                    edges_weight, nb_fam = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",samp, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
+                    res = p.apply_async(run_partitioning,
+                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
+                                            len(samp),
+                                            beta*(nb_fam/edges_weight),
+                                            free_dispersion,
+                                            Q,
+                                            seed,
+                                            init,
+                                            keep_temp_files))
+                    all_res.append(res)
+                    cpt+=1
+                ##do smth with those results.
+                for res in all_res:
+                    validate_family(res.get())
 
-                        # for org, p in proba_sample.items():
-                        #     if org in orgs:
-                        #         proba_sample[org] = p - len(select_organisms)/chunck_size if p >1 else 1
-                        #     else:
-                        #         proba_sample[org] = p + len(select_organisms)/chunck_size
-                        #use_the_whole_graph_degree = True if len(select_organisms)==self.organisms else False
-                        edges_weight, nb_fam = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",orgs, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
-                        if nb_threads>1:
-                            res = pool.apply_async(run_partitioning,
-                                                   args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
-                                                           len(orgs),
-                                                           beta*(nb_fam/edges_weight),
-                                                           free_dispersion,
-                                                           Q,
-                                                           seed,
-                                                           init,
-                                                           keep_temp_files),                                                        
-                                                   callback = validate_family)
-                        else:
-                            res = run_partitioning(nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
-                                                   len(orgs),
-                                                   beta*(nb_fam/edges_weight),
-                                                   free_dispersion,
-                                                   Q,
-                                                   seed,
-                                                   init,
-                                                   keep_temp_files)
-                            validate_family(res)
-                        cpt +=1
-                    else:
-                        sleep(0.01)
-
-                    # if inplace:
-                    #     bar.update()    
-                if nb_threads>1:
-                    sleep(1)
-                    pool.close()
-                    pool.join() 
-                #BIC = total_BIC/cpt
-            # if just_stats:
-            #     print('len(validated)= '+str(len(validated)))
-            #     print('len(cpt_partition)= '+str(len(cpt_partition)))
+            if len(validated) < pan_size:
+                logging.getLogger().error("Unexpectedly, not all families have been validated because you have met a theorically possible yet unseen case in the developpers' testing datasets.")
+                logging.getLogger().error("Please the developpers ! They formerly lacked the testing datasets to write code to deal with this theorical case. They could if they had yours !")
+                exit(1)
 
             for fam, data in cpt_partition.items():
                 partitionning_results[fam]=max(data, key=data.get)
 
             partitionning_results = [partitionning_results,[]]
-
-            # if just_stats:
-            #     print("stat")
-            #     #print(partitions)
-            #     c = Counter(partitions)      
-            #     print('stats["P"] '+str(c["P"]))
-            #     print('stats["S"] '+str(c["S"]))
-            #     print('stats["C"] '+str(c["C"])) 
-            #     print('stats["U"] '+str(c["U"]))           
-            #     print('total '+str(c["P"]+c["S"]+c["C"]+c["U"]))
-
-
-            #     print('stats["exact_accessory"] '+str(stats["exact_accessory"]))
-            #     print('stats["exact_core"] '+str(stats["exact_core"]))
-            #     print('total '+str(stats["exact_accessory"]+stats["exact_core"]))
-            #     print(' ')
         else:
             Q, edges_weight, BICs, ICLs, LLs  = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
                 logging.getLogger().info("Partitioning...")
 
             partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight), free_dispersion, Q = Q, seed = seed, init = init)# 
+            cpt+=1
 
-            #partitionning_results = partitionning_results[FAMILIES_PARTITION]
+        logging.getLogger().info(f"Did {cpt} partitionning with chunks of size {chunck_size} among {len(select_organisms)} genomes in {round(time() - start_partitionning,2)} seconds.")
 
-            # all_Q = []
-            # all_BIC = []
-            # pool.map(f, range(10))
-            # for i in range(3,20):
-            #     print("here (__write_nem_input_files) "+str(i)+ "   "+nem_dir_path+"Q_"+str(i)+"/")
-            #     self.__write_nem_input_files(nem_dir_path+"Q_"+str(i)+"/",select_organisms, Q=i)
-            #     print("here (run_partitioning) "+str(i))
-            #     partitionning_results = run_partitioning(nem_dir_path+"Q_"+str(i)+"/", len(select_organisms), beta, free_dispersion, Q=i)
-            #     BIC = partitionning_results[2]
-
-            #     all_Q.append(i)
-            #     all_BIC.append(BIC)
-
-            #     print("here (after run_partitioning) "+str(i)+"   BIC="+str(BIC))
-            # kneedle = KneeLocator(all_Q, all_BIC, curve='concave', direction='increasing')
-            # best_Q = kneedle.knee
-            # print("here (__write_nem_input_files) "+str(i)+ "   "+nem_dir_path+"best_Q_"+str(best_Q)+"/")
-            # print("here (run_partitioning) "+str(best_Q))
-
-            
-            # s=0
-            # p=0
-            # #
-            # try:
-            #     for k, (mu,epsilon,prop) in partitionning_results[PARTITION_PARAMETERS].items():
-            #         if k!= 0 and k!= i:
-            #             s += sum([e*prop for e in epsilon])
-            #             p += prop
-            #     #print(s/p/len(select_organisms))
-            # except:
-            #     pass
-
-            #= s*i
-            
-            #pdb.set_trace()
-        
-            # #if partitionning_results[]
-
-            
-            # #partitionning_results = partitionning_results[PARTITION_PARAMETERS]                
-                
         if inplace:
             (self.all_BICs, self.all_ICLs, self.all_LLs) = BICs, ICLs, LLs
             self.Q                    = Q
