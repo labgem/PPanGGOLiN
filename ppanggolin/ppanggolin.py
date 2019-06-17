@@ -1473,9 +1473,7 @@ class PPanGGOLiN:
                 cpt_partition[fam]= {"P":0,"S":0,"C":0,"U":0}
             validated = set()
             cpt=0
-            if inplace:
-                bar = tqdm(total = stats["exact_accessory"]+stats["exact_core"], unit = "families partitionned")
-            
+
             def validate_family(result):
                 #nonlocal total_BIC
                 partitions = result
@@ -1485,8 +1483,6 @@ class PPanGGOLiN:
                     sum_partionning = sum(cpt_partition[node].values())
                     if (sum_partionning > len(select_organisms)/chunck_size and max(cpt_partition[node].values()) >= sum_partionning*0.5) or (sum_partionning > len(select_organisms)):
                         if node not in validated:
-                            if inplace:
-                                bar.update()
                             if max(cpt_partition[node].values()) < sum_partionning*0.5:
                                 cpt_partition[node]["U"] = sys.maxsize #if despite len(select_organisms) partionning, an abosolute majority is not found then the families is set to undefined 
                             validated.add(node)
@@ -1508,43 +1504,42 @@ class PPanGGOLiN:
                 isolate_to_add = set(families) - set(neighbors_graph.nodes)
                 neighbors_graph = nx.algorithms.operators.binary.union(neighbors_graph, nx.create_empty_copy(self.neighbors_graph.subgraph(isolate_to_add), with_data=True))
 
+
+            ## Initial partitionning
+            pan_size = len(neighbors_graph) if neighbors_graph is not None else len(self.neighbors_graph)
+            random.seed(seed)
+            org_samples = []
+            org_nb_sample = Counter()
+            for org in select_organisms:
+                org_nb_sample[org] = 0
+            while not all(val >= len(select_organisms)/chunck_size for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunck_size times.
+                shuffled_orgs = list(select_organisms)#copy select_organisms
+                random.shuffle(shuffled_orgs)#shuffle the copied list
+                while len(shuffled_orgs) > chunck_size:
+                    org_samples.append(set(shuffled_orgs[:chunck_size]))
+                    for org in org_samples[-1]:
+                        org_nb_sample[org] +=1
+                    shuffled_orgs = shuffled_orgs[chunck_size:]
+
+            #making arguments for all samples:
+            args = []
+            for samp in org_samples:
+                edges_weight, nb_fam = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",samp, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
+                args.append(( nem_dir_path + "/" + str(cpt) + "/", len(samp), beta*(nb_fam / edges_weight), free_dispersion, Q, seed, init, keep_temp_files))
+                cpt += 1
+
             with Pool(processes = nb_threads) as p:
-                ## Initial partitionning
-                pan_size = len(neighbors_graph) if neighbors_graph is not None else len(self.neighbors_graph)
-                random.seed(seed)
-                org_samples = []
-                org_nb_sample = Counter()
-                for org in select_organisms:
-                    org_nb_sample[org] = 0
-                while not all(val >= len(select_organisms)/chunck_size for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunck_size times.
-                    shuffled_orgs = list(select_organisms)#copy select_organisms
-                    random.shuffle(shuffled_orgs)#shuffle the copied list
-                    while len(shuffled_orgs) > chunck_size:
-                        org_samples.append(set(shuffled_orgs[:chunck_size]))
-                        for org in org_samples[-1]:
-                            org_nb_sample[org] +=1
-                        shuffled_orgs = shuffled_orgs[chunck_size:]
-                all_res = []
-                for samp in org_samples:
-                    edges_weight, nb_fam = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",samp, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
-                    res = p.apply_async(run_partitioning,
-                                    args = (nem_dir_path+"/"+str(cpt)+"/",#nem_dir_path
-                                            len(samp),
-                                            beta*(nb_fam/edges_weight),
-                                            free_dispersion,
-                                            Q,
-                                            seed,
-                                            init,
-                                            keep_temp_files))
-                    all_res.append(res)
-                    cpt+=1
-                ##do smth with those results.
-                for res in all_res:
-                    validate_family(res.get())
+               
+                #launch partitionnings
+                bar = tqdm(range(len(args)), unit = " samples partitionned")
+                for result in p.imap_unordered(launch_nem, args):
+                    validate_family(result)
+                    bar.update()
+                bar.close()
 
             if len(validated) < pan_size:
                 logging.getLogger().error("Unexpectedly, not all families have been validated because you have met a theorically possible yet unseen case in the developpers' testing datasets.")
-                logging.getLogger().error("Please the developpers ! They formerly lacked the testing datasets to write code to deal with this theorical case. They could if they had yours !")
+                logging.getLogger().error("Please contact the developpers ! They formerly lacked the testing datasets to write code to deal with this theorical case. They could if they had yours !")
                 exit(1)
 
             for fam, data in cpt_partition.items():
@@ -2591,6 +2586,10 @@ class PPanGGOLiN:
 
 ################ FUNCTION run_partitioning ################
 """ """
+
+def launch_nem(pack):
+    return run_partitioning(*pack)
+
 
 def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", keep_files = True, itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("run_partitioning...")
