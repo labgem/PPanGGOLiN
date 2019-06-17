@@ -1000,7 +1000,7 @@ class PPanGGOLiN:
     
     def __write_nem_input_files(self, nem_dir_path, select_organisms, old_nem_dir = None, th_degree = 20 , neighbors_graph = None):
         
-        if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sence
+        if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sense
             logging.getLogger().warning("The number of selected organisms is too low ("+str(len(select_organisms))+" organisms used) to partition the pangenome graph in persistent, shell and cloud genome. Add new organisms to obtain more robust metrics.")
 
         if not os.path.exists(nem_dir_path):
@@ -1493,7 +1493,7 @@ class PPanGGOLiN:
                                     # else:
                                     #     validated[node]="S" 
 
-            neighbors_graph = None
+            neighbors_graph = self.neighbors_graph
             if len(select_organisms) < len(self.organisms):
                 all_edges = set([])
                 for node_1, node_2, edge_organisms in self.neighbors_graph.edges(data=True):
@@ -1529,7 +1529,6 @@ class PPanGGOLiN:
                 cpt += 1
 
             with Pool(processes = nb_threads) as p:
-               
                 #launch partitionnings
                 bar = tqdm(range(len(args)), unit = " samples partitionned")
                 for result in p.imap_unordered(launch_nem, args):
