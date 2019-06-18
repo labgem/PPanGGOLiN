@@ -869,11 +869,13 @@ def __main__():
         logging.getLogger().info("Generating some plots")
         start_plots = time()
         pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
-        if pan.nb_organisms<=500:
-            pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
-        else:
-            #pan.tile_plot(OUTPUTDIR+FIGURE_DIR,shell_persistent_only=False)
+        if pan.nb_organisms > 500:
             logging.getLogger().warning("Too mush organisms (>1000) to display the tile plot using plot.ly, please use the Rscript to draw a static version of the tile plot")
+        elif pan.nb_organisms <= 1:
+            logging.getLogger().warning("Not enough organisms (1) to display a tile plot.")
+        else:
+            pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
+            
         end_plots = time()
         time_report+= "Execution time of the generation of plots: """ +str(round(end_plots-start_plots, 2))+" s\n"
         del pan.annotations # no more required for the following process
@@ -904,7 +906,9 @@ def __main__():
 
         plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
 
-    if options.evolution or options.just_evolution:
+    if (options.evolution or options.just_evolution) and pan.nb_organisms <= 1:
+        logging.getLogger().warning("You asked to draw the evolution curve of a pangenome made of a single genome which is irrelevent. Skipping this step.")
+    elif options.evolution or options.just_evolution:
         logging.getLogger().info("Evolution... (if WARNING messages occurs about the low number of selected organisms during the computation of evolution, it must be ignored)")
         start_evolution = time()
         # if not options.verbose:
