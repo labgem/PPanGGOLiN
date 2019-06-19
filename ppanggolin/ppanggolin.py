@@ -2261,21 +2261,14 @@ class PPanGGOLiN:
         ordored_nodes_c = sorted(self.partitions["cloud"], key=lambda n:len(graph.nodes[n]), reverse=True)
 
         for node in ordored_nodes_p+ordored_nodes_s+ordored_nodes_c:
-            fam_order.append(node)
+            fam_order.append('\u200c' + node)
             data = graph.nodes[node]
             binary_data.append([len(data[org]) if org in data else numpy.nan for org in order_organisms])
             text_data.append([("\n".join(data[org])) if org in data else numpy.nan for org in order_organisms])
-        # fam_order=[]
-        # for org in self.organisms:
-        #     l = []
-        #     fam_order = []
-        #     for node, data in self.neighbors_graph.nodes(data=True):
-        #         fam_order.append(node)
-        #         if org in data:
-        #             l.append(1)
-        #         else:
-        #             l.append(0)
-        #     binary_data.append(l)
+        
+        xaxis_values = list(order_organisms)
+        for i in range(len(xaxis_values)):
+            xaxis_values[i] = '\u200c' + xaxis_values[i]
 
         heatmap = go.Heatmap(z              = binary_data,
                              x              = list(order_organisms),
