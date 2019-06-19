@@ -997,7 +997,7 @@ class PPanGGOLiN:
                             out_file.write(node_name+"\n")
                     never_in[variable][value].add(node_name)
         return ({"exclusively_in":exclusively_in,"never_in":never_in})
-    
+
     def __write_nem_input_files(self, nem_dir_path, select_organisms, old_nem_dir = None, th_degree = 20 , neighbors_graph = None):
         
         if len(select_organisms)<=10:# below 10 organisms a statistical computation do not make any sense
@@ -1033,7 +1033,6 @@ class PPanGGOLiN:
                     dat_file.write("\t".join(["1" if org in node_organisms else "0" for org in select_organisms])+"\n")
                     index_fam[node_name] = len(index_fam)+1
                     index_file.write(str(len(index_fam))+"\t"+str(node_name)+"\n")
-            
             if neighbors_graph is None:
                 if len(select_organisms) < len(self.organisms):
                     all_edges = set([])
@@ -1045,21 +1044,15 @@ class PPanGGOLiN:
                     neighbors_graph = nx.algorithms.operators.binary.union(neighbors_graph, nx.create_empty_copy(self.neighbors_graph.subgraph(isolate_to_add), with_data=True))
                 else:
                     neighbors_graph = self.neighbors_graph
+            
             for node_name in index_fam.keys():
                 row_fam         = []
                 row_dist_score  = []
                 neighbor_number = 0
                 # if not self.is_partitionned or self.neighbors_graph.node["partition"]!="shell":
                 try:
-                    try : 
-                        if len(nx.degree(neighbors_graph,node_name)) == 0:
-                            print(node_name)
-                    except :
-                        pass
                     if nx.degree(neighbors_graph,node_name) < th_degree:
                         for neighbor in set(nx.all_neighbors(neighbors_graph, node_name)):
-                            if neighbor not in index_fam:
-                                 pass
                             coverage = 0
                             if neighbors_graph.is_directed():
                                 cov_sens, cov_antisens = (0,0)
@@ -1078,65 +1071,14 @@ class PPanGGOLiN:
                             if coverage==0:
                                 continue
                             
-                            distance_score = coverage/len(select_organisms)# len((set(self.neighbors_graph.node[node_name]) & set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)                          
-                            #distance_score = coverage/len(((set(self.neighbors_graph.node[node_name]) | set(self.neighbors_graph.node[neighbor])) - RESERVED_WORDS) & select_organisms)
+                            distance_score = coverage/len(select_organisms)
                             total_edges_weight+=distance_score
                             row_fam.append(str(index_fam[neighbor]))
                             row_dist_score.append(str(round(distance_score,4)))
                             neighbor_number += 1
                     else:
                         logging.getLogger().debug("The family: "+node_name+" has a too high degree > "+str(th_degree)+" and will not be included in the spatial smoothing")
-                # else:
-                #     try:
-                #         all_neighbors   = set(nx.all_neighbors(self.neighbors_graph, node_name))
-                #         already_browsed = set()
-                #         for neighbor_a in all_neighbors:
-                #             already_browsed.add(neighbor_a)
-                #             if neighbor_a self.neighbors_graph.node[neighbor_a]["partition"]!="persistent":
-                #                 pass
-                #             if len(all_neighbors - already_browsed):
-                #                 for neighbor_b in all_neighbors - already_browsed:
-                #                     path_cost = self.neighbors_graph[node_name][neighbor_a]['weight'] + self.neighbors_graph[node_name][neighbor_b]['weight']
-                #                     alternative_path_cost = 0
-                #                     total_alternative_path_cost = 0
-                #                     removed_nodes_for_view = set()
-                #                     removed_nodes_for_view.add(node_name)
-                #                     def rule_filter_nodes(n):
-                #                         if n in removed_nodes_for_view:
-                #                             return(False)
-                #                         else:
-                #                             return(True)
-                #                     while alternative_path_cost < path_cost:
-                #                         total_alternative_path_cost+=alternative_path_cost
-                #                         v = nx.classes.graphviews.subgraph_view(self.neighbors_graph, rule_filter_nodes)
-                #                         try:
-                #                             alternative_path = nx.dijkstra_path(v,neighbor_a,neighbor_b, weight = "weight")
-                #                             alternative_path_cost = sum([d['weight'] for u,v,d in nx.subgraph(v,alternative_path).edges(data=True)])
-                #                             removed_nodes_for_view.add(alternative_path[1])
-                #                             removed_nodes_for_view.add(alternative_path[len(alternative_path)-1])
-                #                         except nx.NetworkXNoPath:
-                #                             break
-                #                     self.neighbors_graph[node_name][neighbor_b]['tmp'] = self.neighbors_graph[node_name][neighbor_a]['tmp']-total_alternative_path_cost/2
-                #                     self.neighbors_graph[node_name][neighbor_b]['tmp'] = self.neighbors_graph[node_name][neighbor_b]['tmp']-total_alternative_path_cost/2
-                            
-                                
-                        # if self.neighbors_graph.is_directed():
-                        #     cov_sens, cov_antisens = (0,0)
-                        #     try:
-                        #         cov_sens = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
-                        #     except KeyError:
-                        #         pass
-                        #     try:
-                        #         cov_antisens = sum([pre_abs for org, pre_abs in self.neighbors_graph[neighbor][node_name].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
-                        #     except KeyError:
-                        #         pass
-                        #     coverage = cov_sens + cov_antisens
-                        # else:
-                        #     coverage = sum([pre_abs for org, pre_abs in self.neighbors_graph[node_name][neighbor].items() if ((org in select_organisms) and (org not in RESERVED_WORDS))])
 
-                        # if coverage==0:
-                        #     continue
-                            
                     if neighbor_number>0:
                         nei_file.write("\t".join([str(item) for sublist in [[index_fam[node_name]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
                     else:
@@ -1146,10 +1088,9 @@ class PPanGGOLiN:
                     print(nxe)
                     logging.getLogger().debug("The family: "+node_name+" is an isolated family")
                     nei_file.write(str(index_fam[node_name])+"\t0\n")
-
             str_file.write("S\t"+str(len(index_fam))+"\t"+
                             str(len(select_organisms))+"\n")
-        
+                                
         return(total_edges_weight,len(index_fam))
 
     def __evaluate_nb_partitions(self, nem_dir_path = tempfile.mkdtemp(),
@@ -1504,47 +1445,51 @@ class PPanGGOLiN:
                 isolate_to_add = set(families) - set(neighbors_graph.nodes)
                 neighbors_graph = nx.algorithms.operators.binary.union(neighbors_graph, nx.create_empty_copy(self.neighbors_graph.subgraph(isolate_to_add), with_data=True))
 
-
             ## Initial partitionning
             pan_size = len(neighbors_graph) if neighbors_graph is not None else len(self.neighbors_graph)
             random.seed(seed)
-            org_samples = []
+            
             org_nb_sample = Counter()
             for org in select_organisms:
-                org_nb_sample[org] = 0
-            while not all(val >= len(select_organisms)/chunck_size for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunck_size times.
-                shuffled_orgs = list(select_organisms)#copy select_organisms
-                random.shuffle(shuffled_orgs)#shuffle the copied list
-                while len(shuffled_orgs) > chunck_size:
-                    org_samples.append(set(shuffled_orgs[:chunck_size]))
-                    for org in org_samples[-1]:
-                        org_nb_sample[org] +=1
-                    shuffled_orgs = shuffled_orgs[chunck_size:]
-
-            #making arguments for all samples:
-            args = []
-            for samp in org_samples:
-                edges_weight, nb_fam = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",samp, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
-                args.append(( nem_dir_path + "/" + str(cpt) + "/", len(samp), beta*(nb_fam / edges_weight), free_dispersion, Q, seed, init, keep_temp_files))
-                cpt += 1
-
-            with Pool(processes = nb_threads) as p:
-                #launch partitionnings
-                bar = tqdm(range(len(args)), unit = " samples partitionned")
-                for result in p.imap_unordered(launch_nem, args):
-                    validate_family(result)
+                    org_nb_sample[org] = 0
+            condition = len(select_organisms)/chunck_size
+            while len(validated) < pan_size:
+                
+                org_samples = []
+                
+                while not all(val >= condition for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunck_size times.
+                    shuffled_orgs = list(select_organisms)#copy select_organisms
+                    random.shuffle(shuffled_orgs)#shuffle the copied list
+                    while len(shuffled_orgs) > chunck_size:
+                        org_samples.append(set(shuffled_orgs[:chunck_size]))
+                        for org in org_samples[-1]:
+                            org_nb_sample[org] +=1
+                        shuffled_orgs = shuffled_orgs[chunck_size:]
+                logging.getLogger().info("Writing initialization values and subgraphs for nem...")
+                #making arguments for all samples:
+                bar = tqdm(range(len(org_samples)), unit = " samples")
+                args = []
+                for samp in org_samples:
+                    edges_weight, nb_fam = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",samp, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
+                    args.append(( nem_dir_path + "/" + str(cpt) + "/", len(samp), beta*(nb_fam / edges_weight), free_dispersion, Q, seed, init, keep_temp_files))
                     bar.update()
+                    cpt += 1
                 bar.close()
-
-            if len(validated) < pan_size:
-                logging.getLogger().error("Unexpectedly, not all families have been validated because you have met a theorically possible yet unseen case in the developpers' testing datasets.")
-                logging.getLogger().error("Please contact the developpers ! They formerly lacked the testing datasets to write code to deal with this theorical case. They could if they had yours !")
-                exit(1)
+                logging.getLogger().info("Launching NEM")
+                with Pool(processes = nb_threads) as p:
+                    #launch partitionnings
+                    bar = tqdm(range(len(args)), unit = " samples partitionned")
+                    for result in p.imap_unordered(launch_nem, args):
+                        validate_family(result)
+                        bar.update()
+                    bar.close()
+                    condition +=1#if len(validated) < pan_size, we will want to resample more.
 
             for fam, data in cpt_partition.items():
                 partitionning_results[fam]=max(data, key=data.get)
 
             partitionning_results = [partitionning_results,[]]
+            logging.getLogger().info(f"Did {cpt} partitionning with chunks of size {chunck_size} among {len(select_organisms)} genomes in {round(time() - start_partitionning,2)} seconds.")
         else:
             Q, edges_weight, BICs, ICLs, LLs  = run_evaluate_nb_partitions(select_organisms,Q)
             if inplace:
@@ -1552,8 +1497,7 @@ class PPanGGOLiN:
 
             partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight), free_dispersion, Q = Q, seed = seed, init = init)# 
             cpt+=1
-
-        logging.getLogger().info(f"Did {cpt} partitionning with chunks of size {chunck_size} among {len(select_organisms)} genomes in {round(time() - start_partitionning,2)} seconds.")
+            logging.getLogger().info(f"Partitionned {len(select_organisms)} genomes in {round(time() - start_partitionning,2)} seconds.")
 
         if inplace:
             (self.all_BICs, self.all_ICLs, self.all_LLs) = BICs, ICLs, LLs
