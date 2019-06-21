@@ -1178,7 +1178,7 @@ class PPanGGOLiN:
                 # except ValueError:
                 #     best_Q = 3# if KneeLocator raise a ValueError it means that overpartionning do not works, so that a unique central shell partition is enough
             else:
-                best_Q = 3# if slope is increasing it means that increasing the number of partitions is useless, so 3 partition is enough
+                best_Q = 3# if slope is decreasing it means that increasing the number of partitions is useless, so 3 partition is enough
         else:
             best_Q = 3# not enough data, so 3 partition is enough
         best_Q = 3 if best_Q < 3 else best_Q
@@ -1386,14 +1386,14 @@ class PPanGGOLiN:
                 if inplace:
                     logging.getLogger().info("Estimating the optimal number of partitions...")
                 (Q,edges_weight, bics, icls, lls) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
-                                                                    old_nem_dir      = old_nem_dir,
-                                                                    select_organisms = orgs,
-                                                                    free_dispersion  = free_dispersion,
-                                                                    Qmin_Qmax        = Qmin_Qmax,
-                                                                    ICL_th           = ICL_th,
-                                                                    nb_iter          = 10,
-                                                                    nb_threads       = nb_threads,
-                                                                    seed             = seed)
+                                                                                  old_nem_dir      = old_nem_dir,
+                                                                                  select_organisms = orgs,
+                                                                                  free_dispersion  = free_dispersion,
+                                                                                  Qmin_Qmax        = Qmin_Qmax,
+                                                                                  ICL_th           = ICL_th,
+                                                                                  nb_iter          = 10,
+                                                                                  nb_threads       = nb_threads,
+                                                                                  seed             = seed)
                 if inplace:
                     logging.getLogger().info("Best Q is "+str(Q))
             else:

@@ -279,20 +279,19 @@ EVOLUTION_Q = 1
 def resample(index):
     global shuffled_comb
     nem_dir_path    = TMP_DIR+EVOLUTION_DIR+"/nborg"+str(len(shuffled_comb[index]))+"_"+str(index)
-    Q = options.number_of_partitions[0]
-    Qmin = options.QminQmax[0]
-    Qmax = options.QminQmax[1]
+    Q_evol = options.number_of_partitions[0]
+    Qmax_evol = options.QminQmax[1]
     if EVOLUTION_Q == 1:
-        Q = pan.Q if (pan is not None and pan.is_partitionned) else options.number_of_partitions[0]
-        Q = 3 if Q == -1 else Q 
+        Q_evol = pan.Q if (pan is not None and pan.is_partitionned) else options.number_of_partitions[0]
+        Q_evol = 3 if Q_evol == -1 else Q_evol 
     elif EVOLUTION_Q == 2:
-        Qmax = pan.Q if (pan is not None and pan.is_partitionned) else options.QminQmax[1]
+        Qmax_evol = pan.Q if (pan is not None and pan.is_partitionned) else options.QminQmax[1]
     elif EVOLUTION_Q == 3:
-        Q = -1
+        Q_evol = -1
     stats = pan.partition(nem_dir_path     = nem_dir_path,
                           select_organisms = shuffled_comb[index],
-                          Q                = Q,
-                          Qmin_Qmax        = [Qmin,Qmax],
+                          Q                = Q_evol,
+                          Qmin_Qmax        = [options.QminQmax[0],Qmax_evol],
                           beta             = options.beta_smoothing[0],
                           th_degree        = options.max_node_degree_smoothing[0],
                           free_dispersion  = options.free_dispersion,
@@ -418,8 +417,8 @@ def __main__():
     # Accelerate loading of gff files if there are sorted by the coordinate of gene annotations (starting point) for each contig""")
     #parser.add_argument("-l", "--freemem", default=False, action="store_true", help="""
     #Free the memory elements which are no longer used""")
-    parser.add_argument("-p", "--plots", default=False, action="store_true", help="""
-    Flag: Run the Rscript generating the plots (required: R in the path and the following R packages: ggplot2, ggrepel, data.table, minpack.lm and reshape2 installed).""")
+    #parser.add_argument("-p", "--plots", default=False, action="store_true", help="""
+    #Flag: Run the Rscript generating the plots (required: R in the path and the following R packages: ggplot2, ggrepel, data.table, minpack.lm and reshape2 installed).""")
     # parser.add_argument("-di", "--directed", default=False, action="store_true", help="""
     # generate directed graph
     # """)
@@ -493,6 +492,8 @@ def __main__():
     
     time_report=""
     global options
+    global EVOLUTION_Q
+
     options = parser.parse_args()
     if options.input_file == None:
         if (not options.gene_families or not options.organisms):
@@ -1168,16 +1169,16 @@ def __main__():
     # "Total execution time: " +str(round(time()-start_loading, 2))+" s\n"
     logging.getLogger().info("""PPanGGOLiN is complete.""")
 
-    if options.plots:
-        logging.getLogger().info("Running R script generating plot")
-        cmd = "Rscript "+OUTPUTDIR+SCRIPT_R_FIGURE
-        logging.getLogger().info("""Several plots will be generated using R (in the directory: """+OUTPUTDIR+FIGURE_DIR+""").
-    If R and the required package (ggplot2, reshape2, ggrepel(>0.6.6), data.table, minpack.lm) are not installed don't worry, the R script is saved in the directory. To generate the figures later, just use the following command :
-    """+cmd)
+    # if options.plots:
+    #     logging.getLogger().info("Running R script generating plot")
+    #     cmd = "Rscript "+OUTPUTDIR+SCRIPT_R_FIGURE
+    #     logging.getLogger().info("""Several plots will be generated using R (in the directory: """+OUTPUTDIR+FIGURE_DIR+""").
+    # If R and the required package (ggplot2, reshape2, ggrepel(>0.6.6), data.table, minpack.lm) are not installed don't worry, the R script is saved in the directory. To generate the figures later, just use the following command :
+    # """+cmd)
         
-        logging.getLogger().info(cmd)
-        proc = subprocess.Popen(cmd, shell=True)
-        proc.communicate()
+    #     logging.getLogger().info(cmd)
+    #     proc = subprocess.Popen(cmd, shell=True)
+    #     proc.communicate()
 
     if options.keep_nem_temporary_files:
         if os.path.exists(OUTPUTDIR + "/nem") and options.force:## if dir exists and we allow overwriting
