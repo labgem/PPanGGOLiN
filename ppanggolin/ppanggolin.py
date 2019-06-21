@@ -29,7 +29,7 @@ from fa2 import ForceAtlas2
 import plotly.plotly as py
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
-import plotly.figure_factory as ff
+#import plotly.figure_factory as ff
 from ascii_graph import Pyasciigraph
 from scipy.spatial.distance import squareform, pdist
 from scipy.sparse import csr_matrix, bsr_matrix, csc_matrix
@@ -157,7 +157,7 @@ class PPanGGOLiN:
 
             :Example:
 
-            >>>pan = PPanGGOLiN("file", organisms, gene_families, remove_high_copy_number_families)
+            >>>pan = PPanGGOLiN("files", organisms, gene_families, remove_high_copy_number_families)
             >>>pan = PPanGGOLiN("args", annotations, organisms, circular_contig_size, families_repeted, directed)# load direclty the main attributes
         """ 
 
@@ -189,7 +189,7 @@ class PPanGGOLiN:
         self.path_groups_vectors            = {}# key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
         self.path_vectors                   = {}# key : id, value : vecteur numpy de moyenne de présence / absence des organismes pour chaque famille.
         (self.all_BICs, self.all_ICLs, self.all_LLs)    = (None,None,None)
-        if init_from == "file":
+        if init_from == "files":
             self.__initialize_from_files(*args)
         elif init_from == "args":
             (self.annotations,
@@ -559,7 +559,7 @@ class PPanGGOLiN:
             :type str: 
             :type str:
             :type str: 
-        """ 
+        """
         graph = self.neighbors_graph
         if graph_type == "untangled_neighbors_graph":
             graph = self.untangled_neighbors_graph
@@ -572,8 +572,8 @@ class PPanGGOLiN:
             graph[fam_id][fam_id_nei][organism].append({"source":id_nei,"target":id,"length":length})
         except:
             graph[fam_id][fam_id_nei][organism]= [ { "source" : id_nei,
-                                                "target" : id,
-                                                "length" : length}]
+                                                     "target" : id,
+                                                     "length" : length}]
                                                              
             try:
                 graph[fam_id][fam_id_nei]["weight"]+=1.0
@@ -1273,7 +1273,7 @@ class PPanGGOLiN:
                                      mode = "lines+markers"))
             layout = go.Layout(title = 'ICL curve (best Q is '+str(best_Q)+', ICL_th= is '+str(ICL_th)+")",#, "+ ("y = "+str(round(slope,2))+"x + "+str(round(intercept,2))+", r = "+str(round(r_value,2)) if r_value else ""
                                titlefont = dict(size = 20),
-                               xaxis = dict(title='number of overpartitions'),
+                               xaxis = dict(title='number of partitions'),
                                yaxis = dict(title='ICL, BIC, log likelihood'),
                                shapes=[dict(type='line', x0=best_Q, x1=best_Q, y0=0, y1=ICLs[best_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                        dict(type='line', x0=max_icl_Q, x1=max_icl_Q, y0=0, y1=ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
@@ -1440,23 +1440,19 @@ class PPanGGOLiN:
         def run_evaluate_nb_partitions(orgs, Q):
             bics, icls, lls = None, None, None
             if Q == -1:
-                if self.Q == 3:
-                    Q = 3
-                    edges_weight,nb_fam = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
-                else:
-                    if inplace:
-                        logging.getLogger().info("Estimating the optimal number of partitions...")
-                    (Q,edges_weight, bics, icls, lls) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
-                                                                     old_nem_dir      = old_nem_dir,
-                                                                     select_organisms = orgs,
-                                                                     free_dispersion  = free_dispersion,
-                                                                     Qmin_Qmax        = Qmin_Qmax if self.Q is None else [3,self.Q],
-                                                                     ICL_th           = ICL_th,
-                                                                     nb_iter          = 10,
-                                                                     nb_threads       = nb_threads,
-                                                                     seed             = seed)
-                    if inplace:
-                        logging.getLogger().info("Best Q is "+str(Q))
+                if inplace:
+                    logging.getLogger().info("Estimating the optimal number of partitions...")
+                (Q,edges_weight, bics, icls, lls) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
+                                                                    old_nem_dir      = old_nem_dir,
+                                                                    select_organisms = orgs,
+                                                                    free_dispersion  = free_dispersion,
+                                                                    Qmin_Qmax        = Qmin_Qmax,
+                                                                    ICL_th           = ICL_th,
+                                                                    nb_iter          = 10,
+                                                                    nb_threads       = nb_threads,
+                                                                    seed             = seed)
+                if inplace:
+                    logging.getLogger().info("Best Q is "+str(Q))
             else:
                 edges_weight,nb_fam = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
             return(Q, edges_weight, bics, icls, lls)
@@ -2593,10 +2589,10 @@ class PPanGGOLiN:
         if self.is_partitionned:
             single_copy_markers = None
             if len(self.partitions["persistent"])>0:
-                duplications        = {node : [len(data[org]) for org in (set(data) & set(organisms_to_project))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
-                mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
-                single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
-                single_copy_markers = None if len(single_copy_markers) == 0 else single_copy_markers 
+                 duplications        = {node : [len(data[org]) for org in (set(data) & set(organisms_to_project))] for node, data in self.neighbors_graph.subgraph(self.partitions["persistent"]).nodes(data=True)}
+                 mean_duplication    = {node : mean(occurences) for node, occurences in duplications.items()}
+                 single_copy_markers = {node : value for node, value in mean_duplication.items() if value < 1+duplication_margin}
+            single_copy_markers = None if len(single_copy_markers) == 0 else single_copy_markers 
             with open(out_dir+"/nb_genes.csv","w") as nb_genes_file:
                 nb_genes_file.write(sep.join(["org","nb_persistent_families","nb_shell_families","nb_cloud_families","nb_exact_core_families","nb_exact_accessory_families","nb_soft_core_families","nb_soft_accessory_families","nb_gene_families","nb_persistent_genes","nb_shell_genes","nb_cloud_genes","nb_exact_core_genes","nb_exact_accessory_genes","nb_soft_core_genes","nb_soft_core_genes","nb_pangenome_genes","completeness","strain_contamination","nb_single_copy_markers"])+"\n")
                 for organism in organisms_to_project:
@@ -2653,7 +2649,7 @@ class PPanGGOLiN:
                                                   str(nb_genes_by_partition["soft_core"]),
                                                   str(nb_genes_by_partition["soft_accessory"]),
                                                   str(nb_genes_by_partition["pangenome"]),
-                                                  str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)) if len(self.partitions["persistent"]) > 0 else "NA",
+                                                  str(round(nb_genes_families_by_partition["persistent"]/len(self.partitions["persistent"])*100,4)),
                                                   str(round(len(contamination)/len(single_copy_markers)*100,4)) if single_copy_markers is not None else "NA",
                                                   str(len(single_copy_markers)) if single_copy_markers is not None else "0"])+"\n")
             
@@ -2958,7 +2954,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
         if not just_log_likelihood:
             logging.getLogger().warning("Statistical partitioning do not works (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(Q)+".log")
         else:
-            logging.getLogger().debug("Statistical partitioning do not works (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(Q)+".log")
+            logging.getLogger().debug("  partitioning do not works (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(Q)+".log")
     except ValueError:
         ## return the default partitions_list which correspond to undefined
         pass

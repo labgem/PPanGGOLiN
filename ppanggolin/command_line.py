@@ -274,14 +274,25 @@ evol = None
 pan = None
 options = None
 EVOLUTION = None
+EVOLUTION_Q = 1
 
 def resample(index):
     global shuffled_comb
     nem_dir_path    = TMP_DIR+EVOLUTION_DIR+"/nborg"+str(len(shuffled_comb[index]))+"_"+str(index)
+    Q = options.number_of_partitions[0]
+    Qmin = options.QminQmax[0]
+    Qmax = options.QminQmax[1]
+    if EVOLUTION_Q == 1:
+        Q = pan.Q if (pan is not None and pan.is_partitionned) else options.number_of_partitions[0]
+        Q = 3 if Q == -1 else Q 
+    elif EVOLUTION_Q == 2:
+        Qmax = pan.Q if (pan is not None and pan.is_partitionned) else options.QminQmax[1]
+    elif EVOLUTION_Q == 3:
+        Q = -1
     stats = pan.partition(nem_dir_path     = nem_dir_path,
                           select_organisms = shuffled_comb[index],
-                          Q                = options.overpartionning[0],
-                          Qmin_Qmax        = options.QminQmax,
+                          Q                = Q,
+                          Qmin_Qmax        = [Qmin,Qmax],
                           beta             = options.beta_smoothing[0],
                           th_degree        = options.max_node_degree_smoothing[0],
                           free_dispersion  = options.free_dispersion,
@@ -381,7 +392,7 @@ def __main__():
     Flag: (in test) max size of the untangled paths to be untangled""")
     parser.add_argument("-b", "--beta_smoothing", default = [0.0], type=float, nargs=1, metavar=('BETA_VALUE'), help = """
     Decimal number: This option determines the strength of the smoothing (:math:beta) of the partitioning based on the graph topology (using a Markov Random Field). 
-    b must be a positive float, b = 0.0 means to discard spatial smoothing
+    beta must be a positive float, beta = 0.0 means to discard spatial smoothing
     """)
     parser.add_argument("-ms", "--max_node_degree_smoothing", default = [float("inf")], type=float, nargs=1, metavar=('MAX_DEGREE'), help = """
     Positive number: degree max of the nodes to be included in the smoothing process
@@ -417,26 +428,29 @@ def __main__():
     parser.add_argument("-je", "--just_evolution", default=False, action="store_true", help="""
     Flag: Just compute and draw evolution curve (do not output the graph).
     """)
-    parser.add_argument("-ep", "--evolution_resampling_param", nargs=5, default=[0.1,10,10,1,float("Inf")], metavar=('RESAMPLING_RATIO','MINIMUM_RESAMPLING','MAXIMUM_RESAMPLING','STEP','LIMIT'), help="""
+    parser.add_argument("-ep", "--evolution_resampling_param", nargs=6, default=[0.1,10,10,1,float("Inf"),1], metavar=('RESAMPLING_RATIO','MINIMUM_RESAMPLING','MAXIMUM_RESAMPLING','STEP','LIMIT','EVOLUTION_Q'), help="""
     5 Positive Numbers (or Inf for the last one):
     1st argument is the resampling ratio (FLOAT)
-    2st argument is the minimum number of resampling for each number of organisms (INTEGER)
-    3nd argument is the maximum number of resampling for each number of organisms (INTEGER or Inf)
-    4rd argument is the step between each number of organisms (INTEGER)
-    5rd argument is the limit of the size of the samples (INTEGER or Inf)
+    2nd argument is the minimum number of resampling for each number of organisms (INTEGER)
+    3th argument is the maximum number of resampling for each number of organisms (INTEGER or Inf)
+    4th argument is the step between each number of organisms (INTEGER)
+    5th argument is the limit of the size of the samples (INTEGER or Inf)
+    6th argument specifying how Q is estimated: (INTEGER) 
+        1 -> same Q for all samples (the Q specified if it is, or the Q estimated on the complete pangenome if it is partitionned or Q=3 otherwise)
+        2 -> re-estimate Q for each sample between Qmin and the Q specified if it is, or the Q estimated on the complete pangenome if it is partitionned or Qmax otherwise (intensive)
+        3 -> re-estimate Q for each sample between Qmin and Qmax (very intensive)
     """)
-    parser.add_argument("-pr", "--projection", type = int, nargs = "+", metavar=('LINE_NUMBER_OR_ZERO'), help="""
-    Positive Number: project the graph as a circos plot on each organism.
-    Expected parameters are the line number (1 based) of each organism on which the graph will be projected.
-    It provides a circular plot (well-assembled representative organisms must be prefered).
-    0 means all organisms (it is discouraged to use -p and -pr 0 in the same time because the projection of the graph on all the organisms can take a long time).
+    parser.add_argument("-pr", "--projection", type = int, nargs = "+", default = [0], metavar=('LINE_NUMBER'), help="""
+    Positive Number: project the pangenome graph on each organism.
+    Expected parameters are the positions (starting to 1) of each organism (according to their order in the ORGANISMS_FILE file) on which the pangenome graph will be projected.
+    0 means all organisms (it is discouraged to use -p and -pr 0 together because drawing all the plots could take a while).
     """)
     parser.add_argument("-ck", "--chunck_size", type = int, nargs = 1, default = [500], metavar=('SIZE'), help="""
     Positive Number: Size of the chunks to perform the partioning by chunks.
     If the number of organisms used is higher than SIZE, the partioning will be performed by chunks of size SIZE
     """)
-    parser.add_argument("-Q", "--overpartionning", type = int, nargs = 1, default = [-1], metavar=('NB_PARTITIONS'), help="""
-    Positive Number: Number of partitions to overpartition the pangenome (must be higher or equal to 3, that is to say one for persistent genome, one for the cloud genome and at least for the shell genome).
+    parser.add_argument("-Q", "--number_of_partitions", type = int, nargs = 1, default = [-1], metavar=('NB_PARTITIONS'), help="""
+    Positive Number: Number Q of partitions to used to partitions the pangenome (must be higher or equal to 3, that is to say one for persistent genome, one for the cloud genome and at least one for the shell genome).
     """)
     parser.add_argument("-Qmm", "--QminQmax", type = int, nargs = 2, default = [3,20], metavar=('NB_PARTITIONS_MIN','NB_PARTITIONS_MAX'), help="""
     2 Positive Number: If the Q parameter is not set or equal to -1, the best Q is automatically determined by maximizing ICL. 
@@ -494,6 +508,17 @@ def __main__():
 
     logging.basicConfig(stream=sys.stdout, level = level, format = '\n%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
+    assert options.beta_smoothing[0] >=0.0
+    assert options.cpu[0] >=1
+    assert options.soft_core_threshold[0] > 0 and options.soft_core_threshold[0] < 1
+    assert options.chunck_size[0] > 1
+    assert options.number_of_partitions[0]==-1 or options.number_of_partitions[0]>=3
+    assert options.QminQmax[0]>1 and options.QminQmax[1]>=3 and options.QminQmax[1]>options.QminQmax[0]
+    assert options.ICL_margin[0] >= 0.0 and options.ICL_margin[0]<1
+    assert (options.explore_beta[0] is None,options.explore_beta[1] is None,options.explore_beta[2] is None) or (options.explore_beta[0]>=0 and options.explore_beta[1]>=0 and options.explore_beta[1]>=0 and options.explore_beta[1]>=options.explore_beta[0])
+    assert options.duplication_margin[0]>=0
+    assert options.projection[0]==0 or all([pr > 0 for pr in options.projection])
+
     list_dir = ["",FIGURE_DIR,PARTITION_DIR,PATH_DIR]
     if options.projection:
         list_dir.append(PROJECTION_DIR)
@@ -501,8 +526,15 @@ def __main__():
         list_dir.append(METADATA_DIR)
     if options.evolution or options.just_evolution:
         list_dir.append(EVOLUTION_DIR)
-        (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = options.evolution_resampling_param
-        (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT) = (float(RESAMPLING_RATIO), int(RESAMPLING_MIN), int(RESAMPLING_MAX) if str(RESAMPLING_MAX).upper() != "Inf" else sys.maxsize, int(STEP), int(LIMIT) if str(LIMIT).upper() != "INF" else sys.maxsize)
+        (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT, EVOLUTION_Q) = options.evolution_resampling_param
+        (RESAMPLING_RATIO, RESAMPLING_MIN, RESAMPLING_MAX, STEP, LIMIT, EVOLUTION_Q) = (float(RESAMPLING_RATIO), int(RESAMPLING_MIN), int(RESAMPLING_MAX) if str(RESAMPLING_MAX).upper() != "Inf" else sys.maxsize, int(STEP), int(LIMIT) if str(LIMIT).upper() != "INF" else sys.maxsize, int(EVOLUTION_Q))
+        assert (RESAMPLING_RATIO > 0 and RESAMPLING_RATIO<=1)
+        assert (RESAMPLING_MIN >= 1)
+        assert (RESAMPLING_MAX >= 1)
+        assert (RESAMPLING_MAX >= RESAMPLING_MIN)
+        assert (LIMIT > 1)
+        assert (STEP > 0 and STEP <= LIMIT)
+        assert (EVOLUTION_Q == 1 or EVOLUTION_Q == 2 or EVOLUTION_Q == 3)
     for directory in list_dir:
         if not os.path.exists(OUTPUTDIR+directory):
             os.makedirs(OUTPUTDIR+directory)
@@ -547,18 +579,18 @@ def __main__():
             with open(fname,"r") as summary_nem_file:
                 summ = summary_nem_file.readlines()
                 oldQ = len(summ)
-                if options.overpartionning[0] != -1:
+                if options.number_of_partitions[0] != -1:
                     logging.getLogger().warning("You provided both old NEM files, and a number of partitions. Ignoring the given provided number of partitions to use the number of partitions found in the NEM files.")
-                options.overpartionning[0] = oldQ
-                logging.getLogger().info("partitionning in " + str(options.overpartionning[0]) + " partitions, based on former NEM files.")
+                options.number_of_partitions[0] = oldQ
+                logging.getLogger().info("partitionning in " + str(options.number_of_partitions[0]) + " partitions, based on former NEM files.")
         else:
             logging.getLogger().error(FORMER_NEM + " directory contained " + str(len(fileList)) + " output parameter file(s) of NEM ( *summary.mf  ). Expecting only one.")
     
     #-------------
     metadata = None
 
-    if options.overpartionning[0]!= -1 and options.overpartionning[0] < 3:
-        logging.getLogger().error("The overpartionning option must be equal or above 3 partitions or equal to -1 (default) meaning automatic ajustment")
+    if options.number_of_partitions[0]!= -1 and options.number_of_partitions[0] < 3:
+        logging.getLogger().error("The number_of_partitions option must be equal or above 3 partitions or equal to -1 (default) meaning automatic ajustment")
 
     if options.metadata[0]:
         metadata = pandas.read_csv(options.metadata[0], sep='\t', index_col=0, header=0)
@@ -582,7 +614,7 @@ def __main__():
     if options.input_file:
         pan = PPanGGOLiN("json", options.input_file)
     else:
-        pan = PPanGGOLiN("file",
+        pan = PPanGGOLiN("files",
                      options.organisms[0],
                      options.gene_families[0],
                      options.remove_high_copy_number_families[0],
@@ -626,7 +658,7 @@ def __main__():
             for b in seq(float(options.explore_beta[0]),float(options.explore_beta[1]),float(options.explore_beta[2])):
                 b = round(b,3)
                 pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
-                              Q               = options.overpartionning[0],
+                              Q               = options.number_of_partitions[0],
                               Qmin_Qmax       = options.QminQmax,
                               beta            = b,
                               th_degree       = options.max_node_degree_smoothing[0],
@@ -703,7 +735,7 @@ def __main__():
         start_partitioning = time()
         pan.partition(nem_dir_path    = TMP_DIR+NEM_DIR,
                       old_nem_dir     = FORMER_NEM,
-                      Q               = options.overpartionning[0],
+                      Q               = options.number_of_partitions[0],
                       Qmin_Qmax       = options.QminQmax,
                       beta            = options.beta_smoothing[0],
                       th_degree       = options.max_node_degree_smoothing[0],
@@ -952,19 +984,36 @@ def __main__():
             means               = pandas.Series({i:numpy.mean(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
             initial_kappa_gamma = numpy.array([0.0, 0.0])
             try:
-                res = optimization.curve_fit(heap_law, medians.index, medians, initial_kappa_gamma)
+                all_values = data_evol[data_evol["nb_org"]>15][partition].dropna()
+                res = optimization.curve_fit(heap_law, data_evol.loc[all_values.index]["nb_org"],all_values,initial_kappa_gamma)
                 kappa, gamma = res[0]
-                error_k,error_o = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
-                if numpy.isinf(error_k) and numpy.isinf(error_o):
+                error_k,error_g = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
+                if numpy.isinf(error_k) and numpy.isinf(error_g):
                     params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
                 else:
-                    params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_o)])+"\n")
+                    params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_g)])+"\n")
                     regression = numpy.apply_along_axis(heap_law, 0, range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa, gamma)
+                    regression_sd_top = numpy.apply_along_axis(heap_law, 0, range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa-error_k, gamma+error_g)
+                    regression_sd_bottom = numpy.apply_along_axis(heap_law, 0, range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa+error_k, gamma-error_g)
                     traces.append(go.Scatter(x=list(range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
                                              y=regression, 
-                                             name = partition+": Heaps' law fitting medians",
+                                             name = partition+": Heaps' law",
                                              line = dict(color = COLORS[partition],
                                                          width = 4,
+                                                         dash = 'dash'),
+                                             visible = "legendonly" if partition == "undefined" else True))
+                    traces.append(go.Scatter(x=list(range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
+                                             y=regression_sd_top, 
+                                             name = partition+": Heaps' law error +",
+                                             line = dict(color = COLORS[partition],
+                                                         width = 1,
+                                                         dash = 'dash'),
+                                             visible = "legendonly" if partition == "undefined" else True))
+                    traces.append(go.Scatter(x=list(range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
+                                             y=regression_sd_bottom, 
+                                             name = partition+": Heaps' law error -",
+                                             line = dict(color = COLORS[partition],
+                                                         width = 1,
                                                          dash = 'dash'),
                                              visible = "legendonly" if partition == "undefined" else True))
                     annotations.append(dict(x=(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms),
@@ -982,7 +1031,7 @@ def __main__():
                                             borderpad=4,
                                             bgcolor=COLORS[partition],
                                             opacity=0.8))
-            except RuntimeError as rt:# if fitting doesn't work
+            except (TypeError,RuntimeError) as rt:# if fitting doesn't work
                 params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
             
             traces.append(go.Scatter(x=medians.index, 
