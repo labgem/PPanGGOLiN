@@ -409,6 +409,7 @@ def __main__():
     """)
     parser.add_argument("-cg", "--compress_graph", default=False, action="store_true", help="""
     Flag: Compress (using gzip) the files containing the partionned pangenome graph""")
+    parser.add_argument("--format", required=False, type=str.lower, default="gexf,light,json,csv,rtab,melted", help="Different formats that you could want as output, separated by a ','. Default is all of the possible ones. Accepted strings are: gexf light json csv rtab melted")
     parser.add_argument("-c", "--cpu", default=[1],  type=int, nargs=1, metavar=('NB_CPU'), help="""
     Positive Number: Number of cpu to use (several cpu will be used only if the option -e is set or/and if the -ck option is below the number of organisms provided)""")
     parser.add_argument("-v", "--verbose", default=False, action="store_true", help="""
@@ -854,13 +855,18 @@ def __main__():
             pan.compute_layout()#multiThreaded=options.cpu[0])
             end_layout = time()
             time_report+= "Execution time of layout computation: """ +str(round(end_layout-start_layout, 2))+" s\n"
+        formats = options.format.split(",")
+
         start_writing_output_file = time()
-        logging.getLogger().info("Writing GEXF file")
-        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
-        logging.getLogger().info("Writing GEXF light file")
-        pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light", options.compress_graph, metadata, False,False)
-        logging.getLogger().info("Writing JSON")
-        pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
+        if "gexf" in formats:
+            logging.getLogger().info("Writing GEXF file")
+            pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
+        if "light" in formats:
+            logging.getLogger().info("Writing GEXF light file")
+            pan.export_to_GEXF(OUTPUTDIR+GRAPH_FILE_PREFIX+"_light", options.compress_graph, metadata, False,False)
+        if "json" in formats:
+            logging.getLogger().info("Writing JSON")
+            pan.export_to_json(OUTPUTDIR+GRAPH_FILE_PREFIX, options.compress_graph, metadata)
         
         with open(OUTPUTDIR+"/pangenome.txt","w") as pan_text:
             for partition, families in pan.partitions.items():
@@ -875,9 +881,13 @@ def __main__():
                 if len(families):
                     file.write("\n".join(families)+"\n")
                 file.close()
+        is_rtab = "rtab" in formats
+        is_csv = "csv" in formats
+        if is_rtab or is_csv:
+            pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX, compress = options.compress_graph, csv = is_csv, Rtab = is_rtab)
+        if "melted" in formats:
+            pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX,  compress = options.compress_graph)
         
-        pan.write_matrix(OUTPUTDIR+MATRIX_FILES_PREFIX, compress = options.compress_graph)
-        pan.write_melted_matrix(OUTPUTDIR+MATRIX_MELTED_FILE_PREFIX,  compress = options.compress_graph)
         if pan.nb_organisms<=options.chunck_size[0]:
             pan.write_parameters(OUTPUTDIR+PARAMETER_FILE)
 
@@ -891,11 +901,13 @@ def __main__():
         logging.getLogger().info("Generating some plots")
         start_plots = time()
         pan.ushaped_plot(OUTPUTDIR+FIGURE_DIR+"/"+USHAPE_PLOT_PREFIX)
-        if pan.nb_organisms<=500:
-            pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
-        else:
-            #pan.tile_plot(OUTPUTDIR+FIGURE_DIR,shell_persistent_only=False)
+        if pan.nb_organisms > 500:
             logging.getLogger().warning("Too mush organisms (>1000) to display the tile plot using plot.ly, please use the Rscript to draw a static version of the tile plot")
+        elif pan.nb_organisms <= 1:
+            logging.getLogger().warning("Not enough organisms (1) to display a tile plot.")
+        else:
+            pan.tile_plot(OUTPUTDIR+FIGURE_DIR)
+            
         end_plots = time()
         time_report+= "Execution time of the generation of plots: """ +str(round(end_plots-start_plots, 2))+" s\n"
         del pan.annotations # no more required for the following process
@@ -926,7 +938,9 @@ def __main__():
 
         plot_Rscript(script_outfile = OUTPUTDIR+"/"+SCRIPT_R_FIGURE, verbose=options.verbose)
 
-    if options.evolution or options.just_evolution:
+    if (options.evolution or options.just_evolution) and pan.nb_organisms <= 1:
+        logging.getLogger().warning("You asked to draw the evolution curve of a pangenome made of a single genome which is irrelevent. Skipping this step.")
+    elif options.evolution or options.just_evolution:
         logging.getLogger().info("Evolution... (if WARNING messages occurs about the low number of selected organisms during the computation of evolution, it must be ignored)")
         start_evolution = time()
         # if not options.verbose:
