@@ -642,7 +642,6 @@ def __main__():
 
     #-------------
     
-    
     if options.explore_beta[0] is not None:
         # Q = pan.__evaluate_nb_partitions(nem_dir_path    = TMP_DIR+NEM_DIR,
         #                                  free_dispersion = options.free_dispersion,
@@ -985,11 +984,14 @@ def __main__():
         logging.disable(logging.NOTSET)
         def heap_law(N, kappa, gamma):
             return kappa*N**(gamma)
+        def PolyArea(x,y):
+            return 0.5*numpy.abs(numpy.dot(x,numpy.roll(y,1))-numpy.dot(y,numpy.roll(x,1)))
+
         annotations = []
         traces      = []
         data_evol = pandas.read_csv(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_STATS_FILE_PREFIX+".csv",index_col=False)
         params_file = open(OUTPUTDIR+EVOLUTION_DIR+EVOLUTION_PARAM_FILE_PREFIX+".csv","w")
-        params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error\n")
+        params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error,IQR_area\n")
         for partition in list(pan.partitions.keys())+["pangenome"]:
             percentiles_75      = pandas.Series({i:numpy.nanpercentile(data_evol[data_evol["nb_org"]==i][partition],75) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
             percentiles_25      = pandas.Series({i:numpy.nanpercentile(data_evol[data_evol["nb_org"]==i][partition],25) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
@@ -998,33 +1000,37 @@ def __main__():
             medians             = pandas.Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
             means               = pandas.Series({i:numpy.mean(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)}).dropna()
             initial_kappa_gamma = numpy.array([0.0, 0.0])
+            x = percentiles_25.index.tolist()
+            x += list(reversed(percentiles_25.index.tolist()))
+            area_IQR = PolyArea(x,percentiles_25.tolist()+percentiles_75.tolist())
+            nb_org_min_fitting = 15
             try:
-                all_values = data_evol[data_evol["nb_org"]>15][partition].dropna()
+                all_values = data_evol[data_evol["nb_org"]>nb_org_min_fitting][partition].dropna()
                 res = optimization.curve_fit(heap_law, data_evol.loc[all_values.index]["nb_org"],all_values,initial_kappa_gamma)
                 kappa, gamma = res[0]
                 error_k,error_g = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
                 if numpy.isinf(error_k) and numpy.isinf(error_g):
-                    params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
+                    params_file.write(",".join([partition,"NA","NA","NA","NA",str(area_IQR)])+"\n")
                 else:
-                    params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_g)])+"\n")
-                    regression = numpy.apply_along_axis(heap_law, 0, range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa, gamma)
-                    regression_sd_top = numpy.apply_along_axis(heap_law, 0, range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa-error_k, gamma+error_g)
-                    regression_sd_bottom = numpy.apply_along_axis(heap_law, 0, range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa+error_k, gamma-error_g)
-                    traces.append(go.Scatter(x=list(range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
+                    params_file.write(",".join([partition,str(kappa),str(gamma),str(error_k),str(error_g),str(area_IQR)])+"\n")
+                    regression = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting+1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa, gamma)
+                    regression_sd_top = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting+1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa-error_k, gamma+error_g)
+                    regression_sd_bottom = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting+1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1), kappa+error_k, gamma-error_g)
+                    traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
                                              y=regression, 
                                              name = partition+": Heaps' law",
                                              line = dict(color = COLORS[partition],
                                                          width = 4,
                                                          dash = 'dash'),
                                              visible = "legendonly" if partition == "undefined" else True))
-                    traces.append(go.Scatter(x=list(range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
+                    traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
                                              y=regression_sd_top, 
                                              name = partition+": Heaps' law error +",
                                              line = dict(color = COLORS[partition],
                                                          width = 1,
                                                          dash = 'dash'),
                                              visible = "legendonly" if partition == "undefined" else True))
-                    traces.append(go.Scatter(x=list(range(1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
+                    traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms)+1)), 
                                              y=regression_sd_bottom, 
                                              name = partition+": Heaps' law error -",
                                              line = dict(color = COLORS[partition],
@@ -1034,11 +1040,11 @@ def __main__():
                     annotations.append(dict(x=(LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms),
                                             y=heap_law((LIMIT if LIMIT < pan.nb_organisms else pan.nb_organisms),kappa, gamma),
                                             ay=0,
-                                            ax=100,
-                                            text="F="+str(round(kappa,0))+"N"+"<sup>"+str(round(gamma,5))+"</sup>",
+                                            ax=50,
+                                            text="F="+str(round(kappa,0))+"N"+"<sup>"+str(round(gamma,5))+"</sup><br>IQRarea="+str(round    (area_IQR,2)),
                                             showarrow=True,
                                             arrowhead=7,
-                                            font=dict(size=16,color='white'),
+                                            font=dict(size=10,color='white'),
                                             align='center',
                                             arrowcolor=COLORS[partition],
                                             bordercolor='#c7c7c7',
@@ -1047,7 +1053,7 @@ def __main__():
                                             bgcolor=COLORS[partition],
                                             opacity=0.8))
             except (TypeError,RuntimeError) as rt:# if fitting doesn't work
-                params_file.write(",".join([partition,"NA","NA","NA","NA"])+"\n")
+                params_file.write(",".join([partition,"NA","NA","NA","NA",str(area_IQR)])+"\n")
             
             traces.append(go.Scatter(x=medians.index, 
                                      y=medians, 

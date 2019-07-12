@@ -38,6 +38,7 @@ from scipy.cluster.hierarchy import linkage, dendrogram
 import markov_clustering as mc
 import io
 from contextlib import redirect_stdout
+import colorlover as cl
 
 import glob
 
@@ -49,8 +50,8 @@ import glob
 (FAMILIES_PARTITION,PARTITION_PARAMETERS, LOG_LIKELIHOOD) = range(0, 3)
 RESERVED_WORDS = set(["id", "label", "name", "weight", "partition", "partition_exact", "partition_soft", "length", "length_min", "length_max", "length_avg", "length_med", "product", 'nb_genes','subpartition',"viz","type","path","correlated_paths","mean_duplication"])
 SHORT_TO_LONG = {'EA':'exact_accessory','EC':'exact_core','SA':'soft_accessory','SC':'soft_core','P':'persistent','S':'shell','C':'cloud','U':'undefined'}
-COLORS = {"pangenome":"black", "exact_accessory":"#EB37ED", "exact_core" :"#FF2828", "soft_core":"#e6e600", "soft_accessory":"#996633","shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
-COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "exact_accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "exact_core" :{'r': 255, 'g': 40, 'b': 40, 'a': 0},  "soft_core":{'r': 255, 'g': 255, 'b': 0, 'a': 0}, "soft_accessory": {'r': 153, 'g': 102, 'b': 51, 'a': 0},"shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
+COLORS = {"pangenome":"black", "exact_accessory":"#EB37ED", "exact_core" :"#FF2828", "soft_core":"#c7c938", "soft_accessory":"#996633","shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
+COLORS_RGB = {"pangenome":{'r': 0, 'g': 0, 'b': 0, 'a': 0}, "exact_accessory":{'r': 235, 'g': 55, 'b': 237, 'a': 0}, "exact_core" :{'r': 255, 'g': 40, 'b': 40, 'a': 0},  "soft_core":{'r': 199, 'g': 201, 'b': 56, 'a': 0}, "soft_accessory": {'r': 153, 'g': 102, 'b': 51, 'a': 0},"shell": {'r': 0, 'g': 216, 'b': 96, 'a': 0}, "persistent":{'r': 247, 'g': 165, 'b': 7, 'a': 0}, "cloud":{'r': 121, 'g': 222, 'b': 255, 'a': 0}, "undefined":{'r': 130, 'g': 130, 'b': 130, 'a': 0}}
 MAX_Q = 20
 
 """
@@ -1091,7 +1092,7 @@ class PPanGGOLiN:
             str_file.write("S\t"+str(len(index_fam))+"\t"+
                             str(len(select_organisms))+"\n")
                                 
-        return(total_edges_weight,len(index_fam))
+        return(total_edges_weight/2,len(index_fam))#total_edges_weight is divided by 2 because each edge is browsed twice
 
     def __evaluate_nb_partitions(self, nem_dir_path = tempfile.mkdtemp(),
                                  old_nem_dir        = None,
@@ -1308,21 +1309,29 @@ class PPanGGOLiN:
             :param nem_dir_path: a str containing a path to store temporary file of the NEM program.
             :param old_nem_dir: a str containing a path where nem files from another run are stored.
             :param select_organisms: a list of organism to used to obtain the partition (must be included in the organism attributes of the object) or None to used all organisms in the object
+            :param Q: a int specifying the number partitions to use (Q>=3) or -1 to search the best Q
+            :param Qmin_Qmax: a list of 2 int (Qmin the first, Qmax the last) specifying the limit of the searching space to determine the best Q (if Q == -1), Qmin must be Q>=2 and Qmax must not be too high (not above ~30)
             :param beta: a float containing the spatial coefficient of smoothing of the clustering results using the weighted graph topology (0.00 turn off the spatial clustering)
+            :param th_degree: a int specifying the maximal degree to be excluded of the smoothing with the graph topology (must be >1 and can be float("Inf"))
             :param free_dispersion: a bool specyfing if the dispersion around the centroid vector of each paritition is the same for all the organisms or if the dispersion is free
             :param chunck_size: an int specifying the size of the chunks
             :param soft_core_th a float between 0 and 1 providing the threshold ratio of presence to attribute a gene families to the soft core genome
+            :param ICL_th: a float specifying the ICL margin tolerated to selected the best Q (ICL_th>=0 and ICL_th<1)
             :param inplace: a boolean specifying if the partition must be stored in the object of returned (throw an error if inplace is true and organisms parameter i not None)
             :param just_stats: a boolean specifying if the partitions must be returned or just stats about them (number of families in each partition)
             :param nb_threads: an integer specifying the number of threads to use (works only if the number of organisms is higher than the chunck_size)
             :type str: 
             :type str:
             :type list: 
+            :type int: 
+            :type list:
+            :type float
+            :type int 
+            :type bool:
+            :type int
+            :type float: 
             :type float: 
             :type bool:
-            :type float
-            :type int: 
-            :type bool: 
             :type bool: 
             :type int: 
         """ 
@@ -1383,8 +1392,7 @@ class PPanGGOLiN:
         def run_evaluate_nb_partitions(orgs, Q):
             bics, icls, lls = None, None, None
             if Q == -1:
-                if inplace:
-                    logging.getLogger().info("Estimating the optimal number of partitions...")
+                logging.getLogger().info("Estimating the optimal number of partitions...") if inplace else None
                 (Q,edges_weight, bics, icls, lls) = self.__evaluate_nb_partitions(nem_dir_path     = nem_dir_path,
                                                                                   old_nem_dir      = old_nem_dir,
                                                                                   select_organisms = orgs,
@@ -1394,8 +1402,7 @@ class PPanGGOLiN:
                                                                                   nb_iter          = 10,
                                                                                   nb_threads       = nb_threads,
                                                                                   seed             = seed)
-                if inplace:
-                    logging.getLogger().info("Best Q is "+str(Q))
+                logging.getLogger().info("Best Q is "+str(Q)) if inplace else None
             else:
                 edges_weight,nb_fam = self.__write_nem_input_files(nem_dir_path,orgs, old_nem_dir = old_nem_dir, th_degree = th_degree)
             return(Q, edges_weight, bics, icls, lls)
@@ -1463,37 +1470,41 @@ class PPanGGOLiN:
                         shuffled_orgs = shuffled_orgs[chunck_size:]
                 logging.getLogger().info("Writing initialization values and subgraphs for nem...")
                 #making arguments for all samples:
-                bar = tqdm(range(len(org_samples)), unit = " samples")
+                bar = tqdm(range(len(org_samples)), unit = " samples") if inplace else None
                 args = []
                 for samp in org_samples:
                     edges_weight, nb_fam = self.__write_nem_input_files(nem_dir_path+"/"+str(cpt)+"/",samp, old_nem_dir = old_nem_dir, th_degree = th_degree, neighbors_graph = neighbors_graph)
                     args.append(( nem_dir_path + "/" + str(cpt) + "/", len(samp), beta*(nb_fam / edges_weight), free_dispersion, Q, seed, init, keep_temp_files))
-                    bar.update()
+                    bar.update() if inplace else None
                     cpt += 1
-                bar.close()
-                logging.getLogger().info("Launching NEM")
+                
+                if inplace:
+                    bar.close()
+                    logging.getLogger().info("Launching NEM")
                 with Pool(processes = nb_threads) as p:
                     #launch partitionnings
-                    bar = tqdm(range(len(args)), unit = " samples partitionned")
+                    bar = tqdm(range(len(args)), unit = " samples partitionned") if inplace else None
                     for result in p.imap_unordered(launch_nem, args):
                         validate_family(result)
-                        bar.update()
-                    bar.close()
+                        bar.update() if inplace else None
+                            
+                    bar.close() if inplace else None
+                        
                     condition +=1#if len(validated) < pan_size, we will want to resample more.
 
             for fam, data in cpt_partition.items():
                 partitionning_results[fam]=max(data, key=data.get)
 
             partitionning_results = [partitionning_results,[]]
-            logging.getLogger().info(f"Did {cpt} partitionning with chunks of size {chunck_size} among {len(select_organisms)} genomes in {round(time() - start_partitionning,2)} seconds.")
+            
+            logging.getLogger().info(f"Did {cpt} partitionning with chunks of size {chunck_size} among {len(select_organisms)} genomes in {round(time() - start_partitionning,2)} seconds.") if inplace else None
         else:
             Q, edges_weight, BICs, ICLs, LLs  = run_evaluate_nb_partitions(select_organisms,Q)
-            if inplace:
-                logging.getLogger().info("Partitioning...")
+            logging.getLogger().info("Partitioning...") if inplace else None
 
             partitionning_results = run_partitioning(nem_dir_path, len(select_organisms), beta * ((stats["exact_accessory"]+stats["exact_core"])/edges_weight), free_dispersion, Q = Q, seed = seed, init = init)# 
             cpt+=1
-            logging.getLogger().info(f"Partitionned {len(select_organisms)} genomes in {round(time() - start_partitionning,2)} seconds.")
+            logging.getLogger().info(f"Partitionned {len(select_organisms)} genomes in {round(time() - start_partitionning,2)} seconds.")  if inplace else None
 
         if inplace:
             (self.all_BICs, self.all_ICLs, self.all_LLs) = BICs, ICLs, LLs
@@ -2252,11 +2263,25 @@ class PPanGGOLiN:
         text_data   = []
         fam_order   = []
 
+        ordered_nodes = []
         ordored_nodes_p = sorted(self.partitions["persistent"], key=lambda n:len(graph.nodes[n]), reverse=True)
-        ordored_nodes_s = sorted(self.partitions["shell"], key=lambda n:len(graph.nodes[n]), reverse=True)
         ordored_nodes_c = sorted(self.partitions["cloud"], key=lambda n:len(graph.nodes[n]), reverse=True)
-
-        for node in ordored_nodes_p+ordored_nodes_s+ordored_nodes_c:
+        sep_p = len(ordored_nodes_p)-0.5
+        separators = [sep_p]
+        if len(self.subpartitions_shell)==1:
+            ordored_nodes_s = sorted(self.partitions["shell"], key=lambda n:len(graph.nodes[n]), reverse=True)
+            ordered_nodes = ordored_nodes_p+ordored_nodes_s+ordored_nodes_c
+            separators.append(separators[len(separators)-1]+len(ordored_nodes_s))
+            separators.append(separators[len(separators)-1]+len(ordored_nodes_c))
+        else:
+            ordered_nodes = ordored_nodes_p
+            for subpartition in self.subpartitions_shell:
+                ordored_nodes_s = sorted(self.subpartitions_shell[subpartition], key=lambda n:len(graph.nodes[n]), reverse=True)
+                ordered_nodes+= ordored_nodes_s
+                separators.append(separators[len(separators)-1]+len(ordored_nodes_s))
+            ordered_nodes+=ordored_nodes_c
+            separators.append(separators[len(separators)-1]+len(ordored_nodes_c))
+        for node in ordered_nodes:
             fam_order.append('\u200c' + node)
             data = graph.nodes[node]
             binary_data.append([len(data[org]) if org in data else numpy.nan for org in order_organisms])
@@ -2284,11 +2309,25 @@ class PPanGGOLiN:
                                           #    dtick    = 0.333,
                                           #    nticks   = 3,
                                                    ticks     = 'outside'))
-
-        sep1 = len(ordored_nodes_p)-0.5
-        sep2 = sep1 + len(ordored_nodes_s)
-        sep3 = sep2 + len(ordored_nodes_c)
-
+        shell_color=None
+        if len(self.subpartitions_shell)>1:
+            shell_color = cl.interp(cl.flipper()['seq']['9']['Greens'][1:7],self.Q-2)
+        shapes = []
+        sep_prec=0
+        for nb, sep in enumerate(separators):
+            color = None
+            if nb==0:
+                color=COLORS["persistent"]
+            elif nb==(len(separators)-1):
+                color=COLORS["cloud"]
+            elif len(self.subpartitions_shell)>1:
+                color=shell_color[nb-1]
+            else:
+                color=COLORS["shell"]
+            shapes.append(dict(type='line', x0=-1, x1=-1, y0=sep_prec, y1=sep, line = dict(dict(width=10, color=color))))
+            shapes.append(dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=sep_prec, y1=sep, line = dict(dict(width=10, color=color))))
+            shapes.append(dict(type='line', x0=-1, x1=self.nb_organisms, y0=sep, y1=sep, line = dict(dict(width=1, color=color))))
+            sep_prec=sep
         layout = go.Layout(title  = "presence/absence matrix",
                            xaxis  = go.layout.XAxis(ticktext=list(order_organisms),
                                                     title='organisms',
@@ -2300,14 +2339,7 @@ class PPanGGOLiN:
                                                     title='gene families',
                                                     automargin=True,
                                                     tickfont=dict(size=10)),
-                           shapes = [dict(type='line', x0=-1, x1=-1, y0=0, y1=sep1, line = dict(dict(width=10, color=COLORS["persistent"]))),
-                                     dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=0, y1=sep1, line = dict(dict(width=10, color=COLORS["persistent"]))),
-                                     dict(type='line', x0=-1, x1=self.nb_organisms, y0=sep1, y1=sep1, line = dict(dict(width=1, color=COLORS["persistent"]))),
-                                     dict(type='line', x0=-1, x1=-1, y0=sep1, y1=sep2, line = dict(dict(width=10, color=COLORS["shell"]))),
-                                     dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=sep1, y1=sep2, line = dict(dict(width=10, color=COLORS["shell"]))),
-                                     dict(type='line', x0=-1, x1=self.nb_organisms, y0=sep2, y1=sep2, line = dict(dict(width=1, color=COLORS["shell"]))),
-                                     dict(type='line', x0=-1, x1=-1, y0=sep2, y1=sep3, line = dict(dict(width=10, color=COLORS["cloud"]))),
-                                     dict(type='line', x0=self.nb_organisms, x1=self.nb_organisms, y0=sep2, y1=sep3, line = dict(dict(width=10, color=COLORS["cloud"])))])
+                           shapes = shapes)
 
         # figure = ff.create_dendrogram(mat_p_a, orientation='bottom', labels=self.organisms,distfun = lambda x: dist, linkagefun = lambda x: hc)
         # for i in range(len(figure['data'])):
