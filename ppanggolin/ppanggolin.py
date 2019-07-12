@@ -2275,7 +2275,8 @@ class PPanGGOLiN:
             separators.append(separators[len(separators)-1]+len(ordored_nodes_c))
         else:
             ordered_nodes = ordored_nodes_p
-            for subpartition in self.subpartitions_shell:
+            for subpartition in sorted(self.subpartitions_shell.keys()):
+
                 ordored_nodes_s = sorted(self.subpartitions_shell[subpartition], key=lambda n:len(graph.nodes[n]), reverse=True)
                 ordered_nodes+= ordored_nodes_s
                 separators.append(separators[len(separators)-1]+len(ordored_nodes_s))
@@ -2769,10 +2770,10 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
                 mu_k = [bool(float(mu_kj)) for mu_kj in vector[0:nb_org]]
                 logging.getLogger().debug(mu_k)
                 logging.getLogger().debug(len(mu_k))
-                epsilon_k = [round(float(epsilon_kj),2) for epsilon_kj in vector[nb_org+1:]]
+                epsilon_k = [float(epsilon_kj) for epsilon_kj in vector[nb_org+1:]]
                 logging.getLogger().debug(epsilon_k)
                 logging.getLogger().debug(len(epsilon_k))
-                proportion = round(float(vector[nb_org]),2)
+                proportion = float(vector[nb_org])
                 logging.getLogger().debug(proportion)
                 sum_mu_k.append(sum(mu_k))
                 logging.getLogger().debug(sum(mu_k))
