@@ -19,31 +19,37 @@ from ppanggolin.formats import writePangenome, readPangenome
 def launchAnnotateOrganism(pack):
     return annotate_organism(*pack)
 
+def annotatePangenome(pangenome, fastaList, translation_table, kingdom, norna, tmpdir, overlap, cpu):
+    logging.getLogger().info(f"Reading {fastaList} the list of organism files")
+    
+    arguments = []
+    for line in read_compressed_or_not(fastaList):
+        elements = [el.strip() for el in line.split("\t")]
+        if len(elements)<=1:
+            logging.getLogger().error("No tabulation separator found in organisms file")
+            exit(1)
+        arguments.append((elements[0], elements[1], elements[2:], translation_table, kingdom, norna, tmpdir, overlap))
+    
+    logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
+    with Pool(processes = cpu) as p:
+        bar = tqdm(range(len(arguments)), unit = "genome")
+        for organism in p.imap_unordered(launchAnnotateOrganism, arguments):
+            bar.update()
+            pangenome.addOrganism(organism)
+    bar.close()
+    logging.getLogger().info("Done annotating genomes")
+    pangenome.status["genomesAnnotated"] = "Computed"#the pangenome is now annotated.
+    pangenome.status["geneSequences"] = "Computed"#the gene objects have their respective gene sequences.
+   
+    logging.getLogger().debug(f"RAM at the end of annotating genomes: {getCurrentRAM()}")
+    return pangenome
+
 def launch(args):
     if args.fasta is not None:
         #do stuff
         logging.getLogger().debug(f"RAM before doing anything: {getCurrentRAM()}")
         pangenome = Pangenome()
-        logging.getLogger().info(f"Reading {args.fasta} the list of organism files")
-        
-        arguments = []
-        for line in read_compressed_or_not(args.fasta):
-            elements = [el.strip() for el in line.split("\t")]
-            if len(elements)<=1:
-                logging.getLogger().error("No tabulation separator found in organisms file")
-                exit(1)
-            arguments.append((elements[0], elements[1], elements[2:], args.translation_table, args.kingdom, args.norna, args.tmpdir, args.overlap))
-        
-        logging.getLogger().info(f"Annotating {len(arguments)} genomes using {args.cpu} cpus...")
-        with Pool(processes = args.cpu) as p:
-            bar = tqdm(range(len(arguments)), unit = "genome")
-            for organism in p.imap_unordered(launchAnnotateOrganism, arguments):
-                bar.update()
-                pangenome.addOrganism(organism)
-        logging.getLogger().info("Done annotating genomes")
-        pangenome.status["genomesAnnotated"] = "Yes"#the pangenome is now annotated.
-        bar.close()
-        logging.getLogger().debug(f"RAM at the end of annotating genomes: {getCurrentRAM()}")
+        annotatePangenome(pangenome, args.fasta, args.translation_table, args.kingdom, args.norna, args.tmpdir, args.overlap, args.cpu)
         writePangenome(pangenome, Path(args.output + "/" + args.basename ))
     elif args.gff is not None:
         raise NotImplementedError()

@@ -30,6 +30,10 @@ class GeneFamily:
         self._edges = {}
         self.genes = set()
         self.removed = False#for the repeated family not added in the main graph
+        self.sequence = ""
+
+    def addSequence(self, seq):
+        self.sequence = seq
 
     def __str__(self):
         return str(self.ID)
@@ -61,20 +65,21 @@ class Pangenome:
         self._edgeGetter = {}
         self.status = {
                     'genomesAnnotated': "No",
+                    'geneSequences' : "No",
                     'genesClustered':  "No",
+                    'geneFamilySequences':"No",
                     'NeighborsGraph':  "No",
                     'Partitionned':  "No"
                 }
 
+    def addFile(self, pangenomeFile):
+        from ppanggolin.formats import getStatus#importing on call instead of importing on top to avoid cross-reference problems.
+        getStatus(self, pangenomeFile)
+        self.file = pangenomeFile
+
     @property
     def genes(self):
         return [ gene for org in self._orgGetter.values() for contig in org.contigs for gene in contig.genes ]
-
-    def stats(self):
-        print(f"Genes : {len(self.genes)}")
-        print(f"Organisms : {len(self.organisms)}")
-        print(f"Edges : {len(self.edges)}")
-        print(f"GeneFamilies : {len(self.geneFamilies)}")
 
     @property
     def geneFamilies(self):
@@ -142,7 +147,7 @@ class Pangenome:
         return g
 
     def getOrganism(self, name):
-        """ returns an existing organism or adds a new one"""
+        """ returns an existing organism or adds a new one with the given name"""
         org = self._orgGetter.get(name)
         if org is None:
             org = Organism(name)
@@ -150,6 +155,7 @@ class Pangenome:
         return org
 
     def addOrganism(self, newOrg):
+        """ adds an organism that did not exist previously in the pangenome"""
         oldLen = len(self._orgGetter)
         self._orgGetter[newOrg.name] = newOrg
         if len(self._orgGetter) == oldLen:
@@ -162,10 +168,7 @@ class Pangenome:
             Otherwise, does not create anything.
             returns the geneFamily object.
         """
-        geneFam = self._famGetter.get(name)
-        if geneFam is None:
-            return self._createGeneFamily(name)
-        return geneFam
+        return self._famGetter.get(name, self._createGeneFamily(name))
 
     def addEdge(self, gene1, gene2, org):
         key = frozenset([gene1.family,gene2.family])
