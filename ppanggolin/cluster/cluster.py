@@ -15,8 +15,9 @@ import networkx
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
+from ppanggolin.genome import Gene
 from ppanggolin.utils import read_compressed_or_not, getCurrentRAM
-from ppanggolin.formats import writePangenome, readPangenome, writeCDSSequences
+from ppanggolin.formats import writePangenome, readPangenome, writeCDSSequences, getStatus
 from ppanggolin.annotate import genetic_codes, translate
 
 def alignRep(faaFile, tmpdir, cpu):
@@ -137,7 +138,21 @@ def refineClustering(tsv, alnFile, fam2seq):
     logging.getLogger().info(f"Ending with {len(newFam2seq)} gene families")
     return genes2fam, newFam2seq
 
-def clustering(sequences, tmpdir, cpu , nodefrag = False, code = "11"):
+def read_gene2fam(pangenome, gene2fam):
+    logging.getLogger().info("Adding genes to the gene families")
+    for gene, (family, is_frag) in gene2fam.items():
+        fam = pangenome.addGeneFamily(family)
+        geneObj = Gene(gene)
+        geneObj.is_fragment = is_frag
+        fam.addGene(geneObj)
+
+def read_fam2seq(pangenome, fam2seq):
+    logging.getLogger().info("Adding protein sequences to the gene families")
+    for family, protein in fam2seq.items():
+        fam = pangenome.addGeneFamily(family)
+        fam.addSequence(protein)
+
+def clustering(pangenome, sequences, tmpdir, cpu , nodefrag = False, code = "11"):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     logging.getLogger().info("Clustering all of the genes sequences...")
     rep, tsv = firstClustering(sequences, newtmpdir, cpu, code)
@@ -147,15 +162,18 @@ def clustering(sequences, tmpdir, cpu , nodefrag = False, code = "11"):
         tsv.close()
         rep.close()
         newtmpdir.cleanup()
-        return genes2fam, fam2seq
-    logging.getLogger().info("Associating fragments to their original gene family...")
-    aln = alignRep(rep, newtmpdir, cpu)
-    genes2fam, fam2seq = refineClustering(tsv, aln, fam2seq)
-    aln.close()
-    tsv.close()
-    rep.close()
-    newtmpdir.cleanup()
-    return genes2fam, fam2seq
+    else:
+        logging.getLogger().info("Associating fragments to their original gene family...")
+        aln = alignRep(rep, newtmpdir, cpu)
+        genes2fam, fam2seq = refineClustering(tsv, aln, fam2seq)
+        aln.close()
+        tsv.close()
+        rep.close()
+        newtmpdir.cleanup()
+    read_fam2seq(pangenome, fam2seq)
+    read_gene2fam(pangenome, genes2fam)
+    pangenome.status["genesClustered"] = "Computed"
+    pangenome.status["geneFamilySequences"] = "Computed"
 
 def launch(args):
     """ launch the clustering step"""
@@ -164,11 +182,12 @@ def launch(args):
     # pangenome.stats()
     logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = args.tmpdir)
-    writeCDSSequences(args.pangenome, tmpFile, args.cpu)
-
-    logging.getLogger().info("Done extracting all gene protein sequences")
-    genes2fam, fam2faa = clustering(tmpFile.name, args.tmpdir, args.cpu, args.nodefrag, args.translation_table)
-
+    pangenome = Pangenome()
+    pangenome.addFile(args.pangenome)
+    writeCDSSequences(pangenome, tmpFile, args.cpu)
+    logging.getLogger().info("Done extracting all the protein sequences")
+    clustering(pangenome, tmpFile.name, args.tmpdir, args.cpu, args.nodefrag, args.translation_table)
+    writePangenome(pangenome, pangenome.file)
     tmpFile.close()
     logging.getLogger().debug(f"RAM used after clustering : {getCurrentRAM()}")
     ##now deal with those things (like write them ?)

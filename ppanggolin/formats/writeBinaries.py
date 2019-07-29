@@ -16,7 +16,7 @@ from ppanggolin.pangenome import Pangenome, GeneFamily, Edge
 from ppanggolin.genome import Organism, Contig, Gene
 from ppanggolin.utils import getCurrentRAM
 
-def geneDesc(geneLength):
+def geneDesc():
     return {
             'organism':tables.StringCol(itemsize=1024),
             "contig":{
@@ -24,7 +24,7 @@ def geneDesc(geneLength):
                     "is_circular":tables.BoolCol()
             },
             "gene":{ 
-                'ID':tables.StringCol(itemsize=128),
+                'ID':tables.StringCol(itemsize=1024),
                 'start':tables.UInt64Col(),
                 'stop':tables.UInt64Col(),
                 'strand':tables.StringCol(itemsize=1),
@@ -34,9 +34,28 @@ def geneDesc(geneLength):
                 'product':tables.StringCol(itemsize=1024),
                 'genetic_code':tables.UInt32Col(),
                 'is_fragment':tables.BoolCol(dflt = False),
-                'dna':tables.StringCol(itemsize=geneLength),#The longest know protein to date is something around 36 000 amino acids.
             }
             }
+
+
+def geneSequenceDesc():
+    return {
+        "gene":tables.StringCol(itemsize=1024),
+        "dna":tables.StringCol(itemsize=160000),
+        "type":tables.StringCol(itemsize=32)
+    }
+
+def geneFamDesc():
+     return {
+        "name": tables.StringCol(itemsize = 1024),
+        "protein": tables.StringCol(itemsize=40000)
+        }
+
+def gene2famDesc():
+    return {
+        "geneFam": tables.StringCol(itemsize = 1024),
+        "gene":tables.StringCol(itemsize= 1024)
+        }
 
 def writeAnnotations(pangenome, h5f):
     """
@@ -45,13 +64,7 @@ def writeAnnotations(pangenome, h5f):
     # original_warnings = list(warnings.filters)
     # warnings.simplefilter('ignore', tables.NaturalNameWarning)
     annotation = h5f.create_group("/","annotations","Annotations of the pangenome's organisms")
-    nbGenes = 0
-    maxlen = 0
-    for gene in pangenome.genes:
-        if len(gene.dna)>maxlen:
-            maxlen = len(gene.dna)
-        nbGenes+=1
-    table = h5f.create_table(annotation, "genes", geneDesc(maxlen), expectedrows=nbGenes)
+    table = h5f.create_table(annotation, "genes", geneDesc(), expectedrows=len(pangenome.genes))
     bar = tqdm(pangenome.organisms, unit="genome")
     geneRow = table.row
     for org in bar:
@@ -70,28 +83,49 @@ def writeAnnotations(pangenome, h5f):
                 geneRow["gene/product"] = gene.product
                 geneRow["gene/is_fragment"] = gene.is_fragment
                 geneRow["gene/genetic_code"] = gene.genetic_code
-                if hasattr(gene, "dna"):
-                    geneRow["gene/dna"] = gene.dna
                 geneRow.append()
     table.flush()
 
     bar.close()
     # warnings.filters = original_warnings
 
+def writeGeneSequences(pangenome, h5f):
+    geneSeq = h5f.create_table("/","geneSequences", geneSequenceDesc(), expectedrows=len(pangenome.genes))
+    geneRow = geneSeq.row
+    bar = tqdm(pangenome.genes, unit = "gene")
+    for gene in bar:
+        geneRow["gene"] = gene.ID
+        geneRow["dna"] = gene.dna
+        geneRow["type"] = gene.type
+        geneRow.append()
+    geneSeq.flush()
+    bar.close()
+
+def writeGeneFamSeq(pangenome, h5f):
+    geneFamSeq = h5f.create_table("/","geneFamiliesSequences",geneFamDesc(), expectedrows=len(pangenome.geneFamilies))
+    row = geneFamSeq.row
+    bar = tqdm( pangenome.geneFamilies, unit = "gene family")
+    for fam in bar:
+        row["name"] = fam.name
+        row["protein"] = fam.sequence
+        row.append()
+    geneFamSeq.flush()
+    bar.close()
+
 def writeGeneFamilies(pangenome, h5f):
     """
         Function writing all of the pangenome's gene families
     """
-    geneFamilies = h5f.create_group("/", "geneFamilies","Gene families of the pangenome")
-    for geneFam in pangenome.geneFamilies:
-        geneFamGroup = h5f.create_group(geneFamilies,geneFam.name)
-        genesTable = h5f.create_table(geneFamGroup, "genes", {"organism":tables.StringCol(), "gene":tables.StringCol()})
-        geneRow = genesTable.row
+    geneFamilies = h5f.create_table("/", "geneFamilies",gene2famDesc())
+    geneRow = geneFamilies.row
+    bar = tqdm(pangenome.geneFamilies, unit = "gene family")
+    for geneFam in bar:
         for gene in geneFam.genes:
             geneRow["gene"] = gene.ID
-            geneRow["organism"] = gene.organism.name
+            geneRow["geneFam"] = geneFam.name
             geneRow.append()
-        genesTable.flush()
+    geneFamilies.flush()
+    bar.close()
 
 def writeGraph(pangenome, h5f):
     edges = h5f.create_group("/", "graph","Edges of the neighbors graph")
@@ -112,11 +146,17 @@ def writeGraph(pangenome, h5f):
         edgeTable.flush()
 
 def writeStatus(pangenome, h5f):
-    statusGroup = h5f.create_group("/","status","Statuses of the pangenome's content")
-    statusGroup._v_attrs.genomesAnnotated = True if pangenome.status["genomesAnnotated"] in ["Yes","Loaded"] else False
-    statusGroup._v_attrs.genesClustered = True if pangenome.status["genesClustered"] in ["Yes","Loaded"] else False
-    statusGroup._v_attrs.NeighborsGraph = True if pangenome.status["NeighborsGraph"] in ["Yes","Loaded"] else False
-    statusGroup._v_attrs.Partitionned = True if pangenome.status["Partitionned"] in ["Yes","Loaded"] else False
+    if "/status" in h5f:#if statuses are already written
+        statusGroup = h5f.root.status
+    else:#else create the status group.
+        statusGroup = h5f.create_group("/","status","Statuses of the pangenome's content")
+    statusGroup._v_attrs.genomesAnnotated = True if pangenome.status["genomesAnnotated"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.geneSequences = True if pangenome.status["geneSequences"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.genesClustered = True if pangenome.status["genesClustered"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.geneFamilySequences = True if pangenome.status["geneFamilySequences"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.NeighborsGraph = True if pangenome.status["NeighborsGraph"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.Partitionned = True if pangenome.status["Partitionned"] in ["Computed","Loaded","inFile"] else False
+
 
 def writePangenome(pangenome, filename):
     """
@@ -125,27 +165,39 @@ def writePangenome(pangenome, filename):
     """
 
     compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
-    if pangenome.status["genomesAnnotated"] == "Yes":
+    if pangenome.status["genomesAnnotated"] == "Computed":
         if filename.suffix != ".h5":
             filename = filename.with_suffix(".h5")
         h5f = tables.open_file(filename,"w", filters=compressionFilter)
         logging.getLogger().info("Writing genome annotations...")
         writeAnnotations(pangenome, h5f)
-        logging.getLogger().info("Done writing genome annotations")
-    elif pangenome.status["genomesAnnotated"] == "Loaded":
-        h5f = tables.open_file(filename,"a", filters=compressionFilter)
+        h5f.close()
+    elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
+        pass
+        
     else:#if the pangenome is not Yes not Loaded, it's probably not really in a good state ( or something new was coded).
         raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. Dev's contact is ggautrea [at] genoscope [dot] cns [dot] fr.")
-    if pangenome.status["genesClustered"] == "Yes":
-        logging.getLogger().info("Writing gene families...")
+    
+    #from there, appending to existing file.
+    h5f = tables.open_file(filename,"a", filters=compressionFilter)
+
+    if pangenome.status["geneSequences"] == "Computed":
+        logging.getLogger().info("writing the genes dna sequences")
+        writeGeneSequences(pangenome, h5f)
+
+    if pangenome.status["geneFamilySequences"] == "Computed":
+        logging.getLogger().info("Writing the gene family representative protein sequences...")
+        writeGeneFamSeq(pangenome, h5f)
+
+    if pangenome.status["genesClustered"] == "Computed":
+        logging.getLogger().info("Writing gene families and gene associations...")
         writeGeneFamilies(pangenome, h5f)
-        if pangenome.status["genomesAnnotated"] == "Loaded":
-            raise NotImplementedError()
     
-    if pangenome.status["NeighborsGraph"] == "Yes":
-        writeGraph(pangenome, h5f)
+    if pangenome.status["NeighborsGraph"] == "Computed":
+        raise NotImplementedError()
+        # writeGraph(pangenome, h5f)
     
-    if pangenome.status["Partitionned"] == "Yes":
+    if pangenome.status["Partitionned"] == "Computed":
         raise NotImplementedError()
         ##update geneFamilies with their partition.
 

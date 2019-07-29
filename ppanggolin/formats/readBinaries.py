@@ -18,19 +18,40 @@ from ppanggolin.genome import Organism, Contig, Gene
 from ppanggolin.annotate import genetic_codes, translate
 
 
-def writeCDSSequences(pangenome, fileObj, cpu):
-    logging.getLogger().info("Extracting and writing all of the CDS sequences")
-    h5f = tables.open_file(pangenome,"r")
-    table = h5f.root.annotations.genes
-    bar =  tqdm(range(table.nrows), unit="gene")
-    for row in table.read():
-        if row[1][10].decode() == "CDS":
-            fileObj.write('>' + row[1][0].decode() + "\n")
-            fileObj.write(row[1][1].decode() + "\n")
-        bar.update()
-
-    bar.close()
+def getStatus(pangenome, pangenomeFile):
+    h5f = tables.open_file(pangenomeFile,"r")
+    logging.getLogger().info("Getting the current pangenome's status")
+    statusGroup = h5f.root.status
+    if statusGroup._v_attrs.genomesAnnotated:
+        pangenome.status["genomesAnnotated"] = "inFile"
+    if statusGroup._v_attrs.genesClustered:
+        pangenome.status["genesClustered"] = "inFile"
+    if statusGroup._v_attrs.geneSequences:
+        pangenome.status["geneSequences"] = "inFile"
+    if statusGroup._v_attrs.geneFamilySequences:
+        pangenome.status["geneFamilySequences"] = "inFile"
+    if statusGroup._v_attrs.NeighborsGraph:
+        pangenome.status["NeighborsGraph"] = "inFile"
+    if statusGroup._v_attrs.Partitionned:
+        pangenome.status["Partitionned"] = "inFile"
     h5f.close()
+
+def writeCDSSequences(pangenome, fileObj, cpu):
+    if pangenome.status["geneSequences"] == "inFile":
+        logging.getLogger().info("Extracting and writing all of the CDS sequences from a .h5 pangenome file")
+        h5f = tables.open_file(pangenome.file,"r")
+        table = h5f.root.geneSequences
+        bar =  tqdm(range(table.nrows), unit="gene")
+        for row in table.read():
+            if row[2] == b"CDS":
+                fileObj.write('>' + row[1].decode() + "\n")
+                fileObj.write(row[0].decode() + "\n")
+            bar.update()
+        bar.close()
+        h5f.close()
+    else:#if the sequences are in memory already, just write them.
+        print(pangenome.status["geneSequences"])
+        raise NotImplementedError()
 
 def launchReadOrganism(args):
     return readOrganism(*args)
