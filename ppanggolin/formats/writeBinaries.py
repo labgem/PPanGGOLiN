@@ -16,46 +16,50 @@ from ppanggolin.pangenome import Pangenome, GeneFamily, Edge
 from ppanggolin.genome import Organism, Contig, Gene
 from ppanggolin.utils import getCurrentRAM
 
-def geneDesc():
+def geneDesc(orgLen, contigLen, IDLen, typeLen, nameLen, productLen):
     return {
-            'organism':tables.StringCol(itemsize=1024),
+            'organism':tables.StringCol(itemsize=orgLen),
             "contig":{
-                    'name':tables.StringCol(itemsize=1024),
-                    "is_circular":tables.BoolCol()
+                    'name':tables.StringCol(itemsize=contigLen),
+                    "is_circular":tables.BoolCol(dflt = False)
             },
             "gene":{ 
-                'ID':tables.StringCol(itemsize=1024),
+                'ID':tables.StringCol(itemsize=IDLen),
                 'start':tables.UInt64Col(),
                 'stop':tables.UInt64Col(),
                 'strand':tables.StringCol(itemsize=1),
-                'type':tables.StringCol(itemsize=32),
+                'type':tables.StringCol(itemsize=typeLen),
                 'position':tables.UInt32Col(),
-                'name':tables.StringCol(itemsize=1024),
-                'product':tables.StringCol(itemsize=1024),
-                'genetic_code':tables.UInt32Col(),
+                'name':tables.StringCol(itemsize=nameLen),
+                'product':tables.StringCol(itemsize=productLen),
+                'genetic_code':tables.UInt32Col(dflt = 11),
                 'is_fragment':tables.BoolCol(dflt = False),
             }
             }
 
-
-def geneSequenceDesc():
-    return {
-        "gene":tables.StringCol(itemsize=1024),
-        "dna":tables.StringCol(itemsize=160000),
-        "type":tables.StringCol(itemsize=32)
-    }
-
-def geneFamDesc():
-     return {
-        "name": tables.StringCol(itemsize = 1024),
-        "protein": tables.StringCol(itemsize=40000)
-        }
-
-def gene2famDesc():
-    return {
-        "geneFam": tables.StringCol(itemsize = 1024),
-        "gene":tables.StringCol(itemsize= 1024)
-        }
+def getMaxLenAnnotations(pangenome):
+    maxOrgLen = 1
+    maxContigLen = 1
+    maxGeneIDLen = 1
+    maxNameLen = 1
+    maxProductLen = 1
+    maxTypeLen = 1
+    for org in pangenome.organisms:
+        if len(org.name) > maxOrgLen:
+            maxOrgLen = len(org.name)
+        for contig in org.contigs:
+            if len(contig.name) > maxContigLen:
+                maxContigLen = len(contig.name)
+            for gene in contig.genes:
+                if len(gene.ID) > maxGeneIDLen:
+                    maxGeneIDLen = len(gene.ID)
+                if len(gene.name) > maxNameLen:
+                    maxNameLen = len(gene.name)
+                if len(gene.product) > maxProductLen:
+                    maxProductLen = len(gene.product)
+                if len(gene.type) > maxTypeLen:
+                    maxTypeLen = len(gene.type)
+    return maxOrgLen, maxContigLen, maxGeneIDLen, maxTypeLen, maxNameLen, maxProductLen
 
 def writeAnnotations(pangenome, h5f):
     """
@@ -64,7 +68,7 @@ def writeAnnotations(pangenome, h5f):
     # original_warnings = list(warnings.filters)
     # warnings.simplefilter('ignore', tables.NaturalNameWarning)
     annotation = h5f.create_group("/","annotations","Annotations of the pangenome's organisms")
-    table = h5f.create_table(annotation, "genes", geneDesc(), expectedrows=len(pangenome.genes))
+    table = h5f.create_table(annotation, "genes", geneDesc(*getMaxLenAnnotations(pangenome)), expectedrows=len(pangenome.genes))
     bar = tqdm(pangenome.organisms, unit="genome")
     geneRow = table.row
     for org in bar:
@@ -89,8 +93,30 @@ def writeAnnotations(pangenome, h5f):
     bar.close()
     # warnings.filters = original_warnings
 
+
+
+def getGeneSequencesLen(pangenome):
+    maxSeqLen = 1
+    maxGeneIDLen = 1
+    maxGeneType = 1
+    for gene in pangenome.genes:
+        if len(gene.dna) > maxSeqLen:
+            maxSeqLen = len(gene.dna)
+        if len(gene.ID) > maxGeneIDLen:
+            maxGeneIDLen = len(gene.ID)
+        if len(gene.type) > maxGeneType:
+            maxGeneType = len(gene.type)
+    return maxGeneIDLen, maxSeqLen, maxGeneType
+
+def geneSequenceDesc(geneIDLen, geneSeqLen, geneTypeLen):
+    return {
+        "gene":tables.StringCol(itemsize=geneIDLen),
+        "dna":tables.StringCol(itemsize=geneSeqLen),
+        "type":tables.StringCol(itemsize=geneTypeLen)
+    }
+
 def writeGeneSequences(pangenome, h5f):
-    geneSeq = h5f.create_table("/","geneSequences", geneSequenceDesc(), expectedrows=len(pangenome.genes))
+    geneSeq = h5f.create_table("/","geneSequences", geneSequenceDesc(*getGeneSequencesLen(pangenome)), expectedrows=len(pangenome.genes))
     geneRow = geneSeq.row
     bar = tqdm(pangenome.genes, unit = "gene")
     for gene in bar:
@@ -101,8 +127,27 @@ def writeGeneSequences(pangenome, h5f):
     geneSeq.flush()
     bar.close()
 
+
+
+def geneFamDesc(maxNameLen, maxSequenceLength):
+     return {
+        "name": tables.StringCol(itemsize = maxNameLen),
+        "protein": tables.StringCol(itemsize=maxSequenceLength)
+        }
+
+def getGeneFamLen(pangenome):
+    maxGeneFamNameLen = 1
+    maxGeneFamSeqLen = 1
+    for genefam in pangenome.geneFamilies:
+        if len(genefam.sequence) > maxGeneFamSeqLen:
+            maxGeneFamSeqLen = len(genefam.sequence)
+        if len(genefam.name) > maxGeneFamNameLen:
+            maxGeneFamNameLen = len(genefam.name)
+    return maxGeneFamNameLen, maxGeneFamSeqLen
+
 def writeGeneFamSeq(pangenome, h5f):
-    geneFamSeq = h5f.create_table("/","geneFamiliesSequences",geneFamDesc(), expectedrows=len(pangenome.geneFamilies))
+    
+    geneFamSeq = h5f.create_table("/","geneFamiliesSequences",geneFamDesc(*getGeneFamLen(pangenome)), expectedrows=len(pangenome.geneFamilies))
     row = geneFamSeq.row
     bar = tqdm( pangenome.geneFamilies, unit = "gene family")
     for fam in bar:
@@ -112,11 +157,31 @@ def writeGeneFamSeq(pangenome, h5f):
     geneFamSeq.flush()
     bar.close()
 
+
+
+def gene2famDesc(geneFamNameLen, geneIDLen):
+    return {
+        "geneFam": tables.StringCol(itemsize = geneFamNameLen),
+        "gene":tables.StringCol(itemsize= geneIDLen)
+        }
+
+def getGene2famLen(pangenome):
+    maxGeneFamName = 1
+    maxGeneID = 1
+    for geneFam in pangenome.geneFamilies:
+        if len(geneFam.name)>maxGeneFamName:
+            maxGeneFamName = len(geneFam.name)
+        for gene in geneFam.gene:
+            if len(gene.ID) > maxGeneID:
+                maxGeneID = len(gene.ID)
+    return maxGeneFamName, maxGeneID
+
 def writeGeneFamilies(pangenome, h5f):
     """
         Function writing all of the pangenome's gene families
     """
-    geneFamilies = h5f.create_table("/", "geneFamilies",gene2famDesc())
+    
+    geneFamilies = h5f.create_table("/", "geneFamilies",gene2famDesc(*getGene2famLen(pangenome)))
     geneRow = geneFamilies.row
     bar = tqdm(pangenome.geneFamilies, unit = "gene family")
     for geneFam in bar:
@@ -126,6 +191,8 @@ def writeGeneFamilies(pangenome, h5f):
             geneRow.append()
     geneFamilies.flush()
     bar.close()
+
+
 
 def writeGraph(pangenome, h5f):
     edges = h5f.create_group("/", "graph","Edges of the neighbors graph")

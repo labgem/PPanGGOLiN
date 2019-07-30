@@ -15,7 +15,7 @@ class Gene:
         family.addGene(self)#add self to geneFamily
         self.is_fragment = is_fragment
 
-    def fill_annotations(self, start, stop, strand, geneType = None, position = None, name = None, product=None, genetic_code = 11):
+    def fill_annotations(self, start, stop, strand, geneType = "", position = None, name = "", product="", genetic_code = 11):
         self.start = int(start)
         self.stop = int(stop)
         self.type = geneType
