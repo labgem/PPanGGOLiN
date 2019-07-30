@@ -139,7 +139,8 @@ def refineClustering(tsv, alnFile, fam2seq):
     return genes2fam, newFam2seq
 
 def read_gene2fam(pangenome, gene2fam):
-    logging.getLogger().info("Adding genes to the gene families")
+    logging.getLogger().info(f"Adding {len(gene2fam)} genes to the gene families")
+    
     for gene, (family, is_frag) in gene2fam.items():
         fam = pangenome.addGeneFamily(family)
         geneObj = Gene(gene)
@@ -152,12 +153,15 @@ def read_fam2seq(pangenome, fam2seq):
         fam = pangenome.addGeneFamily(family)
         fam.addSequence(protein)
 
-def clustering(pangenome, sequences, tmpdir, cpu , nodefrag = False, code = "11"):
+def checkPangenomeForClustering(pangenome):
+    pass
+
+def clustering(pangenome, sequences, tmpdir, cpu , defrag = False, code = "11"):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     logging.getLogger().info("Clustering all of the genes sequences...")
     rep, tsv = firstClustering(sequences, newtmpdir, cpu, code)
     fam2seq = read_faa(rep)
-    if nodefrag:
+    if not defrag:
         genes2fam = read_tsv(tsv)[0]
         tsv.close()
         rep.close()
@@ -170,6 +174,7 @@ def clustering(pangenome, sequences, tmpdir, cpu , nodefrag = False, code = "11"
         tsv.close()
         rep.close()
         newtmpdir.cleanup()
+        pangenome.status["defragmented"] = "Computed"
     read_fam2seq(pangenome, fam2seq)
     read_gene2fam(pangenome, genes2fam)
     pangenome.status["genesClustered"] = "Computed"
@@ -184,21 +189,21 @@ def launch(args):
     tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = args.tmpdir)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeCDSSequences(pangenome, tmpFile, args.cpu)
+    writeCDSSequences(pangenome, tmpFile)#write CDS sequences to the tmpFile
     logging.getLogger().info("Done extracting all the protein sequences")
-    clustering(pangenome, tmpFile.name, args.tmpdir, args.cpu, args.nodefrag, args.translation_table)
-    writePangenome(pangenome, pangenome.file)
+    clustering(pangenome, tmpFile.name, args.tmpdir, args.cpu, args.defrag, args.translation_table)
     tmpFile.close()
     logging.getLogger().debug(f"RAM used after clustering : {getCurrentRAM()}")
-    ##now deal with those things (like write them ?)
     logging.getLogger().info("Done with the clustering")
+    writePangenome(pangenome, pangenome.file, args.force)
 
+    
 def clusterSubparser(subparser):
     parser = subparser.add_parser("cluster",help = "Cluster proteins in protein families")
     optional = parser.add_argument_group(title = "Optional arguments")
-    optional.add_argument('--nodefrag', required=False,default=False, action="store_true", help = "Do not use the defragmentation strategy to associated potential fragments with their original gene family.")
-    optional.add_argument('--tsv', required=False, type=str, help="A tab-separated file listing the gene cluster IDs (which must be the representative gene ID), and the gene IDs in the cluster. Optionally, a 'F' can be added in a third column to indicate that the gene is a fragment. One gene per line.")
+    optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associated potential fragments with their original gene family.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
+    optional.add_argument('--clusters', required = False, type = str, help = "A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism.")
     return parser

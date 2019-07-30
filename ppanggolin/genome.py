@@ -105,12 +105,6 @@ class Organism:
     def __str__(self):
         return self.name
 
-    def getContig(self, key):
-        contig = self._contigs_getter[key]
-        if contig == []:
-            contig = self.addContig(key)
-        return contig
-
     def addContig(self, key, is_circular = False):
         return self._contigs_getter.get(key, self._createContig(key, is_circular))
 

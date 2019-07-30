@@ -67,6 +67,7 @@ class Pangenome:
                     'genomesAnnotated': "No",
                     'geneSequences' : "No",
                     'genesClustered':  "No",
+                    'defragmented':"No",
                     'geneFamilySequences':"No",
                     'NeighborsGraph':  "No",
                     'Partitionned':  "No"
@@ -79,7 +80,10 @@ class Pangenome:
 
     @property
     def genes(self):
-        return [ gene for org in self._orgGetter.values() for contig in org.contigs for gene in contig.genes ]
+        if len(self.organisms) > 0:#if we have organisms, they're supposed to have genes
+            return [ gene for org in self._orgGetter.values() for contig in org.contigs for gene in contig.genes ]
+        elif len(self.geneFamilies) > 0:#else, the genes will be stored in the gene families (maybe)
+            return [ gene for geneFam in self.geneFamilies for gene in geneFam.genes ]
 
     @property
     def geneFamilies(self):
@@ -92,6 +96,37 @@ class Pangenome:
     @property
     def organisms(self):
         return set(self._orgGetter.values())
+
+    def _yield_genes(self):
+        """
+            Use a generator to get all the genes of a pangenome
+        """
+        if len(self.organisms) > 0:#if we have organisms, they're supposed to have genes
+            for org in self._orgGetter.values():
+                for contig in org.contigs:
+                     for gene in contig.genes:
+                         yield gene
+        elif len(self.geneFamilies) > 0:
+            for geneFam in self.geneFamilies:
+                for gene in geneFam.genes:
+                    yield gene
+
+    def _mkgeneGetter(self):
+        """
+            Since the genes are never explicitely 'added' to a pangenome (but rather to a gene family, or a contig), the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
+            if at some point we want to extract genes from a pangenome we'll create a geneGetter.
+            The assumption behind this is that the pangenome has been filled and no more gene will be added.
+        """
+        self._geneGetter = {}
+        for gene in self._yield_genes():
+            self._geneGetter[gene.ID] = gene
+
+    def getGene(self, geneID):
+        try:
+            return self._geneGetter[geneID]
+        except AttributeError:#in that case the gene getter has not been computed
+            self._mkgeneGetter()#make it
+            return self._geneGetter[geneID]#return what was expected.
 
     def __len__(self):
         return len(self.geneFamilies)
@@ -121,14 +156,11 @@ class Pangenome:
         infostr += f"Gene families : {len(self.geneFamilies)}\n"
         infostr += f"Organisms : {len(self.organisms)}\n"
         nbContig = 0
-        nbGenes = 0
         for org in self.organisms:
-            for contig in org.contigs:
+            for _ in org.contigs:
                 nbContig+=1
-                for _ in contig.genes:
-                    nbGenes+=1
         infostr += f"Contigs : {nbContig}\n"
-        infostr += f"Genes : {nbGenes}\n"
+        infostr += f"Genes : {len(self.genes)}\n"
         infostr += f"Edges : {len(self.edges)}\n"
         return infostr
 
@@ -168,7 +200,10 @@ class Pangenome:
             Otherwise, does not create anything.
             returns the geneFamily object.
         """
-        return self._famGetter.get(name, self._createGeneFamily(name))
+        fam = self._famGetter.get(name)
+        if fam is None:
+            fam = self._createGeneFamily(name)
+        return fam
 
     def addEdge(self, gene1, gene2, org):
         key = frozenset([gene1.family,gene2.family])

@@ -54,7 +54,7 @@ def cmdLine():
             "_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
-        common.add_argument('-f', '--force', action="store_true", help="Force writing in existing output directory")
+        common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
         common.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
         common.add_argument("--memory", required=False, type=int, default=int(4 * psutil.virtual_memory().total / 5), help="Max amount of allowed RAM. Default is 4/5 of the system's RAM. Will work only for the python part of the program. The C part might use more without raising an error.")
 
@@ -82,16 +82,12 @@ def main():
     elif args.verbose == 0:
         level = logging.WARNING#only warnings and errors
     logging.basicConfig(stream=sys.stdout, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
-    elif not args.force:
-        logging.getLogger().error(f"{args.output} already exists. Use -f if you still want to (over)write files in this directory.")
-        exit(1)
-
-    fhandler = logging.FileHandler(filename = args.output + "/PPanGGOLiN.log",mode = "w")
-    fhandler.setFormatter(logging.Formatter(fmt = "%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
-    fhandler.setLevel(level if level != logging.WARNING else logging.INFO)
-    logging.getLogger().addHandler(fhandler)
+    
+    # uncomment to save log in file
+    # fhandler = logging.FileHandler(filename = args.output + "/PPanGGOLiN.log",mode = "w")
+    # fhandler.setFormatter(logging.Formatter(fmt = "%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
+    # fhandler.setLevel(level if level != logging.WARNING else logging.INFO)
+    # logging.getLogger().addHandler(fhandler)
 
     rsrc = resource.RLIMIT_DATA
     _, hard = resource.getrlimit(rsrc)

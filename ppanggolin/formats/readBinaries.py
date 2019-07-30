@@ -19,6 +19,9 @@ from ppanggolin.annotate import genetic_codes, translate
 
 
 def getStatus(pangenome, pangenomeFile):
+    """
+        Checks which elements are already present in the file.
+    """
     h5f = tables.open_file(pangenomeFile,"r")
     logging.getLogger().info("Getting the current pangenome's status")
     statusGroup = h5f.root.status
@@ -36,22 +39,31 @@ def getStatus(pangenome, pangenomeFile):
         pangenome.status["Partitionned"] = "inFile"
     h5f.close()
 
-def writeCDSSequences(pangenome, fileObj, cpu):
-    if pangenome.status["geneSequences"] == "inFile":
-        logging.getLogger().info("Extracting and writing all of the CDS sequences from a .h5 pangenome file")
-        h5f = tables.open_file(pangenome.file,"r")
-        table = h5f.root.geneSequences
-        bar =  tqdm(range(table.nrows), unit="gene")
-        for row in table.read():
-            if row[2] == b"CDS":
-                fileObj.write('>' + row[1].decode() + "\n")
-                fileObj.write(row[0].decode() + "\n")
-            bar.update()
-        bar.close()
-        h5f.close()
-    else:#if the sequences are in memory already, just write them.
-        print(pangenome.status["geneSequences"])
-        raise NotImplementedError()
+def read_chunks(table, chunk=10000):
+    """
+        Reading entirely the provided table chunk per chunk to limit RAM usage.
+    """
+    for i in range(0,  table.nrows, chunk):
+        for row in table.read(start = i, stop = i + chunk):
+            yield row
+
+def getGeneSequences(pangenome, fileObj):
+    """
+        Writes the CDS sequences of the Pangenome object to a tmpFile object
+        Loads the sequences from a .h5 pangenome file
+    """
+    logging.getLogger().info("Extracting and writing all of the CDS sequences from a .h5 pangenome file to a fasta file")
+    h5f = tables.open_file(pangenome.file,"r", driver_core_backing_store=0)
+    table = h5f.root.geneSequences
+    bar =  tqdm(range(table.nrows), unit="gene")
+    for row in read_chunks(table):#reading the table chunk per chunk otherwise RAM dies on big pangenomes
+        if row[2] == b"CDS":
+            fileObj.write('>' + row[1].decode() + "\n")
+            fileObj.write(row[0].decode() + "\n")
+        bar.update()
+    fileObj.flush()
+    bar.close()
+    h5f.close()
 
 def launchReadOrganism(args):
     return readOrganism(*args)
