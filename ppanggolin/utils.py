@@ -76,3 +76,18 @@ def getCurrentRAM():
         mem = mem / 1024
         unit +=1
     return str(round(mem,3)) + " " + units[unit]
+
+def mkFilename(basename, output, force):
+    """
+        Returns a usable filename for a ppanggolin output file, or crashes.
+    """
+    filename = Path(output + "/" + basename )
+    if filename.suffix != ".h5":
+        filename = filename.with_suffix(".h5")
+    
+    if not os.path.exists(output):
+        os.makedirs(output)
+    elif filename.exists() and not force:
+        logging.getLogger().error(f"{filename.name} already exists. Use -f if you want to overwrite the file")
+        exit(1)
+    return filename

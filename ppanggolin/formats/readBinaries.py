@@ -47,7 +47,7 @@ def read_chunks(table, chunk=10000):
         for row in table.read(start = i, stop = i + chunk):
             yield row
 
-def getGeneSequences(pangenome, fileObj):
+def getGeneSequencesFromFile(pangenome, fileObj):
     """
         Writes the CDS sequences of the Pangenome object to a tmpFile object
         Loads the sequences from a .h5 pangenome file

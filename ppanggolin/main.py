@@ -23,9 +23,10 @@ except ImportError:
 
 #local modules
 import ppanggolin.partition
-import ppanggolin.create
+import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
+import ppanggolin.workflow
 
 def requirements():
     """
@@ -42,7 +43,8 @@ def cmdLine():
     subs.add(ppanggolin.annotate.syntaSubparser(subparsers))
     subs.add(ppanggolin.cluster.clusterSubparser(subparsers))
     subs.add(ppanggolin.partition.partitionSubparser(subparsers))
-    subs.add(ppanggolin.create.createSubparser(subparsers))
+    subs.add(ppanggolin.graph.graphSubparser(subparsers))
+    subs.add(ppanggolin.workflow.workflowSubparser(subparsers))
     #TODO :
     # Figures subparser
     # Format subparser
@@ -50,8 +52,6 @@ def cmdLine():
     for sub in subs:#add options common to all subcommands
         common = sub.add_argument_group(title = "Common options")
         common.add_argument("--tmpdir", required=False, type=str, default="/dev/shm", help = "directory for storing temporary files (default : /dev/shm)")
-        common.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime(
-            "_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
@@ -100,10 +100,12 @@ def main():
         ppanggolin.annotate.launch(args)
     elif args.subcommand == "cluster":
         ppanggolin.cluster.launch(args)
-    elif args.subcommand == "create":
-        ppanggolin.create.launch(args)
+    elif args.subcommand == "graph":
+        ppanggolin.graph.launch(args)
     elif args.subcommand == "partition":
-        pass
+        raise NotImplementedError()
+    elif args.subcommand == "workflow":
+        ppanggolin.workflow.launch(args)
 
 if __name__ == "__main__":
     main()

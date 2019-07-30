@@ -15,13 +15,13 @@ from tqdm import tqdm
 #local libraries
 from ppanggolin.annotate import  annotate_organism
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import read_compressed_or_not, getCurrentRAM
+from ppanggolin.utils import read_compressed_or_not, getCurrentRAM, mkFilename
 from ppanggolin.formats import writePangenome, readPangenome
 
 def launchAnnotateOrganism(pack):
     return annotate_organism(*pack)
 
-def annotatePangenome(pangenome, fastaList, translation_table, kingdom, norna, tmpdir, overlap, cpu):
+def annotatePangenome(pangenome, fastaList, tmpdir,cpu, translation_table="11", kingdom = "bacteria", norna=False,  overlap=True):
     logging.getLogger().info(f"Reading {fastaList} the list of organism files")
     
     arguments = []
@@ -49,19 +49,11 @@ def annotatePangenome(pangenome, fastaList, translation_table, kingdom, norna, t
 def launch(args):
     if args.fasta is not None:
         #then we are doing something new here.
-        filename = Path(args.output + "/" + args.basename )
-        if filename.suffix != ".h5":
-            filename = filename.with_suffix(".h5")
-        
-        if not os.path.exists(args.output):
-            os.makedirs(args.output)
-        elif filename.exists() and not args.force:
-            logging.getLogger().error(f"{filename.name} already exists. Use -f if you want to overwrite the file")
-            exit(1)
+        filename = mkFilename(args.basename, args.output, args.force)
         logging.getLogger().debug(f"RAM before doing anything: {getCurrentRAM()}")
         pangenome = Pangenome()
-        annotatePangenome(pangenome, args.fasta, args.translation_table, args.kingdom, args.norna, args.tmpdir, args.overlap, args.cpu)
-        writePangenome(pangenome, Path(args.output + "/" + args.basename ), args.force)
+        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
+        writePangenome(pangenome, filename, args.force)
     elif args.gff is not None:
         raise NotImplementedError()
 
