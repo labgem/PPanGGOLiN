@@ -46,6 +46,7 @@ class Gene:
         self.genetic_code = genetic_code
 
     def fill_parents(self, organism, contig):
+        #check the instances ???
         self.organism = organism
         self.contig = contig
 

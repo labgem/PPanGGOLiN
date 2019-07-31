@@ -100,7 +100,7 @@ def read_tsv(tsvfileName):
     with open(tsvfileName.name, "r") as tsvfile:
         for line in tsvfile:
             line = line.split()
-            genes2fam[line[1]] = (line[0],None)#fam id, and its a gene (and not a fragment)
+            genes2fam[line[1]] = (line[0],False)#fam id, and its a gene (and not a fragment)
             fam2genes[line[0]].add(line[1])
     return genes2fam, fam2genes
 
@@ -142,7 +142,7 @@ def refineClustering(tsv, alnFile, fam2seq):
 def read_gene2fam(pangenome, gene2fam):
     logging.getLogger().info(f"Adding {len(gene2fam)} genes to the gene families")
 
-    link = True if pangenome.status["genomesAnnotated"] == "Computed" else False
+    link = True if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] else False
     
     for gene, (family, is_frag) in gene2fam.items():
         fam = pangenome.addGeneFamily(family)

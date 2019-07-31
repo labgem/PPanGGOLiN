@@ -192,8 +192,6 @@ def annotatePangenome(pangenome, fastaList, tmpdir,cpu, translation_table="11", 
     logging.getLogger().info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"#the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"#the gene objects have their respective gene sequences.
-   
-    return pangenome
 
 def launch(args):
     filename = mkFilename(args.basename, args.output, args.force)

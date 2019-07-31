@@ -51,6 +51,8 @@ def computeNeighborsGraph(pangenome):
 
 
 def launch(args):
+    if args.remove_high_copy_number_families != 0:
+        raise NotImplementedError()
     logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
@@ -61,33 +63,7 @@ def launch(args):
 def graphSubparser(subparser):
     parser = subparser.add_parser("graph",help = "Create the pangenome graph")
     parser.add_argument("-p","--pangenome",type=str, help = "PPanGGOLiN binary pangenome files to read from and to add informations to. If provided the -o and --basename options will be ignored and data will be added to this pangenome instead.")
-    # parser.add_argument('-org', '--organisms', type=str, help="""
-    # File: A tab-delimited file containing at least 2 mandatory fields per row and as many optional fields as the number of circular contigs. 
-    # Each row corresponds to an organism to be added to the pangenome.
-    # The first field is the organism ID.
-    # The organism ID can be any string but must be unique and can't contain any space, quote, double quote
-    # The second field is the gff file containing the annotations associated to the organism. 
-    # This path can be absolute or relative. 
-    # The gff file must contain an ID for each line.
-    # Accepted types are CDS or xRNA (rRNA,tRNA,tmRNA) in the type column.
-    # The contig ID and gene ID can be any string but must be unique and can't contain any space, quote, double quote, pipe
-    # (optional): The next fields contain the name of perfectly assembled circular contigs (to take in account the link between the first and the last gene in the graph). 
-    # In this case, it is mandatory to provide the contig size in the gff files either by adding a "region" type having the correct contig ID attribute or using a '##sequence-region' pragma.
-    # """)
-    # parser.add_argument('-gf', '--gene_families', type=str, help="""
-    # File: A tab-delimited file containing the gene families. Each row contains 2 or 3 fields.
-    # The first field is the family ID. 
-    # The second field is the gene IDs associated with this family. 
-    # The third field (optional) is a flag "F" to specify if the gene is a gene fragment (empty otherwise).
-    # If several consecutive genes belonging to the same gene families have the flag, then the no reflexive links are drawn between them in the graph.
-    # The family ID can be any string but must be unique and can't contain any space, quote, double quote and reserved word. 
-    # The family ID is often the name of the most representative sequence of the family.
-    # Gene IDs can be any string corresponding to the IDs of the gff files. They must be uniques and can't contain any spaces, quote, double quote, pipe and reserved words.
-    # """)
     parser.add_argument('-r', '--remove_high_copy_number_families', type=int, default=0, help="""
     Positive Number: Remove families having a number of copy of gene in a single organism above or equal to this threshold in at least one organism (0 or negative values are ignored). 
     """)
-    parser.add_argument('-s', '--infer_singletons', default=False, action="store_true", help="""
-    Flag: If a gene id found in a gff file is absent of the gene families file, a gene families with a single gene will be created.
-    if this argument is not set, the program will raise a KeyError exception if a gene id found in a gff file is absent of the gene families file.""")
     return parser

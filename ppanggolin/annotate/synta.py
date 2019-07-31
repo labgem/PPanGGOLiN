@@ -267,6 +267,7 @@ def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna,
             contig.is_circular = True
         for gene in genes:
             gene.add_dna(get_dna_sequence(contigSequences[contig.name], gene))
+            gene.fill_parents(org, contig)
             if isinstance(gene, Gene):
                 contig.addGene(gene)
             elif isinstance(gene, RNA):

@@ -77,7 +77,7 @@ class Pangenome:
                     'genesClustered':  "No",
                     'defragmented':"No",
                     'geneFamilySequences':"No",
-                    'NeighborsGraph':  "No",
+                    'neighborsGraph':  "No",
                     'partitionned':  "No"
                 }
 
