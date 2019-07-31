@@ -3,17 +3,37 @@
 
 from collections import defaultdict
 
+class RNA:
+    def __init__(self, ID):
+        self.ID = ID
+        self.is_fragment = False
+        self.type = ""
+
+    def fill_annotations(self, start, stop, strand, geneType = "", name = "", product=""):
+        self.start = int(start)
+        self.stop = int(stop)
+        self.type = geneType
+        self.strand = strand
+        self.product = product
+        self.name = name
+
+    def fill_parents(self, organism, contig):
+        self.organism = organism
+        self.contig = contig
+
+    def add_dna(self, dna):
+        if not isinstance(dna, str):
+            raise TypeError(f"'str' type was expected but you provided a '{type(dna)}' type object")
+        self.dna = dna
+
+
 class Gene:
     def __init__(self, ID):
         self.ID = ID
         self.is_fragment = False
         self.type = ""
         self.position = None
-
-    def fill_family(self, family, is_fragment = False):
-        self.family = family#reference to GeneFamily object it belongs to
-        family.addGene(self)#add self to geneFamily
-        self.is_fragment = is_fragment
+        self.family = None
 
     def fill_annotations(self, start, stop, strand, geneType = "", position = None, name = "", product="", genetic_code = 11):
         self.start = int(start)
@@ -49,7 +69,7 @@ class Contig:
     
     @property
     def genes(self):
-        return self._genes_position
+        return self._genes_start.values()
 
     def __str__(self):
         return self.name
@@ -67,16 +87,13 @@ class Contig:
         gene = self._genes_start.get(index)
         if not gene:
             if type(index) != int:
-                raise TypeError(
-                    f"Expected type is int, given type was '{type(index)}'")
+                raise TypeError(f"Expected type is int, given type was '{type(index)}'")
             raise IndexError(f"No gene start at the given position {index}")
         return gene
     
     def addRNA(self, gene):
-        if not isinstance(gene, Gene):
+        if not isinstance(gene, RNA):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
-        if gene.type == "CDS":
-            raise TypeError(f"The gene object has a wrong type")
         self.RNA.add(gene)
 
     def addGene(self, gene):

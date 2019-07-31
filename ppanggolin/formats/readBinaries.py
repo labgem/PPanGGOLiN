@@ -15,7 +15,6 @@ import tables
 from ppanggolin.utils import getCurrentRAM, read_compressed_or_not
 from ppanggolin.pangenome import Pangenome, GeneFamily, Edge
 from ppanggolin.genome import Organism, Contig, Gene
-from ppanggolin.annotate import genetic_codes, translate
 
 
 def getStatus(pangenome, pangenomeFile):
@@ -68,46 +67,61 @@ def getGeneSequencesFromFile(pangenome, fileObj):
 def launchReadOrganism(args):
     return readOrganism(*args)
 
-def readOrganism(orgName, contigDict, withSeq):
+def readOrganism(pangenome, orgName, contigDict, link = False):
     org = Organism(orgName)
     for contigName, geneList in contigDict.items():
         contig = org.addContig(contigName, is_circular=geneList[0][0][0])
         for row in geneList:
-            gene = Gene(row[1][0])
-            if withSeq is True:
-                gene.add_dna(row[1][1].decode())
+            if link:#if the gene families are already computed/loaded the gene exists.
+                gene = pangenome.getGene(row[1][0].decode())
+            else:#else creating the gene.
+                gene = Gene(row[1][0].decode())
             gene.fill_annotations(
-                start = row[1][7],
-                stop =row[1][8],
-                strand =  row[1][9].decode(),
-                geneType = row[1][10].decode(),
-                position = row[1][5],
-                genetic_code=row[1][2],
-                name = row[1][4].decode(),
-                product = row[1][6].decode())
-            gene.is_fragment = row[1][3]
+                start = row[1][6],
+                stop =row[1][7],
+                strand =  row[1][8].decode(),
+                geneType = row[1][9].decode(),
+                position = row[1][4],
+                genetic_code=row[1][1],
+                name = row[1][3].decode(),
+                product = row[1][5].decode())
+            gene.is_fragment = row[1][2]
+            gene.fill_parents(org, contig)
             if gene.type == "CDS":
                 contig.addGene(gene)
             elif "RNA" in gene.type.upper():
                 contig.addRNA(gene)
             else:
                 raise Exception(f"A strange type ({gene.type}), which we do not know what to do with, was met.")
-    return org
+    pangenome.addOrganism(org)
 
 def readGraph(pangenome, h5f):
     raise NotImplementedError()
 
-def readGeneFamilies(pangenome, h5f, partitions=True, genes = True, organisms = True):#reads everything ... but only if it is there.
-    raise NotImplementedError()
+def readGeneFamilies(pangenome, h5f):
+    table = h5f.root.geneFamilies
 
-def readAnnotation(pangenome, h5f, filename, cpu, withSeq = True):
+    link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
+
+    bar = tqdm(range(table.nrows), unit = "gene")
+    for row in read_chunks(table):
+        fam = pangenome.addGeneFamily(row[1].decode())
+        if link:#linking if we have loaded the annotations
+            geneObj = pangenome.getGene(row[0].decode())
+        else:#else, no
+            geneObj = Gene(row[1].decode())
+        fam.addGene(geneObj)
+        bar.update()
+    bar.close()
+    pangenome.status["genesClustered"] = "Loaded"
+
+def readAnnotation(pangenome, h5f, filename):
     annotations = h5f.root.annotations
-    # h5fpaths = []
     
     table = annotations.genes
     bar = tqdm(range(table.nrows), unit="gene")
     pangenomeDict = {}
-    for row in table.read():
+    for row in read_chunks(table):
         try:
             pangenomeDict[row[2].decode()][row[0][1].decode()].append(row)#new gene, seen contig, seen org
         except:
@@ -117,29 +131,34 @@ def readAnnotation(pangenome, h5f, filename, cpu, withSeq = True):
                 pangenomeDict[sys.intern(row[2].decode())] = { row[0][1].decode() : [row]}#new org
         bar.update()
     bar.close()
+
+    link = True if pangenome.status["genesClustered"] in ["Computed","Loaded"] else False
+
     bar = tqdm(range(len(pangenomeDict)), unit = "organism")
     for orgName, contigDict in pangenomeDict.items():
-        pangenome.addOrganism(readOrganism(orgName, contigDict, withSeq))
+        readOrganism(pangenome, orgName, contigDict, link)
         bar.update()
     bar.close()
+    pangenome.status["genomesAnnotated"] = "Loaded"
 
-def readPangenome(filename, cpu = 1, annotation = False, geneFamilies = False, graph = False):
+def readPangenome(pangenome, filename, annotation = False, geneFamilies = False, graph = False):
     """
         Reads a previously written pangenome, with all of its parts.
     """
-    pangenome = Pangenome()
     # compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
     h5f = tables.open_file(filename,"r")
     if annotation:
         if h5f.root.status._v_attrs.genomesAnnotated:
             logging.getLogger().info("Reading pangenome annotations...")
-            readAnnotation(pangenome, h5f, filename, cpu)
+            readAnnotation(pangenome, h5f, filename)
             logging.getLogger().info("Done reading pangenome annotations")
         else:
             raise Exception(f"The pangenome in file '{filename}' has not been annotated, or has been improperly filled")
     if geneFamilies:
         if h5f.root.status._v_attrs.genesClustered:
+            logging.getLogger().info("Reading pangenome gene families...")
             readGeneFamilies(pangenome, h5f)
+            logging.getLogger().info("Done reading the pangenome's gene families")
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have gene families, or has been improperly filled")
     if graph:
@@ -148,4 +167,3 @@ def readPangenome(filename, cpu = 1, annotation = False, geneFamilies = False, g
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have graph informations, or has been improperly filled")
     h5f.close()
-    return pangenome

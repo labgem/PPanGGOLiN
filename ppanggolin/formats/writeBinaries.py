@@ -66,9 +66,15 @@ def writeAnnotations(pangenome, h5f):
         Function writing all of the pangenome's annotations
     """
     annotation = h5f.create_group("/","annotations","Annotations of the pangenome's organisms")
-    table = h5f.create_table(annotation, "genes", geneDesc(*getMaxLenAnnotations(pangenome)), expectedrows=len(pangenome.genes))
+    geneTable = h5f.create_table(annotation, "genes", geneDesc(*getMaxLenAnnotations(pangenome)), expectedrows=len(pangenome.genes))
+    nbRNA = 0
+    for org in pangenome.organisms:
+        for contig in org.contigs:
+            nbRNA += len(contig.RNA)
+    rnaTable = h5f.create_table(annotation, "RNA",geneDesc(*getMaxLenAnnotations(pangenome)), expectedrows=nbRNA)
+    rnaRow = rnaTable.row
     bar = tqdm(pangenome.organisms, unit="genome")
-    geneRow = table.row
+    geneRow = geneTable.row
     for org in bar:
         for contig in org.contigs:
             for gene in contig.genes:
@@ -86,8 +92,20 @@ def writeAnnotations(pangenome, h5f):
                 geneRow["gene/is_fragment"] = gene.is_fragment
                 geneRow["gene/genetic_code"] = gene.genetic_code
                 geneRow.append()
-    table.flush()
-
+            for rna in contig.RNA:
+                rnaRow["organism"] = org.name
+                rnaRow["contig/name"] = contig.name
+                rnaRow["contig/is_circular"] = contig.is_circular#this should be somewhere else.
+                rnaRow["gene/ID"]= rna.ID
+                rnaRow["gene/start"] = rna.start
+                rnaRow["gene/stop"] = rna.stop
+                rnaRow["gene/strand"] = rna.strand
+                rnaRow["gene/type"] = rna.type
+                rnaRow["gene/name"] = rna.name
+                rnaRow["gene/product"] = rna.product
+                rnaRow["gene/is_fragment"] = rna.is_fragment
+    geneTable.flush()
+    rnaTable.flush()
     bar.close()
 
 

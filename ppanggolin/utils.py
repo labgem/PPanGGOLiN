@@ -79,7 +79,7 @@ def getCurrentRAM():
 
 def mkFilename(basename, output, force):
     """
-        Returns a usable filename for a ppanggolin output file, or crashes.
+        Returns a usable filename for a ppanggolin output file, or crashes. 
     """
     filename = Path(output + "/" + basename )
     if filename.suffix != ".h5":

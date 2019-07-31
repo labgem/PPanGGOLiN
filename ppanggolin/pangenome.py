@@ -42,6 +42,7 @@ class GeneFamily:
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
         self.genes.add(gene)
+        gene.family = self
 
     @property
     def neighbors(self):

@@ -10,7 +10,7 @@ import ast
 from collections import defaultdict
 
 #local libraries
-from ppanggolin.genome import Organism, Contig, Gene
+from ppanggolin.genome import Organism, Contig, Gene, RNA
 from ppanggolin.utils import is_compressed, read_compressed_or_not
 from ppanggolin.annotate import genetic_codes
 
@@ -67,7 +67,7 @@ def launch_aragorn(fnaFile, org):
             lineData = line.split()
             start, stop = ast.literal_eval(lineData[2].replace("c", ""))
             c += 1
-            gene = Gene(ID = locustag+'_tRNA_'+str(c).zfill(3))
+            gene = RNA(ID = locustag+'_tRNA_'+str(c).zfill(3))
             gene.fill_annotations(start=start,
                                  stop=stop,
                                  strand="-" if lineData[2].startswith(
@@ -142,7 +142,7 @@ def launch_infernal(fnaFile, org, kingdom):
             else:
                 start = lineData[7]
                 stop = lineData[8]
-            gene = Gene(ID = locustag + "_rRNA_" + str(c).zfill(3))
+            gene = RNA(ID = locustag + "_rRNA_" + str(c).zfill(3))
             gene.fill_annotations(start=start,
                                  stop=stop,
                                  strand=strand,
@@ -268,10 +268,9 @@ def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna,
             contig.is_circular = True
         for gene in genes:
             gene.add_dna(get_dna_sequence(contigSequences[contig.name], gene))
-            if gene.type == "CDS":
+            if isinstance(gene, Gene):
                 contig.addGene(gene)
-            else:
+            elif isinstance(gene, RNA):
                 contig.addRNA(gene)
-                
     return org
 
