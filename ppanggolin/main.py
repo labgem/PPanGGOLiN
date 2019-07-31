@@ -103,7 +103,7 @@ def main():
     elif args.subcommand == "graph":
         ppanggolin.graph.launch(args)
     elif args.subcommand == "partition":
-        raise NotImplementedError()
+        ppanggolin.partition.launch(args)
     elif args.subcommand == "workflow":
         ppanggolin.workflow.launch(args)
 

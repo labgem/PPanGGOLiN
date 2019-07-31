@@ -1,1 +1,1 @@
-from .basePartition import *
+from .partition import *

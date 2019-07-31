@@ -198,7 +198,6 @@ def launch(args):
     pangenome = Pangenome()
     if args.fasta is not None:
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
-        
     elif args.gff is not None:
         readAnnotations(pangenome, args.gff)
         if pangenome.status["geneSequences"] == "No":

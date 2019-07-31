@@ -3,6 +3,8 @@
 
 #default libraries
 from collections import defaultdict
+import logging
+
 
 #local libraries
 from ppanggolin.genome import Organism, Gene
@@ -172,7 +174,28 @@ class Pangenome:
         infostr += f"Edges : {len(self.edges)}\n"
         return infostr
 
+    def subpangenome(self, orgList):
+        """
+            Create a new pangenome from a list of organisms (Organism objects, or organism names).
+            Expects annotations and gene families to be loaded.
+        """
+        logging.getLogger().info("Creating a subpangenome. Untested for now !")
+        pan = Pangenome()
+        for org in orgList:
+            if isinstance(org,Organism):
+                pan.addOrganism(org.copy())
+            elif isinstance(org, str):
+                pan.addOrganism(self._orgGetter[org].copy())
+        pan.status["genomesAnnotated"] = "Computed"
+        #either create new gene families, or filter the existing ones with the organisms ...?
+        for gene in pan.genes:
+            fam = pan.addGeneFamily(gene.family.name)
+            fam.addGene(gene)
+        pan.status["genesClustered"] = "Computed"
+        return pan
+
     def subgraph(self, famSet):
+        #untested
         ##currently, IDs will be different.
         g = Pangenome()
         # creating new fams from the old ones.
