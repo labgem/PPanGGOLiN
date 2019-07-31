@@ -209,21 +209,46 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11"):
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
 
+def readClustering(pangenome, families_tsv_file):
+    """
+        Creates the pangenome, the gene families and the genes with an associated gene family.
+        Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
+    """
+    logging.getLogger().info("Reading "+families_tsv_file+" the gene families file ...")
+
+    families_tsv_file = read_compressed_or_not(families_tsv_file)
+
+    gene2families = {}
+    for line in families_tsv_file:
+        elements = [el.strip() for el in line.split()] # 2 or 3 fields expected
+        if len(elements)<=1:
+            logging.getLogger().error("No tabulation separator found in gene families file")
+            exit(1)
+        (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
+        gene2families[gene_id] = (fam_id, True if is_frag == "F" else False)
+    families_tsv_file.close()
+    read_gene2fam(pangenome, gene2families)
+    pangenome.status["genesClustered"] = "Computed"
+
+
 def launch(args):
     """ launch the clustering step"""
-
     # pangenome.stats()
-    logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
-    pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
-    logging.getLogger().info("Done extracting all the protein sequences")
-    clustering(pangenome, args.tmpdir, args.cpu, args.defrag, args.translation_table)
-    
-    logging.getLogger().debug(f"RAM used after clustering : {getCurrentRAM()}")
-    logging.getLogger().info("Done with the clustering")
-    writePangenome(pangenome, pangenome.file, args.force)
+    if args.clusters is None:
+        pangenome = Pangenome()
+        pangenome.addFile(args.pangenome)
+        clustering(pangenome, args.tmpdir, args.cpu, args.defrag, args.translation_table)
+        
+        logging.getLogger().info("Done with the clustering")
+        writePangenome(pangenome, pangenome.file, args.force)
+    else:
+        pangenome = Pangenome()
+        pangenome.addFile(args.pangenome)
+        readPangenome(pangenome, annotation = True)#reading the annotations so we are sure that the IDs in the cluster file matches the previously provided annotations.
+        readClustering(pangenome, args.clusters)
+        logging.getLogger().info("Done reading the cluster file")
+        writePangenome(pangenome, pangenome.file, args.force)
 
-    
 def clusterSubparser(subparser):
     parser = subparser.add_parser("cluster",help = "Cluster proteins in protein families")
     optional = parser.add_argument_group(title = "Optional arguments")

@@ -127,7 +127,7 @@ class Pangenome:
             return self._geneGetter[geneID]
         except AttributeError:#in that case the gene getter has not been computed
             self._mkgeneGetter()#make it
-            return self._geneGetter[geneID]#return what was expected.
+            return self._geneGetter[geneID]#return what was expected. If the geneID does not exist it will raise an error.
 
     def __len__(self):
         return len(self.geneFamilies)

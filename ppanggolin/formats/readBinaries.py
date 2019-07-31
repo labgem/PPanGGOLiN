@@ -141,11 +141,15 @@ def readAnnotation(pangenome, h5f, filename):
     bar.close()
     pangenome.status["genomesAnnotated"] = "Loaded"
 
-def readPangenome(pangenome, filename, annotation = False, geneFamilies = False, graph = False):
+def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False):
     """
         Reads a previously written pangenome, with all of its parts.
     """
     # compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
+    if hasattr(pangenome,"file"):
+        filename = pangenome.file
+    else:
+        raise FileNotFoundError("The provided pangenome does not have an associated .h5 file")
     h5f = tables.open_file(filename,"r")
     if annotation:
         if h5f.root.status._v_attrs.genomesAnnotated:
