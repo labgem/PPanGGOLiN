@@ -154,7 +154,7 @@ def launch_infernal(fnaFile, org, kingdom):
 
 def read_fasta(org, fnaFile):
     """
-        Reads a fna file and stores it in a dictionnary with contigs as key and sequence as value.
+        Reads a fna file  (or stream, or string) and stores it in a dictionnary with contigs as key and sequence as value.
     """
     contigs = {}
     contig_seq = ""
@@ -163,8 +163,7 @@ def read_fasta(org, fnaFile):
             if contig_seq != "":
                 contigs[contig.name] = contig_seq
             contig_seq = ""
-            contig = Contig(line.split()[0][1:])
-            org.addContig(contig.name)
+            contig = org.addContig(line.split()[0][1:])
         else:
             contig_seq += line.strip()
     # processing the last contig

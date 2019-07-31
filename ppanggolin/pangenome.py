@@ -141,7 +141,7 @@ class Pangenome:
             The assumption is that, if there are organism in common and contigs in common, the genes from the provided pangenome will be insered in the current pangenome at their position in the contig whether they existed previously or not.
         """
         for otherOrganism in pangenome.organism:
-            org = self.getOrganism(otherOrganism.name)
+            org = self.addOrganism(otherOrganism.name)
             for otherContig in otherOrganism.contigs:
                 contig = org.addContig(otherContig.name, otherContig.is_circular)
                 for gene in otherContig.genes:
@@ -179,20 +179,21 @@ class Pangenome:
                 g._famGetter[neighborId] for neighborId in SubgraphNeighbors}
         return g
 
-    def getOrganism(self, name):
-        """ returns an existing organism or adds a new one with the given name"""
-        org = self._orgGetter.get(name)
-        if org is None:
-            org = Organism(name)
-            self.addOrganism(org)
-        return org
-
     def addOrganism(self, newOrg):
-        """ adds an organism that did not exist previously in the pangenome"""
-        oldLen = len(self._orgGetter)
-        self._orgGetter[newOrg.name] = newOrg
-        if len(self._orgGetter) == oldLen:
-            raise KeyError(f"Redondant organism name was found ({newOrg.name}). All of your organisms must have unique names.")
+        """
+            adds an organism that did not exist previously in the pangenome if an Organism object is provided.
+            If a str object is provided, will return the corresponding organism OR create a new one.
+        """
+        if isinstance(newOrg, Organism):
+            oldLen = len(self._orgGetter)
+            self._orgGetter[newOrg.name] = newOrg
+            if len(self._orgGetter) == oldLen:
+                raise KeyError(f"Redondant organism name was found ({newOrg.name}). All of your organisms must have unique names.")
+        elif isinstance(newOrg, str):
+            org = self._orgGetter.get(newOrg)
+            if org is None:
+                newOrg = Organism(newOrg)
+                self._orgGetter[newOrg.name] = newOrg
         return newOrg
 
     def addGeneFamily(self, name):

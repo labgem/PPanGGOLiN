@@ -70,7 +70,7 @@ def writeAnnotations(pangenome, h5f):
     nbRNA = 0
     for org in pangenome.organisms:
         for contig in org.contigs:
-            nbRNA += len(contig.RNA)
+            nbRNA += len(contig.RNAs)
     rnaTable = h5f.create_table(annotation, "RNA",geneDesc(*getMaxLenAnnotations(pangenome)), expectedrows=nbRNA)
     rnaRow = rnaTable.row
     bar = tqdm(pangenome.organisms, unit="genome")
@@ -92,7 +92,7 @@ def writeAnnotations(pangenome, h5f):
                 geneRow["gene/is_fragment"] = gene.is_fragment
                 geneRow["gene/genetic_code"] = gene.genetic_code
                 geneRow.append()
-            for rna in contig.RNA:
+            for rna in contig.RNAs:
                 rnaRow["organism"] = org.name
                 rnaRow["contig/name"] = contig.name
                 rnaRow["contig/is_circular"] = contig.is_circular#this should be somewhere else.
@@ -280,7 +280,7 @@ def writePangenome(pangenome, filename, force):
     h5f = tables.open_file(filename,"a", filters=compressionFilter)
 
     if pangenome.status["geneSequences"] == "Computed":
-        logging.getLogger().info("writing the genes dna sequences")
+        logging.getLogger().info("writing the protein coding genes dna sequences")
         writeGeneSequences(pangenome, h5f)
 
     if pangenome.status["geneFamilySequences"] == "Computed":

@@ -63,7 +63,7 @@ class Contig:
     def __init__(self, name, is_circular = False):
         self.name = name
         self.is_circular = is_circular
-        self.RNA = set()#saving the rna annotations. We're not using them in the vast majority of cases.
+        self.RNAs = set()#saving the rna annotations. We're not using them in the vast majority of cases.
         self._genes_start = {}
         self._genes_position = []
     
@@ -94,7 +94,7 @@ class Contig:
     def addRNA(self, gene):
         if not isinstance(gene, RNA):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
-        self.RNA.add(gene)
+        self.RNAs.add(gene)
 
     def addGene(self, gene):
         if not isinstance(gene, Gene):
@@ -123,7 +123,10 @@ class Organism:
         return self.name
 
     def addContig(self, key, is_circular = False):
-        return self._contigs_getter.get(key, self._createContig(key, is_circular))
+        contig = self._contigs_getter.get(key)
+        if contig is None:
+            contig = self._createContig(key, is_circular)
+        return contig
 
     def _createContig(self, key, is_circular = False):
         new_contig = Contig(key, is_circular)
