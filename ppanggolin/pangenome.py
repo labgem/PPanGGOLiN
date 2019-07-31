@@ -8,15 +8,22 @@ from collections import defaultdict
 from ppanggolin.genome import Organism, Gene
 
 class Edge:
-    def __init__(self, sourceGene, targetGene, org):
+    def __init__(self, sourceGene, targetGene):
+        if sourceGene.family is None:
+            raise Exception(f"You cannot create a graph without gene families. gene {sourceGene.ID} did not have a gene family.")
+        if targetGene.family is None:
+            raise Exception(f"You cannot create a graph without gene families. gene {targetGene.ID} did not have a gene family.")
         self.source = sourceGene.family
         self.target = targetGene.family
         self.source._edges[self.target] = self
         self.target._edges[self.source] = self
         self.organisms = defaultdict(list)
-        self.addGenes(sourceGene, targetGene, org)
+        self.addGenes(sourceGene, targetGene)
 
-    def addGenes(self, sourceGene, targetGene, org):
+    def addGenes(self, sourceGene, targetGene):
+        org = sourceGene.organism
+        if org != targetGene.organism:
+            raise Exception(f"You tried to create an edge between two genes that are not even in the same organism ! (genes are '{sourceGene.ID}' and '{targetGene.ID}')")
         self.organisms[org].append((sourceGene, targetGene))
 
     def remove(self):
@@ -71,7 +78,7 @@ class Pangenome:
                     'defragmented':"No",
                     'geneFamilySequences':"No",
                     'NeighborsGraph':  "No",
-                    'Partitionned':  "No"
+                    'partitionned':  "No"
                 }
 
     def addFile(self, pangenomeFile):
@@ -207,14 +214,14 @@ class Pangenome:
             fam = self._createGeneFamily(name)
         return fam
 
-    def addEdge(self, gene1, gene2, org):
+    def addEdge(self, gene1, gene2):
         key = frozenset([gene1.family,gene2.family])
         edge = self._edgeGetter.get(key)
         if edge is None:
-            edge = Edge(gene1, gene2, org)
+            edge = Edge(gene1, gene2)
             self._edgeGetter[key] = edge
         else:
-            edge.addGenes(gene1,gene2,org)
+            edge.addGenes(gene1,gene2)
         return edge
 
     def _createGeneFamily(self, name):

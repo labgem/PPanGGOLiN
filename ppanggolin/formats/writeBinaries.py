@@ -212,23 +212,36 @@ def writeGeneFamilies(pangenome, h5f, force):
     bar.close()
 
 
-def writeGraph(pangenome, h5f):
-    edges = h5f.create_group("/", "graph","Edges of the neighbors graph")
-    counter = 0#for naming uniquely edges, as they don't really have a proper way of identifying themselves.
-    for edge in pangenome.edges:
-        edgeGroup = h5f.create_group(edges, str(counter))
-        edgeGroup.source = edge.source.name
-        edgeGroup.target = edge.target.name
-        edgeTable = h5f.create_table(edgeGroup, 'genes', { 'organism':tables.StringCol(), 'geneTarget':tables.StringCol(), 'geneSource':tables.StringCol() })
-        counter +=1
-        edgeRow = edgeTable.row
-        for org, genePairs in edge.organisms.items():
+def graphDesc(maxGeneIDLen):
+    return {
+            'geneTarget':tables.StringCol(itemsize = maxGeneIDLen),
+            'geneSource':tables.StringCol(itemsize = maxGeneIDLen)
+        }
+
+def getGeneIDLen(pangenome):
+    maxGeneLen = 1
+    for gene in pangenome.genes:
+        if len(gene.ID) > maxGeneLen:
+            maxGeneLen=len(gene.ID)
+    return maxGeneLen
+
+def writeGraph(pangenome, h5f, force):
+    #if we want to be able to read the graph without reading the annotations (because it is one of the most time consumming parts to read), it might be good to add the organism name in the table here.
+    #for now, forcing the read of annotations.
+    if '/edges' in h5f and force is True:
+        logging.getLogger().info("Erasing the formerly computed edges")
+        h5f.remove_node("/","edges")
+    edgeTable = h5f.create_table("/","edges", graphDesc(getGeneIDLen(pangenome)), expectedrows=len(pangenome.edges))
+    edgeRow = edgeTable.row
+    bar = tqdm(pangenome.edges, unit = "edge")
+    for edge in bar:
+        for _, genePairs in edge.organisms.items():
             for gene1, gene2 in genePairs:
-                edgeRow["organism"] = org.name
-                edgeRow["geneTarget"] = gene1.name
-                edgeRow["geneSource"] = gene2.name
+                edgeRow["geneTarget"] = gene1.ID
+                edgeRow["geneSource"] = gene2.ID
                 edgeRow.append()
-        edgeTable.flush()
+    bar.close()
+    edgeTable.flush()
 
 def writeStatus(pangenome, h5f):
     if "/status" in h5f:#if statuses are already written
@@ -239,8 +252,8 @@ def writeStatus(pangenome, h5f):
     statusGroup._v_attrs.geneSequences = True if pangenome.status["geneSequences"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.genesClustered = True if pangenome.status["genesClustered"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.geneFamilySequences = True if pangenome.status["geneFamilySequences"] in ["Computed","Loaded","inFile"] else False
-    statusGroup._v_attrs.NeighborsGraph = True if pangenome.status["NeighborsGraph"] in ["Computed","Loaded","inFile"] else False
-    statusGroup._v_attrs.Partitionned = True if pangenome.status["Partitionned"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.NeighborsGraph = True if pangenome.status["neighborsGraph"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.Partitionned = True if pangenome.status["partitionned"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed","Loaded","inFile"] else False
 
 
@@ -293,11 +306,11 @@ def writePangenome(pangenome, filename, force):
         if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and pangenome.status["defragmented"] == "Computed":
             #if the annotations have not been computed in this run, and there has been a clustering with defragmentation, then the annotations can be updated
             updateGeneFragments(pangenome,h5f)
-    if pangenome.status["NeighborsGraph"] == "Computed":
-        raise NotImplementedError()
-        # writeGraph(pangenome, h5f)
+    if pangenome.status["neighborsGraph"] == "Computed":
+        logging.getLogger().info("Writing the edges...")
+        writeGraph(pangenome, h5f, force)
     
-    if pangenome.status["Partitionned"] == "Computed":
+    if pangenome.status["partitionned"] == "Computed":
         raise NotImplementedError()
         ##update geneFamilies with their partition.
 

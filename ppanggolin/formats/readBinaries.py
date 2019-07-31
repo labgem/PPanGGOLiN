@@ -33,9 +33,9 @@ def getStatus(pangenome, pangenomeFile):
     if statusGroup._v_attrs.geneFamilySequences:
         pangenome.status["geneFamilySequences"] = "inFile"
     if statusGroup._v_attrs.NeighborsGraph:
-        pangenome.status["NeighborsGraph"] = "inFile"
+        pangenome.status["neighborsGraph"] = "inFile"
     if statusGroup._v_attrs.Partitionned:
-        pangenome.status["Partitionned"] = "inFile"
+        pangenome.status["partitionned"] = "inFile"
     h5f.close()
 
 def read_chunks(table, chunk=10000):
@@ -96,7 +96,18 @@ def readOrganism(pangenome, orgName, contigDict, link = False):
     pangenome.addOrganism(org)
 
 def readGraph(pangenome, h5f):
-    raise NotImplementedError()
+    table = h5f.root.edges
+
+    if not pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] or not pangenome.status["genesClustered"] in ["Computed","Loaded"] :
+        raise Exception("It's not possible to read the graph if the annotations and the gene families have not been loaded.")
+    bar = tqdm(range(table.nrows), unit = "contig adjacency")
+    for row in read_chunks(table):
+        source = pangenome.getGene(row[0].decode())
+        target = pangenome.getGene(row[1].decode())
+        pangenome.addEdge(source, target)
+        bar.update()
+    bar.close()
+    pangenome.status["neighborsGraph"] = "Loaded"
 
 def readGeneFamilies(pangenome, h5f):
     table = h5f.root.geneFamilies
@@ -155,19 +166,19 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
         if h5f.root.status._v_attrs.genomesAnnotated:
             logging.getLogger().info("Reading pangenome annotations...")
             readAnnotation(pangenome, h5f, filename)
-            logging.getLogger().info("Done reading pangenome annotations")
         else:
             raise Exception(f"The pangenome in file '{filename}' has not been annotated, or has been improperly filled")
     if geneFamilies:
         if h5f.root.status._v_attrs.genesClustered:
             logging.getLogger().info("Reading pangenome gene families...")
             readGeneFamilies(pangenome, h5f)
-            logging.getLogger().info("Done reading the pangenome's gene families")
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have gene families, or has been improperly filled")
     if graph:
         if h5f.root.status._v_attrs.NeighborsGraph:
+            logging.getLogger().info("Reading the neighbors graph edges...")
             readGraph(pangenome, h5f)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have graph informations, or has been improperly filled")
     h5f.close()
+    logging.getLogger().info("Done reading the wanted informations from the pangenome graph")

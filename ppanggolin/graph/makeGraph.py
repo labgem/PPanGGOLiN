@@ -11,7 +11,7 @@ from tqdm import tqdm
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import getCurrentRAM
-from ppanggolin.formats import readPangenome
+from ppanggolin.formats import readPangenome, writePangenome
 
 def checkPangenomeForNeighborsGraph(pangenome):
     """
@@ -32,7 +32,7 @@ def computeNeighborsGraph(pangenome):
         Creates the Pangenome Graph. Will either load the informations from the pangenome file if they are not loaded, or use the informations loaded if they are.
     """
     checkPangenomeForNeighborsGraph(pangenome)
-
+    logging.getLogger().info("Computing the neighbors graph...")
     bar = tqdm(pangenome.organisms, total = len(pangenome.organisms), unit = "organism")
     for org in bar:
         bar.set_description(f"Processing {org.name}")
@@ -42,11 +42,12 @@ def computeNeighborsGraph(pangenome):
             for gene in contig.genes:
                 if prev is not None and not gene.family.removed:
                     if not (prev.family == gene.family and (prev.is_fragment or gene.is_fragment)):
-                        pangenome.addEdge(gene, prev, org)
+                        pangenome.addEdge(gene, prev)
                 prev = gene
             if contig.is_circular:
-                pangenome.addEdge(contig.genes[0],prev, org)
+                pangenome.addEdge(contig.genes[0],prev)
     logging.getLogger().info("Done making the neighbors graph.")
+    pangenome.status["neighborsGraph"] = "Computed"
 
 
 def launch(args):
@@ -54,9 +55,8 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     computeNeighborsGraph(pangenome)
+    writePangenome(pangenome, pangenome.file, args.force)
 
-    
-    print(pangenome.info())
 
 def graphSubparser(subparser):
     parser = subparser.add_parser("graph",help = "Create the pangenome graph")

@@ -15,6 +15,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import getCurrentRAM, mkFilename
 from ppanggolin.annotate import annotatePangenome
 from ppanggolin.cluster import clustering
+from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.formats import writePangenome
 ### a global workflow that does everything in one go.
 
@@ -30,6 +31,7 @@ def launch(args):
             pangenome = Pangenome()
             annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
             clustering(pangenome, args.tmpdir, args.cpu)
+            computeNeighborsGraph(pangenome)
             #makegraph
             #partition pangenome
             writePangenome(pangenome, filename, args.force)

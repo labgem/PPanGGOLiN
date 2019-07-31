@@ -196,15 +196,12 @@ def annotatePangenome(pangenome, fastaList, tmpdir,cpu, translation_table="11", 
     return pangenome
 
 def launch(args):
+    filename = mkFilename(args.basename, args.output, args.force)
+    pangenome = Pangenome()
     if args.fasta is not None:
-        #then we are doing something new here.
-        filename = mkFilename(args.basename, args.output, args.force)
-        pangenome = Pangenome()
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
-        writePangenome(pangenome, filename, args.force)
+        
     elif args.gff is not None:
-        filename = mkFilename(args.basename, args.output, args.force)
-        pangenome = Pangenome()
         readAnnotations(pangenome, args.gff)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
@@ -212,7 +209,7 @@ def launch(args):
             else:
                 logging.getLogger().warning("You provided gff files without sequences, and you did not provide fasta sequences. Thus it was not possible to get the gene sequences.")
                 logging.getLogger().warning("You will be able to proceed with your analysis ONLY if you provide the clustering results in the next step.")
-        writePangenome(pangenome, filename, args.force)
+    writePangenome(pangenome, filename, args.force)
 
 def syntaSubparser(subparser):
     parser = subparser.add_parser("annotate",help = "Annotate genomes")

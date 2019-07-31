@@ -209,15 +209,24 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11"):
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
 
+def checkPangenomeForReadClustering(pangenome):
+    if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
+        pass#nothing to do
+    elif pangenome.status["genomesAnnotated"] == "inFile":
+        readPangenome(pangenome, annotation = True)#reading the annotations so we are sure that the IDs in the cluster file matches the previously provided annotations.
+    else:
+        raise NotImplementedError("You tried to do something unplanned for")
+
 def readClustering(pangenome, families_tsv_file):
     """
         Creates the pangenome, the gene families and the genes with an associated gene family.
         Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
     """
+    checkPangenomeForReadClustering(pangenome)
+
     logging.getLogger().info("Reading "+families_tsv_file+" the gene families file ...")
-
     families_tsv_file = read_compressed_or_not(families_tsv_file)
-
+    frag = False
     gene2families = {}
     for line in families_tsv_file:
         elements = [el.strip() for el in line.split()] # 2 or 3 fields expected
@@ -226,28 +235,26 @@ def readClustering(pangenome, families_tsv_file):
             exit(1)
         (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
         gene2families[gene_id] = (fam_id, True if is_frag == "F" else False)
+        if is_frag == "F":
+            frag=True
     families_tsv_file.close()
     read_gene2fam(pangenome, gene2families)
     pangenome.status["genesClustered"] = "Computed"
-
+    if frag:#if there was fragment informations in the file.
+        pangenome.status["defragmented"] = "Computed"
 
 def launch(args):
     """ launch the clustering step"""
     # pangenome.stats()
+    pangenome = Pangenome()
+    pangenome.addFile(args.pangenome)
     if args.clusters is None:
-        pangenome = Pangenome()
-        pangenome.addFile(args.pangenome)
         clustering(pangenome, args.tmpdir, args.cpu, args.defrag, args.translation_table)
-        
         logging.getLogger().info("Done with the clustering")
-        writePangenome(pangenome, pangenome.file, args.force)
     else:
-        pangenome = Pangenome()
-        pangenome.addFile(args.pangenome)
-        readPangenome(pangenome, annotation = True)#reading the annotations so we are sure that the IDs in the cluster file matches the previously provided annotations.
         readClustering(pangenome, args.clusters)
         logging.getLogger().info("Done reading the cluster file")
-        writePangenome(pangenome, pangenome.file, args.force)
+    writePangenome(pangenome, pangenome.file, args.force)
 
 def clusterSubparser(subparser):
     parser = subparser.add_parser("cluster",help = "Cluster proteins in protein families")
