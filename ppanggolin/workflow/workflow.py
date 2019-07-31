@@ -32,8 +32,8 @@ def launch(args):
             clustering(pangenome, args.tmpdir, args.cpu)
             #makegraph
             #partition pangenome
-            
             writePangenome(pangenome, filename, args.force)
+            print(pangenome.info())
 
 
 
