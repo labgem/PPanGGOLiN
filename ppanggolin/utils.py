@@ -77,6 +77,13 @@ def getCurrentRAM():
         unit +=1
     return str(round(mem,3)) + " " + units[unit]
 
+
+def mkOutdir(output, force):
+    if not os.path.exists(output):
+        os.makedirs(output)
+    elif not force:
+        raise FileExistsError(f"{output} already exists. Use -f if you want to overwrite the files in the directory")
+
 def mkFilename(basename, output, force):
     """
         Returns a usable filename for a ppanggolin output file, or crashes. 
@@ -85,9 +92,8 @@ def mkFilename(basename, output, force):
     if filename.suffix != ".h5":
         filename = filename.with_suffix(".h5")
     
-    if not os.path.exists(output):
-        os.makedirs(output)
-    elif filename.exists() and not force:
-        logging.getLogger().error(f"{filename.name} already exists. Use -f if you want to overwrite the file")
-        exit(1)
+    mkOutdir(output, force)
+    
+    if filename.exists() and not force:
+        raise FileExistsError(f"{filename.name} already exists. Use -f if you want to overwrite the file")
     return filename

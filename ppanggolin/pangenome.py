@@ -5,7 +5,6 @@
 from collections import defaultdict
 import logging
 
-
 #local libraries
 from ppanggolin.genome import Organism, Gene
 
@@ -40,9 +39,13 @@ class GeneFamily:
         self.genes = set()
         self.removed = False#for the repeated family not added in the main graph
         self.sequence = ""
+        self.partition = ""
 
     def addSequence(self, seq):
         self.sequence = seq
+
+    def addPartition(self, partition):
+        self.partition = partition
 
     def __str__(self):
         return str(self.ID)
@@ -82,6 +85,14 @@ class Pangenome:
                     'neighborsGraph':  "No",
                     'partitionned':  "No"
                 }
+
+    def savePartitionParameters(self, Q, beta, free_dispersion, smoothing_degree, partition_params, chunk_size):
+        self.Q = Q
+        self.beta = beta
+        self.free_dispersion = free_dispersion
+        self.sm_degree = smoothing_degree
+        self.partition_params = partition_params
+        self.chunk_size = chunk_size
 
     def addFile(self, pangenomeFile):
         from ppanggolin.formats import getStatus#importing on call instead of importing on top to avoid cross-reference problems.
@@ -172,6 +183,20 @@ class Pangenome:
         infostr += f"Contigs : {nbContig}\n"
         infostr += f"Genes : {len(self.genes)}\n"
         infostr += f"Edges : {len(self.edges)}\n"
+        nbP=0
+        nbC=0
+        nbS=0
+        for fam in self.geneFamilies:
+            if fam.partition == "C":
+                nbC+=1
+            elif fam.partition == "P":
+                nbP+=1
+            elif fam.partition.startswith("S"):
+                nbS+=1
+        infostr += f"Persistent : {nbP}\n"
+        infostr += f"Shell : {nbS}\n"
+        infostr += f"Cloud : {nbC}\n"
+
         return infostr
 
     def subpangenome(self, orgList):
@@ -179,7 +204,6 @@ class Pangenome:
             Create a new pangenome from a list of organisms (Organism objects, or organism names).
             Expects annotations and gene families to be loaded.
         """
-        logging.getLogger().info("Creating a subpangenome. Untested for now !")
         pan = Pangenome()
         for org in orgList:
             if isinstance(org,Organism):
@@ -202,11 +226,9 @@ class Pangenome:
         famIds = {g.addGeneFamily(fam.name).ID for fam in famSet}
         for famID in famIds:
             # extracting the neighbors of each fam that still exists in the subgraph
-            SubgraphNeighbors = {
-                neighbor.ID for neighbor in self._famGetter[famID].neighbors if neighbor.ID in famIds}
+            SubgraphNeighbors = { neighbor.ID for neighbor in self._famGetter[famID].neighbors if neighbor.ID in famIds}
             # setting the neighbors of each fam.
-            g._famGetter[famID].neighbors = {
-                g._famGetter[neighborId] for neighborId in SubgraphNeighbors}
+            g._famGetter[famID].neighbors = { g._famGetter[neighborId] for neighborId in SubgraphNeighbors}
         return g
 
     def addOrganism(self, newOrg):
@@ -236,6 +258,9 @@ class Pangenome:
         if fam is None:
             fam = self._createGeneFamily(name)
         return fam
+
+    def getGeneFamily(self, name):
+        return self._famGetter[name]
 
     def addEdge(self, gene1, gene2):
         key = frozenset([gene1.family,gene2.family])
