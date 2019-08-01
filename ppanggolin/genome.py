@@ -123,6 +123,21 @@ class Organism:
     def __str__(self):
         return self.name
 
+    def copy(self):
+        """ returns a new instance with the same attributes and values than self, identical contigs, but some changes in the genes"""
+        new_org = Organism(self.name)
+        for contigObj in self.contigs:
+            new_contig = Contig(contigObj.name, is_circular=contigObj.is_circular)
+            new_org._contigs_getter[new_contig.name] = new_contig
+            for gene in contigObj.genes:
+                new_gene= Gene(gene.ID)
+                new_gene.fill_annotations(gene.start, gene.stop, gene.strand, gene.type, gene.position, gene.name, gene.product, gene.genetic_code)
+                new_gene.fill_parents(new_org, new_contig)
+                new_gene.family = gene.family
+                new_gene.is_fragment = gene.is_fragment
+                new_contig.addGene(new_gene)
+        return new_org
+
     def addContig(self, key, is_circular = False):
         contig = self._contigs_getter.get(key)
         if contig is None:

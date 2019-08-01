@@ -188,7 +188,7 @@ class Pangenome:
                 pan.addOrganism(self._orgGetter[org].copy())
         pan.status["genomesAnnotated"] = "Computed"
         #either create new gene families, or filter the existing ones with the organisms ...?
-        for gene in pan.genes:
+        for gene in pan.genes:#changing the references in the create pangenome's genes because they refer to the original pangenome atm
             fam = pan.addGeneFamily(gene.family.name)
             fam.addGene(gene)
         pan.status["genesClustered"] = "Computed"
