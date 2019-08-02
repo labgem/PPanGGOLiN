@@ -214,10 +214,21 @@ def write_nem_input_files(pangenome, tmpdir, organisms, sm_degree):
         nei_file.write("1\n")
         index_fam = {}
 
+        index_org = {}
+        default_dat = []
+        for index, org in enumerate(organisms):
+            default_dat.append('0')
+            index_org[org] = index
+
         for fam in pangenome.geneFamilies:
             #could use bitarrays if this part is limiting?
             if not organisms.isdisjoint(fam.organisms):
-                dat_file.write('\t'.join(['1' if org in fam.organisms else '0' for org in organisms]) + '\n')
+                currDat = list(default_dat)
+                curr_orgs = fam.organisms & organisms
+                for org in curr_orgs:
+                    currDat[index_org[org]] = "1"
+                dat_file.write("\t".join(currDat) + "\n")
+                # dat_file.write('\t'.join(['1' if org in fam.organisms else '0' for org in organisms]) + '\n')
                 index_fam[fam] = len(index_fam) +1
                 index_file.write(f"{len(index_fam)}\t{fam.name}\n")
 
@@ -240,7 +251,7 @@ def write_nem_input_files(pangenome, tmpdir, organisms, sm_degree):
                 nei_file.write('\t'.join([str(item) for sublist in [[index_fam[fam]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
             else:
                 nei_file.write(str(index_fam[fam]) + "\t0\n")
-        
+
         str_file.write("S\t"+str(len(index_fam))+"\t"+str(len(organisms))+"\n")
     return total_edges_weight/2, len(index_fam)
 
