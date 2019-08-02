@@ -19,7 +19,7 @@ from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.utils import read_compressed_or_not, getCurrentRAM, mkFilename, get_num_lines
 from ppanggolin.formats import writePangenome, readPangenome
 
-def read_org_line(pangenome, organism, gff_file_path, circular_contigs):
+def read_org_line(pangenome, organism, gff_file_path, circular_contigs, getSeq):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0,9)#missing values : source, score, frame. They are unused.
     def getGffAttributes(gff_fields):
         """
@@ -60,6 +60,8 @@ def read_org_line(pangenome, organism, gff_file_path, circular_contigs):
                 continue
             elif line.startswith('##',0,2):
                 if line.startswith('FASTA',2,7):
+                    if not getSeq:#if getting the sequences is useless...
+                        break
                     hasFasta = True
                 elif line.startswith('sequence-region',2,17):
                     fields = [el.strip() for el in line.split()]
@@ -134,7 +136,7 @@ def read_org_line(pangenome, organism, gff_file_path, circular_contigs):
 
     pangenome.addOrganism(org)
 
-def readAnnotations(pangenome, organisms_file):
+def readAnnotations(pangenome, organisms_file, getSeq = True):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
     bar = tqdm(read_compressed_or_not(organisms_file),total=get_num_lines(organisms_file), unit = "gff file")
     for line in bar:
@@ -145,7 +147,7 @@ def readAnnotations(pangenome, organisms_file):
         bar.set_description("Processing "+elements[1].split("/")[-1])
         bar.refresh()
         
-        read_org_line(pangenome, elements[0], elements[1], elements[2:])
+        read_org_line(pangenome, elements[0], elements[1], elements[2:], getSeq)
     bar.close()
     pangenome.status["genomesAnnotated"] = "Computed"
 
@@ -159,7 +161,10 @@ def getGeneSequencesFromFastas(pangenome, fasta_file):
         org = pangenome.addOrganism(elements[0])
         with read_compressed_or_not(elements[1]) as currFastaFile:
             fastaDict[org] = read_fasta(currFastaFile)
-    
+    if not set(pangenome.organisms) <= set(fastaDict.keys()):
+        missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fastaDict.keys()))
+        raise Exception(f"Not all of your pangenome's organisms are present within the provided fasta file. {missing} are missing (out of {len(pangenome.organisms)}).")
+
     for org in pangenome.organisms:
         for contig in org.contigs:
             for gene in contig.genes:
@@ -196,7 +201,7 @@ def annotatePangenome(pangenome, fastaList, tmpdir,cpu, translation_table="11", 
 def launch(args):
     filename = mkFilename(args.basename, args.output, args.force)
     pangenome = Pangenome()
-    if args.fasta is not None:
+    if args.fasta is not None and args.gff is None:
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
     elif args.gff is not None:
         readAnnotations(pangenome, args.gff)
