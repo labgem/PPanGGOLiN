@@ -9,7 +9,6 @@ import subprocess
 from collections import defaultdict
 import os
 
-
 #installed libraries
 import networkx
 from tqdm import tqdm
@@ -143,8 +142,8 @@ def read_gene2fam(pangenome, gene2fam):
     logging.getLogger().info(f"Adding {len(gene2fam)} genes to the gene families")
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] else False
-    
-    for gene, (family, is_frag) in gene2fam.items():
+    bar = tqdm(gene2fam.items(), unit = "gene")
+    for gene, (family, is_frag) in bar:
         fam = pangenome.addGeneFamily(family)
         if link:#doing the linking if the annotations are loaded.
             geneObj = pangenome.getGene(gene)
@@ -152,6 +151,7 @@ def read_gene2fam(pangenome, gene2fam):
             geneObj = Gene(gene)
         geneObj.is_fragment = is_frag
         fam.addGene(geneObj)
+    bar.close()
 
 def read_fam2seq(pangenome, fam2seq):
     logging.getLogger().info("Adding protein sequences to the gene families")
@@ -225,20 +225,28 @@ def readClustering(pangenome, families_tsv_file):
     checkPangenomeForReadClustering(pangenome)
 
     logging.getLogger().info("Reading "+families_tsv_file+" the gene families file ...")
+    filesize = os.stat(families_tsv_file).st_size
     families_tsv_file = read_compressed_or_not(families_tsv_file)
     frag = False
-    gene2families = {}
+    #the genome annotations are necessarily loaded.
+    bar = tqdm(total = filesize, unit = "bytes")
     for line in families_tsv_file:
+        bar.update(len(line))
         elements = [el.strip() for el in line.split()] # 2 or 3 fields expected
         if len(elements)<=1:
             logging.getLogger().error("No tabulation separator found in gene families file")
             exit(1)
         (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
-        gene2families[gene_id] = (fam_id, True if is_frag == "F" else False)
+        
+        geneObj = pangenome.getGene(gene_id)
+        if geneObj is not None:
+            fam = pangenome.addGeneFamily(fam_id)
+            geneObj.is_fragment =  True if is_frag == "F" else False
+            fam.addGene(geneObj)
         if is_frag == "F":
             frag=True
+    bar.close()
     families_tsv_file.close()
-    read_gene2fam(pangenome, gene2families)
     pangenome.status["genesClustered"] = "Computed"
     if frag:#if there was fragment informations in the file.
         pangenome.status["defragmented"] = "Computed"

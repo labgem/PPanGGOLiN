@@ -142,21 +142,25 @@ def writeGeneSequences(pangenome, h5f):
     bar.close()
 
 
-def geneFamDesc(maxNameLen, maxSequenceLength):
+def geneFamDesc(maxNameLen, maxSequenceLength, maxPartLen):
      return {
         "name": tables.StringCol(itemsize = maxNameLen),
-        "protein": tables.StringCol(itemsize=maxSequenceLength)
+        "protein": tables.StringCol(itemsize=maxSequenceLength),
+        "partition": tables.StringCol(itemsize=maxPartLen)
         }
 
 def getGeneFamLen(pangenome):
     maxGeneFamNameLen = 1
     maxGeneFamSeqLen = 1
+    maxPartLen = 1
     for genefam in pangenome.geneFamilies:
         if len(genefam.sequence) > maxGeneFamSeqLen:
             maxGeneFamSeqLen = len(genefam.sequence)
         if len(genefam.name) > maxGeneFamNameLen:
             maxGeneFamNameLen = len(genefam.name)
-    return maxGeneFamNameLen, maxGeneFamSeqLen
+        if len(genefam.partition) > maxPartLen:
+            maxPartLen = len(genefam.partition)
+    return maxGeneFamNameLen, maxGeneFamSeqLen, maxPartLen
 
 def writeGeneFamSeq(pangenome, h5f, force):
     """
@@ -171,6 +175,7 @@ def writeGeneFamSeq(pangenome, h5f, force):
     for fam in bar:
         row["name"] = fam.name
         row["protein"] = fam.sequence
+        row["partition"] = fam.partition
         row.append()
     geneFamSeq.flush()
     bar.close()
@@ -257,11 +262,21 @@ def writeStatus(pangenome, h5f):
     statusGroup._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed","Loaded","inFile"] else False
 
 
+def updateGeneFamPartition(pangenome, h5f):
+    logging.getLogger().info("Updating gene families with partition information")
+    table = h5f.root.geneFamiliesSequences
+    row = table.row
+    bar = tqdm(range(table.nrows), unit = "gene family")
+    for row in table:
+        row["partition"] = pangenome.getGeneFamily(row["name"].decode())
+        bar.update()
+    bar.close()
+
 def updateGeneFragments(pangenome, h5f):
     """
         updates the annotation table with the fragmentation informations from the defrag pipeline
     """
-    logging.getLogger().info("Updating annotations with fragment informations")
+    logging.getLogger().info("Updating annotations with fragment information")
     table = h5f.root.annotations.genes
     row = table.row
     bar =  tqdm(range(table.nrows), unit="gene")
@@ -310,9 +325,8 @@ def writePangenome(pangenome, filename, force):
         logging.getLogger().info("Writing the edges...")
         writeGraph(pangenome, h5f, force)
     
-    if pangenome.status["partitionned"] == "Computed":
-        raise NotImplementedError()
-        ##update geneFamilies with their partition.
+    if pangenome.status["partitionned"] == "Computed" and pangenome.status["genesClustered"] in ["Loaded","inFile"]:#otherwise it's been written already.
+        updateGeneFamPartition(pangenome, h5f)
 
     writeStatus(pangenome, h5f)
     h5f.close()

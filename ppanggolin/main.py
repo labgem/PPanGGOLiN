@@ -39,12 +39,12 @@ def cmdLine():
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
     subparsers = parser.add_subparsers( metavar = "", dest="subcommand")
     subparsers.required = True#because python3 sent subcommands to hell apparently
-    subs = set([])#subparsers
-    subs.add(ppanggolin.annotate.syntaSubparser(subparsers))
-    subs.add(ppanggolin.cluster.clusterSubparser(subparsers))
-    subs.add(ppanggolin.partition.partitionSubparser(subparsers))
-    subs.add(ppanggolin.graph.graphSubparser(subparsers))
-    subs.add(ppanggolin.workflow.workflowSubparser(subparsers))
+    subs = []#subparsers
+    subs.append(ppanggolin.annotate.syntaSubparser(subparsers))
+    subs.append(ppanggolin.cluster.clusterSubparser(subparsers))
+    subs.append(ppanggolin.graph.graphSubparser(subparsers))
+    subs.append(ppanggolin.partition.partitionSubparser(subparsers))
+    subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
     #TODO :
     # Figures subparser
     # Format subparser

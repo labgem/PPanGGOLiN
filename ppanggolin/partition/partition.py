@@ -73,7 +73,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
         nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
         nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'),
         seed])
-    #print("beta="+str(beta))
+    
     nem_stats.nem(Fname           = nem_dir_path.encode('ascii')+b"/nem_file",
         nk              = Q,
         algo            = ALGO,
@@ -156,8 +156,8 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
                 else:
                     max_prob = max([float(el) for el in elements])
                     positions_max_prob = [pos for pos, prob in enumerate(elements) if prob == max_prob]
-                    logging.getLogger().debug(positions_max_prob)
-                    logging.getLogger().debug(i)
+                    # logging.getLogger().debug(positions_max_prob)
+                    # logging.getLogger().debug(i)
                     if (len(positions_max_prob)>1 or max_prob<0.5):
                         partitions_list[i]="S_"#SHELL in case of doubt gene families is attributed to shell
                     else:
@@ -216,9 +216,8 @@ def write_nem_input_files(pangenome, tmpdir, organisms, sm_degree):
 
         for fam in pangenome.geneFamilies:
             #could use bitarrays if this part is limiting?
-            famOrg = fam.organisms#compute the family's organisms just once, since it's not straight forward.
-            if not organisms.isdisjoint(famOrg):
-                dat_file.write('\t'.join(['1' if org in famOrg else '0' for org in organisms]) + '\n')
+            if not organisms.isdisjoint(fam.organisms):
+                dat_file.write('\t'.join(['1' if org in fam.organisms else '0' for org in organisms]) + '\n')
                 index_fam[fam] = len(index_fam) +1
                 index_file.write(f"{len(index_fam)}\t{fam.name}\n")
 
@@ -332,7 +331,7 @@ def checkPangenomePartition(pangenome):
     else:
         raise Exception("You want to partition a pangenome whose neighbors graph has not been computed.")
 
-def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=3, Qrange=[3,20], ICL_margin=0.05, draw_ICL = False, cpu = 1, tmpdir="/dev/shm", seed = 42, keep_tmp_files = False):
+def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=-1, Qrange=[3,20], ICL_margin=0.05, draw_ICL = False, cpu = 1, tmpdir="/dev/shm", seed = 42, keep_tmp_files = False):
     if draw_ICL and outputdir is None:
         raise Exception("Combination of option impossible: You asked to draw the ICL curves but did not provide an output directory!")
     
@@ -381,10 +380,9 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
 
         org_nb_sample = Counter()
         for org in organisms:
-                org_nb_sample[org] = 0
+            org_nb_sample[org] = 0
         condition = len(organisms)/chunk_size
         while len(validated) < pansize:
-            print(len(validated), pansize)
             org_samples = []
             
             while not all(val >= condition for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunk_size times.
@@ -406,6 +404,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                 cpt += 1
 
             bar.close()
+            print("\n")
             logging.getLogger().info("Launching NEM")
 
             with Pool(processes = cpu) as p:
@@ -416,14 +415,14 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                     bar.update()
                         
                 bar.close()
-                    
+                print("\n")
                 condition +=1#if len(validated) < pan_size, we will want to resample more.
 
         for fam, data in cpt_partition.items():
             partitionning_results[fam]=max(data, key=data.get)
 
-
-        partitionning_results = [partitionning_results,[]]##introduces a 'bug'.
+        ## need to compute the median vectors of each partition ???
+        partitionning_results = [partitionning_results,[]]##introduces a 'non feature'.
         
         logging.getLogger().info(f"Did {cpt} partitionning with chunks of size {chunk_size} among {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
     else:

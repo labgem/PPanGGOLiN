@@ -36,6 +36,7 @@ class GeneFamily:
         self.name = name
         self.ID = ID
         self._edges = {}
+        self._genePerOrg = defaultdict(set)
         self.genes = set()
         self.removed = False#for the repeated family not added in the main graph
         self.sequence = ""
@@ -55,6 +56,8 @@ class GeneFamily:
             raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
         self.genes.add(gene)
         gene.family = self
+        if hasattr(gene, "organism"):
+            self._genePerOrg[gene.organism].add(gene)
 
     @property
     def neighbors(self):
@@ -66,7 +69,12 @@ class GeneFamily:
 
     @property
     def organisms(self):
-        return { gene.organism for gene in self.genes }
+        try:
+            return self._genePerOrg.keys()
+        except AttributeError:#then the genes have been added before they had organisms
+            for gene in self.genes:
+                self._genePerOrg[gene.organism].add(gene)
+            return self._genePerOrg.keys()
 
 class Pangenome:
     def __init__(self):
@@ -145,9 +153,11 @@ class Pangenome:
     def getGene(self, geneID):
         try:
             return self._geneGetter[geneID]
-        except AttributeError:#in that case the gene getter has not been computed
+        except AttributeError:#in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
             self._mkgeneGetter()#make it
-            return self._geneGetter[geneID]#return what was expected. If the geneID does not exist it will raise an error.
+            return self.getGene(geneID)#return what was expected. If the geneID does not exist it will raise an error.
+        except KeyError:
+            return None
 
     def __len__(self):
         return len(self.geneFamilies)
