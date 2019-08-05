@@ -227,7 +227,6 @@ def write_nem_input_files(pangenome, tmpdir, organisms, sm_degree):
                 for org in curr_orgs:
                     currDat[index_org[org]] = "1"
                 dat_file.write("\t".join(currDat) + "\n")
-                # dat_file.write('\t'.join(['1' if org in fam.organisms else '0' for org in organisms]) + '\n')
                 index_fam[fam] = len(index_fam) +1
                 index_file.write(f"{len(index_fam)}\t{fam.name}\n")
 
@@ -453,6 +452,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
     pangenome.status["partitionned"] = "Computed"
     if not keep_tmp_files:
         tmpdirObj.cleanup()
+    #else write files somewhere ???
 
 def launch(args):
     """

@@ -5,6 +5,9 @@
 from collections import defaultdict
 import logging
 
+#installed libraries
+import gmpy2
+
 #local libraries
 from ppanggolin.genome import Organism, Gene
 
@@ -58,6 +61,12 @@ class GeneFamily:
         gene.family = self
         if hasattr(gene, "organism"):
             self._genePerOrg[gene.organism].add(gene)
+
+    def mkBitarray(self, index):
+        """ produces a bitarray representing the presence / absence of the family in the pangenome"""
+        self.bitarray = gmpy2.xmpz(0)
+        for org in self.organisms:
+            self.bitarray[index[org]] = 1
 
     @property
     def neighbors(self):
@@ -296,6 +305,16 @@ class Pangenome:
             fam.removed = True
         if len(self._famGetter) + len(fams) != oldSize:
             raise Exception("Problems in the family removal from the pangenome.")
+
+    def computeFamilyBitarrays(self):
+        if not hasattr(self, "_orgIndex"):#then the bitarrays don't exist yet.
+            self._orgIndex = {}
+            for index, org in enumerate(self.organisms):
+                self._orgIndex[org] = index
+
+            for fam in self.geneFamilies:
+                fam.mkBitarray(self._orgIndex)
+        return self._orgIndex
 
     def connectedComponents(self):
         """

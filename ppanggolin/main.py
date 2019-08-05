@@ -27,6 +27,7 @@ import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
 import ppanggolin.workflow
+import ppanggolin.evolution
 
 def requirements():
     """
@@ -44,6 +45,7 @@ def cmdLine():
     subs.append(ppanggolin.cluster.clusterSubparser(subparsers))
     subs.append(ppanggolin.graph.graphSubparser(subparsers))
     subs.append(ppanggolin.partition.partitionSubparser(subparsers))
+    subs.append(ppanggolin.evolution.evolutionSubparser(subparsers))
     subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
     #TODO :
     # Figures subparser
@@ -108,6 +110,8 @@ def main():
         ppanggolin.partition.launch(args)
     elif args.subcommand == "workflow":
         ppanggolin.workflow.launch(args)
+    elif args.subcommand == "evolution":
+        ppanggolin.evolution.launch(args)
 
 if __name__ == "__main__":
     main()
