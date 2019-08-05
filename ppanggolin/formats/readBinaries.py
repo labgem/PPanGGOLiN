@@ -126,6 +126,17 @@ def readGeneFamilies(pangenome, h5f):
     bar.close()
     pangenome.status["genesClustered"] = "Loaded"
 
+def readGeneFamiliesInfo(pangenome, h5f):
+    table = h5f.root.geneFamiliesInfo
+
+    bar = tqdm(range(table.nrows), unit = "gene family")
+    for row in read_chunks(table):
+        fam = pangenome.addGeneFamily(row[0].decode())
+        fam.addPartition(row[1].decode())
+        fam.addSequence(row[2].decode())
+        bar.update()
+    bar.close()
+
 def readAnnotation(pangenome, h5f, filename):
     annotations = h5f.root.annotations
     
@@ -172,6 +183,7 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
         if h5f.root.status._v_attrs.genesClustered:
             logging.getLogger().info("Reading pangenome gene families...")
             readGeneFamilies(pangenome, h5f)
+            readGeneFamiliesInfo(pangenome, h5f)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have gene families, or has been improperly filled")
     if graph:

@@ -463,8 +463,8 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     partition(pangenome, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.qrange, args.ICL_margin, args.draw_ICL, args.cpu, args.tmpdir, args.seed, args.keep_tmp_files)
-    
     print(pangenome.info())
+    writePangenome(pangenome,pangenome.file, args.force)
 
 
 def partitionSubparser(subparser):

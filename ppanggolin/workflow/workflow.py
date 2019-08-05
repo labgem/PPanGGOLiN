@@ -17,7 +17,7 @@ from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSeque
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.partition import partition
-from ppanggolin.formats import writePangenome
+from ppanggolin.formats import writePangenome, readPangenome
 ### a global workflow that does everything in one go.
 
 
@@ -47,7 +47,6 @@ def launch(args):
         logging.getLogger().info(f"post clustering : {getCurrentRAM()}")
     elif args.fasta is not None:
             logging.getLogger().info("You did not provide annotations but provided fasta. Everything will be done from here using the fasta only.")
-            filename = mkFilename(args.basename, args.output, args.force)
             pangenome = Pangenome()
             annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
             clustering(pangenome, args.tmpdir, args.cpu)
@@ -55,7 +54,6 @@ def launch(args):
     logging.getLogger().info(f"post making the graph : {getCurrentRAM()}")
     partition(pangenome, cpu = args.cpu, tmpdir = args.tmpdir)
     logging.getLogger().info(f"post partitionning : {getCurrentRAM()}")
-    print(pangenome.info())
 
     writePangenome(pangenome, filename, args.force)
 

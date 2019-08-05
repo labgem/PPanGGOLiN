@@ -162,14 +162,15 @@ def getGeneFamLen(pangenome):
             maxPartLen = len(genefam.partition)
     return maxGeneFamNameLen, maxGeneFamSeqLen, maxPartLen
 
-def writeGeneFamSeq(pangenome, h5f, force):
+def writeGeneFamInfo(pangenome, h5f, force):
     """
         Writing a table containing the protein sequences of each family
     """
-    if '/geneFamiliesSequences' in h5f and force is True:
+    if '/geneFamiliesInfo' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed gene family representative sequences...")
-        h5f.remove_node('/', 'geneFamiliesSequences')#erasing the table, and rewriting a new one.
-    geneFamSeq = h5f.create_table("/","geneFamiliesSequences",geneFamDesc(*getGeneFamLen(pangenome)), expectedrows=len(pangenome.geneFamilies))
+        h5f.remove_node('/', 'geneFamiliesInfo')#erasing the table, and rewriting a new one.
+    geneFamSeq = h5f.create_table("/","geneFamiliesInfo",geneFamDesc(*getGeneFamLen(pangenome)), expectedrows=len(pangenome.geneFamilies))
+
     row = geneFamSeq.row
     bar = tqdm( pangenome.geneFamilies, unit = "gene family")
     for fam in bar:
@@ -264,7 +265,7 @@ def writeStatus(pangenome, h5f):
 
 def updateGeneFamPartition(pangenome, h5f):
     logging.getLogger().info("Updating gene families with partition information")
-    table = h5f.root.geneFamiliesSequences
+    table = h5f.root.geneFamiliesInfo
     row = table.row
     bar = tqdm(range(table.nrows), unit = "gene family")
     for row in table:
@@ -311,13 +312,10 @@ def writePangenome(pangenome, filename, force):
         logging.getLogger().info("writing the protein coding genes dna sequences")
         writeGeneSequences(pangenome, h5f)
 
-    if pangenome.status["geneFamilySequences"] == "Computed":
-        logging.getLogger().info("Writing the gene family representative protein sequences...")
-        writeGeneFamSeq(pangenome, h5f, force)
-
     if pangenome.status["genesClustered"] == "Computed":
         logging.getLogger().info("Writing gene families and gene associations...")
         writeGeneFamilies(pangenome, h5f, force)
+        writeGeneFamInfo(pangenome, h5f, force)
         if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and pangenome.status["defragmented"] == "Computed":
             #if the annotations have not been computed in this run, and there has been a clustering with defragmentation, then the annotations can be updated
             updateGeneFragments(pangenome,h5f)

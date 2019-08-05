@@ -81,7 +81,6 @@ class Pangenome:
         #basic parameters
         self._famGetter = {}
         self.max_fam_id = 0
-        self.max_org_id = 0
         self._orgGetter = {}
         self._edgeGetter = {}
         self.status = {
