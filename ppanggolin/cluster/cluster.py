@@ -253,7 +253,6 @@ def readClustering(pangenome, families_tsv_file):
 
 def launch(args):
     """ launch the clustering step"""
-    # pangenome.stats()
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.clusters is None:

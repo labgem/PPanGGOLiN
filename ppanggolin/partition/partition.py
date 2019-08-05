@@ -210,7 +210,6 @@ def write_nem_input_files(pangenome, tmpdir, organisms, sm_degree):
         open(tmpdir+"/nem_file.nei", "w") as nei_file,\
         open(tmpdir+"/nem_file.dat", "w") as dat_file:
 
-
         nei_file.write("1\n")
         index_fam = {}
 
@@ -276,6 +275,8 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
         for result in p.imap_unordered(launch_nem, argsPartitionning):
             allLogLikelihood.append(result)
             bar.update()
+        p.close()
+        p.join()
 
     def calculate_BIC(log_likelihood,nb_params,nb_points):
         return( log_likelihood - 0.5 *(math.log(nb_points) * nb_params))
@@ -428,6 +429,8 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                 bar.close()
                 print("\n")
                 condition +=1#if len(validated) < pan_size, we will want to resample more.
+                p.close()
+                p.join()
 
         for fam, data in cpt_partition.items():
             partitionning_results[fam]=max(data, key=data.get)

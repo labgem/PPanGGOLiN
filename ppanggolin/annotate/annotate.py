@@ -193,6 +193,8 @@ def annotatePangenome(pangenome, fastaList, tmpdir,cpu, translation_table="11", 
         for organism in p.imap_unordered(launchAnnotateOrganism, arguments):
             bar.update()
             pangenome.addOrganism(organism)
+        p.close()
+        p.join()
     bar.close()
     logging.getLogger().info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"#the pangenome is now annotated.

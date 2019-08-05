@@ -65,12 +65,14 @@ def cmdLine():
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
+    try:
+        argcomplete.autocomplete(parser)
+    except:
+        pass
     args = parser.parse_args()
     if args.subcommand == "annotate":
         if args.fasta is None and args.gff is None:
             raise Exception( "You must provide at least a file with the --fasta option to annotate from sequences, or a file with the --gff option to load annotations from.")
-        if args.fasta is not None and args.gff is not None:
-            raise Exception("You must provide just one of --fasta or --gff file. You can't both annotate and read annotations.")
     return args
 
 def main():
