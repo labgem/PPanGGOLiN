@@ -25,8 +25,7 @@ from ppanggolin.formats import readPangenome, writePangenome
 #cython library (local)
 import nem_stats
 
-
-def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", keep_files = True, itermax=100, just_log_likelihood=False):
+def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", keep_files = False, itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("run_partitioning...")
     if (Q<3 and not just_log_likelihood) or Q<2:
         logging.getLogger().error("Bad usage, Q must be higher or equal to 3 except for testing just_log_likelihood of a 2 paritions model")
@@ -73,7 +72,6 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
         nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
         nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'),
         seed])
-    
     nem_stats.nem(Fname           = nem_dir_path.encode('ascii')+b"/nem_file",
         nk              = Q,
         algo            = ALGO,
@@ -188,17 +186,23 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
     else:
         return((dict(zip(index_fam, partitions_list)),all_parameters,log_likelihood))
 
-def launch_nem(pack):
-    return run_partitioning(*pack)
+def launch_nem(args):
+    return run_partitioning(*args)
 
-def write_nem_input_files(pangenome, tmpdir, organisms, sm_degree):
-    if len(organisms) <= 10:
-        logging.getLogger().warning(f"The number of selected organisms is too low ({len(organisms)} organisms used) to robustly partition the graph")
-    
+def partition_nem(index, tmpdir, beta, sm_degree, free_dispersion, Q, seed, init, keep_tmp_files):
+    currtmpdir = tmpdir + "/" +str(index)#unique directory name
+    samp = org_samples[index]#org_samples accessible because it is a global variable.
+    edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir,organisms= samp, sm_degree = sm_degree)
+    return run_partitioning( currtmpdir, len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = init, keep_files = keep_tmp_files)
+
+def launch_partition_nem(pack):
+    #run partitionning
+    return partition_nem(*pack)
+
+def write_nem_input_files( tmpdir, organisms, sm_degree):
+
     mkOutdir(tmpdir, force = False)
-
     total_edges_weight = 0
-
 
     with open(tmpdir+"/column_org_file", "w") as org_file:
         org_file.write(" ".join([ f'"{org.name}"' for org in organisms]) + "\n")
@@ -219,7 +223,7 @@ def write_nem_input_files(pangenome, tmpdir, organisms, sm_degree):
             default_dat.append('0')
             index_org[org] = index
 
-        for fam in pangenome.geneFamilies:
+        for fam in pan.geneFamilies:
             #could use bitarrays if this part is limiting?
             if not organisms.isdisjoint(fam.organisms):
                 currDat = list(default_dat)
@@ -256,26 +260,34 @@ def write_nem_input_files(pangenome, tmpdir, organisms, sm_degree):
 def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir):
     Newtmpdir = tmpdir + "/eval_partitions"
 
+
+    global pan
+    pan = pangenome
     ChosenQ = 3
-    logging.getLogger().info("Estimating the optimal number of partitions...")
     if len(organisms) > chunk_size:
         select_organisms = set(random.sample(organisms, chunk_size))
     else:
         select_organisms = organisms
 
-    _, nb_fam = write_nem_input_files(pangenome, Newtmpdir, select_organisms, sm_degree)
+    _, nb_fam = write_nem_input_files( Newtmpdir, select_organisms, sm_degree)
     max_icl_Q      = 0
     argsPartitionning = []
     for q in range(Qrange[0]-1, Qrange[1]):
         argsPartitionning.append((Newtmpdir, len(select_organisms), 0, free_dispersion, q, seed, "param_file", True, 10, True))#those arguments follow the order of the arguments of run_partitionning
     allLogLikelihood = []
-    with Pool(processes = cpu) as p:
+    
+    if cpu > 1:
         bar = tqdm(range(len(argsPartitionning)), unit = "Number of number of partitions")
-        for result in p.imap_unordered(launch_nem, argsPartitionning):
-            allLogLikelihood.append(result)
-            bar.update()
-        p.close()
-        p.join()
+        with Pool(processes = cpu) as p:
+            for result in p.imap_unordered(launch_nem, argsPartitionning):
+                allLogLikelihood.append(result)
+                bar.update()
+            p.close()
+            p.join()
+        bar.close()
+    else:#for the case where it is called in a daemonic subprocess with a single cpu
+        for arguments in argsPartitionning:
+            allLogLikelihood.append(launch_nem(arguments))
 
     def calculate_BIC(log_likelihood,nb_params,nb_points):
         return( log_likelihood - 0.5 *(math.log(nb_points) * nb_params))
@@ -343,6 +355,10 @@ def checkPangenomePartition(pangenome):
         raise Exception("You want to partition a pangenome whose neighbors graph has not been computed.")
 
 def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=-1, Qrange=[3,20], ICL_margin=0.05, draw_ICL = False, cpu = 1, tmpdir="/dev/shm", seed = 42, keep_tmp_files = False):
+
+    global pan
+    pan = pangenome
+
     if draw_ICL and outputdir is None:
         raise Exception("Combination of option impossible: You asked to draw the ICL curves but did not provide an output directory!")
     
@@ -355,8 +371,12 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
         tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
         tmpdir = tmpdirObj.name
 
+    if len(organisms) <= 10:
+        logging.getLogger().warning(f"The number of selected organisms is too low ({len(organisms)} organisms used) to robustly partition the graph")
+
     if Q < 3:
-        Q = evaluate_nb_partitions(pangenome, pangenome.organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir)
+        logging.getLogger().info("Estimating the optimal number of partitions...")
+        Q = evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir)
         logging.getLogger().info(f"The number of partitions has been evaluated at {Q}")
     
     init = "param_file"
@@ -394,6 +414,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
             org_nb_sample[org] = 0
         condition = len(organisms)/chunk_size
         while len(validated) < pansize:
+            global org_samples
             org_samples = []
             
             while not all(val >= condition for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunk_size times.
@@ -404,24 +425,17 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                     for org in org_samples[-1]:
                         org_nb_sample[org] +=1
                     shuffled_orgs = shuffled_orgs[chunk_size:]
-            logging.getLogger().info("Writing initialization values and subgraphs for nem...")
-            #making arguments for all samples:
-            bar = tqdm(range(len(org_samples)), unit = " samples")
             args = []
-            for samp in org_samples:
-                edges_weight, nb_fam = write_nem_input_files(pangenome, tmpdir+"/"+str(cpt)+"/", samp, sm_degree = sm_degree)
-                args.append(( tmpdir + "/" + str(cpt) + "/", len(samp), beta*(nb_fam / edges_weight), free_dispersion, Q, seed, init, keep_tmp_files))
-                bar.update()
-                cpt += 1
+            # tmpdir, beta, sm_degree, free_dispersion, Q, seed
+            for i, _ in enumerate(org_samples):
+                args.append(( i, tmpdir, beta,sm_degree, free_dispersion, Q, seed, init, keep_tmp_files))
 
-            bar.close()
-            print("\n")
             logging.getLogger().info("Launching NEM")
-
+            
             with Pool(processes = cpu) as p:
                 #launch partitionnings
                 bar = tqdm(range(len(args)), unit = " samples partitionned")
-                for result in p.imap_unordered(launch_nem, args):
+                for result in p.imap_unordered(launch_partition_nem, args):
                     validate_family(result)
                     bar.update()
                         
@@ -437,15 +451,16 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
         ## need to compute the median vectors of each partition ???
         partitionning_results = [partitionning_results,[]]##introduces a 'non feature'.
         
-        logging.getLogger().info(f"Did {cpt} partitionning with chunks of size {chunk_size} among {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
+        logging.getLogger().info(f"Did {len(args)} partitionning with chunks of size {chunk_size} among {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
     else:
-        edges_weight, nb_fam = write_nem_input_files(pangenome, tmpdir+"/"+str(cpt)+"/", organisms, sm_degree = sm_degree)
-        partitionning_results = run_partitioning( tmpdir+"/"+str(cpt)+"/", len(organisms), beta * (pansize/edges_weight), free_dispersion, Q = Q, seed = seed, init = init)
+        edges_weight, nb_fam = write_nem_input_files( tmpdir+"/"+str(cpt)+"/", organisms, sm_degree = sm_degree)
+        partitionning_results = run_partitioning( tmpdir+"/"+str(cpt)+"/", len(organisms), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = init)
         cpt+=1
         logging.getLogger().info(f"Partitionned {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
 
 
     pangenome.savePartitionParameters(Q, beta, free_dispersion, sm_degree, partitionning_results[1], chunk_size)
+
     for famName, partition in partitionning_results[0].items():
         pangenome.getGeneFamily(famName).partition = partition
 
@@ -460,6 +475,7 @@ def launch(args):
     """
     logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     mkOutdir(args.output, args.force)
+    global pangenome
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     partition(pangenome, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.qrange, args.ICL_margin, args.draw_ICL, args.cpu, args.tmpdir, args.seed, args.keep_tmp_files)

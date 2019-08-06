@@ -16,13 +16,13 @@ from ppanggolin.utils import getCurrentRAM, mkFilename
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
+from ppanggolin.evolution import makeEvolutionCurve
 from ppanggolin.partition import partition
 from ppanggolin.formats import writePangenome, readPangenome
 ### a global workflow that does everything in one go.
 
 
 def launch(args):
-
 
     pangenome = Pangenome()
     logging.getLogger().info(f"Starting RAM : {getCurrentRAM()}")
@@ -54,7 +54,7 @@ def launch(args):
     logging.getLogger().info(f"post making the graph : {getCurrentRAM()}")
     partition(pangenome, cpu = args.cpu, tmpdir = args.tmpdir)
     logging.getLogger().info(f"post partitionning : {getCurrentRAM()}")
-
+    makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
     writePangenome(pangenome, filename, args.force)
 
 

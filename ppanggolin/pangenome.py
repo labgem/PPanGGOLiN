@@ -74,7 +74,7 @@ class GeneFamily:
 
     @property
     def edges(self):
-        return set(self._edges.values())
+        return self._edges.values()
 
     @property
     def organisms(self):
@@ -217,24 +217,27 @@ class Pangenome:
 
         return infostr
 
-    def subpangenome(self, orgList):
+    def subpangenome(self, manager):
         """
-            Create a new pangenome from a list of organisms (Organism objects, or organism names).
-            Expects annotations and gene families to be loaded.
+            Creates a simplified pangenome object (as two lists) with the needed informations for partitionning to be shared between processes.
         """
-        pan = Pangenome()
-        for org in orgList:
-            if isinstance(org,Organism):
-                pan.addOrganism(org.copy())
-            elif isinstance(org, str):
-                pan.addOrganism(self._orgGetter[org].copy())
-        pan.status["genomesAnnotated"] = "Computed"
-        #either create new gene families, or filter the existing ones with the organisms ...?
-        for gene in pan.genes:#changing the references in the create pangenome's genes because they refer to the original pangenome atm
-            fam = pan.addGeneFamily(gene.family.name)
-            fam.addGene(gene)
-        pan.status["genesClustered"] = "Computed"
-        return pan
+        fam_list = []
+        edge_list = []
+        for _ in self.geneFamilies:
+            fam_list.append(None)
+            edge_list.append(None)
+        for fam in self.geneFamilies:
+            fam_list[fam.ID] = frozenset([ org.name for org in fam.organisms ])#at each index, the set of organisms names.
+            edge_list[fam.ID] = {}
+            for edge in fam.edges:
+                if edge.source == fam:
+                    name = edge.target.name
+                else:
+                    name = edge.source.name
+                edge_list[fam.ID][name] = {}
+                for org, gene_list in edge.organisms.items():
+                    edge_list[fam.ID][name][org.name] = len(gene_list)
+        return (fam_list, edge_list)
 
     def subgraph(self, famSet):
         #untested
