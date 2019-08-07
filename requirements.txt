@@ -13,3 +13,4 @@ chart-studio=1
 gmpy2=2
 numpy=1.16#comes with pytables
 pandas=0.25
+colorlover=0.3

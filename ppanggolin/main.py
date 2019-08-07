@@ -6,9 +6,7 @@
 import sys
 assert sys.version_info >= (3, 6)#minimum is python3.6
 import argparse
-import time
 import logging
-import os
 import resource
 
 #libraries to be installed
@@ -28,6 +26,7 @@ import ppanggolin.annotate
 import ppanggolin.cluster
 import ppanggolin.workflow
 import ppanggolin.evolution
+import ppanggolin.figures
 
 def requirements():
     """
@@ -47,8 +46,8 @@ def cmdLine():
     subs.append(ppanggolin.partition.partitionSubparser(subparsers))
     subs.append(ppanggolin.evolution.evolutionSubparser(subparsers))
     subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
+    subs.append(ppanggolin.figures.figureSubparser(subparsers))
     #TODO :
-    # Figures subparser
     # Format subparser
 
     for sub in subs:#add options common to all subcommands
@@ -69,7 +68,7 @@ def cmdLine():
         sys.exit(1)
     try:
         argcomplete.autocomplete(parser)
-    except:
+    except NameError:
         pass
     args = parser.parse_args()
     if args.subcommand == "annotate":
@@ -86,7 +85,7 @@ def main():
     elif args.verbose == 0:
         level = logging.WARNING#only warnings and errors
     logging.basicConfig(stream=sys.stdout, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    
+
     # uncomment to save log in file
     # fhandler = logging.FileHandler(filename = args.output + "/PPanGGOLiN.log",mode = "w")
     # fhandler.setFormatter(logging.Formatter(fmt = "%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
@@ -112,6 +111,8 @@ def main():
         ppanggolin.workflow.launch(args)
     elif args.subcommand == "evolution":
         ppanggolin.evolution.launch(args)
+    elif args.subcommand == "draw":
+        ppanggolin.figures.launch(args)
 
 if __name__ == "__main__":
     main()
