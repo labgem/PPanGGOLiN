@@ -2,7 +2,6 @@
 #coding:utf-8
 
 #default libraries
-import argparse
 from multiprocessing import Pool
 import logging
 from pathlib import Path
@@ -16,7 +15,7 @@ from tqdm import tqdm
 from ppanggolin.annotate import  annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA
-from ppanggolin.utils import read_compressed_or_not, getCurrentRAM, mkFilename, get_num_lines
+from ppanggolin.utils import read_compressed_or_not, mkFilename, get_num_lines
 from ppanggolin.formats import writePangenome, readPangenome
 
 def read_org_line(pangenome, organism, gff_file_path, circular_contigs, getSeq):
@@ -146,7 +145,7 @@ def readAnnotations(pangenome, organisms_file, getSeq = True):
             exit(1)
         bar.set_description("Processing "+elements[1].split("/")[-1])
         bar.refresh()
-        
+
         read_org_line(pangenome, elements[0], elements[1], elements[2:], getSeq)
     bar.close()
     pangenome.status["genomesAnnotated"] = "Computed"
@@ -178,7 +177,7 @@ def launchAnnotateOrganism(pack):
 
 def annotatePangenome(pangenome, fastaList, tmpdir,cpu, translation_table="11", kingdom = "bacteria", norna=False,  overlap=True):
     logging.getLogger().info(f"Reading {fastaList} the list of organism files")
-    
+
     arguments = []
     for line in read_compressed_or_not(fastaList):
         elements = [el.strip() for el in line.split("\t")]
@@ -186,7 +185,7 @@ def annotatePangenome(pangenome, fastaList, tmpdir,cpu, translation_table="11", 
             logging.getLogger().error("No tabulation separator found in organisms file")
             exit(1)
         arguments.append((elements[0], elements[1], elements[2:], translation_table, kingdom, norna, tmpdir, overlap))
-    
+
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
     with Pool(processes = cpu) as p:
         bar = tqdm(range(len(arguments)), unit = "genome")

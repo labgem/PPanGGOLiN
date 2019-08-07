@@ -8,8 +8,7 @@ import logging
 import random
 import tempfile
 import time
-import math
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool
 import os
 import warnings
 from threading import Thread, Lock
@@ -26,14 +25,14 @@ import scipy.optimize as optimization
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import getCurrentRAM, mkOutdir
-from ppanggolin.formats import readPangenome, writePangenome
+from ppanggolin.formats import readPangenome
 from ppanggolin.partition import evaluate_nb_partitions, run_partitioning
 #cython library (local)
 import nem_stats
 
 
 def write_nem_input_files( tmpdir, organisms, sm_degree):
-    
+
     mkOutdir(tmpdir, force = False)
     total_edges_weight = 0
 
@@ -120,7 +119,7 @@ def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qra
             if not samp.isdisjoint(fam.organisms):#otherwise useless to keep track of
                 families.add(fam)
                 cpt_partition[fam.name] = {"P":0,"S":0,"C":0,"U":0}
-        
+
         org_nb_sample = Counter()
         for org in samp:
             org_nb_sample[org] = 0
@@ -128,7 +127,7 @@ def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qra
 
         while len(validated) < len(families):
             org_samples = []
-            
+
             while not all(val >= condition for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunk_size times.
                 shuffled_orgs = list(samp)#copy select_organisms
                 random.shuffle(shuffled_orgs)#shuffle the copied list
@@ -227,22 +226,22 @@ def drawCurve(output, maxSampling, data):
                 regression = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting+1,maxSampling+1), kappa, gamma)
                 regression_sd_top = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting+1,maxSampling+1), kappa-error_k, gamma+error_g)
                 regression_sd_bottom = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting+1,maxSampling+1), kappa+error_k, gamma-error_g)
-                traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,maxSampling+1)), 
-                                            y=regression, 
+                traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,maxSampling+1)),
+                                            y=regression,
                                             name = partition+": Heaps' law",
                                             line = dict(color = COLORS[partition],
                                                         width = 4,
                                                         dash = 'dash'),
                                             visible = "legendonly" if partition == "undefined" else True))
-                traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,maxSampling+1)), 
-                                            y=regression_sd_top, 
+                traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,maxSampling+1)),
+                                            y=regression_sd_top,
                                             name = partition+": Heaps' law error +",
                                             line = dict(color = COLORS[partition],
                                                         width = 1,
                                                         dash = 'dash'),
                                             visible = "legendonly" if partition == "undefined" else True))
-                traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,maxSampling+1)), 
-                                            y=regression_sd_bottom, 
+                traces.append(go.Scatter(x=list(range(nb_org_min_fitting+1,maxSampling+1)),
+                                            y=regression_sd_bottom,
                                             name = partition+": Heaps' law error -",
                                             line = dict(color = COLORS[partition],
                                                         width = 1,
@@ -265,9 +264,9 @@ def drawCurve(output, maxSampling, data):
                                         opacity=0.8))
         except (TypeError, RuntimeError):# if fitting doesn't work
             params_file.write(",".join([partition,"NA","NA","NA","NA",str(area_IQR)])+"\n")
-        
-        traces.append(go.Scatter(x=medians.index, 
-                                    y=medians, 
+
+        traces.append(go.Scatter(x=medians.index,
+                                    y=medians,
                                     name = partition+" : medians",
                                     mode="lines+markers",
                                     error_y=dict(type='data',
@@ -281,8 +280,8 @@ def drawCurve(output, maxSampling, data):
                                                 width = 1),
                                     marker=dict(color = COLORS[partition], symbol=3,size = 8,opacity = 0.5),
                                     visible = "legendonly" if partition == "undefined" else True))
-        traces.append(go.Scatter(x=means.index, 
-                                    y=means, 
+        traces.append(go.Scatter(x=means.index,
+                                    y=means,
                                     name = partition+" : means",
                                     mode="markers",
                                     marker=dict(color = COLORS[partition], symbol=4,size= 8,opacity = 0.5),
@@ -290,8 +289,8 @@ def drawCurve(output, maxSampling, data):
         # up = percentiles_75
         # down = percentiles_25
         # IQR_area = up.append(down[::-1])
-        # traces.append(go.Scatter(x=IQR_area.index, 
-        #                          y=IQR_area, 
+        # traces.append(go.Scatter(x=IQR_area.index,
+        #                          y=IQR_area,
         #                          name = "IQR",
         #                          fill='toself',
         #                          mode="lines",
@@ -300,8 +299,8 @@ def drawCurve(output, maxSampling, data):
         #                          line=dict(color=COLORS[partition]),
         #                          marker=dict(color = COLORS[partition]),
         #                          visible = "legendonly" if partition == "undefined" else True))
-        traces.append(go.Scatter(x=percentiles_75.index, 
-                                    y=percentiles_75, 
+        traces.append(go.Scatter(x=percentiles_75.index,
+                                    y=percentiles_75,
                                     name = partition+" : 3rd quartile",
                                     mode="lines",
                                     hoveron="points",
@@ -309,8 +308,8 @@ def drawCurve(output, maxSampling, data):
                                     line=dict(color=COLORS[partition]),
                                     marker=dict(color = COLORS[partition]),
                                     visible = "legendonly" if partition == "undefined" else True))
-        traces.append(go.Scatter(x=percentiles_25.index, 
-                                    y=percentiles_25, 
+        traces.append(go.Scatter(x=percentiles_25.index,
+                                    y=percentiles_25,
                                     name = partition+" : 1st quartile",
                                     fill='tonexty',
                                     mode="lines",
@@ -318,7 +317,7 @@ def drawCurve(output, maxSampling, data):
                                     #hovertext=[str(round(e)) for e in half_stds.multiply(2)],
                                     line=dict(color=COLORS[partition]),
                                     marker=dict(color = COLORS[partition]),
-                                    visible = "legendonly" if partition == "undefined" else True))                             
+                                    visible = "legendonly" if partition == "undefined" else True))
     layout = go.Layout(title     = "Evolution curve ",
                         titlefont = dict(size = 20),
                         xaxis     = dict(title='size of genome subsets (N)'),
@@ -330,7 +329,7 @@ def drawCurve(output, maxSampling, data):
 
 
 def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampling =1, maxSampling = float("inf"), sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = [3,20], soft_core = 0.95):
-    
+
     checkPangenomeEvolution(pangenome)
 
     tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
@@ -350,11 +349,11 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampl
     AllSamples = []
     for i in range((maxSampling-minSampling)):#each point
         for _ in range(depth):#number of samples per points
-            AllSamples.append(set(random.sample(pangenome.organisms, i+1)))
+            AllSamples.append(set(random.sample(set(pangenome.organisms), i+1)))
     logging.getLogger().info(f"Done sampling organisms in the pangenome, there are {len(AllSamples)} samples")
     SampNbPerPart = []
 
-    
+
     logging.getLogger().info("Computing bitarrays for each family...")
     index_org = pangenome.computeFamilyBitarrays()
     logging.getLogger().info(f"Done computing bitarrays. Comparing them to get exact and soft core stats for {len(AllSamples)} samples...")
@@ -446,8 +445,8 @@ def evolutionSubparser(subparser):
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
     optional.add_argument("--depth",required=False, default = 10, type=int, help = "Number of samplings at each sampling point")
     optional.add_argument("--min",required=False, default = 1, type=int, help = "Minimum number of organisms in a sample")
-    optional.add_argument("--max", required= False, type=float, default = float("inf"), help = "Maximum number of organisms in a sample (if above the number of provided organisms, the provided organisms will be the maximum)")
-    
+    optional.add_argument("--max", required= False, type=float, default = 500, help = "Maximum number of organisms in a sample (if above the number of provided organisms, the provided organisms will be the maximum)")
+
     optional.add_argument("-ms","--max_degree_smoothing",required = False, default = float("inf"), help = "max. degree of the nodes to be included in the smoothing process.")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("-fd","--free_dispersion",required = False, default = False, action = "store_true",help = "use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all organisms by default.")
@@ -459,5 +458,5 @@ def evolutionSubparser(subparser):
 
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    
+
     return parser

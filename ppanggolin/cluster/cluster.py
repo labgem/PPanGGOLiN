@@ -2,7 +2,6 @@
 #coding:utf-8
 
 #default libraries
-import argparse
 import logging
 import tempfile
 import subprocess
@@ -18,7 +17,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.utils import read_compressed_or_not, getCurrentRAM
 from ppanggolin.formats import writePangenome, readPangenome, getGeneSequencesFromFile
-from ppanggolin.annotate import genetic_codes, translate
+from ppanggolin.annotate import genetic_codes
 
 def alignRep(faaFile, tmpdir, cpu):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir.name)#create a tmpdir in the tmpdir provided.
@@ -44,7 +43,7 @@ def alignRep(faaFile, tmpdir, cpu):
 def firstClustering(sequences, tmpdir, cpu, code ):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir.name)#create a tmpdir in the tmpdir provided.
     seqNucdb = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
-    cmd = ["mmseqs","createdb"] 
+    cmd = ["mmseqs","createdb"]
     cmd.append(sequences.name)
     cmd.extend([seqNucdb.name,"--dont-shuffle","false"])
     logging.getLogger().debug(" ".join(cmd))
@@ -114,7 +113,7 @@ def refineClustering(tsv, alnFile, fam2seq):
     with open(alnFile.name,"r") as alnfile:
         for line in alnfile:
             line = line.split()
-            
+
             if line[0] != line[1]:
                 simgraph.add_edge(line[0],line[1], score = float(line[4]))
                 simgraph.nodes[line[0]]["length"] = int(line[2])
@@ -193,7 +192,7 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11"):
     fam2seq = read_faa(rep)
     if not defrag:
         genes2fam = read_tsv(tsv)[0]
-        
+
     else:
         logging.getLogger().info("Associating fragments to their original gene family...")
         aln = alignRep(rep, newtmpdir, cpu)
@@ -237,7 +236,7 @@ def readClustering(pangenome, families_tsv_file):
             logging.getLogger().error("No tabulation separator found in gene families file")
             exit(1)
         (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
-        
+
         geneObj = pangenome.getGene(gene_id)
         if geneObj is not None:
             fam = pangenome.addGeneFamily(fam_id)

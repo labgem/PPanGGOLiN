@@ -50,7 +50,7 @@ class GeneFamily:
 
     def addPartition(self, partition):
         self.partition = partition
-    
+
     @property
     def namedPartition(self):
         if self.partition == "":

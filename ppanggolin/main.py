@@ -62,7 +62,7 @@ def cmdLine():
         if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
             sub.print_help()
             exit(1)
-   
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)

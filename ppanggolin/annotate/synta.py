@@ -2,7 +2,6 @@
 #coding:utf-8
 
 #default libraries
-import argparse
 import os
 import tempfile
 from subprocess import Popen, PIPE
@@ -47,7 +46,7 @@ def reverse_complement(seq):
     return rcseq
 
 def launch_aragorn(fnaFile, org):
-    """ 
+    """
         launches Aragorn to annotate tRNAs. Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """
@@ -78,7 +77,7 @@ def launch_aragorn(fnaFile, org):
     return geneObjs
 
 def launch_prodigal(fnaFile, org, code):
-    """ 
+    """
         launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """
@@ -109,7 +108,7 @@ def launch_prodigal(fnaFile, org, code):
     return geneObjs
 
 def launch_infernal(fnaFile, org, kingdom):
-    """ 
+    """
         launches Infernal in hmmer-only mode to annotate rRNAs. Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 #coding: utf8
 
-from collections import defaultdict
-
 class RNA:
     def __init__(self, ID):
         self.ID = ID
@@ -70,7 +68,7 @@ class Contig:
         self.RNAs = set()#saving the rna annotations. We're not using them in the vast majority of cases.
         self._genes_start = {}
         self._genes_position = []
-    
+
     @property
     def genes(self):
         return self._genes_start.values()
@@ -94,7 +92,7 @@ class Contig:
                 raise TypeError(f"Expected type is int, given type was '{type(index)}'")
             raise IndexError(f"No gene start at the given position {index}")
         return gene
-    
+
     def addRNA(self, gene):
         if not isinstance(gene, RNA):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")

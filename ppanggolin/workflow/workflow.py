@@ -2,13 +2,9 @@
 #coding:utf-8
 
 #default libraries
-import argparse
 import logging
 import os
 import time
-
-#installed libraries
-from tqdm import tqdm
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
@@ -18,7 +14,8 @@ from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.evolution import makeEvolutionCurve
 from ppanggolin.partition import partition
-from ppanggolin.formats import writePangenome, readPangenome
+from ppanggolin.formats import writePangenome
+from ppanggolin.figures import drawTilePlot, drawUCurve
 ### a global workflow that does everything in one go.
 
 
@@ -38,7 +35,7 @@ def launch(args):
 
         elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is not None:
             getGeneSequencesFromFastas(pangenome, args.fasta)
-        
+
         if args.clusters is not None:
             readClustering(pangenome, args.clusters)
 
@@ -50,11 +47,16 @@ def launch(args):
             pangenome = Pangenome()
             annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
             clustering(pangenome, args.tmpdir, args.cpu)
+
     computeNeighborsGraph(pangenome)
     logging.getLogger().info(f"post making the graph : {getCurrentRAM()}")
     partition(pangenome, cpu = args.cpu, tmpdir = args.tmpdir)
     logging.getLogger().info(f"post partitionning : {getCurrentRAM()}")
     makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
+
+    drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True )
+    drawUCurve(pangenome, args.output)
+
     writePangenome(pangenome, filename, args.force)
 
 

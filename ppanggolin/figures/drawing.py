@@ -151,14 +151,14 @@ def drawTilePlot(pangenome, output, nocloud = False):
             separators.append(separators[len(separators)-1]+len(ordored_nodes_s))
         ordered_nodes+=ordored_nodes_c
         separators.append(separators[len(separators)-1]+len(ordored_nodes_c))
-    
+
     logging.getLogger().info("Getting the gene name(s) and the number for each tile of the plot ...")
     for node in ordered_nodes:
         fam_order.append('\u200c' + node.name)
         data = node.organisms
         binary_data.append([len(node.getGenesPerOrg(org)) if org in data else numpy.nan for org in order_organisms])
         text_data.append([("\n".join(map(str,node.getGenesPerOrg(org)))) if org in data else numpy.nan for org in order_organisms])
-    
+
     xaxis_values = [ '\u200c'+org.name for org in order_organisms ]
 
     logging.getLogger().info("Done extracting names and numbers. Making the heatmap ...")
@@ -290,5 +290,5 @@ def figureSubparser(subparser):
 
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    
+
     return parser

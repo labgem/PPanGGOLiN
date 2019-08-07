@@ -2,7 +2,6 @@
 #coding:utf-8
 
 #default libraries
-from pathlib import Path
 import logging
 import os
 import warnings
@@ -23,7 +22,7 @@ def geneDesc(orgLen, contigLen, IDLen, typeLen, nameLen, productLen):
                     'name':tables.StringCol(itemsize=contigLen),
                     "is_circular":tables.BoolCol(dflt = False)
             },
-            "gene":{ 
+            "gene":{
                 'ID':tables.StringCol(itemsize=IDLen),
                 'start':tables.UInt64Col(),
                 'stop':tables.UInt64Col(),
@@ -301,10 +300,10 @@ def writePangenome(pangenome, filename, force):
         h5f.close()
     elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
         pass
-        
+
     else:#if the pangenome is not Computed not Loaded, it's probably not really in a good state ( or something new was coded).
         raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. Dev's contact is ggautrea [at] genoscope [dot] cns [dot] fr.")
-    
+
     #from there, appending to existing file.
     h5f = tables.open_file(filename,"a", filters=compressionFilter)
 
@@ -322,7 +321,7 @@ def writePangenome(pangenome, filename, force):
     if pangenome.status["neighborsGraph"] == "Computed":
         logging.getLogger().info("Writing the edges...")
         writeGraph(pangenome, h5f, force)
-    
+
     if pangenome.status["partitionned"] == "Computed" and pangenome.status["genesClustered"] in ["Loaded","inFile"]:#otherwise it's been written already.
         updateGeneFamPartition(pangenome, h5f)
 

@@ -2,9 +2,8 @@
 #coding:utf-8
 
 #default libraries
-from pathlib import Path
 import logging
-import sys 
+import sys
 from multiprocessing import Pool
 
 #installed libraries
@@ -13,7 +12,7 @@ import tables
 
 #local libraries
 from ppanggolin.utils import getCurrentRAM, read_compressed_or_not
-from ppanggolin.pangenome import Pangenome, GeneFamily, Edge
+from ppanggolin.pangenome import Pangenome, GeneFamily
 from ppanggolin.genome import Organism, Contig, Gene
 
 
@@ -25,7 +24,7 @@ def getNumberOfOrganisms(pangenome):
         raise FileNotFoundError("The provided pangenome does not have an associated .h5 file")
     h5f =  tables.open_file(filename,"r")
     annotations = h5f.root.annotations
-    
+
     table = annotations.genes
     orgSet = set()
     for org in read_chunks(table, column = "organism"):
@@ -155,7 +154,7 @@ def readGeneFamiliesInfo(pangenome, h5f):
 
 def readAnnotation(pangenome, h5f, filename):
     annotations = h5f.root.annotations
-    
+
     table = annotations.genes
     bar = tqdm(range(table.nrows), unit="gene")
     pangenomeDict = {}

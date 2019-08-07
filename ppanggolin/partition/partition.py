@@ -2,7 +2,6 @@
 #coding:utf-8
 
 #default libraries
-import argparse
 from collections import defaultdict, Counter
 import logging
 import random
@@ -32,7 +31,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
 
     if init=="param_file":
         with open(nem_dir_path+"/nem_file_init_"+str(Q)+".m", "w") as m_file:
-            m_file.write("1 ")# 1 to initialize parameter, 
+            m_file.write("1 ")# 1 to initialize parameter,
             m_file.write(" ".join([str(round(1/float(Q),2)) for q in range(Q-1)])+" ")# 1/Q give the initial proportition to each class (the last proportion is automaticaly determined by substraction in nem)
             mu=[]
             epsilon=[]
@@ -44,13 +43,13 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
                 else:
                     mu += ["0"]*nb_org
                     epsilon += [str(step*(Q-q+1))]*nb_org
-            
+
             m_file.write(" ".join(mu)+" "+" ".join(epsilon))
 
     ALGO           = b"nem" #fuzzy classification by mean field approximation
     MODEL          = b"bern" # multivariate Bernoulli mixture model
     PROPORTION     = b"pk" #equal proportion :  "p_"     varying proportion : "pk"
-    VARIANCE_MODEL = b"skd" if free_dispersion else b"sk_"#one variance per partition and organism : "sdk"      one variance per partition, same in all organisms : "sd_"   one variance per organism, same in all partion : "s_d"    same variance in organisms and partitions : "s__" 
+    VARIANCE_MODEL = b"skd" if free_dispersion else b"sk_"#one variance per partition and organism : "sdk"      one variance per partition, same in all organisms : "sd_"   one variance per organism, same in all partion : "s_d"    same variance in organisms and partitions : "s__"
     CONVERGENCE    = b"clas"
     CONVERGENCE_TH = 0.01
     # (INIT_SORT, INIT_RANDOM, INIT_PARAM_FILE, INIT_FILE, INIT_LABEL, INIT_NB) = range(0,6)
@@ -91,7 +90,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
 
     logging.getLogger().debug("After running NEM...")
 
-    
+
     if os.path.isfile(nem_dir_path+"/nem_file_"+str(Q)+".uf"):
         logging.getLogger().debug("Reading NEM results...")
     elif not just_log_likelihood:
@@ -100,7 +99,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
         logging.getLogger().debug("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(Q)+".uf")
     index_fam = []
     all_parameters = {}
-    
+
     with open(nem_dir_path+"/nem_file.index","r") as index_nem_file:
         for line in index_nem_file:
             index_fam.append(line.split("\t")[1].strip())
@@ -121,7 +120,7 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
 
             for k, line in enumerate(parameters[-Q:]):
                 logging.getLogger().debug(line)
-                vector = line.split() 
+                vector = line.split()
                 mu_k = [bool(float(mu_kj)) for mu_kj in vector[0:nb_org]]
                 logging.getLogger().debug(mu_k)
                 logging.getLogger().debug(len(mu_k))
@@ -266,7 +265,7 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
     pan = pangenome
     ChosenQ = 3
     if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(organisms, chunk_size))
+        select_organisms = set(random.sample(set(organisms), chunk_size))
     else:
         select_organisms = set(organisms)
 
@@ -276,7 +275,7 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
     for q in range(Qrange[0]-1, Qrange[1]):
         argsPartitionning.append((Newtmpdir, len(select_organisms), 0, free_dispersion, q, seed, "param_file", True, 10, True))#those arguments follow the order of the arguments of run_partitionning
     allLogLikelihood = []
-    
+
     if cpu > 1:
         bar = tqdm(range(len(argsPartitionning)), unit = "Number of number of partitions")
         with Pool(processes = cpu) as p:
@@ -292,7 +291,7 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
 
     def calculate_BIC(log_likelihood,nb_params,nb_points):
         return( log_likelihood - 0.5 *(math.log(nb_points) * nb_params))
-    
+
     all_BICs = defaultdict(float)
     all_ICLs = defaultdict(float)
     all_LLs  = defaultdict(float)
@@ -362,7 +361,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
 
     if draw_ICL and outputdir is None:
         raise Exception("Combination of option impossible: You asked to draw the ICL curves but did not provide an output directory!")
-    
+
     checkPangenomePartition(pangenome)
     organisms = set(pangenome.organisms)
     if keep_tmp_files:
@@ -379,7 +378,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
         logging.getLogger().info("Estimating the optimal number of partitions...")
         Q = evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir)
         logging.getLogger().info(f"The number of partitions has been evaluated at {Q}")
-    
+
     init = "param_file"
 
     partitionning_results = {}
@@ -407,7 +406,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                 if (sum_partionning > len(organisms)/chunk_size and max(cpt_partition[node].values()) >= sum_partionning*0.5) or (sum_partionning > len(organisms)):
                     if node not in validated:
                         if max(cpt_partition[node].values()) < sum_partionning*0.5:
-                            cpt_partition[node]["U"] = len(organisms) #if despite len(select_organisms) partionning, an abosolute majority is not found then the families is set to undefined 
+                            cpt_partition[node]["U"] = len(organisms) #if despite len(select_organisms) partionning, an abosolute majority is not found then the families is set to undefined
                         validated.add(node)
 
         org_nb_sample = Counter()
@@ -417,7 +416,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
         while len(validated) < pansize:
             global org_samples
             org_samples = []
-            
+
             while not all(val >= condition for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunk_size times.
                 shuffled_orgs = list(organisms)#copy select_organisms
                 random.shuffle(shuffled_orgs)#shuffle the copied list
@@ -432,14 +431,14 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                 args.append(( i, tmpdir, beta,sm_degree, free_dispersion, Q, seed, init, keep_tmp_files))
 
             logging.getLogger().info("Launching NEM")
-            
+
             with Pool(processes = cpu) as p:
                 #launch partitionnings
                 bar = tqdm(range(len(args)), unit = " samples partitionned")
                 for result in p.imap_unordered(launch_partition_nem, args):
                     validate_family(result)
                     bar.update()
-                        
+
                 bar.close()
                 condition +=1#if len(validated) < pan_size, we will want to resample more.
                 p.close()
@@ -450,7 +449,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
 
         ## need to compute the median vectors of each partition ???
         partitionning_results = [partitionning_results,[]]##introduces a 'non feature'.
-        
+
         logging.getLogger().info(f"Did {len(args)} partitionning with chunks of size {chunk_size} among {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
     else:
         edges_weight, nb_fam = write_nem_input_files( tmpdir+"/"+str(cpt)+"/", organisms, sm_degree = sm_degree)
@@ -500,5 +499,5 @@ def partitionSubparser(subparser):
     #soft core ???
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    
+
     return parser
