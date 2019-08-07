@@ -50,6 +50,19 @@ class GeneFamily:
 
     def addPartition(self, partition):
         self.partition = partition
+    
+    @property
+    def namedPartition(self):
+        if self.partition == "":
+            raise Exception("The gene family has not beed associated to a partition")
+        if self.partition.startswith("P"):
+            return "persistent"
+        elif self.partition.startswith("C"):
+            return "cloud"
+        elif self.partition.startswith("S"):
+            return "shell"
+        else:
+            return "undefined"
 
     def __str__(self):
         return str(self.ID)
@@ -67,6 +80,14 @@ class GeneFamily:
         self.bitarray = gmpy2.xmpz(0)
         for org in self.organisms:
             self.bitarray[index[org]] = 1
+
+    def getGenesPerOrg(self, org):
+        try:
+            return self._genePerOrg[org]
+        except AttributeError:
+            for gene in self.genes:
+                self._genePerOrg[gene.organism].add(gene)
+            return self._genePerOrg[org]
 
     @property
     def neighbors(self):
@@ -124,15 +145,15 @@ class Pangenome:
 
     @property
     def geneFamilies(self):
-        return set(self._famGetter.values())
+        return self._famGetter.values()
 
     @property
     def edges(self):
-        return set(self._edgeGetter.values())
+        return self._edgeGetter.values()
 
     @property
     def organisms(self):
-        return set(self._orgGetter.values())
+        return self._orgGetter.values()
 
     def _yield_genes(self):
         """
@@ -309,12 +330,16 @@ class Pangenome:
         if len(self._famGetter) + len(fams) != oldSize:
             raise Exception("Problems in the family removal from the pangenome.")
 
-    def computeFamilyBitarrays(self):
-        if not hasattr(self, "_orgIndex"):#then the bitarrays don't exist yet.
+    def getIndex(self):#will not make a new index if it exists already
+        if not hasattr(self, "_orgIndex"):#then the index does not exist yet
             self._orgIndex = {}
             for index, org in enumerate(self.organisms):
                 self._orgIndex[org] = index
+        return self._orgIndex
 
+    def computeFamilyBitarrays(self):
+        if not hasattr(self, "_orgIndex"):#then the bitarrays don't exist yet.
+            self.getIndex()
             for fam in self.geneFamilies:
                 fam.mkBitarray(self._orgIndex)
         return self._orgIndex

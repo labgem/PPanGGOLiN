@@ -17,6 +17,22 @@ from ppanggolin.pangenome import Pangenome, GeneFamily, Edge
 from ppanggolin.genome import Organism, Contig, Gene
 
 
+def getNumberOfOrganisms(pangenome):
+    """ standalone function to get the number of organisms in a pangenome"""
+    if hasattr(pangenome,"file"):
+        filename = pangenome.file
+    else:
+        raise FileNotFoundError("The provided pangenome does not have an associated .h5 file")
+    h5f =  tables.open_file(filename,"r")
+    annotations = h5f.root.annotations
+    
+    table = annotations.genes
+    orgSet = set()
+    for org in read_chunks(table, column = "organism"):
+        orgSet.add(org)
+    h5f.close()
+    return len(orgSet)
+
 def getStatus(pangenome, pangenomeFile):
     """
         Checks which elements are already present in the file.
@@ -38,12 +54,12 @@ def getStatus(pangenome, pangenomeFile):
         pangenome.status["partitionned"] = "inFile"
     h5f.close()
 
-def read_chunks(table, chunk=10000):
+def read_chunks(table, column = None, chunk=10000):
     """
         Reading entirely the provided table chunk per chunk to limit RAM usage.
     """
     for i in range(0,  table.nrows, chunk):
-        for row in table.read(start = i, stop = i + chunk):
+        for row in table.read(start = i, stop = i + chunk, field = column):
             yield row
 
 def getGeneSequencesFromFile(pangenome, fileObj):
@@ -193,4 +209,3 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have graph informations, or has been improperly filled")
     h5f.close()
-    logging.getLogger().info("Done reading the wanted informations from the pangenome graph")

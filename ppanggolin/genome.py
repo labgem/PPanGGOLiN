@@ -35,6 +35,9 @@ class Gene:
         self.position = None
         self.family = None
 
+    def __str__(self):
+        return self.ID
+
     def fill_annotations(self, start, stop, strand, geneType = "", position = None, name = "", product="", genetic_code = 11):
         self.start = int(start)
         self.stop = int(stop)

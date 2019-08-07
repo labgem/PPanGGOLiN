@@ -266,10 +266,10 @@ def writeStatus(pangenome, h5f):
 def updateGeneFamPartition(pangenome, h5f):
     logging.getLogger().info("Updating gene families with partition information")
     table = h5f.root.geneFamiliesInfo
-    row = table.row
     bar = tqdm(range(table.nrows), unit = "gene family")
     for row in table:
-        row["partition"] = pangenome.getGeneFamily(row["name"].decode())
+        row["partition"] = pangenome.getGeneFamily(row["name"].decode()).partition
+        row.update()
         bar.update()
     bar.close()
 

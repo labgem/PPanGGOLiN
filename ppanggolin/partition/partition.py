@@ -57,9 +57,9 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
     INIT_RANDOM, INIT_PARAM_FILE = range(1,3)
     logging.getLogger().debug("Running NEM...")
     logging.getLogger().debug([nem_dir_path.encode('ascii')+b"/nem_file",
-           Q,
-           ALGO,
-           beta,
+        Q,
+        ALGO,
+        beta,
         CONVERGENCE,
         CONVERGENCE_TH,
         b"fuzzy",
@@ -72,22 +72,23 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
         nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
         nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'),
         seed])
-    nem_stats.nem(Fname           = nem_dir_path.encode('ascii')+b"/nem_file",
-        nk              = Q,
-        algo            = ALGO,
-        beta            = beta,
-        convergence     = CONVERGENCE,
-        convergence_th  = CONVERGENCE_TH,
-        format          = b"fuzzy",
-        it_max          = itermax,
-        dolog           = True,
-        model_family    = MODEL,
-        proportion      = PROPORTION,
-        dispersion      = VARIANCE_MODEL,
-        init_mode       = INIT_PARAM_FILE if init in ["param_file","init_from_old"] else INIT_RANDOM,
-        init_file       = nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
-        out_file_prefix = nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'),
-        seed            = seed)
+    nem_stats.nem(Fname         = nem_dir_path.encode('ascii')+b"/nem_file",
+                nk              = Q,
+                algo            = ALGO,
+                beta            = beta,
+                convergence     = CONVERGENCE,
+                convergence_th  = CONVERGENCE_TH,
+                format          = b"fuzzy",
+                it_max          = itermax,
+                dolog           = True,
+                model_family    = MODEL,
+                proportion      = PROPORTION,
+                dispersion      = VARIANCE_MODEL,
+                init_mode       = INIT_PARAM_FILE if init in ["param_file","init_from_old"] else INIT_RANDOM,
+                init_file       = nem_dir_path.encode('ascii')+b"/nem_file_init_"+str(Q).encode('ascii')+b".m",
+                out_file_prefix = nem_dir_path.encode('ascii')+b"/nem_file_"+str(Q).encode('ascii'),
+                seed            = seed)
+
     logging.getLogger().debug("After running NEM...")
 
     
@@ -192,7 +193,7 @@ def launch_nem(args):
 def partition_nem(index, tmpdir, beta, sm_degree, free_dispersion, Q, seed, init, keep_tmp_files):
     currtmpdir = tmpdir + "/" +str(index)#unique directory name
     samp = org_samples[index]#org_samples accessible because it is a global variable.
-    edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir,organisms= samp, sm_degree = sm_degree)
+    edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir,organisms= set(samp), sm_degree = sm_degree)
     return run_partitioning( currtmpdir, len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = init, keep_files = keep_tmp_files)
 
 def launch_partition_nem(pack):
@@ -267,7 +268,7 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
     if len(organisms) > chunk_size:
         select_organisms = set(random.sample(organisms, chunk_size))
     else:
-        select_organisms = organisms
+        select_organisms = set(organisms)
 
     _, nb_fam = write_nem_input_files( Newtmpdir, select_organisms, sm_degree)
     max_icl_Q      = 0
@@ -363,7 +364,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
         raise Exception("Combination of option impossible: You asked to draw the ICL curves but did not provide an output directory!")
     
     checkPangenomePartition(pangenome)
-    organisms = pangenome.organisms
+    organisms = set(pangenome.organisms)
     if keep_tmp_files:
         tmpdir = tmpdir + "ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"
         os.makedirs(tmpdir)
@@ -440,7 +441,6 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                     bar.update()
                         
                 bar.close()
-                print("\n")
                 condition +=1#if len(validated) < pan_size, we will want to resample more.
                 p.close()
                 p.join()
@@ -474,12 +474,12 @@ def launch(args):
         main code when launch partition from the command line.
     """
     logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
-    mkOutdir(args.output, args.force)
+    if args.draw_ICL or args.keep_tmp_files:
+        mkOutdir(args.output, args.force)
     global pangenome
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     partition(pangenome, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.qrange, args.ICL_margin, args.draw_ICL, args.cpu, args.tmpdir, args.seed, args.keep_tmp_files)
-    print(pangenome.info())
     writePangenome(pangenome,pangenome.file, args.force)
 
 
@@ -499,6 +499,6 @@ def partitionSubparser(subparser):
     #use former partitionning ?????
     #soft core ???
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('-p','--pangenome',  required=True, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism.")
+    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     
     return parser

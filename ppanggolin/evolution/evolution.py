@@ -97,7 +97,7 @@ def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qra
         Q = evaluate_nb_partitions(pan, samp, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, 1, tmpdir + "/" + str(index) + "_eval", seed, None)
 
     if len(samp) <= chunk_size:#all good, just write stuff.
-        edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir,organisms= samp, sm_degree = sm_degree)
+        edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir,organisms= set(samp), sm_degree = sm_degree)
         cpt_partition = run_partitioning( currtmpdir, len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = "param_file")[0]
     else:#going to need multiple partitionnings for this sample...
 
@@ -329,7 +329,7 @@ def drawCurve(output, maxSampling, data):
     params_file.close()
 
 
-def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, step=5, depth = 5, minSampling =1, maxSampling = float("inf"), sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = [3,20], soft_core = 0.95):
+def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampling =1, maxSampling = float("inf"), sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = [3,20], soft_core = 0.95):
     
     checkPangenomeEvolution(pangenome)
 
@@ -342,14 +342,16 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, step=5, depth = 5, 
         maxSampling = int(maxSampling)
 
     if Q < 3 and qestimate == False:#estimate Q once and for all.
+        logging.getLogger().info("Estimating the number of partitions...")
         Q = evaluate_nb_partitions(pangenome, pangenome.organisms, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, cpu, tmpdir, seed, None)
         logging.getLogger().info(f"The number of partitions has been evaluated at {Q}")
 
+    logging.getLogger().info("Extracting samples ...")
     AllSamples = []
-    for nbSamp in range(minSampling, maxSampling, step):#each point
-        for _ in range(depth):
-            AllSamples.append(set(random.sample(pangenome.organisms, nbSamp)))
-
+    for i in range((maxSampling-minSampling)):#each point
+        for _ in range(depth):#number of samples per points
+            AllSamples.append(set(random.sample(pangenome.organisms, i+1)))
+    logging.getLogger().info(f"Done sampling organisms in the pangenome, there are {len(AllSamples)} samples")
     SampNbPerPart = []
 
     
@@ -365,7 +367,6 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, step=5, depth = 5, 
             sampBitarray[index_org[org]] = 1
 
         part = Counter()
-        part["undefined"] = 0#TODO vérifier si c'est vrai, dans ce cas juste supprimer la mention 'undefined' dans les différents fichiers de sorties, graph, etc...
         part["soft_core"] = 0
         part["exact_core"] = 0
         part["exact_accessory"] = 0
@@ -399,7 +400,6 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, step=5, depth = 5, 
     pan = pangenome
     with Pool(processes = cpu) as p:
         #launch partitionnings
-        print(f"Before the multiprocessing : {getCurrentRAM()}")
         logging.getLogger().info("Partitionning all samples...")
         bar = tqdm(range(len(args)), unit = "samples partitionned")
         random.shuffle(args)#shuffling the processing so that the progress bar is closer to reality.
@@ -420,16 +420,13 @@ def launch(args):
     """
         main code when launch partition from the command line.
     """
-    logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     mkOutdir(args.output, args.force)
-    logging.getLogger().info(f"Starting : {getCurrentRAM()}")
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     makeEvolutionCurve( pangenome = pangenome,
                         output = args.output,
                         tmpdir = args.tmpdir,
                         beta =args.beta,
-                        step = args.step,
                         depth = args.depth,
                         minSampling=args.min,
                         maxSampling=args.max,
@@ -442,14 +439,12 @@ def launch(args):
                         qestimate=args.reestimate_Q,
                         qrange = args.qrange,
                         soft_core = args.soft_core)
-    print(pangenome.info())
 
 def evolutionSubparser(subparser):
     parser = subparser.add_parser("evolution",help = "Compute the evolution curve of the pangenome")
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
-    optional.add_argument("--step",required=False, default = 5, type=int, help = "Step between sampling points (in number of organisms)")
-    optional.add_argument("--depth",required=False, default = 5, type=int, help = "Number of samplings at each sampling point")
+    optional.add_argument("--depth",required=False, default = 10, type=int, help = "Number of samplings at each sampling point")
     optional.add_argument("--min",required=False, default = 1, type=int, help = "Minimum number of organisms in a sample")
     optional.add_argument("--max", required= False, type=float, default = float("inf"), help = "Maximum number of organisms in a sample (if above the number of provided organisms, the provided organisms will be the maximum)")
     
@@ -463,6 +458,6 @@ def evolutionSubparser(subparser):
     optional.add_argument("--soft_core",required=False, type=float, default = 0.95, help = "Soft core threshold")
 
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('-p','--pangenome',  required=True, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism.")
+    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     
     return parser

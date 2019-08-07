@@ -270,5 +270,5 @@ def clusterSubparser(subparser):
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument('--clusters', required = False, type = str, help = "A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('-p','--pangenome',  required=True, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism.")
+    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser
