@@ -75,7 +75,6 @@ def getCurrentRAM():
         unit +=1
     return str(round(mem,3)) + " " + units[unit]
 
-
 def mkOutdir(output, force):
     if not os.path.exists(output):
         os.makedirs(output)

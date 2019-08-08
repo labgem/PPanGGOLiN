@@ -454,7 +454,6 @@ def launch(args):
     partition(pangenome, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.qrange, args.ICL_margin, args.draw_ICL, args.cpu, args.tmpdir, args.seed, args.keep_tmp_files)
     writePangenome(pangenome,pangenome.file, args.force)
 
-
 def partitionSubparser(subparser):
     parser = subparser.add_parser("partition",help = "Partition the pangenome graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")

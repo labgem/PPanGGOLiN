@@ -80,6 +80,14 @@ class GeneFamily:
         for org in self.organisms:
             self.bitarray[index[org]] = 1
 
+    def getOrgDict(self):
+        try:
+            return self._genePerOrg
+        except AttributeError:
+            for gene in self.genes:
+                self._genePerOrg[gene.organism].add(gene)
+            return self._genePerOrg
+
     def getGenesPerOrg(self, org):
         try:
             return self._genePerOrg[org]
@@ -187,29 +195,6 @@ class Pangenome:
         except KeyError:
             return None
 
-    def __len__(self):
-        return len(self.geneFamilies)
-
-    def number_of_fams(self):
-        return len(self.geneFamilies)
-
-    def addPangenome(self, pangenome):
-        """
-            Will add informations from another pangenome to this pangenome.
-            The assumption is that, if there are organism in common and contigs in common, the genes from the provided pangenome will be insered in the current pangenome at their position in the contig whether they existed previously or not.
-        """
-        for otherOrganism in pangenome.organism:
-            org = self.addOrganism(otherOrganism.name)
-            for otherContig in otherOrganism.contigs:
-                contig = org.addContig(otherContig.name, otherContig.is_circular)
-                for gene in otherContig.genes:
-                    contig.addGene(gene)
-                for rna in otherContig.RNA:
-                    contig.addRNA(rna)
-
-    def __iter__(self):
-        return iter(self.geneFamilies)
-
     def info(self):
         infostr = ""
         infostr += f"Gene families : {len(self.geneFamilies)}\n"
@@ -236,28 +221,6 @@ class Pangenome:
         infostr += f"Cloud : {nbC}\n"
 
         return infostr
-
-    def subpangenome(self, manager):
-        """
-            Creates a simplified pangenome object (as two lists) with the needed informations for partitionning to be shared between processes.
-        """
-        fam_list = []
-        edge_list = []
-        for _ in self.geneFamilies:
-            fam_list.append(None)
-            edge_list.append(None)
-        for fam in self.geneFamilies:
-            fam_list[fam.ID] = frozenset([ org.name for org in fam.organisms ])#at each index, the set of organisms names.
-            edge_list[fam.ID] = {}
-            for edge in fam.edges:
-                if edge.source == fam:
-                    name = edge.target.name
-                else:
-                    name = edge.source.name
-                edge_list[fam.ID][name] = {}
-                for org, gene_list in edge.organisms.items():
-                    edge_list[fam.ID][name][org.name] = len(gene_list)
-        return (fam_list, edge_list)
 
     def subgraph(self, famSet):
         #untested
@@ -342,67 +305,3 @@ class Pangenome:
             for fam in self.geneFamilies:
                 fam.mkBitarray(self._orgIndex)
         return self._orgIndex
-
-    def connectedComponents(self):
-        """
-            Yields subgraphs of each connected component.
-        """
-        def plain_bfs(source):
-            """A fast BFS fam generator, copied and adapted from networkx"""
-            seen = set()
-            nextlevel = {source}
-            while nextlevel:
-                thislevel = nextlevel
-                nextlevel = set()
-                for v in thislevel:
-                    if v not in seen:
-                        yield v
-                        seen.add(v)
-                        nextlevel.update(v.neighbors)
-        seen = set()
-        for v in self.geneFamilies:
-            if v not in seen:
-                c = set(plain_bfs(v))
-                yield self.subgraph(c)
-                seen.update(c)
-
-    def findCliques(self):
-        """
-            copied and adapted from networkx.
-        """
-        fams = self.geneFamilies
-
-        Q = [None]
-
-        subg = set(fams)
-        cand = set(fams)
-        # could be just u.neighbors if it's just on all the graph's fams.
-        u = max(subg, key=lambda u: len(cand & u.neighbors))
-        ext_u = cand - u.neighbors
-        stack = []
-
-        try:
-            while True:
-                if ext_u:
-                    q = ext_u.pop()
-                    cand.remove(q)
-                    Q[-1] = q
-                    adj_q = q.neighbors
-                    subg_q = subg & adj_q
-                    if not subg_q:
-                        yield Q[:]
-                    else:
-                        cand_q = cand & adj_q
-                        if cand_q:
-                            stack.append((subg, cand, ext_u))
-                            Q.append(None)
-                            subg = subg_q
-                            cand = cand_q
-                            u = max(subg, key=lambda u: len(
-                                cand & u.neighbors))
-                            ext_u = cand - u.neighbors
-                else:
-                    Q.pop()
-                    subg, cand, ext_u = stack.pop()
-        except IndexError:
-            pass

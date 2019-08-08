@@ -80,22 +80,24 @@ def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qra
                 edges_weight, nb_fam = ppp.write_nem_input_files( currtmpdir+"/"+str(cpt)+"/", samp, sm_degree = sm_degree)
                 validate_family(ppp.run_partitioning( currtmpdir+"/"+str(cpt)+"/", len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = "param_file"))
                 cpt+=1
+    if len(cpt_partition) == 0:
+        counts = {"persistent":"NA","shell":"NA","cloud":"NA", "undefined":"NA", "Q": Q}
+    else:
+        counts = {"persistent":0,"shell":0,"cloud":0, "undefined":0, "Q":Q}
 
-    counts = {"persistent":0,"shell":0,"cloud":0, "undefined":0}
-    counts["Q"] = Q
-    for val in cpt_partition.values():
-        if isinstance(val, str):
-            part = val
-        else:
-            part = max(val, key=val.get)
-        if part.startswith("P"):
-            counts["persistent"]+=1
-        elif part.startswith("C"):
-            counts["cloud"]+=1
-        elif part.startswith("S"):
-            counts["shell"]+=1
-        else:
-            counts["undefined"]+=1
+        for val in cpt_partition.values():
+            if isinstance(val, str):
+                part = val
+            else:
+                part = max(val, key=val.get)
+            if part.startswith("P"):
+                counts["persistent"]+=1
+            elif part.startswith("C"):
+                counts["cloud"]+=1
+            elif part.startswith("S"):
+                counts["shell"]+=1
+            else:
+                counts["undefined"]+=1
     return (counts, index)
 
 def launch_evol_nem(args):

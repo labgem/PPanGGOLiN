@@ -11,7 +11,6 @@ from collections import defaultdict
 #local libraries
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.utils import is_compressed, read_compressed_or_not
-from ppanggolin.annotate import genetic_codes
 
 def translate(seq, code):
     """ translates the given dna sequence with table code 11 of the ncbi (bacteria)"""
@@ -234,12 +233,6 @@ def overlap_filter(allGenes, contigs, overlap):
                 CDScounter+=1
         sortedGenes[key] = tmpGenes
     return sortedGenes
-
-def get_protein_sequence(contigSeq, gene):
-    if gene.strand == "+":
-        return translate(contigSeq[gene.start-1:gene.stop], genetic_codes(gene.genetic_code))
-    elif gene.strand == "-":
-        return translate(reverse_complement(contigSeq[gene.start-1:gene.stop]), genetic_codes(gene.genetic_code))
 
 def get_dna_sequence(contigSeq, gene):
     if gene.strand == "+":
