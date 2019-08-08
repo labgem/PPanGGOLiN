@@ -5,7 +5,7 @@ import os
 
 from distutils.extension import Extension
 
-NEM_DIR_PATH = "ppanggolin/partition/NEM/"
+NEM_DIR_PATH = "ppanggolin/nem/NEM/"
 
 
 

@@ -25,16 +25,14 @@ import scipy.optimize as optimization
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mkOutdir
 from ppanggolin.formats import checkPangenomeInfo
-import ppanggolin.partition as ppp#importing this way so that the global variable 'pan' from ppanggolin.partition is accessible in this module as well.
+import ppanggolin.nem.partition as ppp#import this way to use the global variable pan defined in ppanggolin.nem.partition
 
-#global variables declared at module level
-global samples
 
 def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qrange, seed):
     samp = samples[index]
     currtmpdir = tmpdir+"/"+str(index)+"/"
     if Q < 3:
-        Q = ppp.evaluate_nb_partitions(pan, samp, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, 1, tmpdir + "/" + str(index) + "_eval", seed, None)
+        Q = ppp.evaluate_nb_partitions(samp, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, 1, tmpdir + "/" + str(index) + "_eval", seed, None)
 
     if len(samp) <= chunk_size:#all good, just write stuff.
         edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir,organisms= set(samp), sm_degree = sm_degree)
@@ -56,7 +54,7 @@ def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qra
                             cpt_partition[node]["U"] = len(samp)
                         validated.add(node)
 
-        for fam in pan.geneFamilies:
+        for fam in ppp.pan.geneFamilies:
             if not samp.isdisjoint(fam.organisms):#otherwise useless to keep track of
                 families.add(fam)
                 cpt_partition[fam.name] = {"P":0,"S":0,"C":0,"U":0}
@@ -249,6 +247,9 @@ def drawCurve(output, maxSampling, data):
 
 def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampling =1, maxSampling = float("inf"), sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
 
+    
+    ppp.pan = pangenome#use the global from partition to store the pangenome, so that it is usable
+    
     qrange = qrange or [3,21]
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
 
@@ -262,7 +263,7 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampl
 
     if Q < 3 and qestimate == False:#estimate Q once and for all.
         logging.getLogger().info("Estimating the number of partitions...")
-        Q = ppp.evaluate_nb_partitions(pangenome, pangenome.organisms, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, cpu, tmpdir, seed, None)
+        Q = ppp.evaluate_nb_partitions(pangenome.organisms, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, cpu, tmpdir, seed, None)
         logging.getLogger().info(f"The number of partitions has been evaluated at {Q}")
 
     logging.getLogger().info("Extracting samples ...")
@@ -308,15 +309,13 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampl
     bar.close()
     #done with frequency of each family for each sample.
 
-    args= []
     global samples
     samples = AllSamples
 
     args = []
     for index, samp in enumerate(samples):
         args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qrange, seed))
-    global pan
-    pan = pangenome
+    
     with Pool(processes = cpu) as p:
         #launch partitionnings
         logging.getLogger().info("Partitionning all samples...")

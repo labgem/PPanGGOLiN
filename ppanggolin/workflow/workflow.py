@@ -12,8 +12,8 @@ from ppanggolin.utils import getCurrentRAM, mkFilename
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
-from ppanggolin.evolution import makeEvolutionCurve
-from ppanggolin.partition import partition
+from ppanggolin.nem.evolution import makeEvolutionCurve
+from ppanggolin.nem.partition import partition
 from ppanggolin.formats import writePangenome
 from ppanggolin.figures import drawTilePlot, drawUCurve
 ### a global workflow that does everything in one go.
@@ -58,8 +58,6 @@ def launch(args):
     drawUCurve(pangenome, args.output)
 
     writePangenome(pangenome, filename, args.force)
-
-
 
 def workflowSubparser(subparser):
     parser = subparser.add_parser("workflow",help = "Easy workflow to run a pangenome analysis in one go without parameter tuning")

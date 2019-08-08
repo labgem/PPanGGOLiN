@@ -2,31 +2,29 @@
 #coding:utf-8
 
 #default libraries
-from collections import defaultdict, Counter
 import logging
 import random
 import tempfile
 import time
-import math
 from multiprocessing import Pool
 import os
 import argparse
-
+from collections import defaultdict, Counter
+import math
 #installed libraries
 from tqdm import tqdm
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
-
 #local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import getCurrentRAM, mkOutdir
+from ppanggolin.utils import mkOutdir
 from ppanggolin.formats import checkPangenomeInfo, writePangenome
+
 #cython library (local)
 import nem_stats
 
-#global variables declared at module level
-global pan
-global org_samples
+pan = None
+samples = []
 
 def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", keep_files = False, itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("run_partitioning...")
@@ -188,16 +186,16 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
     else:
         return((dict(zip(index_fam, partitions_list)),all_parameters,log_likelihood))
 
-def launch_nem(args):
+def nemSingle(args):
     return run_partitioning(*args)
 
 def partition_nem(index, tmpdir, beta, sm_degree, free_dispersion, Q, seed, init, keep_tmp_files):
     currtmpdir = tmpdir + "/" +str(index)#unique directory name
-    samp = org_samples[index]#org_samples accessible because it is a global variable.
+    samp = samples[index]#org_samples accessible because it is a global variable.
     edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir,organisms= set(samp), sm_degree = sm_degree)
     return run_partitioning( currtmpdir, len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = init, keep_files = keep_tmp_files)
 
-def launch_partition_nem(pack):
+def nemSamples(pack):
     #run partitionning
     return partition_nem(*pack)
 
@@ -259,11 +257,8 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
         str_file.write("S\t"+str(len(index_fam))+"\t"+str(len(organisms))+"\n")
     return total_edges_weight/2, len(index_fam)
 
-def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir):
+def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir):
     Newtmpdir = tmpdir + "/eval_partitions"
-
-    global pan
-    pan = pangenome
     ChosenQ = 3
     if len(organisms) > chunk_size:
         select_organisms = set(random.sample(set(organisms), chunk_size))
@@ -280,7 +275,7 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
     if cpu > 1:
         bar = tqdm(range(len(argsPartitionning)), unit = "Number of number of partitions")
         with Pool(processes = cpu) as p:
-            for result in p.imap_unordered(launch_nem, argsPartitionning):
+            for result in p.imap_unordered(nemSingle, argsPartitionning):
                 allLogLikelihood.append(result)
                 bar.update()
             p.close()
@@ -288,7 +283,7 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
         bar.close()
     else:#for the case where it is called in a daemonic subprocess with a single cpu
         for arguments in argsPartitionning:
-            allLogLikelihood.append(launch_nem(arguments))
+            allLogLikelihood.append(nemSingle(arguments))
 
     def calculate_BIC(log_likelihood,nb_params,nb_points):
         return( log_likelihood - 0.5 *(math.log(nb_points) * nb_params))
@@ -357,7 +352,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
 
     if Q < 3:
         logging.getLogger().info("Estimating the optimal number of partitions...")
-        Q = evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir)
+        Q = evaluate_nb_partitions( organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir)
         logging.getLogger().info(f"The number of partitions has been evaluated at {Q}")
 
     init = "param_file"
@@ -395,20 +390,17 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
             org_nb_sample[org] = 0
         condition = len(organisms)/chunk_size
         while len(validated) < pansize:
-            global org_samples
-            org_samples = []
-
             while not all(val >= condition for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunk_size times.
                 shuffled_orgs = list(organisms)#copy select_organisms
                 random.shuffle(shuffled_orgs)#shuffle the copied list
                 while len(shuffled_orgs) > chunk_size:
-                    org_samples.append(set(shuffled_orgs[:chunk_size]))
-                    for org in org_samples[-1]:
+                    samples.append(set(shuffled_orgs[:chunk_size]))
+                    for org in samples[-1]:
                         org_nb_sample[org] +=1
                     shuffled_orgs = shuffled_orgs[chunk_size:]
             args = []
             # tmpdir, beta, sm_degree, free_dispersion, Q, seed
-            for i, _ in enumerate(org_samples):
+            for i, _ in enumerate(samples):
                 args.append(( i, tmpdir, beta,sm_degree, free_dispersion, Q, seed, init, keep_tmp_files))
 
             logging.getLogger().info("Launching NEM")
@@ -416,7 +408,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
             with Pool(processes = cpu) as p:
                 #launch partitionnings
                 bar = tqdm(range(len(args)), unit = " samples partitionned")
-                for result in p.imap_unordered(launch_partition_nem, args):
+                for result in p.imap_unordered(nemSamples, args):
                     validate_family(result)
                     bar.update()
 
@@ -455,7 +447,6 @@ def launch(args):
     """
         main code when launch partition from the command line.
     """
-    logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     if args.draw_ICL or args.keep_tmp_files:
         mkOutdir(args.output, args.force)
     pangenome = Pangenome()

@@ -20,12 +20,12 @@ except ImportError:
     pass
 
 #local modules
-import ppanggolin.partition
+import ppanggolin.pangenome
+import ppanggolin.nem
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
 import ppanggolin.workflow
-import ppanggolin.evolution
 import ppanggolin.figures
 
 def requirements():
@@ -43,8 +43,8 @@ def cmdLine():
     subs.append(ppanggolin.annotate.syntaSubparser(subparsers))
     subs.append(ppanggolin.cluster.clusterSubparser(subparsers))
     subs.append(ppanggolin.graph.graphSubparser(subparsers))
-    subs.append(ppanggolin.partition.partitionSubparser(subparsers))
-    subs.append(ppanggolin.evolution.evolutionSubparser(subparsers))
+    subs.append(ppanggolin.nem.partition.partitionSubparser(subparsers))
+    subs.append(ppanggolin.nem.evolution.evolutionSubparser(subparsers))
     subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     #TODO :
@@ -106,11 +106,11 @@ def main():
     elif args.subcommand == "graph":
         ppanggolin.graph.launch(args)
     elif args.subcommand == "partition":
-        ppanggolin.partition.launch(args)
+        ppanggolin.nem.partition.launch(args)
     elif args.subcommand == "workflow":
         ppanggolin.workflow.launch(args)
     elif args.subcommand == "evolution":
-        ppanggolin.evolution.launch(args)
+        ppanggolin.nem.evolution.launch(args)
     elif args.subcommand == "draw":
         ppanggolin.figures.launch(args)
 
