@@ -14,21 +14,22 @@ import argparse
 
 #installed libraries
 from tqdm import tqdm
-import chart_studio.plotly as py
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import getCurrentRAM, mkOutdir
-from ppanggolin.formats import readPangenome, writePangenome
+from ppanggolin.formats import checkPangenomeInfo, writePangenome
 #cython library (local)
 import nem_stats
 
+#global variables declared at module level
+global pan
+global org_samples
+
 def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", keep_files = False, itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("run_partitioning...")
-    if (Q<3 and not just_log_likelihood) or Q<2:
-        logging.getLogger().error("Bad usage, Q must be higher or equal to 3 except for testing just_log_likelihood of a 2 paritions model")
 
     if init=="param_file":
         with open(nem_dir_path+"/nem_file_init_"+str(Q)+".m", "w") as m_file:
@@ -261,7 +262,6 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
 def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir):
     Newtmpdir = tmpdir + "/eval_partitions"
 
-
     global pan
     pan = pangenome
     ChosenQ = 3
@@ -334,36 +334,16 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
         out_plotly.plot(fig, filename=outputdir+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
     return ChosenQ
 
-def checkPangenomePartition(pangenome):
-    if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"]:
-        pass
-    elif pangenome.status["genomesAnnotated"] == "inFile":
-        readPangenome(pangenome, annotation = True)
-    else:
-        raise Exception("You want to partition an unannotated pangenome")
-    if pangenome.status["genesClustered"] in ["Computed","Loaded"]:
-        pass
-    elif pangenome.status["genesClustered"] == "inFile":
-        readPangenome(pangenome, geneFamilies= True)
-    else:
-        raise Exception("You want to partition a pangenome whose genes have not been clustered")
-    if pangenome.status["neighborsGraph"] in ["Computed","Loaded"]:
-        pass
-    elif pangenome.status["neighborsGraph"] == "inFile":
-        readPangenome(pangenome, graph=True)#whether it is faster to compute it or to load it will have to be checked on bigger graphs.
-        #also maybe it's not even that useful since we might recompute it for all subpangenomes?
-    else:
-        raise Exception("You want to partition a pangenome whose neighbors graph has not been computed.")
+def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=-1, Qrange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, tmpdir="/dev/shm", seed = 42, keep_tmp_files = False):
 
-def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=-1, Qrange=[3,20], ICL_margin=0.05, draw_ICL = False, cpu = 1, tmpdir="/dev/shm", seed = 42, keep_tmp_files = False):
-
+    Qrange = Qrange or [3,21]
     global pan
     pan = pangenome
 
     if draw_ICL and outputdir is None:
         raise Exception("Combination of option impossible: You asked to draw the ICL curves but did not provide an output directory!")
 
-    checkPangenomePartition(pangenome)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
     organisms = set(pangenome.organisms)
     if keep_tmp_files:
         tmpdir = tmpdir + "ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"
@@ -478,7 +458,6 @@ def launch(args):
     logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     if args.draw_ICL or args.keep_tmp_files:
         mkOutdir(args.output, args.force)
-    global pangenome
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     partition(pangenome, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.qrange, args.ICL_margin, args.draw_ICL, args.cpu, args.tmpdir, args.seed, args.keep_tmp_files)

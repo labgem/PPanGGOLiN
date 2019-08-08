@@ -3,7 +3,6 @@
 
 #default libraries
 from collections import defaultdict
-import logging
 
 #installed libraries
 import gmpy2
@@ -348,34 +347,31 @@ class Pangenome:
         """
             Yields subgraphs of each connected component.
         """
+        def plain_bfs(source):
+            """A fast BFS fam generator, copied and adapted from networkx"""
+            seen = set()
+            nextlevel = {source}
+            while nextlevel:
+                thislevel = nextlevel
+                nextlevel = set()
+                for v in thislevel:
+                    if v not in seen:
+                        yield v
+                        seen.add(v)
+                        nextlevel.update(v.neighbors)
         seen = set()
         for v in self.geneFamilies:
             if v not in seen:
-                c = set(self._plain_bfs(v))
+                c = set(plain_bfs(v))
                 yield self.subgraph(c)
                 seen.update(c)
 
-    def _plain_bfs(self, source):
-        """A fast BFS fam generator, copied and adapted from networkx"""
-        seen = set()
-        nextlevel = {source}
-        while nextlevel:
-            thislevel = nextlevel
-            nextlevel = set()
-            for v in thislevel:
-                if v not in seen:
-                    yield v
-                    seen.add(v)
-                    nextlevel.update(v.neighbors)
-
-    def findCliques(self, fams=set()):
+    def findCliques(self):
         """
             copied and adapted from networkx.
         """
-        if len(fams) == 0:  # if no fams are given, we use the whole graph, else we start only from the given list of fams.
-            fams = self.geneFamilies
-        if len(fams) == 0:
-            return
+        fams = self.geneFamilies
+
         Q = [None]
 
         subg = set(fams)

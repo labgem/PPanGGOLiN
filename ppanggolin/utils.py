@@ -2,7 +2,6 @@
 #coding:utf-8
 
 #default libraries
-import sys
 import gzip
 from io import TextIOWrapper
 import mmap
@@ -18,12 +17,12 @@ def read_compressed_or_not(file_or_file_path):
         returns a TextIO object in read only.
     """
     file = file_or_file_path
-    if type(file) == str:
+    if isinstance(file, str):
         file = open(file, "rb")
     else:
         try:
             file = open(file.name, "rb")
-        except:
+        except AttributeError:
             return(file)
     if file.read(2).startswith(b'\x1f\x8b'):
         file.seek(0)
@@ -47,12 +46,12 @@ def is_compressed(file_or_file_path):
         Checks is a file, or file path given is compressed or not
     """
     file = file_or_file_path
-    if type(file) == str:
+    if isinstance(file, str):
         file = open(file, "rb")
     else:
         try:
             file = open(file.name, "rb")
-        except:
+        except AttributeError:
             return False
     if file.read(2).startswith(b'\x1f\x8b'):
         return True

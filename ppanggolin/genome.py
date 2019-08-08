@@ -88,7 +88,7 @@ class Contig:
     def __getitem__(self, index):
         gene = self._genes_start.get(index)
         if not gene:
-            if type(index) != int:
+            if not isinstance(index, int):
                 raise TypeError(f"Expected type is int, given type was '{type(index)}'")
             raise IndexError(f"No gene start at the given position {index}")
         return gene

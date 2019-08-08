@@ -3,17 +3,10 @@
 
 #default libraries
 import logging
-import os
-import warnings
 
 #installed libraries
 from tqdm import tqdm
 import tables
-
-#local libraries
-from ppanggolin.pangenome import Pangenome, GeneFamily, Edge
-from ppanggolin.genome import Organism, Contig, Gene
-from ppanggolin.utils import getCurrentRAM
 
 def geneDesc(orgLen, contigLen, IDLen, typeLen, nameLen, productLen):
     return {

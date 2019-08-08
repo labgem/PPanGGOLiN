@@ -2,9 +2,9 @@
 #coding:utf-8
 
 #default libraries
+import argparse
 from multiprocessing import Pool
 import logging
-from pathlib import Path
 import os
 import time
 
@@ -16,7 +16,7 @@ from ppanggolin.annotate import  annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.utils import read_compressed_or_not, mkFilename, get_num_lines
-from ppanggolin.formats import writePangenome, readPangenome
+from ppanggolin.formats import writePangenome
 
 def read_org_line(pangenome, organism, gff_file_path, circular_contigs, getSeq):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0,9)#missing values : source, score, frame. They are unused.
@@ -215,7 +215,7 @@ def launch(args):
     writePangenome(pangenome, filename, args.force)
 
 def syntaSubparser(subparser):
-    parser = subparser.add_parser("annotate",help = "Annotate genomes")
+    parser = subparser.add_parser("annotate",help = "Annotate genomes", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument('--overlap', required=False, action='store_false',default=True, help="Use to not remove genes overlapping with RNA features.")

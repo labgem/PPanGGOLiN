@@ -7,6 +7,7 @@ import tempfile
 import subprocess
 from collections import defaultdict
 import os
+import argparse
 
 #installed libraries
 import networkx
@@ -15,9 +16,8 @@ from tqdm import tqdm
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
-from ppanggolin.utils import read_compressed_or_not, getCurrentRAM
-from ppanggolin.formats import writePangenome, readPangenome, getGeneSequencesFromFile
-from ppanggolin.annotate import genetic_codes
+from ppanggolin.utils import read_compressed_or_not
+from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile
 
 def alignRep(faaFile, tmpdir, cpu):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir.name)#create a tmpdir in the tmpdir provided.
@@ -208,20 +208,12 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11"):
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
 
-def checkPangenomeForReadClustering(pangenome):
-    if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
-        pass#nothing to do
-    elif pangenome.status["genomesAnnotated"] == "inFile":
-        readPangenome(pangenome, annotation = True)#reading the annotations so we are sure that the IDs in the cluster file matches the previously provided annotations.
-    else:
-        raise NotImplementedError("You tried to do something unplanned for")
-
 def readClustering(pangenome, families_tsv_file):
     """
         Creates the pangenome, the gene families and the genes with an associated gene family.
         Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
     """
-    checkPangenomeForReadClustering(pangenome)
+    checkPangenomeInfo(pangenome, needAnnotations=True)
 
     logging.getLogger().info("Reading "+families_tsv_file+" the gene families file ...")
     filesize = os.stat(families_tsv_file).st_size
@@ -263,7 +255,7 @@ def launch(args):
     writePangenome(pangenome, pangenome.file, args.force)
 
 def clusterSubparser(subparser):
-    parser = subparser.add_parser("cluster",help = "Cluster proteins in protein families")
+    parser = subparser.add_parser("cluster",help = "Cluster proteins in protein families", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associated potential fragments with their original gene family.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")

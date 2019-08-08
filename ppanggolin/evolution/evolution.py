@@ -3,7 +3,7 @@
 
 #default libraries
 import argparse
-from collections import defaultdict, Counter
+from collections import Counter
 import logging
 import random
 import tempfile
@@ -11,7 +11,6 @@ import time
 from multiprocessing import Pool
 import os
 import warnings
-from threading import Thread, Lock
 
 #installed libraries
 from tqdm import tqdm
@@ -24,80 +23,22 @@ import scipy.optimize as optimization
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import getCurrentRAM, mkOutdir
-from ppanggolin.formats import readPangenome
-from ppanggolin.partition import evaluate_nb_partitions, run_partitioning
-#cython library (local)
-import nem_stats
+from ppanggolin.utils import mkOutdir
+from ppanggolin.formats import checkPangenomeInfo
+import ppanggolin.partition as ppp#importing this way so that the global variable 'pan' from ppanggolin.partition is accessible in this module as well.
 
-
-def write_nem_input_files( tmpdir, organisms, sm_degree):
-
-    mkOutdir(tmpdir, force = False)
-    total_edges_weight = 0
-
-    with open(tmpdir+"/column_org_file", "w") as org_file:
-        org_file.write(" ".join([ f'"{org.name}"' for org in organisms]) + "\n")
-
-
-    logging.getLogger().debug("Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files")
-    with open(tmpdir+"/nem_file.str", "w") as str_file,\
-        open(tmpdir+"/nem_file.index", "w") as index_file,\
-        open(tmpdir+"/nem_file.nei", "w") as nei_file,\
-        open(tmpdir+"/nem_file.dat", "w") as dat_file:
-
-        nei_file.write("1\n")
-        index_fam = {}
-
-        index_org = {}
-        default_dat = []
-        for index, org in enumerate(organisms):
-            default_dat.append('0')
-            index_org[org] = index
-
-        for fam in pan.geneFamilies:
-            #could use bitarrays if this part is limiting?
-            if not organisms.isdisjoint(fam.organisms):
-                currDat = list(default_dat)
-                curr_orgs = fam.organisms & organisms
-                for org in curr_orgs:
-                    currDat[index_org[org]] = "1"
-                dat_file.write("\t".join(currDat) + "\n")
-                index_fam[fam] = len(index_fam) +1
-                index_file.write(f"{len(index_fam)}\t{fam.name}\n")
-
-        for fam in index_fam.keys():
-            row_fam = []
-            row_dist_score = []
-            neighbor_number = 0
-
-            for edge in fam.edges:#iter on the family's edges.
-                coverage = sum([ len(gene_list) for org, gene_list in edge.organisms.items() if org in organisms ])
-                if coverage == 0:
-                    continue#nothing interesting to write, this edge does not exist with this subset of organisms.
-                otherfam = edge.target if fam == edge.source else edge.source
-                distance_score = coverage / len(organisms)
-                total_edges_weight += distance_score
-                row_fam.append(str(index_fam[otherfam]))
-                row_dist_score.append(str(round(distance_score, 4)))
-                neighbor_number+=1
-            if neighbor_number > 0 and float(neighbor_number) < sm_degree:
-                nei_file.write('\t'.join([str(item) for sublist in [[index_fam[fam]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
-            else:
-                nei_file.write(str(index_fam[fam]) + "\t0\n")
-
-        str_file.write("S\t"+str(len(index_fam))+"\t"+str(len(organisms))+"\n")
-    return total_edges_weight/2, len(index_fam)
+#global variables declared at module level
+global samples
 
 def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qrange, seed):
     samp = samples[index]
     currtmpdir = tmpdir+"/"+str(index)+"/"
     if Q < 3:
-        Q = evaluate_nb_partitions(pan, samp, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, 1, tmpdir + "/" + str(index) + "_eval", seed, None)
+        Q = ppp.evaluate_nb_partitions(pan, samp, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, 1, tmpdir + "/" + str(index) + "_eval", seed, None)
 
     if len(samp) <= chunk_size:#all good, just write stuff.
-        edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir,organisms= set(samp), sm_degree = sm_degree)
-        cpt_partition = run_partitioning( currtmpdir, len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = "param_file")[0]
+        edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir,organisms= set(samp), sm_degree = sm_degree)
+        cpt_partition = ppp.run_partitioning( currtmpdir, len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = "param_file")[0]
     else:#going to need multiple partitionnings for this sample...
 
         families = set()
@@ -138,8 +79,8 @@ def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qra
                     shuffled_orgs = shuffled_orgs[chunk_size:]
             #making arguments for all samples:
             for samp in org_samples:
-                edges_weight, nb_fam = write_nem_input_files( currtmpdir+"/"+str(cpt)+"/", samp, sm_degree = sm_degree)
-                validate_family(run_partitioning( currtmpdir+"/"+str(cpt)+"/", len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = "param_file"))
+                edges_weight, nb_fam = ppp.write_nem_input_files( currtmpdir+"/"+str(cpt)+"/", samp, sm_degree = sm_degree)
+                validate_family(ppp.run_partitioning( currtmpdir+"/"+str(cpt)+"/", len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = "param_file"))
                 cpt+=1
 
     counts = {"persistent":0,"shell":0,"cloud":0, "undefined":0}
@@ -161,27 +102,6 @@ def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qra
 
 def launch_evol_nem(args):
     return evol_nem(*args)
-
-
-def checkPangenomeEvolution(pangenome):
-    if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"]:
-        pass
-    elif pangenome.status["genomesAnnotated"] == "inFile":
-        readPangenome(pangenome, annotation = True)
-    else:
-        raise Exception("You want to partition an unannotated pangenome")
-    if pangenome.status["genesClustered"] in ["Computed","Loaded"]:
-        pass
-    elif pangenome.status["genesClustered"] == "inFile":
-        readPangenome(pangenome, geneFamilies= True)
-    else:
-        raise Exception("You want to partition a pangenome whose genes have not been clustered")
-    if pangenome.status["neighborsGraph"] in ["Computed","Loaded"]:
-        pass
-    elif pangenome.status["neighborsGraph"] == "inFile":
-        readPangenome(pangenome, graph=True)#whether it is faster to compute it or to load it will have to be checked on bigger graphs.
-    else:
-        raise Exception("You want to partition a pangenome whose neighbors graph has not been computed.")
 
 def drawCurve(output, maxSampling, data):
     logging.getLogger().info("Drawing the evolution curve ...")
@@ -327,10 +247,10 @@ def drawCurve(output, maxSampling, data):
     out_plotly.plot(fig, filename=output+"/evolution_curve.html", auto_open=False)
     params_file.close()
 
+def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampling =1, maxSampling = float("inf"), sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
 
-def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampling =1, maxSampling = float("inf"), sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = [3,20], soft_core = 0.95):
-
-    checkPangenomeEvolution(pangenome)
+    qrange = qrange or [3,21]
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
 
     tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
     tmpdir = tmpdirObj.name
@@ -342,7 +262,7 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampl
 
     if Q < 3 and qestimate == False:#estimate Q once and for all.
         logging.getLogger().info("Estimating the number of partitions...")
-        Q = evaluate_nb_partitions(pangenome, pangenome.organisms, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, cpu, tmpdir, seed, None)
+        Q = ppp.evaluate_nb_partitions(pangenome, pangenome.organisms, sm_degree, free_dispersion, chunk_size, qrange, 0.05, False, cpu, tmpdir, seed, None)
         logging.getLogger().info(f"The number of partitions has been evaluated at {Q}")
 
     logging.getLogger().info("Extracting samples ...")
@@ -414,7 +334,6 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampl
     tmpdirObj.cleanup()
     logging.getLogger().info("Done making the evolution curves")
 
-
 def launch(args):
     """
         main code when launch partition from the command line.
@@ -440,7 +359,7 @@ def launch(args):
                         soft_core = args.soft_core)
 
 def evolutionSubparser(subparser):
-    parser = subparser.add_parser("evolution",help = "Compute the evolution curve of the pangenome")
+    parser = subparser.add_parser("evolution",help = "Compute the evolution curve of the pangenome", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
     optional.add_argument("--depth",required=False, default = 30, type=int, help = "Number of samplings at each sampling point")

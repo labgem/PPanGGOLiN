@@ -9,7 +9,7 @@ import ast
 from collections import defaultdict
 
 #local libraries
-from ppanggolin.genome import Organism, Contig, Gene, RNA
+from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.utils import is_compressed, read_compressed_or_not
 from ppanggolin.annotate import genetic_codes
 
@@ -157,6 +157,7 @@ def read_fasta(org, fnaFile):
     """
     contigs = {}
     contig_seq = ""
+    contig = None
     for line in fnaFile:
         if line.startswith('>'):
             if contig_seq != "":

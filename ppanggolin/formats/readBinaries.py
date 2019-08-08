@@ -4,16 +4,13 @@
 #default libraries
 import logging
 import sys
-from multiprocessing import Pool
 
 #installed libraries
 from tqdm import tqdm
 import tables
 
 #local libraries
-from ppanggolin.utils import getCurrentRAM, read_compressed_or_not
-from ppanggolin.pangenome import Pangenome, GeneFamily
-from ppanggolin.genome import Organism, Contig, Gene
+from ppanggolin.genome import Organism, Gene
 
 
 def getNumberOfOrganisms(pangenome):
@@ -161,10 +158,10 @@ def readAnnotation(pangenome, h5f, filename):
     for row in read_chunks(table):
         try:
             pangenomeDict[row[2].decode()][row[0][1].decode()].append(row)#new gene, seen contig, seen org
-        except:
+        except KeyError:
             try:
                 pangenomeDict[row[2].decode()][row[0][1].decode()] = [row]#new contig, seen org
-            except:
+            except KeyError:
                 pangenomeDict[sys.intern(row[2].decode())] = { row[0][1].decode() : [row]}#new org
         bar.update()
     bar.close()
@@ -180,7 +177,7 @@ def readAnnotation(pangenome, h5f, filename):
 
 def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False):
     """
-        Reads a previously written pangenome, with all of its parts.
+        Reads a previously written pangenome, with all of its parts, depending on what is asked.
     """
     # compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
     if hasattr(pangenome,"file"):
@@ -208,3 +205,26 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have graph informations, or has been improperly filled")
     h5f.close()
+
+def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False):
+    """defines what needs to be read depending on what is needed"""
+    annotation = False
+    geneFamilies = False
+    graph = False
+    if needAnnotations:
+        if pangenome.status["genomesAnnotated"] == "inFile":
+            annotation = True
+        elif not pangenome.status["genomesAnnotated"] in ["Computed","Loaded"]:
+            raise Exception("You want to partition an unannotated pangenome")
+    if needFamilies:
+        if pangenome.status["genesClustered"] == "inFile":
+            geneFamilies = True
+        elif not pangenome.status["genesClustered"] in ["Computed","Loaded"]:
+            raise Exception("You want to partition a pangenome whose genes have not been clustered")
+    if needGraph:
+        if pangenome.status["neighborsGraph"] == "inFile":
+            graph=True
+        elif not pangenome.status["neighborsGraph"] in ["Computed","Loaded"]:
+            raise Exception("You want to partition a pangenome whose neighbors graph has not been computed.")
+    if annotation or geneFamilies or graph:#if anything is true, else we need nothing.
+        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph)
