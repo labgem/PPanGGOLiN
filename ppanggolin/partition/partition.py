@@ -10,6 +10,7 @@ import time
 import math
 from multiprocessing import Pool
 import os
+import argparse
 
 #installed libraries
 from tqdm import tqdm
@@ -90,13 +91,15 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
 
     logging.getLogger().debug("After running NEM...")
 
-
+    no_nem = False
     if os.path.isfile(nem_dir_path+"/nem_file_"+str(Q)+".uf"):
         logging.getLogger().debug("Reading NEM results...")
     elif not just_log_likelihood:
-        logging.getLogger().warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(Q)+".uf")
+        # logging.getLogger().warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(Q)+".uf")
+        no_nem = True
     else:
         logging.getLogger().debug("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(Q)+".uf")
+        no_nem = True
     index_fam = []
     all_parameters = {}
 
@@ -162,15 +165,13 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 
                         partitions_list[i]=partition[positions_max_prob.pop()]
             #logging.getLogger().debug(index.keys())
     except IOError:
-        if not just_log_likelihood:
-            logging.getLogger().warning("Statistical partitioning did not work (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(Q)+".log")
-        else:
-            logging.getLogger().debug("  partitioning did not work (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(Q)+".log")
+        logging.getLogger().debug("partitioning did not work (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(Q)+".log")
+        return  [{},None,None]#return empty objects.
     except ValueError:
         ## return the default partitions_list which correspond to undefined
         pass
 
-    if not keep_files:
+    if not keep_files and no_nem is False:
         os.remove(nem_dir_path+"/nem_file_"+str(Q)+".uf")
         os.remove(nem_dir_path+"/nem_file_"+str(Q)+".mf")
         os.remove(nem_dir_path+"/nem_file_"+str(Q)+".log")
@@ -309,16 +310,16 @@ def evaluate_nb_partitions(pangenome, organisms, sm_degree, free_dispersion, chu
         ChosenQ = best_Q if best_Q >=3 else ChosenQ
     if len(all_BICs)>0 and draw_ICL:
         traces = []
-        traces.append(go.Scatter(x=list(all_BICs.keys()),
-                                    y=list(all_BICs.values()),
+        traces.append(go.Scatter(x=[ key for key in sorted(all_BICs.keys()) ],
+                                    y=[ all_BICs[key] for key in sorted(all_BICs.keys()) ],
                                     name = "BIC",
                                     mode = "lines+markers"))
-        traces.append(go.Scatter(x=list(all_ICLs.keys()),
-                                    y=list(all_ICLs.values()),
+        traces.append(go.Scatter(x=[ key for key in sorted(all_ICLs.keys()) ],
+                                    y=[ all_ICLs[key] for key in sorted(all_ICLs.keys()) ],
                                     name = "ICL",
                                     mode = "lines+markers"))
-        traces.append(go.Scatter(x=list(all_LLs.keys()),
-                                    y=list(all_LLs.values()),
+        traces.append(go.Scatter(x=[ key for key in sorted(all_LLs.keys()) ],
+                                    y=[ all_LLs[key] for key in sorted(all_LLs.keys()) ],
                                     name = "log likelihood",
                                     mode = "lines+markers"))
         layout = go.Layout(title = 'ICL curve (best Q is '+str(best_Q)+', ICL_th= is '+str(ICL_margin)+")",
@@ -454,6 +455,8 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
     else:
         edges_weight, nb_fam = write_nem_input_files( tmpdir+"/"+str(cpt)+"/", organisms, sm_degree = sm_degree)
         partitionning_results = run_partitioning( tmpdir+"/"+str(cpt)+"/", len(organisms), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = init)
+        if partitionning_results == [{},None,None]:
+            raise Exception("Statistical partitionning does not work on your data. This usually happens because you used very few (<15) genomes.")
         cpt+=1
         logging.getLogger().info(f"Partitionned {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
 
@@ -483,7 +486,7 @@ def launch(args):
 
 
 def partitionSubparser(subparser):
-    parser = subparser.add_parser("partition",help = "Partition the pangenome graph")
+    parser = subparser.add_parser("partition",help = "Partition the pangenome graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
     optional.add_argument("-ms","--max_degree_smoothing",required = False, default = float("inf"), help = "max. degree of the nodes to be included in the smoothing process.")

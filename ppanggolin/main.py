@@ -57,7 +57,7 @@ def cmdLine():
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
         common.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
-        common.add_argument("--memory", required=False, type=int, default=int(4 * psutil.virtual_memory().total / 5), help="Max amount of allowed RAM. Default is 4/5 of the system's RAM. Will work only for the python part of the program. The C part might use more without raising an error.")
+        common.add_argument("--memory", required=False, type=int, default=int(4 * psutil.virtual_memory().total / 5), help="Max amount of allowed RAM in Bytes. Default is 4/5 of the system's RAM. Will work only for the python part of the program. The C part might use more without raising an error.")
 
         if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
             sub.print_help()
