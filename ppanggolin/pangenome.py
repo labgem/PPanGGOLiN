@@ -23,6 +23,10 @@ class Edge:
         self.organisms = defaultdict(list)
         self.addGenes(sourceGene, targetGene)
 
+    @property
+    def genePairs(self):
+        return [ gene_pair for gene_list in self.organisms.values() for gene_pair in gene_list ]
+
     def addGenes(self, sourceGene, targetGene):
         org = sourceGene.organism
         if org != targetGene.organism:

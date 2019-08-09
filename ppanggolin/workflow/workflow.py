@@ -14,7 +14,7 @@ from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.nem.evolution import makeEvolutionCurve
 from ppanggolin.nem.partition import partition
-from ppanggolin.formats import writePangenome
+from ppanggolin.formats import writePangenome, writeFlatFiles
 from ppanggolin.figures import drawTilePlot, drawUCurve
 ### a global workflow that does everything in one go.
 
@@ -56,6 +56,8 @@ def launch(args):
 
     drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True )
     drawUCurve(pangenome, args.output)
+
+    writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=False, light_gexf = True)
 
     writePangenome(pangenome, filename, args.force)
 

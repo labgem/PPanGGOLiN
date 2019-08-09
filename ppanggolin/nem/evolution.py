@@ -247,7 +247,7 @@ def drawCurve(output, maxSampling, data):
     out_plotly.plot(fig, filename=output+"/evolution_curve.html", auto_open=False)
     params_file.close()
 
-def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 5, minSampling =1, maxSampling = float("inf"), sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
+def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
 
     
     ppp.pan = pangenome#use the global from partition to store the pangenome, so that it is usable

@@ -8,11 +8,11 @@ assert sys.version_info >= (3, 6)#minimum is python3.6
 import argparse
 import logging
 import resource
+import pkg_resources
 
 #libraries to be installed
 # from tqdm import tqdm
 import psutil
-import pkg_resources
 
 try:
     import argcomplete
@@ -27,6 +27,7 @@ import ppanggolin.annotate
 import ppanggolin.cluster
 import ppanggolin.workflow
 import ppanggolin.figures
+import ppanggolin.formats
 
 def requirements():
     """
@@ -47,8 +48,7 @@ def cmdLine():
     subs.append(ppanggolin.nem.evolution.evolutionSubparser(subparsers))
     subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
-    #TODO :
-    # Format subparser
+    subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
 
     for sub in subs:#add options common to all subcommands
         common = sub.add_argument_group(title = "Common options")
@@ -113,6 +113,8 @@ def main():
         ppanggolin.nem.evolution.launch(args)
     elif args.subcommand == "draw":
         ppanggolin.figures.launch(args)
+    elif args.subcommand == "write":
+        ppanggolin.formats.launch(args)
 
 if __name__ == "__main__":
     main()
