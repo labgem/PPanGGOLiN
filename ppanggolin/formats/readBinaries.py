@@ -148,6 +148,10 @@ def readGeneFamiliesInfo(pangenome, h5f):
         fam.addSequence(row[2].decode())
         bar.update()
     bar.close()
+    if h5f.root.status._v_attrs.Partitionned:
+        pangenome.status["partitionned"] = "Loaded"
+    if h5f.root.status._v_attrs.geneFamilySequences:
+        pangenome.status["geneFamilySequences"] = "Loaded"
 
 def readAnnotation(pangenome, h5f, filename):
     annotations = h5f.root.annotations

@@ -23,6 +23,9 @@ class Edge:
         self.organisms = defaultdict(list)
         self.addGenes(sourceGene, targetGene)
 
+    def getOrgDict(self):
+        return self.organisms
+
     @property
     def genePairs(self):
         return [ gene_pair for gene_list in self.organisms.values() for gene_pair in gene_list ]
@@ -304,8 +307,9 @@ class Pangenome:
         return self._orgIndex
 
     def computeFamilyBitarrays(self):
-        if not hasattr(self, "_orgIndex"):#then the bitarrays don't exist yet.
+        if not hasattr(self, "_orgIndex"):#then the bitarrays don't exist yet, since the org index does not exist either.
             self.getIndex()
             for fam in self.geneFamilies:
                 fam.mkBitarray(self._orgIndex)
+        #case where there is an index but the bitarrays have not been computed???
         return self._orgIndex

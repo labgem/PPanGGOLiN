@@ -21,6 +21,8 @@ from ppanggolin.formats import checkPangenomeInfo
 pan = None
 
 def writeGEXFheader(gexf, light):
+    if not light:
+        index = pan.getIndex()#has been computed already
     gexf.write('<?xml version="1.1" encoding="UTF-8"?>\n<gexf xmlns:viz="http://www.gexf.net/1.3draft/viz" xmlns="http://www.gexf.net/1.3draft" version="1.3">\n')
     gexf.write('  <graph mode="static" defaultedgetype="undirected">\n')
     gexf.write('    <attributes class="node" mode="static">\n')
@@ -35,9 +37,16 @@ def writeGEXFheader(gexf, light):
     gexf.write('      <attribute id="8" title="length_avg" type="double" />\n')
     gexf.write('      <attribute id="9" title="length_med" type="long" />\n')
     gexf.write('      <attribute id="10" title="nb_organisms" type="long" />\n')
+    if not light:
+        for org, orgIndex in index.items():
+            gexf.write(f'      <attribute id="{orgIndex + 12}" title="{org.name}" type="string" />\n')
+    
     gexf.write('    </attributes>\n')
     gexf.write('    <attributes class="edge" mode="static">\n')
     gexf.write('      <attribute id="11" title="nb_genes" type="long" />\n')
+    if not light:
+        for org, orgIndex in index.items():
+            gexf.write(f'      <attribute id="{orgIndex + len(index) + 12}" title="{org.name}" type="long" />\n')
     # gexf.write('      <attribute id="12" title="nb_organisms" type="long" />\n')#useless because it's the weight of the edge
     gexf.write('    </attributes>\n')
     gexf.write('    <meta>\n')
@@ -47,6 +56,9 @@ def writeGEXFheader(gexf, light):
 def writeGEXFnodes(gexf, light, soft_core = 0.95):
     gexf.write('    <nodes>\n')
     colors = {"persistent":'a="0" b="7" g="165" r="247"','shell':'a="0" b="96" g="216" r="0"', 'cloud':'a="0" b="255" g="222" r="121"'}
+    if not light:
+        index = pan.getIndex()
+
     for fam in pan.geneFamilies:
         name = Counter()
         product = Counter()
@@ -73,6 +85,9 @@ def writeGEXFnodes(gexf, light, soft_core = 0.95):
         gexf.write(f'          <attvalue for="8" value="{round(sum(l) / len(l),2)}" />\n')
         gexf.write(f'          <attvalue for="9" value="{ int(median(l))}" />\n')
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
+        if not light:
+            for org, genes in fam.getOrgDict().items():
+                gexf.write(f'          <attvalue for="{index[org]+12}" value="{"|".join([ gene.ID for gene in genes])}" />\n')
         gexf.write(f'        </attvalues>\n')
         gexf.write(f'      </node>\n')
     gexf.write('    </nodes>\n')
@@ -80,11 +95,16 @@ def writeGEXFnodes(gexf, light, soft_core = 0.95):
 def writeGEXFedges(gexf, light):
     gexf.write('    <edges>\n')
     edgeids = 0
+    index = pan.getIndex()
+
     for edge in pan.edges: 
         gexf.write(f'      <edge id="{edgeids}" source="{edge.source.ID}" target="{edge.target.ID}" weight="{len(edge.organisms)}">\n')
         gexf.write(f'        <viz:thickness value="{len(edge.organisms)}" />\n')
         gexf.write('        <attvalues>\n')
         gexf.write(f'          <attribute id="11" value="{len(edge.genePairs)}" />\n')
+        if not light:
+            for org, genes in edge.getOrgDict().items():
+                gexf.write(f'          <attvalue for="{index[org]+len(index)+12}" value="{len(genes)}" />\n')
         gexf.write('        </attvalues>\n')
         gexf.write('      </edge>\n')
         edgeids+=1
@@ -95,10 +115,15 @@ def writeGEXFend(gexf):
     gexf.write("</gexf>")
 
 def writeGEXF(output, light = True, soft_core = 0.95, compress=False):
-    logging.getLogger().info("Writing the gexf file for the pangenome graph...")
-    outname = output + "/pangenomeGraph.gexf"
+    txt = "Writing the gexf file for the pangenome graph..."
+    if light:
+        txt = "Writing the light gexf file for the pangenome graph..."
+    logging.getLogger().info(txt)
+    outname = output + "/pangenomeGraph"
+    outname += "_light" if light else ""
+    outname += ".gexf"
     with write_compressed_or_not(outname,compress) as gexf:
-        writeGEXFheader(gexf,light)
+        writeGEXFheader(gexf, light)
         writeGEXFnodes(gexf, light)
         writeGEXFedges(gexf, light)
         writeGEXFend(gexf)
@@ -190,6 +215,8 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, csv=False, gene
     if any(x for x in [csv, genePA, gexf, light_gexf, projection]):
         #then it's useful to load the pangenome.
         checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True)
+        if not pan.status["partitionned"] == "Loaded" and (light_gexf or gexf or csv) :
+            raise Exception("The provided pangenome has not been partitionned. This is not compatible with any of the following options : --light_gexf, --gexf, --csv")
         pan.getIndex()#make the index because it will be used most likely
         with Pool(processes = cpu) as p:
             if csv:
