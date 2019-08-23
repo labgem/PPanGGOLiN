@@ -28,6 +28,7 @@ import ppanggolin.cluster
 import ppanggolin.workflow
 import ppanggolin.figures
 import ppanggolin.formats
+import ppanggolin.info
 
 def requirements():
     """
@@ -49,6 +50,7 @@ def cmdLine():
     subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
+    ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
     for sub in subs:#add options common to all subcommands
         common = sub.add_argument_group(title = "Common options")
@@ -78,26 +80,26 @@ def cmdLine():
 
 def main():
     args = cmdLine()
-    if args.verbose == 2:
-        level = logging.DEBUG#info, debug, warnings and errors
-    elif args.verbose == 1:
-        level = logging.INFO#info, warnings and errors
-    elif args.verbose == 0:
-        level = logging.WARNING#only warnings and errors
-    logging.basicConfig(stream=sys.stdout, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-
+    if hasattr(args, "verbose"):
+        if args.verbose == 2:
+            level = logging.DEBUG#info, debug, warnings and errors
+        elif args.verbose == 1:
+            level = logging.INFO#info, warnings and errors
+        elif args.verbose == 0:
+            level = logging.WARNING#only warnings and errors
+        logging.basicConfig(stream=sys.stdout, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
+        logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
     # uncomment to save log in file
     # fhandler = logging.FileHandler(filename = args.output + "/PPanGGOLiN.log",mode = "w")
     # fhandler.setFormatter(logging.Formatter(fmt = "%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
     # fhandler.setLevel(level if level != logging.WARNING else logging.INFO)
     # logging.getLogger().addHandler(fhandler)
+    if hasattr(args,"memory"):
+        rsrc = resource.RLIMIT_DATA
+        _, hard = resource.getrlimit(rsrc)
+        resource.setrlimit(rsrc, (args.memory, hard))  # limiting allowed RAM
 
-    rsrc = resource.RLIMIT_DATA
-    _, hard = resource.getrlimit(rsrc)
-    resource.setrlimit(rsrc, (args.memory, hard))  # limiting allowed RAM
-
-    logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
-    logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
 
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
@@ -115,6 +117,8 @@ def main():
         ppanggolin.figures.launch(args)
     elif args.subcommand == "write":
         ppanggolin.formats.launch(args)
+    elif args.subcommand == "info":
+        ppanggolin.info.printInfo(args.pangenome)
 
 if __name__ == "__main__":
     main()
