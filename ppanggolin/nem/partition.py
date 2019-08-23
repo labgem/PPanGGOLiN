@@ -233,20 +233,19 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
                 dat_file.write("\t".join(currDat) + "\n")
                 index_fam[fam] = len(index_fam) +1
                 index_file.write(f"{len(index_fam)}\t{fam.name}\n")
+        # logging.getLogger().info("write graph : "+getCurrentRAM())
 
         for fam in index_fam.keys():
             row_fam = []
             row_dist_score = []
             neighbor_number = 0
-
             for edge in fam.edges:#iter on the family's edges.
                 coverage = sum([ len(gene_list) for org, gene_list in edge.organisms.items() if org in organisms ])
                 if coverage == 0:
                     continue#nothing interesting to write, this edge does not exist with this subset of organisms.
-                otherfam = edge.target if fam == edge.source else edge.source
                 distance_score = coverage / len(organisms)
-                total_edges_weight += distance_score
-                row_fam.append(str(index_fam[otherfam]))
+                total_edges_weight +=distance_score
+                row_fam.append(str(index_fam[ edge.target if fam == edge.source else edge.source]))
                 row_dist_score.append(str(round(distance_score, 4)))
                 neighbor_number+=1
             if neighbor_number > 0 and float(neighbor_number) < sm_degree:
@@ -333,6 +332,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
 
     Qrange = Qrange or [3,21]
     global pan
+    global samples
     pan = pangenome
 
     if draw_ICL and outputdir is None:
@@ -390,6 +390,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
             org_nb_sample[org] = 0
         condition = len(organisms)/chunk_size
         while len(validated) < pansize:
+            prev = len(samples)#if we've been sampling already, samples is not empty.
             while not all(val >= condition for val in org_nb_sample.values()):#each family must be tested at least len(select_organisms)/chunk_size times.
                 shuffled_orgs = list(organisms)#copy select_organisms
                 random.shuffle(shuffled_orgs)#shuffle the copied list
@@ -400,8 +401,8 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                     shuffled_orgs = shuffled_orgs[chunk_size:]
             args = []
             # tmpdir, beta, sm_degree, free_dispersion, Q, seed
-            for i, _ in enumerate(samples):
-                args.append(( i, tmpdir, beta,sm_degree, free_dispersion, Q, seed, init, keep_tmp_files))
+            for i, _ in enumerate(samples[prev:], start=prev):
+                args.append((i, tmpdir, beta,sm_degree, free_dispersion, Q, seed, init, keep_tmp_files))
 
             logging.getLogger().info("Launching NEM")
 
