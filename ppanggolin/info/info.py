@@ -10,12 +10,12 @@ import tables
 def printInfo(pangenomeFile):
     h5f = tables.open_file(pangenomeFile,"r")
     statusGroup = h5f.root.status
-    print("genomes annotated : " + "true" if statusGroup._v_attrs.genomesAnnotated else "false")
-    print("genes clustered : " + "true" if statusGroup._v_attrs.genesClustered else "false")
-    print("genes have their sequences : " + "true" if statusGroup._v_attrs.geneSequences else "false")
-    print("gene families have their sequences : " + "true" if statusGroup._v_attrs.geneFamilySequences else "false")
-    print("neighbors graph : " + "true" if statusGroup._v_attrs.NeighborsGraph else "false")
-    print("pangenome partitioned : " + "true" if statusGroup._v_attrs.Partitionned else "false")
+    print(f"genomes annotated : {'true' if statusGroup._v_attrs.genomesAnnotated else 'false' }")
+    print(f"genes clustered : {'true' if statusGroup._v_attrs.genesClustered else 'false' }")
+    print(f"genes have their sequences : {'true' if statusGroup._v_attrs.geneSequences else 'false' }")
+    print(f"gene families have their sequences : {'true' if statusGroup._v_attrs.geneFamilySequences else 'false' }")
+    print(f"neighbors graph : {'true' if statusGroup._v_attrs.NeighborsGraph else 'false' }")
+    print(f"pangenome partitioned : {'true' if statusGroup._v_attrs.Partitionned else 'false' }")
     h5f.close()
 
 
