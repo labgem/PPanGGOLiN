@@ -11,6 +11,7 @@ import os
 import argparse
 from collections import defaultdict, Counter
 import math
+from shutil import copytree
 #installed libraries
 from tqdm import tqdm
 import plotly.offline as out_plotly
@@ -192,7 +193,7 @@ def nemSingle(args):
 def partition_nem(index, tmpdir, beta, sm_degree, free_dispersion, Q, seed, init, keep_tmp_files):
     currtmpdir = tmpdir + "/" +str(index)#unique directory name
     samp = samples[index]#org_samples accessible because it is a global variable.
-    edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir,organisms= set(samp), sm_degree = sm_degree)
+    edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir, organisms=samp, sm_degree = sm_degree)
     return run_partitioning( currtmpdir, len(samp), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = init, keep_files = keep_tmp_files)
 
 def nemSamples(pack):
@@ -222,7 +223,7 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
         for index, org in enumerate(organisms):
             default_dat.append('0')
             index_org[org] = index
-
+        # logging.getLogger().info("write families : "+getCurrentRAM())
         for fam in pan.geneFamilies:
             #could use bitarrays if this part is limiting?
             if not organisms.isdisjoint(fam.organisms):
@@ -254,6 +255,7 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
                 nei_file.write(str(index_fam[fam]) + "\t0\n")
 
         str_file.write("S\t"+str(len(index_fam))+"\t"+str(len(organisms))+"\n")
+    # logging.getLogger().info("done writing input files : "+getCurrentRAM())
     return total_edges_weight/2, len(index_fam)
 
 def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir):
@@ -340,12 +342,9 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
 
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
     organisms = set(pangenome.organisms)
-    if keep_tmp_files:
-        tmpdir = tmpdir + "ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"
-        os.makedirs(tmpdir)
-    else:
-        tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
-        tmpdir = tmpdirObj.name
+
+    tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
+    tmpdir = tmpdirObj.name
 
     if len(organisms) <= 10:
         logging.getLogger().warning(f"The number of selected organisms is too low ({len(organisms)} organisms used) to robustly partition the graph")
@@ -424,15 +423,14 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
         ## need to compute the median vectors of each partition ???
         partitionning_results = [partitionning_results,[]]##introduces a 'non feature'.
 
-        logging.getLogger().info(f"Did {len(args)} partitionning with chunks of size {chunk_size} among {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
+        logging.getLogger().info(f"Did {len(samples)} partitionning with chunks of size {chunk_size} among {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
     else:
         edges_weight, nb_fam = write_nem_input_files( tmpdir+"/"+str(cpt)+"/", organisms, sm_degree = sm_degree)
-        partitionning_results = run_partitioning( tmpdir+"/"+str(cpt)+"/", len(organisms), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = init)
+        partitionning_results = run_partitioning( tmpdir+"/"+str(cpt)+"/", len(organisms), beta * (nb_fam/edges_weight), free_dispersion, Q = Q, seed = seed, init = init, keep_files=keep_tmp_files)
         if partitionning_results == [{},None,None]:
             raise Exception("Statistical partitionning does not work on your data. This usually happens because you used very few (<15) genomes.")
         cpt+=1
         logging.getLogger().info(f"Partitionned {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
-
 
     pangenome.savePartitionParameters(Q, beta, free_dispersion, sm_degree, partitionning_results[1], chunk_size)
 
@@ -442,7 +440,8 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
     pangenome.status["partitionned"] = "Computed"
     if not keep_tmp_files:
         tmpdirObj.cleanup()
-    #else write files somewhere ???
+    else:
+        copytree(tmpdir, outputdir + "/NEM_files/")
 
 def launch(args):
     """
@@ -469,7 +468,6 @@ def partitionSubparser(subparser):
     optional.add_argument("--draw_ICL", required =False, default = False, action="store_true",help = "Use if you can to draw the ICL curve for all of the tested Q values. Will not be done if Q is given.")
     optional.add_argument("--keep_tmp_files",required = False, default = False, action = "store_true",help = "Use if you want to keep the temporary NEM files")
     #use former partitionning ?????
-    #soft core ???
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
 
