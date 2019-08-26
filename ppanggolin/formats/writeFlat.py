@@ -9,6 +9,7 @@ from collections import Counter
 import logging
 import pkg_resources
 from statistics import median
+import os
 #installed libraries
 from tqdm import tqdm
 
@@ -208,14 +209,139 @@ def writeGenePresenceAbsence(output, compress=False):
                                     +genes)+"\n")#15
     logging.getLogger().info(f"Done writing the gene presence absence file : '{outname}'")
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, compress = False):
+def writeStats(output, soft_core, dup_margin, compress=False):
+    logging.getLogger().info("Writing pangenome statistics...")
+    logging.getLogger().info("Writing statistics on persistent duplication...")
+    single_copy_markers = set()#could use bitarrays if speed is needed
+    with write_compressed_or_not(output + "/mean_persistent_duplication.tsv", compress) as outfile:
+        outfile.write(f"#duplication_margin={round(dup_margin,3)}\n")
+        outfile.write("\t".join(["persistent_family","duplication_ratio","mean_presence","is_single_copy_marker"]) + "\n")
+        for fam in pan.geneFamilies:
+            if fam.namedPartition == "persistent":
+                mean_pres = len(fam.genes) / len(fam.organisms)
+                nb_multi = 0
+                for gene_list in fam.getOrgDict().values():
+                    if len(gene_list) > 1:
+                        nb_multi +=1
+                dup_ratio = nb_multi / len(fam.organisms)
+                is_SCM = False
+                if dup_ratio < dup_margin:
+                    is_SCM = True
+                    single_copy_markers.add(fam)
+                outfile.write("\t".join([fam.name,
+                                         str(round(dup_ratio,3)),
+                                         str(round(mean_pres,3)),
+                                         str(is_SCM)]) + "\n")
+    logging.getLogger().info("Done writing stats on persistent duplication")
+    logging.getLogger().info("Writing genome per genome statistics (completeness and counts)...")
+    soft = set()#could use bitarrays if speed is needed
+    core = set()
+    for fam in pan.geneFamilies:
+        if len(fam.organisms) >= pan.number_of_organisms() * soft_core:
+            soft.add(fam)
+        if len(fam.organisms) == pan.number_of_organisms():
+            core.add(fam)
+    
+    with write_compressed_or_not(output + "/organisms_statistics.tsv", compress) as outfile:
+        outfile.write(f"#soft_core={round(soft_core,3)}\n")
+        outfile.write(f"#duplication_margin={round(dup_margin,3)}\n")
+        outfile.write("\t".join(["organism","nb_families","nb_persistent_families","nb_shell_families","nb_cloud_families","nb_exact_core","nb_soft_core","nb_genes","nb_persistent_genes","nb_shell_genes","nb_cloud_genes","nb_exact_core_genes","nb_soft_core_genes","completeness","nb_single_copy_markers"]) + "\n")
+        
+        for org in pan.organisms:
+            fams = org.families
+            nb_pers = 0
+            nb_shell = 0
+            nb_cloud = 0
+            for fam in fams:
+                if fam.namedPartition == "persistent":
+                    nb_pers+=1
+                elif fam.namedPartition == "shell":
+                    nb_shell+=1
+                else:
+                    nb_cloud+=1
+            
+            nb_gene_pers = 0
+            nb_gene_shell = 0
+            nb_gene_soft = 0
+            nb_gene_cloud = 0
+            nb_gene_core = 0
+            for gene in org.genes:
+                if gene.family.namedPartition == "persistent":
+                    nb_gene_pers +=1
+                elif gene.family.namedPartition == "shell":
+                    nb_gene_shell +=1
+                else:
+                    nb_gene_cloud += 1
+                if gene.family in soft:
+                    nb_gene_soft+=1
+                    if gene.family in core:
+                        nb_gene_core+=1
+
+            outfile.write("\t".join(map(str,[org.name,
+                                    len(fams),
+                                    nb_pers,
+                                    nb_shell,
+                                    nb_cloud,
+                                    len(core & fams),
+                                    len(soft & fams),
+                                    org.number_of_genes(),
+                                    nb_gene_pers,
+                                    nb_gene_shell,
+                                    nb_gene_cloud,
+                                    nb_gene_core,
+                                    nb_gene_soft,
+                                    round((len(fams & single_copy_markers) / len(single_copy_markers))*100,2),
+                                    len(fams & single_copy_markers)])) + "\n")
+
+    logging.getLogger().info("Done writing genome per genome statistics")
+
+def writeOrgFile(org, output, compress=False):
+    with write_compressed_or_not(output + "/" + org.name + ".tsv",compress) as outfile:
+        outfile.write("\t".join(["gene","contig","start","stop","strand","ori","family","nb_copy_in_org","partition","persistent_neighbors","shell_neighbors","cloud_neighbors"]) + "\n")
+        for contig in org.contigs:
+            for gene in contig.genes:
+                nb_pers = 0
+                nb_shell = 0
+                nb_cloud = 0
+                for neighbor in gene.family.neighbors:
+                    if neighbor.namedPartition == "persistent":
+                        nb_pers+=1
+                    elif neighbor.namedPartition == "shell":
+                        nb_shell+=1
+                    else:
+                        nb_cloud+=1
+                outfile.write("\t".join(map(str,[gene.ID,
+                                        contig.name,
+                                        gene.start,
+                                        gene.stop,
+                                        gene.strand,
+                                        "T" if (gene.name.upper() == "DNAA" or gene.product.upper() == "DNAA") else "F",
+                                        gene.family.name, 
+                                        len(gene.family.getGenesPerOrg(org)),
+                                        gene.family.namedPartition,
+                                        nb_pers,
+                                        nb_shell,
+                                        nb_cloud
+                                        ])) + "\n")
+
+def writeProjections(output, compress=False):
+    logging.getLogger().info("Writing the projection files...")
+    outdir = output+"/projection"
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    for org in pan.organisms:
+        writeOrgFile(org, outdir, compress)
+    logging.getLogger().info("Done writing the projection files")
+
+
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, compress = False):
     global pan
     pan = pangenome
     processes = []
-    if any(x for x in [csv, genePA, gexf, light_gexf, projection]):
+    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats]):
         #then it's useful to load the pangenome.
         checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True)
-        if not pan.status["partitionned"] in ["Loaded","Computed"] and (light_gexf or gexf or csv) :
+        if not pan.status["partitionned"] in ["Loaded","Computed"] and (light_gexf or gexf or csv or projection) :
             raise Exception("The provided pangenome has not been partitionned. This is not compatible with any of the following options : --light_gexf, --gexf, --csv")
         pan.getIndex()#make the index because it will be used most likely
         with Pool(processes = cpu) as p:
@@ -227,6 +353,10 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, csv=False, gene
                 processes.append(p.apply_async(func = writeGEXF, args = (output, False, soft_core, compress)))
             if light_gexf:
                 processes.append(p.apply_async(func = writeGEXF, args = (output, True, soft_core, compress)))
+            if projection:
+                processes.append(p.apply_async(func=writeProjections, args=(output, compress)))
+            if stats:
+                processes.append(p.apply_async(func=writeStats, args=(output, soft_core, dup_margin, compress)))
             for process in processes:
                 process.get()#get all the results
 
@@ -234,18 +364,20 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.compress)
+    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.compress)
 
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write",help = "Writes 'flat' files representing the pangenome that can be used with other softwares", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("--soft_core",required=False, default = 0.95, help = "Soft core threshold to use")
+    optional.add_argument("--dup_margin", required=False, default=0.05, help = "minimum ratio of organisms in which the family must have multiple genes for it to be considered 'duplicated'")
     optional.add_argument("--gexf",required = False, action = "store_true", help = "write a gexf file with all the annotations and all the genes of each gene family")
     optional.add_argument("--light_gexf",required = False, action="store_true",help = "write a gexf file with the gene families and basic informations about them")
     optional.add_argument("--csv", required=False, action = "store_true",help = "csv file format as used by Roary, among others. The alternative gene ID will be the partition, if there is one")
     optional.add_argument("--Rtab", required=False, action = "store_true",help = "tabular file for the gene binary presence absence matrix")
     optional.add_argument("--projection", required=False, action = "store_true",help = "a csv file for each organism providing informations on the projection of the graph on the organism")
+    optional.add_argument("--stats",required=False, action = "store_true",help = "tsv files with some statistics for each organism and/or for each gene family")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")

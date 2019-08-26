@@ -432,7 +432,7 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
         cpt+=1
         logging.getLogger().info(f"Partitionned {len(organisms)} genomes in {round(time.time() - start_partitionning,2)} seconds.")
 
-    pangenome.savePartitionParameters(Q, beta, free_dispersion, sm_degree, partitionning_results[1], chunk_size)
+    # pangenome.savePartitionParameters(Q, beta, free_dispersion, sm_degree, partitionning_results[1], chunk_size)
 
     for famName, partition in partitionning_results[0].items():
         pangenome.getGeneFamily(famName).partition = partition

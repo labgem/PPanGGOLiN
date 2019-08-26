@@ -3,7 +3,6 @@
 
 #default libraries
 from collections import defaultdict
-
 #installed libraries
 import gmpy2
 
@@ -169,16 +168,22 @@ class Pangenome:
     def organisms(self):
         return self._orgGetter.values()
 
+    def number_of_organisms(self):
+        return len(self._orgGetter)
+
+    def number_of_geneFamilies(self):
+        return len(self._famGetter)
+
     def _yield_genes(self):
         """
             Use a generator to get all the genes of a pangenome
         """
-        if len(self.organisms) > 0:#if we have organisms, they're supposed to have genes
-            for org in self._orgGetter.values():
+        if self.number_of_organisms() > 0:#if we have organisms, they're supposed to have genes
+            for org in self.organisms:
                 for contig in org.contigs:
                      for gene in contig.genes:
                          yield gene
-        elif len(self.geneFamilies) > 0:
+        elif self.number_of_geneFamilies() > 0:
             for geneFam in self.geneFamilies:
                 for gene in geneFam.genes:
                     yield gene

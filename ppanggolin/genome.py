@@ -71,7 +71,7 @@ class Contig:
 
     @property
     def genes(self):
-        return self._genes_start.values()
+        return self._genes_position
 
     def __str__(self):
         return self.name
@@ -115,8 +115,23 @@ class Organism:
         self._contigs_getter = {}
 
     @property
+    def families(self):
+        """returns the gene families present in the organism"""
+        return { gene.family for contig in self.contigs for gene in contig.genes }
+
+    @property
+    def genes(self):
+        for contig in self.contigs:
+            for gene in contig.genes:
+                yield gene
+
+    def number_of_genes(self):
+        return sum([len(list(contig.genes)) for contig in self.contigs])
+
+
+    @property
     def contigs(self):
-        return set(self._contigs_getter.values())
+        return self._contigs_getter.values()
 
     def __str__(self):
         return self.name
