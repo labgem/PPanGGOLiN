@@ -193,6 +193,15 @@ def checkPangenomeForClustering(pangenome, tmpFile, force):
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster the genes in gene families. Either provide clustering results (see --clusters), or provide a way to access the gene sequence during the annotation step (having the fasta in the gff files, or providing the fasta files through the --fasta option)")
 
 
+def inferSingletons(pangenome):
+    """creates a new family for each gene with no associated family"""
+    singletonCounter = 0
+    for gene in pangenome.genes:
+        if gene.family is None:
+            pangenome.addGeneFamily(gene.ID).addGene(gene)
+            singletonCounter+=1
+    logging.getLogger().info(f"Inferred {singletonCounter} singleton families")
+
 def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", force = False):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
@@ -260,9 +269,9 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
             raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step. Please ensure that the annotations that you loaded previously and the clustering results that you have use the same gene IDs.")
         else:
             if infer_singletons:
-                raise NotImplementedError()
+                inferSingletons(pangenome)
             else:
-                raise Exception("Some genes did not have an associated cluster. Either change your cluster file so that each gene has a cluster, or use the --infer_singletons option to infer a lone cluster for each non-clustered gene.")
+                raise Exception("Some genes did not have an associated cluster. Either change your cluster file so that each gene has a cluster, or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
     pangenome.status["genesClustered"] = "Computed"
     if frag:#if there was fragment informations in the file.
         pangenome.status["defragmented"] = "Computed"
@@ -285,7 +294,7 @@ def clusterSubparser(subparser):
     optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associated potential fragments with their original gene family.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument('--clusters', required = False, type = str, help = "A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
-    optional.add_argument("--infer_singletons",required=False,type=str, help = "When reading a clustering result with --clusters, if a gene is not in the provided file it will be placed in a cluster where the gene is the only member.")
+    optional.add_argument("--infer_singletons",required=False, action="store_true", help = "When reading a clustering result with --clusters, if a gene is not in the provided file it will be placed in a cluster where the gene is the only member.")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser

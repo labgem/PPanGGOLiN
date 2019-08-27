@@ -69,9 +69,6 @@ class GeneFamily:
         else:
             return "undefined"
 
-    def __str__(self):
-        return str(self.ID)
-
     def addGene(self, gene):
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")

@@ -328,12 +328,13 @@ def writePangenome(pangenome, filename, force):
     h5f = tables.open_file(filename,"a", filters=compressionFilter)
 
     if pangenome.status["geneSequences"] == "Computed":
-        logging.getLogger().info("writing the protein coding genes dna sequences")
+        logging.getLogger().info("writing the protein coding gene dna sequences")
         writeGeneSequences(pangenome, h5f)
 
     if pangenome.status["genesClustered"] == "Computed":
         logging.getLogger().info("Writing gene families and gene associations...")
         writeGeneFamilies(pangenome, h5f, force)
+        logging.getLogger().info("Writing gene families information...")
         writeGeneFamInfo(pangenome, h5f, force)
         if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and pangenome.status["defragmented"] == "Computed":
             #if the annotations have not been computed in this run, and there has been a clustering with defragmentation, then the annotations can be updated
