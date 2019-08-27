@@ -17,7 +17,7 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.utils import read_compressed_or_not
-from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile
+from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, ErasePangenome
 
 def alignRep(faaFile, tmpdir, cpu):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir.name)#create a tmpdir in the tmpdir provided.
@@ -172,10 +172,18 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj):
     fileObj.flush()
     bar.close()
 
-def checkPangenomeForClustering(pangenome, tmpFile):
+def checkPangenomeFormerClustering(pangenome, force):
+    """ checks pangenome status and .h5 files for former clusterings, delete them if allowed or raise an error """
+    if pangenome.status["genesClustered"] == "inFile" and force == False:
+        raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to do that, use --force (it will erase everything except annotation data !)")
+    elif pangenome.status["genesClustered"] == "inFile" and force == True:
+        ErasePangenome(pangenome, geneFamilies = True)
+
+def checkPangenomeForClustering(pangenome, tmpFile, force):
     """
         Check the pangenome statuses and write the gene sequences in the provided tmpFile. (whether they are written in the .h5 file or currently in memory)
     """
+    checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed","Loaded"]:
         writeGeneSequencesFromAnnotations(pangenome, tmpFile)
     elif pangenome.status["geneSequences"] == "inFile":
@@ -184,11 +192,14 @@ def checkPangenomeForClustering(pangenome, tmpFile):
         tmpFile.close()#closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster the genes in gene families. Either provide clustering results (see --clusters), or provide a way to access the gene sequence during the annotation step (having the fasta in the gff files, or providing the fasta files through the --fasta option)")
 
-def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11"):
+
+def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", force = False):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
 
-    checkPangenomeForClustering(pangenome, tmpFile)
+    checkPangenomeForClustering(pangenome, tmpFile, force)
+
+
 
     logging.getLogger().info("Clustering all of the genes sequences...")
     rep, tsv = firstClustering(tmpFile, newtmpdir, cpu, code)
@@ -211,11 +222,12 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11"):
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
 
-def readClustering(pangenome, families_tsv_file):
+def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=False):
     """
         Creates the pangenome, the gene families and the genes with an associated gene family.
         Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
     """
+    checkPangenomeFormerClustering(pangenome, force)
     checkPangenomeInfo(pangenome, needAnnotations=True)
 
     logging.getLogger().info("Reading "+families_tsv_file+" the gene families file ...")
@@ -223,6 +235,7 @@ def readClustering(pangenome, families_tsv_file):
     families_tsv_file = read_compressed_or_not(families_tsv_file)
     frag = False
     #the genome annotations are necessarily loaded.
+    nbGeneWtFam = 0
     bar = tqdm(total = filesize, unit = "bytes")
     for line in families_tsv_file:
         bar.update(len(line))
@@ -234,6 +247,7 @@ def readClustering(pangenome, families_tsv_file):
 
         geneObj = pangenome.getGene(gene_id)
         if geneObj is not None:
+            nbGeneWtFam+=1
             fam = pangenome.addGeneFamily(fam_id)
             geneObj.is_fragment =  True if is_frag == "F" else False
             fam.addGene(geneObj)
@@ -241,6 +255,14 @@ def readClustering(pangenome, families_tsv_file):
             frag=True
     bar.close()
     families_tsv_file.close()
+    if nbGeneWtFam < len(pangenome.genes):#not all genes have an associated cluster
+        if nbGeneWtFam == 0:
+            raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step. Please ensure that the annotations that you loaded previously and the clustering results that you have use the same gene IDs.")
+        else:
+            if infer_singletons:
+                raise NotImplementedError()
+            else:
+                raise Exception("Some genes did not have an associated cluster. Either change your cluster file so that each gene has a cluster, or use the --infer_singletons option to infer a lone cluster for each non-clustered gene.")
     pangenome.status["genesClustered"] = "Computed"
     if frag:#if there was fragment informations in the file.
         pangenome.status["defragmented"] = "Computed"
@@ -250,10 +272,10 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.clusters is None:
-        clustering(pangenome, args.tmpdir, args.cpu, args.defrag, args.translation_table)
+        clustering(pangenome, args.tmpdir, args.cpu, args.defrag, args.translation_table, args.force)
         logging.getLogger().info("Done with the clustering")
     else:
-        readClustering(pangenome, args.clusters)
+        readClustering(pangenome, args.clusters, args.infer_singletons, args.force)
         logging.getLogger().info("Done reading the cluster file")
     writePangenome(pangenome, pangenome.file, args.force)
 
@@ -263,6 +285,7 @@ def clusterSubparser(subparser):
     optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associated potential fragments with their original gene family.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument('--clusters', required = False, type = str, help = "A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
+    optional.add_argument("--infer_singletons",required=False,type=str, help = "When reading a clustering result with --clusters, if a gene is not in the provided file it will be placed in a cluster where the gene is the only member.")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser

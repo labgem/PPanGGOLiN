@@ -279,6 +279,33 @@ def updateGeneFragments(pangenome, h5f):
     bar.close()
 
 
+def ErasePangenome(pangenome, graph=False, geneFamilies = False):
+    """ erases tables from a pangenome .h5 file """
+    compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
+    h5f = tables.open_file(pangenome.file,"a", filters=compressionFilter)
+    statusGroup = h5f.root.status
+
+    if '/edges' in h5f and (graph or geneFamilies):
+        logging.getLogger().info("Erasing the formerly computed edges")
+        h5f.remove_node("/","edges")
+        statusGroup._v_attrs.NeighborsGraph = False
+        pangenome.status["neighborsGraph"] = "No"
+    if '/geneFamilies' in h5f and geneFamilies:
+        logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
+        h5f.remove_node('/', 'geneFamilies')#erasing the table, and rewriting a new one.
+        pangenome.status["defragmented"] = "No"
+        pangenome.status["genesClustered"] = "No"
+        statusGroup._v_attrs.defragmented = False
+        statusGroup._v_attrs.genesClustered = False
+    if '/geneFamiliesInfo' in h5f and geneFamilies:
+        logging.getLogger().info("Erasing the formerly computed gene family representative sequences...")
+        h5f.remove_node('/', 'geneFamiliesInfo')#erasing the table, and rewriting a new one.
+        pangenome.status["partitionned"] = "No"
+        pangenome.status["geneFamilySequences"] = "No"
+        statusGroup._v_attrs.geneFamilySequences = False
+        statusGroup._v_attrs.Partitionned = False
+    h5f.close()
+
 def writePangenome(pangenome, filename, force):
     """
         Writes or updates a pangenome file

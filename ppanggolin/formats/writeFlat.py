@@ -377,7 +377,7 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--csv", required=False, action = "store_true",help = "csv file format as used by Roary, among others. The alternative gene ID will be the partition, if there is one")
     optional.add_argument("--Rtab", required=False, action = "store_true",help = "tabular file for the gene binary presence absence matrix")
     optional.add_argument("--projection", required=False, action = "store_true",help = "a csv file for each organism providing informations on the projection of the graph on the organism")
-    optional.add_argument("--stats",required=False, action = "store_true",help = "tsv files with some statistics for each organism and/or for each gene family")
+    optional.add_argument("--stats",required=False, action = "store_true",help = "tsv files with some statistics for each organism and for each gene family")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
