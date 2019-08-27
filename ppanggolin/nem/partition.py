@@ -404,7 +404,6 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                 args.append((i, tmpdir, beta,sm_degree, free_dispersion, Q, seed, init, keep_tmp_files))
 
             logging.getLogger().info("Launching NEM")
-
             with Pool(processes = cpu) as p:
                 #launch partitionnings
                 bar = tqdm(range(len(args)), unit = " samples partitionned")
@@ -416,7 +415,6 @@ def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"),
                 condition +=1#if len(validated) < pan_size, we will want to resample more.
                 p.close()
                 p.join()
-
         for fam, data in cpt_partition.items():
             partitionning_results[fam]=max(data, key=data.get)
 

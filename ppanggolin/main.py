@@ -29,6 +29,7 @@ import ppanggolin.workflow
 import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
+import ppanggolin.align
 
 def requirements():
     """
@@ -50,6 +51,7 @@ def cmdLine():
     subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
+    subs.append(ppanggolin.align.alignSubparser(subparsers))
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
     for sub in subs:#add options common to all subcommands
@@ -119,6 +121,8 @@ def main():
         ppanggolin.formats.launch(args)
     elif args.subcommand == "info":
         ppanggolin.info.printInfo(args.pangenome)
+    elif args.subcommand == "align":
+        ppanggolin.align.launch(args)
 
 if __name__ == "__main__":
     main()
