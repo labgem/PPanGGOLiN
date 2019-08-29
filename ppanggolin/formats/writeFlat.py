@@ -4,14 +4,11 @@
 #default libraries
 import argparse
 from multiprocessing import Pool
-import time
 from collections import Counter
 import logging
 import pkg_resources
 from statistics import median
 import os
-#installed libraries
-from tqdm import tqdm
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
@@ -98,7 +95,7 @@ def writeGEXFedges(gexf, light):
     edgeids = 0
     index = pan.getIndex()
 
-    for edge in pan.edges: 
+    for edge in pan.edges:
         gexf.write(f'      <edge id="{edgeids}" source="{edge.source.ID}" target="{edge.target.ID}" weight="{len(edge.organisms)}">\n')
         gexf.write(f'        <viz:thickness value="{len(edge.organisms)}" />\n')
         gexf.write('        <attvalues>\n')
@@ -368,7 +365,7 @@ def launch(args):
 
 
 def writeFlatSubparser(subparser):
-    parser = subparser.add_parser("write",help = "Writes 'flat' files representing the pangenome that can be used with other softwares", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("--soft_core",required=False, default = 0.95, help = "Soft core threshold to use")
     optional.add_argument("--dup_margin", required=False, default=0.05, help = "minimum ratio of organisms in which the family must have multiple genes for it to be considered 'duplicated'")

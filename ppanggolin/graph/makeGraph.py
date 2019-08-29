@@ -10,12 +10,20 @@ from tqdm import tqdm
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import getCurrentRAM
-from ppanggolin.formats import readPangenome, writePangenome
+from ppanggolin.formats import readPangenome, writePangenome, ErasePangenome
 
-def checkPangenomeForNeighborsGraph(pangenome):
+def checkPangenomeFormerGraph(pangenome, force):
+    """ checks pangenome status and .h5 files for former neighbors graph, delete it if allowed or raise an error """
+    if pangenome.status["neighborsGraph"] == "inFile" and force == False:
+        raise Exception("You are trying to make a neighbors graph that is already built. If you REALLY want to do that, use --force (it will erase everything except annotation data !)")
+    elif pangenome.status["neighborsGraph"] == "inFile" and force == True:
+        ErasePangenome(pangenome, graph = True)
+
+def checkPangenomeForNeighborsGraph(pangenome, force):
     """
         Checks the pangenome for neighbors graph computing.
     """
+    checkPangenomeFormerGraph(pangenome, force)
     if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] and pangenome.status["genesClustered"] in ["Computed","Loaded"]:
         pass#nothing to do, can just continue.
     elif pangenome.status["genomesAnnotated"] == "inFile" and pangenome.status["genesClustered"] == "inFile":
@@ -26,11 +34,23 @@ def checkPangenomeForNeighborsGraph(pangenome):
         msg+=" User : I have no idea how you got there. You probably did something unexpected. Contact the devs (or try something else).\n"
         raise NotImplementedError(msg)
 
-def computeNeighborsGraph(pangenome):
+def remove_high_copy_number(pangenome, number):
+    """ removes families present more than 'number' times from the pangenome graph"""
+    for fam in pangenome.geneFamilies:
+        for gene_list in fam.getOrgDict().values():
+            if len(gene_list) >= number:
+                fam.removed = True
+
+
+def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False):
     """
         Creates the Pangenome Graph. Will either load the informations from the pangenome file if they are not loaded, or use the informations loaded if they are.
     """
-    checkPangenomeForNeighborsGraph(pangenome)
+    checkPangenomeForNeighborsGraph(pangenome, force)
+
+    if remove_copy_number > 0 :
+        remove_high_copy_number(pangenome, remove_copy_number)
+
     logging.getLogger().info("Computing the neighbors graph...")
     bar = tqdm(pangenome.organisms, total = len(pangenome.organisms), unit = "organism")
     for org in bar:
@@ -39,10 +59,11 @@ def computeNeighborsGraph(pangenome):
         for contig in org.contigs:
             prev = None
             for gene in contig.genes:
-                if prev is not None and not gene.family.removed:
-                    if not (prev.family == gene.family and (prev.is_fragment or gene.is_fragment)):
-                        pangenome.addEdge(gene, prev)
-                prev = gene
+                if not gene.family.removed:
+                    if prev is not None:
+                        if not (prev.family == gene.family and (prev.is_fragment or gene.is_fragment)):
+                            pangenome.addEdge(gene, prev)
+                    prev = gene
             if contig.is_circular:
                 pangenome.addEdge(contig.genes[0],prev)
     logging.getLogger().info("Done making the neighbors graph.")
@@ -50,8 +71,6 @@ def computeNeighborsGraph(pangenome):
 
 
 def launch(args):
-    if args.remove_high_copy_number_families != 0:
-        raise NotImplementedError()
     logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
