@@ -27,6 +27,7 @@ from ppanggolin.utils import mkOutdir
 from ppanggolin.formats import checkPangenomeInfo
 import ppanggolin.nem.partition as ppp#import this way to use the global variable pan defined in ppanggolin.nem.partition
 
+global samples
 
 def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qrange, seed):
     samp = samples[index]
