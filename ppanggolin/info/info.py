@@ -20,7 +20,7 @@ def printInfo(pangenomeFile):
 
 
 def infoSubparser(subparser):
-    parser = subparser.add_parser("info",help = "Prints information about a given pangenome graph file", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = subparser.add_parser("info", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     required = parser.add_argument_group(title = "Required arguments", description = "The following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser

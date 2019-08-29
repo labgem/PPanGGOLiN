@@ -55,14 +55,14 @@ def launch(args):
     logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    computeNeighborsGraph(pangenome)
+    computeNeighborsGraph(pangenome, args.remove_high_copy_number, args.force)
     writePangenome(pangenome, pangenome.file, args.force)
 
 
 def graphSubparser(subparser):
-    parser = subparser.add_parser("graph",help = "Create the pangenome graph")
+    parser = subparser.add_parser("graph")
     parser.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    parser.add_argument('-r', '--remove_high_copy_number_families', type=int, default=0, help="""
+    parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0, help="""
     Positive Number: Remove families having a number of copy of gene in a single organism above or equal to this threshold in at least one organism (0 or negative values are ignored).
     """)
     return parser

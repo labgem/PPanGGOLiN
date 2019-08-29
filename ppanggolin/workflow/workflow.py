@@ -62,7 +62,7 @@ def launch(args):
     writePangenome(pangenome, filename, args.force)
 
 def workflowSubparser(subparser):
-    parser = subparser.add_parser("workflow",help = "Easy workflow to run a pangenome analysis in one go without parameter tuning")
+    parser = subparser.add_parser("workflow")
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")

@@ -21,7 +21,7 @@ def launch(args):
         drawUCurve(pangenome, args.output, soft_core = args.soft_core)
 
 def figureSubparser(subparser):
-    parser = subparser.add_parser("draw",help = "Draw figures representing the pangenome through different aspects", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = subparser.add_parser("draw", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
 
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")

@@ -360,7 +360,7 @@ def launch(args):
                         soft_core = args.soft_core)
 
 def evolutionSubparser(subparser):
-    parser = subparser.add_parser("evolution",help = "Compute the evolution curve of the pangenome", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = subparser.add_parser("evolution", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
     optional.add_argument("--depth",required=False, default = 30, type=int, help = "Number of samplings at each sampling point")

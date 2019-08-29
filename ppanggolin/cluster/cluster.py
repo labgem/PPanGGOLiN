@@ -289,7 +289,7 @@ def launch(args):
     writePangenome(pangenome, pangenome.file, args.force)
 
 def clusterSubparser(subparser):
-    parser = subparser.add_parser("cluster",help = "Cluster proteins in protein families", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = subparser.add_parser("cluster", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associated potential fragments with their original gene family.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")

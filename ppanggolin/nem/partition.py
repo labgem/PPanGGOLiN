@@ -453,7 +453,7 @@ def launch(args):
     writePangenome(pangenome,pangenome.file, args.force)
 
 def partitionSubparser(subparser):
-    parser = subparser.add_parser("partition",help = "Partition the pangenome graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = subparser.add_parser("partition", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
     optional.add_argument("-ms","--max_degree_smoothing",required = False, default = float("inf"), help = "max. degree of the nodes to be included in the smoothing process.")

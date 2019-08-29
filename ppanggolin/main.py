@@ -38,10 +38,32 @@ def requirements():
     pass
 
 def cmdLine():
-    parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    #need to manually write the description so that it's displayed into groups of subcommands ....
+    desc = "\n"
+    desc += "  Basic:\n"
+    desc += "    workflow      Easy workflow to run a pangenome analysis in one go without parameter tuning\n"
+    desc += "  \n"
+    desc += "  Expert:\n"
+    desc += "    annotate      Annotate genomes\n"
+    desc += "    cluster       Cluster proteins in protein families\n"
+    desc += "    graph         Create the pangenome graph\n"
+    desc += "    partition     Partition the pangenome graph\n"
+    desc += "    evolution     Compute the evolution curve of the pangenome\n"
+    desc += "  \n"
+    desc += "  Output:\n"
+    desc += "    draw          Draw figures representing the pangenome through different aspects\n"
+    desc += "    write         Writes 'flat' files representing the pangenome that can be used with other softwares\n"
+    desc += "    info          Prints information about a given pangenome graph file\n"
+    desc += "  \n"
+    desc += "  Specific analysis:\n"
+    desc += "    align        aligns proteins to the pangenome gene families representatives\n"
+
+    parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
-    subparsers = parser.add_subparsers( metavar = "", dest="subcommand")
+    subparsers = parser.add_subparsers( metavar = "", dest="subcommand", title="subcommands", description = desc)
     subparsers.required = True#because python3 sent subcommands to hell apparently
+
     subs = []#subparsers
     subs.append(ppanggolin.annotate.syntaSubparser(subparsers))
     subs.append(ppanggolin.cluster.clusterSubparser(subparsers))
