@@ -170,7 +170,7 @@ def read_fasta(org, fnaFile):
         contigs[contig.name] = contig_seq
     return contigs
 
-def write_tmp_fasta(contigs, tmpdir = "/dev/shm"):
+def write_tmp_fasta(contigs, tmpdir ):
     """
         Writes a temporary fna formated file, and returns the file-like object.
 
@@ -249,7 +249,7 @@ def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna,
     fastaFile = read_compressed_or_not(fileName)
     contigSequences = read_fasta(org, fastaFile)
     if is_compressed(fileName):
-        fastaFile = write_tmp_fasta(contigSequences)
+        fastaFile = write_tmp_fasta(contigSequences, tmpdir)
 
     genes = syntaxic_annotation(org, fastaFile, norna, kingdom, code)
     genes = overlap_filter(genes, contigSequences, overlap)

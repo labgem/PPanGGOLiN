@@ -330,7 +330,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Qr
         out_plotly.plot(fig, filename=outputdir+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
     return ChosenQ
 
-def partition(pangenome, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=-1, Qrange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, tmpdir="/dev/shm", seed = 42, keep_tmp_files = False):
+def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=-1, Qrange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
 
     Qrange = Qrange or [3,21]
     global pan
@@ -449,7 +449,7 @@ def launch(args):
         mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    partition(pangenome, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.qrange, args.ICL_margin, args.draw_ICL, args.cpu, args.tmpdir, args.seed, args.keep_tmp_files)
+    partition(pangenome, args.tmpdir, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.qrange, args.ICL_margin, args.draw_ICL, args.cpu, args.seed, args.keep_tmp_files)
     writePangenome(pangenome,pangenome.file, args.force)
 
 def partitionSubparser(subparser):

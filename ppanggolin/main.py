@@ -4,14 +4,14 @@
 
 #default libraries
 import sys
-assert sys.version_info >= (3, 6)#minimum is python3.6
+if sys.version_info < (3, 6):#minimum is python3.6
+    raise AssertionError("Minimum python version to run PPanGGOLiN is 3.6. Your current python version is " + ".".join(map(str,sys.version_info)))
 import argparse
 import logging
 import resource
 import pkg_resources
-
+import tempfile
 #libraries to be installed
-# from tqdm import tqdm
 import psutil
 
 try:
@@ -78,12 +78,12 @@ def cmdLine():
 
     for sub in subs:#add options common to all subcommands
         common = sub.add_argument_group(title = "Common options")
-        common.add_argument("--tmpdir", required=False, type=str, default="/dev/shm", help = "directory for storing temporary files (default : /dev/shm)")
+        common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(), help = "directory for storing temporary files")
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
         common.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
-        common.add_argument("--memory", required=False, type=int, default=int(4 * psutil.virtual_memory().total / 5), help="Max amount of allowed RAM in Bytes. Default is 4/5 of the system's RAM. Will work only for the python part of the program. The C part might use more without raising an error.")
+        common.add_argument("--memory", required=False, type=int, default=int(4 * psutil.virtual_memory().total / 5), help="Max amount of allowed RAM in Bytes. Default is 4/5 of the system's RAM. Will work only for graph generation part of the program. The C parts and multiprocessed parts might use more without raising an error")
 
         if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
             sub.print_help()

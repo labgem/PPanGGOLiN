@@ -73,7 +73,7 @@ def projectPartition(prot2pang, protSet, output):
             partProjFile.write(remainingProt + "\tcloud\n")#if there is no hit, it's going to be cloud genes.
     return partitionProj
 
-def align(pangenome, proteinFile, output, tmpdir = "/dev/shm", identity = 0.8, coverage=0.8, defrag = False, cpu = 1):
+def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1):
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
     checkPangenomeInfo(pangenome, needFamilies=True)

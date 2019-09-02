@@ -5,6 +5,7 @@
 import logging
 import os
 import time
+import argparse
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
@@ -18,9 +19,7 @@ from ppanggolin.formats import writePangenome, writeFlatFiles
 from ppanggolin.figures import drawTilePlot, drawUCurve
 ### a global workflow that does everything in one go.
 
-
 def launch(args):
-
     pangenome = Pangenome()
     logging.getLogger().info(f"Starting RAM : {getCurrentRAM()}")
     filename = mkFilename(args.basename, args.output, args.force)
@@ -50,7 +49,7 @@ def launch(args):
 
     computeNeighborsGraph(pangenome)
     logging.getLogger().info(f"post making the graph : {getCurrentRAM()}")
-    partition(pangenome, cpu = args.cpu, tmpdir = args.tmpdir)
+    partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
     logging.getLogger().info(f"post partitionning : {getCurrentRAM()}")
     makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
 
@@ -62,7 +61,7 @@ def launch(args):
     writePangenome(pangenome, filename, args.force)
 
 def workflowSubparser(subparser):
-    parser = subparser.add_parser("workflow")
+    parser = subparser.add_parser("workflow", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
