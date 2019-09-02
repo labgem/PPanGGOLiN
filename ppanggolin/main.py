@@ -92,10 +92,9 @@ def cmdLine():
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
-    try:
+    if "argcomplete" in sys.modules:
         argcomplete.autocomplete(parser)
-    except NameError:
-        pass
+
     args = parser.parse_args()
     if args.subcommand == "annotate":
         if args.fasta is None and args.gff is None:
@@ -142,7 +141,7 @@ def main():
     elif args.subcommand == "write":
         ppanggolin.formats.launch(args)
     elif args.subcommand == "info":
-        ppanggolin.info.printInfo(args.pangenome)
+        ppanggolin.info.printInfo(args)
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
 

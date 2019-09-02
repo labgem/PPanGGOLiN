@@ -179,6 +179,23 @@ def readAnnotation(pangenome, h5f, filename):
     bar.close()
     pangenome.status["genomesAnnotated"] = "Loaded"
 
+def readInfo(h5f):
+    if "/info" in h5f:
+        infoGroup = h5f.root.info
+
+        print(f"Genes : {infoGroup._v_attrs['numberOfGenes']}")
+        if "numberOfOrganisms" in infoGroup._v_attrs._f_list():
+            print(f"Organisms : {infoGroup._v_attrs['numberOfOrganisms']}")
+        if "numberOfClusters" in infoGroup._v_attrs._f_list():
+            print(f"Families : {infoGroup._v_attrs['numberOfClusters']}")
+        if "numberOfEdges" in infoGroup._v_attrs._f_list():
+            print(f"Edges : {infoGroup._v_attrs['numberOfEdges']}")
+        if 'numberOfCloud' in infoGroup._v_attrs._f_list():
+            print(f"Persistent : {infoGroup._v_attrs['numberOfPersistent']}")
+            print(f"Shell : {infoGroup._v_attrs['numberOfShell']}")
+            print(f"Cloud : {infoGroup._v_attrs['numberOfCloud']}")
+            print(f"Number of partitions : {infoGroup._v_attrs['numberOfPartitions']}")
+
 def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False):
     """
         Reads a previously written pangenome, with all of its parts, depending on what is asked.

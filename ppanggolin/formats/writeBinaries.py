@@ -3,6 +3,7 @@
 
 #default libraries
 import logging
+from collections import Counter
 
 #installed libraries
 from tqdm import tqdm
@@ -255,6 +256,29 @@ def writeStatus(pangenome, h5f):
     statusGroup._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed","Loaded","inFile"] else False
 
 
+def writeInfo(pangenome, h5f):
+    if "/info" in h5f:
+        infoGroup = h5f.root.info
+    else:
+        infoGroup = h5f.create_group("/","info","Informations about the pangenome's content")
+    if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"]:
+        infoGroup._v_attrs.numberOfGenes = len(pangenome.genes)
+        infoGroup._v_attrs.numberOfOrganisms = len(pangenome.organisms)
+    if pangenome.status["genesClustered"] in ["Computed","Loaded"]:
+        infoGroup._v_attrs.numberOfClusters = len(pangenome.geneFamilies)
+    if pangenome.status["neighborsGraph"] in ["Computed","Loaded"]:
+        infoGroup._v_attrs.numberOfEdges = len(pangenome.edges)
+    if pangenome.status["partitionned"] in ["Computed","Loaded"]:
+        namedPartCounter = Counter()
+        partSet = set()
+        for fam in pangenome.geneFamilies:
+            namedPartCounter[fam.namedPartition] +=1
+            partSet.add(fam.partition)
+        infoGroup._v_attrs.numberOfPersistent = namedPartCounter["persistent"]
+        infoGroup._v_attrs.numberOfShell = namedPartCounter["shell"]
+        infoGroup._v_attrs.numberOfCloud = namedPartCounter["cloud"]
+        infoGroup._v_attrs.numberOfPartitions = len(partSet)
+
 def updateGeneFamPartition(pangenome, h5f):
     logging.getLogger().info("Updating gene families with partition information")
     table = h5f.root.geneFamiliesInfo
@@ -320,9 +344,8 @@ def writePangenome(pangenome, filename, force):
         h5f.close()
     elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
         pass
-
     else:#if the pangenome is not Computed not Loaded, it's probably not really in a good state ( or something new was coded).
-        raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. Dev's contact is ggautrea [at] genoscope [dot] cns [dot] fr.")
+        raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. Please post an issue on github with what you did to reach this error.")
 
     #from there, appending to existing file.
     h5f = tables.open_file(filename,"a", filters=compressionFilter)
@@ -347,5 +370,7 @@ def writePangenome(pangenome, filename, force):
         updateGeneFamPartition(pangenome, h5f)
 
     writeStatus(pangenome, h5f)
+    writeInfo(pangenome, h5f)
+
     h5f.close()
     logging.getLogger().info(f"Done writing the pangenome. It is in file : {filename}")
