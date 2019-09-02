@@ -215,7 +215,7 @@ def launch(args):
     writePangenome(pangenome, filename, args.force)
 
 def syntaSubparser(subparser):
-    parser = subparser.add_parser("annotate",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = subparser.add_parser("annotate", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument('--overlap', required=False, action='store_false',default=True, help="Use to not remove genes overlapping with RNA features.")

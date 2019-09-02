@@ -77,7 +77,7 @@ def align(pangenome, proteinFile, output, tmpdir = "/dev/shm", identity = 0.8, c
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
     checkPangenomeInfo(pangenome, needFamilies=True)
-    
+
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
 
@@ -86,7 +86,7 @@ def align(pangenome, proteinFile, output, tmpdir = "/dev/shm", identity = 0.8, c
     with read_compressed_or_not(proteinFile) as protFileObj:
         protSet = getProt(protFileObj)
         alignFile = alignProtToPang(tmpPangFile, protFileObj, output, newtmpdir, cpu, defrag, identity, coverage)
-    
+
     prot2pang = readAlignments(alignFile, pangenome)
     partProj = projectPartition(prot2pang, protSet, output)
 

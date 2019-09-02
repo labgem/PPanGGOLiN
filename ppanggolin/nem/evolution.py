@@ -250,9 +250,9 @@ def drawCurve(output, maxSampling, data):
 
 def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
 
-    
+
     ppp.pan = pangenome#use the global from partition to store the pangenome, so that it is usable
-    
+
     qrange = qrange or [3,21]
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
 
@@ -318,7 +318,7 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSamp
     args = []
     for index, samp in enumerate(samples):
         args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qrange, seed))
-    
+
     with Pool(processes = cpu) as p:
         #launch partitionnings
         logging.getLogger().info("Partitionning all samples...")

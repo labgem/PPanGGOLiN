@@ -18,6 +18,95 @@ from ppanggolin.formats import checkPangenomeInfo
 #global variable to store the pangenome
 pan = None
 
+def writeJSONheader(json):
+    json.write('{"directed": false, "multigraph": false,')
+    json.write(' "graph": {')
+    json.write(' "organisms": {')
+    orgstr = []
+    for org in pan.organisms:
+        orgstr.append('"'+org.name+'": {')
+        contigstr = []
+        for contig in org.contigs:
+            contigstr.append('"' + contig.name + '": {"is_circular": ' + ('true' if contig.is_circular else 'false')+'}')
+        orgstr[-1] += ', '.join(contigstr) + "}"
+
+    json.write(', '.join(orgstr) + "}")
+    ##if other things are to be written such as the parameters, write them here
+    json.write('},')
+
+def writeJSONGeneFam(geneFam, json):
+        json.write('{'+ f'"id": "{geneFam.name}", "nb_genes": {len(geneFam.genes)}, "partition": "{geneFam.namedPartition}", "subpartition": "{geneFam.partition}"')
+        orgDict = {}
+        name_counts = Counter()
+        product_counts = Counter()
+        length_counts = Counter()
+        for gene in geneFam.genes:
+            name_counts[gene.name] += 1
+            product_counts[gene.product] += 1
+            length_counts[gene.stop - gene.start] += 1
+            try:
+                orgDict[gene.organism][gene.contig].append(gene)
+            except KeyError:
+                try:
+                    orgDict[gene.organism][gene.contig] = [gene]
+                except KeyError:
+                    orgDict[gene.organism] = {gene.contig : [gene]}
+        json.write(f', "name": "{name_counts.most_common(1)[0][0]}", "product": "{product_counts.most_common(1)[0][0]}", "length": {length_counts.most_common(1)[0][0]}')
+        json.write(', "organisms": {')
+        orgstr = []
+        for org in orgDict:
+            orgstr.append('"' + org.name + '": {')
+            contigstr = []
+            for contig in orgDict[org]:
+                contigstr.append('"' + contig.name + '": {')
+                genestr = []
+                for gene in orgDict[org][contig]:
+                    genestr.append('"' + gene.ID + '": {' + f'"name": "{gene.name}", "product": "{gene.product}", "is_fragment": {"true" if gene.is_fragment else "false"}, "position": {gene.position}, "strand": "{gene.strand}", "end": {gene.stop}, "start": {gene.start}'+'}')
+                contigstr[-1] += ", ".join(genestr) + "}"
+            orgstr[-1] += ", ".join(contigstr) + "}"
+        json.write(", ".join(orgstr) + "}}")
+
+def writeJSONnodes(json):
+    json.write('"nodes": [')
+    famList = list(pan.geneFamilies)
+    firstFam = famList[0]
+    writeJSONGeneFam(firstFam, json)
+    for geneFam in famList[1:]:
+        json.write(', ')
+        writeJSONGeneFam(geneFam, json)
+    json.write(']')
+
+def writeJSONedge(edge, json):
+    json.write("{")
+    json.write(f'"weight": {len(edge.genePairs)}, "source": "{edge.source.name}", "target": "{edge.target.name}"')
+    json.write(', "organisms": {')
+    orgstr = []
+    for org in edge.getOrgDict():
+        orgstr.append('"' + org.name + '": [')
+        genepairstr = []
+        for genepair in  edge.getOrgDict()[org]:
+            genepairstr.append('{"source": "' + genepair[0].ID + '", "target": "' + genepair[1].ID + f'", "length": {genepair[0].start - genepair[1].stop}' + '}')
+        orgstr[-1] += ', '.join(genepairstr) + ']'
+    json.write(', '.join(orgstr) + "}}")
+
+def writeJSONedges(json):
+    json.write(', "links": [')
+    edgelist = list(pan.edges)
+    writeJSONedge(edgelist[0], json)
+    for edge in edgelist[1:]:
+        json.write(", ")
+        writeJSONedge(edge, json)
+    json.write(']')
+
+def writeJSON(output, compress):
+    logging.getLogger().info("Writing the json file for the pangenome graph...")
+    outname = output + "/pangenomeGraph.json"
+    with write_compressed_or_not(outname, compress) as json:
+        writeJSONheader(json)
+        writeJSONnodes(json)
+        writeJSONedges(json)
+        json.write("}")
+
 def writeGEXFheader(gexf, light):
     if not light:
         index = pan.getIndex()#has been computed already
@@ -38,7 +127,7 @@ def writeGEXFheader(gexf, light):
     if not light:
         for org, orgIndex in index.items():
             gexf.write(f'      <attribute id="{orgIndex + 12}" title="{org.name}" type="string" />\n')
-    
+
     gexf.write('    </attributes>\n')
     gexf.write('    <attributes class="edge" mode="static">\n')
     gexf.write('      <attribute id="11" title="nb_genes" type="long" />\n')
@@ -67,7 +156,7 @@ def writeGEXFnodes(gexf, light, soft_core = 0.95):
             product[gene.product] += 1
             gtype[gene.type] += 1
             l.append(gene.stop - gene.start)
-        
+
         gexf.write(f'      <node id="{fam.ID}" label="{fam.name}">\n')
         gexf.write(f'        <viz:color {colors[fam.namedPartition]} />\n')
         gexf.write(f'        <viz:size value="{len(fam.organisms)}" />\n')
@@ -238,12 +327,12 @@ def writeStats(output, soft_core, dup_margin, compress=False):
             soft.add(fam)
         if len(fam.organisms) == pan.number_of_organisms():
             core.add(fam)
-    
+
     with write_compressed_or_not(output + "/organisms_statistics.tsv", compress) as outfile:
         outfile.write(f"#soft_core={round(soft_core,3)}\n")
         outfile.write(f"#duplication_margin={round(dup_margin,3)}\n")
         outfile.write("\t".join(["organism","nb_families","nb_persistent_families","nb_shell_families","nb_cloud_families","nb_exact_core","nb_soft_core","nb_genes","nb_persistent_genes","nb_shell_genes","nb_cloud_genes","nb_exact_core_genes","nb_soft_core_genes","completeness","nb_single_copy_markers"]) + "\n")
-        
+
         for org in pan.organisms:
             fams = org.families
             nb_pers = 0
@@ -256,7 +345,7 @@ def writeStats(output, soft_core, dup_margin, compress=False):
                     nb_shell+=1
                 else:
                     nb_cloud+=1
-            
+
             nb_gene_pers = 0
             nb_gene_shell = 0
             nb_gene_soft = 0
@@ -313,7 +402,7 @@ def writeOrgFile(org, output, compress=False):
                                         gene.stop,
                                         gene.strand,
                                         "T" if (gene.name.upper() == "DNAA" or gene.product.upper() == "DNAA") else "F",
-                                        gene.family.name, 
+                                        gene.family.name,
                                         len(gene.family.getGenesPerOrg(org)),
                                         gene.family.namedPartition,
                                         nb_pers,
@@ -331,11 +420,11 @@ def writeProjections(output, compress=False):
     logging.getLogger().info("Done writing the projection files")
 
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, compress = False):
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, compress = False):
     global pan
     pan = pangenome
     processes = []
-    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats]):
+    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json]):
         #then it's useful to load the pangenome.
         checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True)
         if not pan.status["partitionned"] in ["Loaded","Computed"] and (light_gexf or gexf or csv or projection) :
@@ -354,6 +443,9 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
                 processes.append(p.apply_async(func=writeProjections, args=(output, compress)))
             if stats:
                 processes.append(p.apply_async(func=writeStats, args=(output, soft_core, dup_margin, compress)))
+            if json:
+                processes.append(p.apply_async(func=writeJSON, args=(output, compress)))
+
             for process in processes:
                 process.get()#get all the results
 
@@ -361,7 +453,7 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.compress)
+    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.compress)
 
 
 def writeFlatSubparser(subparser):
@@ -376,6 +468,7 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--projection", required=False, action = "store_true",help = "a csv file for each organism providing informations on the projection of the graph on the organism")
     optional.add_argument("--stats",required=False, action = "store_true",help = "tsv files with some statistics for each organism and for each gene family")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
+    optional.add_argument("--json", required=False, action = "store_true", help = "Writes the graph in a json file format")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o','--output', required=True, type=str, help="Output directory where the file(s) will be written")
