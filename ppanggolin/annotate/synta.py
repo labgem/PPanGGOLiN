@@ -51,7 +51,7 @@ def launch_aragorn(fnaFile, org):
     """
     locustag = org.name
     cmd = ["aragorn", "-t", "-gcbact", "-l", "-w", fnaFile]
-    p = Popen(cmd, stdout=PIPE)
+    p = Popen(" ".join(cmd), shell = True, stdout=PIPE)
     # loading the whole thing, reverting it to 'pop' in order.
     fileData = p.communicate()[0].decode().split("\n")[:: -1]
     geneObjs = defaultdict(set)
@@ -82,7 +82,7 @@ def launch_prodigal(fnaFile, org, code):
     """
     locustag = org.name
     cmd = ["prodigal", "-f", "sco","-g",code, "-m", "-c", "-i", fnaFile, "-p", "single", "-q"]
-    p = Popen(cmd, stdout=PIPE)
+    p = Popen(" ".join(cmd), shell = True, stdout=PIPE)
 
     geneObjs = defaultdict(set)
     c = 0
@@ -119,7 +119,7 @@ def launch_infernal(fnaFile, org, kingdom):
 
     tmpFile = tempfile.NamedTemporaryFile(mode="r", dir = "/dev/shm/")
     cmd = ["cmscan", "--tblout", tmpFile.name, "--hmmonly", "--cpu",str(1), "--noali", modelfile, fnaFile]
-    p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
+    p = Popen(" ".join(cmd), shell = True, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
     if err != []:
         if err[0] == 'Error: ':
