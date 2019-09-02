@@ -106,7 +106,7 @@ def launch_prodigal(fnaFile, org, code):
 
     return geneObjs
 
-def launch_infernal(fnaFile, org, kingdom):
+def launch_infernal(fnaFile, org, kingdom, tmpdir):
     """
         launches Infernal in hmmer-only mode to annotate rRNAs. Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
@@ -117,7 +117,7 @@ def launch_infernal(fnaFile, org, kingdom):
     elif kingdom == "archaea":
         modelfile = os.path.dirname(os.path.realpath(__file__)) + "/rRNA_DB/rRNA_arch.cm"
 
-    tmpFile = tempfile.NamedTemporaryFile(mode="r", dir = "/dev/shm/")
+    tmpFile = tempfile.NamedTemporaryFile(mode="r", dir = tmpdir)
     cmd = ["cmscan", "--tblout", tmpFile.name, "--hmmonly", "--cpu",str(1), "--noali", modelfile, fnaFile]
     p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
@@ -173,7 +173,6 @@ def read_fasta(org, fnaFile):
 def write_tmp_fasta(contigs, tmpdir ):
     """
         Writes a temporary fna formated file, and returns the file-like object.
-
         This is for the cases where the given file is compressed, then we write a temporary file for the annotation tools to read from. The file will be deleted when close() is called.
     """
     tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = tmpdir)
@@ -186,7 +185,7 @@ def write_tmp_fasta(contigs, tmpdir ):
     tmpFile.flush()  # force write what remains in the buffer.
     return tmpFile
 
-def syntaxic_annotation(org, fastaFile, norna, kingdom, code):
+def syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir):
     """
         Runs the different softwares for the syntaxic annotation.
 
@@ -202,7 +201,7 @@ def syntaxic_annotation(org, fastaFile, norna, kingdom, code):
     if not norna:
         for key, items in launch_aragorn(fastaFile.name, org).items():
             genes[key].extend(items)
-        for key, items in launch_infernal(fastaFile.name, org, kingdom).items():
+        for key, items in launch_infernal(fastaFile.name, org, kingdom, tmpdir).items():
             genes[key].extend(items)
     fastaFile.close()#closing either tmp file or original fasta file.
     return genes
@@ -251,7 +250,7 @@ def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna,
     if is_compressed(fileName):
         fastaFile = write_tmp_fasta(contigSequences, tmpdir)
 
-    genes = syntaxic_annotation(org, fastaFile, norna, kingdom, code)
+    genes = syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir)
     genes = overlap_filter(genes, contigSequences, overlap)
 
     for contigName, genes in genes.items():
@@ -266,4 +265,3 @@ def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna,
             elif isinstance(gene, RNA):
                 contig.addRNA(gene)
     return org
-
