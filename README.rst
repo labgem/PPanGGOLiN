@@ -280,3 +280,8 @@ will add to each edge of the partitioned pangenome graph, the label "phylogroup"
 
 Frequently Asked Questions
 ============================
+
+
+.. image:: https://api.codacy.com/project/badge/Grade/a24bff9354504a3294f4acf70681765a
+   :alt: Codacy Badge
+   :target: https://app.codacy.com/app/axbazin/PPanGGOLiN?utm_source=github.com&utm_medium=referral&utm_content=labgem/PPanGGOLiN&utm_campaign=Badge_Grade_Settings
