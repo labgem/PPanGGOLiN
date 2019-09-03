@@ -1,6 +1,12 @@
 PPanGGOLiN : Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors
 =========================================================================================
-
+.. image:: https://api.codacy.com/project/badge/Grade/a24bff9354504a3294f4acf70681765a
+   :alt: Codacy Badge
+   :target: https://app.codacy.com/app/axbazin/PPanGGOLiN?utm_source=github.com&utm_medium=referral&utm_content=labgem/PPanGGOLiN&utm_campaign=Badge_Grade_Settings
+ 
+.. image:: https://api.codacy.com/project/badge/Coverage/806fdcd8d04a469e8233728780576160    
+   :target: https://www.codacy.com/app/axbazin/PPanGGOLiN?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=labgem/PPanGGOLiN&amp;utm_campaign=Badge_Coverage
+ 
 .. image:: images/logo.png
 
 This tool compiles the genomic content of a species (A) also named a pangenome. It relies on a graph approach to model pangenomes in which nodes and edges represent families of homologous genes (B and C, not included in the pipeline) and chromosomal neighborhood information, respectively. This approach thus takes into account both graph topology (D.a) and occurrences of genes (D.b) to classify gene families into three partitions (i.e. *persistent genome*, *shell genome* and *cloud genome*) yielding to what we called Partitioned Pangenome Graphs (F). More precisely, the method depends upon an Expectation/Maximization algorithm based on Bernoulli Mixture Model (E.a) coupled with a Markov Random field (E.b).
