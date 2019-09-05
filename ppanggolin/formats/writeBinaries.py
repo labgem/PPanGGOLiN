@@ -270,14 +270,18 @@ def writeInfo(pangenome, h5f):
         infoGroup._v_attrs.numberOfEdges = len(pangenome.edges)
     if pangenome.status["partitionned"] in ["Computed","Loaded"]:
         namedPartCounter = Counter()
+        subpartCounter = Counter()
         partSet = set()
         for fam in pangenome.geneFamilies:
             namedPartCounter[fam.namedPartition] +=1
+            if fam.namedPartition == "shell":
+                subpartCounter[fam.partition] +=1
             partSet.add(fam.partition)
         infoGroup._v_attrs.numberOfPersistent = namedPartCounter["persistent"]
         infoGroup._v_attrs.numberOfShell = namedPartCounter["shell"]
         infoGroup._v_attrs.numberOfCloud = namedPartCounter["cloud"]
         infoGroup._v_attrs.numberOfPartitions = len(partSet)
+        infoGroup._v_attrs.numberOfSubpartitions = subpartCounter
 
 def updateGeneFamPartition(pangenome, h5f):
     logging.getLogger().info("Updating gene families with partition information")

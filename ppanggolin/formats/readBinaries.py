@@ -195,6 +195,9 @@ def readInfo(h5f):
             print(f"Shell : {infoGroup._v_attrs['numberOfShell']}")
             print(f"Cloud : {infoGroup._v_attrs['numberOfCloud']}")
             print(f"Number of partitions : {infoGroup._v_attrs['numberOfPartitions']}")
+            if infoGroup._v_attrs['numberOfPartitions'] != 3:
+                for key, val in infoGroup._v_attrs['numberOfSubpartitions'].items():
+                    print(f"Shell {key} : {val}")
 
 def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False):
     """

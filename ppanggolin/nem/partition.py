@@ -29,7 +29,6 @@ samples = []
 
 def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", keep_files = False, itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("run_partitioning...")
-
     if init=="param_file":
         with open(nem_dir_path+"/nem_file_init_"+str(Q)+".m", "w") as m_file:
             m_file.write("1 ")# 1 to initialize parameter,
