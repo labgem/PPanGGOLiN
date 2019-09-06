@@ -231,6 +231,13 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", force = Fal
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
 
+    pangenome.parameters["cluster"] = {}
+    pangenome.parameters["cluster"]["coverage"] = 0.80
+    pangenome.parameters["cluster"]["identity"] = 0.80
+    pangenome.parameters["cluster"]["defragmentation"] = defrag
+    pangenome.parameters["cluster"]["translation_table"] = code
+    pangenome.parameters["cluster"]["read_clustering_from_file"] = False
+
 def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=False):
     """
         Creates the pangenome, the gene families and the genes with an associated gene family.
@@ -275,6 +282,9 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
     pangenome.status["genesClustered"] = "Computed"
     if frag:#if there was fragment informations in the file.
         pangenome.status["defragmented"] = "Computed"
+    pangenome.parameters["cluster"] = {}
+    pangenome.parameters["cluster"]["read_clustering_from_file"] = True
+    pangenome.parameters["cluster"]["infer_singletons"] = infer_singletons
 
 def launch(args):
     """ launch the clustering step"""

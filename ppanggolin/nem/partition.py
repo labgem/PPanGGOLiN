@@ -348,11 +348,22 @@ def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = float
     if len(organisms) <= 10:
         logging.getLogger().warning(f"The number of selected organisms is too low ({len(organisms)} organisms used) to robustly partition the graph")
 
+
+    pangenome.parameters["partition"] = {}
+    pangenome.parameters["partition"]["beta"] = beta
+    pangenome.parameters["partition"]["free_dispersion"] = free_dispersion
+    pangenome.parameters["partition"]["max_node_degree_for_smoothing"] = sm_degree
+    if len(organisms) > chunk_size:
+        pangenome.parameters["partition"]["chunk_size"] = chunk_size
+    pangenome.parameters["partition"]["computed_Q"] = False
+
     if Q < 3:
+        pangenome.parameters["partition"]["computed_Q"] = True
         logging.getLogger().info("Estimating the optimal number of partitions...")
         Q = evaluate_nb_partitions( organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir)
         logging.getLogger().info(f"The number of partitions has been evaluated at {Q}")
 
+    pangenome.parameters["partition"]["Q"] = Q
     init = "param_file"
 
     partitionning_results = {}

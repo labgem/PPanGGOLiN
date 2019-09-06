@@ -69,6 +69,12 @@ def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False):
     logging.getLogger().info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"
 
+    pangenome.parameters["graph"] = {}
+    pangenome.parameters["graph"]["removed_high_copy_number_families"] = False
+    if remove_copy_number > 0:
+        pangenome.parameters["graph"]["removed_high_copy_number_families"] = True
+        pangenome.parameters["graph"]["removed_high_copy_number_of_families_above"] = remove_copy_number
+
 
 def launch(args):
     logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")

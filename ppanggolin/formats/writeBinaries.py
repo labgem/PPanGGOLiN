@@ -283,6 +283,8 @@ def writeInfo(pangenome, h5f):
         infoGroup._v_attrs.numberOfPartitions = len(partSet)
         infoGroup._v_attrs.numberOfSubpartitions = subpartCounter
 
+    infoGroup._v_attrs.parameters = pangenome.parameters#saving the pangenome parameters
+
 def updateGeneFamPartition(pangenome, h5f):
     logging.getLogger().info("Updating gene families with partition information")
     table = h5f.root.geneFamiliesInfo

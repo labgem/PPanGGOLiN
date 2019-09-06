@@ -132,6 +132,7 @@ class Pangenome:
                     'neighborsGraph':  "No",
                     'partitionned':  "No"
                 }
+        self.parameters = {}
 
     def savePartitionParameters(self, Q, beta, free_dispersion, smoothing_degree, partition_params, chunk_size):
         self.Q = Q

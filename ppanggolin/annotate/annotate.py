@@ -149,6 +149,8 @@ def readAnnotations(pangenome, organisms_file, getSeq = True):
         read_org_line(pangenome, elements[0], elements[1], elements[2:], getSeq)
     bar.close()
     pangenome.status["genomesAnnotated"] = "Computed"
+    pangenome.parameters["annotation"] = {}
+    pangenome.parameters["annotation"]["read_annotations_from_file"] = True
 
 def getGeneSequencesFromFastas(pangenome, fasta_file):
     fastaDict = {}
@@ -198,6 +200,12 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
     logging.getLogger().info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"#the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"#the gene objects have their respective gene sequences.
+    pangenome.parameters["annotation"] = {}
+    pangenome.parameters["annotation"]["remove_Overlapping_CDS"] = overlap
+    pangenome.parameters["annotation"]["annotate_RNA"] = True if not norna else False
+    pangenome.parameters["annotation"]["kingdom"] = kingdom
+    pangenome.parameters["annotation"]["translation_table"] = translation_table
+    pangenome.parameters["annotation"]["read_annotations_from_file"] = False
 
 def launch(args):
     filename = mkFilename(args.basename, args.output, args.force)
