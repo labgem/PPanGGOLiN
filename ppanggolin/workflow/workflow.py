@@ -23,14 +23,14 @@ def launch(args):
     pangenome = Pangenome()
     logging.getLogger().info(f"Starting RAM : {getCurrentRAM()}")
     filename = mkFilename(args.basename, args.output, args.force)
-    if args.gff:#if the gff is provided, we read annotations from it
+    if args.anno:#if the annotations are provided, we read from it
         getSeq = True
         if args.clusters is not None:
             getSeq = False
-        readAnnotations(pangenome, args.gff, getSeq)
+        readAnnotations(pangenome, args.anno, getSeq)
         logging.getLogger().info(f"post reading annotations : {getCurrentRAM()}")
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
-            raise Exception("The gff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
+            raise Exception("The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
 
         elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is not None:
             getGeneSequencesFromFastas(pangenome, args.fasta)
@@ -67,6 +67,6 @@ def workflowSubparser(subparser):
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
     required = parser.add_argument_group(title = "Input arguments", description = "The possible input arguments :")
     required.add_argument('--fasta',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism. This option can be used alone.")
-    required.add_argument('--gff', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
+    required.add_argument('--anno', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
     required.add_argument("--clusters",required=False, type=str, help = "a tab-separated file listing the cluster names, the gene IDs, and optionnally whether they are a fragment or not.")
     return parser
