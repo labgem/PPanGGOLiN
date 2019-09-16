@@ -329,7 +329,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Qr
         out_plotly.plot(fig, filename=outputdir+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
     return ChosenQ
 
-def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=-1, Qrange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
+def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = 10, free_dispersion=False, chunk_size=500, Q=-1, Qrange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
 
     Qrange = Qrange or [3,21]
     global pan
@@ -466,7 +466,7 @@ def partitionSubparser(subparser):
     parser = subparser.add_parser("partition", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
-    optional.add_argument("-ms","--max_degree_smoothing",required = False, default = float("inf"), help = "max. degree of the nodes to be included in the smoothing process.")
+    optional.add_argument("-ms","--max_degree_smoothing",required = False, default = 10, type=float, help = "max. degree of the nodes to be included in the smoothing process.")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("-fd","--free_dispersion",required = False, default = False, action = "store_true",help = "use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all organisms by default.")
     optional.add_argument("-ck","--chunk_size",required=False, default = 500, type = int, help = "Size of the chunks when performing partitionning using chunks of organisms. Chunk partitionning will be used automatically if the number of genomes is above this number.")

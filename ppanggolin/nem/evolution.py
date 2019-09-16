@@ -248,7 +248,7 @@ def drawCurve(output, maxSampling, data):
     out_plotly.plot(fig, filename=output+"/evolution_curve.html", auto_open=False)
     params_file.close()
 
-def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = float("inf"), free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
+def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = 10, free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
 
 
     ppp.pan = pangenome#use the global from partition to store the pangenome, so that it is usable
@@ -368,7 +368,7 @@ def evolutionSubparser(subparser):
     optional.add_argument("--min",required=False, default = 1, type=int, help = "Minimum number of organisms in a sample")
     optional.add_argument("--max", required= False, type=float, default = 100, help = "Maximum number of organisms in a sample (if above the number of provided organisms, the provided organisms will be the maximum)")
 
-    optional.add_argument("-ms","--max_degree_smoothing",required = False, default = float("inf"), help = "max. degree of the nodes to be included in the smoothing process.")
+    optional.add_argument("-ms","--max_degree_smoothing",required = False, default = 10, type=float, help = "max. degree of the nodes to be included in the smoothing process.")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("-fd","--free_dispersion",required = False, default = False, action = "store_true",help = "use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all organisms by default.")
     optional.add_argument("-ck","--chunk_size",required=False, default = 500, type = int, help = "Size of the chunks when performing partitionning using chunks of organisms. Chunk partitionning will be used automatically if the number of genomes is above this number.")
