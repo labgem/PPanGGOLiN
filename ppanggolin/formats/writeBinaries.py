@@ -282,11 +282,11 @@ def writeInfo(pangenome, h5f):
                 subpartCounter[fam.partition] +=1
             partSet.add(fam.partition)
         infoGroup._v_attrs.numberOfPersistent = namedPartCounter["persistent"]
-        infoGroup._v_attrs.persistentStats = {"min":min(partDistribs["persistent"]), "max":max(partDistribs["persistent"]),"sd":round(statistics.stdev(partDistribs["persistent"]),2), "mean":round(statistics.mean(partDistribs["persistent"]),2)}
+        infoGroup._v_attrs.persistentStats = {"min":round(min(partDistribs["persistent"]),2), "max":round(max(partDistribs["persistent"]),2),"sd":round(statistics.stdev(partDistribs["persistent"]),2), "mean":round(statistics.mean(partDistribs["persistent"]),2)}
         infoGroup._v_attrs.numberOfShell = namedPartCounter["shell"]
-        infoGroup._v_attrs.shellStats = {"min":min(partDistribs["shell"]), "max":max(partDistribs["shell"]),"sd":round(statistics.stdev(partDistribs["shell"]),2), "mean":round(statistics.mean(partDistribs["shell"]),2)}
+        infoGroup._v_attrs.shellStats = {"min":round(min(partDistribs["shell"]),2), "max":round(max(partDistribs["shell"]),2),"sd":round(statistics.stdev(partDistribs["shell"]),2), "mean":round(statistics.mean(partDistribs["shell"]),2)}
         infoGroup._v_attrs.numberOfCloud = namedPartCounter["cloud"]
-        infoGroup._v_attrs.cloudStats = {"min":min(partDistribs["cloud"]), "max":max(partDistribs["cloud"]),"sd":round(statistics.stdev(partDistribs["cloud"]),2), "mean":round(statistics.mean(partDistribs["cloud"]),2)}
+        infoGroup._v_attrs.cloudStats = {"min":round(min(partDistribs["cloud"]),2), "max":round(max(partDistribs["cloud"]),2),"sd":round(statistics.stdev(partDistribs["cloud"]),2), "mean":round(statistics.mean(partDistribs["cloud"]),2)}
         infoGroup._v_attrs.numberOfPartitions = len(partSet)
         infoGroup._v_attrs.numberOfSubpartitions = subpartCounter
 
