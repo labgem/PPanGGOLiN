@@ -3,7 +3,8 @@
 
 #default libraries
 import logging
-from collections import Counter
+from collections import Counter, defaultdict
+import statistics
 
 #installed libraries
 from tqdm import tqdm
@@ -257,6 +258,7 @@ def writeStatus(pangenome, h5f):
 
 
 def writeInfo(pangenome, h5f):
+    """ writes information and numbers to be eventually called with the 'info' submodule """
     if "/info" in h5f:
         infoGroup = h5f.root.info
     else:
@@ -271,15 +273,20 @@ def writeInfo(pangenome, h5f):
     if pangenome.status["partitionned"] in ["Computed","Loaded"]:
         namedPartCounter = Counter()
         subpartCounter = Counter()
+        partDistribs = defaultdict(list)
         partSet = set()
         for fam in pangenome.geneFamilies:
             namedPartCounter[fam.namedPartition] +=1
+            partDistribs[fam.namedPartition].append(len(fam.organisms) / len(pangenome.organisms))
             if fam.namedPartition == "shell":
                 subpartCounter[fam.partition] +=1
             partSet.add(fam.partition)
         infoGroup._v_attrs.numberOfPersistent = namedPartCounter["persistent"]
+        infoGroup._v_attrs.persistentStats = {"min":min(partDistribs["persistent"]), "max":max(partDistribs["persistent"]),"sd":round(statistics.stdev(partDistribs["persistent"]),2), "mean":round(statistics.mean(partDistribs["persistent"]),2)}
         infoGroup._v_attrs.numberOfShell = namedPartCounter["shell"]
+        infoGroup._v_attrs.shellStats = {"min":min(partDistribs["shell"]), "max":max(partDistribs["shell"]),"sd":round(statistics.stdev(partDistribs["shell"]),2), "mean":round(statistics.mean(partDistribs["shell"]),2)}
         infoGroup._v_attrs.numberOfCloud = namedPartCounter["cloud"]
+        infoGroup._v_attrs.cloudStats = {"min":min(partDistribs["cloud"]), "max":max(partDistribs["cloud"]),"sd":round(statistics.stdev(partDistribs["cloud"]),2), "mean":round(statistics.mean(partDistribs["cloud"]),2)}
         infoGroup._v_attrs.numberOfPartitions = len(partSet)
         infoGroup._v_attrs.numberOfSubpartitions = subpartCounter
 
