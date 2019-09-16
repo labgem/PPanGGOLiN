@@ -55,6 +55,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
         gene_name = ""
         product = ""
         locus_tag = ""
+        objType = ""
         genetic_code = ""
         usefulInfo = False
         start = None
@@ -254,7 +255,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
 
 def readAnnotations(pangenome, organisms_file, getSeq = True):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
-    
+
     bar = tqdm(read_compressed_or_not(organisms_file),total=get_num_lines(organisms_file), unit = "annotation file")
     pangenome.status["geneSequences"] = "Computed"#we assume there are gene sequences in the annotation files, unless a gff file without fasta is met (which is the only case where sequences can be asbent)
     for line in bar:

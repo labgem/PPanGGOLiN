@@ -139,7 +139,7 @@ def refineClustering(tsv, alnFile, fam2seq):
 
 def read_gene2fam(pangenome, gene2fam):
     logging.getLogger().info(f"Adding {len(gene2fam)} genes to the gene families")
-    
+
     link = True if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] else False
     if link:
         if len(gene2fam) != len(pangenome.genes):#then maybe there are genes with identical IDs

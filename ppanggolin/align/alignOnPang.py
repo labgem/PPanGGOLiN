@@ -16,8 +16,7 @@ from ppanggolin.pangenome import Pangenome
 def createdb(fileObj, tmpdir):
     seqdb =  tempfile.NamedTemporaryFile(mode="w", dir = tmpdir.name)
     cmd = ["mmseqs","createdb",fileObj.name, seqdb.name]
-    logging.getLogger().debug(" ".join(cmd))
-    subprocess.run(" ".join(cmd), stdout=subprocess.DEVNULL)
+    subprocess.run(cmd, stdout=subprocess.DEVNULL)
     return seqdb
 
 def alignProtToPang(pangFile, protFile,  output, tmpdir, cpu = 1, defrag=False, identity = 0.8, coverage = 0.8):
@@ -30,12 +29,12 @@ def alignProtToPang(pangFile, protFile,  output, tmpdir, cpu = 1, defrag=False, 
     cmd = ["mmseqs","search",protdb.name , pangdb.name, alndb.name, tmpdir.name, "-a","--min-seq-id", str(identity), "-c", str(coverage), "--cov-mode", covmode, "--threads", str(cpu)]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning proteins to cluster representatives...")
-    subprocess.run(" ".join(cmd), stdout=subprocess.DEVNULL)
+    subprocess.run(cmd, stdout=subprocess.DEVNULL)
     outfile =  output + "/protein_to_pangenome_associations.blast-tab"
     cmd = ["mmseqs","convertalis", protdb.name ,pangdb.name, alndb.name, outfile,"--format-mode","2"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
-    subprocess.run(" ".join(cmd), stdout=subprocess.DEVNULL)
+    subprocess.run(cmd, stdout=subprocess.DEVNULL)
     pangdb.close()
     protdb.close()
     alndb.close()
@@ -62,6 +61,7 @@ def writeGeneFamSequences(pangenome, fileObj):
     for fam in pangenome.geneFamilies:
         fileObj.write(">" + fam.name + "\n")
         fileObj.write(fam.sequence + "\n")
+    fileObj.flush()
 
 def projectPartition(prot2pang, protSet, output):
     partitionProj = output + "/proteins_partition_projection.tsv"
