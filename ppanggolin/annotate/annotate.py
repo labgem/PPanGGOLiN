@@ -310,7 +310,8 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
             logging.getLogger().error("No tabulation separator found in organisms file")
             exit(1)
         arguments.append((elements[0], elements[1], elements[2:], translation_table, kingdom, norna, tmpdir, overlap))
-
+    if len(arguments) > 0:
+        raise Exception("There are no genomes in the provided file")
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
     with Pool(processes = cpu) as p:
         bar = tqdm(range(len(arguments)), unit = "genome")
