@@ -243,7 +243,8 @@ def drawCurve(output, maxSampling, data):
                         titlefont = dict(size = 20),
                         xaxis     = dict(title='size of genome subsets (N)'),
                         yaxis     = dict(title='# of gene families (F)'),
-                        annotations=annotations)
+                        annotations=annotations,
+                        plot_bgcolor='#ffffff')
     fig = go.Figure(data=traces, layout=layout)
     out_plotly.plot(fig, filename=output+"/evolution_curve.html", auto_open=False)
     params_file.close()

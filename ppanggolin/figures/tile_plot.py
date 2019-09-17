@@ -164,7 +164,8 @@ def drawTilePlot(pangenome, output, nocloud = False):
                                                 title='gene families',
                                                 automargin=True,
                                                 tickfont=dict(size=10)),
-                        shapes = shapes)
+                        shapes = shapes,
+                        plot_bgcolor='#ffffff')
     logging.getLogger().info("Drawing the figure itself...")
     out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename = output+"/tile_plot.html", auto_open=False)
     logging.getLogger().info(f"Done with the tile plot : '{output+'/tile_plot.html'}' ")

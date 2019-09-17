@@ -321,6 +321,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Qr
                             titlefont = dict(size = 20),
                             xaxis = dict(title='number of partitions'),
                             yaxis = dict(title='ICL, BIC, log likelihood'),
+                            plot_bgcolor='#ffffff',
                             shapes=[dict(type='line', x0=best_Q, x1=best_Q, y0=0, y1=all_ICLs[best_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                     dict(type='line', x0=max_icl_Q, x1=max_icl_Q, y0=0, y1=all_ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                     dict(type='line', x0=best_Q, x1=max_icl_Q, y0=all_ICLs[max_icl_Q], y1=all_ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
