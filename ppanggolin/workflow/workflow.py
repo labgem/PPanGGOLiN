@@ -9,7 +9,7 @@ import argparse
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import getCurrentRAM, mkFilename
+from ppanggolin.utils import mkFilename
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
@@ -21,14 +21,12 @@ from ppanggolin.figures import drawTilePlot, drawUCurve
 
 def launch(args):
     pangenome = Pangenome()
-    logging.getLogger().info(f"Starting RAM : {getCurrentRAM()}")
     filename = mkFilename(args.basename, args.output, args.force)
     if args.anno:#if the annotations are provided, we read from it
         getSeq = True
         if args.clusters is not None:
             getSeq = False
         readAnnotations(pangenome, args.anno, getSeq)
-        logging.getLogger().info(f"post reading annotations : {getCurrentRAM()}")
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
 
@@ -40,7 +38,6 @@ def launch(args):
 
         elif args.clusters is None:#we should have the sequences here.
             clustering(pangenome, args.tmpdir, args.cpu)
-        logging.getLogger().info(f"post clustering : {getCurrentRAM()}")
     elif args.fasta is not None:
             logging.getLogger().info("You did not provide annotations but provided fasta. Everything will be done from here using the fasta only.")
             pangenome = Pangenome()
@@ -48,9 +45,7 @@ def launch(args):
             clustering(pangenome, args.tmpdir, args.cpu)
 
     computeNeighborsGraph(pangenome)
-    logging.getLogger().info(f"post making the graph : {getCurrentRAM()}")
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
-    logging.getLogger().info(f"post partitionning : {getCurrentRAM()}")
     makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
 
     drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True )
