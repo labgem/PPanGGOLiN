@@ -183,7 +183,7 @@ def drawCurve(output, maxSampling, data):
                                         borderpad=4,
                                         bgcolor=COLORS[partition],
                                         opacity=0.8))
-        except (TypeError, RuntimeError):# if fitting doesn't work
+        except (TypeError, RuntimeError, ValueError):# if fitting doesn't work
             params_file.write(",".join([partition,"NA","NA","NA","NA",str(area_IQR)])+"\n")
 
         traces.append(go.Scatter(x=medians.index,
