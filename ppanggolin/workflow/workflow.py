@@ -56,7 +56,7 @@ def launch(args):
     drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True )
     drawUCurve(pangenome, args.output)
 
-    writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True)
+    writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True, json = True, stats = True, partitions = True)
 
     writePangenome(pangenome, filename, args.force)
 
