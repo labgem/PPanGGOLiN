@@ -48,6 +48,9 @@ def getStatus(pangenome, pangenomeFile):
         pangenome.status["neighborsGraph"] = "inFile"
     if statusGroup._v_attrs.Partitionned:
         pangenome.status["partitionned"] = "inFile"
+    if "/info" in h5f:
+        infoGroup = h5f.root.info
+        pangenome.parameters = infoGroup._v_attrs.parameters
     h5f.close()
 
 def read_chunks(table, column = None, chunk=10000):
@@ -190,11 +193,23 @@ def readInfo(h5f):
             print(f"Families : {infoGroup._v_attrs['numberOfClusters']}")
         if "numberOfEdges" in infoGroup._v_attrs._f_list():
             print(f"Edges : {infoGroup._v_attrs['numberOfEdges']}")
-        if 'numberOfCloud' in infoGroup._v_attrs._f_list():
-            print(f"Persistent : {infoGroup._v_attrs['numberOfPersistent']}")
-            print(f"Shell : {infoGroup._v_attrs['numberOfShell']}")
-            print(f"Cloud : {infoGroup._v_attrs['numberOfCloud']}")
+        if 'numberOfCloud' in infoGroup._v_attrs._f_list():#then all the others are there
+            print(f"Persistent ( { ', '.join([key + ':' + str(round(val,2)) for key, val in infoGroup._v_attrs['persistentStats'].items()])} ): {infoGroup._v_attrs['numberOfPersistent']}")
+            print(f"Shell ( { ', '.join([key + ':' + str(round(val,2)) for key, val in infoGroup._v_attrs['shellStats'].items()])} ): {infoGroup._v_attrs['numberOfShell']}")
+            print(f"Cloud ( { ', '.join([key + ':' + str(round(val,2)) for key, val in infoGroup._v_attrs['cloudStats'].items()])} ): {infoGroup._v_attrs['numberOfCloud']}")
             print(f"Number of partitions : {infoGroup._v_attrs['numberOfPartitions']}")
+            if infoGroup._v_attrs['numberOfPartitions'] != 3:
+                for key, val in infoGroup._v_attrs['numberOfSubpartitions'].items():
+                    print(f"Shell {key} : {val}")
+
+def readParameters(h5f):
+    if "/info" in h5f:
+        infoGroup = h5f.root.info
+        if "parameters" in infoGroup._v_attrs._f_list():
+            for key, dic in infoGroup._v_attrs["parameters"].items():
+                print(f"{key}")
+                for key2, val in dic.items():
+                    print(f"    {key2} : {val}")
 
 def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False):
     """

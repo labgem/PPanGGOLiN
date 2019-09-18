@@ -132,14 +132,7 @@ class Pangenome:
                     'neighborsGraph':  "No",
                     'partitionned':  "No"
                 }
-
-    def savePartitionParameters(self, Q, beta, free_dispersion, smoothing_degree, partition_params, chunk_size):
-        self.Q = Q
-        self.beta = beta
-        self.free_dispersion = free_dispersion
-        self.sm_degree = smoothing_degree
-        self.partition_params = partition_params
-        self.chunk_size = chunk_size
+        self.parameters = {}
 
     def addFile(self, pangenomeFile):
         from ppanggolin.formats import getStatus#importing on call instead of importing on top to avoid cross-reference problems.
@@ -231,19 +224,6 @@ class Pangenome:
 
         return infostr
 
-    def subgraph(self, famSet):
-        #untested
-        ##currently, IDs will be different.
-        g = Pangenome()
-        # creating new fams from the old ones.
-        famIds = {g.addGeneFamily(fam.name).ID for fam in famSet}
-        for famID in famIds:
-            # extracting the neighbors of each fam that still exists in the subgraph
-            SubgraphNeighbors = { neighbor.ID for neighbor in self._famGetter[famID].neighbors if neighbor.ID in famIds}
-            # setting the neighbors of each fam.
-            g._famGetter[famID].neighbors = { g._famGetter[neighborId] for neighborId in SubgraphNeighbors}
-        return g
-
     def addOrganism(self, newOrg):
         """
             adds an organism that did not exist previously in the pangenome if an Organism object is provided.
@@ -257,8 +237,9 @@ class Pangenome:
         elif isinstance(newOrg, str):
             org = self._orgGetter.get(newOrg)
             if org is None:
-                newOrg = Organism(newOrg)
+                org = Organism(newOrg)
                 self._orgGetter[newOrg.name] = newOrg
+            newOrg = org
         return newOrg
 
     def addGeneFamily(self, name):
@@ -290,16 +271,6 @@ class Pangenome:
         self.max_fam_id+=1
         self._famGetter[newFam.name] = newFam
         return newFam
-
-    def removeFamsFrom(self, fams):
-        oldSize = len(self._famGetter)
-        for fam in fams:
-            for edge in fams:
-                edge.remove()
-            del self._famGetter[fam.name]
-            fam.removed = True
-        if len(self._famGetter) + len(fams) != oldSize:
-            raise Exception("Problems in the family removal from the pangenome.")
 
     def getIndex(self):#will not make a new index if it exists already
         if not hasattr(self, "_orgIndex"):#then the index does not exist yet

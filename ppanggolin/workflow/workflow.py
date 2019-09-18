@@ -9,7 +9,7 @@ import argparse
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import getCurrentRAM, mkFilename
+from ppanggolin.utils import mkFilename
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
@@ -21,16 +21,14 @@ from ppanggolin.figures import drawTilePlot, drawUCurve
 
 def launch(args):
     pangenome = Pangenome()
-    logging.getLogger().info(f"Starting RAM : {getCurrentRAM()}")
     filename = mkFilename(args.basename, args.output, args.force)
-    if args.gff:#if the gff is provided, we read annotations from it
+    if args.anno:#if the annotations are provided, we read from it
         getSeq = True
         if args.clusters is not None:
             getSeq = False
-        readAnnotations(pangenome, args.gff, getSeq)
-        logging.getLogger().info(f"post reading annotations : {getCurrentRAM()}")
+        readAnnotations(pangenome, args.anno, getSeq)
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
-            raise Exception("The gff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
+            raise Exception("The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
 
         elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is not None:
             getGeneSequencesFromFastas(pangenome, args.fasta)
@@ -40,7 +38,6 @@ def launch(args):
 
         elif args.clusters is None:#we should have the sequences here.
             clustering(pangenome, args.tmpdir, args.cpu)
-        logging.getLogger().info(f"post clustering : {getCurrentRAM()}")
     elif args.fasta is not None:
             logging.getLogger().info("You did not provide annotations but provided fasta. Everything will be done from here using the fasta only.")
             pangenome = Pangenome()
@@ -48,15 +45,13 @@ def launch(args):
             clustering(pangenome, args.tmpdir, args.cpu)
 
     computeNeighborsGraph(pangenome)
-    logging.getLogger().info(f"post making the graph : {getCurrentRAM()}")
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
-    logging.getLogger().info(f"post partitionning : {getCurrentRAM()}")
     makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
 
     drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True )
     drawUCurve(pangenome, args.output)
 
-    writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True)
+    writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True, json = True, stats = True, partitions = True)
 
     writePangenome(pangenome, filename, args.force)
 
@@ -67,6 +62,6 @@ def workflowSubparser(subparser):
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
     required = parser.add_argument_group(title = "Input arguments", description = "The possible input arguments :")
     required.add_argument('--fasta',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism. This option can be used alone.")
-    required.add_argument('--gff', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
+    required.add_argument('--anno', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
     required.add_argument("--clusters",required=False, type=str, help = "a tab-separated file listing the cluster names, the gene IDs, and optionnally whether they are a fragment or not.")
     return parser

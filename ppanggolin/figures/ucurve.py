@@ -51,7 +51,9 @@ def drawUCurve(pangenome, output, soft_core = 0.95):
     layout =  go.Layout(title = "Gene families frequency distribution (U shape), chao="+str(chao),
                         xaxis = dict(title='Occurring in x genomes'),
                         yaxis = dict(title='# of gene families (F)'),
-                        barmode='stack', shapes=[dict(type='line', x0=x, x1=x, y0=0, y1=max_bar, line = dict(dict(width=5, dash='dashdot', color="grey")))])
+                        barmode='stack',
+                        shapes=[dict(type='line', x0=x, x1=x, y0=0, y1=max_bar, line = dict(dict(width=5, dash='dashdot', color="grey")))],
+                        plot_bgcolor='#ffffff')
 
     fig = go.Figure(data=data_plot, layout=layout)
     out_plotly.plot(fig, filename = output+"/Ushaped_plot.html", auto_open=False)

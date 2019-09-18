@@ -29,7 +29,6 @@ samples = []
 
 def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, Q = 3, seed = 42, init="param_file", keep_files = False, itermax=100, just_log_likelihood=False):
     logging.getLogger().debug("run_partitioning...")
-
     if init=="param_file":
         with open(nem_dir_path+"/nem_file_init_"+str(Q)+".m", "w") as m_file:
             m_file.write("1 ")# 1 to initialize parameter,
@@ -322,6 +321,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Qr
                             titlefont = dict(size = 20),
                             xaxis = dict(title='number of partitions'),
                             yaxis = dict(title='ICL, BIC, log likelihood'),
+                            plot_bgcolor='#ffffff',
                             shapes=[dict(type='line', x0=best_Q, x1=best_Q, y0=0, y1=all_ICLs[best_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                     dict(type='line', x0=max_icl_Q, x1=max_icl_Q, y0=0, y1=all_ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                     dict(type='line', x0=best_Q, x1=max_icl_Q, y0=all_ICLs[max_icl_Q], y1=all_ICLs[max_icl_Q], line = dict(dict(width=1, dash='dashdot', color="black"))),
@@ -330,7 +330,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Qr
         out_plotly.plot(fig, filename=outputdir+"/ICL_curve_Q"+str(best_Q)+".html", auto_open=False)
     return ChosenQ
 
-def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = float("inf"), free_dispersion=False, chunk_size=500, Q=-1, Qrange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
+def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = 10, free_dispersion=False, chunk_size=500, Q=-1, Qrange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
 
     Qrange = Qrange or [3,21]
     global pan
@@ -349,11 +349,22 @@ def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = float
     if len(organisms) <= 10:
         logging.getLogger().warning(f"The number of selected organisms is too low ({len(organisms)} organisms used) to robustly partition the graph")
 
+
+    pangenome.parameters["partition"] = {}
+    pangenome.parameters["partition"]["beta"] = beta
+    pangenome.parameters["partition"]["free_dispersion"] = free_dispersion
+    pangenome.parameters["partition"]["max_node_degree_for_smoothing"] = sm_degree
+    if len(organisms) > chunk_size:
+        pangenome.parameters["partition"]["chunk_size"] = chunk_size
+    pangenome.parameters["partition"]["computed_Q"] = False
+
     if Q < 3:
+        pangenome.parameters["partition"]["computed_Q"] = True
         logging.getLogger().info("Estimating the optimal number of partitions...")
         Q = evaluate_nb_partitions( organisms, sm_degree, free_dispersion, chunk_size, Qrange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir)
         logging.getLogger().info(f"The number of partitions has been evaluated at {Q}")
 
+    pangenome.parameters["partition"]["Q"] = Q
     init = "param_file"
 
     partitionning_results = {}
@@ -456,7 +467,7 @@ def partitionSubparser(subparser):
     parser = subparser.add_parser("partition", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
-    optional.add_argument("-ms","--max_degree_smoothing",required = False, default = float("inf"), help = "max. degree of the nodes to be included in the smoothing process.")
+    optional.add_argument("-ms","--max_degree_smoothing",required = False, default = 10, type=float, help = "max. degree of the nodes to be included in the smoothing process.")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("-fd","--free_dispersion",required = False, default = False, action = "store_true",help = "use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all organisms by default.")
     optional.add_argument("-ck","--chunk_size",required=False, default = 500, type = int, help = "Size of the chunks when performing partitionning using chunks of organisms. Chunk partitionning will be used automatically if the number of genomes is above this number.")

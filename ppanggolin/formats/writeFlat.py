@@ -4,7 +4,7 @@
 #default libraries
 import argparse
 from multiprocessing import Pool
-from collections import Counter
+from collections import Counter, defaultdict
 import logging
 import pkg_resources
 from statistics import median
@@ -106,6 +106,7 @@ def writeJSON(output, compress):
         writeJSONnodes(json)
         writeJSONedges(json)
         json.write("}")
+    logging.getLogger().info(f"Done writing the json file : '{outname}'")
 
 def writeGEXFheader(gexf, light):
     if not light:
@@ -419,15 +420,43 @@ def writeProjections(output, compress=False):
         writeOrgFile(org, outdir, compress)
     logging.getLogger().info("Done writing the projection files")
 
+def writeParts(output, soft_core, compress=False):
+    logging.getLogger().info("Writing the list of gene families for each partitions...")
+    if not os.path.exists(output + "/partitions"):
+        os.makedirs(output + "/partitions")
+    partSets = defaultdict(set)
+    #initializing key, value pairs so that files exist even if they are empty
+    for neededKey in ["undefined","soft_core","exact_core","exact_accessory","soft_accessory","persistent","shell","cloud"]:
+        partSets[neededKey] = set()
+    for fam in pan.geneFamilies:
+        partSets[fam.namedPartition].add(fam.name)
+        if fam.partition.startswith("S"):
+            partSets[fam.partition].add(fam.name)
+        if len(fam.organisms) >= len(pan.organisms) * soft_core:
+            partSets["soft_core"].add(fam.name)
+            if len(fam.organisms) == len(pan.organisms):
+                partSets["exact_core"].add(fam.name)
+            else:
+                partSets["exact_accessory"].add(fam.name)
+        else:
+            partSets["soft_accessory"].add(fam.name)
+            partSets["exact_accessory"].add(fam.name)
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, compress = False):
+    for key, val in partSets.items():
+        currKeyFile = open(output + "/partitions/" + key + ".txt","w")
+        if len(val) > 0:
+            currKeyFile.write('\n'.join(val) + "\n")
+        currKeyFile.close()
+    logging.getLogger().info("Done writing the list of gene families for each partition")
+
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False, compress = False):
     global pan
     pan = pangenome
     processes = []
-    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json]):
+    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions]):
         #then it's useful to load the pangenome.
         checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True)
-        if not pan.status["partitionned"] in ["Loaded","Computed"] and (light_gexf or gexf or csv or projection) :
+        if not pan.status["partitionned"] in ["Loaded","Computed"] and (light_gexf or gexf or csv or projection):#could allow to write the csv or genePA without partition...
             raise Exception("The provided pangenome has not been partitionned. This is not compatible with any of the following options : --light_gexf, --gexf, --csv")
         pan.getIndex()#make the index because it will be used most likely
         with Pool(processes = cpu) as p:
@@ -445,7 +474,8 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
                 processes.append(p.apply_async(func=writeStats, args=(output, soft_core, dup_margin, compress)))
             if json:
                 processes.append(p.apply_async(func=writeJSON, args=(output, compress)))
-
+            if partitions:
+                processes.append(p.apply_async(func=writeParts, args=(output, soft_core, compress)))
             for process in processes:
                 process.get()#get all the results
 
@@ -453,7 +483,7 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.compress)
+    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.partitions, args.compress)
 
 
 def writeFlatSubparser(subparser):
@@ -467,6 +497,7 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--Rtab", required=False, action = "store_true",help = "tabular file for the gene binary presence absence matrix")
     optional.add_argument("--projection", required=False, action = "store_true",help = "a csv file for each organism providing informations on the projection of the graph on the organism")
     optional.add_argument("--stats",required=False, action = "store_true",help = "tsv files with some statistics for each organism and for each gene family")
+    optional.add_argument("--partitions", required=False, action = "store_true", help = "list of families belonging to each partition, with one file per partitions and one family per line")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     optional.add_argument("--json", required=False, action = "store_true", help = "Writes the graph in a json file format")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")

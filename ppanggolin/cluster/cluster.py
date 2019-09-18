@@ -141,6 +141,9 @@ def read_gene2fam(pangenome, gene2fam):
     logging.getLogger().info(f"Adding {len(gene2fam)} genes to the gene families")
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] else False
+    if link:
+        if len(gene2fam) != len(pangenome.genes):#then maybe there are genes with identical IDs
+            raise Exception("Something unexpected happened during clustering (have less genes clustered than genes in the pangenome). A probable reason is that two genes in two different organisms have the same IDs; If you are sure that all of your genes have an identical IDs, please post an issue at https://github.com/labgem/PPanGGOLiN/")
     bar = tqdm(gene2fam.items(), unit = "gene")
     for gene, (family, is_frag) in bar:
         fam = pangenome.addGeneFamily(family)
@@ -215,7 +218,6 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", force = Fal
     fam2seq = read_faa(rep)
     if not defrag:
         genes2fam = read_tsv(tsv)[0]
-
     else:
         logging.getLogger().info("Associating fragments to their original gene family...")
         aln = alignRep(rep, newtmpdir, cpu)
@@ -230,6 +232,13 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", force = Fal
     read_gene2fam(pangenome, genes2fam)
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
+
+    pangenome.parameters["cluster"] = {}
+    pangenome.parameters["cluster"]["coverage"] = 0.80
+    pangenome.parameters["cluster"]["identity"] = 0.80
+    pangenome.parameters["cluster"]["defragmentation"] = defrag
+    pangenome.parameters["cluster"]["translation_table"] = code
+    pangenome.parameters["cluster"]["read_clustering_from_file"] = False
 
 def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=False):
     """
@@ -275,6 +284,9 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
     pangenome.status["genesClustered"] = "Computed"
     if frag:#if there was fragment informations in the file.
         pangenome.status["defragmented"] = "Computed"
+    pangenome.parameters["cluster"] = {}
+    pangenome.parameters["cluster"]["read_clustering_from_file"] = True
+    pangenome.parameters["cluster"]["infer_singletons"] = infer_singletons
 
 def launch(args):
     """ launch the clustering step"""

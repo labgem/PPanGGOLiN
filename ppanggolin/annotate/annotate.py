@@ -18,7 +18,127 @@ from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.utils import read_compressed_or_not, mkFilename, get_num_lines
 from ppanggolin.formats import writePangenome
 
-def read_org_line(pangenome, organism, gff_file_path, circular_contigs, getSeq):
+def detect_filetype(filename):
+    """ detects whether the current file is gff3, gbk/gbff or unknown. If unknown, it will raise an error"""
+    with read_compressed_or_not(filename) as f:
+        firstLine = f.readline()
+    if firstLine.startswith("LOCUS       "):#then this is probably a gbff/gbk file
+        return "gbff"
+    elif firstLine.startswith("##gff-version 3"):
+        return 'gff'
+    else:
+        raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
+
+def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq):
+    """ reads a gbff file and fills Organism, Contig and Genes objects based on information contained in this file """
+    org = Organism(organism)
+
+    logging.getLogger().debug("Extracting genes informations from the given gbff")
+    # revert the order of the file, to read the first line first.
+    lines = read_compressed_or_not(gbff_file_path).readlines()[::-1]
+    while len(lines) != 0:
+        line = lines.pop()
+        # beginning of contig
+        if line.startswith('LOCUS'):
+            is_circ = False
+            if "CIRCULAR" in line.upper():#this line contains linear/circular word telling if the dna sequence is circularized or not
+                is_circ = True
+            while not line.startswith('FEATURES'):
+                if line.startswith('VERSION'):
+                    contigID = line[12:].strip()
+                    if contigID in circular_contigs:
+                        is_circ = True
+                    contig = org.addContig(contigID, is_circ)
+                line = lines.pop()
+        # start of the feature object.
+        dbxref = set()
+        gene_name = ""
+        product = ""
+        locus_tag = ""
+        objType = ""
+        genetic_code = ""
+        usefulInfo = False
+        start = None
+        end = None
+        strand = None
+        line = lines.pop()
+        while not line.startswith("ORIGIN"):
+            currType = line[5:21].strip()
+            if currType != "":
+                if usefulInfo:
+                    newGene = Gene(locus_tag)
+                    newGene.fill_annotations(start = start,
+                                            stop = end,
+                                            strand = strand,
+                                            geneType = objType,
+                                            position = len(contig.genes),
+                                            name = gene_name,
+                                            product = product,
+                                            genetic_code = genetic_code)
+                    newGene.fill_parents(org, contig)
+                    contig.addGene(newGene)
+
+                usefulInfo = False
+                objType = currType
+                if objType in ['CDS']:#only CDS for now
+                    dbxref = set()
+                    gene_name = ""
+                    try:
+                        if not 'join' in line[21:]:
+                            usefulInfo = True
+                            if line[21:].startswith('complement('):
+                                strand = "-"
+                                start, end = line[32:].replace(
+                                    ')', '').split("..")
+                            else:
+                                strand = "+"
+                                start, end = line[21:].strip().split('..')
+                            if '>' in start or '<' in start or '>' in end or '<' in end:
+                                usefulInfo = False
+                    except ValueError:
+                        pass
+                        #don't know what to do with that, ignoring for now.
+                        #there is a protein with a frameshift mecanism.
+            elif usefulInfo:# current info goes to current objtype, if it's useful.
+                if line[21:].startswith("/db_xref"):
+                    dbxref.add(line.split("=")[1].replace('"', '').strip())
+                elif line[21:].startswith("/locus_tag"):
+                    locus_tag = line.split("=")[1].replace('"', '').strip()
+                elif line[21:].startswith('/gene'):#gene name
+                    gene_name = line.split("=")[1].replace('"', '').strip()
+                elif line[21:].startswith('/transl_table'):
+                    genetic_code = line.split("=")[1].replace('"', '').strip()
+                elif line[21:].startswith('/product'):#need to loop as it can be more than one line long
+                    product = line.split('=')[1].replace('"', '').strip()
+                    if line.count('"') == 1:#then the product line is on multiple lines
+                        line = lines.pop()
+                        product += line.strip().replace('"', '')
+                        while line.count('"') != 1:
+                            line = lines.pop()
+                            product += line.strip().replace('"', '')
+                #if it's a pseudogene, we're not keeping it.
+                elif line[21:].startswith("/pseudo"):
+                    usefulInfo = False
+                #that's probably a 'stop' codon into selenocystein.
+                elif line[21:].startswith("/transl_except"):
+                    usefulInfo = False
+            line = lines.pop()
+            #end of contig
+
+        if getSeq:
+            line = lines.pop()#first sequence line.
+            #if the seq was to be gotten, it would be here.
+            sequence = ""
+            while not line.startswith('//'):
+                sequence += line[10:].replace(" ", "").strip().upper()
+                line = lines.pop()
+            #get each gene's sequence.
+            for gene in contig.genes:
+                gene.add_dna(get_dna_sequence(sequence, gene))
+
+    pangenome.addOrganism(org)
+
+def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0,9)#missing values : source, score, frame. They are unused.
     def getGffAttributes(gff_fields):
         """
@@ -129,15 +249,15 @@ def read_org_line(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                 gene.add_dna(get_dna_sequence(contigSequences[contig.name], gene))
             for rna in contig.RNAs:
                 rna.add_dna(get_dna_sequence(contigSequences[contig.name], rna))
-        pangenome.status["geneSequences"] = "Computed"
-    elif hasFasta and fastaString == "":
-        raise Exception(f"You have a combination of gff file with and without fasta sequences at the end, which is not accepted (as it makes everything difficult to process). Please remove the fasta sequences from all gff files and provide the sequences in separate files through the --fasta option, or add the fasta sequences at the end of ALL your gff files. Error was raised with gff file : '{gff_file_path}'")
-
+    elif not hasFasta:
+        pangenome.status["geneSequences"] = "No"
     pangenome.addOrganism(org)
 
 def readAnnotations(pangenome, organisms_file, getSeq = True):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
-    bar = tqdm(read_compressed_or_not(organisms_file),total=get_num_lines(organisms_file), unit = "gff file")
+
+    bar = tqdm(read_compressed_or_not(organisms_file),total=get_num_lines(organisms_file), unit = "annotation file")
+    pangenome.status["geneSequences"] = "Computed"#we assume there are gene sequences in the annotation files, unless a gff file without fasta is met (which is the only case where sequences can be asbent)
     for line in bar:
         elements = [el.strip() for el in line.split("\t")]
         if len(elements)<=1:
@@ -145,10 +265,15 @@ def readAnnotations(pangenome, organisms_file, getSeq = True):
             exit(1)
         bar.set_description("Processing "+elements[1].split("/")[-1])
         bar.refresh()
-
-        read_org_line(pangenome, elements[0], elements[1], elements[2:], getSeq)
+        filetype = detect_filetype(elements[1])
+        if filetype == "gff":
+            read_org_gff(pangenome, elements[0], elements[1], elements[2:], getSeq)
+        elif filetype == "gbff":
+            read_org_gbff(pangenome, elements[0], elements[1], elements[2:], getSeq)
     bar.close()
     pangenome.status["genomesAnnotated"] = "Computed"
+    pangenome.parameters["annotation"] = {}
+    pangenome.parameters["annotation"]["read_annotations_from_file"] = True
 
 def getGeneSequencesFromFastas(pangenome, fasta_file):
     fastaDict = {}
@@ -185,7 +310,8 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
             logging.getLogger().error("No tabulation separator found in organisms file")
             exit(1)
         arguments.append((elements[0], elements[1], elements[2:], translation_table, kingdom, norna, tmpdir, overlap))
-
+    if len(arguments) > 0:
+        raise Exception("There are no genomes in the provided file")
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
     with Pool(processes = cpu) as p:
         bar = tqdm(range(len(arguments)), unit = "genome")
@@ -198,14 +324,20 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
     logging.getLogger().info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"#the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"#the gene objects have their respective gene sequences.
+    pangenome.parameters["annotation"] = {}
+    pangenome.parameters["annotation"]["remove_Overlapping_CDS"] = overlap
+    pangenome.parameters["annotation"]["annotate_RNA"] = True if not norna else False
+    pangenome.parameters["annotation"]["kingdom"] = kingdom
+    pangenome.parameters["annotation"]["translation_table"] = translation_table
+    pangenome.parameters["annotation"]["read_annotations_from_file"] = False
 
 def launch(args):
     filename = mkFilename(args.basename, args.output, args.force)
     pangenome = Pangenome()
-    if args.fasta is not None and args.gff is None:
+    if args.fasta is not None and args.anno is None:
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
-    elif args.gff is not None:
-        readAnnotations(pangenome, args.gff)
+    elif args.anno is not None:
+        readAnnotations(pangenome, args.anno)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 getGeneSequencesFromFastas(pangenome, args.fasta)
@@ -224,6 +356,6 @@ def syntaSubparser(subparser):
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('--fasta',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism.")
-    required.add_argument('--gff', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. If this is provided, those annotations will be used.")
+    required.add_argument('--fasta',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed with gzip). One line per organism.")
+    required.add_argument('--anno', required=False, type=str, help="A tab-separated file listing the organism names, and the gff/gbff filepath of its annotations (the files can be compressed with gzip). One line per organism. If this is provided, those annotations will be used.")
     return parser
