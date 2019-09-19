@@ -3,7 +3,7 @@
 
 #default libraries
 import logging
-from collections import abc
+import argparse
 
 #installed libraries
 from tqdm import tqdm
@@ -52,7 +52,7 @@ def rewriteMatrix(contig, matrix, index, persistent, continuity, multi):
         nextNode = matrix[index]
         nbPerc = 0
         while nextNode.state:  # while the old state is not 0, recompute the scores.
-            if nextNode.gene.family.partition == "persistent" and nextNode.gene.family not in multi:
+            if nextNode.gene.family.namedPartition == "persistent" and nextNode.gene.family not in multi:
                 modif = -pow(persistent, nbPerc)
                 nbPerc += 1
             else:
@@ -80,14 +80,14 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi ):
     prev = None
     nbPerc = 0
     for gene in contig.genes:
-        if gene.family.partition == "persistent" and gene.family not in multi:
+        if gene.family.namedPartition == "persistent" and gene.family not in multi:
             modif = -pow(persistent_penalty, nbPerc)
             nbPerc += 1
         else:
             modif = variable_gain
             nbPerc = 0
 
-        curr_score = modif + prev.score if prev else modif
+        curr_score = modif + prev.score if prev is not None else modif
         curr_state = 1 if curr_score >= 0 else 0
         prev = MatriceNode(curr_state, curr_score, prev, gene)
         mat.append(prev)
@@ -105,7 +105,7 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi ):
             if matNode == lastNode:  # then we've parsed the entire contig twice. The whole sequence is a rgp so we're stopping the iteration now, otherwise we'll loop indefinitely
                 break
 
-            if matNode.gene.family.partition == "persistent" and matNode.gene.family not in multi:
+            if matNode.gene.family.namedPartition == "persistent" and matNode.gene.family not in multi:
                 modif = -pow(persistent_penalty, nbPerc)
                 nbPerc += 1
             else:
@@ -117,6 +117,16 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi ):
             matNode.changes(curr_state, curr_score)
             c += 1
     return mat
+
+def _writeMat_debug(matrix, outname):
+        """
+            For dev, function to call between steps when you think there is a problem.
+        """
+        f = open(outname, "w")
+        for matriceNode in matrix:
+            f.write(matriceNode.gene.ID + "\t" + matriceNode.gene.family.namedPartition +
+                    "\t" + str(matriceNode.score) + "\t" + str(matriceNode.state) + "\n")
+        f.close()
 
 def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, multi):
     # processing matrix and 'emptying' it to get the regions.
@@ -137,15 +147,17 @@ def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, mul
     contigRegions = set()
     val, index = maxIndexNode(matrix)
     c = 0
+    cc = 0
+    _writeMat_debug(matrix, 'tototo/' + contig.name + "#" + str(cc))
+    cc+=1
     while val >= min_score:
         new_region = extractRGP(contig, matrix[index], len(contigRegions))
         new_region.score = val
-        if new_region[0].stop - new_region[-1].start > min_length:
-            for gene in new_region:
-                # gene is aware of the region it belongs to.
-                gene.region = new_region.name
+        if (new_region[0].stop - new_region[-1].start) > min_length:
             contigRegions.add(new_region)
         rewriteMatrix(contig, matrix, index, persistent, continuity, multi)
+        _writeMat_debug(matrix, 'tototo/' +contig.name + "#" + str(cc))
+        cc+=1
         val, index = maxIndexNode(matrix)
         c += 1
     return contigRegions
@@ -183,7 +195,6 @@ def predictRGP(pangenome, persistent_penalty = 3, variable_gain = 1, min_length 
     for org in bar:
         pangenomeRGP |= compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics)
     logging.getLogger().info(f"Predicted {len(pangenomeRGP)} RGP")
-
     #save parameters and save status
     pangenome.parameters["RGP"] = {}
     pangenome.parameters["RGP"]["persistent_penalty"] = persistent_penalty
@@ -199,7 +210,7 @@ def launch(args):
     predictRGP(pangenome, args.persistent_penalty, args.variable_gain, args.min_length, args.min_score, args.dup_margin, args.cpu)
 
 def rgpSubparser(subparser):
-    parser = subparser.add_parser("rgp")
+    parser = subparser.add_parser("rgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('--persistent_penalty', required=False, type=int, default=3, help="Penalty score to apply to persistent genes")
     optional.add_argument('--variable_gain', required=False, type=int, default=1, help="Gain score to apply to variable genes")
