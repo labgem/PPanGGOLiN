@@ -39,14 +39,14 @@ def launch(args):
         elif args.clusters is None:#we should have the sequences here.
             clustering(pangenome, args.tmpdir, args.cpu)
     elif args.fasta is not None:
-            logging.getLogger().info("You did not provide annotations but provided fasta. Everything will be done from here using the fasta only.")
             pangenome = Pangenome()
             annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
             clustering(pangenome, args.tmpdir, args.cpu)
 
     computeNeighborsGraph(pangenome)
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
-    makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
+    if args.evol:
+        makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
 
     drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True )
     drawUCurve(pangenome, args.output)
@@ -60,6 +60,7 @@ def workflowSubparser(subparser):
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
+    optional.add_argument("--evol", required=False, action = "store_true", help = "Use to compute the evolution curves (WARNING: can be time consumming)")
     required = parser.add_argument_group(title = "Input arguments", description = "The possible input arguments :")
     required.add_argument('--fasta',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism. This option can be used alone.")
     required.add_argument('--anno', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
