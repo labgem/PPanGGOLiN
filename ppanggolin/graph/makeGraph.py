@@ -87,7 +87,5 @@ def launch(args):
 def graphSubparser(subparser):
     parser = subparser.add_parser("graph")
     parser.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0, help="""
-    Positive Number: Remove families having a number of copy of gene in a single organism above or equal to this threshold in at least one organism (0 or negative values are ignored).
-    """)
+    parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0, help="""Positive Number: Remove families having a number of copy of gene in a single organism above or equal to this threshold in at least one organism (0 or negative values are ignored).""")
     return parser

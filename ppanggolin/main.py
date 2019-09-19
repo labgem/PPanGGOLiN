@@ -60,7 +60,6 @@ def cmdLine():
     desc += "    align        aligns proteins to the pangenome gene families representatives\n"
 
     parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
     subparsers = parser.add_subparsers( metavar = "", dest="subcommand", title="subcommands", description = desc)
     subparsers.required = True#because python3 sent subcommands to hell apparently
 
@@ -77,13 +76,15 @@ def cmdLine():
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
     for sub in subs:#add options common to all subcommands
-        common = sub.add_argument_group(title = "Common options")
+        common = sub._action_groups.pop(1)#get the 'optional arguments' action group.
+        common.title = "Common arguments"
+        common.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
         common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(), help = "directory for storing temporary files")
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
-
-        if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
+        sub._action_groups.append(common)
+        if (len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]):
             sub.print_help()
             exit(1)
 

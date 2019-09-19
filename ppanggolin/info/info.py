@@ -32,10 +32,13 @@ def printInfo(args):
 
 def infoSubparser(subparser):
     parser = subparser.add_parser("info", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    required = parser.add_argument_group(title = "Required arguments", description = "The following arguments is required :")
+    required.add_argument('-p','--pangenome', required=True, type=str, help="The pangenome .h5 file")
+
     options = parser.add_argument_group(title = "optional arguments")
     options.add_argument("--parameters", required=False, action = "store_true", help = "Shows the parameters used (or computed) for each step of the pangenome generation")
     options.add_argument("--content", required=False, action="store_true", help="Shows detailled informations about the pangenome's content")
     options.add_argument("--status", required=False, action="store_true", help="Shows informations about the statuses of the different elements of the pangenome (what has been computed, or not)")
-    required = parser.add_argument_group(title = "Required arguments", description = "The following arguments is required :")
-    required.add_argument('-p','--pangenome', required=True, type=str, help="The pangenome .h5 file")
+
     return parser

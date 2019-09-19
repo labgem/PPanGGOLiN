@@ -363,6 +363,10 @@ def launch(args):
 
 def evolutionSubparser(subparser):
     parser = subparser.add_parser("evolution", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
+    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
+
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
     optional.add_argument("--depth",required=False, default = 30, type=int, help = "Number of samplings at each sampling point")
@@ -379,7 +383,5 @@ def evolutionSubparser(subparser):
     optional.add_argument("--soft_core",required=False, type=float, default = 0.95, help = "Soft core threshold")
     optional.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
 
-    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-
+   
     return parser

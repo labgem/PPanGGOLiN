@@ -57,12 +57,15 @@ def launch(args):
 
 def workflowSubparser(subparser):
     parser = subparser.add_parser("workflow", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    optional = parser.add_argument_group(title = "Optional arguments")
-    optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
-    optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
-    optional.add_argument("--evol", required=False, action = "store_true", help = "Use to compute the evolution curves (WARNING: can be time consumming)")
+
     required = parser.add_argument_group(title = "Input arguments", description = "The possible input arguments :")
     required.add_argument('--fasta',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism. This option can be used alone.")
     required.add_argument('--anno', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
     required.add_argument("--clusters",required=False, type=str, help = "a tab-separated file listing the cluster names, the gene IDs, and optionnally whether they are a fragment or not.")
+
+    optional = parser.add_argument_group(title = "Optional arguments")
+    optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
+    optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
+    optional.add_argument("--evol", required=False, action = "store_true", help = "Use to compute the evolution curves (WARNING: can be time consumming)")
+
     return parser
