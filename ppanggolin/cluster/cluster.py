@@ -52,7 +52,6 @@ def firstClustering(sequences, tmpdir, cpu, code ):
     seqdb = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
     cmd = ["mmseqs","translatenucs", seqNucdb.name, seqdb.name, "--threads", str(cpu), "--translation-table",code]
     logging.getLogger().debug(" ".join(cmd))
-    logging.getLogger().info("Translating sequences...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     cludb = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
     cmd = ["mmseqs","cluster",seqdb.name, cludb.name, newtmpdir.name , "--min-seq-id", "0.8", "-c", "0.8", "--threads", str(cpu), "--kmer-per-seq","80","--max-seqs","300"]
@@ -166,7 +165,7 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj):
         Writes the CDS sequences of the Pangenome object to a tmpFile object
         Loads the sequences from previously computed or loaded annotations
     """
-    logging.getLogger().info("Writing all of the CDS sequences from a Pangenome file to a fasta file")
+    logging.getLogger().info("Writing all of the CDS sequences for clustering...")
     bar =  tqdm(pangenome.genes, unit="gene")
     for gene in bar:#reading the table chunk per chunk otherwise RAM dies on big pangenomes
         if gene.type == "CDS":
