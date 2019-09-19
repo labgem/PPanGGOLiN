@@ -377,6 +377,7 @@ def evolutionSubparser(subparser):
     optional.add_argument("--reestimate_Q", required=False, action="store_true", help = " Will recompute the number of partitions for each sample (between the values provided by --qrange) (VERY intensive. Can take a long time.)")
     optional.add_argument("-Qmm","--qrange",nargs=2,required = False, type=int, default=[3,20], help="Range of Q values to test when detecting Q automatically. Default between 3 and 20.")
     optional.add_argument("--soft_core",required=False, type=float, default = 0.95, help = "Soft core threshold")
+    optional.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
 
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
