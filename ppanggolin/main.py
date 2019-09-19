@@ -85,8 +85,6 @@ def cmdLine():
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
-        common.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
-        common.add_argument("--memory", required=False, type=int, default=int(4 * psutil.virtual_memory().total / 5), help="Max amount of allowed RAM in Bytes. Default is 4/5 of the system's RAM. Will work only for graph generation part of the program. The C parts and multiprocessed parts might use more without raising an error")
 
         if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
             sub.print_help()
@@ -116,16 +114,6 @@ def main():
         logging.basicConfig(stream=sys.stdout, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
-    # uncomment to save log in file
-    # fhandler = logging.FileHandler(filename = args.output + "/PPanGGOLiN.log",mode = "w")
-    # fhandler.setFormatter(logging.Formatter(fmt = "%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
-    # fhandler.setLevel(level if level != logging.WARNING else logging.INFO)
-    # logging.getLogger().addHandler(fhandler)
-    if hasattr(args,"memory"):
-        rsrc = resource.RLIMIT_DATA
-        _, hard = resource.getrlimit(rsrc)
-        resource.setrlimit(rsrc, (args.memory, hard))  # limiting allowed RAM
-
 
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)

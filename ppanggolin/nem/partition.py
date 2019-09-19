@@ -476,7 +476,8 @@ def partitionSubparser(subparser):
     optional.add_argument("-im","--ICL_margin",required = False, type = float, default = 0.05, help = "Q is detected automatically by maximizing ICL. However at some point the ICL reaches a plateau. Therefore we are looking for the minimal value of Q without significative gain from the larger values of Q measured by ICL. For that we take the lowest Q that is found within a given 'margin' of the maximal ICL value. Basically, change this option only if you truly understand it, otherwise just leave it be.")
     optional.add_argument("--draw_ICL", required =False, default = False, action="store_true",help = "Use if you can to draw the ICL curve for all of the tested Q values. Will not be done if Q is given.")
     optional.add_argument("--keep_tmp_files",required = False, default = False, action = "store_true",help = "Use if you want to keep the temporary NEM files")
-    #use former partitionning ?????
+    optional.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
+
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
 
