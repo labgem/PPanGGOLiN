@@ -9,6 +9,39 @@ import gmpy2
 #local libraries
 from ppanggolin.genome import Organism, Gene
 
+class Region:
+    def __init__(self, ID):
+        self.genes = []
+        self.name = ID
+        self.score = 0
+
+    def append(self, value):
+        # allowing only gene-class objects in a region.
+        if isinstance(value, Gene):
+            self.genes.append(value)
+        else:
+            raise TypeError("Unexpected class / type for " + type(value) +
+                            " when adding it to a region of genomic plasticity")
+    @property
+    def organism(self):
+        return self.genes[0].organism
+
+    @property
+    def contig(self):
+        return self.genes[0].contig
+
+    def __len__(self):
+        return len(self.genes)
+
+    def __getitem__(self, index):
+        return self.genes[index]
+
+    def __iter__(self):
+        return iter(self.genes)
+
+    def __str__(self):
+        return self.name
+
 class Edge:
     def __init__(self, sourceGene, targetGene):
         if sourceGene.family is None:
@@ -130,7 +163,8 @@ class Pangenome:
                     'defragmented':"No",
                     'geneFamilySequences':"No",
                     'neighborsGraph':  "No",
-                    'partitionned':  "No"
+                    'partitionned':  "No",
+                    'predictedRGP' : "No"
                 }
         self.parameters = {}
 

@@ -48,6 +48,11 @@ def getStatus(pangenome, pangenomeFile):
         pangenome.status["neighborsGraph"] = "inFile"
     if statusGroup._v_attrs.Partitionned:
         pangenome.status["partitionned"] = "inFile"
+    
+    if hasattr(statusGroup._v_attrs, "predictedRGP"):
+        if statusGroup._v_attrs.predictedRGP:
+            pangenome.status["predictedRGP"] = "inFile"
+
     if "/info" in h5f:
         infoGroup = h5f.root.info
         pangenome.parameters = infoGroup._v_attrs.parameters
@@ -242,7 +247,7 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
             raise Exception(f"The pangenome in file '{filename}' does not have graph informations, or has been improperly filled")
     h5f.close()
 
-def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False):
+def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False, needPartitions = False):
     """defines what needs to be read depending on what is needed"""
     annotation = False
     geneFamilies = False
@@ -251,16 +256,19 @@ def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False,
         if pangenome.status["genomesAnnotated"] == "inFile":
             annotation = True
         elif not pangenome.status["genomesAnnotated"] in ["Computed","Loaded"]:
-            raise Exception("You want to partition an unannotated pangenome")
+            raise Exception("Your pangenome has no genes. See the 'annotate' subcommand.")
     if needFamilies:
         if pangenome.status["genesClustered"] == "inFile":
             geneFamilies = True
         elif not pangenome.status["genesClustered"] in ["Computed","Loaded"]:
-            raise Exception("You want to partition a pangenome whose genes have not been clustered")
+            raise Exception("Your pangenome has no gene families. See the 'cluster' subcommand.")
     if needGraph:
         if pangenome.status["neighborsGraph"] == "inFile":
             graph=True
         elif not pangenome.status["neighborsGraph"] in ["Computed","Loaded"]:
-            raise Exception("You want to partition a pangenome whose neighbors graph has not been computed.")
+            raise Exception("Your pangenome does not have a graph (no edges). See the 'graph' subcommand.")
+    if needPartitions:
+        if not pangenome.status["partitionned"] == "inFile":
+            raise Exception("Your pangenome has not been partitionned. See the 'partition' subcommand")
     if annotation or geneFamilies or graph:#if anything is true, else we need nothing.
         readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph)

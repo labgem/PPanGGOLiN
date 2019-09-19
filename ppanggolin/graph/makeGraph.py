@@ -31,7 +31,7 @@ def checkPangenomeForNeighborsGraph(pangenome, force):
     else:
         #You probably can use readPangenome anyways.
         msg = "Dev : You are probably writing a new workflow with a combination that I did not test. You can probably use readPangenome instead of raising this Error. However please test it carefully.\n"
-        msg+=" User : I have no idea how you got there. You probably did something unexpected. Contact the devs (or try something else).\n"
+        msg+=" User : I have no idea how you got there. You probably did something unexpected. Post an issue with what you did at https://github.com/labgem/PPanGGOLiN\n"
         raise NotImplementedError(msg)
 
 def remove_high_copy_number(pangenome, number):

@@ -30,6 +30,7 @@ import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
 import ppanggolin.align
+import ppanggolin.RGP
 
 def requirements():
     """
@@ -58,6 +59,7 @@ def cmdLine():
     desc += "  \n"
     desc += "  Specific analysis:\n"
     desc += "    align        aligns proteins to the pangenome gene families representatives\n"
+    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome"
 
     parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
@@ -74,6 +76,7 @@ def cmdLine():
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
     subs.append(ppanggolin.align.alignSubparser(subparsers))
+    subs.append(ppanggolin.RGP.rgpSubparser(subparsers))
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
     for sub in subs:#add options common to all subcommands
@@ -144,6 +147,8 @@ def main():
         ppanggolin.info.printInfo(args)
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
+    elif args.subcommand == "rgp":
+        ppanggolin.RGP.launch(args)
 
 if __name__ == "__main__":
     main()

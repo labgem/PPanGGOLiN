@@ -455,9 +455,7 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
     processes = []
     if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions]):
         #then it's useful to load the pangenome.
-        checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True)
-        if not pan.status["partitionned"] in ["Loaded","Computed"] and (light_gexf or gexf or csv or projection):#could allow to write the csv or genePA without partition...
-            raise Exception("The provided pangenome has not been partitionned. This is not compatible with any of the following options : --light_gexf, --gexf, --csv")
+        checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True, needPartitions = True)
         pan.getIndex()#make the index because it will be used most likely
         with Pool(processes = cpu) as p:
             if csv:
