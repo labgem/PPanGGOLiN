@@ -3,6 +3,7 @@
 
 #default libraries
 from collections import defaultdict
+from collections.abc import Iterable
 #installed libraries
 import gmpy2
 
@@ -20,8 +21,8 @@ class Region:
         if isinstance(value, Gene):
             self.genes.append(value)
         else:
-            raise TypeError("Unexpected class / type for " + type(value) +
-                            " when adding it to a region of genomic plasticity")
+            raise TypeError("Unexpected class / type for " + type(value) +" when adding it to a region of genomic plasticity")
+
     @property
     def organism(self):
         return self.genes[0].organism
@@ -30,17 +31,22 @@ class Region:
     def contig(self):
         return self.genes[0].contig
 
+    @property
+    def isContigBorder(self):
+        if len(self.genes) == 0:
+            raise Exception("Your region has no genes")
+        for gene in self.genes:
+            print(gene.position)
+        if self.genes[-1].position == 0 and not self.contig.is_circular:
+            return True
+        elif self.genes[0].position == len(self.contig.genes)-1 and not self.contig.is_circular:
+            return True
+        return False
     def __len__(self):
         return len(self.genes)
 
     def __getitem__(self, index):
         return self.genes[index]
-
-    def __iter__(self):
-        return iter(self.genes)
-
-    def __str__(self):
-        return self.name
 
 class Edge:
     def __init__(self, sourceGene, targetGene):
@@ -156,6 +162,7 @@ class Pangenome:
         self.max_fam_id = 0
         self._orgGetter = {}
         self._edgeGetter = {}
+        self.regions = set()
         self.status = {
                     'genomesAnnotated': "No",
                     'geneSequences' : "No",
@@ -320,3 +327,12 @@ class Pangenome:
                 fam.mkBitarray(self._orgIndex)
         #case where there is an index but the bitarrays have not been computed???
         return self._orgIndex
+
+    def addRegions(self, regionGroup):
+        """ takes an Iterable or a Region object and adds it to the self.regions container"""
+        if isinstance(regionGroup, Iterable):
+            self.regions |= set(regionGroup)
+        elif isinstance(regionGroup, Region):
+            self.regions |= regionGroup
+        else:
+            raise TypeError(f"An iterable or a 'Region' type object were expected, but you provided a {type(regionGroup)} type object")

@@ -4,6 +4,8 @@
 #default libraries
 import logging
 import argparse
+import time
+import os
 
 #installed libraries
 from tqdm import tqdm
@@ -118,16 +120,6 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi ):
             c += 1
     return mat
 
-def _writeMat_debug(matrix, outname):
-        """
-            For dev, function to call between steps when you think there is a problem.
-        """
-        f = open(outname, "w")
-        for matriceNode in matrix:
-            f.write(matriceNode.gene.ID + "\t" + matriceNode.gene.family.namedPartition +
-                    "\t" + str(matriceNode.score) + "\t" + str(matriceNode.state) + "\n")
-        f.close()
-
 def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, multi):
     # processing matrix and 'emptying' it to get the regions.
     def maxIndexNode(lst):
@@ -147,17 +139,12 @@ def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, mul
     contigRegions = set()
     val, index = maxIndexNode(matrix)
     c = 0
-    cc = 0
-    _writeMat_debug(matrix, 'tototo/' + contig.name + "#" + str(cc))
-    cc+=1
     while val >= min_score:
         new_region = extractRGP(contig, matrix[index], len(contigRegions))
         new_region.score = val
         if (new_region[0].stop - new_region[-1].start) > min_length:
             contigRegions.add(new_region)
         rewriteMatrix(contig, matrix, index, persistent, continuity, multi)
-        _writeMat_debug(matrix, 'tototo/' +contig.name + "#" + str(cc))
-        cc+=1
         val, index = maxIndexNode(matrix)
         c += 1
     return contigRegions
@@ -194,6 +181,9 @@ def predictRGP(pangenome, persistent_penalty = 3, variable_gain = 1, min_length 
     bar = tqdm(pangenome.organisms, unit = "genomes")
     for org in bar:
         pangenomeRGP |= compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics)
+
+    pangenome.addRegions(pangenomeRGP)
+
     logging.getLogger().info(f"Predicted {len(pangenomeRGP)} RGP")
     #save parameters and save status
     pangenome.parameters["RGP"] = {}
@@ -217,6 +207,8 @@ def rgpSubparser(subparser):
     optional.add_argument('--min_score', required=False, type=int, default=4, help="Minimal score wanted for considering a region as being a RGP")
     optional.add_argument('--min_length', required=False, type=int, default=3000, help="Minimum length (bp) of a region to be considered a RGP")
     optional.add_argument("--dup_margin", required = False, type=int, default=0.05, help="Minimum ratio of organisms where the family is present in which the family must have multiple genes for it to be considered 'duplicated'" )
+    optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
+
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser

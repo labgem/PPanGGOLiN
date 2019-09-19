@@ -57,9 +57,10 @@ def cmdLine():
     desc += "    write         Writes 'flat' files representing the pangenome that can be used with other softwares\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
     desc += "  \n"
-    desc += "  Specific analysis:\n"
-    desc += "    align        aligns proteins to the pangenome gene families representatives\n"
-    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome"
+    desc += "  Regions of genomic Plasticity:\n"
+    desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
+    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
+    desc += "    hotspot      predicts hotspots in your pangenome\n"
 
     parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
@@ -137,6 +138,8 @@ def main():
         ppanggolin.align.launch(args)
     elif args.subcommand == "rgp":
         ppanggolin.RGP.launch(args)
+    elif args.subcommand == "hotspot":
+        raise NotImplementedError()
 
 if __name__ == "__main__":
     main()
