@@ -281,7 +281,6 @@ def writeInfo(pangenome, h5f):
             if fam.namedPartition == "shell":
                 subpartCounter[fam.partition] +=1
             partSet.add(fam.partition)
-
         def getmean(arg):
             if len(arg) == 0:
                 return 0
