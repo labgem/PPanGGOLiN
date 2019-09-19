@@ -280,7 +280,8 @@ def writeInfo(pangenome, h5f):
             partDistribs[fam.namedPartition].append(len(fam.organisms) / len(pangenome.organisms))
             if fam.namedPartition == "shell":
                 subpartCounter[fam.partition] +=1
-            partSet.add(fam.partition)
+            if fam.partition != "S_":
+                partSet.add(fam.partition)
         def getmean(arg):
             if len(arg) == 0:
                 return 0
