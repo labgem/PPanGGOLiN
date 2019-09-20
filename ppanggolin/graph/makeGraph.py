@@ -64,7 +64,7 @@ def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False):
                         if not (prev.family == gene.family and (prev.is_fragment or gene.is_fragment)):
                             pangenome.addEdge(gene, prev)
                     prev = gene
-            if contig.is_circular:
+            if contig.is_circular and len(contig.genes) > 0:
                 pangenome.addEdge(contig.genes[0],prev)
     logging.getLogger().info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"
