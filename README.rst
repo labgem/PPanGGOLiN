@@ -28,6 +28,7 @@ PPanGGOLiN will be easily installed via conda
 You will need the following conda channels if you don't have them already:
 
 .. code:: bash
+
 	conda config --add channels defaults
 	conda config --add channels bioconda
 	conda config --add channels conda-forge
