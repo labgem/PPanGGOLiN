@@ -6,13 +6,16 @@ import logging
 import argparse
 import time
 import os
+from collections import defaultdict
 
 #installed libraries
 from tqdm import tqdm
+import networkx as nx
 
 #local libraries
 from ppanggolin.pangenome import Pangenome, Region
 from ppanggolin.formats import checkPangenomeInfo, writePangenome
+from ppanggolin.utils import mkOutdir
 
 class MatriceNode:
     def __init__(self, state, score, prev, gene):
@@ -152,6 +155,7 @@ def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, mul
 def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min_score, multigenics):
     orgRegions = set()
     for contig in organism.contigs:
+        ## can definitely multiprocess this part, as not THAT much information is needed...
         matrix = initMatrices(contig, persistent_penalty, variable_gain, multigenics)
         orgRegions |= mkRegions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain, multigenics)
 
@@ -170,7 +174,122 @@ def get_multigenics(pangenome, dup_margin):
     logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic. (duplicated in more than {dup_margin} of the genomes)")
     return multigenics
 
-def predictRGP(pangenome, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, cpu = 1):
+
+def getBorderingGenes(rgp, multigenics):
+        border = [None, None]
+        pos = rgp.genes[-1].position
+        while border[0] is None:
+            curr_fam = None
+            if pos == 0:
+                if rgp.contig.is_circular:
+                    curr_fam = rgp.contig.genes[-1].family
+                else:
+                    border[0] = ""
+            else:
+                curr_fam = rgp.contig.genes[pos -1].family
+            if curr_fam is not None and curr_fam not in multigenics and curr_fam.namedPartition == "persistent":
+                border[0] = curr_fam
+            else:
+                pos -= 1
+
+        pos = rgp.genes[0].position
+        while border[1] is None:
+            curr_fam = None
+            if pos == len(rgp.contig.genes)-1:
+                if rgp.contig.is_circular:
+                    curr_fam = rgp.contig.genes[0].family
+                else:
+                    border[1] = ""
+            else:
+                curr_fam = rgp.contig.genes[pos+1].family
+            if curr_fam is not None and curr_fam not in multigenics:
+                border[1] = curr_fam
+            else:
+                pos+=1
+        return border
+
+
+def getUniqRGP(rgpList):
+        uniqRGP = []
+        for rgp in rgpList:
+            z = True
+            for seenRgp in uniqRGP:
+                if rgp == seenRgp:
+                    z = False
+                    break
+            if z:
+                uniqRGP.append(rgp)
+        return uniqRGP
+
+def make_flanking_graph(spots, output):
+    g = nx.Graph()
+
+    def addNode(g, node):
+        g.add_node(node)
+        try:
+            g.nodes[node]["nb_genes"] += len(val)
+        except KeyError:
+            g.nodes[node]["nb_genes"] = len(val)
+
+    GeneFlankRGP = defaultdict(list)#will gather all the RGP per gene fam
+
+    for key, val in spots.items():
+        for geneFam in key:
+            GeneFlankRGP[geneFam].extend(val)
+
+    for key, val in spots.items():#key is a frozenset of 2 gene families
+        genePair = set(key)
+        gene1 = genePair.pop()
+        addNode(g, gene1)
+        g.nodes[gene1]["nb_organisations"] = len(getUniqRGP(GeneFlankRGP[gene1]))
+        g.nodes[gene1]["warmth"] = round(len(getUniqRGP(GeneFlankRGP[gene1])) / len(GeneFlankRGP[gene1]), 2)
+        if len(genePair) == 0:#then the flanking genes were identical...
+            gene2 = gene1
+        else:
+            gene2 = genePair.pop()
+        addNode(g, gene2)
+        g.nodes[gene2]["warmth"] = round(len(getUniqRGP(GeneFlankRGP[gene2])) / len(GeneFlankRGP[gene2]), 2)
+        g.nodes[gene2]["nb_organisations"] = len(getUniqRGP(GeneFlankRGP[gene2]))
+        uniqRGP = getUniqRGP(val)
+
+        g.add_edge(gene1, gene2)
+        g[gene1][gene2]["nb_rgp"] = len(val)#number of RGP with those flanking genes
+        g[gene1][gene2]["nb_organisations"] = len(uniqRGP)#number of unique different groups of genes
+        g[gene1][gene2]["warmth"] = round(len(uniqRGP) / len(val),2)
+    nx.readwrite.gexf.write_gexf(g, output + "/flanking_graph.gexf")
+
+
+def get_hotspots_stats(output, spots):
+
+    GeneFlankRGP = defaultdict(list)#will gather all the RGP per gene fam
+    out = open(output + "/hotspots_stats.tsv","w")
+    for key, val in spots.items():
+        for geneFam in key:
+            GeneFlankRGP[geneFam].extend(val)
+
+    out.write("geneFam\tnb_rgp\tnb_organisations\twarmth\n")
+
+    for geneFam, rgps in GeneFlankRGP.items():
+        out.write("\t".join([geneFam.name,str(len(rgps)), str(len(getUniqRGP(rgps))), str(round( len(getUniqRGP(rgps)) / len(rgps) ,2))]) + "\n")
+
+    out.close()
+
+def detect_hotspots(pangenome, multigenics, output, flanking_graph = False):
+    """caracterize a region's borders, and group regions based on their bordering genes"""
+    spots = defaultdict(set)
+
+    for rgp in pangenome.regions:
+        border = getBorderingGenes(rgp, multigenics)
+        if border[0] != "" and border[1] != "":
+            spots[frozenset(border)].add(rgp)
+
+    if flanking_graph:
+        make_flanking_graph(spots, output)
+
+    get_hotspots_stats(output, spots)
+
+
+def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, flanking_graph = False, cpu = 1):
     #check statuses and load info
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, needPartitions = True)
 
@@ -183,6 +302,9 @@ def predictRGP(pangenome, persistent_penalty = 3, variable_gain = 1, min_length 
         pangenomeRGP |= compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics)
 
     pangenome.addRegions(pangenomeRGP)
+
+    if False:
+        detect_hotspots(pangenome, multigenics, output, flanking_graph)
 
     logging.getLogger().info(f"Predicted {len(pangenomeRGP)} RGP")
     #save parameters and save status
@@ -197,7 +319,9 @@ def predictRGP(pangenome, persistent_penalty = 3, variable_gain = 1, min_length 
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    predictRGP(pangenome, args.persistent_penalty, args.variable_gain, args.min_length, args.min_score, args.dup_margin, args.cpu)
+    if args.flanking_graph:#needed only if this option is used.
+        mkOutdir(args.output, args.force)
+    predictRGP(pangenome, args.output, args.persistent_penalty, args.variable_gain, args.min_length, args.min_score, args.dup_margin, args.flanking_graph, args.cpu)
 
 def rgpSubparser(subparser):
     parser = subparser.add_parser("rgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -208,7 +332,7 @@ def rgpSubparser(subparser):
     optional.add_argument('--min_length', required=False, type=int, default=3000, help="Minimum length (bp) of a region to be considered a RGP")
     optional.add_argument("--dup_margin", required = False, type=int, default=0.05, help="Minimum ratio of organisms where the family is present in which the family must have multiple genes for it to be considered 'duplicated'" )
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
-
+    optional.add_argument("--flanking_graph", required = False, action="store_true", help = "Writes a graph in a .gexf format of single copy markers flanking RGPs")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser

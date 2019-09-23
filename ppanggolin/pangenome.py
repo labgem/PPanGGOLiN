@@ -16,6 +16,17 @@ class Region:
         self.name = ID
         self.score = 0
 
+    def __eq__(self, other):
+        """ expects another Region type object. Will test whether two Region objects have the same gene families"""
+        if not isinstance(other, Region):
+            raise TypeError(f"'Region' type object was expected, but '{type(other)}' type object was provided.")
+        if { gene.family for gene in self.genes } == { gene.family for gene in other.genes }:
+            return True
+        return False
+
+    def __hash__(self):
+        return id(self)
+
     def append(self, value):
         # allowing only gene-class objects in a region.
         if isinstance(value, Gene):
@@ -34,9 +45,7 @@ class Region:
     @property
     def isContigBorder(self):
         if len(self.genes) == 0:
-            raise Exception("Your region has no genes")
-        for gene in self.genes:
-            print(gene.position)
+            raise Exception("Your region has no genes. Something wrong happenned.")
         if self.genes[-1].position == 0 and not self.contig.is_circular:
             return True
         elif self.genes[0].position == len(self.contig.genes)-1 and not self.contig.is_circular:
