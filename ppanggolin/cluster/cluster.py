@@ -301,11 +301,13 @@ def launch(args):
 
 def clusterSubparser(subparser):
     parser = subparser.add_parser("cluster", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
+    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
+
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associated potential fragments with their original gene family.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument('--clusters', required = False, type = str, help = "A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
     optional.add_argument("--infer_singletons",required=False, action="store_true", help = "When reading a clustering result with --clusters, if a gene is not in the provided file it will be placed in a cluster where the gene is the only member.")
-    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser

@@ -64,7 +64,7 @@ def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False):
                         if not (prev.family == gene.family and (prev.is_fragment or gene.is_fragment)):
                             pangenome.addEdge(gene, prev)
                     prev = gene
-            if contig.is_circular:
+            if contig.is_circular and len(contig.genes) > 0:
                 pangenome.addEdge(contig.genes[0],prev)
     logging.getLogger().info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"
@@ -87,7 +87,5 @@ def launch(args):
 def graphSubparser(subparser):
     parser = subparser.add_parser("graph")
     parser.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0, help="""
-    Positive Number: Remove families having a number of copy of gene in a single organism above or equal to this threshold in at least one organism (0 or negative values are ignored).
-    """)
+    parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0, help="""Positive Number: Remove families having a number of copy of gene in a single organism above or equal to this threshold in at least one organism (0 or negative values are ignored).""")
     return parser

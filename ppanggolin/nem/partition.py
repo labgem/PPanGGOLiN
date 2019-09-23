@@ -465,6 +465,9 @@ def launch(args):
 
 def partitionSubparser(subparser):
     parser = subparser.add_parser("partition", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
+    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
+
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("-b","--beta", required = False, default = 2.5, type = float, help = "beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
     optional.add_argument("-ms","--max_degree_smoothing",required = False, default = 10, type=float, help = "max. degree of the nodes to be included in the smoothing process.")
@@ -478,7 +481,5 @@ def partitionSubparser(subparser):
     optional.add_argument("--keep_tmp_files",required = False, default = False, action = "store_true",help = "Use if you want to keep the temporary NEM files")
     optional.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
 
-    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-
+    
     return parser

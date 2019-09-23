@@ -486,6 +486,9 @@ def launch(args):
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
+    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-o','--output', required=True, type=str, help="Output directory where the file(s) will be written")
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("--soft_core",required=False, default = 0.95, help = "Soft core threshold to use")
     optional.add_argument("--dup_margin", required=False, default=0.05, help = "minimum ratio of organisms in which the family must have multiple genes for it to be considered 'duplicated'")
@@ -498,7 +501,4 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--partitions", required=False, action = "store_true", help = "list of families belonging to each partition, with one file per partitions and one family per line")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     optional.add_argument("--json", required=False, action = "store_true", help = "Writes the graph in a json file format")
-    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    required.add_argument('-o','--output', required=True, type=str, help="Output directory where the file(s) will be written")
     return parser

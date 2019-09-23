@@ -103,13 +103,15 @@ def launch(args):
 
 def alignSubparser(subparser):
     parser = subparser.add_parser("align", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    optional = parser.add_argument_group(title = "Optional arguments")
-    optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associate potential fragments with their original gene family.")
-    optional.add_argument('--identity', required = False, type = float, default=0.5, help = "min identity percentage threshold")
-    optional.add_argument('--coverage', required = False, type = float, default=0.8, help = "min coverage percentage threshold")
 
     required = parser.add_argument_group(title = "Required arguments", description = "All of the following arguments are required :")
     required.add_argument('--proteins', required = True, type = str, help = "proteins sequences to align on the pangenome gene families")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o','--output', required=True, type=str, help="Output directory where the file(s) will be written")
+
+    optional = parser.add_argument_group(title = "Optional arguments")
+    optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associate potential fragments with their original gene family.")
+    optional.add_argument('--identity', required = False, type = float, default=0.5, help = "min identity percentage threshold")
+    optional.add_argument('--coverage', required = False, type = float, default=0.8, help = "min coverage percentage threshold")
+
     return parser
