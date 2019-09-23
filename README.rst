@@ -23,7 +23,16 @@ The user guide will be available in the github wiki where you will be able to fi
 Installation
 ============
 
-PPanGGOLiN will be easily installed via conda:
+
+PPanGGOLiN will be easily installed via conda
+You will need the following conda channels if you don't have them already:
+
+.. code:: bash
+	conda config --add channels defaults
+	conda config --add channels bioconda
+	conda config --add channels conda-forge
+
+And then you can just run :
 
 .. code:: bash
 
