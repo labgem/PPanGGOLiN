@@ -268,7 +268,7 @@ def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False,
         elif not pangenome.status["neighborsGraph"] in ["Computed","Loaded"]:
             raise Exception("Your pangenome does not have a graph (no edges). See the 'graph' subcommand.")
     if needPartitions:
-        if not pangenome.status["partitionned"] == "inFile":
+        if not pangenome.status["partitionned"] in ["Computed", "Loaded", "inFile"]:
             raise Exception("Your pangenome has not been partitionned. See the 'partition' subcommand")
     if annotation or geneFamilies or graph:#if anything is true, else we need nothing.
         readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph)
