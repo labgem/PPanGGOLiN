@@ -47,8 +47,8 @@ def launch(args):
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
     if args.evol:
         makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
-
-    drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True )
+    if len(pangenome.organisms) < 5000:
+        drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)
 
     writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True, json = True, stats = True, partitions = True)

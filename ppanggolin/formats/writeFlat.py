@@ -363,7 +363,9 @@ def writeStats(output, soft_core, dup_margin, compress=False):
                     nb_gene_soft+=1
                     if gene.family in core:
                         nb_gene_core+=1
-
+            completeness = "NA"
+            if len(single_copy_markers) > 0:
+                completeness = round((len(fams & single_copy_markers) / len(single_copy_markers))*100,2)
             outfile.write("\t".join(map(str,[org.name,
                                     len(fams),
                                     nb_pers,
@@ -377,7 +379,7 @@ def writeStats(output, soft_core, dup_margin, compress=False):
                                     nb_gene_cloud,
                                     nb_gene_core,
                                     nb_gene_soft,
-                                    round((len(fams & single_copy_markers) / len(single_copy_markers))*100,2),
+                                    completeness,
                                     len(fams & single_copy_markers)])) + "\n")
 
     logging.getLogger().info("Done writing genome per genome statistics")

@@ -807,13 +807,16 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
   Lfound = FALSE ;   /* Initialize values for likelihood heuristic */
   LlossThres= NemParaP->BtaHeuLLoss * DataP->NbPts;
 
-  fprintf( out_stderr, "* * Starting heuristic * *\n" ) ;
-  fprintf( out_stderr, "    Parameters : " ) ;
+  fprintf( out_stderr, "* * Starting heuristic * *\n" ) ; if(out_stderr) fflush( out_stderr );
+  fprintf( out_stderr, "    Parameters : " ) ; if(out_stderr) fflush( out_stderr );
+
   if ( StatModelP->Spec.BetaModel == BETA_HEUD )
     fprintf( out_stderr, "Drop < %3.1f  or  (Dmax - D) < %3.1f (Dmax - Dmin)\n" ,
-	     DdropThres, NemParaP->BtaHeuDLoss ) ;
+	     DdropThres, NemParaP->BtaHeuDLoss ) ; if(out_stderr) fflush( out_stderr );
+
   else
-    fprintf( out_stderr, "L < Lmax - %3.1f \n" , LlossThres ) ;
+    fprintf( out_stderr, "L < Lmax - %3.1f \n" , LlossThres ) ; if(out_stderr) fflush( out_stderr );
+
 
   for ( btatest = 0.0, nbta = 0, stop = FALSE ;
 	( btatest <= NemParaP->BtaHeuMax ) && ( ! stop ) ;
@@ -821,7 +824,8 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
     {
       StatusET sts ;
 
-      fprintf( out_stderr, "\n * * Testing beta = %5.2f * * \n" , btatest ) ;
+      fprintf( out_stderr, "\n * * Testing beta = %5.2f * * \n" , btatest ) ; if(out_stderr) fflush( out_stderr );
+
 
       StatModelP->Para.Beta = btatest ;
 
@@ -856,7 +860,8 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
     	      if ( nbta >= 3 )
     		{
     		  fprintf( out_stderr, "    * Drop : %5.1f (threshold %5.1f) *\n", 
-    			       ( thisSlope - prevSlope ) , DdropThres ) ;
+    			       ( thisSlope - prevSlope ) , DdropThres ) ; if(out_stderr) fflush( out_stderr );
+
     
     		  if ( (! Ddrop) && (! Dincreas) ) {
 
@@ -864,7 +869,8 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
 
     		      Ddrop = TRUE ;
 		      if ( ! NemParaP->Debug )  stop = TRUE ;
-    		      fprintf( out_stderr, "    * ---> Drop detected *\n" ) ;
+    		      fprintf( out_stderr, "    * ---> Drop detected *\n" ) ; if(out_stderr) fflush( out_stderr );
+
     		      /* btaEst = btaV[ nbta - 2 ] ; V1.06-i*/
 		      btaEst = btaV[ nbta - 1 ] ; 
 
@@ -892,7 +898,8 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
 
 		  Lmax = CriterP->L ;
 		  fprintf( out_stderr, " * *  L threshold  :  %3.1f  * * \n" ,
-			   Lmax - LlossThres ) ;
+			   Lmax - LlossThres ) ; if(out_stderr) fflush( out_stderr );
+
 		  memcpy( clasbestM, ClassifM, npt * nk * sizeof( float ) ) ;
 		}
 	      else /* >= 2nd beta */ 
@@ -901,7 +908,8 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
 		    {
 		      Lmax = CriterP->L ;
 		      fprintf( out_stderr, " * *  L threshold  :  %3.1f  * * \n" ,
-			       Lmax - LlossThres ) ;
+			       Lmax - LlossThres ) ; if(out_stderr) fflush( out_stderr );
+
 		    }
 
     		  if (! Lfound) {
@@ -910,7 +918,8 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
 
     		      Lfound = TRUE ;
 		      if ( ! NemParaP->Debug )  stop = TRUE ;
-    		      fprintf( out_stderr, "    * ---> L loss detected *\n" ) ;
+    		      fprintf( out_stderr, "    * ---> L loss detected *\n" ) ; if(out_stderr) fflush( out_stderr );
+
     		      /* btaEst = btaV[ nbta - 2 ] ; V1.06-i*/
 		      btaEst = btaV[ nbta - 1 ] ; 
     		    }
@@ -951,7 +960,8 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
       btaEst = btaV[ ibta - 2 ] ;
     else {
 
-      fprintf( out_stderr , "Warning : heuristic failed to detect beta\n" ) ;
+      fprintf( out_stderr , "Warning : heuristic failed to detect beta\n" ) ; if(out_stderr) fflush( out_stderr );
+
       btaEst = 0.0 ;
     }
 
@@ -969,16 +979,19 @@ static int ClassifyByNemHeuBeta                             /*V1.04-a*/
     {
       /* btaEst = btaV[ nbta - 1 ] ; V1.06-i*/
       btaEst = btaV[ nbta ] ;
-      fprintf( out_stderr, "    * L loss not detected *\n" ) ;
+      fprintf( out_stderr, "    * L loss not detected *\n" ) ; if(out_stderr) fflush( out_stderr );
+
     }
 
   if ( fcri != NULL )
     fclose( fcri ) ;
 
-  fprintf( out_stderr , "\n * * *  Estimated beta : %3.2f * * *\n" , btaEst ) ;
+  fprintf( out_stderr , "\n * * *  Estimated beta : %3.2f * * *\n" , btaEst ) ; if(out_stderr) fflush( out_stderr );
+
   if ( StatModelP->Spec.BetaModel == BETA_HEUD )
     fprintf( out_stderr , " * * *   Using %s * * *\n\n" , 
-	     Ddrop ? "drop detection" : "loss thresholding" ) ;
+	     Ddrop ? "drop detection" : "loss thresholding" ) ; if(out_stderr) fflush( out_stderr );
+
 
 
   GenFree( btaV ) ;     /*V1.05-h*/
@@ -1031,7 +1044,8 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
 
 #ifdef __TURBOC__
     fprintf( out_stderr, "\n Remaining memory after allocating : %lu bytes\n", 
-             (unsigned long) coreleft() );
+             (unsigned long) coreleft() ); if(out_stderr) fflush( out_stderr );
+
 #endif
 
     if ( ( working.KmaxesV == NULL ) || 
@@ -1043,7 +1057,8 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
          ( ( working.Neighs.NeighsV == NULL ) && 
            ( SpatialP->MaxNeighs > 0 ) ) )
     {
-        fprintf( out_stderr, "Could not allocate NEM working variables\n" );
+        fprintf( out_stderr, "Could not allocate NEM working variables\n" ); if(out_stderr) fflush( out_stderr );
+
         return STS_E_MEMORY ;
     }
 
@@ -1059,7 +1074,8 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
     case INIT_SORT:    /* initial partition to be computed by sorting */
         fprintf( out_stderr, 
                  "Computing initial partition (sort variable %d) ...\n",
-                  NemParaP->SortedVar + 1 ) ;
+                  NemParaP->SortedVar + 1 ) ; if(out_stderr) fflush( out_stderr );
+
 
         InitPara( DataP, & StatModelP->Desc, & StatModelP->Spec, 
 		  & StatModelP->Para, 
@@ -1079,7 +1095,8 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
 
         if ( flog != NULL )
             fprintf( flog, "Initialization by sorting variable %d:\n",
-                     NemParaP->SortedVar + 1 ) ;
+                     NemParaP->SortedVar + 1 ) ; if(flog) fflush( flog );
+
 
         err = NemAlgo( DataP, NemParaP, SpatialP, & StatModelP->Spec, 
 		       & StatModelP->Desc,
@@ -1090,7 +1107,8 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
 
     case INIT_FILE:    /* initial classification is given by a file */
         if ( flog != NULL )
-            fprintf( flog, "Initialization with specified partition :\n" ) ;
+            fprintf( flog, "Initialization with specified partition :\n" ) ; if(flog) fflush( flog );
+
 
 	/*V1.06-g*/
         InitPara( DataP, & StatModelP->Desc, & StatModelP->Spec, 
@@ -1112,11 +1130,14 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
 
     case INIT_LABEL:
         fprintf( out_stderr, 
-		 "Initializing centers from partially labeled sample\n");
+		 "Initializing centers from partially labeled sample\n"); if(out_stderr) fflush( out_stderr );
+
 
         if ( flog != NULL ) {
-	  fprintf( flog, "Initialization with partially labeled sample :\n" ) ;
-	  fprintf( flog, "%4d ", 0 ) ;
+	  fprintf( flog, "Initialization with partially labeled sample :\n" ) ; if(flog) fflush( flog );
+
+	  fprintf( flog, "%4d ", 0 ) ; if(flog) fflush( out_stderr );
+
 	}
 
 	/*V1.03-d*/
@@ -1151,8 +1172,10 @@ static int ClassifyByNemOneBeta                             /*V1.04-a*/
         fprintf( out_stderr, 
 		 "Initializing parameters from given value\n");
         if ( flog != NULL ) {
-	  fprintf( flog, "Initializing parameters from given value :\n" ) ;
-	  fprintf( flog, "%4d ", 0 ) ;
+	  fprintf( flog, "Initializing parameters from given value :\n" ) ; if(out_stderr) fflush( flog );
+
+	  fprintf( flog, "%4d ", 0 ) ; if(flog) fflush( flog );
+
 	}
 
 	ComputePartitionFromPara( 1, DataP, NemParaP, & StatModelP->Spec, 
@@ -1339,7 +1362,8 @@ static int MakeParaFromLabeled
     if ( sts != STS_OK )
       {
 	if ( sts == STS_W_EMPTYCLASS )
-	  fprintf( out_stderr, "Class %d has no labeled observation\n", emptyk ) ;
+	  fprintf( out_stderr, "Class %d has no labeled observation\n", emptyk ) ; if(out_stderr) fflush( out_stderr );
+
 	return sts ;
       }
 
@@ -1352,7 +1376,8 @@ static int MakeParaFromLabeled
 	    {
 	      fprintf( out_stderr , 
 		       "Warning: no data in class k=%d, variable=%d\n" ,
-		       k + 1 , d + 1 );
+		       k + 1 , d + 1 ); if(out_stderr) fflush( out_stderr );
+
 	      *misskP = k ;
 	      *missdP = d ;
 
@@ -1479,19 +1504,23 @@ static void StartLogFile( const char* LogName, int Npt, FILE** FlogP )
   float mult; 
 
         if ( ( (*FlogP) = fopen( LogName, "w" ) ) == NULL )
-        {
+        { 
+            setbuf(FlogP, NULL);
             fprintf( out_stderr, "Could not open file '%s' in write mode\n", 
-                     LogName ) ;
+                     LogName ) ; if(out_stderr) fflush( out_stderr );
+
         }
         else
         {
             time_t timer = time( NULL ) ;
 
             fprintf( (*FlogP), "NEM log file  -  %s\n",
-                     asctime( localtime( &timer ) ) ) ;
+                     asctime( localtime( &timer ) ) ) ; if(*(FlogP)) fflush( *(FlogP) );
+
 
 	    mult = exp( -((int) ( log(Npt/1000.)/log(10) )) * log( 10 ) ) ;
-	    fprintf( (*FlogP), "  Criteria are multiplied by %f\n\n", mult ) ;
+	    fprintf( (*FlogP), "  Criteria are multiplied by %f\n\n", mult ) ; if(*(FlogP)) fflush( *(FlogP) );
+
         }
 }  /* end of StartLogFile() */
 
@@ -1625,12 +1654,15 @@ static StatusET RandNemAlgo
       irandom ++ )
   {
     fprintf( out_stderr, 
-             "\nRandom initial partition  %d\n", irandom + 1 ) ;
+             "\nRandom initial partition  %d\n", irandom + 1 ) ; if(out_stderr) fflush( out_stderr );
+
 
     if ( Flog != NULL )
     {
-       fprintf( Flog, "\nRandom initialization %d :\n", irandom + 1 ) ;
-       fprintf( Flog, "%4d ", 0 ) ;
+       fprintf( Flog, "\nRandom initialization %d :\n", irandom + 1 ) ; if(out_stderr) fflush( out_stderr );
+
+       fprintf( Flog, "%4d ", 0 ) ; if(out_stderr) fflush( out_stderr );
+
     }
 
     /* Generate randomly initial parameters */
@@ -1719,15 +1751,18 @@ static StatusET RandNemAlgo
     fprintf( out_stderr, 
              "Best start was %d (%s = %g)\n", bestTry+1, 
 	     CritStrVC[ NemParaP->Crit ] , 
-	     ChosenCrit( CriterP , NemParaP->Crit ) ) ;
+	     ChosenCrit( CriterP , NemParaP->Crit ) ) ; if(out_stderr) fflush( out_stderr );
+
 
     if ( CriterP->Errinfo.Kr != 0 )
       fprintf( out_stderr, "Error of best start = %5.1f\n", 
-	       100.0 * CriterP->Errcur.Errorrate ) ;
+	       100.0 * CriterP->Errcur.Errorrate ) ; if(out_stderr) fflush( out_stderr );
+
 
     if ( Flog != NULL )
        fprintf( Flog, "Best start was %d (U = %g)\n", 
-                bestTry+1, ChosenCrit( CriterP , NemParaP->Crit ) ) ;
+                bestTry+1, ChosenCrit( CriterP , NemParaP->Crit ) ) ; if(out_stderr) fflush( out_stderr );
+
   }
   /* otherwise, return last error status */
 
@@ -1780,8 +1815,10 @@ static int NemAlgo
     oldcrit = -MAXFLOAT ;
 
     WriteLogHeader( Flog, NemParaP->NbEIters, DataP->NbVars, SpecP ) ;
-    fprintf( out_stderr, "  Iterations : " ) ;
-    fprintf( out_stderr, "%4d ", 0 ) ;              /*V1.05-g*/
+    fprintf( out_stderr, "  Iterations : " ) ; if(out_stderr) fflush( out_stderr );
+
+    fprintf( out_stderr, "%4d ", 0 ) ; if(out_stderr) fflush( out_stderr );
+              /*V1.05-g*/
 
     /* For each iteration of NEM (until : 
        convergence, or iteration count reached, or empty class) */
@@ -1791,10 +1828,13 @@ static int NemAlgo
           ( err == STS_OK ) ; 
           iter ++ )
     {
-        fprintf( out_stderr, "\b\b\b\b\b" ) ;       /*V1.05-g*/
-        fprintf( out_stderr, "%4d ", iter ) ;       /*V1.05-g*/
+        fprintf( out_stderr, "\b\b\b\b\b" ) ; if(out_stderr) fflush( out_stderr );
+       /*V1.05-g*/
+        fprintf( out_stderr, "%4d ", iter ) ; if(out_stderr) fflush( out_stderr );
+       /*V1.05-g*/
 
-        if ( Flog != NULL ) fprintf( Flog, "%4d ", iter ) ;
+        if ( Flog != NULL ) fprintf( Flog, "%4d ", iter ) ; if(out_stderr) fflush( out_stderr );
+
 
         /* Save last computed partition as old partition */
         memcpy( WorkP->ColdM, CM, npt * nk * sizeof( float ) ) ;
@@ -1828,19 +1868,23 @@ static int NemAlgo
 				      CriterP, WorkP ) ;  /*V1.06-o*/
         if ( sts == STS_E_INFINITE){
             err=sts;
-            fprintf( out_stderr, "FATAL ERROR, NEM criteria reach infinite value\n");
+            fprintf( out_stderr, "FATAL ERROR, NEM criteria reach infinite value\n"); if(out_stderr) fflush( out_stderr );
+
             if ( Flog != NULL )
-               fprintf( Flog, "FATAL ERROR, NEM criteria reach infinite value\n");
+               fprintf( Flog, "FATAL ERROR, NEM criteria reach infinite value\n"); if(Flog) fflush( Flog );
+
         }
 
         }
         else if ( err == STS_W_EMPTYCLASS ) /* Else -> class emptyk is empty */
         {
             fprintf( out_stderr, "Class %d empty at iteration %d\n", 
-                     emptyk, iter ) ;
+                     emptyk, iter ) ; if(out_stderr) fflush( out_stderr );
+
             if ( Flog != NULL )
                fprintf( Flog, " Class %d empty at iteration %d\n", 
-                        emptyk, iter ) ;
+                        emptyk, iter ) ; if(Flog) fflush( Flog );
+
         }
          
     } /* end for ( iter = 1, converged = FALSE ... ) */
@@ -1858,12 +1902,15 @@ static int NemAlgo
     ComputeCrit( npt, nk, ParaP->Beta, CM, SpatialP, WorkP, CriterP ) ;
     CalcError( CM, npt, 1, & CriterP->Errinfo, & CriterP->Errcur );
 
-    fprintf( out_stderr, "\n" ) ;  /* -> to end iterations count line */
+    fprintf( out_stderr, "\n" ) ; if(out_stderr) fflush( out_stderr );
+  /* -> to end iterations count line */
     fprintf( out_stderr, 
 	     "  criterion NEM = %6.3f / Ps-Like = %6.3f / Lmix = %6.3f\n" ,
-	     CriterP->U , CriterP->M , CriterP->L ) ;    /*V1.03-g*/
+	     CriterP->U , CriterP->M , CriterP->L ) ; if(out_stderr) fflush( out_stderr );
+    /*V1.03-g*/
     if ( CriterP->Errinfo.Kr != 0 ) 
-      fprintf( out_stderr, "  error = %5.3f\n", CriterP->Errcur.Errorrate ) ;
+      fprintf( out_stderr, "  error = %5.3f\n", CriterP->Errcur.Errorrate ) ; if(out_stderr) fflush( out_stderr );
+
 
     /* If convergence test was requested and no error occurred */
     if ( ( NemParaP->CvTest != CVTEST_NONE ) && ( err == STS_OK ) )
@@ -1871,12 +1918,14 @@ static int NemAlgo
         /* Display message about convergence */
         if ( converged )
         {
-            fprintf( out_stderr, "  NEM converged after %d iterations\n", iter ) ;
+            fprintf( out_stderr, "  NEM converged after %d iterations\n", iter ) ; if(out_stderr) fflush( out_stderr );
+
         }
         else 
         {
             fprintf( out_stderr, "  NEM did not converge after %d iterations\n", 
-                     iter ) ;
+                     iter ) ; if(out_stderr) fflush( out_stderr );
+
         }
     }
 
@@ -1899,55 +1948,68 @@ static void WriteLogHeader
 
     if ( Flog == NULL )     return ;  /*V1.03-b*/
 
-    fprintf( Flog, "%4s  %5s %5s %5s", "It", "UM", "PM", "Er" ) ;
+    fprintf( Flog, "%4s  %5s %5s %5s", "It", "UM", "PM", "Er" ) ; if(Flog) fflush( Flog );
+
     for ( it = 0 ; it < NbEIters ; it ++ )
     {
         fprintf( Flog, " %3s%-2d %3s%-2d %3s%-2d", 
-		 "UE", it+1, "PE", it+1, "Er", it+1 ) ;
+		 "UE", it+1, "PE", it+1, "Er", it+1 ) ; if(Flog) fflush( Flog );
+
     }
 
-    fprintf( Flog, " " ) ;
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
 
-    fprintf( Flog, " %5s", "Beta" ) ;
 
-    fprintf( Flog, " " ) ;
+    fprintf( Flog, " %5s", "Beta" ) ; if(Flog) fflush( Flog );
+
+
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
+
 
     for ( k = 0 ; k < SpecP->K ; k ++ )
     {
-        fprintf( Flog, " %3s%02d", "P", k + 1 ) ;
+        fprintf( Flog, " %3s%02d", "P", k + 1 ) ; if(Flog) fflush( Flog );
+
     }
 
-    fprintf( Flog, " " ) ;
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
 
-    for ( k = 0 ; k < SpecP->K ; k ++ )
-    {
-        for ( d = 0 ; d < Nd ; d ++ )
-        {
-            fprintf( Flog, " %3s%02d_%1d", "M", k + 1, d + 1 ) ;
-        }
-    }
-
-    fprintf( Flog, " " ) ;
 
     for ( k = 0 ; k < SpecP->K ; k ++ )
     {
         for ( d = 0 ; d < Nd ; d ++ )
         {
-            fprintf( Flog, " %3s%02d_%1d", "D", k + 1, d + 1 ) ;
+            fprintf( Flog, " %3s%02d_%1d", "M", k + 1, d + 1 ) ; if(Flog) fflush( Flog );
+
         }
     }
 
-    fprintf( Flog, " " ) ;
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
+
 
     for ( k = 0 ; k < SpecP->K ; k ++ )
     {
         for ( d = 0 ; d < Nd ; d ++ )
         {
-            fprintf( Flog, " %3s%02d_%1d", "n", k + 1, d + 1 ) ;
+            fprintf( Flog, " %3s%02d_%1d", "D", k + 1, d + 1 ) ; if(Flog) fflush( Flog );
+
         }
     }
 
-    fprintf( Flog, "\n" ) ;
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
+
+
+    for ( k = 0 ; k < SpecP->K ; k ++ )
+    {
+        for ( d = 0 ; d < Nd ; d ++ )
+        {
+            fprintf( Flog, " %3s%02d_%1d", "n", k + 1, d + 1 ) ; if(Flog) fflush( Flog );
+
+        }
+    }
+
+    fprintf( Flog, "\n" ) ; if(Flog) fflush( Flog );
+
 
 }   /* end of WriteLogHeader() */
 
@@ -1991,7 +2053,8 @@ StatusET err = STS_OK ;
   WriteLogClasses( Flog, DataP->NbVars, SpecP, ParaP ) ;
 
   if ( ( Needinit ) && ( Flog != NULL ) )
-    fprintf( Flog, "\n" ) ;
+    fprintf( Flog, "\n" ) ; if(Flog) fflush( Flog );
+
 
 return(err);
 
@@ -2012,49 +2075,60 @@ static void WriteLogClasses
 
     if ( Flog == NULL )     return ;  /*V1.03-b*/
 
-    fprintf( Flog, " " ) ;
-
-    fprintf( Flog, " %5.3f", ParaP->Beta ) ;
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
 
 
-    fprintf( Flog, " " ) ;
+    fprintf( Flog, " %5.3f", ParaP->Beta ) ; if(Flog) fflush( Flog );
 
-    for ( k = 0 ; k < SpecP->K ; k ++ )
-    {
-        fprintf( Flog, " %5.3f", ParaP->Prop_K[ k ] ) ;
-    }
 
-    fprintf( Flog, " " ) ;
+
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
+
 
     for ( k = 0 ; k < SpecP->K ; k ++ )
     {
-        for ( d = 0 ; d < Nd ; d ++ )
-        {
-            fprintf( Flog, " %7.3f", ParaP->Center_KD[ (k*Nd) + d ] ) ;
-        }
+        fprintf( Flog, " %5.3f", ParaP->Prop_K[ k ] ) ; if(Flog) fflush( Flog );
+
     }
 
-    fprintf( Flog, " " ) ;
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
+
 
     for ( k = 0 ; k < SpecP->K ; k ++ )
     {
         for ( d = 0 ; d < Nd ; d ++ )
         {
-            fprintf( Flog, " %7.3f", ParaP->Disp_KD[ (k*Nd) + d ] ) ;
+            fprintf( Flog, " %7.3f", ParaP->Center_KD[ (k*Nd) + d ] ) ; if(Flog) fflush( Flog );
+
         }
     }
 
-    fprintf( Flog, " " ) ;
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
+
 
     for ( k = 0 ; k < SpecP->K ; k ++ )
     {
         for ( d = 0 ; d < Nd ; d ++ )
         {
-            fprintf( Flog, " %7.1f", ParaP->NbObs_KD[ (k*Nd) + d ] ) ;
+            fprintf( Flog, " %7.3f", ParaP->Disp_KD[ (k*Nd) + d ] ) ; if(Flog) fflush( Flog );
+
         }
     }
 
-    fprintf( Flog, "\n" ) ;
+    fprintf( Flog, " " ) ; if(Flog) fflush( Flog );
+
+
+    for ( k = 0 ; k < SpecP->K ; k ++ )
+    {
+        for ( d = 0 ; d < Nd ; d ++ )
+        {
+            fprintf( Flog, " %7.1f", ParaP->NbObs_KD[ (k*Nd) + d ] ) ; if(Flog) fflush( Flog );
+
+        }
+    }
+
+    fprintf( Flog, "\n" ) ; if(Flog) fflush( Flog );
+
 
 }   /* end of WriteLogClasses() */
 
@@ -2403,7 +2477,7 @@ static int ComputePartitionNEM
 
     } /* end for ( itere = 0 ; itere < NemParaP->NbEIters ; itere ++ ) */
 
-if( CriterP->U == -INFINITY && CriterP->M == -INFINITY && isnan(CriterP->Errcur.Errorrate)){
+if( CriterP->U == -INFINITY || CriterP->M == -INFINITY){
     return(STS_E_INFINITE);
 }else{
     return STS_OK ;
@@ -2614,7 +2688,8 @@ static int ComputeLocalProba
 
     if ( first ) {
       first = FALSE ;
-      fprintf( out_stderr, "Warning : pt %d density = 0\n", Ipt ) ;
+      fprintf( out_stderr, "Warning : pt %d density = 0\n", Ipt ) ; if(out_stderr) fflush( out_stderr );
+
     }
   }
 
@@ -2647,7 +2722,8 @@ static void WriteLogCrit
 
     fprintf( Flog, " %5.0f %5.0f %5.3f",
 	     CriterP->U * mult, CriterP->M * mult,
-	     CriterP->Errcur.Errorrate ) ;
+	     CriterP->Errcur.Errorrate ) ; if(Flog) fflush( Flog );
+
   }
 }
 
