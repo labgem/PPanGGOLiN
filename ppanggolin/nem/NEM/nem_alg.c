@@ -70,7 +70,10 @@ Vers-mod  Date         Who Description
 #include <string.h>     /* memcpy */
 #include <math.h>       /* exp */
 #include <time.h>       /* time */
-#include "values.h"     /* MINFLOAT */
+#include <float.h>      /* FLT_MAX */
+
+#define MINFLOAT FLT_MIN   /* alias value for compatibility issues */
+
 #ifdef __TURBOC__
 #include <alloc.h>      /* coreleft, ... */ 
 #endif

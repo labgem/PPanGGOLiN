@@ -36,8 +36,7 @@
 #include <stdlib.h>     /* malloc, ... */
 #include <string.h>     /* memcpy, ... */
 #include <math.h>       /* exp, ... */
-#include "values.h"     /* MAXFLOAT */
-
+#include <float.h>      /* FLT_MAX */
 
 #define TWO_PI    2 * 3.14159 
 
