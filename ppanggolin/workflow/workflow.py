@@ -45,7 +45,7 @@ def launch(args):
 
     computeNeighborsGraph(pangenome)
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
-    if args.raref:
+    if args.rarefaction:
         makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
     if len(pangenome.organisms) < 5000:
         drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True)
