@@ -1076,9 +1076,6 @@ static void InerToDispK_
 
 }   /* end of InerToDispK_() */
 
-
-
-
 /* ------------------------------------------------------------------- */
 static void InerToDisp_D
 (
@@ -1195,7 +1192,6 @@ EstimParaLaplace
   int      D = DataP->NbVars ;
 
   StatusET sts ;
-
 
   /* Common computation for any diagonal gaussian model with missing data */
   sts = CommonLaplaceDiag

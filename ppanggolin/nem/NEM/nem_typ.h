@@ -68,14 +68,14 @@
 #define DEFAULT_ALGO         ALGO_NEM
 #define DEFAULT_BETA         1.0
 #define DEFAULT_BTAMODE      BETA_FIX           /*V1.04-b*/
-#define DEFAULT_BTAHEUSTEP   0.1                /*V1.04-b*/
-#define DEFAULT_BTAHEUMAX    2.0                /*V1.04-b*/
+#define DEFAULT_BTAHEUSTEP   0.01                /*V1.04-b*/
+#define DEFAULT_BTAHEUMAX    0.5                /*V1.04-b*/
 #define DEFAULT_BTAHEUDDROP  0.8                /*V1.04-b*/
 #define DEFAULT_BTAHEUDLOSS  0.5                /*V1.04-b*/
 #define DEFAULT_BTAHEULLOSS  0.02               /*V1.04-b*/
 #define DEFAULT_BTAGRADNIT   1                  /*V1.06-f*/
 #define DEFAULT_BTAGRADCVTH  0.001              /*V1.06-f*/
-#define DEFAULT_BTAGRADSTEP  0.0                /*V1.06-f*/
+#define DEFAULT_BTAGRADSTEP  0.01                /*V1.06-f*/
 #define DEFAULT_BTAGRADRAND  0              /*V1.06-f*/
 #define DEFAULT_CRIT         CRIT_M             /*V1.04-h*/
 #define DEFAULT_CVTHRES      0.01               /*V1.04-d*/
@@ -112,7 +112,8 @@ typedef enum {
         STS_E_FILEIN,
         STS_E_FILEOUT,
         STS_E_FILE,
-        STS_E_FUNCARG
+        STS_E_FUNCARG,
+        STS_E_INFINITE
         } 
         StatusET ;
 
