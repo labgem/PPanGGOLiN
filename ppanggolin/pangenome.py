@@ -20,7 +20,9 @@ class Region:
         """ expects another Region type object. Will test whether two Region objects have the same gene families"""
         if not isinstance(other, Region):
             raise TypeError(f"'Region' type object was expected, but '{type(other)}' type object was provided.")
-        if { gene.family for gene in self.genes } == { gene.family for gene in other.genes }:
+        if [ gene.family for gene in self.genes ] == [ gene.family for gene in other.genes ]:
+            return True
+        if [ gene.family for gene in self.genes ] == [ gene.family for gene in other.genes[::-1]]:
             return True
         return False
 

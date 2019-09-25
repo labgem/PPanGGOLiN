@@ -210,7 +210,7 @@ def getBorderingGenes(rgp, multigenics):
 
 
 def getUniqRGP(rgpList):
-        uniqRGP = []
+        uniqRGP = set()
         for rgp in rgpList:
             z = True
             for seenRgp in uniqRGP:
@@ -218,7 +218,7 @@ def getUniqRGP(rgpList):
                     z = False
                     break
             if z:
-                uniqRGP.append(rgp)
+                uniqRGP.add(rgp)
         return uniqRGP
 
 def make_flanking_graph(spots, output):
@@ -274,24 +274,47 @@ def get_hotspots_stats(output, spots):
 
     out.close()
 
+def diversity_hot_info(sorted_hotspots, output):
+    out = open(output + "/hotspot_diversity.txt","w")
+    c=0
+    tot = 0
+    for _, rgps in sorted_hotspots:
+        c+=1
+        tot+= len(rgps)
+        out.write(str(c) + "\t" + str(tot) + "\n")
+    out.close()
+
 def detect_hotspots(pangenome, multigenics, output, flanking_graph = False):
     """caracterize a region's borders, and group regions based on their bordering genes"""
+    logging.getLogger().info("Detecting hotspots in the pangenome...")
     spots = defaultdict(set)
-
+    #detect spots with variable genome
     for rgp in pangenome.regions:
         border = getBorderingGenes(rgp, multigenics)
         if border[0] != "" and border[1] != "":
             spots[frozenset(border)].add(rgp)
+    #determine hotspots
+    hotspots = {}
+    for spot, rgps in spots.items():
+        hotspots[spot] = getUniqRGP(rgps)
 
+    sorted_hotspots = sorted(hotspots.items(), key = lambda x : len(x[1]), reverse=True)
+
+    tot = sum([len(rgps) for _, rgps in sorted_hotspots])
+    print("nb diff rgp in content :" + str(tot))
+    print("nb spots : " + str(len(sorted_hotspots)))
+    diversity_hot_info(sorted_hotspots, output)
+    logging.getLogger().info("Done detecting hotspots")
+    
     if flanking_graph:
         make_flanking_graph(spots, output)
 
-    get_hotspots_stats(output, spots)
+    # get_hotspots_stats(output, spots)
 
 
 def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, flanking_graph = False, cpu = 1):
     #check statuses and load info
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, needPartitions = True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True)
 
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = get_multigenics(pangenome, dup_margin)
@@ -300,13 +323,12 @@ def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min
     bar = tqdm(pangenome.organisms, unit = "genomes")
     for org in bar:
         pangenomeRGP |= compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics)
-
+    logging.getLogger().info(f"Predicted {len(pangenomeRGP)} RGP")
     pangenome.addRegions(pangenomeRGP)
 
-    if False:
-        detect_hotspots(pangenome, multigenics, output, flanking_graph)
+    #if False:
+    detect_hotspots(pangenome, multigenics, output, flanking_graph)
 
-    logging.getLogger().info(f"Predicted {len(pangenomeRGP)} RGP")
     #save parameters and save status
     pangenome.parameters["RGP"] = {}
     pangenome.parameters["RGP"]["persistent_penalty"] = persistent_penalty
