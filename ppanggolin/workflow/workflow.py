@@ -13,7 +13,7 @@ from ppanggolin.utils import mkFilename
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
-from ppanggolin.nem.evolution import makeEvolutionCurve
+from ppanggolin.nem.rarefaction import makeRarefactionCurve
 from ppanggolin.nem.partition import partition
 from ppanggolin.formats import writePangenome, writeFlatFiles
 from ppanggolin.figures import drawTilePlot, drawUCurve
@@ -45,8 +45,8 @@ def launch(args):
 
     computeNeighborsGraph(pangenome)
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
-    if args.evol:
-        makeEvolutionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
+    if args.rarefaction:
+        makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
     if len(pangenome.organisms) < 5000:
         drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)
@@ -66,6 +66,6 @@ def workflowSubparser(subparser):
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
-    optional.add_argument("--evol", required=False, action = "store_true", help = "Use to compute the evolution curves (WARNING: can be time consumming)")
+    optional.add_argument("--rarefaction", required=False, action = "store_true", help = "Use to compute the rarefaction curves (WARNING: can be time consumming)")
 
     return parser

@@ -28,7 +28,7 @@ def printInfo(args):
             readParameters(h5f)
         h5f.close()
     else:
-        print("Please select what information you what by using --parameters, --content or --status")
+        print("Please select what information you want by using --parameters, --content or --status")
 
 def infoSubparser(subparser):
     parser = subparser.add_parser("info", formatter_class=argparse.ArgumentDefaultsHelpFormatter)

@@ -29,7 +29,7 @@ import ppanggolin.nem.partition as ppp#import this way to use the global variabl
 
 samples = []
 
-def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qrange, seed):
+def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qrange, seed):
     samp = samples[index]
     currtmpdir = tmpdir+"/"+str(index)+"/"
     if Q < 3:
@@ -101,17 +101,17 @@ def evol_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, Q, qra
                 counts["undefined"]+=1
     return (counts, index)
 
-def launch_evol_nem(args):
-    return evol_nem(*args)
+def launch_raref_nem(args):
+    return raref_nem(*args)
 
 def drawCurve(output, maxSampling, data):
-    logging.getLogger().info("Drawing the evolution curve ...")
-    evolName = output + "/evolution.csv"
-    evol = open(evolName, "w")
-    evol.write(",".join(["nb_org","persistent","shell","cloud","undefined","exact_core","exact_accessory","soft_core","soft_accessory","pangenome","Q"])+"\n")
+    logging.getLogger().info("Drawing the rarefaction curve ...")
+    rarefName = output + "/rarefaction.csv"
+    raref = open(rarefName, "w")
+    raref.write(",".join(["nb_org","persistent","shell","cloud","undefined","exact_core","exact_accessory","soft_core","soft_accessory","pangenome","Q"])+"\n")
     for part in data:
-        evol.write(",".join(map(str,[part["nborgs"], part["persistent"],part["shell"],part["cloud"], part["undefined"], part["exact_core"], part["exact_accessory"], part["soft_core"], part["soft_accessory"], part["exact_core"] + part["exact_accessory"],part["Q"]])) + "\n")
-    evol.close()
+        raref.write(",".join(map(str,[part["nborgs"], part["persistent"],part["shell"],part["cloud"], part["undefined"], part["exact_core"], part["exact_accessory"], part["soft_core"], part["soft_accessory"], part["exact_core"] + part["exact_accessory"],part["Q"]])) + "\n")
+    raref.close()
     def heap_law(N, kappa, gamma):
         return kappa*N**(gamma)
     def PolyArea(x,y):
@@ -119,16 +119,16 @@ def drawCurve(output, maxSampling, data):
 
     annotations = []
     traces      = []
-    data_evol = read_csv(evolName,index_col=False)
-    params_file = open(output+"/evolution_parameters"+".csv","w")
+    data_raref = read_csv(rarefName,index_col=False)
+    params_file = open(output+"/rarefaction_parameters"+".csv","w")
     params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error,IQR_area\n")
     for partition in ["persistent","shell","cloud","undefined","exact_core","exact_accessory","soft_core","soft_accessory","pangenome"]:
-        percentiles_75      = Series({i:numpy.nanpercentile(data_evol[data_evol["nb_org"]==i][partition],75) for i in range(1,maxSampling+1)}).dropna()
-        percentiles_25      = Series({i:numpy.nanpercentile(data_evol[data_evol["nb_org"]==i][partition],25) for i in range(1,maxSampling+1)}).dropna()
-        mins                = Series({i:numpy.min(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,maxSampling+1)}).dropna()
-        maxs                = Series({i:numpy.max(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,maxSampling+1)}).dropna()
-        medians             = Series({i:numpy.median(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,maxSampling+1)}).dropna()
-        means               = Series({i:numpy.mean(data_evol[data_evol["nb_org"]==i][partition]) for i in range(1,maxSampling+1)}).dropna()
+        percentiles_75      = Series({i:numpy.nanpercentile(data_raref[data_raref["nb_org"]==i][partition],75) for i in range(1,maxSampling+1)}).dropna()
+        percentiles_25      = Series({i:numpy.nanpercentile(data_raref[data_raref["nb_org"]==i][partition],25) for i in range(1,maxSampling+1)}).dropna()
+        mins                = Series({i:numpy.min(data_raref[data_raref["nb_org"]==i][partition]) for i in range(1,maxSampling+1)}).dropna()
+        maxs                = Series({i:numpy.max(data_raref[data_raref["nb_org"]==i][partition]) for i in range(1,maxSampling+1)}).dropna()
+        medians             = Series({i:numpy.median(data_raref[data_raref["nb_org"]==i][partition]) for i in range(1,maxSampling+1)}).dropna()
+        means               = Series({i:numpy.mean(data_raref[data_raref["nb_org"]==i][partition]) for i in range(1,maxSampling+1)}).dropna()
         initial_kappa_gamma = numpy.array([0.0, 0.0])
         x = percentiles_25.index.tolist()
         x += list(reversed(percentiles_25.index.tolist()))
@@ -136,8 +136,8 @@ def drawCurve(output, maxSampling, data):
         nb_org_min_fitting = 15
         COLORS = {"pangenome":"black", "exact_accessory":"#EB37ED", "exact_core" :"#FF2828", "soft_core":"#c7c938", "soft_accessory":"#996633","shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF", "undefined":"#828282"}
         try:
-            all_values = data_evol[data_evol["nb_org"]>nb_org_min_fitting][partition].dropna()
-            res = optimization.curve_fit(heap_law, data_evol.loc[all_values.index]["nb_org"],all_values,initial_kappa_gamma)
+            all_values = data_raref[data_raref["nb_org"]>nb_org_min_fitting][partition].dropna()
+            res = optimization.curve_fit(heap_law, data_raref.loc[all_values.index]["nb_org"],all_values,initial_kappa_gamma)
             kappa, gamma = res[0]
             error_k,error_g = numpy.sqrt(numpy.diag(res[1])) # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
             if numpy.isinf(error_k) and numpy.isinf(error_g):
@@ -239,17 +239,17 @@ def drawCurve(output, maxSampling, data):
                                     line=dict(color=COLORS[partition]),
                                     marker=dict(color = COLORS[partition]),
                                     visible = "legendonly" if partition == "undefined" else True))
-    layout = go.Layout(title     = "Evolution curve ",
+    layout = go.Layout(title     = "Rarefaction curve ",
                         titlefont = dict(size = 20),
                         xaxis     = dict(title='size of genome subsets (N)'),
                         yaxis     = dict(title='# of gene families (F)'),
                         annotations=annotations,
                         plot_bgcolor='#ffffff')
     fig = go.Figure(data=traces, layout=layout)
-    out_plotly.plot(fig, filename=output+"/evolution_curve.html", auto_open=False)
+    out_plotly.plot(fig, filename=output+"/rarefaction_curve.html", auto_open=False)
     params_file.close()
 
-def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = 10, free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
+def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = 10, free_dispersion=False, chunk_size = 500, Q=-1, cpu = 1, seed=42, qestimate = False, qrange = None, soft_core = 0.95):
 
 
     ppp.pan = pangenome#use the global from partition to store the pangenome, so that it is usable
@@ -325,7 +325,7 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSamp
         logging.getLogger().info("Partitionning all samples...")
         bar = tqdm(range(len(args)), unit = "samples partitionned")
         random.shuffle(args)#shuffling the processing so that the progress bar is closer to reality.
-        for result in p.imap_unordered(launch_evol_nem, args):
+        for result in p.imap_unordered(launch_raref_nem, args):
             SampNbPerPart[result[1]] = {**result[0], **SampNbPerPart[result[1]]}
             bar.update()
     bar.close()
@@ -335,7 +335,7 @@ def makeEvolutionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSamp
     drawCurve(output, maxSampling, SampNbPerPart )
     warnings.resetwarnings()
     tmpdirObj.cleanup()
-    logging.getLogger().info("Done making the evolution curves")
+    logging.getLogger().info("Done making the rarefaction curves")
 
 def launch(args):
     """
@@ -344,7 +344,7 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    makeEvolutionCurve( pangenome = pangenome,
+    makeRarefactionCurve( pangenome = pangenome,
                         output = args.output,
                         tmpdir = args.tmpdir,
                         beta =args.beta,
@@ -361,8 +361,8 @@ def launch(args):
                         qrange = args.qrange,
                         soft_core = args.soft_core)
 
-def evolutionSubparser(subparser):
-    parser = subparser.add_parser("evolution", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def rarefactionSubparser(subparser):
+    parser = subparser.add_parser("rarefaction", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")

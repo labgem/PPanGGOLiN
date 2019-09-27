@@ -50,7 +50,7 @@ def cmdLine():
     desc += "    cluster       Cluster proteins in protein families\n"
     desc += "    graph         Create the pangenome graph\n"
     desc += "    partition     Partition the pangenome graph\n"
-    desc += "    evolution     Compute the evolution curve of the pangenome\n"
+    desc += "    rarefaction     Compute the rarefaction curve of the pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
@@ -72,7 +72,7 @@ def cmdLine():
     subs.append(ppanggolin.cluster.clusterSubparser(subparsers))
     subs.append(ppanggolin.graph.graphSubparser(subparsers))
     subs.append(ppanggolin.nem.partition.partitionSubparser(subparsers))
-    subs.append(ppanggolin.nem.evolution.evolutionSubparser(subparsers))
+    subs.append(ppanggolin.nem.rarefaction.rarefactionSubparser(subparsers))
     subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
@@ -127,8 +127,8 @@ def main():
         ppanggolin.nem.partition.launch(args)
     elif args.subcommand == "workflow":
         ppanggolin.workflow.launch(args)
-    elif args.subcommand == "evolution":
-        ppanggolin.nem.evolution.launch(args)
+    elif args.subcommand == "rarefaction":
+        ppanggolin.nem.rarefaction.launch(args)
     elif args.subcommand == "draw":
         ppanggolin.figures.launch(args)
     elif args.subcommand == "write":
