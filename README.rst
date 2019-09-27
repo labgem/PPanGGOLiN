@@ -5,13 +5,16 @@ PPanGGOLiN is a software suite used to create and manipulate prokaryotic pangeno
 
 PPanGGOLiN builds pangenomes through a graphical model and a statistical method to partition gene families in persistent, shell and cloud genomes. It integrates both information on protein-coding genes and their genomic neighborhood to build a graph of gene families where each node is a gene family and each edge is a relation of genetic contiguity. The partitioning method promotes that two gene families that are consistent neighbors in the graph are more likely to belong to the same partition. It results in a Partitioned Pangenome Graph (PPG) made of persistent, shell and cloud nodes drawing genomes on rails like a subway map to help biologists navigate the great diversity of microbial life.
 
-.. image:: https://api.codacy.com/project/badge/Grade/a24bff9354504a3294f4acf70681765a
-   :alt: Codacy Badge
-   :target: https://app.codacy.com/app/axbazin/PPanGGOLiN?utm_source=github.com&utm_medium=referral&utm_content=labgem/PPanGGOLiN&utm_campaign=Badge_Grade_Settings
- 
-.. image:: https://api.codacy.com/project/badge/Coverage/806fdcd8d04a469e8233728780576160    
-   :target: https://www.codacy.com/app/axbazin/PPanGGOLiN?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=labgem/PPanGGOLiN&amp;utm_campaign=Badge_Coverage
+|qual| |cov| |conda| |plat| |version|
 
+.. |qual| image:: https://api.codacy.com/project/badge/Grade/a24bff9354504a3294f4acf70681765a
+.. |cov| image:: https://api.codacy.com/project/badge/Coverage/806fdcd8d04a469e8233728780576160
+.. |conda| image:: https://anaconda.org/bioconda/ppanggolin/badges/installer/conda.svg
+   :target: https://conda.anaconda.org/bioconda
+.. |plat| image:: https://anaconda.org/bioconda/ppanggolin/badges/platforms.svg
+   :target: https://anaconda.org/bioconda/ppanggolin
+.. |version| image:: https://anaconda.org/bioconda/ppanggolin/badges/version.svg
+   :target: https://anaconda.org/bioconda/ppanggolin
 
 .. image:: images/logo.png
     :align: center
