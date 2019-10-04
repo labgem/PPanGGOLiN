@@ -59,6 +59,45 @@ class Region:
     def __getitem__(self, index):
         return self.genes[index]
 
+    def getBorderingGenes(self, n, multigenics):
+        border = [[], []]
+        pos = self.genes[-1].position
+        init = pos
+        while len(border[0]) < n and (pos != 0 and not self.contig.is_circular):
+            curr_fam = None
+            if pos == 0:
+                if self.contig.is_circular:
+                    curr_fam = self.contig.genes[-1].family
+            else:
+                curr_fam = self.contig.genes[pos -1].family
+            if curr_fam is not None and curr_fam not in multigenics and curr_fam.namedPartition == "persistent":
+                border[0].append(curr_fam)
+            pos -= 1
+            if pos == -1 and self.contig.is_circular:
+                pos = len(self.contig.genes)
+            if pos == init:
+                logging.getLogger().warning("looped around the contig")
+                break#looped around the contig
+
+        pos = self.genes[0].position
+        init = pos
+        while len(border[1]) < n and (pos != len(self.contig.genes)-1 and not self.contig.is_circular):
+            curr_fam = None
+            if pos == len(self.contig.genes)-1:
+                if self.contig.is_circular:
+                    curr_fam = self.contig.genes[0].family
+            else:
+                curr_fam = self.contig.genes[pos+1].family
+            if curr_fam is not None and curr_fam not in multigenics:
+                border[1].append(curr_fam)
+            pos+=1
+            if pos == len(self.contig.genes) and self.contig.is_circular:
+                pos = -1
+            if pos == init:
+                logging.getLogger().warning("looped around the contig")
+                break#looped around the contig
+        return border
+
 class Edge:
     def __init__(self, sourceGene, targetGene):
         if sourceGene.family is None:
@@ -174,6 +213,7 @@ class Pangenome:
         self._orgGetter = {}
         self._edgeGetter = {}
         self.regions = set()
+
         self.status = {
                     'genomesAnnotated': "No",
                     'geneSequences' : "No",
