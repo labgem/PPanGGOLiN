@@ -2,7 +2,7 @@
 
 import pytest
 
-from genome import RNA
+from ppanggolin.genome import RNA
 
 """
 """

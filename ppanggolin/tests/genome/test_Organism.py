@@ -3,7 +3,7 @@
 import pytest
 from random import randint
 
-from genome import Contig, Gene, Organism
+from ppanggolin.genome import Contig, Gene, Organism
 
 """
 """

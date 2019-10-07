@@ -2,7 +2,7 @@
 
 import pytest
 
-from genome import Contig, Gene, RNA
+from ppanggolin.genome import Contig, Gene, RNA
 
 """
 """
