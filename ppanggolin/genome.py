@@ -94,7 +94,7 @@ class Contig:
 
     def addRNA(self, gene):
         if not isinstance(gene, RNA):
-            raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
+            raise TypeError(f"'RNA' type was expected but you provided a '{type(gene)}' type object")
         self.RNAs.add(gene)
 
     def addGene(self, gene):
