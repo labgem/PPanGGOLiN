@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #coding: utf8
 
-class RNA:
+class Feature:
     def __init__(self, ID):
         self.ID = ID
         self.is_fragment = False
@@ -24,12 +24,12 @@ class RNA:
             raise TypeError(f"'str' type was expected but you provided a '{type(dna)}' type object")
         self.dna = dna
 
+class RNA(Feature):
+    pass
 
-class Gene:
+class Gene(Feature):
     def __init__(self, ID):
-        self.ID = ID
-        self.is_fragment = False
-        self.type = ""
+        super().__init__(ID)
         self.position = None
         self.family = None
 
@@ -37,28 +37,15 @@ class Gene:
         return self.ID
 
     def fill_annotations(self, start, stop, strand, geneType = "", position = None, name = "", product="", genetic_code = 11):
-        self.start = int(start)
-        self.stop = int(stop)
-        self.type = geneType
-        self.strand = strand
+        super().fill_annotations(start, stop, strand, geneType, name, product)
         self.position = position
-        self.product = product
-        self.name = name
         self.genetic_code = genetic_code
-
-    def fill_parents(self, organism, contig):
-        self.organism = organism
-        self.contig = contig
 
     def add_protein(self, protein):
         if not isinstance(protein, str):
             raise TypeError(f"'str' type was expected but you provided a '{type(protein)}' type object")
         self.protein = protein
 
-    def add_dna(self, dna):
-        if not isinstance(dna, str):
-            raise TypeError(f"'str' type was expected but you provided a '{type(dna)}' type object")
-        self.dna = dna
 
 class Contig:
     def __init__(self, name, is_circular = False):
