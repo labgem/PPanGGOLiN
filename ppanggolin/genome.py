@@ -29,7 +29,7 @@ class RNA(Feature):
 
 class Gene(Feature):
     def __init__(self, ID):
-        super().__init__(self, ID)
+        super().__init__(ID)
         self.position = None
         self.family = None
 
@@ -37,7 +37,7 @@ class Gene(Feature):
         return self.ID
 
     def fill_annotations(self, start, stop, strand, geneType = "", position = None, name = "", product="", genetic_code = 11):
-        super().fill_annotations(self, start, stop, strand, geneType, name, product):
+        super().fill_annotations(start, stop, strand, geneType, name, product)
         self.position = position
         self.genetic_code = genetic_code
 
