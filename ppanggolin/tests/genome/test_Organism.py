@@ -30,7 +30,6 @@ def test_addContig(o_org):
 
 @pytest.fixture()
 def t_filled_org(o_org):
-    from random import randint
     n = 0
     for k in "azerty'":
         o_ctg = o_org.addContig(k)
