@@ -90,7 +90,7 @@ def launchReadOrganism(args):
 def readOrganism(pangenome, orgName, contigDict, link = False):
     org = Organism(orgName)
     for contigName, geneList in contigDict.items():
-        contig = org.addContig(contigName, is_circular=geneList[0][0][0])
+        contig = org.getOrAddContig(contigName, is_circular=geneList[0][0][0])
         for row in geneList:
             if link:#if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.getGene(row[1][0].decode())

@@ -330,7 +330,7 @@ class Pangenome:
             org = self._orgGetter.get(newOrg)
             if org is None:
                 org = Organism(newOrg)
-                self._orgGetter[newOrg.name] = newOrg
+                self._orgGetter[org.name] = org
             newOrg = org
         return newOrg
 

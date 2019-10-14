@@ -162,7 +162,7 @@ def read_fasta(org, fnaFile):
             if contig_seq != "":
                 contigs[contig.name] = contig_seq
             contig_seq = ""
-            contig = org.addContig(line.split()[0][1:])
+            contig = org.getOrAddContig(line.split()[0][1:])
         else:
             contig_seq += line.strip()
     # processing the last contig
@@ -254,7 +254,7 @@ def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna,
     genes = overlap_filter(genes, contigSequences, overlap)
 
     for contigName, genes in genes.items():
-        contig = org.addContig(contigName)
+        contig = org.getOrAddContig(contigName)
         if contig.name in circular_contigs:
             contig.is_circular = True
         for gene in genes:

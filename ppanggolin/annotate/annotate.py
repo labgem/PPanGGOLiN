@@ -48,7 +48,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
                     contigID = line[12:].strip()
                     if contigID in circular_contigs:
                         is_circ = True
-                    contig = org.addContig(contigID, is_circ)
+                    contig = org.getOrAddContig(contigID, is_circ)
                 line = lines.pop()
         # start of the feature object.
         dbxref = set()
@@ -184,7 +184,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                     hasFasta = True
                 elif line.startswith('sequence-region',2,17):
                     fields = [el.strip() for el in line.split()]
-                    contig = org.addContig(fields[1], True if fields[1] in circular_contigs else False)
+                    contig = org.getOrAddContig(fields[1], True if fields[1] in circular_contigs else False)
                 continue
             elif line.startswith('#!',0,2):## special refseq comment lines for versionning softs, assemblies and annotations.
                 continue
@@ -216,7 +216,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                 except KeyError:
                     genetic_code = "11"
                 if contig.name != gff_fields[GFF_seqname]:
-                    contig = org.addContig(gff_fields[GFF_seqname])#get the current contig
+                    contig = org.getOrAddContig(gff_fields[GFF_seqname])#get the current contig
                 if gff_fields[GFF_type] == "CDS":
                     gene = Gene(geneID)
                     #here contig is filled in order, so position is the number of genes already stored in the contig.
