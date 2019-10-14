@@ -122,7 +122,7 @@ class Organism:
     def __str__(self):
         return self.name
 
-    def addContig(self, key, is_circular = False):
+    def getOrAddContig(self, key, is_circular = False):
         contig = self._contigs_getter.get(key)
         if contig is None:
             contig = self._createContig(key, is_circular)
