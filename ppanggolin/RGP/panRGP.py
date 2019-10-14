@@ -176,6 +176,13 @@ def get_multigenics(pangenome, dup_margin):
     return multigenics
 
 
+def spot_distribution(spots, output):
+    """takes in spots are a list of sets of rgps"""
+    fdistrib = open(output + "/spot_rgp_distribution.tsv","w")
+    for c, rgps in enumerate(spots):
+        fdistrib.write(str(c) + "\t" + str(len(rgps)) + "\t" + str(len(getUniqRGP(rgps))) + "\n")
+    fdistrib.close()
+
 def getBorderingGenes(rgp, multigenics):
         border = [None, None]
         pos = rgp.genes[-1].position
