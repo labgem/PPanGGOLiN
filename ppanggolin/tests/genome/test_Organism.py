@@ -23,16 +23,16 @@ def test_str():
 def o_org():
     return Organism("toto")
 
-def test_addContig(o_org):
+def test_getOrAddContig(o_org):
     #FIXME: shouldn't the method be called getContig ?
-    o_ctg = o_org.addContig('i')
+    o_ctg = o_org.getOrAddContig('i')
     assert isinstance(o_ctg, Contig)
 
 @pytest.fixture()
 def t_filled_org(o_org):
     n = 0
     for k in "azerty'":
-        o_ctg = o_org.addContig(k)
+        o_ctg = o_org.getOrAddContig(k)
         for i in range(randint(0,5)):
             o_gene = Gene(k+"-"+str(i))
             o_gene.fill_annotations(6,1,k,position=i)
@@ -63,7 +63,7 @@ def get_genes():
 def test_contigs(o_org):
     l_contigs= []
     for k in "azer'":
-        o_ctg  = o_org.addContig(k)
+        o_ctg  = o_org.getOrAddContig(k)
         for o_gene in get_genes():
             o_ctg.addGene(o_gene)
         l_contigs.append(o_ctg)
@@ -71,7 +71,7 @@ def test_contigs(o_org):
     assert list(o_org.contigs) == l_contigs
 
 def test_genes(o_org):
-    o_ctg  = o_org.addContig("scrap")
+    o_ctg  = o_org.getOrAddContig("scrap")
     for o_gene in get_genes():
         o_ctg.addGene(o_gene)
 
