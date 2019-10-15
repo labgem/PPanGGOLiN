@@ -206,6 +206,8 @@ def readInfo(h5f):
             if infoGroup._v_attrs['numberOfPartitions'] != 3:
                 for key, val in infoGroup._v_attrs['numberOfSubpartitions'].items():
                     print(f"Shell {key} : {val}")
+        if 'numberOfRGP' in infoGroup._v_attrs._f_list():
+            print(f"RGPs : {infoGroup._v_attrs['numberOfRGP']}")
 
 def readParameters(h5f):
     if "/info" in h5f:

@@ -235,13 +235,47 @@ def writeGraph(pangenome, h5f, force):
     edgeRow = edgeTable.row
     bar = tqdm(pangenome.edges, unit = "edge")
     for edge in bar:
-        for _, genePairs in edge.organisms.items():
+        for genePairs in edge.organisms.values():
             for gene1, gene2 in genePairs:
                 edgeRow["geneTarget"] = gene1.ID
                 edgeRow["geneSource"] = gene2.ID
                 edgeRow.append()
     bar.close()
     edgeTable.flush()
+
+
+def RGPDesc(maxRGPLen, maxGeneLen):
+    return { 
+            'RGP': tables.StringCol(itemsize=maxRGPLen),
+            'gene':tables.StringCol(itemsize=maxGeneLen)
+        }
+
+def getRGPLen(pangenome):
+    maxGeneLen = 1
+    maxRGPLen = 1
+    for region in pangenome.regions:
+        for gene in region.genes:
+            if len(gene.ID) > maxGeneLen:
+                maxGeneLen = len(gene.ID)
+        if len(region.name) > maxRGPLen:
+            maxRGPLen = len(region.name)
+    return maxRGPLen, maxGeneLen
+
+def writeRGP(pangenome, h5f, force):
+    if '/RGP' in h5f and force is True:
+        logging.getLogger().info("Erasing the formerly computer RGP")
+        h5f.remove_node('/', 'RGP')
+
+    RGPTable = h5f.create_table('/', 'RGP', RGPDesc(*getRGPLen(pangenome)), expectedrows = sum([ len(region.genes) for region in pangenome.regions ]) )
+    RGPRow = RGPTable.row
+    bar = tqdm(pangenome.regions, unit="region")
+    for region in bar:
+        for gene in region.genes:
+            RGPRow["RGP"] = region.name
+            RGPRow["gene"] = gene.ID
+            RGPRow.append()
+    bar.close()
+    RGPTable.flush()
 
 def writeStatus(pangenome, h5f):
     if "/status" in h5f:#if statuses are already written
@@ -313,6 +347,8 @@ def writeInfo(pangenome, h5f):
         infoGroup._v_attrs.cloudStats = {"min":getmin(partDistribs["cloud"]), "max":getmax(partDistribs["cloud"]),"sd":getstdev(partDistribs["cloud"]), "mean":getmean(partDistribs["cloud"])}
         infoGroup._v_attrs.numberOfPartitions = len(partSet)
         infoGroup._v_attrs.numberOfSubpartitions = subpartCounter
+    if pangenome.status["predictedRGP"] in ["Computed", "Loaded"]:
+        infoGroup._v_attrs.numberOfRGP = len(pangenome.regions)
 
     infoGroup._v_attrs.parameters = pangenome.parameters#saving the pangenome parameters
 
@@ -365,6 +401,12 @@ def ErasePangenome(pangenome, graph=False, geneFamilies = False):
         pangenome.status["geneFamilySequences"] = "No"
         statusGroup._v_attrs.geneFamilySequences = False
         statusGroup._v_attrs.Partitionned = False
+    if '/RGP' in h5f and geneFamilies:
+        logging.getLogger().info("Erasing the formerly computer RGP...")
+        pangenome.status["predictedRGP"] = "No"
+        statusGroup._v_attrs.predictedRGP = False
+        h5f.remove_node('/', 'RGP')
+
     h5f.close()
 
 def writePangenome(pangenome, filename, force):
@@ -405,6 +447,10 @@ def writePangenome(pangenome, filename, force):
 
     if pangenome.status["partitionned"] == "Computed" and pangenome.status["genesClustered"] in ["Loaded","inFile"]:#otherwise it's been written already.
         updateGeneFamPartition(pangenome, h5f)
+
+    if pangenome.status['predictedRGP'] == "Computed":
+        logging.getLogger().info("Writing Regions of Genomic Plasticity...")
+        writeRGP(pangenome, h5f, force)
 
     writeStatus(pangenome, h5f)
     writeInfo(pangenome, h5f)

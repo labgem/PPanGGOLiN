@@ -176,11 +176,11 @@ def get_multigenics(pangenome, dup_margin):
     return multigenics
 
 
-def spot_distribution(spots, output):
+def spot_distribution(spots, pangenome, output):
     """takes in spots are a list of sets of rgps"""
     fdistrib = open(output + "/spot_rgp_distribution.tsv","w")
-    for c, rgps in enumerate(spots):
-        fdistrib.write(str(c) + "\t" + str(len(rgps)) + "\t" + str(len(getUniqRGP(rgps))) + "\n")
+    for rgps in spots:
+        fdistrib.write(str(len(rgps)) + "\t" + str(len(getUniqRGP(rgps))) + "\t" + str(round(len(rgps) / len(pangenome.organisms),2)) +"\n")
     fdistrib.close()
 
 def getBorderingGenes(rgp, multigenics):
@@ -339,11 +339,20 @@ def detect_hotspots(pangenome, multigenics, output, spot_graph = False, flanking
         makeFlanking(spots, output)
 
     spot_rgps = [ set(rgps) for _, rgps in spots]#list of rgps, regrouped by spots.
-    spot_distribution(spot_rgps, output)
+    spot_distribution(spot_rgps, pangenome, output)
 
     return spots
 
+def checkParameterLogic(overlapping_match, set_size, exact_match):
+    if overlapping_match >= set_size:
+        raise Exception(f'--overlapping_match_hotspot ({overlapping_match}) cannot be bigger than (or equal to) --set_size_hotspot ({set_size})')
+    if exact_match > set_size:
+        raise Exception(f'--exact_match_size_hotspot ({exact_match}) cannot be bigger than --set_size_hotspot ({set_size})')
+
 def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, cpu = 1):
+
+    #check that given parameters for hotspot computation make sense
+    checkParameterLogic(overlapping_match, set_size, exact_match)
     #check statuses and load info
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True)
 
@@ -366,6 +375,9 @@ def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min
     pangenome.parameters["RGP"]["min_length"] = min_length
     pangenome.parameters["RGP"]["min_score"] = min_score
     pangenome.parameters["RGP"]["dup_margin"] = dup_margin
+    pangenome.parameters["RGP"]["overlapping_match"] = overlapping_match
+    pangenome.parameters["RGP"]["set_size"] = set_size
+    pangenome.parameters["RGP"]["exact_match"] = exact_match
     pangenome.status['predictedRGP'] = "Computed"
 
 def launch(args):
@@ -373,7 +385,10 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     # if args.flanking_graph or args.spot_graph:
     mkOutdir(args.output, args.force)
-    predictRGP(pangenome, args.output, args.persistent_penalty, args.variable_gain, args.min_length, args.min_score, args.dup_margin, args.spot_graph, args.flanking_graph, args.overlapping_match_size_hotspot, args.set_size_hotspot, args.exact_match_size_hotspot, args.cpu)
+    predictRGP(pangenome, args.output, args.persistent_penalty, args.variable_gain, args.min_length, args.min_score, args.dup_margin, args.spot_graph, args.flanking_graph, args.overlapping_match_hotspot, args.set_size_hotspot, args.exact_match_size_hotspot, args.cpu)
+    writePangenome(pangenome, pangenome.file, args.force)
+
+
 
 def rgpSubparser(subparser):
     parser = subparser.add_parser("rgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -386,7 +401,7 @@ def rgpSubparser(subparser):
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--spot_graph", required = False, action="store_true", help = "Writes a graph in a .gexf format of pairs of blocks of single copy markers flanking RGPs, supposedly belonging to the same hotspot")
     optional.add_argument("--flanking_graph", required = False, action="store_true", help = "Writes a graph in a .gexf format of common blocks of single copy markers flanking RGPs, supposedly with some common origin")
-    optional.add_argument("--overlapping_match_size_hotspot", required=False, type=int, default = 2, help="The number of 'missing' persistent genes allowed when comparing flanking genes during hotspot computations")
+    optional.add_argument("--overlapping_match_hotspot", required=False, type=int, default = 2, help="The number of 'missing' persistent genes allowed when comparing flanking genes during hotspot computations")
     optional.add_argument("--set_size_hotspot", required = False, type = int, default = 3, help = "Number of single copy markers to use as flanking genes for a RGP during hotspot computation")
     optional.add_argument("--exact_match_size_hotspot", required = False, type= int, default = 1, help = "Number of perfecty matching flanking single copy markers required to associate RGPs during hotspot computation (Ex: If set to 1, two RGPs are in the same hotspot if both their 1st flanking genes are the same)")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")

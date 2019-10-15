@@ -76,7 +76,6 @@ class Region:
             if pos == -1 and self.contig.is_circular:
                 pos = len(self.contig.genes)
             if pos == init:
-                logging.getLogger().warning("looped around the contig")
                 break#looped around the contig
 
         pos = self.genes[0].position
