@@ -253,9 +253,6 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
         pangenome.status["geneSequences"] = "No"
     pangenome.addOrganism(org)
 
-    if hasFasta and fastaString != "":
-        return contigSequences
-
 def readAnnotations(pangenome, organisms_file, getSeq = True):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
 

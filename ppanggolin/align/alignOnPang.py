@@ -23,24 +23,30 @@ def createdb(fileObj, tmpdir):
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     return seqdb
 
-def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu = 1, defrag=False, identity = 0.8, coverage = 0.8, is_nucl = False):
+def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu = 1, defrag=False, identity = 0.8, coverage = 0.8, is_nucl = False, code = 11):
     pangdb = createdb(pangFile, tmpdir)
-    protdb = createdb(seqFile, tmpdir)
+    seqdb = createdb(seqFile, tmpdir)
+    if is_nucl:
+        seqNucdb = tempfile.NamedTemporaryFile(mode="w", dir = tmpdir.name)
+        cmd = ["mmseqs","translatenucs", seqdb.name, seqNucdb.name, "--threads", str(cpu), "--translation-table",str(code)]
+        logging.getLogger().debug(" ".join(cmd))
+        subprocess.run(cmd, stdout=subprocess.DEVNULL)
+        seqdb = seqNucdb
     covmode = "0"
     if defrag:
         covmode = "1"
     alndb =  tempfile.NamedTemporaryFile(mode="w", dir = tmpdir.name)
-    cmd = ["mmseqs","search",protdb.name , pangdb.name, alndb.name, tmpdir.name, "-a","--min-seq-id", str(identity), "-c", str(coverage), "--cov-mode", covmode, "--threads", str(cpu)]
+    cmd = ["mmseqs","search",seqdb.name , pangdb.name, alndb.name, tmpdir.name, "-a","--min-seq-id", str(identity), "-c", str(coverage), "--cov-mode", covmode, "--threads", str(cpu)]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning proteins to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     outfile =  output + "/input_to_pangenome_associations.blast-tab"
-    cmd = ["mmseqs","convertalis", protdb.name ,pangdb.name, alndb.name, outfile,"--format-mode","2"]
+    cmd = ["mmseqs","convertalis", seqdb.name ,pangdb.name, alndb.name, outfile,"--format-mode","2"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     pangdb.close()
-    protdb.close()
+    seqdb.close()
     alndb.close()
 
     return outfile
@@ -113,7 +119,6 @@ def writeGbffRegions(filename, regions, output):
 
     foutfile = open(output + "/genome_annotation.gbff", "w")
 
-
     curr_contig = None
     with read_compressed_or_not(filename) as fannot:
         for line in fannot:
@@ -163,17 +168,17 @@ def writeGffRegions(filename, regions, output):
             logging.getLogger().warning("Somes regions were not written in the new gff file for unknown reasons")
     logging.getLogger().info(f"RGP have been written in the following file : '{output + '/genome_annotation.gff'}' ")
 
-def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1):
+def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, translation_table = 11):
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
-    
+
     #read given file
     logging.getLogger().info("Retrieving the annotations from the given file")
     singleOrgPang = Pangenome()#need to create a new 'pangenome' as the annotation reading functions take a pangenome as input.
     filetype = detect_filetype(annotation)
     if filetype == "gff":
         singleOrgPang.status["geneSequences"] = "Computed"#if there are no sequences in the gff, this value will change to 'No'
-        contigSeqs = read_org_gff(singleOrgPang, 'myGenome', annotation, [], True)
+        read_org_gff(singleOrgPang, 'myGenome', annotation, [], True)
         if singleOrgPang.status["geneSequences"] == "No":
             raise Exception(f"The given annotation file did not have a FASTA sequence included (expected '##FASTA' pragma followed by a fasta-like file format). This is required for computing the Regions of Genomic Plasticity of your organism")
     elif filetype == "gbff":
@@ -189,8 +194,8 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
     writeGeneSequencesFromAnnotations(singleOrgPang, tmpGeneFile)
     writeGeneFamSequences(pangenome, tmpPangFile)
 
-    blastout = alignSeqToPang(tmpPangFile, tmpGeneFile, output, newtmpdir, cpu, defrag, identity, coverage, True)
-    
+    blastout = alignSeqToPang(tmpPangFile, tmpGeneFile, output, newtmpdir, cpu, defrag, identity, coverage, True, translation_table)
+
     tmpPangFile.close()
     tmpGeneFile.close()
     newtmpdir.cleanup()
@@ -244,7 +249,7 @@ def launch(args):
         align(pangenome, args.proteins, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu)
 
     if args.annotation is not None:
-        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu)
+        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.translation_table)
 
 def alignSubparser(subparser):
     parser = subparser.add_parser("align", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -261,5 +266,5 @@ def alignSubparser(subparser):
     optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associate potential fragments with their original gene family.")
     optional.add_argument('--identity', required = False, type = float, default=0.5, help = "min identity percentage threshold")
     optional.add_argument('--coverage', required = False, type = float, default=0.8, help = "min coverage percentage threshold")
-
+    optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     return parser
