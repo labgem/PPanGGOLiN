@@ -37,6 +37,14 @@ class Region:
             raise TypeError("Unexpected class / type for " + type(value) +" when adding it to a region of genomic plasticity")
 
     @property
+    def start(self):
+        return min(self.genes, key = lambda x : x.start).start
+
+    @property
+    def stop(self):
+        return max(self.genes, key = lambda x : x.stop).stop
+
+    @property
     def organism(self):
         return self.genes[0].organism
 
@@ -211,7 +219,7 @@ class Pangenome:
         self.max_fam_id = 0
         self._orgGetter = {}
         self._edgeGetter = {}
-        self.regions = set()
+        self._regionGetter = {}
 
         self.status = {
                     'genomesAnnotated': "No",
@@ -229,6 +237,10 @@ class Pangenome:
         from ppanggolin.formats import getStatus#importing on call instead of importing on top to avoid cross-reference problems.
         getStatus(self, pangenomeFile)
         self.file = pangenomeFile
+
+    @property
+    def regions(self):
+        return self._regionGetter.values()
 
     @property
     def genes(self):
@@ -379,10 +391,21 @@ class Pangenome:
         return self._orgIndex
 
     def addRegions(self, regionGroup):
-        """ takes an Iterable or a Region object and adds it to the self.regions container"""
+        """ takes an Iterable or a Region object and adds it to the 'regions' container"""
         if isinstance(regionGroup, Iterable):
-            self.regions |= set(regionGroup)
+            for region in regionGroup:
+                self._regionGetter[region.name] = region
+            if len(self._regionGetter) != len(regionGroup):
+                raise Exception("Two regions had an identical name, which was unexpected")
         elif isinstance(regionGroup, Region):
-            self.regions |= regionGroup
+            self._regionGetter[regionGroup.name] = regionGroup
         else:
             raise TypeError(f"An iterable or a 'Region' type object were expected, but you provided a {type(regionGroup)} type object")
+
+    def getOrAddRegion(self, regionName):
+        try:
+            return self._regionGetter[regionName]
+        except KeyError:#then the region is not stored in this pangenome.
+            newRegion = Region(regionName)
+            self._regionGetter[regionName] = newRegion
+            return newRegion

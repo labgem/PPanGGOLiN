@@ -35,7 +35,7 @@ def extractRGP(contig, node, ID):
     """
         Extract the region from the given starting node
     """
-    new_region = Region(contig.name + "#" + str(ID))
+    new_region = Region(contig.name + "_" + str(ID))
     while node.state:
         new_region.append(node.gene)
         node.state = 0

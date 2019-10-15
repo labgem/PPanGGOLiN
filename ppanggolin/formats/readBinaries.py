@@ -60,7 +60,7 @@ def getStatus(pangenome, pangenomeFile):
 
 def read_chunks(table, column = None, chunk=10000):
     """
-        Reading entirely the provided table chunk per chunk to limit RAM usage.
+        Reading entirely the provided table (or column if specified) chunk per chunk to limit RAM usage.
     """
     for i in range(0,  table.nrows, chunk):
         for row in table.read(start = i, stop = i + chunk, field = column):
@@ -161,6 +161,21 @@ def readGeneFamiliesInfo(pangenome, h5f):
     if h5f.root.status._v_attrs.geneFamilySequences:
         pangenome.status["geneFamilySequences"] = "Loaded"
 
+
+def readRGP(pangenome, h5f):
+    table = h5f.root.RGP
+
+    bar = tqdm(range(table.nrows), unit = "gene")
+    for row in read_chunks(table):
+        region = pangenome.getOrAddRegion(row[0].decode())
+        region.append(pangenome.getGene(row[1].decode()))
+        bar.update()
+    bar.close()
+    #order the genes properly in the regions
+    for region in pangenome.regions:
+        region.genes = sorted(region.genes, key = lambda x : x.position )#order the same way than on the contig
+    pangenome.status["predictedRGP"] = "Loaded"
+
 def readAnnotation(pangenome, h5f, filename):
     annotations = h5f.root.annotations
 
@@ -218,7 +233,7 @@ def readParameters(h5f):
                 for key2, val in dic.items():
                     print(f"    {key2} : {val}")
 
-def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False):
+def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False, rgp = False):
     """
         Reads a previously written pangenome, with all of its parts, depending on what is asked.
     """
@@ -247,13 +262,20 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
             readGraph(pangenome, h5f)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have graph informations, or has been improperly filled")
+    if rgp:
+        if h5f.root.status._v_attrs.predictedRGP:
+            logging.getLogger().info("Reading the RGP...")
+            readRGP(pangenome, h5f)
+        else:
+            raise Exception(f"The pangenome in file '{filename}' does not have RGP informations, or has been improperly filled")
     h5f.close()
 
-def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False, needPartitions = False):
+def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False, needPartitions = False, needRGP = False):
     """defines what needs to be read depending on what is needed"""
     annotation = False
     geneFamilies = False
     graph = False
+    rgp = False
     if needAnnotations:
         if pangenome.status["genomesAnnotated"] == "inFile":
             annotation = True
@@ -272,5 +294,10 @@ def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False,
     if needPartitions:
         if not pangenome.status["partitionned"] in ["Computed", "Loaded", "inFile"]:
             raise Exception("Your pangenome has not been partitionned. See the 'partition' subcommand")
+    if needRGP:
+        if pangenome.status["predictedRGP"] == "inFile":
+            rgp = True
+        elif not pangenome.status["predictedRGP"] in ["Computed","Loaded"]:
+            raise Exception("Your pangenome's regions of genomic plasticity have not been predicted. See the 'rgp' subcommand")
     if annotation or geneFamilies or graph:#if anything is true, else we need nothing.
-        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph)
+        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph, rgp = rgp)
