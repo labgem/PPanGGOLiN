@@ -70,7 +70,7 @@ def getGeneSequencesFromFile(pangenome, fileObj):
     h5f = tables.open_file(pangenome.file,"r", driver_core_backing_store=0)
     table = h5f.root.geneSequences
     bar =  tqdm(range(table.nrows), unit="gene")
-    for row in read_chunks(table):#reading the table chunk per chunk otherwise RAM dies on big pangenomes
+    for row in read_chunks(table, chunk = 20000):#reading the table chunk per chunk otherwise RAM dies on big pangenomes
         if row[2] == b"CDS":
             fileObj.write('>' + row[1].decode() + "\n")
             fileObj.write(row[0].decode() + "\n")
