@@ -17,6 +17,7 @@ from ppanggolin.nem.rarefaction import makeRarefactionCurve
 from ppanggolin.nem.partition import partition
 from ppanggolin.formats import writePangenome, writeFlatFiles
 from ppanggolin.figures import drawTilePlot, drawUCurve
+from ppanggolin.info import printInfo
 ### a global workflow that does everything in one go.
 
 def launch(args):
@@ -27,6 +28,7 @@ def launch(args):
         if args.clusters is not None:
             getSeq = False
         readAnnotations(pangenome, args.anno, getSeq)
+        writePangenome(pangenome, filename, args.force)
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
 
@@ -41,10 +43,14 @@ def launch(args):
     elif args.fasta is not None:
             pangenome = Pangenome()
             annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
+            writePangenome(pangenome, filename, args.force)
             clustering(pangenome, args.tmpdir, args.cpu)
 
     computeNeighborsGraph(pangenome)
+
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
+    writePangenome(pangenome, filename, args.force)
+
     if args.rarefaction:
         makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
     if len(pangenome.organisms) < 5000:
@@ -53,7 +59,8 @@ def launch(args):
 
     writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True, json = True, stats = True, partitions = True)
 
-    writePangenome(pangenome, filename, args.force)
+    printInfo(filename, content = True)
+
 
 def workflowSubparser(subparser):
     parser = subparser.add_parser("workflow", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
