@@ -48,7 +48,7 @@ def launch(args):
 
     computeNeighborsGraph(pangenome)
 
-    partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu)
+    partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, K=args.nb_of_partitions)
     writePangenome(pangenome, filename, args.force)
 
     if args.rarefaction:
@@ -74,5 +74,5 @@ def workflowSubparser(subparser):
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
     optional.add_argument("--rarefaction", required=False, action = "store_true", help = "Use to compute the rarefaction curves (WARNING: can be time consumming)")
-
+    optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 3. If under 3, it will be detected automatically.")
     return parser
