@@ -378,6 +378,7 @@ def writePangenome(pangenome, filename, force):
         h5f = tables.open_file(filename,"w", filters=compressionFilter)
         logging.getLogger().info("Writing genome annotations...")
         writeAnnotations(pangenome, h5f)
+        pangenome.status["genomesAnnotated"] = "Loaded"
         h5f.close()
     elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
         pass
@@ -390,6 +391,7 @@ def writePangenome(pangenome, filename, force):
     if pangenome.status["geneSequences"] == "Computed":
         logging.getLogger().info("writing the protein coding gene dna sequences")
         writeGeneSequences(pangenome, h5f)
+        pangenome.status["geneSequences"] = "Loaded"
 
     if pangenome.status["genesClustered"] == "Computed":
         logging.getLogger().info("Writing gene families and gene associations...")
@@ -399,12 +401,15 @@ def writePangenome(pangenome, filename, force):
         if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and pangenome.status["defragmented"] == "Computed":
             #if the annotations have not been computed in this run, and there has been a clustering with defragmentation, then the annotations can be updated
             updateGeneFragments(pangenome,h5f)
+        pangenome.status["genesClustered"] = "Loaded"
     if pangenome.status["neighborsGraph"] == "Computed":
         logging.getLogger().info("Writing the edges...")
         writeGraph(pangenome, h5f, force)
+        pangenome.status["neighborsGraph"] = "Loaded"
 
     if pangenome.status["partitionned"] == "Computed" and pangenome.status["genesClustered"] in ["Loaded","inFile"]:#otherwise it's been written already.
         updateGeneFamPartition(pangenome, h5f)
+        pangenome.status["partitionned"] = "Loaded"
 
     writeStatus(pangenome, h5f)
     writeInfo(pangenome, h5f)
