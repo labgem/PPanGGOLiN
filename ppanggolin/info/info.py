@@ -10,10 +10,10 @@ import tables
 #local libraries
 from ppanggolin.formats import readInfo, readParameters
 
-def printInfo(args):
-    if args.status or args.content or args.parameters:
-        h5f = tables.open_file(args.pangenome,"r")
-        if args.status:
+def printInfo(pangenome, status = False, content = False, parameters = False):
+    if status or content or parameters:
+        h5f = tables.open_file(pangenome,"r")
+        if status:
             statusGroup = h5f.root.status
             print(f"genomes annotated : {'true' if statusGroup._v_attrs.genomesAnnotated else 'false' }")
             print(f"genes clustered : {'true' if statusGroup._v_attrs.genesClustered else 'false' }")
@@ -22,13 +22,16 @@ def printInfo(args):
             print(f"neighbors graph : {'true' if statusGroup._v_attrs.NeighborsGraph else 'false' }")
             print(f"pangenome partitioned : {'true' if statusGroup._v_attrs.Partitionned else 'false' }")
 
-        if args.content:
+        if content:
             readInfo(h5f)
-        if args.parameters:
+        if parameters:
             readParameters(h5f)
         h5f.close()
     else:
         print("Please select what information you want by using --parameters, --content or --status")
+
+def launch(args):
+    printInfo(args.pangenome, args.status, args.content, args.parameters)
 
 def infoSubparser(subparser):
     parser = subparser.add_parser("info", formatter_class=argparse.ArgumentDefaultsHelpFormatter)

@@ -114,27 +114,17 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K = 3, seed = 
         with open(nem_dir_path+"/nem_file_"+str(K)+".uf","r") as partitions_nem_file, open(nem_dir_path+"/nem_file_"+str(K)+".mf","r") as parameters_nem_file:
             parameters      = parameters_nem_file.readlines()
             U,D,_,log_likelihood,_,_ = [float(p) for p in parameters[2].split()]#L,Z, error
-            logging.getLogger().debug("U="+str(U))
-            logging.getLogger().debug("D="+str(D))
-            logging.getLogger().debug("log_likelihood="+str(log_likelihood))
+
             sum_mu_k       = []
             sum_epsilon_k  = []
 
             for k, line in enumerate(parameters[-K:]):
-                logging.getLogger().debug(line)
                 vector = line.split()
                 mu_k = [bool(float(mu_kj)) for mu_kj in vector[0:nb_org]]
-                logging.getLogger().debug(mu_k)
-                logging.getLogger().debug(len(mu_k))
                 epsilon_k = [float(epsilon_kj) for epsilon_kj in vector[nb_org+1:]]
-                logging.getLogger().debug(epsilon_k)
-                logging.getLogger().debug(len(epsilon_k))
                 proportion = float(vector[nb_org])
-                logging.getLogger().debug(proportion)
                 sum_mu_k.append(sum(mu_k))
-                logging.getLogger().debug(sum(mu_k))
                 sum_epsilon_k.append(sum(epsilon_k))
-                logging.getLogger().debug(sum(epsilon_k))
                 if k == 0:
                     all_parameters["persistent"]=(mu_k,epsilon_k,proportion)
                 elif k == K-1:
@@ -156,13 +146,10 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K = 3, seed = 
                 else:
                     max_prob = max([float(el) for el in elements])
                     positions_max_prob = [pos for pos, prob in enumerate(elements) if prob == max_prob]
-                    # logging.getLogger().debug(positions_max_prob)
-                    # logging.getLogger().debug(i)
                     if (len(positions_max_prob)>1 or max_prob<0.5):
                         partitions_list[i]="S_"#SHELL in case of doubt gene families is attributed to shell
                     else:
                         partitions_list[i]=partition[positions_max_prob.pop()]
-            #logging.getLogger().debug(index.keys())
     except IOError:
         logging.getLogger().debug("partitioning did not work (the number of organisms used is probably too low), see logs here to obtain more details "+nem_dir_path+"/nem_file_"+str(K)+".log")
         return  [{},None,None]#return empty objects.
@@ -239,16 +226,18 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
             row_fam = []
             row_dist_score = []
             neighbor_number = 0
+            sum_dist_score = 0
             for edge in fam.edges:#iter on the family's edges.
                 coverage = sum([ len(gene_list) for org, gene_list in edge.organisms.items() if org in organisms ])
                 if coverage == 0:
                     continue#nothing interesting to write, this edge does not exist with this subset of organisms.
                 distance_score = coverage / len(organisms)
-                total_edges_weight +=distance_score
+                sum_dist_score += distance_score
                 row_fam.append(str(index_fam[ edge.target if fam == edge.source else edge.source]))
                 row_dist_score.append(str(round(distance_score, 4)))
                 neighbor_number+=1
             if neighbor_number > 0 and float(neighbor_number) < sm_degree:
+                total_edges_weight += sum_dist_score
                 nei_file.write('\t'.join([str(item) for sublist in [[index_fam[fam]],[neighbor_number],row_fam,row_dist_score] for item in sublist])+"\n")
             else:
                 nei_file.write(str(index_fam[fam]) + "\t0\n")
@@ -323,7 +312,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
                                     dict(type='line', x0=best_K, x1=max_icl_K, y0=all_ICLs[max_icl_K], y1=all_ICLs[max_icl_K], line = dict(dict(width=1, dash='dashdot', color="black"))),
                                     dict(type='line', x0=2, x1=Krange[1], y0=all_ICLs[best_K], y1=all_ICLs[best_K], line = dict(dict(width=1, dash='dashdot', color="black")))])
         fig = go.Figure(data=traces, layout=layout)
-        out_plotly.plot(fig, filename=outputdir+"/ICL_curve_Q"+str(best_K)+".html", auto_open=False)
+        out_plotly.plot(fig, filename=outputdir+"/ICL_curve_K"+str(best_K)+".html", auto_open=False)
     return ChosenK
 
 def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = 10, free_dispersion=False, chunk_size=500, K=-1, Krange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
@@ -419,7 +408,8 @@ def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = 10, f
                     bar.update()
 
                 bar.close()
-                condition +=1#if len(validated) < pan_size, we will want to resample more.
+                condition += 1#if len(validated) < pan_size, we will want to resample more.
+                logging.getLogger().debug(f"There are {len(validated)} validated families out of {pansize} families.")
                 p.close()
                 p.join()
         for fam, data in cpt_partition.items():

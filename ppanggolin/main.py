@@ -134,7 +134,7 @@ def main():
     elif args.subcommand == "write":
         ppanggolin.formats.launch(args)
     elif args.subcommand == "info":
-        ppanggolin.info.printInfo(args)
+        ppanggolin.info.launch(args)
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
     elif args.subcommand == "rgp":

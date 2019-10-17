@@ -2480,7 +2480,7 @@ static int ComputePartitionNEM
 
     } /* end for ( itere = 0 ; itere < NemParaP->NbEIters ; itere ++ ) */
 
-if( CriterP->U == -INFINITY || CriterP->M == -INFINITY){
+if( CriterP->U == -INFINITY ){
     return(STS_E_INFINITE);
 }else{
     return STS_OK ;
