@@ -17,8 +17,8 @@ class Edge:
             raise Exception(f"You cannot create a graph without gene families. gene {targetGene.ID} did not have a gene family.")
         self.source = sourceGene.family
         self.target = targetGene.family
-        self.source._edges[self.target] = self
-        self.target._edges[self.source] = self
+        self.source._edges[self.target].add(self)
+        self.target._edges[self.source].add(self)
         self.organisms = defaultdict(list)
         self.addGenes(sourceGene, targetGene)
 
@@ -43,7 +43,7 @@ class GeneFamily:
     def __init__(self, ID, name):
         self.name = name
         self.ID = ID
-        self._edges = {}
+        self._edges = defaultdict(set)
         self._genePerOrg = defaultdict(set)
         self.genes = set()
         self.removed = False#for the repeated family not added in the main graph
@@ -105,7 +105,10 @@ class GeneFamily:
 
     @property
     def edges(self):
-        return self._edges.values()
+        s_out = set()
+        for s in self._edges.values():
+            s_out.update(s)
+        return s_out
 
     @property
     def organisms(self):
