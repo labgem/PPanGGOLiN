@@ -62,11 +62,6 @@ class Contig:
     def __str__(self):
         return self.name
 
-    def addSequence(self, seq):
-        if not isinstance(seq, str):
-            raise TypeError(f"'str' type was expected but you provided a '{type(seq)}' type object")
-        self.sequence = seq
-
     def __iter__(self):
         return iter(self.genes)
 
