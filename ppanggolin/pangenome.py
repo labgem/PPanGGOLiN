@@ -141,11 +141,14 @@ class Pangenome:
 
     @property
     def genes(self):
-        if len(self.organisms) > 0:#if we have organisms, they're supposed to have genes
-            return [ gene for org in self._orgGetter.values() for contig in org.contigs for gene in contig.genes ]
-        elif len(self.geneFamilies) > 0:#else, the genes will be stored in the gene families (maybe)
-            return [ gene for geneFam in self.geneFamilies for gene in geneFam.genes ]
-
+        try:
+            return self._geneGetter.values()
+        except AttributeError:#in that case the gene getter has not been computed
+            self._mkgeneGetter()#make it
+            return self.genes#return what was expected
+        except KeyError:
+            return None
+    
     @property
     def geneFamilies(self):
         return self._famGetter.values()
