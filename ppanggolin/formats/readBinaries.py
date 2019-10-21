@@ -81,28 +81,6 @@ def getGeneSequencesFromFile(pangenome, fileObj, list_CDS=None):
     bar.close()
     h5f.close()
 
-
-def getFamFromFile(pangenome, fileObj, proteic=False):
-    """
-        Writes the representatives sequences of each families of the Pangenome object to a fileObj object
-        Loads the sequences from a .h5 pangenome file
-    """
-    logging.getLogger().info("Extracting and writing all representatives sequences of the gene families from a .h5 pangenome file to a fasta file")
-    h5f = tables.open_file(pangenome.file,"r", driver_core_backing_store=0)
-    if proteic:
-        bar =  tqdm(range(len(h5f.root.geneFamilyInfo)), unit="prot")
-        table = h5f.root.geneFamilies
-        for prot in read_chunk(table):
-            fileObj.write('>' + prot[0].decode() + "\n")
-            fileObj.write(prot.protein.decode() + "\n")
-            bar.update()
-        fileObj.flush()
-        bar.close()
-        h5f.close()
-    else:
-        h5f.close()
-        getGeneSequencesFromFile(pangenome, fileObj, set([row[1] for row in h5f.root.geneFamilies]))
-
 def launchReadOrganism(args):
     return readOrganism(*args)
 
