@@ -34,7 +34,7 @@ class Gene(Feature):
         self.family = None
 
     def __str__(self):
-        return self.ID
+        return str(self.ID)
 
     def fill_annotations(self, start, stop, strand, geneType = "", position = None, name = "", product="", genetic_code = 11):
         super().fill_annotations(start, stop, strand, geneType, name, product)
