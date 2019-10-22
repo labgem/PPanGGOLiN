@@ -6,12 +6,16 @@ import logging
 import argparse
 import time
 import os
-from collections import defaultdict
+from collections import defaultdict, Counter
 import random
 
 #installed libraries
 from tqdm import tqdm
 import networkx as nx
+from rpy2 import robjects
+from rpy2.robjects.packages import importr
+
+import colorlover as cl
 
 #local libraries
 from ppanggolin.pangenome import Pangenome, Region
@@ -175,46 +179,12 @@ def get_multigenics(pangenome, dup_margin):
     logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic. (duplicated in more than {dup_margin} of the genomes)")
     return multigenics
 
-
 def spot_distribution(spots, pangenome, output):
     """takes in spots are a list of sets of rgps"""
     fdistrib = open(output + "/spot_rgp_distribution.tsv","w")
     for rgps in spots:
         fdistrib.write(str(len(rgps)) + "\t" + str(len(getUniqRGP(rgps))) + "\t" + str(round(len(rgps) / len(pangenome.organisms),2)) +"\n")
     fdistrib.close()
-
-def getBorderingGenes(rgp, multigenics):
-        border = [None, None]
-        pos = rgp.genes[-1].position
-        while border[0] is None:
-            curr_fam = None
-            if pos == 0:
-                if rgp.contig.is_circular:
-                    curr_fam = rgp.contig.genes[-1].family
-                else:
-                    border[0] = ""
-            else:
-                curr_fam = rgp.contig.genes[pos -1].family
-            if curr_fam is not None and curr_fam not in multigenics and curr_fam.namedPartition == "persistent":
-                border[0] = curr_fam
-            else:
-                pos -= 1
-
-        pos = rgp.genes[0].position
-        while border[1] is None:
-            curr_fam = None
-            if pos == len(rgp.contig.genes)-1:
-                if rgp.contig.is_circular:
-                    curr_fam = rgp.contig.genes[0].family
-                else:
-                    border[1] = ""
-            else:
-                curr_fam = rgp.contig.genes[pos+1].family
-            if curr_fam is not None and curr_fam not in multigenics:
-                border[1] = curr_fam
-            else:
-                pos+=1
-        return border
 
 def getUniqRGP(rgpList):
         uniqRGP = set()
@@ -228,27 +198,25 @@ def getUniqRGP(rgpList):
                 uniqRGP.add(rgp)
         return uniqRGP
 
+def compBorder(border1, border2, overlapping_match, exact_match, set_size):
+    if border1[0:exact_match] == border2[0:exact_match]:
+        return True
+    elif len(border1) == set_size and len(border2) == set_size:
+        for ikb in range(1, set_size-overlapping_match+1):
+            if border1[0:len(border2[ikb:])] == border2[ikb:]:
+                return True
+        for ib in range(1, set_size-overlapping_match+1):
+            if border1[ib:] == border2[0:len(border1[ib:])]:
+                return True
+    return False
+
 def checkSim(pairKnownBorder, pairBorderGenes, overlapping_match, exact_match, set_size):
     """ Checks if the two pairs of 'exact_match' first gene families are identical, or eventually if they overlap in an ordered way at least 'overlapping_match'"""
     kbpair = [False, False]
     bpair = [False, False]
     for countkb, kb in enumerate(pairKnownBorder):
         for countb, b in enumerate(pairBorderGenes):
-            match = False
-            if b[0:exact_match] == kb[0:exact_match]:
-                match = True
-            elif len(b) == set_size and len(kb) == set_size:
-                if not match:
-                    for ikb in range(1, set_size-overlapping_match+1):
-                        if b[0:len(kb[ikb:])] == kb[ikb:]:
-                            match = True
-                            break
-                if not match:
-                    for ib in range(1, set_size-overlapping_match+1):
-                        if b[ib:] == kb[0:len(b[ib:])]:
-                            match = True
-                            break
-            if match:
+            if compBorder(b, kb, overlapping_match, exact_match, set_size):
                 kbpair[countkb] = True
                 bpair[countb] = True
 
@@ -258,7 +226,7 @@ def checkSim(pairKnownBorder, pairBorderGenes, overlapping_match, exact_match, s
 
 def makeSpotGraph(rgps, multigenics, output, spot_graph, overlapping_match, set_size, exact_match):
     def addNewNode(g, rgp, borders):
-        blocks = str(sorted([[fam.ID for fam in borders[0]],[fam.ID for fam in borders[1]]], key = lambda x : x[0]))
+        blocks = str(sorted([[gene.family.ID for gene in borders[0]],[gene.family.ID for gene in borders[1]]], key = lambda x : x[0]))
         g.add_node(blocks)
         try:
             g.nodes[blocks]["nb_rgp"]+=1
@@ -327,7 +295,7 @@ def makeFlanking(spots, output):
         del flankGraph.nodes[node]["borders"]
     nx.readwrite.gexf.write_gexf(flankGraph, output + "/flankGraph.gexf")
 
-def detect_hotspots(pangenome, multigenics, output, spot_graph = False, flanking_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1):
+def detect_hotspots(pangenome, multigenics, output, spot_graph = False, flanking_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False):
     logging.getLogger().info("Detecting hotspots in the pangenome...")
 
     spots = makeSpotGraph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size, exact_match)
@@ -339,7 +307,12 @@ def detect_hotspots(pangenome, multigenics, output, spot_graph = False, flanking
         makeFlanking(spots, output)
 
     spot_rgps = [ set(rgps) for _, rgps in spots]#list of rgps, regrouped by spots.
-    spot_distribution(spot_rgps, pangenome, output)
+
+    #spot_distribution(spot_rgps, pangenome, output)
+    #ADD : Associate rgps on contig borders to known spots. (using both gene content and bordering gene families?)
+
+    if draw_hotspot:
+        draw_spots([spot for spot in spots if len(spot[1]) >= len(pangenome.organisms) * 0.05], output, overlapping_match, exact_match, set_size, multigenics)#TODO: add a parameter to control how much presence is needed for a 'hotspot'
 
     return spots
 
@@ -349,7 +322,148 @@ def checkParameterLogic(overlapping_match, set_size, exact_match):
     if exact_match > set_size:
         raise Exception(f'--exact_match_size_hotspot ({exact_match}) cannot be bigger than --set_size_hotspot ({set_size})')
 
-def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, cpu = 1):
+def makeColorsForFams(fams):
+    potentialColors = cl.to_numeric([ col for val in cl.scales['8'].values() for val2 in val.values() for col in val2 ])
+    random.shuffle(potentialColors)
+    famcol = {}
+    print(len(potentialColors), len(fams))
+    if len(fams) < len(potentialColors):#can't display if not (families would have the same color)
+        for fam in fams:
+            col = [val for val in map(int,potentialColors.pop())]
+            famcol[fam] = '#%02x%02x%02x' % (col[0], col[1], col[2])
+    return famcol
+
+def countRGPoccurrence(uniqRGPS, currRGP):
+    countRGPs = Counter()
+    for rgp in currRGP:
+        for uniqrgp in uniqRGPS:
+            if rgp == uniqrgp:
+                countRGPs[uniqrgp] += 1
+                break
+    return countRGPs
+
+def orderGeneLists(geneLists, overlapping_match, exact_match, set_size):
+    classified = set([0])#first gene list has the right order
+    new_classify = set()
+    to_classify = set(range(1, len(geneLists)))#the others may (or may not) have it
+    while len(to_classify) != 0:
+        for classIndex in classified:
+            base_border1 = [ gene.family for gene in geneLists[classIndex][1][0] ]
+            base_border2 = [ gene.family for gene in geneLists[classIndex][1][1] ]
+            for unclassIndex in list(to_classify):
+                border1 = [ gene.family for gene in geneLists[unclassIndex][1][0] ]
+                border2 = [ gene.family for gene in geneLists[unclassIndex][1][1] ]
+                if compBorder(base_border1, border1, overlapping_match, exact_match, set_size) and compBorder(base_border2, border2, overlapping_match, exact_match, set_size):
+                    to_classify.discard(unclassIndex)
+                    new_classify.add(unclassIndex)
+                elif compBorder(base_border2, border1, overlapping_match, exact_match, set_size) and compBorder(base_border1, border2, overlapping_match, exact_match, set_size):
+                    geneLists[unclassIndex][0] = geneLists[unclassIndex][0][::-1]#reverse the order of the genes to match the 'reference'
+                    to_classify.discard(unclassIndex)
+                    new_classify.add(unclassIndex)
+        classified = new_classify#the newly classified will help to check the unclassified, the formerly classified are not useful for what remains (if sth remains)
+        new_classify = set()
+    return geneLists
+
+def drawCurrSpot(genelists, ordered_counts, famCol, filename):
+    rdframes = []
+    partitionColors = {"shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF"}
+    importr("genoPlotR")
+    dna_seg = robjects.r["dna_seg"]
+    longest_gene_list = 0
+    for index, GeneList in enumerate(genelists):
+        genelist = GeneList[0]
+        if len(genelist) > longest_gene_list:
+            longest_gene_list = len(genelist)
+        if genelist[0].start < genelist[1].start:
+            ordered=True
+            start = genelist[0].start
+        else:
+            print(f"reversed for region {index}")
+            ordered = False
+            start = genelist[0].stop
+        df = {'name':[],'start':[],'end':[],'strand':[],'col':[], 'fill':[]}
+        for gene in genelist:
+            print(start, gene.start, gene.stop, gene.ID)
+            df['name'].append(gene.name if gene.name != "" else gene.ID)
+            if ordered:
+                if gene.strand == "+":
+                    df['start'].append(gene.start - start)
+                    df['end'].append(gene.stop - start)
+                    df['strand'].append(gene.strand)
+                else:
+                    df["end"].append(gene.start - start)
+                    df["start"].append(gene.stop - start)
+                    df["strand"].append(gene.strand)
+            else:
+                if gene.strand == "+":
+                    df["start"].append(abs(gene.stop - start))
+                    df['end'].append(abs(gene.start - start))
+                    df["strand"].append("-")#we invert it because we reversed the order !
+                else:
+                    df["start"].append(abs(gene.start - start))
+                    df["end"].append(abs(gene.stop - start))
+                    df["strand"].append("+")#we invert it because we reversed the order !
+            df['col'].append(partitionColors[gene.family.namedPartition])
+            df['fill'].append(famCol[gene.family])
+        print(df["name"])
+        df["name"] = robjects.StrVector(df["name"])
+        df["start"] = robjects.IntVector(df["start"])
+        df["end"] = robjects.IntVector(df["end"])
+        df["strand"] = robjects.StrVector(df["strand"])
+        df["col"] = robjects.StrVector(df["col"])
+        df["fill"] = robjects.StrVector(df["fill"])
+        print(f'region {index}, x{ordered_counts[index]}')
+        print(robjects.DataFrame(df))
+        rdframes.append((f'region {index}, x'+str(ordered_counts[index]), dna_seg(robjects.DataFrame(df))))
+    Rdna_segs = robjects.ListVector(rdframes)
+    plot_gene_map = robjects.r["plot_gene_map"]
+    grdevices = importr('grDevices')
+    grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 50 )
+    plot_gene_map(dna_segs = Rdna_segs, gene_type="side_blocks", cex = 3)
+    grdevices.dev_off()
+
+def draw_spots(spots, output, overlapping_match, exact_match, set_size, multigenics):
+
+    for i, spot in enumerate(spots):
+        uniqRGPS = frozenset(getUniqRGP(spot[1]))
+        if len(uniqRGPS) > 1:
+            Fams = set()
+            GeneLists = []
+
+            countUniq = countRGPoccurrence(uniqRGPS, spot[1])
+
+            #order unique rgps by occurrences
+            sortedUniqRGPs = sorted(uniqRGPS, key = lambda x : countUniq[x], reverse=True)
+            nb = 0
+            for rgp in sortedUniqRGPs:
+                GeneList = []
+                borders = rgp.getBorderingGenes(set_size, multigenics)
+                minpos = min([ gene.position for border in borders for gene in border ])
+                maxpos = max([ gene.position for border in borders for gene in border ])
+                GeneList = rgp.contig.genes[minpos:maxpos+1]
+                print(len(GeneList),GeneList)
+                print(minpos, maxpos)
+                Fams |= { gene.family for gene in GeneList }
+                # for gene in borders[1][::-1]:
+                #     GeneList.append(gene)
+                # for gene in rgp.genes:
+                #     GeneList.append(gene)
+                #     Fams.add(gene.family)
+                # for gene in borders[0]:#invert the 'first' region as it is ordered in such a way that the closest is first
+                #     GeneList.append(gene)
+
+                GeneLists.append([GeneList, borders])
+            print(f"reversed {nb} times.")
+            famcol = makeColorsForFams(Fams)
+            if len(famcol) == 0:
+                logging.getLogger().warning("WARNING: Hotspot was not drawn because there was too many gene families (could not get enough different colors...)")
+                continue#we can't draw really... too many gene families
+            GeneLists = orderGeneLists(GeneLists, overlapping_match, exact_match, set_size)
+            ordered_counts = sorted(countUniq.values(), reverse = True)
+            fname = output + '/hotspot_' + str(i) + ".png"
+            drawCurrSpot(GeneLists, ordered_counts, famcol, fname)#make R dataframes, and plot them using genoPlotR.
+
+def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1):
 
     #check that given parameters for hotspot computation make sense
     checkParameterLogic(overlapping_match, set_size, exact_match)
@@ -366,7 +480,7 @@ def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min
     logging.getLogger().info(f"Predicted {len(pangenomeRGP)} RGP")
     pangenome.addRegions(pangenomeRGP)
 
-    detect_hotspots(pangenome, multigenics, output, spot_graph, flanking_graph,overlapping_match, set_size, exact_match)
+    spots = detect_hotspots(pangenome, multigenics, output, spot_graph, flanking_graph,overlapping_match, set_size, exact_match, draw_hotspot)
 
     #save parameters and save status
     pangenome.parameters["RGP"] = {}
@@ -385,7 +499,7 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     # if args.flanking_graph or args.spot_graph:
     mkOutdir(args.output, args.force)
-    predictRGP(pangenome, args.output, args.persistent_penalty, args.variable_gain, args.min_length, args.min_score, args.dup_margin, args.spot_graph, args.flanking_graph, args.overlapping_match_hotspot, args.set_size_hotspot, args.exact_match_size_hotspot, args.cpu)
+    predictRGP(pangenome, args.output, args.persistent_penalty, args.variable_gain, args.min_length, args.min_score, args.dup_margin, args.spot_graph, args.flanking_graph, args.overlapping_match_hotspot, args.set_size_hotspot, args.exact_match_size_hotspot, args.draw_hotspots, args.cpu)
     writePangenome(pangenome, pangenome.file, args.force)
 
 
@@ -401,6 +515,7 @@ def rgpSubparser(subparser):
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--spot_graph", required = False, action="store_true", help = "Writes a graph in a .gexf format of pairs of blocks of single copy markers flanking RGPs, supposedly belonging to the same hotspot")
     optional.add_argument("--flanking_graph", required = False, action="store_true", help = "Writes a graph in a .gexf format of common blocks of single copy markers flanking RGPs, supposedly with some common origin")
+    optional.add_argument("--draw_hotspots", required=False, action="store_true", help = "Draws a figure representing all of the hotspots syntenies")
     optional.add_argument("--overlapping_match_hotspot", required=False, type=int, default = 2, help="The number of 'missing' persistent genes allowed when comparing flanking genes during hotspot computations")
     optional.add_argument("--set_size_hotspot", required = False, type = int, default = 3, help = "Number of single copy markers to use as flanking genes for a RGP during hotspot computation")
     optional.add_argument("--exact_match_size_hotspot", required = False, type= int, default = 1, help = "Number of perfecty matching flanking single copy markers required to associate RGPs during hotspot computation (Ex: If set to 1, two RGPs are in the same hotspot if both their 1st flanking genes are the same)")

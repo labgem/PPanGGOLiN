@@ -210,8 +210,6 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", force = Fal
 
     checkPangenomeForClustering(pangenome, tmpFile, force)
 
-
-
     logging.getLogger().info("Clustering all of the genes sequences...")
     rep, tsv = firstClustering(tmpFile, newtmpdir, cpu, code)
     fam2seq = read_faa(rep)
@@ -223,12 +221,17 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", force = Fal
         genes2fam, fam2seq = refineClustering(tsv, aln, fam2seq)
         aln.close()
         pangenome.status["defragmented"] = "Computed"
+
+    # from time import sleep
+    # sleep(1000)
+
     tmpFile.close()
     tsv.close()
     rep.close()
     newtmpdir.cleanup()
     read_fam2seq(pangenome, fam2seq)
     read_gene2fam(pangenome, genes2fam)
+
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
 

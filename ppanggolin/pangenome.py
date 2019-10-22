@@ -4,6 +4,8 @@
 #default libraries
 from collections import defaultdict
 from collections.abc import Iterable
+import logging
+
 #installed libraries
 import gmpy2
 
@@ -72,14 +74,14 @@ class Region:
         pos = self.genes[-1].position
         init = pos
         while len(border[0]) < n and (pos != 0 and not self.contig.is_circular):
-            curr_fam = None
+            curr_gene = None
             if pos == 0:
                 if self.contig.is_circular:
-                    curr_fam = self.contig.genes[-1].family
+                    curr_gene = self.contig.genes[-1]
             else:
-                curr_fam = self.contig.genes[pos -1].family
-            if curr_fam is not None and curr_fam not in multigenics and curr_fam.namedPartition == "persistent":
-                border[0].append(curr_fam)
+                curr_gene = self.contig.genes[pos -1]
+            if curr_gene is not None and curr_gene.family not in multigenics and curr_gene.family.namedPartition == "persistent":
+                border[0].append(curr_gene)
             pos -= 1
             if pos == -1 and self.contig.is_circular:
                 pos = len(self.contig.genes)
@@ -89,14 +91,14 @@ class Region:
         pos = self.genes[0].position
         init = pos
         while len(border[1]) < n and (pos != len(self.contig.genes)-1 and not self.contig.is_circular):
-            curr_fam = None
+            curr_gene = None
             if pos == len(self.contig.genes)-1:
                 if self.contig.is_circular:
-                    curr_fam = self.contig.genes[0].family
+                    curr_gene = self.contig.genes[0]
             else:
-                curr_fam = self.contig.genes[pos+1].family
-            if curr_fam is not None and curr_fam not in multigenics:
-                border[1].append(curr_fam)
+                curr_gene = self.contig.genes[pos+1]
+            if curr_gene is not None and curr_gene.family not in multigenics:
+                border[1].append(curr_gene)
             pos+=1
             if pos == len(self.contig.genes) and self.contig.is_circular:
                 pos = -1

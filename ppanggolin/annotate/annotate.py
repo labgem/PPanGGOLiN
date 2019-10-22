@@ -66,6 +66,14 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
             currType = line[5:21].strip()
             if currType != "":
                 if usefulInfo:
+                    #special bit to cope with MaGe's genbank format...
+                    if any('MaGe' in dbref for dbref in dbxref):
+                        if gene_name == "":
+                            gene_name = locus_tag
+                        for val in dbxref:
+                            if 'MaGe' in val:
+                                locus_tag = val.split(':')[1]
+                                break
                     newGene = Gene(locus_tag)
                     newGene.fill_annotations(start = start,
                                             stop = end,
@@ -284,17 +292,22 @@ def getGeneSequencesFromFastas(pangenome, fasta_file):
             exit(1)
         org = pangenome.addOrganism(elements[0])
         with read_compressed_or_not(elements[1]) as currFastaFile:
-            fastaDict[org] = read_fasta(currFastaFile)
+            fastaDict[org] = read_fasta(org, currFastaFile)
     if not set(pangenome.organisms) <= set(fastaDict.keys()):
         missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fastaDict.keys()))
         raise Exception(f"Not all of your pangenome's organisms are present within the provided fasta file. {missing} are missing (out of {len(pangenome.organisms)}).")
-
+    
     for org in pangenome.organisms:
         for contig in org.contigs:
-            for gene in contig.genes:
-                gene.add_dna(get_dna_sequence(fastaDict[org][contig.name], gene))
-            for rna in contig.RNAs:
-                rna.add_dna(get_dna_sequence(fastaDict[org][contig.name], gene))
+            try:
+                for gene in contig.genes:
+                    gene.add_dna(get_dna_sequence(fastaDict[org][contig.name], gene))
+                for rna in contig.RNAs:
+                    rna.add_dna(get_dna_sequence(fastaDict[org][contig.name], gene))
+            except KeyError:
+                msg = f"Fasta file for organism {org.name} did not have the contig {contig.name} that was read from the annotation file. "
+                msg += f"The provided contigs in the fasta were : { ', '.join([contig for contig in fastaDict[org].keys()])}."
+                pass#raise KeyError(msg)
     pangenome.status["geneSequences"] = "Computed"
 
 def launchAnnotateOrganism(pack):
@@ -321,6 +334,7 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
         p.close()
         p.join()
     bar.close()
+
     logging.getLogger().info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"#the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"#the gene objects have their respective gene sequences.
@@ -344,6 +358,7 @@ def launch(args):
             else:
                 logging.getLogger().warning("You provided gff files without sequences, and you did not provide fasta sequences. Thus it was not possible to get the gene sequences.")
                 logging.getLogger().warning("You will be able to proceed with your analysis ONLY if you provide the clustering results in the next step.")
+
     writePangenome(pangenome, filename, args.force)
 
 def syntaSubparser(subparser):
