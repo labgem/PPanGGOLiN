@@ -284,17 +284,22 @@ def getGeneSequencesFromFastas(pangenome, fasta_file):
             exit(1)
         org = pangenome.addOrganism(elements[0])
         with read_compressed_or_not(elements[1]) as currFastaFile:
-            fastaDict[org] = read_fasta(currFastaFile)
+            fastaDict[org] = read_fasta(org, currFastaFile)
     if not set(pangenome.organisms) <= set(fastaDict.keys()):
         missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fastaDict.keys()))
         raise Exception(f"Not all of your pangenome's organisms are present within the provided fasta file. {missing} are missing (out of {len(pangenome.organisms)}).")
 
     for org in pangenome.organisms:
-        for contig in org.contigs:
-            for gene in contig.genes:
-                gene.add_dna(get_dna_sequence(fastaDict[org][contig.name], gene))
-            for rna in contig.RNAs:
-                rna.add_dna(get_dna_sequence(fastaDict[org][contig.name], gene))
+        try:
+            for contig in org.contigs:
+                for gene in contig.genes:
+                    gene.add_dna(get_dna_sequence(fastaDict[org][contig.name], gene))
+                for rna in contig.RNAs:
+                    rna.add_dna(get_dna_sequence(fastaDict[org][contig.name], gene))
+        except KeyError:
+            msg = f"Fasta file for organism {org.name} did not have the contig {contig.name} that was read from the annotation file. "
+            msg += f"The provided contigs in the fasta were : { ', '.join([contig for contig in fastaDict[org].keys()])}."
+            raise KeyError(msg)
     pangenome.status["geneSequences"] = "Computed"
 
 def launchAnnotateOrganism(pack):
