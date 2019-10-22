@@ -66,6 +66,13 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
             currType = line[5:21].strip()
             if currType != "":
                 if usefulInfo:
+                    if any('MaGe' in dbref for dbref in dbxref):
+                        if gene_name == "":
+                            gene_name = locus_tag
+                        for val in dbxref:
+                            if 'MaGe' in val:
+                                locus_tag = val.split(':')[1]
+                                break
                     newGene = Gene(locus_tag)
                     newGene.fill_annotations(start = start,
                                             stop = end,
