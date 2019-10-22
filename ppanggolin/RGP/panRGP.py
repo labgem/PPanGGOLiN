@@ -15,12 +15,15 @@ import networkx as nx
 from rpy2 import robjects
 from rpy2.robjects.packages import importr
 
+from scipy.spatial.distance import pdist
+from scipy.sparse import csc_matrix
+from scipy.cluster.hierarchy import linkage, dendrogram
 import colorlover as cl
 
 #local libraries
 from ppanggolin.pangenome import Pangenome, Region
 from ppanggolin.formats import checkPangenomeInfo, writePangenome
-from ppanggolin.utils import mkOutdir
+from ppanggolin.utils import mkOutdir, jaccard_similarities
 
 class MatriceNode:
     def __init__(self, state, score, prev, gene):
@@ -312,7 +315,7 @@ def detect_hotspots(pangenome, multigenics, output, spot_graph = False, flanking
     #ADD : Associate rgps on contig borders to known spots. (using both gene content and bordering gene families?)
 
     if draw_hotspot:
-        draw_spots([spot for spot in spots if len(spot[1]) >= len(pangenome.organisms) * 0.05], output, overlapping_match, exact_match, set_size, multigenics)#TODO: add a parameter to control how much presence is needed for a 'hotspot'
+        draw_spots([spot for spot in spots if len(getUniqRGP(spot[1])) >= len(pangenome.organisms) * 0.05 ], output, overlapping_match, exact_match, set_size, multigenics)#TODO: add a parameter to control how much presence is needed for a 'hotspot'
 
     return spots
 
@@ -323,14 +326,13 @@ def checkParameterLogic(overlapping_match, set_size, exact_match):
         raise Exception(f'--exact_match_size_hotspot ({exact_match}) cannot be bigger than --set_size_hotspot ({set_size})')
 
 def makeColorsForFams(fams):
-    potentialColors = cl.to_numeric([ col for val in cl.scales['8'].values() for val2 in val.values() for col in val2 ])
-    random.shuffle(potentialColors)
+    # potentialColors = cl.to_numeric([ col for val in cl.scales['8'].values() for val2 in val.values() for col in val2 ])
+    # random.shuffle(potentialColors)
     famcol = {}
-    print(len(potentialColors), len(fams))
-    if len(fams) < len(potentialColors):#can't display if not (families would have the same color)
-        for fam in fams:
-            col = [val for val in map(int,potentialColors.pop())]
-            famcol[fam] = '#%02x%02x%02x' % (col[0], col[1], col[2])
+    # if len(fams) < len(potentialColors):#can't display if not (families would have the same color)
+    for fam in fams:
+        col =  list(random.choices(range(256), k=3))
+        famcol[fam] = '#%02x%02x%02x' % (col[0], col[1], col[2])
     return famcol
 
 def countRGPoccurrence(uniqRGPS, currRGP):
@@ -342,7 +344,35 @@ def countRGPoccurrence(uniqRGPS, currRGP):
                 break
     return countRGPs
 
-def orderGeneLists(geneLists, overlapping_match, exact_match, set_size):
+def orderGeneLists(geneLists, ordered_counts, overlapping_match, exact_match, set_size):
+    geneLists = lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size)
+    return rowOrderGeneLists(geneLists, ordered_counts)
+
+def rowOrderGeneLists(geneLists, ordered_counts):
+    famDict = defaultdict(set)
+
+    for index, genelist in enumerate([genes for genes, _ in geneLists]):
+        for gene in genelist:
+            famDict[gene.family].add(index)
+    all_indexes = []
+    all_columns = []
+    data = []
+    for famIndex, RGPindexes in enumerate(famDict.values()):
+        all_indexes.extend([famIndex] * len(RGPindexes))
+        all_columns.extend(RGPindexes)
+        data.extend([1.0]*len(RGPindexes))
+
+    mat_p_a = csc_matrix((data, (all_indexes,all_columns)), shape = (len(famDict),len(geneLists)), dtype='float')
+    dist    = pdist(1 - jaccard_similarities(mat_p_a,0).todense())
+    hc      = linkage(dist, 'single')
+
+    dendro = dendrogram(hc,no_plot=True)
+
+    new_geneLists = [ geneLists[index] for index in dendro["leaves"]]
+    new_ordered_counts = [ ordered_counts[index] for index in dendro["leaves"] ]
+    return new_geneLists, new_ordered_counts
+
+def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
     classified = set([0])#first gene list has the right order
     new_classify = set()
     to_classify = set(range(1, len(geneLists)))#the others may (or may not) have it
@@ -366,9 +396,13 @@ def orderGeneLists(geneLists, overlapping_match, exact_match, set_size):
 
 def drawCurrSpot(genelists, ordered_counts, famCol, filename):
     rdframes = []
+    annotList = []
     partitionColors = {"shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF"}
     importr("genoPlotR")
     dna_seg = robjects.r["dna_seg"]
+    annotation = robjects.r["annotation"]
+    middle = robjects.r["middle"]
+
     longest_gene_list = 0
     for index, GeneList in enumerate(genelists):
         genelist = GeneList[0]
@@ -378,13 +412,13 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
             ordered=True
             start = genelist[0].start
         else:
-            print(f"reversed for region {index}")
             ordered = False
             start = genelist[0].stop
         df = {'name':[],'start':[],'end':[],'strand':[],'col':[], 'fill':[]}
+        gene_names = []
         for gene in genelist:
-            print(start, gene.start, gene.stop, gene.ID)
-            df['name'].append(gene.name if gene.name != "" else gene.ID)
+            gene_names.append(' ' + gene.name)
+            df['name'].append(gene.ID)
             if ordered:
                 if gene.strand == "+":
                     df['start'].append(gene.start - start)
@@ -405,63 +439,52 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
                     df["strand"].append("+")#we invert it because we reversed the order !
             df['col'].append(partitionColors[gene.family.namedPartition])
             df['fill'].append(famCol[gene.family])
-        print(df["name"])
         df["name"] = robjects.StrVector(df["name"])
         df["start"] = robjects.IntVector(df["start"])
         df["end"] = robjects.IntVector(df["end"])
         df["strand"] = robjects.StrVector(df["strand"])
         df["col"] = robjects.StrVector(df["col"])
         df["fill"] = robjects.StrVector(df["fill"])
-        print(f'region {index}, x{ordered_counts[index]}')
-        print(robjects.DataFrame(df))
-        rdframes.append((f'region {index}, x'+str(ordered_counts[index]), dna_seg(robjects.DataFrame(df))))
+        dnasegObj = dna_seg(robjects.DataFrame(df))
+        annot = annotation(x1 = middle(dnasegObj), text=robjects.StrVector(gene_names), rot = 20)
+        annotList.append((f'region {index}, x'+str(ordered_counts[index]), annot))
+        rdframes.append((f'region {index}, x'+str(ordered_counts[index]), dnasegObj))
+    Rannot = robjects.ListVector(annotList)
     Rdna_segs = robjects.ListVector(rdframes)
     plot_gene_map = robjects.r["plot_gene_map"]
     grdevices = importr('grDevices')
-    grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 50 )
-    plot_gene_map(dna_segs = Rdna_segs, gene_type="side_blocks", cex = 3)
+    grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)
+    plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, gene_type="side_blocks", cex = 8)
     grdevices.dev_off()
 
 def draw_spots(spots, output, overlapping_match, exact_match, set_size, multigenics):
-
+    logging.getLogger().info("Drawing the hotspots of the pangenome")
+    bar = tqdm(range(len(spots)), unit = "region")
     for i, spot in enumerate(spots):
         uniqRGPS = frozenset(getUniqRGP(spot[1]))
-        if len(uniqRGPS) > 1:
-            Fams = set()
-            GeneLists = []
+        Fams = set()
+        GeneLists = []
 
-            countUniq = countRGPoccurrence(uniqRGPS, spot[1])
+        countUniq = countRGPoccurrence(uniqRGPS, spot[1])
 
-            #order unique rgps by occurrences
-            sortedUniqRGPs = sorted(uniqRGPS, key = lambda x : countUniq[x], reverse=True)
-            nb = 0
-            for rgp in sortedUniqRGPs:
-                GeneList = []
-                borders = rgp.getBorderingGenes(set_size, multigenics)
-                minpos = min([ gene.position for border in borders for gene in border ])
-                maxpos = max([ gene.position for border in borders for gene in border ])
-                GeneList = rgp.contig.genes[minpos:maxpos+1]
-                print(len(GeneList),GeneList)
-                print(minpos, maxpos)
-                Fams |= { gene.family for gene in GeneList }
-                # for gene in borders[1][::-1]:
-                #     GeneList.append(gene)
-                # for gene in rgp.genes:
-                #     GeneList.append(gene)
-                #     Fams.add(gene.family)
-                # for gene in borders[0]:#invert the 'first' region as it is ordered in such a way that the closest is first
-                #     GeneList.append(gene)
+        #order unique rgps by occurrences
+        sortedUniqRGPs = sorted(uniqRGPS, key = lambda x : countUniq[x], reverse=True)
+        for rgp in sortedUniqRGPs:
+            GeneList = []
+            borders = rgp.getBorderingGenes(set_size, multigenics)
+            minpos = min([ gene.position for border in borders for gene in border ])
+            maxpos = max([ gene.position for border in borders for gene in border ])
+            GeneList = rgp.contig.genes[minpos:maxpos+1]
+            Fams |= { gene.family for gene in GeneList }
 
-                GeneLists.append([GeneList, borders])
-            print(f"reversed {nb} times.")
-            famcol = makeColorsForFams(Fams)
-            if len(famcol) == 0:
-                logging.getLogger().warning("WARNING: Hotspot was not drawn because there was too many gene families (could not get enough different colors...)")
-                continue#we can't draw really... too many gene families
-            GeneLists = orderGeneLists(GeneLists, overlapping_match, exact_match, set_size)
-            ordered_counts = sorted(countUniq.values(), reverse = True)
-            fname = output + '/hotspot_' + str(i) + ".png"
-            drawCurrSpot(GeneLists, ordered_counts, famcol, fname)#make R dataframes, and plot them using genoPlotR.
+            GeneLists.append([GeneList, borders])
+        famcol = makeColorsForFams(Fams)
+        ordered_counts = sorted(countUniq.values(), reverse = True)
+        GeneLists, ordered_counts = orderGeneLists(GeneLists, ordered_counts, overlapping_match, exact_match, set_size)
+        fname = output + '/hotspot_' + str(i) + ".png"
+        drawCurrSpot(GeneLists, ordered_counts, famcol, fname)#make R dataframes, and plot them using genoPlotR.
+        bar.update()
+    bar.close()
 
 def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1):
 
