@@ -309,13 +309,12 @@ def detect_hotspots(pangenome, multigenics, output, spot_graph = False, flanking
     if flanking_graph:
         makeFlanking(spots, output)
 
-    spot_rgps = [ set(rgps) for _, rgps in spots]#list of rgps, regrouped by spots.
-
+    # spot_rgps = [ set(rgps) for _, rgps in spots]#list of rgps, regrouped by spots.
     #spot_distribution(spot_rgps, pangenome, output)
     #ADD : Associate rgps on contig borders to known spots. (using both gene content and bordering gene families?)
 
     if draw_hotspot:
-        draw_spots([spot for spot in spots if len(getUniqRGP(spot[1])) >= len(pangenome.organisms) * 0.05 ], output, overlapping_match, exact_match, set_size, multigenics)#TODO: add a parameter to control how much presence is needed for a 'hotspot'
+        draw_spots([spot for spot in spots if len(spot[1]) >= len(pangenome.organisms) * 0.05 and len(getUniqRGP(spot[1])) > max(len(pangenome.organisms) * 0.01, 5) ], output, overlapping_match, exact_match, set_size, multigenics)#TODO: add a parameter to control how much presence is needed for a 'hotspot'
 
     return spots
 

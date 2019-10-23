@@ -261,14 +261,18 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
         argsPartitionning.append((Newtmpdir, len(select_organisms), 0, free_dispersion, k, seed, "param_file", True, 10, True))#those arguments follow the order of the arguments of run_partitionning
     allLogLikelihood = []
 
-    bar = tqdm(range(len(argsPartitionning)), unit = "Number of number of partitions")
-    with Pool(processes = cpu) as p:
-        for result in p.imap_unordered(nemSingle, argsPartitionning):
-            allLogLikelihood.append(result)
-            bar.update()
-        p.close()
-        p.join()
-    bar.close()
+    if cpu > 1:
+        bar = tqdm(range(len(argsPartitionning)), unit = "Number of number of partitions")
+        with Pool(processes = cpu) as p:
+            for result in p.imap_unordered(nemSingle, argsPartitionning):
+                allLogLikelihood.append(result)
+                bar.update()
+            p.close()
+            p.join()
+        bar.close()
+    else:#for the case where it is called in a daemonic subprocess with a single cpu
+        for arguments in argsPartitionning:
+            allLogLikelihood.append(nemSingle(arguments))
 
     def calculate_BIC(log_likelihood,nb_params,nb_points):
         return( log_likelihood - 0.5 *(math.log(nb_points) * nb_params))
