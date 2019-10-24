@@ -29,7 +29,37 @@ def detect_filetype(filename):
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
-def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq):
+def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11):
+    if any('MaGe' in dbref for dbref in dbxref):
+        if gene_name == "":
+            gene_name = ID
+        for val in dbxref:
+            if 'MaGe' in val:
+                locus_tag = val.split(':')[1]
+                break
+    if gene_type == "CDS":
+        newGene = Gene(locus_tag)
+        newGene.fill_annotations(start = start,
+                                stop = stop,
+                                strand = strand,
+                                geneType = gene_type,
+                                position = position,
+                                name = gene_name,
+                                product = product,
+                                genetic_code = genetic_code)
+        contig.addGene(newGene)
+    else:#either a CDS, or a RNA
+        newGene = RNA(locus_tag)
+        newGene.fill_annotations(start = start,
+                                stop = stop,
+                                strand = strand,
+                                geneType = gene_type,
+                                name = gene_name,
+                                product = product)
+        contig.addRNA(newGene)
+    newGene.fill_parents(org, contig)
+
+def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq, pseudo = False):
     """ reads a gbff file and fills Organism, Contig and Genes objects based on information contained in this file """
     org = Organism(organism)
 
@@ -66,28 +96,11 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
             currType = line[5:21].strip()
             if currType != "":
                 if usefulInfo:
-                    if any('MaGe' in dbref for dbref in dbxref):
-                        if gene_name == "":
-                            gene_name = locus_tag
-                        for val in dbxref:
-                            if 'MaGe' in val:
-                                locus_tag = val.split(':')[1]
-                                break
-                    newGene = Gene(locus_tag)
-                    newGene.fill_annotations(start = start,
-                                            stop = end,
-                                            strand = strand,
-                                            geneType = objType,
-                                            position = len(contig.genes),
-                                            name = gene_name,
-                                            product = product,
-                                            genetic_code = genetic_code)
-                    newGene.fill_parents(org, contig)
-                    contig.addGene(newGene)
-
+                    #special bit to cope with MaGe's genbank format...
+                    create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
                 usefulInfo = False
                 objType = currType
-                if objType in ['CDS']:#only CDS for now
+                if objType in ['CDS','rRNA','tRNA']:
                     dbxref = set()
                     gene_name = ""
                     try:
@@ -124,13 +137,15 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
                             line = lines.pop()
                             product += line.strip().replace('"', '')
                 #if it's a pseudogene, we're not keeping it.
-                elif line[21:].startswith("/pseudo"):
+                elif line[21:].startswith("/pseudo") and not pseudo:
                     usefulInfo = False
                 #that's probably a 'stop' codon into selenocystein.
                 elif line[21:].startswith("/transl_except"):
                     usefulInfo = False
             line = lines.pop()
             #end of contig
+        if usefulInfo:#saving the last element...
+            create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
 
         if getSeq:
             line = lines.pop()#first sequence line.
@@ -145,7 +160,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
 
     pangenome.addOrganism(org)
 
-def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
+def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq, pseudo = False):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0,9)#missing values : source, score, frame. They are unused.
     def getGffAttributes(gff_fields):
         """
@@ -197,7 +212,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                 continue
             gff_fields = [el.strip() for el in line.split('\t')]
             attributes = getGffAttributes(gff_fields)
-
+            pseudogene = False
             if gff_fields[GFF_type] == 'region':
                 if gff_fields[GFF_seqname] in circular_contigs:
                     contig.is_circular = True
@@ -212,7 +227,8 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                         name = attributes.pop('GENE')
                     except KeyError:
                         name = ""
-
+                if "pseudo" in attributes or "pseudogene" in attributes:
+                    pseudogene = True
                 try:
                     product = attributes.pop('PRODUCT')
                 except KeyError:
@@ -224,7 +240,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                     genetic_code = "11"
                 if contig.name != gff_fields[GFF_seqname]:
                     contig = org.getOrAddContig(gff_fields[GFF_seqname])#get the current contig
-                if gff_fields[GFF_type] == "CDS":
+                if gff_fields[GFF_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(geneID)
                     #here contig is filled in order, so position is the number of genes already stored in the contig.
                     gene.fill_annotations(start = int(gff_fields[GFF_start]),
@@ -260,7 +276,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
         pangenome.status["geneSequences"] = "No"
     pangenome.addOrganism(org)
 
-def readAnnotations(pangenome, organisms_file, getSeq = True):
+def readAnnotations(pangenome, organisms_file, getSeq = True, pseudo = False):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
 
     bar = tqdm(read_compressed_or_not(organisms_file),total=get_num_lines(organisms_file), unit = "annotation file")
@@ -274,9 +290,9 @@ def readAnnotations(pangenome, organisms_file, getSeq = True):
         bar.refresh()
         filetype = detect_filetype(elements[1])
         if filetype == "gff":
-            read_org_gff(pangenome, elements[0], elements[1], elements[2:], getSeq)
+            read_org_gff(pangenome, elements[0], elements[1], elements[2:], getSeq, pseudo)
         elif filetype == "gbff":
-            read_org_gbff(pangenome, elements[0], elements[1], elements[2:], getSeq)
+            read_org_gbff(pangenome, elements[0], elements[1], elements[2:], getSeq, pseudo)
     bar.close()
     pangenome.status["genomesAnnotated"] = "Computed"
     pangenome.parameters["annotation"] = {}
@@ -295,7 +311,7 @@ def getGeneSequencesFromFastas(pangenome, fasta_file):
     if not set(pangenome.organisms) <= set(fastaDict.keys()):
         missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fastaDict.keys()))
         raise Exception(f"Not all of your pangenome's organisms are present within the provided fasta file. {missing} are missing (out of {len(pangenome.organisms)}).")
-
+    
     for org in pangenome.organisms:
         try:
             for contig in org.contigs:
@@ -333,6 +349,7 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
         p.close()
         p.join()
     bar.close()
+
     logging.getLogger().info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"#the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"#the gene objects have their respective gene sequences.
@@ -349,13 +366,14 @@ def launch(args):
     if args.fasta is not None and args.anno is None:
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
     elif args.anno is not None:
-        readAnnotations(pangenome, args.anno)
+        readAnnotations(pangenome, args.anno, pseudo = args.use_pseudo)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 getGeneSequencesFromFastas(pangenome, args.fasta)
             else:
                 logging.getLogger().warning("You provided gff files without sequences, and you did not provide fasta sequences. Thus it was not possible to get the gene sequences.")
                 logging.getLogger().warning("You will be able to proceed with your analysis ONLY if you provide the clustering results in the next step.")
+
     writePangenome(pangenome, filename, args.force)
 
 def syntaSubparser(subparser):
@@ -372,4 +390,5 @@ def syntaSubparser(subparser):
     optional.add_argument("--kingdom",required = False, type = str.lower, default = "bacteria", choices = ["bacteria","archaea"], help = "Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
+    optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to use pseudogenes. (Default behavior is to ignore them)")
     return parser
