@@ -35,10 +35,10 @@ def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, positio
             gene_name = ID
         for val in dbxref:
             if 'MaGe' in val:
-                locus_tag = val.split(':')[1]
+                ID = val.split(':')[1]
                 break
     if gene_type == "CDS":
-        newGene = Gene(locus_tag)
+        newGene = Gene(ID)
         newGene.fill_annotations(start = start,
                                 stop = stop,
                                 strand = strand,
@@ -49,7 +49,7 @@ def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, positio
                                 genetic_code = genetic_code)
         contig.addGene(newGene)
     else:#either a CDS, or a RNA
-        newGene = RNA(locus_tag)
+        newGene = RNA(ID)
         newGene.fill_annotations(start = start,
                                 stop = stop,
                                 strand = strand,
