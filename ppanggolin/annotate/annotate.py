@@ -29,7 +29,7 @@ def detect_filetype(filename):
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
-def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq):
+def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq, pseudo = False):
     """ reads a gbff file and fills Organism, Contig and Genes objects based on information contained in this file """
     org = Organism(organism)
 
@@ -125,7 +125,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
                             line = lines.pop()
                             product += line.strip().replace('"', '')
                 #if it's a pseudogene, we're not keeping it.
-                elif line[21:].startswith("/pseudo"):
+                elif line[21:].startswith("/pseudo") and not pseudo:
                     usefulInfo = False
                 #that's probably a 'stop' codon into selenocystein.
                 elif line[21:].startswith("/transl_except"):
@@ -146,7 +146,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq)
 
     pangenome.addOrganism(org)
 
-def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
+def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq, pseudo = False):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0,9)#missing values : source, score, frame. They are unused.
     def getGffAttributes(gff_fields):
         """
@@ -198,7 +198,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                 continue
             gff_fields = [el.strip() for el in line.split('\t')]
             attributes = getGffAttributes(gff_fields)
-
+            pseudogene = False
             if gff_fields[GFF_type] == 'region':
                 if gff_fields[GFF_seqname] in circular_contigs:
                     contig.is_circular = True
@@ -213,7 +213,8 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                         name = attributes.pop('GENE')
                     except KeyError:
                         name = ""
-
+                if "pseudo" in attributes or "pseudogene" in attributes:
+                    pseudogene = True
                 try:
                     product = attributes.pop('PRODUCT')
                 except KeyError:
@@ -225,7 +226,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
                     genetic_code = "11"
                 if contig.name != gff_fields[GFF_seqname]:
                     contig = org.getOrAddContig(gff_fields[GFF_seqname])#get the current contig
-                if gff_fields[GFF_type] == "CDS":
+                if gff_fields[GFF_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(geneID)
                     #here contig is filled in order, so position is the number of genes already stored in the contig.
                     gene.fill_annotations(start = int(gff_fields[GFF_start]),
@@ -261,7 +262,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq):
         pangenome.status["geneSequences"] = "No"
     pangenome.addOrganism(org)
 
-def readAnnotations(pangenome, organisms_file, getSeq = True):
+def readAnnotations(pangenome, organisms_file, getSeq = True, pseudo = False):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
 
     bar = tqdm(read_compressed_or_not(organisms_file),total=get_num_lines(organisms_file), unit = "annotation file")
@@ -275,9 +276,9 @@ def readAnnotations(pangenome, organisms_file, getSeq = True):
         bar.refresh()
         filetype = detect_filetype(elements[1])
         if filetype == "gff":
-            read_org_gff(pangenome, elements[0], elements[1], elements[2:], getSeq)
+            read_org_gff(pangenome, elements[0], elements[1], elements[2:], getSeq, pseudo)
         elif filetype == "gbff":
-            read_org_gbff(pangenome, elements[0], elements[1], elements[2:], getSeq)
+            read_org_gbff(pangenome, elements[0], elements[1], elements[2:], getSeq, pseudo)
     bar.close()
     pangenome.status["genomesAnnotated"] = "Computed"
     pangenome.parameters["annotation"] = {}
@@ -351,7 +352,7 @@ def launch(args):
     if args.fasta is not None and args.anno is None:
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
     elif args.anno is not None:
-        readAnnotations(pangenome, args.anno)
+        readAnnotations(pangenome, args.anno, pseudo = args.use_pseudo)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 getGeneSequencesFromFastas(pangenome, args.fasta)
@@ -375,4 +376,5 @@ def syntaSubparser(subparser):
     optional.add_argument("--kingdom",required = False, type = str.lower, default = "bacteria", choices = ["bacteria","archaea"], help = "Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
+    optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to use pseudogenes. (Default behavior is to ignore them)")
     return parser

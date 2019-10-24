@@ -10,7 +10,7 @@ from tqdm import tqdm
 import tables
 
 #local libraries
-from ppanggolin.genome import Organism, Gene
+from ppanggolin.genome import Organism, Gene, RNA
 
 
 def getNumberOfOrganisms(pangenome):
@@ -97,7 +97,10 @@ def readOrganism(pangenome, orgName, contigDict, link = False):
             if link:#if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.getGene(row[1][0].decode())
             else:#else creating the gene.
-                gene = Gene(row[1][0].decode())
+                if row[1][9].decode() == "CDS":
+                    gene = Gene(row[1][0].decode())
+                elif "RNA" in row[1][9].decode().upper():
+                    gene = RNA(row[1][0].decode())
             gene.fill_annotations(
                 start = row[1][6],
                 stop =row[1][7],
