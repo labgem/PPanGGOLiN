@@ -249,12 +249,15 @@ def drawCurve(output, maxSampling, data):
     out_plotly.plot(fig, filename=output+"/rarefaction_curve.html", auto_open=False)
     params_file.close()
 
-def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = 10, free_dispersion=False, chunk_size = 500, K=-1, cpu = 1, seed=42, kestimate = False, krange = None, soft_core = 0.95):
-
+def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = 10, free_dispersion=False, chunk_size = 500, K=-1, cpu = 1, seed=42, kestimate = False, krange = [3,-1], soft_core = 0.95):
 
     ppp.pan = pangenome#use the global from partition to store the pangenome, so that it is usable
 
-    krange = krange or [3,21]
+    try:
+        krange[0] = ppp.pan.parameters["partition"]["K"] if krange[0]<0 else krange[0]
+        krange[1] = ppp.pan.parameters["partition"]["K"] if krange[1]<0 else krange[1]
+    except KeyError:
+        krange=[3,20]
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
 
     tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
@@ -265,19 +268,22 @@ def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSa
     else:
         maxSampling = int(maxSampling)
 
-    if K < 3 and kestimate == False:#estimate K once and for all.
-        logging.getLogger().info("Estimating the number of partitions...")
-        K = ppp.evaluate_nb_partitions(pangenome.organisms, sm_degree, free_dispersion, chunk_size, krange, 0.05, False, cpu, tmpdir, seed, None)
-        logging.getLogger().info(f"The number of partitions has been evaluated at {K}")
+    if K < 3 and kestimate is False:#estimate K once and for all.
+        try:
+            K = ppp.pan.parameters["partition"]["K"]
+            logging.getLogger().info(f"Reuse the number of partitions {K}")
+        except KeyError:
+            logging.getLogger().info("Estimating the number of partitions...")
+            K = ppp.evaluate_nb_partitions(pangenome.organisms, sm_degree, free_dispersion, chunk_size, krange, 0.05, False, cpu, tmpdir, seed, None)
+            logging.getLogger().info(f"The number of partitions has been evaluated at {K}")
 
     logging.getLogger().info("Extracting samples ...")
     AllSamples = []
-    for i in range((maxSampling-minSampling)):#each point
+    for i in range(minSampling,maxSampling):#each point
         for _ in range(depth):#number of samples per points
             AllSamples.append(set(random.sample(set(pangenome.organisms), i+1)))
     logging.getLogger().info(f"Done sampling organisms in the pangenome, there are {len(AllSamples)} samples")
     SampNbPerPart = []
-
 
     logging.getLogger().info("Computing bitarrays for each family...")
     index_org = pangenome.computeFamilyBitarrays()
@@ -377,9 +383,9 @@ def rarefactionSubparser(subparser):
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("-fd","--free_dispersion",required = False, default = False, action = "store_true",help = "use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all organisms by default.")
     optional.add_argument("-ck","--chunk_size",required=False, default = 500, type = int, help = "Size of the chunks when performing partitionning using chunks of organisms. Chunk partitionning will be used automatically if the number of genomes is above this number.")
-    optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 3. If under 3, it will be detected automatically.")
+    optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 3. By default reuse K if it exists else compute it.")
     optional.add_argument("--reestimate_K", required=False, action="store_true", help = " Will recompute the number of partitions for each sample (between the values provided by --krange) (VERY intensive. Can take a long time.)")
-    optional.add_argument("-Kmm","--krange",nargs=2,required = False, type=int, default=[3,20], help="Range of K values to test when detecting K automatically. Default between 3 and 20.")
+    optional.add_argument("-Kmm","--krange",nargs=2,required = False, type=int, default=[3,-1], help="Range of K values to test when detecting K automatically. Default between 3 and the K previously computed if there is one, or 20 if there are none.")
     optional.add_argument("--soft_core",required=False, type=float, default = 0.95, help = "Soft core threshold")
     optional.add_argument("-se", "--seed", type = int, default = 42, help="seed used to generate random numbers")
 

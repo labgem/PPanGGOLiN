@@ -257,7 +257,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
     _, nb_fam = write_nem_input_files( Newtmpdir, select_organisms, sm_degree)
     max_icl_K      = 0
     argsPartitionning = []
-    for k in range(Krange[0]-1, Krange[1]):
+    for k in range(Krange[0]-1, Krange[1]+1):
         argsPartitionning.append((Newtmpdir, len(select_organisms), 0, free_dispersion, k, seed, "param_file", True, 10, True))#those arguments follow the order of the arguments of run_partitionning
     allLogLikelihood = []
 
@@ -321,7 +321,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
 
 def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = 10, free_dispersion=False, chunk_size=500, K=-1, Krange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
 
-    Krange = Krange or [3,21]
+    Krange = Krange or [3,20]
     global pan
     global samples
     pan = pangenome
