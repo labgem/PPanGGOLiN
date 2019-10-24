@@ -236,8 +236,8 @@ def makeSpotGraph(rgps, multigenics, output, spot_graph, overlapping_match, set_
             g.nodes[blocks]["rgp"].add(rgp)
         except KeyError:
             g.nodes[blocks]["nb_rgp"] = 1
-            g.nodes[blocks]["border1"] = borders[1]
-            g.nodes[blocks]["border0"] = borders[0]
+            g.nodes[blocks]["border1"] = [gene.family for gene in borders[1]]
+            g.nodes[blocks]["border0"] = [gene.family for gene in borders[0]]
             g.nodes[blocks]["rgp"] = set([rgp])
 
     spotGraph = nx.Graph()
@@ -350,7 +350,7 @@ def orderGeneLists(geneLists, ordered_counts, overlapping_match, exact_match, se
 def rowOrderGeneLists(geneLists, ordered_counts):
     famDict = defaultdict(set)
 
-    for index, genelist in enumerate([genes for genes, _ in geneLists]):
+    for index, genelist in enumerate([genelist[0] for genelist in geneLists]):
         for gene in genelist:
             famDict[gene.family].add(index)
     all_indexes = []
@@ -374,6 +374,8 @@ def rowOrderGeneLists(geneLists, ordered_counts):
 def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
     classified = set([0])#first gene list has the right order
     new_classify = set()
+    
+    nbloop = 0
     to_classify = set(range(1, len(geneLists)))#the others may (or may not) have it
     while len(to_classify) != 0:
         for classIndex in classified:
@@ -382,15 +384,26 @@ def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
             for unclassIndex in list(to_classify):
                 border1 = [ gene.family for gene in geneLists[unclassIndex][1][0] ]
                 border2 = [ gene.family for gene in geneLists[unclassIndex][1][1] ]
-                if compBorder(base_border1, border1, overlapping_match, exact_match, set_size) and compBorder(base_border2, border2, overlapping_match, exact_match, set_size):
+                if compBorder(base_border1, border1, overlapping_match, exact_match, set_size) or compBorder(base_border2, border2, overlapping_match, exact_match, set_size):
                     to_classify.discard(unclassIndex)
                     new_classify.add(unclassIndex)
-                elif compBorder(base_border2, border1, overlapping_match, exact_match, set_size) and compBorder(base_border1, border2, overlapping_match, exact_match, set_size):
+                elif compBorder(base_border2, border1, overlapping_match, exact_match, set_size) or compBorder(base_border1, border2, overlapping_match, exact_match, set_size):
                     geneLists[unclassIndex][0] = geneLists[unclassIndex][0][::-1]#reverse the order of the genes to match the 'reference'
                     to_classify.discard(unclassIndex)
                     new_classify.add(unclassIndex)
         classified = new_classify#the newly classified will help to check the unclassified, the formerly classified are not useful for what remains (if sth remains)
         new_classify = set()
+        nbloop+=1
+        if nbloop>= 10:
+            print("infinit loop !")
+            print( [ gene.family.ID for border in geneLists[0][1] for gene in border ])
+            print("#######")
+            for iden in to_classify:
+                print( [ gene.family.ID for border in geneLists[iden][1] for gene in border  ])
+            print("####")
+            for iden in classified:
+                print( [ gene.family.ID for border in geneLists[iden][1] for gene in border  ])
+            raise Exception()
     return geneLists
 
 def drawCurrSpot(genelists, ordered_counts, famCol, filename):
@@ -413,10 +426,12 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
         else:
             ordered = False
             start = genelist[0].stop
-        df = {'name':[],'start':[],'end':[],'strand':[],'col':[], 'fill':[]}
+        df = {'name':[],'start':[],'end':[],'strand':[],'col':[], 'fill':[], "gene_type":[]}
         gene_names = []
         for gene in genelist:
             gene_names.append(' ' + gene.name)
+            if 'yjhS' == gene.name:
+                print(f"yjhS is in {filename}")
             df['name'].append(gene.ID)
             if ordered:
                 if gene.strand == "+":
@@ -438,22 +453,24 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
                     df["strand"].append("+")#we invert it because we reversed the order !
             df['col'].append(partitionColors[gene.family.namedPartition])
             df['fill'].append(famCol[gene.family])
+            df["gene_type"].append("side_blocks")
         df["name"] = robjects.StrVector(df["name"])
         df["start"] = robjects.IntVector(df["start"])
         df["end"] = robjects.IntVector(df["end"])
         df["strand"] = robjects.StrVector(df["strand"])
         df["col"] = robjects.StrVector(df["col"])
         df["fill"] = robjects.StrVector(df["fill"])
+        df["gene_type"] = robjects.StrVector(df["gene_type"])
         dnasegObj = dna_seg(robjects.DataFrame(df))
         annot = annotation(x1 = middle(dnasegObj), text=robjects.StrVector(gene_names), rot = 20)
-        annotList.append((f'region {index}, x'+str(ordered_counts[index]), annot))
-        rdframes.append((f'region {index}, x'+str(ordered_counts[index]), dnasegObj))
+        annotList.append((f'{GeneList[2].organism.name}, x'+str(ordered_counts[index]), annot))
+        rdframes.append((f'{GeneList[2].organism.name}, x'+str(ordered_counts[index]), dnasegObj))
     Rannot = robjects.ListVector(annotList)
     Rdna_segs = robjects.ListVector(rdframes)
     plot_gene_map = robjects.r["plot_gene_map"]
     grdevices = importr('grDevices')
     grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)
-    plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, gene_type="side_blocks", cex = 8)
+    plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot)
     grdevices.dev_off()
 
 def draw_spots(spots, output, overlapping_match, exact_match, set_size, multigenics):
@@ -476,7 +493,7 @@ def draw_spots(spots, output, overlapping_match, exact_match, set_size, multigen
             GeneList = rgp.contig.genes[minpos:maxpos+1]
             Fams |= { gene.family for gene in GeneList }
 
-            GeneLists.append([GeneList, borders])
+            GeneLists.append([GeneList, borders, rgp])
         famcol = makeColorsForFams(Fams)
         ordered_counts = sorted(countUniq.values(), reverse = True)
         GeneLists, ordered_counts = orderGeneLists(GeneLists, ordered_counts, overlapping_match, exact_match, set_size)
