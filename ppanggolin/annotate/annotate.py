@@ -29,6 +29,36 @@ def detect_filetype(filename):
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
+def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11):
+    if any('MaGe' in dbref for dbref in dbxref):
+        if gene_name == "":
+            gene_name = ID
+        for val in dbxref:
+            if 'MaGe' in val:
+                locus_tag = val.split(':')[1]
+                break
+    if gene_type == "CDS":
+        newGene = Gene(locus_tag)
+        newGene.fill_annotations(start = start,
+                                stop = stop,
+                                strand = strand,
+                                geneType = gene_type,
+                                position = position,
+                                name = gene_name,
+                                product = product,
+                                genetic_code = genetic_code)
+        contig.addGene(newGene)
+    else:#either a CDS, or a RNA
+        newGene = RNA(locus_tag)
+        newGene.fill_annotations(start = start,
+                                stop = stop,
+                                strand = strand,
+                                geneType = gene_type,
+                                name = gene_name,
+                                product = product)
+        contig.addRNA(newGene)
+    newGene.fill_parents(org, contig)
+
 def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq, pseudo = False):
     """ reads a gbff file and fills Organism, Contig and Genes objects based on information contained in this file """
     org = Organism(organism)
@@ -67,28 +97,10 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             if currType != "":
                 if usefulInfo:
                     #special bit to cope with MaGe's genbank format...
-                    if any('MaGe' in dbref for dbref in dbxref):
-                        if gene_name == "":
-                            gene_name = locus_tag
-                        for val in dbxref:
-                            if 'MaGe' in val:
-                                locus_tag = val.split(':')[1]
-                                break
-                    newGene = Gene(locus_tag)
-                    newGene.fill_annotations(start = start,
-                                            stop = end,
-                                            strand = strand,
-                                            geneType = objType,
-                                            position = len(contig.genes),
-                                            name = gene_name,
-                                            product = product,
-                                            genetic_code = genetic_code)
-                    newGene.fill_parents(org, contig)
-                    contig.addGene(newGene)
-
+                    create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
                 usefulInfo = False
                 objType = currType
-                if objType in ['CDS']:#only CDS for now
+                if objType in ['CDS','rRNA','tRNA']:
                     dbxref = set()
                     gene_name = ""
                     try:
@@ -132,6 +144,8 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
                     usefulInfo = False
             line = lines.pop()
             #end of contig
+        if usefulInfo:#saving the last element...
+            create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
 
         if getSeq:
             line = lines.pop()#first sequence line.
