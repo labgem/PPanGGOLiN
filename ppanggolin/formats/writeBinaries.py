@@ -53,6 +53,15 @@ def getMaxLenAnnotations(pangenome):
                     maxProductLen = len(gene.product)
                 if len(gene.type) > maxTypeLen:
                     maxTypeLen = len(gene.type)
+            for gene in contig.RNAs:
+                if len(gene.ID) > maxGeneIDLen:
+                    maxGeneIDLen = len(gene.ID)
+                if len(gene.name) > maxNameLen:
+                    maxNameLen = len(gene.name)
+                if len(gene.product) > maxProductLen:
+                    maxProductLen = len(gene.product)
+                if len(gene.type) > maxTypeLen:
+                    maxTypeLen = len(gene.type)
     return maxOrgLen, maxContigLen, maxGeneIDLen, maxTypeLen, maxNameLen, maxProductLen
 
 def writeAnnotations(pangenome, h5f):
@@ -65,10 +74,9 @@ def writeAnnotations(pangenome, h5f):
     for org in pangenome.organisms:
         for contig in org.contigs:
             nbRNA += len(contig.RNAs)
-    rnaTable = h5f.create_table(annotation, "RNA",geneDesc(*getMaxLenAnnotations(pangenome)), expectedrows=nbRNA)
-    rnaRow = rnaTable.row
     bar = tqdm(pangenome.organisms, unit="genome")
     geneRow = geneTable.row
+    nbrnas = 0
     for org in bar:
         for contig in org.contigs:
             for gene in contig.genes:
@@ -87,21 +95,22 @@ def writeAnnotations(pangenome, h5f):
                 geneRow["gene/genetic_code"] = gene.genetic_code
                 geneRow.append()
             for rna in contig.RNAs:
-                rnaRow["organism"] = org.name
-                rnaRow["contig/name"] = contig.name
-                rnaRow["contig/is_circular"] = contig.is_circular#this should be somewhere else.
-                rnaRow["gene/ID"]= rna.ID
-                rnaRow["gene/start"] = rna.start
-                rnaRow["gene/stop"] = rna.stop
-                rnaRow["gene/strand"] = rna.strand
-                rnaRow["gene/type"] = rna.type
-                rnaRow["gene/name"] = rna.name
-                rnaRow["gene/product"] = rna.product
-                rnaRow["gene/is_fragment"] = rna.is_fragment
+                nbrnas+=1
+                geneRow["organism"] = org.name
+                geneRow["contig/name"] = contig.name
+                geneRow["contig/is_circular"] = contig.is_circular#this should be somewhere else.
+                geneRow["gene/ID"]= rna.ID
+                geneRow["gene/start"] = rna.start
+                geneRow["gene/stop"] = rna.stop
+                geneRow["gene/strand"] = rna.strand
+                geneRow["gene/type"] = rna.type
+                geneRow["gene/name"] = rna.name
+                geneRow["gene/product"] = rna.product
+                geneRow["gene/is_fragment"] = rna.is_fragment
+                geneRow.append()
     geneTable.flush()
-    rnaTable.flush()
     bar.close()
-
+    print(f"{nbrnas} rnas were saved")
 
 def getGeneSequencesLen(pangenome):
     maxSeqLen = 1
@@ -371,9 +380,11 @@ def updateGeneFragments(pangenome, h5f):
     row = table.row
     bar =  tqdm(range(table.nrows), unit="gene")
     for row in table:
-        row['gene/is_fragment'] = pangenome.getGene(row['gene/ID'].decode()).is_fragment
+        if row['gene/type'].decode() == b'CDS':
+            row['gene/is_fragment'] = pangenome.getGene(row['gene/ID'].decode()).is_fragment
         bar.update()
     bar.close()
+    table.flush()
 
 
 def ErasePangenome(pangenome, graph=False, geneFamilies = False):

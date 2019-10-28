@@ -163,9 +163,10 @@ def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, mul
 def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min_score, multigenics):
     orgRegions = set()
     for contig in organism.contigs:
-        ## can definitely multiprocess this part, as not THAT much information is needed...
-        matrix = initMatrices(contig, persistent_penalty, variable_gain, multigenics)
-        orgRegions |= mkRegions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain, multigenics)
+        if len(contig.genes) != 0:#some contigs have no coding genes...
+            ## can definitely multiprocess this part, as not THAT much information is needed...
+            matrix = initMatrices(contig, persistent_penalty, variable_gain, multigenics)
+            orgRegions |= mkRegions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain, multigenics)
 
     return orgRegions
 
@@ -352,7 +353,8 @@ def rowOrderGeneLists(geneLists, ordered_counts):
 
     for index, genelist in enumerate([genelist[0] for genelist in geneLists]):
         for gene in genelist:
-            famDict[gene.family].add(index)
+            if hasattr(gene,"family"):
+                famDict[gene.family].add(index)
     all_indexes = []
     all_columns = []
     data = []
@@ -406,6 +408,17 @@ def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
             raise Exception()
     return geneLists
 
+def defineElementsOfInterest(genelist):
+    present_EOI = set()
+    for gene in genelist:
+        if 'RNA' in gene.type:
+            present_EOI.add(gene.type)
+        if 'integrase' in gene.product.lower():
+            present_EOI.add('integrase')
+        if gene.name == 'yjhS':
+            present_EOI.add('yjhS')
+    return present_EOI
+
 def drawCurrSpot(genelists, ordered_counts, famCol, filename):
     rdframes = []
     annotList = []
@@ -416,8 +429,12 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
     middle = robjects.r["middle"]
 
     longest_gene_list = 0
+
+    present_EOI = set()
+
     for index, GeneList in enumerate(genelists):
         genelist = GeneList[0]
+        present_EOI |= defineElementsOfInterest(genelist)
         if len(genelist) > longest_gene_list:
             longest_gene_list = len(genelist)
         if genelist[0].start < genelist[1].start:
@@ -428,10 +445,12 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
             start = genelist[0].stop
         df = {'name':[],'start':[],'end':[],'strand':[],'col':[], 'fill':[], "gene_type":[]}
         gene_names = []
+        
         for gene in genelist:
-            gene_names.append(' ' + gene.name)
-            if 'yjhS' == gene.name:
-                print(f"yjhS is in {filename}")
+            if 'RNA' in gene.type:
+                gene_names.append(' ' + gene.product)
+            else:
+                gene_names.append(' ' + gene.name)
             df['name'].append(gene.ID)
             if ordered:
                 if gene.strand == "+":
@@ -451,9 +470,18 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
                     df["start"].append(abs(gene.start - start))
                     df["end"].append(abs(gene.stop - start))
                     df["strand"].append("+")#we invert it because we reversed the order !
-            df['col'].append(partitionColors[gene.family.namedPartition])
-            df['fill'].append(famCol[gene.family])
-            df["gene_type"].append("side_blocks")
+            if gene.type == "CDS":
+                df['col'].append(partitionColors[gene.family.namedPartition])
+                df['fill'].append(famCol[gene.family])
+                df["gene_type"].append("side_blocks")
+            elif gene.type == "tRNA":
+                df['col'].append('#000000')
+                df['gene_type'].append("bars")
+                df['fill'].append('#000000')
+            else:
+                df['col'].append('#000000')
+                df['gene_type'].append("headless_arrows")
+                df['fill'].append('#000000')
         df["name"] = robjects.StrVector(df["name"])
         df["start"] = robjects.IntVector(df["start"])
         df["end"] = robjects.IntVector(df["end"])
@@ -465,12 +493,13 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
         annot = annotation(x1 = middle(dnasegObj), text=robjects.StrVector(gene_names), rot = 20)
         annotList.append((f'{GeneList[2].organism.name}, x'+str(ordered_counts[index]), annot))
         rdframes.append((f'{GeneList[2].organism.name}, x'+str(ordered_counts[index]), dnasegObj))
+    filename = filename +('_' + "_".join(present_EOI) if len(present_EOI) > 0 else "")
     Rannot = robjects.ListVector(annotList)
     Rdna_segs = robjects.ListVector(rdframes)
     plot_gene_map = robjects.r["plot_gene_map"]
     grdevices = importr('grDevices')
-    grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)
-    plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot)
+    grdevices.png(file=filename +".png", width = longest_gene_list * 70, height= len(rdframes) * 60)
+    plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, lwd = 4)
     grdevices.dev_off()
 
 def draw_spots(spots, output, overlapping_match, exact_match, set_size, multigenics):
@@ -491,13 +520,22 @@ def draw_spots(spots, output, overlapping_match, exact_match, set_size, multigen
             minpos = min([ gene.position for border in borders for gene in border ])
             maxpos = max([ gene.position for border in borders for gene in border ])
             GeneList = rgp.contig.genes[minpos:maxpos+1]
-            Fams |= { gene.family for gene in GeneList }
+            minstart = min([ gene.start for border in borders for gene in border ])
+            maxstop = max([ gene.stop for border in borders for gene in border ])
+            RNAstoadd = set()
+            for rna in rgp.contig.RNAs:
+                if rna.start > minstart and rna.start < maxstop:
+                    RNAstoadd.add(rna)
+            GeneList.extend(RNAstoadd)
+            GeneList = sorted(GeneList, key = lambda x : x.start)
+
+            Fams |= { gene.family for gene in GeneList if gene.type == "CDS"}
 
             GeneLists.append([GeneList, borders, rgp])
         famcol = makeColorsForFams(Fams)
         ordered_counts = sorted(countUniq.values(), reverse = True)
         GeneLists, ordered_counts = orderGeneLists(GeneLists, ordered_counts, overlapping_match, exact_match, set_size)
-        fname = output + '/hotspot_' + str(i) + ".png"
+        fname = output + '/hotspot_' + str(i)
         drawCurrSpot(GeneLists, ordered_counts, famcol, fname)#make R dataframes, and plot them using genoPlotR.
         bar.update()
     bar.close()

@@ -101,23 +101,30 @@ def readOrganism(pangenome, orgName, contigDict, link = False):
                     gene = Gene(row[1][0].decode())
                 elif "RNA" in row[1][9].decode().upper():
                     gene = RNA(row[1][0].decode())
-            gene.fill_annotations(
-                start = row[1][6],
-                stop =row[1][7],
-                strand =  row[1][8].decode(),
-                geneType = row[1][9].decode(),
-                position = row[1][4],
-                genetic_code=row[1][1],
-                name = row[1][3].decode(),
-                product = row[1][5].decode())
-            gene.is_fragment = row[1][2]
             gene.fill_parents(org, contig)
-            if gene.type == "CDS":
+            if row[1][9].decode() == "CDS":
+                gene.fill_annotations(
+                        start = row[1][6],
+                        stop =row[1][7],
+                        strand =  row[1][8].decode(),
+                        geneType = row[1][9].decode(),
+                        position = row[1][4],
+                        genetic_code=row[1][1],
+                        name = row[1][3].decode(),
+                        product = row[1][5].decode())
+                gene.is_fragment = row[1][2]
                 contig.addGene(gene)
-            elif "RNA" in gene.type.upper():
+            elif "RNA" in row[1][9].decode():
                 contig.addRNA(gene)
+                gene.fill_annotations(
+                        start = row[1][6],
+                        stop =row[1][7],
+                        strand =  row[1][8].decode(),
+                        geneType = row[1][9].decode(),
+                        name = row[1][3].decode(),
+                        product = row[1][5].decode())
             else:
-                raise Exception(f"A strange type ({gene.type}), which we do not know what to do with, was met.")
+                raise Exception(f"A strange type ({row[1][9].decode()}), which we do not know what to do with, was met.")
     pangenome.addOrganism(org)
 
 def readGraph(pangenome, h5f):
