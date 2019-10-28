@@ -462,12 +462,14 @@ def writeGeneFamiliesTSV(output, compress=False):
             for gene in fam.genes:
             	tsv.write("\t".join([fam.name,gene.ID])+"\n")
     logging.getLogger().info(f"Done writing the file providing the association between genes and gene families : '{outname}'")
+
 def writeFastaGenFam(output, compress=False):
     logging.getLogger().info("Writing the representative nucleic sequences of all the gene families...")
     outname = output + "/representative_gene_families.fna"
     with write_compressed_or_not(outname,compress) as fasta:
         getGeneSequencesFromFile(pan,fasta,[fam.name for fam in pan.geneFamilies])
     logging.getLogger().info(f"Done writing the representative nucleic sequences of all the gene families : '{outname}'")
+
 def writeFastaProtFam(output, compress=False):
     logging.getLogger().info("Writing the representative proteic sequences of all the gene families...")
     outname = output + "/representative_gene_families.faa"
@@ -487,13 +489,44 @@ def writeGeneSequences(output, compress=False):
         getGeneSequencesFromFile(pan,fasta)
     logging.getLogger().info(f"Done writing all the gene sequences : '{outname}'")
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, compress = False):
+def writeRegionTab(contigDict, outfile, compress=False):
+    with write_compressed_or_not(outfile, compress) as tab:
+        tab.write("contig\tstart\tstop\tscore\n")
+        for contig, regions in contigDict.items():
+            for region in sorted(regions, key=lambda x : x.start):
+                tab.write('\t'.join(map(str,[contig.name, region.start, region.stop, region.score])) + "\n")
+
+def writeRegions(output, compress = False):
+    logging.getLogger().info(f"Writing the .tab files for the RGP in each organisms")
+    outdir = output + "/regions/"
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    orgContig = {}
+    for region in pan.regions:
+        try:
+            orgContig[region.genes[0].organism][region.genes[0].contig].add(region)
+        except KeyError:#new contig
+            try:
+                orgContig[region.genes[0].organism][region.genes[0].contig] = set([region])
+            except KeyError:#new organism
+                orgContig[region.genes[0].organism] = {region.genes[0].contig : set([region])}
+
+    for org, contigDict in orgContig.items():
+        outname = outdir + "/" + org.name + ".tab"
+        writeRegionTab(contigDict, outname, compress)
+    logging.getLogger().info(f"Done writing the .tab files for the RGP. They are in the folder : '{outdir}'")
+
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, compress = False):
     global pan
     pan = pangenome
     processes = []
-    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, families_tsv, all_genes, all_prot_families, all_gene_families]):
+    needRegions = False
+    if regions:
+        needRegions = True
+
+    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, families_tsv, all_genes, all_prot_families, all_gene_families]):
         #then it's useful to load the pangenome.
-        checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True)
+        checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True, needRGP = needRegions)
         ex_partitionned = Exception("The provided pangenome has not been partitionned. This is not compatible with any of the following options : --light_gexf, --gexf, --csv, --partitions")
         ex_genesClustered =  Exception("The provided pangenome has not gene families. This is not compatible with any of the following options : --families_tsv --all_prot_families --all_gene_families")
         ex_genomesAnnotated =  Exception("The provided pangenome has no annotated sequences. This is not compatible with any of the following options : --all_genes")
@@ -520,21 +553,24 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
             if light_gexf:
                 processes.append(p.apply_async(func = writeGEXF, args = (output, True, soft_core, compress)))
             if projection:
-                processes.append(p.apply_async(func=writeProjections, args=(output, compress)))
+                processes.append(p.apply_async(func = writeProjections, args = (output, compress)))
             if stats:
-                processes.append(p.apply_async(func=writeStats, args=(output, soft_core, dup_margin, compress)))
+                processes.append(p.apply_async(func = writeStats, args = (output, soft_core, dup_margin, compress)))
             if json:
-                processes.append(p.apply_async(func=writeJSON, args=(output, compress)))
+                processes.append(p.apply_async(func = writeJSON, args = (output, compress)))
             if partitions:
-                processes.append(p.apply_async(func=writeParts, args=(output, soft_core, compress)))
+                processes.append(p.apply_async(func = writeParts, args = (output, soft_core, compress)))
             if families_tsv:
-                processes.append(p.apply_async(func=writeGeneFamiliesTSV, args=(output, compress)))
+                processes.append(p.apply_async(func = writeGeneFamiliesTSV, args = (output, compress)))
             if all_genes:
-                processes.append(p.apply_async(func=writeGeneSequences, args=(output, compress)))
+                processes.append(p.apply_async(func = writeGeneSequences, args = (output, compress)))
             if all_prot_families:
-                processes.append(p.apply_async(func=writeFastaProtFam, args=(output, compress)))
+                processes.append(p.apply_async(func = writeFastaProtFam, args = (output, compress)))
             if all_gene_families:
-                processes.append(p.apply_async(func=writeFastaGenFam, args=(output, compress)))
+                processes.append(p.apply_async(func = writeFastaGenFam, args = (output, compress)))
+            if regions:
+                processes.append(p.apply_async(func = writeRegions, args = (output, compress)))
+
             for process in processes:
                 process.get()#get all the results
 
@@ -542,7 +578,7 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.partitions, args.families_tsv, args.all_genes, args.all_prot_families, args.all_gene_families, args.compress)
+    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.partitions, args.regions, args.families_tsv, args.all_genes, args.all_prot_families, args.all_gene_families, args.compress)
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -561,6 +597,7 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--partitions", required=False, action = "store_true", help = "list of families belonging to each partition, with one file per partitions and one family per line")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     optional.add_argument("--json", required=False, action = "store_true", help = "Writes the graph in a json file format")
+    optional.add_argument("--regions", required=False, action = "store_true", help = "Write the RGP in a tab format, one file per genome.")
     optional.add_argument("--families_tsv", required=False, action = "store_true", help = "Write a tsv file providing the association between genes and gene families")
     optional.add_argument("--all_genes", required=False, action = "store_true", help = "Write all nucleotic CDS sequences")
     optional.add_argument("--all_prot_families", required=False, action = "store_true", help = "Write Write representative proteic sequences of all the gene families")
