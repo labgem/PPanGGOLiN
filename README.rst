@@ -56,13 +56,15 @@ The file ORGANISMS_FASTA_LIST is a tsv-separated file with the following organis
 	3. Circular contig identifiers are indicated in the following columns
 	4. Each line represents an organism
 
-An example can be found in the testing_dataset/ directory.
+An `example <https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.fasta.list>`_ with 50 *Chlamydia trachomatis* genomes can be found in the testingDataset/ directory.
 
 You can also give PPanGGOLiN your own annotations using .gff or .gbff/.gbk files instead of .fasta files, such as the ones provided by prokka using the following command :
 
 .. code:: bash
 
 	ppanggolin workflow --anno ORGANISMS_ANNOTATION_LIST
+
+Another `example <https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.gbff.list>`_ of such a file can be found in the testingDataset/ directory.
 
 Both of those commands write several output files and graphics. Most notably a HDF-5 (pangenome.h5) file is written. It can be used as input for any of the subcommands to rerun parts of the analysis with different parameters, write and draw different representations of the pangenome or run additional analysis with PPanGGOLiN.
 
