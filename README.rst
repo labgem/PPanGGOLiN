@@ -69,3 +69,5 @@ Another `example <https://github.com/labgem/PPanGGOLiN/blob/master/testingDatase
 Both of those commands write several output files and graphics. Most notably a HDF-5 (pangenome.h5) file is written. It can be used as input for any of the subcommands to rerun parts of the analysis with different parameters, write and draw different representations of the pangenome or run additional analysis with PPanGGOLiN.
 
 A minimum of 5 genomes is generally required to perform a pangenomics analysis using the traditional *core genome*/*accessory genome* paradigm. It is advised to use at least 15 genomes having genomic variations (and not only genetic ones) to obtain robust results with the PPanGGOLiN statistical approach.
+
+If you want to use personalized parameters for each subcommand the options should be self descriptive. If you want to know more about what each output file is, you can check the ` github wiki <https://github.com/labgem/PPanGGOLiN/wiki>`_
