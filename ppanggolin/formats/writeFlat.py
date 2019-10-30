@@ -114,7 +114,7 @@ def writeJSON(output, compress):
 def writeGEXFheader(gexf, light):
     if not light:
         index = pan.getIndex()#has been computed already
-    gexf.write('<?xml version="1.1" encoding="UTF-8"?>\n<gexf xmlns:viz="http://www.gexf.net/1.3draft/viz" xmlns="http://www.gexf.net/1.3draft" version="1.3">\n')
+    gexf.write('<?xml version="1.1" encoding="UTF-8"?>\n<gexf xmlns:viz="http://www.gexf.net/1.2draft/viz" xmlns="http://www.gexf.net/1.2draft" version="1.2">\n')
     gexf.write('  <graph mode="static" defaultedgetype="undirected">\n')
     gexf.write('    <attributes class="node" mode="static">\n')
     gexf.write('      <attribute id="0" title="nb_genes" type="long" />\n')
