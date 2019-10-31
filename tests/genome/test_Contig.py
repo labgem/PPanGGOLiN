@@ -28,15 +28,6 @@ def test_str():
     o_ctg = Contig(name)
     assert str(o_ctg) == name
 
-def test_addSequence(o_ctg):
-    seq = "sequence"
-    o_ctg.addSequence(seq)
-    assert hasattr(o_ctg, seq)
-    assert o_ctg.sequence == seq
-
-    with pytest.raises(TypeError):
-        o_ctg.addSequence(33)
-
 def test_addRNA(o_ctg):
     with pytest.raises(TypeError):
         o_ctg.addRNA(33)
