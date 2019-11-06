@@ -147,7 +147,7 @@ def test_geneFamilies(o_pang):
 
 
 def test_genes_empty(o_pang):
-	assert None == o_pang.genes
+	assert list(o_pang.genes) == []
 
 
 # code copy-pasted from test_Edge.py
@@ -204,15 +204,7 @@ def fill_fam_with_genes():
 	return _fill_fam_with_genes
 
 
-def test_genes(o_pang):
-	assert None is o_pang.genes
-
-
-def test_genes_organism(o_pang, make_org_with_genes):
-	# org with no gene
-	o_org = o_pang.addOrganism("org")
-	assert o_pang.genes == []
-
+def test_genes_organism_debug(o_pang, make_org_with_genes):
 	# orgs with genes.
 	o_org, l_genes = make_org_with_genes("org1")
 	o_pang.addOrganism(o_org)
@@ -220,29 +212,12 @@ def test_genes_organism(o_pang, make_org_with_genes):
 	l_observed = sorted(o_pang.genes, key=lambda g: g.ID)
 	assert l_observed == l_expected
 
-	o_org, l_ = make_org_with_genes("org2")
-	l_genes += l_
-	o_pang.addOrganism(o_org)
-
-	l_expected = sorted(l_genes, key=lambda g: g.ID)
-	l_observed = sorted(o_pang.genes, key=lambda g: g.ID)
-	assert l_observed == l_expected
-
 
 def test_genes_genefamilies(o_pang, fill_fam_with_genes):
-	# org with no gene
-	o_fam = o_pang.addGeneFamily("fam")
-	assert o_pang.genes == []
-
+	"""Genes are added in pangenome through their family."""
 	# geneFamily with genes.
 	o_fam = o_pang.addGeneFamily("fam1")
 	l_genes = fill_fam_with_genes(o_fam)
-	l_expected = sorted(l_genes, key=lambda g: g.ID)
-	l_observed = sorted(o_pang.genes, key=lambda g: g.ID)
-	assert l_observed == l_expected
-
-	o_fam = o_pang.addGeneFamily("fam2")
-	l_genes += fill_fam_with_genes(o_fam)
 	l_expected = sorted(l_genes, key=lambda g: g.ID)
 	l_observed = sorted(o_pang.genes, key=lambda g: g.ID)
 	assert l_observed == l_expected
