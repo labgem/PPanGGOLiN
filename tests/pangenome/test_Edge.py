@@ -133,30 +133,3 @@ def test_genePairs(make_gene_pair):
     # 'set' because the order is not guaranted due to '.values()'.
     l_pairs = o_edge.genePairs
     assert set(l_pairs) == set([p1,p2,p3,p4])
-
-
-@pytest.mark.xfail(reason="#17 : Edge has not discard attr.")
-def test_remove(o_edge, make_gene_pair):
-    org1 = "org1"
-    o_s1, o_t1  = make_gene_pair(org1, "s1", "t1")
-    o_fam1 = o_s1.family
-    o_fam2 = o_t1.family
-    o_e1 = Edge(o_s1, o_t1)
-    # fam1(s1) -- fam2(t1)
-
-    org2 = "org2"
-    o_s2 = Gene("s1_bis")
-    o_s2.fill_parents(org2, None)
-    o_fam1.addGene(o_s2)
-
-    o_t2 = Gene("t2")
-    o_t2.fill_parents(org2, None)
-    o_fam3 = GeneFamily("fam3",None)
-    o_fam3.addGene(o_t2)
-    o_e2 = Edge(o_s2, o_t2)
-    # fam1(s1,s2) -- fam3(t2)
-
-    o_e1.remove()
-    assert o_fam1.edges == set([o_e2])
-    assert o_fam2.edges == set()
-    assert o_fam3.edges == set([o_e2])

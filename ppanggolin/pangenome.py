@@ -35,10 +35,6 @@ class Edge:
             raise Exception(f"You tried to create an edge between two genes that are not even in the same organism ! (genes are '{sourceGene.ID}' and '{targetGene.ID}')")
         self.organisms[org].append((sourceGene, targetGene))
 
-    def remove(self):
-        self.source._edges[self.target].discard(self)
-        self.target._edges[self.source].discard(self)
-
 class GeneFamily:
     def __init__(self, ID, name):
         self.name = name
