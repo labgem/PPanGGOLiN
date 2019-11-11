@@ -52,7 +52,7 @@ PPanGGOLiN has a minimal command for the non-expert users :
 It uses parameters that we found to be generally the best when working with species pangenomes.
 
 The file ORGANISMS_FASTA_LIST is a tsv-separated file with the following organisation :
-	1. The first column contains a unique organism name
+	1. The first column contains a unique organism name **(without whitespace)**
 	2. The second column the path to the associated FASTA file
 	3. Circular contig identifiers are indicated in the following columns
 	4. Each line represents an organism
