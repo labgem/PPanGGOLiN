@@ -1,6 +1,5 @@
 python>=3.6
 tqdm=4.*
-psutil=5.*
 pytables=3.5.*
 prodigal=2.6.*
 aragorn=1.2.*

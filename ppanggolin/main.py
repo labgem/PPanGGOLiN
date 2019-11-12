@@ -11,13 +11,6 @@ import logging
 import resource
 import pkg_resources
 import tempfile
-#libraries to be installed
-import psutil
-
-try:
-    import argcomplete
-except ImportError:
-    pass
 
 #local modules
 import ppanggolin.pangenome
