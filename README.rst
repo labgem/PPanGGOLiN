@@ -5,16 +5,17 @@ PPanGGOLiN is a software suite used to create and manipulate prokaryotic pangeno
 
 PPanGGOLiN builds pangenomes through a graphical model and a statistical method to partition gene families in persistent, shell and cloud genomes. It integrates both information on protein-coding genes and their genomic neighborhood to build a graph of gene families where each node is a gene family and each edge is a relation of genetic contiguity. The partitioning method promotes that two gene families that are consistent neighbors in the graph are more likely to belong to the same partition. It results in a Partitioned Pangenome Graph (PPG) made of persistent, shell and cloud nodes drawing genomes on rails like a subway map to help biologists navigate the great diversity of microbial life.
 
-|qual| |cov| |conda| |plat| |version|
+|qual| |cov| |bioconda| |plat| |version|
 
 .. |qual| image:: https://api.codacy.com/project/badge/Grade/a24bff9354504a3294f4acf70681765a
 .. |cov| image:: https://api.codacy.com/project/badge/Coverage/806fdcd8d04a469e8233728780576160
-.. |conda| image:: https://anaconda.org/bioconda/ppanggolin/badges/installer/conda.svg
-   :target: https://conda.anaconda.org/bioconda
 .. |plat| image:: https://anaconda.org/bioconda/ppanggolin/badges/platforms.svg
    :target: https://anaconda.org/bioconda/ppanggolin
 .. |version| image:: https://anaconda.org/bioconda/ppanggolin/badges/version.svg
    :target: https://anaconda.org/bioconda/ppanggolin
+.. |bioconda| image:: https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat
+   :target: http://bioconda.github.io/recipes/ppanggolin/README.html
+
 
 .. image:: images/logo.png
     :align: center
@@ -51,7 +52,7 @@ PPanGGOLiN has a minimal command for the non-expert users :
 It uses parameters that we found to be generally the best when working with species pangenomes.
 
 The file ORGANISMS_FASTA_LIST is a tsv-separated file with the following organisation :
-	1. The first column contains a unique organism name
+	1. The first column contains a unique organism name **(without whitespace)**
 	2. The second column the path to the associated FASTA file
 	3. Circular contig identifiers are indicated in the following columns
 	4. Each line represents an organism
@@ -68,6 +69,11 @@ Another `example <https://github.com/labgem/PPanGGOLiN/blob/master/testingDatase
 
 Both of those commands write several output files and graphics. Most notably a HDF-5 (pangenome.h5) file is written. It can be used as input for any of the subcommands to rerun parts of the analysis with different parameters, write and draw different representations of the pangenome or run additional analysis with PPanGGOLiN.
 
-A minimum of 5 genomes is generally required to perform a pangenomics analysis using the traditional *core genome*/*accessory genome* paradigm. It is advised to use at least 15 genomes having genomic variations (and not only genetic ones) to obtain robust results with the PPanGGOLiN statistical approach.
+A minimum of 5 genomes is generally required to perform a pangenomics analysis using the traditional *core genome*/*accessory genome* paradigm. It is advised to use at least 15 genomes having genomic variations (and not only SNPs) to obtain robust results with the PPanGGOLiN statistical approach.
 
 If you want to use personalized parameters for each subcommand most options should be self descriptive. If you want to know more about what each output file is, or briefly how each subcommand works you can check the `github wiki <https://github.com/labgem/PPanGGOLiN/wiki>`_
+
+Citation
+========
+
+A preprint is available on BioRxiv : https://doi.org/10.1101/836239
