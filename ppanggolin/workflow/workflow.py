@@ -2,7 +2,6 @@
 #coding:utf-8
 
 #default libraries
-import logging
 import os
 import time
 import argparse

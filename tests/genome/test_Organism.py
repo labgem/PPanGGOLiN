@@ -5,8 +5,6 @@ from random import randint
 
 from ppanggolin.genome import Contig, Gene, Organism
 
-"""
-"""
 def test_cstr():
     name  = 4
     o_org = Organism(name)
@@ -42,7 +40,7 @@ def t_filled_org(o_org):
     return o_org,n
 
 def test_families(t_filled_org):
-    o_filled_org, n = t_filled_org
+    o_filled_org, _ = t_filled_org
 
     # families is never set
     assert o_filled_org.families == {None}

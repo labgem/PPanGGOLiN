@@ -4,8 +4,6 @@ import pytest
 
 from ppanggolin.genome import Feature
 
-"""
-"""
 def test_cstr():
     ID  = 4
     o_feature = Feature(ID)
@@ -13,7 +11,7 @@ def test_cstr():
     for attr in "ID", "is_fragment", "type":
         assert hasattr(o_feature, attr)
     assert o_feature.ID == ID
-    assert o_feature.is_fragment == False
+    assert o_feature.is_fragment is False
     assert o_feature.type == ""
 
 @pytest.fixture()

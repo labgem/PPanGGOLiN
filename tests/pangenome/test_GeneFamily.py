@@ -9,8 +9,6 @@ from ppanggolin.pangenome import Edge, GeneFamily
 from ppanggolin.genome import Gene
 
 
-"""
-"""
 def test_cstr():
     ID = 33
     name = "33"
@@ -23,7 +21,7 @@ def test_cstr():
     assert o_family.ID == ID
     assert o_family.name == name
     assert o_family.genes == set()
-    assert o_family.removed == False
+    assert o_family.removed is False
     assert o_family.sequence == ""
     assert o_family.partition == ""
 

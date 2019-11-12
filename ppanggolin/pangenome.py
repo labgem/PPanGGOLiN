@@ -144,7 +144,7 @@ class Pangenome:
             return self.genes#return what was expected
         except KeyError:
             return None
-    
+
     @property
     def geneFamilies(self):
         return self._famGetter.values()

@@ -1,32 +1,29 @@
 #! /usr/bin/env python3
 
 import pytest
-from collections import defaultdict
 
 from ppanggolin.genome import Gene
 from ppanggolin.pangenome import Edge, GeneFamily
 
-"""
-"""
 def test_cstr_error():
     o_src = Gene('source')
     o_tgt = Gene('target')
     # genes should have a family
     with pytest.raises(Exception):
-        o_edge = Edge(o_src, o_tgt)
+        _ = Edge(o_src, o_tgt)
 
     o_family = GeneFamily(None, None)
     o_family.addGene(o_src)
     # both genes sould have a family
     with pytest.raises(Exception):
-        o_edge = Edge(o_src, o_tgt)
+        _ = Edge(o_src, o_tgt)
 
     # gene should belong to the same organism
     o_family.addGene(o_tgt)
     o_src.fill_parents("",None)
     o_tgt.fill_parents(None,None)
     with pytest.raises(Exception):
-        o_edge = Edge(o_src, o_tgt)
+        _ = Edge(o_src, o_tgt)
 
 
 def test_cstr():

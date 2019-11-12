@@ -311,7 +311,7 @@ def getGeneSequencesFromFastas(pangenome, fasta_file):
     if not set(pangenome.organisms) <= set(fastaDict.keys()):
         missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fastaDict.keys()))
         raise Exception(f"Not all of your pangenome's organisms are present within the provided fasta file. {missing} are missing (out of {len(pangenome.organisms)}).")
-    
+
     for org in pangenome.organisms:
         try:
             for contig in org.contigs:
