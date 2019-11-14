@@ -142,7 +142,7 @@ def read_gene2fam(pangenome, gene2fam):
     link = True if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] else False
     if link:
         if len(gene2fam) != len(pangenome.genes):#then maybe there are genes with identical IDs
-            raise Exception("Something unexpected happened during clustering (have less genes clustered than genes in the pangenome). A probable reason is that two genes in two different organisms have the same IDs; If you are sure that all of your genes have an identical IDs, please post an issue at https://github.com/labgem/PPanGGOLiN/")
+            raise Exception("Something unexpected happened during clustering (have less genes clustered than genes in the pangenome). A probable reason is that two genes in two different organisms have the same IDs; If you are sure that all of your genes have non identical IDs, please post an issue at https://github.com/labgem/PPanGGOLiN/")
     bar = tqdm(gene2fam.items(), unit = "gene")
     for gene, (family, is_frag) in bar:
         fam = pangenome.addGeneFamily(family)
@@ -167,7 +167,7 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj):
     """
     logging.getLogger().info("Writing all of the CDS sequences for clustering...")
     bar =  tqdm(pangenome.genes, unit="gene")
-    for gene in bar:#reading the table chunk per chunk otherwise RAM dies on big pangenomes
+    for gene in bar:
         if gene.type == "CDS":
             fileObj.write('>' + gene.ID + "\n")
             fileObj.write(gene.dna + "\n")
@@ -209,8 +209,6 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", coverage = 
     tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
 
     checkPangenomeForClustering(pangenome, tmpFile, force)
-
-
 
     logging.getLogger().info("Clustering all of the genes sequences...")
     rep, tsv = firstClustering(tmpFile, newtmpdir, cpu, code, coverage, identity)

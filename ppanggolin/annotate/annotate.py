@@ -284,7 +284,7 @@ def readAnnotations(pangenome, organisms_file, getSeq = True, pseudo = False):
     for line in bar:
         elements = [el.strip() for el in line.split("\t")]
         if len(elements)<=1:
-            logging.getLogger().error("No tabulation separator found in organisms file")
+            logging.getLogger().error(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
             exit(1)
         bar.set_description("Processing "+elements[1].split("/")[-1])
         bar.refresh()
