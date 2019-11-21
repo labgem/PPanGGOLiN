@@ -8,6 +8,7 @@ import time
 import os
 from collections import defaultdict, Counter
 import random
+from operator import attrgetter
 
 #installed libraries
 from tqdm import tqdm
@@ -415,8 +416,8 @@ def defineElementsOfInterest(genelist):
             present_EOI.add(gene.type)
         if 'integrase' in gene.product.lower():
             present_EOI.add('integrase')
-        if gene.name == 'yjhS':
-            present_EOI.add('yjhS')
+        if gene.name in ['yjhS',"nanS"]:
+            present_EOI.add(gene.name)
     return present_EOI
 
 def drawCurrSpot(genelists, ordered_counts, famCol, filename):
@@ -540,6 +541,14 @@ def draw_spots(spots, output, overlapping_match, exact_match, set_size, multigen
         bar.update()
     bar.close()
 
+def write_GI(pangenome, output):
+    fname = open(output + "/plastic_regions.tsv","w")
+    fname.write("organism\tcontig\tstart\tstop\tgenes\tcontigBorder\n")
+    regions = sorted(pangenome.regions, key = lambda x : (x.organism.name, x.contig.name, x.start))
+    for region in regions:
+        fname.write('\t'.join(map(str,[region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder]))+"\n")
+
+
 def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1):
 
     #check that given parameters for hotspot computation make sense
@@ -558,6 +567,8 @@ def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min
     pangenome.addRegions(pangenomeRGP)
 
     spots = detect_hotspots(pangenome, multigenics, output, spot_graph, flanking_graph,overlapping_match, set_size, exact_match, draw_hotspot)
+
+    write_GI(pangenome, output)
 
     #save parameters and save status
     pangenome.parameters["RGP"] = {}
