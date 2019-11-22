@@ -11,13 +11,7 @@ import logging
 import resource
 import pkg_resources
 import tempfile
-#libraries to be installed
-import psutil
-
-try:
-    import argcomplete
-except ImportError:
-    pass
+import os
 
 #local modules
 import ppanggolin.pangenome
@@ -32,11 +26,32 @@ import ppanggolin.info
 import ppanggolin.align
 import ppanggolin.RGP
 
-def requirements():
+def checkTsvSanity(tsv):
+    f = open(tsv,"r")
+    for line in f:
+        elements = [el.strip() for el in line.split("\t")]
+        if len(elements)<=1:
+            raise Exception(f"No tabulation separator found in given file: {tsv}")
+        if " " in elements[0]:
+            raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string : '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN this is not allowed. Please remove spaces from your genome names.")
+
+def checkInputFiles(anno=None, pangenome=None, fasta=None):
     """
-        Checks if the tools and libraries required for each submodule are installed.
+        Checks if the provided input files exist and are of the proper format
     """
-    pass
+    if pangenome is not None:
+        if not os.path.exists(pangenome):
+            raise FileNotFoundError(f"No such file or directory: '{pangenome}'")
+
+    if anno is not None:
+        if not os.path.exists(anno):
+            raise FileNotFoundError(f"No such file or directory: '{anno}'")
+        checkTsvSanity(anno)
+
+    if fasta is not None:
+        if not os.path.exists(fasta):
+            raise FileNotFoundError(f"No such file or directory: '{fasta}'")
+        checkTsvSanity(fasta)
 
 def cmdLine():
 
@@ -106,6 +121,14 @@ def cmdLine():
 
 def main():
     args = cmdLine()
+
+    if hasattr(args, "pangenome"):
+        checkInputFiles(pangenome = args.pangenome)
+    if hasattr(args, "fasta"):
+        checkInputFiles(fasta = args.fasta)
+    if hasattr(args,"anno"):
+        checkInputFiles(anno = args.anno)
+
     if hasattr(args, "verbose"):
         if args.verbose == 2:
             level = logging.DEBUG#info, debug, warnings and errors

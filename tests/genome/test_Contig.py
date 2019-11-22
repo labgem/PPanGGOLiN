@@ -4,8 +4,6 @@ import pytest
 
 from ppanggolin.genome import Contig, Gene, RNA
 
-"""
-"""
 @pytest.fixture()
 def o_ctg():
     return Contig("toto")
@@ -17,11 +15,11 @@ def test_cstr():
     for attr in "name", "is_circular", "RNAs":
         assert hasattr(o_ctg, attr)
     assert o_ctg.name == name
-    assert o_ctg.is_circular == False
+    assert o_ctg.is_circular is False
     assert o_ctg.RNAs == set()
 
     o_ctg = Contig(name, True)
-    assert o_ctg.is_circular == True
+    assert o_ctg.is_circular is True
 
 def test_str():
     name = "ppoiu"

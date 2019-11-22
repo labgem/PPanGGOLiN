@@ -108,12 +108,12 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K = 3, seed = 
 
     partitions_list = ["U"] * len(index_fam)
     all_parameters  = {}
-    U,D,log_likelihood = [None]*3#L,Z, error
+    log_likelihood = None
     entropy         = None
     try:
         with open(nem_dir_path+"/nem_file_"+str(K)+".uf","r") as partitions_nem_file, open(nem_dir_path+"/nem_file_"+str(K)+".mf","r") as parameters_nem_file:
             parameters      = parameters_nem_file.readlines()
-            U,D,_,log_likelihood,_,_ = [float(p) for p in parameters[2].split()]#L,Z, error
+            log_likelihood = float(parameters[2].split()[3])
 
             sum_mu_k       = []
             sum_epsilon_k  = []
@@ -209,7 +209,6 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
         for index, org in enumerate(organisms):
             default_dat.append('0')
             index_org[org] = index
-        # logging.getLogger().info("write families : "+getCurrentRAM())
         for fam in pan.geneFamilies:
             #could use bitarrays if this part is limiting?
             if not organisms.isdisjoint(fam.organisms):
@@ -220,7 +219,6 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
                 dat_file.write("\t".join(currDat) + "\n")
                 index_fam[fam] = len(index_fam) +1
                 index_file.write(f"{len(index_fam)}\t{fam.name}\n")
-        # logging.getLogger().info("write graph : "+getCurrentRAM())
 
         for fam in index_fam.keys():
             row_fam = []
@@ -243,7 +241,6 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
                 nei_file.write(str(index_fam[fam]) + "\t0\n")
 
         str_file.write("S\t"+str(len(index_fam))+"\t"+str(len(organisms))+"\n")
-    # logging.getLogger().info("done writing input files : "+getCurrentRAM())
     return total_edges_weight/2, len(index_fam)
 
 def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Krange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir):

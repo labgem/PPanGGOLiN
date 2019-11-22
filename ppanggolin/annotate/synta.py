@@ -160,14 +160,14 @@ def read_fasta(org, fnaFile):
     for line in fnaFile:
         if line.startswith('>'):
             if contig_seq != "":
-                contigs[contig.name] = contig_seq
+                contigs[contig.name] = contig_seq.upper()
             contig_seq = ""
             contig = org.getOrAddContig(line.split()[0][1:])
         else:
             contig_seq += line.strip()
     # processing the last contig
     if contig_seq != "":
-        contigs[contig.name] = contig_seq
+        contigs[contig.name] = contig_seq.upper()
     return contigs
 
 def write_tmp_fasta(contigs, tmpdir ):

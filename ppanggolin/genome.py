@@ -7,7 +7,8 @@ class Feature:
         self.is_fragment = False
         self.type = ""
 
-    def fill_annotations(self, start, stop, strand, geneType = "", name = "", product=""):
+    def fill_annotations(self, start, stop, strand, geneType = "", name = "", product="",position = None, genetic_code = 11):
+        #genetic code, and position are not used in the default function.
         self.start = int(start)
         self.stop = int(stop)
         self.type = geneType
@@ -36,7 +37,7 @@ class Gene(Feature):
     def __str__(self):
         return str(self.ID)
 
-    def fill_annotations(self, start, stop, strand, geneType = "", position = None, name = "", product="", genetic_code = 11):
+    def fill_annotations(self, start, stop, strand, geneType = "", name = "", product="", position = None, genetic_code = 11):
         super().fill_annotations(start, stop, strand, geneType, name, product)
         self.position = position
         self.genetic_code = genetic_code

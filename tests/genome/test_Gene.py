@@ -4,8 +4,6 @@ import pytest
 
 from ppanggolin.genome import Feature, Gene
 
-"""
-"""
 def test_cstr():
     """ By checking o_gene is a Feature, I rely on Feature tests."""
     ID  = 4
@@ -15,8 +13,8 @@ def test_cstr():
 
     for attr in "position", "family":
         assert hasattr(o_gene, attr)
-    assert o_gene.position == None
-    assert o_gene.family   == None
+    assert o_gene.position is None
+    assert o_gene.family is None
 
 def test_str():
     ID  = "un truc"
@@ -34,7 +32,7 @@ def test_fill_annotations_defaults(o_gene):
     for attr in "position", "genetic_code":
         assert hasattr(o_gene, attr)
 
-    assert o_gene.position == None
+    assert o_gene.position is None
     assert o_gene.genetic_code == 11
 
 def test_fill_annotations(o_gene):

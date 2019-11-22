@@ -8,23 +8,6 @@ import mmap
 from pathlib import Path
 import os
 
-#installed libraries
-import psutil
-import numpy
-
-def jaccard_similarities(mat,jaccard_similarity_th):
-    cols_sum = mat.getnnz(axis=0)
-    ab = mat.T * mat
-    # for rows
-    aa = numpy.repeat(cols_sum, ab.getnnz(axis=0))
-    # for columns
-    bb = cols_sum[ab.indices]
-    similarities = ab.copy()
-    similarities.data /= (aa + bb - ab.data)
-    similarities.data[similarities.data<jaccard_similarity_th] = 0
-    similarities.eliminate_zeros()
-    return similarities
-
 def read_compressed_or_not(file_or_file_path):
     """
         reads a file object or file path, uncompresses it if need be.
@@ -79,15 +62,6 @@ def get_num_lines(file):
     while buf.readline():
         lines += 1
     return lines
-
-def getCurrentRAM():
-    units = ["o","Ko","Mo","Go","To"]
-    mem = float(psutil.virtual_memory()._asdict()["used"])
-    unit = 0
-    while mem >= 1024:
-        mem = mem / 1024
-        unit +=1
-    return str(round(mem,3)) + " " + units[unit]
 
 def mkOutdir(output, force):
     if not os.path.exists(output):

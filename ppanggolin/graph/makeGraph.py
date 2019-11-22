@@ -10,7 +10,6 @@ from tqdm import tqdm
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import getCurrentRAM
 from ppanggolin.formats import readPangenome, writePangenome, ErasePangenome
 
 def checkPangenomeFormerGraph(pangenome, force):
@@ -78,7 +77,6 @@ def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False):
 
 
 def launch(args):
-    logging.getLogger().debug(f"Ram used at the start : {getCurrentRAM()}")
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     computeNeighborsGraph(pangenome, args.remove_high_copy_number, args.force)
