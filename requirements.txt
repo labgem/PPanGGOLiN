@@ -13,3 +13,5 @@ gmpy2=2.*
 numpy=1.16#comes with pytables, networkx, pandas ...
 pandas=0.25
 colorlover=0.3
+rpy2=2.*
+r-genoplotr=0.8.*
