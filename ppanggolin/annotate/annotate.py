@@ -29,7 +29,7 @@ def detect_filetype(filename):
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
-def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11):
+def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11, protein_id = ""):
     if any('MaGe' in dbref for dbref in dbxref):
         if gene_name == "":
             gene_name = ID
@@ -38,6 +38,8 @@ def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, positio
                 ID = val.split(':')[1]
                 break
     if gene_type == "CDS":
+        if ID == "":
+            ID = protein_id#on rare occasions, there are no 'locus_tag' from downloaded .gbk file. So we use the protein_id field instead. (which is not supposed to be unique, but was when cases like this were encountered)
         newGene = Gene(ID)
         newGene.fill_annotations(start = start,
                                 stop = stop,
@@ -94,6 +96,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
         product = ""
         locus_tag = ""
         objType = ""
+        protein_id = ""
         genetic_code = ""
         usefulInfo = False
         start = None
@@ -104,7 +107,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             currType = line[5:21].strip()
             if currType != "":
                 if usefulInfo:
-                    create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
+                    create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code, protein_id)
                 usefulInfo = False
                 objType = currType
                 if objType in ['CDS','rRNA','tRNA']:
@@ -131,6 +134,8 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
                     dbxref.add(line.split("=")[1].replace('"', '').strip())
                 elif line[21:].startswith("/locus_tag"):
                     locus_tag = line.split("=")[1].replace('"', '').strip()
+                elif line[21:].startswith("/protein_id"):
+                    protein_id = line.split("=")[1].replace('"', '').strip()
                 elif line[21:].startswith('/gene'):#gene name
                     gene_name = line.split("=")[1].replace('"', '').strip()
                 elif line[21:].startswith('/transl_table'):
@@ -152,7 +157,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             line = lines.pop()
             #end of contig
         if usefulInfo:#saving the last element...
-            create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
+            create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code, protein_id)
 
         if getSeq:
             line = lines.pop()#first sequence line.

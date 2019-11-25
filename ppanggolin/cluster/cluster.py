@@ -20,69 +20,59 @@ from ppanggolin.utils import read_compressed_or_not
 from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, ErasePangenome
 
 def alignRep(faaFile, tmpdir, cpu, coverage, identity):
-    newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir.name)#create a tmpdir in the tmpdir provided.
-    seqdb =  tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
-    cmd = ["mmseqs","createdb",faaFile.name, seqdb.name]
+    seqdb = tmpdir.name + '/rep_sequence_db'
+    cmd = ["mmseqs","createdb",faaFile, seqdb]
     logging.getLogger().debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    alndb =  tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
-    cmd = ["mmseqs","search",seqdb.name , seqdb.name, alndb.name, newtmpdir.name, "-a","--min-seq-id", str(identity), "-c", str(coverage), "--cov-mode", "1", "--threads", str(cpu)]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    alndb = tmpdir.name + '/rep_alignment_db'
+    cmd = ["mmseqs","search",seqdb , seqdb, alndb, tmpdir.name, "-a","--min-seq-id", str(identity), "-c", str(coverage), "--cov-mode", "1", "--threads", str(cpu)]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning cluster representatives...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    outfile =  tempfile.NamedTemporaryFile(mode="w", dir = tmpdir.name)
-    cmd = ["mmseqs","convertalis", seqdb.name ,seqdb.name, alndb.name, outfile.name,"--format-output","query,target,qlen,tlen,bits"]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    outfile = tmpdir.name + '/rep_families_tsv'
+    cmd = ["mmseqs","convertalis", seqdb ,seqdb, alndb, outfile,"--format-output","query,target,qlen,tlen,bits"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    seqdb.close()
-    alndb.close()
-    newtmpdir.cleanup()
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     return outfile
 
 def firstClustering(sequences, tmpdir, cpu, code, coverage, identity ):
-    newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir.name)#create a tmpdir in the tmpdir provided.
-    seqNucdb = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
+    seqNucdb = tmpdir.name + '/nucleotid_sequences_db'
     cmd = ["mmseqs","createdb"]
     cmd.append(sequences.name)
-    cmd.extend([seqNucdb.name,"--dont-shuffle","false"])
+    cmd.extend([seqNucdb,"--dont-shuffle","false"])
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Creating sequence database...")
-    subprocess.run(cmd,  stdout=subprocess.DEVNULL)
-    seqdb = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
-    cmd = ["mmseqs","translatenucs", seqNucdb.name, seqdb.name, "--threads", str(cpu), "--translation-table",code]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    seqdb = tmpdir.name + '/aa_db'
+    cmd = ["mmseqs","translatenucs", seqNucdb, seqdb, "--threads", str(cpu), "--translation-table",code]
     logging.getLogger().debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    cludb = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
-    cmd = ["mmseqs","cluster",seqdb.name, cludb.name, newtmpdir.name , "--min-seq-id", str(identity), "-c", str(coverage), "--threads", str(cpu), "--kmer-per-seq","80","--max-seqs","300"]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    cludb = tmpdir.name + '/cluster_db'
+    cmd = ["mmseqs","cluster",seqdb, cludb, tmpdir.name , "--min-seq-id", str(identity), "-c", str(coverage), "--threads", str(cpu), "--kmer-per-seq","80","--max-seqs","300"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Clustering sequences...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger().info("Extracting cluster representatives...")
-    repdb = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
-    cmd = ["mmseqs","result2repseq", seqdb.name, cludb.name, repdb.name]
+    repdb = tmpdir.name + '/representative_db'
+    cmd = ["mmseqs","result2repseq", seqdb, cludb, repdb]
     logging.getLogger().debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    reprfa = tempfile.NamedTemporaryFile(mode="w", dir = tmpdir.name)
-    cmd = ["mmseqs","result2flat",seqdb.name, seqdb.name, repdb.name, reprfa.name]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    reprfa = tmpdir.name + '/representative_sequences.fasta'
+    cmd = ["mmseqs","result2flat",seqdb, seqdb, repdb, reprfa]
     logging.getLogger().debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    outtsv = tempfile.NamedTemporaryFile(mode="w", dir = tmpdir.name)
-    cmd = ["mmseqs","createtsv",seqdb.name, seqdb.name, cludb.name,outtsv.name]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    outtsv = tmpdir.name + '/families_tsv'
+    cmd = ["mmseqs","createtsv",seqdb, seqdb, cludb,outtsv]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Writing gene to family informations")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    repdb.close()
-    seqdb.close()
-    cludb.close()
-    seqNucdb.close()
-    newtmpdir.cleanup()#deleting temporary directory.
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     return reprfa, outtsv
 
 def read_faa(faFileName):
     fam2seq = {}
     head = ""
-    with open(faFileName.name,"r") as faFile:
+    with open(faFileName,"r") as faFile:
         for line in faFile:
             if line.startswith('>'):
                 head = line[1:].strip()
@@ -94,7 +84,7 @@ def read_tsv(tsvfileName):
     # reading tsv file
     genes2fam = {}
     fam2genes = defaultdict(set)
-    with open(tsvfileName.name, "r") as tsvfile:
+    with open(tsvfileName, "r") as tsvfile:
         for line in tsvfile:
             line = line.split()
             genes2fam[line[1]] = (line[0],False)#fam id, and its a gene (and not a fragment)
@@ -109,7 +99,7 @@ def refineClustering(tsv, alnFile, fam2seq):
     for fam, genes in fam2genes.items():
         simgraph.add_node(fam, nbgenes = len(genes) )
     #add the edges
-    with open(alnFile.name,"r") as alnfile:
+    with open(alnFile,"r") as alnfile:
         for line in alnfile:
             line = line.split()
 
@@ -205,11 +195,13 @@ def inferSingletons(pangenome):
 
 def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", coverage = 0.8, identity = 0.8, force = False):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
-    tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
+    sequenceFile = open(newtmpdir.name + '/nucleotid_sequences',"w")
 
-    checkPangenomeForClustering(pangenome, tmpFile, force)
+    checkPangenomeForClustering(pangenome, sequenceFile, force)
     logging.getLogger().info("Clustering all of the genes sequences...")
-    rep, tsv = firstClustering(tmpFile, newtmpdir, cpu, code, coverage, identity)
+    rep, tsv = firstClustering(sequenceFile, newtmpdir, cpu, code, coverage, identity)
+
+    sequenceFile.close()
     fam2seq = read_faa(rep)
     if not defrag:
         genes2fam = read_tsv(tsv)[0]
@@ -217,11 +209,7 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", coverage = 
         logging.getLogger().info("Associating fragments to their original gene family...")
         aln = alignRep(rep, newtmpdir, cpu, coverage, identity)
         genes2fam, fam2seq = refineClustering(tsv, aln, fam2seq)
-        aln.close()
         pangenome.status["defragmented"] = "Computed"
-    tmpFile.close()
-    tsv.close()
-    rep.close()
     newtmpdir.cleanup()
     read_fam2seq(pangenome, fam2seq)
     read_gene2fam(pangenome, genes2fam)
