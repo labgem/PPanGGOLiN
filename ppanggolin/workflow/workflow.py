@@ -52,7 +52,7 @@ def launch(args):
 
     if args.rarefaction:
         makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
-    if len(pangenome.organisms) < 5000:
+    if len(pangenome.organisms) > 1 and len(pangenome.organisms) < 5000:
         drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)
 

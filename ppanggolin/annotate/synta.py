@@ -29,7 +29,6 @@ def translate(seq, code):
                 # print(codon)
                 protein += 'X'  # X is for unknown
     else:
-        print(len(seq))
         raise IndexError("Given sequence length modulo 3 was different than 0, which is unexpected.")
     return protein
 
