@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 #coding:utf-8
-# PYTHON_ARGCOMPLETE_OK
 
 #default libraries
 import sys
@@ -27,13 +26,26 @@ import ppanggolin.align
 
 def checkTsvSanity(tsv):
     f = open(tsv,"r")
+    nameSet = set()
+    duplicatedNames = set()
+    nonExistingFiles = set()
     for line in f:
         elements = [el.strip() for el in line.split("\t")]
         if len(elements)<=1:
             raise Exception(f"No tabulation separator found in given file: {tsv}")
         if " " in elements[0]:
             raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string : '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN this is not allowed. Please remove spaces from your genome names.")
-
+        oldLen = len(nameSet)
+        nameSet.add(elements[0])
+        if len(nameSet) == oldLen:
+            duplicatedNames.add(elements[0])
+        if not os.path.exists(elements[1]):
+            nonExistingFiles.add(elements[1])
+    if len(nonExistingFiles) != 0:
+        raise Exception(f"Some of the given files do not exist. The non-existing files are the following : '{' '.join(nonExistingFiles)}'")
+    if len(duplicatedNames) != 0:
+        raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : '{' '.join(duplicatedNames)}'")
+            
 def checkInputFiles(anno=None, pangenome=None, fasta=None):
     """
         Checks if the provided input files exist and are of the proper format
@@ -106,8 +118,6 @@ def cmdLine():
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
-    if "argcomplete" in sys.modules:
-        argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
     if args.subcommand == "annotate":
