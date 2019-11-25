@@ -73,13 +73,21 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             is_circ = False
             if "CIRCULAR" in line.upper():#this line contains linear/circular word telling if the dna sequence is circularized or not
                 is_circ = True
+            contigLocusID = line.split()[1]#If contigID is not specified in VERSION afterwards like with Prokka, in that case we use the one in LOCUS.
+            setContig = False
             while not line.startswith('FEATURES'):
                 if line.startswith('VERSION'):
                     contigID = line[12:].strip()
-                    if contigID in circular_contigs:
-                        is_circ = True
-                    contig = org.getOrAddContig(contigID, is_circ)
+                    if contigID != "":
+                        if contigID in circular_contigs:
+                            is_circ = True
+                        contig = org.getOrAddContig(contigID, is_circ)
+                        setContig = True
                 line = lines.pop()
+        if not setContig:#if no contig ids were filled after VERSION, we use what was found in LOCUS for the contig ID. Should be unique in a dataset, but if there's an update the contig ID might still be the same even though it should not(?)
+            if contigLocusID in circular_contigs:
+                is_circ = True
+            contig = org.getOrAddContig(contigLocusID, is_circ)
         # start of the feature object.
         dbxref = set()
         gene_name = ""
@@ -96,7 +104,6 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             currType = line[5:21].strip()
             if currType != "":
                 if usefulInfo:
-                    #special bit to cope with MaGe's genbank format...
                     create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
                 usefulInfo = False
                 objType = currType

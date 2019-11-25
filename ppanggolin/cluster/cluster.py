@@ -194,7 +194,6 @@ def checkPangenomeForClustering(pangenome, tmpFile, force):
         tmpFile.close()#closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster the genes in gene families. Either provide clustering results (see --clusters), or provide a way to access the gene sequence during the annotation step (having the fasta in the gff files, or providing the fasta files through the --fasta option)")
 
-
 def inferSingletons(pangenome):
     """creates a new family for each gene with no associated family"""
     singletonCounter = 0
@@ -209,7 +208,6 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", coverage = 
     tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
 
     checkPangenomeForClustering(pangenome, tmpFile, force)
-
     logging.getLogger().info("Clustering all of the genes sequences...")
     rep, tsv = firstClustering(tmpFile, newtmpdir, cpu, code, coverage, identity)
     fam2seq = read_faa(rep)
