@@ -12,27 +12,6 @@ from collections import defaultdict
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.utils import is_compressed, read_compressed_or_not
 
-def translate(seq, code):
-    """ translates the given dna sequence with table code 11 of the ncbi (bacteria)"""
-    # code:  https: //www.bioinformatics.org/sms/iupac.html
-    start_table = code["start_table"]
-    table = code["trans_table"]
-
-    protein = ""
-    if len(seq) % 3 == 0:
-        protein = start_table[seq[0: 3]]
-        for i in range(3, len(seq), 3):
-            codon = seq[i: i + 3]
-            try:
-                protein += table[codon]
-            except KeyError:  # codon was not planned for. Probably can't determine it.
-                # print(codon)
-                protein += 'X'  # X is for unknown
-    else:
-        print(len(seq))
-        raise IndexError("Given sequence length modulo 3 was different than 0, which is unexpected.")
-    return protein
-
 def reverse_complement(seq):
     """ reverse complement the given dna sequence """
     complement = {'A':  'T', 'C':  'G', 'G':  'C', 'T':  'A', 'N': 'N', 'R': 'Y', 'Y': 'R',

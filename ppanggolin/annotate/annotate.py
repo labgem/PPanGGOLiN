@@ -29,7 +29,7 @@ def detect_filetype(filename):
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
-def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11):
+def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11, protein_id = ""):
     if any('MaGe' in dbref for dbref in dbxref):
         if gene_name == "":
             gene_name = ID
@@ -38,6 +38,8 @@ def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, positio
                 ID = val.split(':')[1]
                 break
     if gene_type == "CDS":
+        if ID == "":
+            ID = protein_id#on rare occasions, there are no 'locus_tag' from downloaded .gbk file. So we use the protein_id field instead. (which is not supposed to be unique, but was when cases like this were encountered)
         newGene = Gene(ID)
         newGene.fill_annotations(start = start,
                                 stop = stop,
@@ -73,19 +75,28 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             is_circ = False
             if "CIRCULAR" in line.upper():#this line contains linear/circular word telling if the dna sequence is circularized or not
                 is_circ = True
+            contigLocusID = line.split()[1]#If contigID is not specified in VERSION afterwards like with Prokka, in that case we use the one in LOCUS.
+            setContig = False
             while not line.startswith('FEATURES'):
                 if line.startswith('VERSION'):
                     contigID = line[12:].strip()
-                    if contigID in circular_contigs:
-                        is_circ = True
-                    contig = org.getOrAddContig(contigID, is_circ)
+                    if contigID != "":
+                        if contigID in circular_contigs:
+                            is_circ = True
+                        contig = org.getOrAddContig(contigID, is_circ)
+                        setContig = True
                 line = lines.pop()
+        if not setContig:#if no contig ids were filled after VERSION, we use what was found in LOCUS for the contig ID. Should be unique in a dataset, but if there's an update the contig ID might still be the same even though it should not(?)
+            if contigLocusID in circular_contigs:
+                is_circ = True
+            contig = org.getOrAddContig(contigLocusID, is_circ)
         # start of the feature object.
         dbxref = set()
         gene_name = ""
         product = ""
         locus_tag = ""
         objType = ""
+        protein_id = ""
         genetic_code = ""
         usefulInfo = False
         start = None
@@ -96,8 +107,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             currType = line[5:21].strip()
             if currType != "":
                 if usefulInfo:
-                    #special bit to cope with MaGe's genbank format...
-                    create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
+                    create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code, protein_id)
                 usefulInfo = False
                 objType = currType
                 if objType in ['CDS','rRNA','tRNA']:
@@ -124,6 +134,8 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
                     dbxref.add(line.split("=")[1].replace('"', '').strip())
                 elif line[21:].startswith("/locus_tag"):
                     locus_tag = line.split("=")[1].replace('"', '').strip()
+                elif line[21:].startswith("/protein_id"):
+                    protein_id = line.split("=")[1].replace('"', '').strip()
                 elif line[21:].startswith('/gene'):#gene name
                     gene_name = line.split("=")[1].replace('"', '').strip()
                 elif line[21:].startswith('/transl_table'):
@@ -145,7 +157,7 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             line = lines.pop()
             #end of contig
         if usefulInfo:#saving the last element...
-            create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code)
+            create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code, protein_id)
 
         if getSeq:
             line = lines.pop()#first sequence line.
