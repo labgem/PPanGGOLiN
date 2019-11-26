@@ -191,9 +191,9 @@ def make_org_with_genes():
 @pytest.fixture()
 def fill_fam_with_genes():
     def _fill_fam_with_genes(o_fam):
-        """add from 2 to 10 genes to a geneFamily object."""
+        """add genes with names from 2 to 10 to a geneFamily object."""
         l_genes = []
-        for i in range(randint(2,10)):
+        for i in range(2,10):
             name = "{}_{}".format(o_fam.name, i)
             o_gene = Gene(name)
             o_fam.addGene(o_gene)
@@ -215,9 +215,10 @@ def test_genes_genefamilies(o_pang, fill_fam_with_genes):
     """Genes are added in pangenome through their family."""
     # geneFamily with genes.
     o_fam = o_pang.addGeneFamily("fam1")
-    l_genes = fill_fam_with_genes(o_fam)
+    l_genes = fill_fam_with_genes(o_fam)#the list of genes, and the geneFam are supposed to be the same
     l_expected = sorted(l_genes, key=lambda g: g.ID)
     l_observed = sorted(o_pang.genes, key=lambda g: g.ID)
+    print(o_pang.genes)
     assert l_observed == l_expected
 
 
@@ -342,8 +343,7 @@ def test_getGene_fam(o_pang, fill_fam_with_genes):
     o_fam = o_pang.addGeneFamily("fam")
     l_genes = fill_fam_with_genes(o_fam)
 
-    n = len(l_genes)
-    for o_gene in sample(l_genes, randint(2, n)):
+    for o_gene in l_genes:
         assert o_pang.getGene(o_gene.ID) == o_gene
 
 
