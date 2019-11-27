@@ -40,7 +40,7 @@ def create_gene(org, contig, geneCounter, rnaCounter, ID, dbxref, start, stop, s
     if gene_type == "CDS":
         if ID == "":
             ID = protein_id#on rare occasions, there are no 'locus_tag' from downloaded .gbk file. So we use the protein_id field instead. (which is not supposed to be unique, but was when cases like this were encountered)
-        
+
         newGene = Gene(org.name + "_CDS_"+ str(geneCounter).zfill(4))
         newGene.fill_annotations(start = start,
                                 stop = stop,
