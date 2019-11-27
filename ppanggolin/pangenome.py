@@ -119,6 +119,7 @@ class Pangenome:
         self.max_fam_id = 0
         self._orgGetter = {}
         self._edgeGetter = {}
+        self._geneGetter = {}
         self.status = {
                     'genomesAnnotated': "No",
                     'geneSequences' : "No",
@@ -137,14 +138,12 @@ class Pangenome:
 
     @property
     def genes(self):
-        try:
+        if len(self._orgGetter) > 0:
             return self._geneGetter.values()
-        except AttributeError:#in that case the gene getter has not been computed
-            self._mkgeneGetter()#make it
-            return self.genes#return what was expected
-        except KeyError:
-            return None
-
+        elif len(self._famGetter) > 0:
+            return [ gene for fam in self._famGetter.values() for gene in fam.genes ]
+        else:
+            return []#no genes.
     @property
     def geneFamilies(self):
         return self._famGetter.values()
@@ -163,38 +162,33 @@ class Pangenome:
     def number_of_geneFamilies(self):
         return len(self._famGetter)
 
-    def _yield_genes(self):
-        """
-            Use a generator to get all the genes of a pangenome
-        """
-        if self.number_of_organisms() > 0:#if we have organisms, they're supposed to have genes
-            for org in self.organisms:
-                for contig in org.contigs:
-                     for gene in contig.genes:
-                         yield gene
-        elif self.number_of_geneFamilies() > 0:
-            for geneFam in self.geneFamilies:
-                for gene in geneFam.genes:
-                    yield gene
+    def _updateGeneGetter(self, org):
+        geneDict = org._mkGeneGetter()
+        oldLen = len(self._geneGetter)
+        self._geneGetter = {**self._geneGetter, **geneDict}
+        if len(self._geneGetter) != oldLen + len(geneDict):
+            raise Exception("There are identical genes identifiers in different organisms. This is not permitted, as gene identifiers must be unique.")
 
-    def _mkgeneGetter(self):
+    def _mkGeneGetter(self):
         """
-            Since the genes are never explicitely 'added' to a pangenome (but rather to a gene family, or a contig), the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
-            if at some point we want to extract genes from a pangenome we'll create a geneGetter.
-            The assumption behind this is that the pangenome has been filled and no more gene will be added.
+            This is used when we want to use getGene when the genes are only associated to geneFamily objects and not Contig objects.
+            Since we can add empty gene families to the pangenome and fill them on the fly, we cannot use the same strategy as with Organism for storing gene IDs.
+            When called, if _geneGetter is empty we assume that genes are in the geneFamilies, so we make _geneGetter from them.
         """
         self._geneGetter = {}
-        for gene in self._yield_genes():
+        for gene in self.genes:
             self._geneGetter[gene.ID] = gene
 
     def getGene(self, geneID):
-        try:
-            return self._geneGetter[geneID]
-        except AttributeError:#in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
-            self._mkgeneGetter()#make it
-            return self.getGene(geneID)#return what was expected. If the geneID does not exist it will raise an error.
-        except KeyError:
-            return None
+        if len(self._geneGetter) > 0:
+            try:
+                return self._geneGetter[geneID]
+            except KeyError:
+                return None
+        elif len(self._famGetter) > 0:
+            #no gene getter, but there are families, so we are in the case where we work with gene/gene families and without their genomes/contigs objects.
+            self._mkGeneGetter()
+            return self.getGene(geneID)
 
     def info(self):
         infostr = ""
@@ -233,6 +227,8 @@ class Pangenome:
             self._orgGetter[newOrg.name] = newOrg
             if len(self._orgGetter) == oldLen:
                 raise KeyError(f"Redondant organism name was found ({newOrg.name}). All of your organisms must have unique names.")
+            self._updateGeneGetter(newOrg)
+
         elif isinstance(newOrg, str):
             org = self._orgGetter.get(newOrg)
             if org is None:
