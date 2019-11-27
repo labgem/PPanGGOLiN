@@ -90,19 +90,24 @@ def readOrganism(pangenome, orgName, contigDict, link = False):
         contig = org.getOrAddContig(contigName, is_circular=geneList[0][0][0])
         for row in geneList:
             if link:#if the gene families are already computed/loaded the gene exists.
-                gene = pangenome.getGene(row[1][0].decode())
+                gene = pangenome.getGene(row["ID"].decode())
             else:#else creating the gene.
-                gene = Gene(row[1][0].decode())
+                gene = Gene(row["ID"].decode())
+            try:
+                local = row["local"].decode()
+            except ValueError:
+                local = ""
             gene.fill_annotations(
-                start = row[1][6],
-                stop =row[1][7],
-                strand =  row[1][8].decode(),
-                geneType = row[1][9].decode(),
-                position = row[1][4],
-                genetic_code=row[1][1],
-                name = row[1][3].decode(),
-                product = row[1][5].decode())
-            gene.is_fragment = row[1][2]
+                start = row["start"],
+                stop = row["stop"],
+                strand =  row["strand"],
+                geneType = row["type"].decode(),
+                position = row["position"],
+                genetic_code= row["genetic_code"],
+                name = row["name"].decode(),
+                product = row["product"].decode(),
+                local_identifier=local)
+            gene.is_fragment = row=["is_fragment"]
             gene.fill_parents(org, contig)
             if gene.type == "CDS":
                 contig.addGene(gene)
@@ -166,12 +171,12 @@ def readAnnotation(pangenome, h5f, filename):
     pangenomeDict = {}
     for row in read_chunks(table):
         try:
-            pangenomeDict[row[2].decode()][row[0][1].decode()].append(row)#new gene, seen contig, seen org
+            pangenomeDict[row["organism"].decode()][row["contig"]["name"].decode()].append(row["gene"])#new gene, seen contig, seen org
         except KeyError:
             try:
-                pangenomeDict[row[2].decode()][row[0][1].decode()] = [row]#new contig, seen org
+                pangenomeDict[row["organism"].decode()][row["contig"]["name"].decode()] = [row["gene"]]#new contig, seen org
             except KeyError:
-                pangenomeDict[sys.intern(row[2].decode())] = { row[0][1].decode() : [row]}#new org
+                pangenomeDict[sys.intern(row["organism"].decode())] = { row["contig"]["name"].decode() : [row["gene"]]}#new org
         bar.update()
     bar.close()
 

@@ -5,12 +5,13 @@
 import logging
 from collections import Counter, defaultdict
 import statistics
+import pkg_resources
 
 #installed libraries
 from tqdm import tqdm
 import tables
 
-def geneDesc(orgLen, contigLen, IDLen, typeLen, nameLen, productLen):
+def geneDesc(orgLen, contigLen, IDLen, typeLen, nameLen, productLen, maxLocalId):
     return {
             'organism':tables.StringCol(itemsize=orgLen),
             "contig":{
@@ -28,6 +29,7 @@ def geneDesc(orgLen, contigLen, IDLen, typeLen, nameLen, productLen):
                 'product':tables.StringCol(itemsize=productLen),
                 'genetic_code':tables.UInt32Col(dflt = 11),
                 'is_fragment':tables.BoolCol(dflt = False),
+                'local':tables.StringCol(itemsize=maxLocalId)
             }
             }
 
@@ -38,6 +40,7 @@ def getMaxLenAnnotations(pangenome):
     maxNameLen = 1
     maxProductLen = 1
     maxTypeLen = 1
+    maxLocalId = 1
     for org in pangenome.organisms:
         if len(org.name) > maxOrgLen:
             maxOrgLen = len(org.name)
@@ -53,7 +56,9 @@ def getMaxLenAnnotations(pangenome):
                     maxProductLen = len(gene.product)
                 if len(gene.type) > maxTypeLen:
                     maxTypeLen = len(gene.type)
-    return maxOrgLen, maxContigLen, maxGeneIDLen, maxTypeLen, maxNameLen, maxProductLen
+                if len(gene.local_identifier) > maxLocalId:
+                    maxLocalId = len(gene.local_identifier)
+    return maxOrgLen, maxContigLen, maxGeneIDLen, maxTypeLen, maxNameLen, maxProductLen, maxLocalId
 
 def writeAnnotations(pangenome, h5f):
     """
@@ -85,6 +90,7 @@ def writeAnnotations(pangenome, h5f):
                 geneRow["gene/product"] = gene.product
                 geneRow["gene/is_fragment"] = gene.is_fragment
                 geneRow["gene/genetic_code"] = gene.genetic_code
+                geneRow["gene/local"] = gene.local_identifier
                 geneRow.append()
             for rna in contig.RNAs:
                 rnaRow["organism"] = org.name
@@ -98,6 +104,7 @@ def writeAnnotations(pangenome, h5f):
                 rnaRow["gene/name"] = rna.name
                 rnaRow["gene/product"] = rna.product
                 rnaRow["gene/is_fragment"] = rna.is_fragment
+                rnaRow["gene/local"] = rna.local_identifier
     geneTable.flush()
     rnaTable.flush()
     bar.close()
@@ -255,6 +262,7 @@ def writeStatus(pangenome, h5f):
     statusGroup._v_attrs.NeighborsGraph = True if pangenome.status["neighborsGraph"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.Partitionned = True if pangenome.status["partitionned"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
 
 
 def writeInfo(pangenome, h5f):
