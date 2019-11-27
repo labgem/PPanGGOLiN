@@ -72,10 +72,10 @@ def getGeneSequencesFromFile(pangenome, fileObj, list_CDS=None):
     bar =  tqdm(range(table.nrows), unit="gene")
     list_CDS=set(list_CDS) if list_CDS is not None else None
     for row in read_chunks(table, chunk = 20000):#reading the table chunk per chunk otherwise RAM dies on big pangenomes
-        nameCDS = row[1].decode()
-        if row[2] == b"CDS" and (list_CDS is None or nameCDS in list_CDS):
+        nameCDS = row["gene"].decode()
+        if row["type"] == b"CDS" and (list_CDS is None or nameCDS in list_CDS):
             fileObj.write('>' + nameCDS + "\n")
-            fileObj.write(row[0].decode() + "\n")
+            fileObj.write(row["dna"].decode() + "\n")
         bar.update()
     fileObj.flush()
     bar.close()
@@ -124,8 +124,8 @@ def readGraph(pangenome, h5f):
         raise Exception("It's not possible to read the graph if the annotations and the gene families have not been loaded.")
     bar = tqdm(range(table.nrows), unit = "contig adjacency")
     for row in read_chunks(table):
-        source = pangenome.getGene(row[0].decode())
-        target = pangenome.getGene(row[1].decode())
+        source = pangenome.getGene(row["geneSource"].decode())
+        target = pangenome.getGene(row["geneTarget"].decode())
         pangenome.addEdge(source, target)
         bar.update()
     bar.close()
@@ -138,11 +138,11 @@ def readGeneFamilies(pangenome, h5f):
 
     bar = tqdm(range(table.nrows), unit = "gene")
     for row in read_chunks(table):
-        fam = pangenome.addGeneFamily(row[1].decode())
+        fam = pangenome.addGeneFamily(row["geneFam"].decode())
         if link:#linking if we have loaded the annotations
-            geneObj = pangenome.getGene(row[0].decode())
+            geneObj = pangenome.getGene(row["gene"].decode())
         else:#else, no
-            geneObj = Gene(row[1].decode())
+            geneObj = Gene(row["gene"].decode())
         fam.addGene(geneObj)
         bar.update()
     bar.close()
@@ -153,9 +153,9 @@ def readGeneFamiliesInfo(pangenome, h5f):
 
     bar = tqdm(range(table.nrows), unit = "gene family")
     for row in read_chunks(table):
-        fam = pangenome.addGeneFamily(row[0].decode())
-        fam.addPartition(row[1].decode())
-        fam.addSequence(row[2].decode())
+        fam = pangenome.addGeneFamily(row["name"].decode())
+        fam.addPartition(row["partition"].decode())
+        fam.addSequence(row["protein"].decode())
         bar.update()
     bar.close()
     if h5f.root.status._v_attrs.Partitionned:
