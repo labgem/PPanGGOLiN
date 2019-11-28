@@ -111,15 +111,6 @@ class Organism:
     def number_of_genes(self):
         return sum([len(list(contig.genes)) for contig in self.contigs])
 
-    def _mkGeneGetter(self):
-        geneGetter = {}
-        for gene in self.genes:
-            oldLen = len(geneGetter)
-            geneGetter[gene.ID] = gene
-            if len(geneGetter) == oldLen:
-                raise Exception(f"At least two genes have the same identifier in your genome '{self.name}'. This is not permitted.")
-        return geneGetter
-
     @property
     def contigs(self):
         return self._contigs_getter.values()
