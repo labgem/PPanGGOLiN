@@ -551,7 +551,7 @@ def writeFlatSubparser(subparser):
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o','--output', required=True, type=str, help="Output directory where the file(s) will be written")
     optional = parser.add_argument_group(title = "Optional arguments")
-    optional.add_argument("--soft_core",required=False, default = 0.95, help = "Soft core threshold to use")
+    optional.add_argument("--soft_core",required=False, type=float, default = 0.95, help = "Soft core threshold to use")
     optional.add_argument("--dup_margin", required=False, default=0.05, help = "minimum ratio of organisms in which the family must have multiple genes for it to be considered 'duplicated'")
     optional.add_argument("--gexf",required = False, action = "store_true", help = "write a gexf file with all the annotations and all the genes of each gene family")
     optional.add_argument("--light_gexf",required = False, action="store_true",help = "write a gexf file with the gene families and basic informations about them")
