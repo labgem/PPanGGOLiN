@@ -391,13 +391,27 @@ class Pangenome:
         #case where there is an index but the bitarrays have not been computed???
         return self._orgIndex
 
+    def get_multigenics(self, dup_margin):
+        """
+            Returns the multigenic persistent families of the pangenome graph. A family will be considered multigenic if it is duplicated in more than 5% of the genomes where it is present.
+        """
+        multigenics = set()
+        for fam in self.geneFamilies:
+            if fam.namedPartition == "persistent":
+                dup=len([genes for org, genes in fam.getOrgDict().items() if len(genes) > 1])
+                if (dup / len(fam.organisms)) >= dup_margin:#tot / nborgs >= 1.05
+                    multigenics.add(fam)
+        logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic. (duplicated in more than {dup_margin} of the genomes)")
+        return multigenics
+
     def addRegions(self, regionGroup):
         """ takes an Iterable or a Region object and adds it to the 'regions' container"""
+        oldLen = len(self._regionGetter)
         if isinstance(regionGroup, Iterable):
             for region in regionGroup:
                 self._regionGetter[region.name] = region
-            if len(self._regionGetter) != len(regionGroup):
-                raise Exception("Two regions had an identical name, which was unexpected")
+            if len(self._regionGetter) != len(regionGroup)+oldLen:
+                raise Exception("Two regions had an identical name, which was unexpected.")
         elif isinstance(regionGroup, Region):
             self._regionGetter[regionGroup.name] = regionGroup
         else:

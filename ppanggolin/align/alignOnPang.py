@@ -14,7 +14,7 @@ from ppanggolin.utils import mkOutdir, read_compressed_or_not
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
 from ppanggolin.cluster import writeGeneSequencesFromAnnotations
-from ppanggolin.RGP import get_multigenics, compute_org_rgp
+from ppanggolin.RGP.panRGP import compute_org_rgp
 
 
 def createdb(fileObj, tmpdir):
@@ -202,7 +202,7 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
     #artificially reconstruct the gene families and their partitions
     linkNewGenomeFamilies(singleOrgPang, pangenome, blastout)
 
-    multigenics = get_multigenics(pangenome, pangenome.parameters["RGP"]["dup_margin"])
+    multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
     genomeMultigenics = linkMultigenicFamilies(singleOrgPang, multigenics)
 
     logging.getLogger().info("Predicting RGP in your genome")

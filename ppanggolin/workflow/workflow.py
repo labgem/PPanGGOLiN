@@ -17,7 +17,8 @@ from ppanggolin.nem.partition import partition
 from ppanggolin.formats import writePangenome, writeFlatFiles
 from ppanggolin.figures import drawTilePlot, drawUCurve
 from ppanggolin.info import printInfo
-from ppanggolin.RGP import predictRGP
+from ppanggolin.RGP.panRGP import predictRGP
+from ppanggolin.RGP.hotspot import predictHotspots
 ### a global workflow that does everything in one go.
 
 def launch(args):
