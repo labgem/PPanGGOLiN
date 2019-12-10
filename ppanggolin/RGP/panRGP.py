@@ -98,15 +98,15 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi ):
 
     # if the contig is circular and we're in a rgp state, we need to continue from the "starting" gene until we leave rgp state.
     if contig.is_circular and curr_state:
-        # the previous node of the first processed gene is the last node.
+        #the previous node of the first processed gene is the last node.
         mat[0].prev = prev
-        lastNode = prev  # saving the last node that was inserted.
+        lastNode = prev#saving the last node that was inserted.
         curr_score = prev.score
         c = 0
         nbPerc = 0
-        while curr_state:  # while state is rgp.
+        while curr_state:#while state is rgp.
             matNode = mat[c]
-            if matNode == lastNode:  # then we've parsed the entire contig twice. The whole sequence is a rgp so we're stopping the iteration now, otherwise we'll loop indefinitely
+            if matNode == lastNode:#then we've parsed the entire contig twice. The whole sequence is a rgp so we're stopping the iteration now, otherwise we'll loop indefinitely
                 break
 
             if matNode.gene.family.namedPartition == "persistent" and matNode.gene.family not in multi:

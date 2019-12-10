@@ -28,9 +28,6 @@ class Region:
             return True
         return False
 
-    def __hash__(self):
-        return id(self)
-
     def append(self, value):
         # allowing only gene-class objects in a region.
         if isinstance(value, Gene):
@@ -41,6 +38,14 @@ class Region:
     @property
     def start(self):
         return min(self.genes, key = lambda x : x.start).start
+
+    @property
+    def startGene(self):
+        return min(self.genes, key = lambda x : x.position)
+
+    @property
+    def stopGene(self):
+        return max(self.genes, key = lambda x : x.position)
 
     @property
     def stop(self):
@@ -58,9 +63,9 @@ class Region:
     def isContigBorder(self):
         if len(self.genes) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")
-        if self.genes[-1].position == 0 and not self.contig.is_circular:
+        if self.startGene.position == 0 and not self.contig.is_circular:
             return True
-        elif self.genes[0].position == len(self.contig.genes)-1 and not self.contig.is_circular:
+        elif self.stopGene.position == len(self.contig.genes)-1 and not self.contig.is_circular:
             return True
         return False
     def __len__(self):
@@ -71,7 +76,7 @@ class Region:
 
     def getBorderingGenes(self, n, multigenics):
         border = [[], []]
-        pos = self.genes[-1].position
+        pos = self.startGene.position
         init = pos
         while len(border[0]) < n and (pos != 0 and not self.contig.is_circular):
             curr_gene = None
@@ -88,7 +93,7 @@ class Region:
             if pos == init:
                 break#looped around the contig
 
-        pos = self.genes[0].position
+        pos = self.stopGene.position
         init = pos
         while len(border[1]) < n and (pos != len(self.contig.genes)-1 and not self.contig.is_circular):
             curr_gene = None
