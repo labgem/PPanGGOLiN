@@ -162,13 +162,13 @@ def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min
 
 def write_GI(pangenome, output):
     fname = open(output + "/plastic_regions.tsv","w")
-    fname.write("organism\tcontig\tstart\tstop\tgenes\tcontigBorder\n")
+    fname.write("id\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\n")
     regions = sorted(pangenome.regions, key = lambda x : (x.organism.name, x.contig.name, x.start))
     for region in regions:
-        fname.write('\t'.join(map(str,[region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder]))+"\n")
+        fname.write('\t'.join(map(str,[region.name, region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder]))+"\n")
 
 
-def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1):
+def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1, write_gis = True):
 
     #check statuses and load info
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True)
@@ -180,8 +180,8 @@ def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min
     for org in bar:
         pangenome.addRegions(compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics))
     logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")
-
-    write_GI(pangenome, output)#should this be here?
+    if write_gis:
+        write_GI(pangenome, output)#should this be here?
 
     #save parameters and save status
     pangenome.parameters["RGP"] = {}
@@ -199,7 +199,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     mkOutdir(args.output, args.force)
-    predictRGP(pangenome, args.output, args.persistent_penalty, args.variable_gain, args.min_length, args.min_score, args.dup_margin, args.cpu)
+    predictRGP(pangenome, args.output, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, cpu=args.cpu)
     writePangenome(pangenome, pangenome.file, args.force)
 
 

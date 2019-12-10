@@ -68,6 +68,14 @@ class Region:
         elif self.stopGene.position == len(self.contig.genes)-1 and not self.contig.is_circular:
             return True
         return False
+
+    def getRNAs(self):
+        RNAs = set()
+        for rna in self.contig.RNAs:
+            if rna.start > self.start and rna.start < self.stop:
+                RNAs.add(rna)
+        return RNAs
+
     def __len__(self):
         return len(self.genes)
 
