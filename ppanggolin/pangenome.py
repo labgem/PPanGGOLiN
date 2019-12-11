@@ -18,6 +18,9 @@ class Region:
         self.name = ID
         self.score = 0
 
+    def __hash__(self):
+        return id(self)
+
     def __eq__(self, other):
         """ expects another Region type object. Will test whether two Region objects have the same gene families"""
         if not isinstance(other, Region):

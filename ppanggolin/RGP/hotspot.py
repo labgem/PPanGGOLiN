@@ -179,7 +179,7 @@ def predictHotspots(pangenome, output, spot_graph = False, flanking_graph = Fals
     
     if write_spots:
         writeSpots(spots, output, elements)
-
+        writeBorders_spots(spots,pangenome, output)
     return spots
 
 def writeSpots(spots, output, elements):
@@ -196,6 +196,25 @@ def writeSpots(spots, output, elements):
                         curr_intest.append(el)
 
             fout.write(f"spot_{n_spot}\t{rgp.name}\t{rgp.organism.name}\t{rgp.contig.name}\t{rgp.start}\t{rgp.stop}\t{len(rgp.genes)}\t" + "-\n" if len(curr_intest) == 0 else ','.join(curr_intest)+"\n")
+        n_spot+=1
+    fout.close()
+
+def writeBorders_spots(spots, pangenome, output):
+    fout = open(output + "/spots_families.faa","w")
+    n_spot = 0
+    
+    for spot in spots:
+        n_border_group = 0
+        for borders in spot[0]:
+            n_border = 0
+            prevalence = len(spot[1])
+            organisations = len(getUniqRGP(spot[1]))
+            for border in borders:
+                for fam in border:
+                    fout.write(f">{fam.name}_prevalence-{prevalence}_synt-{organisations}_spot-{n_spot}_group-{n_border_group}_border-{n_border}\n")
+                    fout.write(f"{fam.sequence}\n")
+                n_border+=1
+            n_border_group+=1
         n_spot+=1
     fout.close()
 
