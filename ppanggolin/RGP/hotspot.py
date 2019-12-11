@@ -210,9 +210,11 @@ def writeBorders_spots(spots, pangenome, output):
             prevalence = len(spot[1])
             organisations = len(getUniqRGP(spot[1]))
             for border in borders:
+                order=0
                 for fam in border:
-                    fout.write(f">{fam.name}_prevalence-{prevalence}_synt-{organisations}_spot-{n_spot}_group-{n_border_group}_border-{n_border}\n")
+                    fout.write(f">{fam.name}_prevalence-{prevalence}_synt-{organisations}_spot-{n_spot}_group-{n_border_group}_border-{n_border}_order-{order}\n")
                     fout.write(f"{fam.sequence}\n")
+                    order+=1
                 n_border+=1
             n_border_group+=1
         n_spot+=1
