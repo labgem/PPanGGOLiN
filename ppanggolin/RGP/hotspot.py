@@ -195,7 +195,8 @@ def writeSpots(spots, output, elements):
                     if gene.name == el or el in gene.product:
                         curr_intest.append(el)
 
-            fout.write(f"spot_{n_spot}\t{rgp.name}\t{rgp.organism.name}\t{rgp.contig.name}\t{rgp.start}\t{rgp.stop}\t{len(rgp.genes)}\t" + "-\n" if len(curr_intest) == 0 else ','.join(curr_intest)+"\n")
+            fout.write(f"spot_{n_spot}\t{rgp.name}\t{rgp.organism.name}\t{rgp.contig.name}\t{rgp.start}\t{rgp.stop}\t{len(rgp.genes)}\t")
+            fout.write("-\n" if len(curr_intest) == 0 else ','.join(curr_intest)+"\n")
         n_spot+=1
     fout.close()
 

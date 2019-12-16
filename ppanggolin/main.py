@@ -104,7 +104,7 @@ def cmdLine():
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
     subs.append(ppanggolin.align.alignSubparser(subparsers))
-    subs.append(ppanggolin.RGP.panRGP.rgpSubparser(subparsers))
+    subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
     subs.append(ppanggolin.RGP.hotspot.hotspotSubparser(subparsers))
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
@@ -172,7 +172,7 @@ def main():
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
     elif args.subcommand == "rgp":
-        ppanggolin.RGP.panRGP.launch(args)
+        ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "hotspot":
         ppanggolin.RGP.hotspot.launch(args)
 

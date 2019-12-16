@@ -14,7 +14,7 @@ from ppanggolin.utils import mkOutdir, read_compressed_or_not
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
 from ppanggolin.cluster import writeGeneSequencesFromAnnotations
-from ppanggolin.RGP.panRGP import compute_org_rgp
+from ppanggolin.RGP.genomicIsland import compute_org_rgp
 
 
 def createdb(fileObj, tmpdir):

@@ -17,6 +17,8 @@ from ppanggolin.nem.partition import partition
 from ppanggolin.formats import writePangenome, writeFlatFiles
 from ppanggolin.figures import drawTilePlot, drawUCurve
 from ppanggolin.info import printInfo
+from ppanggolin.RGP.genomicIsland import predictRGP
+from ppanggolin.RGP.hotspot import predictHotspots
 ### a global workflow that does everything in one go.
 
 def launch(args):
@@ -45,10 +47,16 @@ def launch(args):
             writePangenome(pangenome, filename, args.force)
             clustering(pangenome, args.tmpdir, args.cpu)
 
+    writePangenome(pangenome, filename, args.force)
     computeNeighborsGraph(pangenome)
 
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, K=args.nb_of_partitions)
     writePangenome(pangenome, filename, args.force)
+
+    predictRGP(pangenome, args.output)
+    writePangenome(pangenome, filename, args.force)
+
+    predictHotspots(pangenome, args.output, interest=args.interest)
 
     if args.rarefaction:
         makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
