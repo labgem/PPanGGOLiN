@@ -14,11 +14,13 @@ import os
 
 #local modules
 import ppanggolin.pangenome
-import ppanggolin.nem
+import ppanggolin.nem.partition
+import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
-import ppanggolin.workflow
+import ppanggolin.workflow.workflow
+import ppanggolin.workflow.panRGP
 import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
@@ -71,6 +73,7 @@ def cmdLine():
     desc = "\n"
     desc += "  Basic:\n"
     desc += "    workflow      Easy workflow to run a pangenome analysis in one go without parameter tuning\n"
+    desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection without parameter tuning\n"
     desc += "  \n"
     desc += "  Expert:\n"
     desc += "    annotate      Annotate genomes\n"
@@ -100,7 +103,8 @@ def cmdLine():
     subs.append(ppanggolin.graph.graphSubparser(subparsers))
     subs.append(ppanggolin.nem.partition.partitionSubparser(subparsers))
     subs.append(ppanggolin.nem.rarefaction.rarefactionSubparser(subparsers))
-    subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
+    subs.append(ppanggolin.workflow.workflow.workflowSubparser(subparsers))
+    subs.append(ppanggolin.workflow.panRGP.panRGPSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
     subs.append(ppanggolin.align.alignSubparser(subparsers))
@@ -160,7 +164,7 @@ def main():
     elif args.subcommand == "partition":
         ppanggolin.nem.partition.launch(args)
     elif args.subcommand == "workflow":
-        ppanggolin.workflow.launch(args)
+        ppanggolin.workflow.workflow.launch(args)
     elif args.subcommand == "rarefaction":
         ppanggolin.nem.rarefaction.launch(args)
     elif args.subcommand == "draw":
@@ -175,6 +179,8 @@ def main():
         ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "hotspot":
         ppanggolin.RGP.hotspot.launch(args)
+    elif args.subcommand == "panrgp":
+        ppanggolin.workflow.panRGP.launch(args)
 
 if __name__ == "__main__":
     main()

@@ -462,7 +462,6 @@ def draw_spots(spots, output, overlapping_match, exact_match, set_size, multigen
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    # if args.flanking_graph or args.spot_graph:
     mkOutdir(args.output, args.force)
     predictHotspots(pangenome, args.output, spot_graph=args.spot_graph, flanking_graph=args.flanking_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest)
 

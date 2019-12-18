@@ -69,8 +69,8 @@ def launch(args):
     printInfo(filename, content = True)
 
 
-def workflowSubparser(subparser):
-    parser = subparser.add_parser("workflow", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def panRGPSubparser(subparser):
+    parser = subparser.add_parser("panrgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title = "Input arguments", description = "The possible input arguments :")
     required.add_argument('--fasta',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism. This option can be used alone.")
@@ -82,4 +82,5 @@ def workflowSubparser(subparser):
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
     optional.add_argument("--rarefaction", required=False, action = "store_true", help = "Use to compute the rarefaction curves (WARNING: can be time consumming)")
     optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 3. If under 3, it will be detected automatically.")
+    optional.add_argument("--interest",required=False, type=str, default="",help = "Comma separated list of elements to flag when drawing and writing hotspots")
     return parser
