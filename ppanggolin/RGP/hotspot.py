@@ -158,9 +158,6 @@ def predictHotspots(pangenome, output, spot_graph = False, flanking_graph = Fals
 
     spots = makeSpotGraph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size, exact_match)
 
-    nb_above1perc = len([ rgps for _, rgps in spots if len(rgps) > len(pangenome.organisms) * 0.05 and len(getUniqRGP(rgps)) > max(len(pangenome.organisms) * 0.01, 2)])
-    logging.getLogger().info(f"There are {len(spots)} spots in this pangenome, and {nb_above1perc} of them have RGPs in more than 5% of the organisms that have diverse gene content")
-
     if flanking_graph:
         makeFlanking(spots, output)
 
@@ -242,18 +239,13 @@ def summarize_spots(spots, output, nbFamLimit):
 
 def writeSpots(spots, output, elements):
     fout = open(output + "/spots.tsv","w")
-    fout.write("spot_id\trgp_id\torganism\tcontig\tstart\tstop\tnbgenes\tinterest\n")
+    fout.write("spot_id\trgp_id\tinterest\n")
     n_spot = 0
     for spot in spots:
         for rgp in spot[1]:
-            curr_intest = []
-            curr_intest.extend([rna.name if rna.name != "" else rna.type for rna in rgp.getRNAs()])
-            for gene in rgp.contig.genes[rgp.start:rgp.stop]:
-                for el in elements:
-                    if gene.name == el or el in gene.product:
-                        curr_intest.append(el)
+            curr_intest = defineElementsOfInterest(rgp.genes, elements)
 
-            fout.write(f"spot_{n_spot}\t{rgp.name}\t{rgp.organism.name}\t{rgp.contig.name}\t{rgp.start}\t{rgp.stop}\t{len(rgp.genes)}\t")
+            fout.write(f"spot_{n_spot}\t{rgp.name}\t")
             fout.write("-\n" if len(curr_intest) == 0 else ','.join(curr_intest)+"\n")
         n_spot+=1
     fout.close()
