@@ -83,6 +83,7 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi ):
     mat = []
     prev = None
     nbPerc = 0
+    zeroInd = None
     for gene in contig.genes:
         if gene.family.namedPartition == "persistent" and gene.family not in multi:
             modif = -pow(persistent_penalty, nbPerc)
@@ -92,21 +93,26 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi ):
             nbPerc = 0
 
         curr_score = modif + prev.score if prev is not None else modif
-        curr_state = 1 if curr_score >= 0 else 0
+        if curr_score >= 0:
+            curr_state = 1
+        else:
+            curr_state = 0
+            zeroInd = True
         prev = MatriceNode(curr_state, curr_score, prev, gene)
+        if prev.state == 0:
+            zeroInd = prev
         mat.append(prev)
 
     # if the contig is circular and we're in a rgp state, we need to continue from the "starting" gene until we leave rgp state.
-    if contig.is_circular and curr_state:
+    if contig.is_circular and curr_state and zeroInd is not None:
         #the previous node of the first processed gene is the last node.
         mat[0].prev = prev
-        lastNode = prev#saving the last node that was inserted.
         curr_score = prev.score
         c = 0
         nbPerc = 0
         while curr_state:#while state is rgp.
             matNode = mat[c]
-            if matNode == lastNode:#then we've parsed the entire contig twice. The whole sequence is a rgp so we're stopping the iteration now, otherwise we'll loop indefinitely
+            if matNode == zeroInd:#then we've parsed the entire contig twice. The whole sequence is a rgp so we're stopping the iteration now, otherwise we'll loop indefinitely
                 break
 
             if matNode.gene.family.namedPartition == "persistent" and matNode.gene.family not in multi:
