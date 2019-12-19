@@ -176,11 +176,69 @@ def predictHotspots(pangenome, output, spot_graph = False, flanking_graph = Fals
         drawn_spots = select_spots(pangenome, spots, elements)
         if len(drawn_spots)>0:
             draw_spots(drawn_spots, output, overlapping_match, exact_match, set_size, multigenics, elements)#TODO: add a parameter to control how much presence is needed for a 'hotspot'
-    
+
+    all_spot_fams = set()
+    for spot in spots:
+        for rgp in spot[1]:
+            all_spot_fams |= rgp.families
+    maxHTg = uniform_spots(len(spots),len(all_spot_fams) )
+
     if write_spots:
         writeSpots(spots, output, elements)
+        summarize_spots(spots, output, maxHTg)
         writeBorders_spots(spots,pangenome, output)
     return spots
+
+def uniform_spots(S, N):
+    logging.getLogger().info(f"There are {N} gene families among {S} spots")
+    el1 = int(N / 3)#number of 1 gene elements
+    el3 = int(((2*N) / 3)/3)#number of 3 gene elements
+    logging.getLogger().info(f"There are {el1} elements of 1 gene and {el3} elements of 3 genes")
+    # p_el = 1 / S#proba of an element to be placed in a given spot
+    maxHTdist = []
+
+    from random import randint, shuffle
+    from numpy import percentile
+
+    
+    els = [1] * el1 + [3] * el3
+    for _ in range(1000):
+        th_spots = Counter()
+        shuffle(els)
+        for i in els:
+            th_spots[randint(1,S)]+=i
+        maxHTdist.append(th_spots.most_common(1)[0][1])
+    return percentile(maxHTdist, 95)
+
+def summarize_spots(spots, output, nbFamLimit):
+    fout = open(output + "/summarize_spots.tsv","w")
+    fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tstatus\n")
+    logging.getLogger().info("Computing sorensen, turnover and nestedness indexes for spots with more than 1 rgp...")
+    n_spot = 0
+    bar = tqdm(spots, unit = "spot")#can multi
+    for spot in bar:
+        if len(spot[1]) > 1:
+            tot_fams = set()
+            summin = 0
+            summax = 0
+            rgp_list = list(spot[1])
+            nbuniq = len(getUniqRGP(spot[1]))
+            for i, rgp in enumerate(rgp_list[:-1]):
+                tot_fams |= rgp.families
+                for rgp2 in rgp_list[i+1:]:
+                    interfams = set(rgp.families) & set(rgp2.families)
+                    summin += min(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams))
+                    summax += max(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams))
+            tot_fams |= rgp_list[-1].families
+            sumSiSt = sum([ len(rgp.families) for rgp in rgp_list ])-len(tot_fams)
+            sorensen = (summin + summax) / (2*sumSiSt + summin + summax )
+            turnover = summin / (sumSiSt + summin)
+            nestedness = sorensen - turnover
+            status = "hotspot" if nbFamLimit <= len(tot_fams) else "coldspot"
+            fout.write("\t".join(map(str,[f"spot_{n_spot}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq, status])) + "\n")
+        n_spot+=1
+    bar.update()
+    fout.close()
 
 def writeSpots(spots, output, elements):
     fout = open(output + "/spots.tsv","w")
