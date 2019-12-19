@@ -39,6 +39,10 @@ class Region:
             raise TypeError("Unexpected class / type for " + type(value) +" when adding it to a region of genomic plasticity")
 
     @property
+    def families(self):
+        return { gene.family for gene in self.genes }
+
+    @property
     def start(self):
         return min(self.genes, key = lambda x : x.start).start
 
