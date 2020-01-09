@@ -235,7 +235,7 @@ def summarize_spots(spots, output, nbFamLimit):
             turnover = summin / (sumSiSt + summin)
             nestedness = sorensen - turnover
             status = "hotspot" if nbFamLimit <= len(tot_fams) else "coldspot"
-            fout.write("\t".join(map(str,[f"spot_{n_spot}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq, genome_fluidity, status])) + "\n")
+            fout.write("\t".join(map(str,[f"spot_{n_spot}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq, spot_fluidity, status])) + "\n")
         n_spot+=1
     bar.update()
     fout.close()
