@@ -34,6 +34,19 @@ def spot_distribution(spots, pangenome, output):
         fdistrib.write(str(len(rgps)) + "\t" + str(len(getUniqRGP(rgps))) + "\t" + str(round(len(rgps) / len(pangenome.organisms),2)) +"\n")
     fdistrib.close()
 
+def countUniqRGP(rgpList):
+    uniqRGP = Counter()
+    for rgp in rgpList:
+        z = True
+        for seenRgp in uniqRGP:
+            if rgp == seenRgp:
+                z = False
+                uniqRGP[seenRgp]+=1
+                break
+        if z:
+            uniqRGP[rgp] +=1
+    return uniqRGP
+
 def getUniqRGP(rgpList):
         uniqRGP = set()
         for rgp in rgpList:
@@ -220,14 +233,16 @@ def summarize_spots(spots, output, nbFamLimit):
             spot_fluidity=0
             summax = 0
             rgp_list = list(spot[1])
-            nbuniq = len(getUniqRGP(spot[1]))
-            for i, rgp in enumerate(rgp_list[:-1]):
+            uniq_dic = countUniqRGP(spot[1])
+            uniq_list = list(uniq_dic.keys())
+            nbuniq = len(uniq_list)
+            for i, rgp in enumerate(uniq_list[:-1]):
                 tot_fams |= rgp.families
-                for rgp2 in rgp_list[i+1:]:
+                for rgp2 in uniq_list[i+1:]:
                     interfams = set(rgp.families) & set(rgp2.families)
-                    spot_fluidity += ((len(rgp.families) - len(interfams)) + (len(rgp2.families) - len(interfams))) / (len(rgp.families) + len(rgp2.families))
-                    summin += min(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams))
-                    summax += max(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams))
+                    spot_fluidity += (((len(rgp.families) - len(interfams)) + (len(rgp2.families) - len(interfams))) / (len(rgp.families) + len(rgp2.families))) * uniq_dic[rgp] * uniq_dic[rgp2]
+                    summin += min(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams)) * uniq_dic[rgp] * uniq_dic[rgp2]
+                    summax += max(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams)) * uniq_dic[rgp] * uniq_dic[rgp2]
             tot_fams |= rgp_list[-1].families
             spot_fluidity = (2 /(len(rgp_list) * (len(rgp_list) - 1))) * spot_fluidity
             sumSiSt = sum([ len(rgp.families) for rgp in rgp_list ])-len(tot_fams)
