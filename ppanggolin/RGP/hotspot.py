@@ -9,7 +9,9 @@ import os
 from collections import defaultdict, Counter
 import random
 from operator import attrgetter
-from statistics import mean
+from statistics import mean, variance
+from random import randint, shuffle
+
 #installed libraries
 from tqdm import tqdm, trange
 import networkx as nx
@@ -20,6 +22,7 @@ from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
 from scipy.cluster.hierarchy import linkage, dendrogram
 import colorlover as cl
+from numpy import percentile
 
 #local libraries
 from ppanggolin.pangenome import Pangenome, Region
@@ -33,6 +36,18 @@ def spot_distribution(spots, pangenome, output):
     for rgps in spots:
         fdistrib.write(str(len(rgps)) + "\t" + str(len(getUniqRGP(rgps))) + "\t" + str(round(len(rgps) / len(pangenome.organisms),2)) +"\n")
     fdistrib.close()
+
+def countUniqContent(rgpList):
+    uniqRGP = Counter()
+    for rgp in rgpList:
+        z = True
+        for seenRgp in uniqRGP:
+            if rgp.families == seenRgp.families:
+                z = False
+                uniqRGP[seenRgp] +=1
+        if z:
+            uniqRGP[rgp]+=1
+    return uniqRGP
 
 def countUniqRGP(rgpList):
     uniqRGP = Counter()
@@ -196,7 +211,7 @@ def predictHotspots(pangenome, output, spot_graph = False, flanking_graph = Fals
     if write_spots:
         writeSpots(spots, output, elements)
         summarize_spots(spots, output, maxHTg)
-        writeBorders_spots(spots,pangenome, output)
+        #writeBorders_spots(spots,pangenome, output)
     return spots
 
 def uniform_spots(S, N):
@@ -207,10 +222,6 @@ def uniform_spots(S, N):
     # p_el = 1 / S#proba of an element to be placed in a given spot
     maxHTdist = []
 
-    from random import randint, shuffle
-    from numpy import percentile
-
-    
     els = [1] * el1 + [3] * el3
     for _ in trange(1000, unit = "sample"):
         th_spots = Counter()
@@ -222,7 +233,7 @@ def uniform_spots(S, N):
 
 def summarize_spots(spots, output, nbFamLimit):
     fout = open(output + "/summarize_spots.tsv","w")
-    fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tspot_fluidity\tmean_nb_gene\tstatus\n")
+    fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tnb_content\tmean_spot_fluidity\tvar_spot_fluidity\tmean_nb_genes\tvar_nb_genes\tstatus\n")
     logging.getLogger().info("Computing sorensen, turnover and nestedness indexes for spots with more than 1 rgp...")
     n_spot = 0
     bar = tqdm(spots, unit = "spot")#can multi
@@ -230,31 +241,36 @@ def summarize_spots(spots, output, nbFamLimit):
         if len(spot[1]) > 1:
             tot_fams = set()
             summin = 0
-            spot_fluidity=0
+            spot_fluidity=[]
             summax = 0
             rgp_list = list(spot[1])
+            len_uniq_content = len(countUniqContent(spot[1]))
             uniq_dic = countUniqRGP(spot[1])
             uniq_list = list(uniq_dic.keys())
-            nbuniq = len(uniq_list)
+            nbuniq_organizations = len(uniq_list)
             size_list = []
             for i, rgp in enumerate(uniq_list[:-1]):
                 tot_fams |= rgp.families
                 size_list.append(len(rgp.genes))
+                spot_fluidity.extend([0] * uniq_dic[rgp] )
                 for rgp2 in uniq_list[i+1:]:
                     interfams = set(rgp.families) & set(rgp2.families)
-                    spot_fluidity += (((len(rgp.families) - len(interfams)) + (len(rgp2.families) - len(interfams))) / (len(rgp.families) + len(rgp2.families))) * uniq_dic[rgp] * uniq_dic[rgp2]
+                    spot_fluidity.extend([(((len(rgp.families) - len(interfams)) + (len(rgp2.families) - len(interfams))) / (len(rgp.families) + len(rgp2.families)))] * (uniq_dic[rgp] * uniq_dic[rgp2]))
                     summin += min(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams)) * uniq_dic[rgp] * uniq_dic[rgp2]
                     summax += max(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams)) * uniq_dic[rgp] * uniq_dic[rgp2]
             tot_fams |= rgp_list[-1].families
-            size_list.append(len(rgp_list[-1].genes))
+            size_list.extend([len(rgp_list[-1].genes)] * uniq_dic[uniq_list[-1]] )
+            spot_fluidity.extend([0] * uniq_dic[uniq_list[-1]] )
             mean_size = mean(size_list)
-            spot_fluidity = (2 /(len(rgp_list) * (len(rgp_list) - 1))) * spot_fluidity
+            var_size = variance(size_list)
+            mean_spot_fluidity = mean(spot_fluidity)
+            var_spot_fluidity = variance(spot_fluidity)
             sumSiSt = sum([ len(rgp.families) for rgp in rgp_list ])-len(tot_fams)
             sorensen = (summin + summax) / (2*sumSiSt + summin + summax )
             turnover = summin / (sumSiSt + summin)
             nestedness = sorensen - turnover
             status = "hotspot" if nbFamLimit <= len(tot_fams) else "coldspot"
-            fout.write("\t".join(map(str,[f"spot_{n_spot}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq, spot_fluidity, mean_size, status])) + "\n")
+            fout.write("\t".join(map(str,[f"spot_{n_spot}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,var_spot_fluidity, mean_size,var_size, status])) + "\n")
         n_spot+=1
     bar.update()
     fout.close()
