@@ -9,7 +9,8 @@ import os
 from collections import defaultdict, Counter
 import random
 from operator import attrgetter
-from statistics import mean, variance
+from statistics import mean, stdev
+
 from random import randint, shuffle
 
 #installed libraries
@@ -233,7 +234,7 @@ def uniform_spots(S, N):
 
 def summarize_spots(spots, output, nbFamLimit):
     fout = open(output + "/summarize_spots.tsv","w")
-    fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tnb_content\tmean_spot_fluidity\tvar_spot_fluidity\tmean_nb_genes\tvar_nb_genes\tstatus\n")
+    fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tnb_content\tmean_spot_fluidity\tstdev_spot_fluidity\tmean_nb_genes\tstdev_nb_genes\tfam_limit\tstatus\n")
     logging.getLogger().info("Computing sorensen, turnover and nestedness indexes for spots with more than 1 rgp...")
     n_spot = 0
     bar = tqdm(spots, unit = "spot")#can multi
@@ -262,15 +263,15 @@ def summarize_spots(spots, output, nbFamLimit):
             size_list.extend([len(rgp_list[-1].genes)] * uniq_dic[uniq_list[-1]] )
             spot_fluidity.extend([0] * uniq_dic[uniq_list[-1]] )
             mean_size = mean(size_list)
-            var_size = variance(size_list)
+            stdev_size = stdev(size_list)
             mean_spot_fluidity = mean(spot_fluidity)
-            var_spot_fluidity = variance(spot_fluidity)
+            stdev_spot_fluidity = stdev(spot_fluidity)
             sumSiSt = sum([ len(rgp.families) for rgp in rgp_list ])-len(tot_fams)
             sorensen = (summin + summax) / (2*sumSiSt + summin + summax )
             turnover = summin / (sumSiSt + summin)
             nestedness = sorensen - turnover
             status = "hotspot" if nbFamLimit <= len(tot_fams) else "coldspot"
-            fout.write("\t".join(map(str,[f"spot_{n_spot}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,var_spot_fluidity, mean_size,var_size, status])) + "\n")
+            fout.write("\t".join(map(str,[f"spot_{n_spot}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,stdev_spot_fluidity, mean_size,stdev_size,nbFamLimit, status])) + "\n")
         n_spot+=1
     bar.update()
     fout.close()
