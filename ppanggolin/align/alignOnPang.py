@@ -15,6 +15,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
 from ppanggolin.cluster import writeGeneSequencesFromAnnotations
 from ppanggolin.RGP.genomicIsland import compute_org_rgp
+from ppanggolin.RGP.hotspot import makeSpotGraph, draw_spots
 
 
 def createdb(fileObj, tmpdir):
@@ -217,11 +218,59 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
         logging.getLogger().info("Writing the RGP in a gbff file...")
         writeGbffRegions(annotation, genomeRGP, output)
 
+def getFam2RGP(pang):
+    fam2rgp = defaultdict(list)
+    for rgp in pang.regions:
+        for fam in rgp.families:
+            fam2rgp[fam].append(rgp.name)
+    return fam2rgp
 
-def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1):
+def getFam2spot(pang, output):
+    """ reads a pangenome object and returns a dictionnary of family to RGP and family to spot, that indicates where each family is"""
+    multigenics = pang.get_multigenics(pang.parameters["RGP"]["dup_margin"])
+    ##those are to be replaced as spots should be stored in the pangenome, and in the h5.
+    spots = makeSpotGraph(pang.regions, multigenics, output, overlapping_match = 2, set_size = 3, exact_match = 1)
+    fam2spot = defaultdict(list)
+    n_spot = 0
+    for spot in spots:
+        fams = set()
+        for rgp in spot[1]:
+            fams |= rgp.families
+        for fam in fams:
+            fam2spot[fam].append(n_spot)
+        n_spot+=1
+    return fam2spot, spots, multigenics
+
+def add_spot_str(a):
+    return "spot_" + str(a)
+
+def getProtInfo(prot2pang, pangenome, output, cpu):
+    finfo = open(output+"/info_input_prot.tsv","w")
+    finfo.write("family\trgp_list\tspot_list\n")
+    fam2rgp = getFam2RGP(pangenome)
+    fam2spot, spots, multigenics= getFam2spot(pangenome, output)
+    spot_list = set()
+    for prot, panfam in prot2pang.items():
+        finfo.write(prot +'\t' + ','.join(fam2rgp[panfam])+"\t" + ",".join(map(add_spot_str, fam2spot[panfam])) + "\n")
+        spot_list |= set(fam2spot[panfam])
+    finfo.close()
+
+    #getting only the spots that we are interested in here.
+    spot_interest = [None] * len(spots)
+    for spot_id in spot_list:
+        spot_interest[spot_id] = spots[spot_id]
+
+    draw_spots(spot_interest, output, cpu, 2, 1, 3, multigenics, "RNA")
+
+    logging.getLogger().info(f"File listing RGP and spots where proteins of interest are located : '{output+'/info_input_prot.tsv'}'")
+
+def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, getinfo = False):
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
-    checkPangenomeInfo(pangenome, needFamilies=True)
+    if getinfo:
+        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True)
+    else:
+        checkPangenomeInfo(pangenome, needFamilies=True)
 
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir = newtmpdir.name)
@@ -235,6 +284,9 @@ def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, 
     prot2pang = readAlignments(alignFile, pangenome)
     partProj = projectPartition(prot2pang, protSet, output)
 
+    if getinfo:
+        getProtInfo(prot2pang, pangenome, output, cpu)
+
     logging.getLogger().info(f"{len(prot2pang)} proteins over {len(protSet)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{alignFile}'")
     logging.getLogger().info(f"proteins partition projection : '{partProj}'")
@@ -246,7 +298,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.proteins is not None:
-        align(pangenome, args.proteins, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu)
+        align(pangenome, args.proteins, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.getinfo)
 
     if args.annotation is not None:
         projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.translation_table)
@@ -267,4 +319,5 @@ def alignSubparser(subparser):
     optional.add_argument('--identity', required = False, type = float, default=0.5, help = "min identity percentage threshold")
     optional.add_argument('--coverage', required = False, type = float, default=0.8, help = "min coverage percentage threshold")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
+    optional.add_argument("--getinfo", required=False, action="store_true",help = "Use this option to extract info related to the best hit of each query, such as the RGP it is in, or the spots.")
     return parser
