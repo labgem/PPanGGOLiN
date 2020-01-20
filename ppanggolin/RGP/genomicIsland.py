@@ -168,10 +168,10 @@ def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min
 
 def write_GI(pangenome, output):
     fname = open(output + "/plastic_regions.tsv","w")
-    fname.write("id\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\n")
+    fname.write("id\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
     regions = sorted(pangenome.regions, key = lambda x : (x.organism.name, x.contig.name, x.start))
     for region in regions:
-        fname.write('\t'.join(map(str,[region.name, region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder]))+"\n")
+        fname.write('\t'.join(map(str,[region.name, region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder, region.isWholeContig]))+"\n")
 
 
 def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1, write_gis = True):

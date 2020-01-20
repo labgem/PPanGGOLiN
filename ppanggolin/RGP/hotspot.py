@@ -234,6 +234,48 @@ def write_RGP_content_graph(spots, output):
             nx.write_gexf(s_g, output + f"/spot_{n_spot}.gexf")
         n_spot+=1
 
+def subgraph(spot, output, filename, with_border=True, set_size=3, multigenics = None):
+    """ write a pangenome subgraph of the gene families of a spot in gexf format"""
+    g = nx.Graph()
+    for rgp in spot:
+        if with_border:
+            borders = rgp.getBorderingGenes(set_size, multigenics)
+            minpos = min([ gene.position for border in borders for gene in border ])
+            maxpos = max([ gene.position for border in borders for gene in border ])
+        else:
+            minpos = rgp.startGene.position
+            maxpos = rgp.stopGene.position
+        GeneList = rgp.contig.genes[minpos:maxpos+1]
+        prev = None
+        for gene in GeneList:
+            g.add_node(gene.family.name, partition = gene.family.namedPartition)
+            try:
+                g.nodes[gene.family.name]["occurrence"] += 1
+            except KeyError:
+                g.nodes[gene.family.name]["occurrence"] = 1
+            if gene.name != "":
+                if "name" in g.nodes[gene.family.name]:
+                    try:
+                        g.nodes[gene.family.name]["name"][gene.name] +=1
+                    except KeyError:
+                        g.nodes[gene.family.name]["name"][gene.name] = 1
+                else:
+                    g.nodes[gene.family.name]["name"] = Counter([gene.name])
+            if prev is not None:
+                g.add_edge(gene.family.name, prev)
+                try:
+                    g[gene.family.name][prev]["rgp"].add(rgp)
+                except KeyError:
+                    g[gene.family.name][prev]["rgp"] = set(rgp)
+            prev = gene.family.name
+    for node1, node2 in g.edges:
+        g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot)
+        del g[node1][node2]["rgp"]
+    for node in g.nodes:
+        if "name" in g.nodes[node]:
+            g.nodes[node]["name"] = g.nodes[node]["name"].most_common(1)[0][0]
+
+    nx.write_gexf(g, output+"/"+filename)
 
 def uniform_spots(S, N):
     logging.getLogger().info(f"There are {N} gene families among {S} spots")
@@ -432,9 +474,9 @@ def defineElementsOfInterest(genelist, elements):
             present_EOI.add(gene.type)
         if 'integrase' in gene.product.lower():
             present_EOI.add('integrase')
-        if hasattr(gene, "family"):
-            if gene.family.name in elements:
-                present_EOI.add(gene.name)
+        # if hasattr(gene, "family"):
+        #     if gene.family.name in elements:
+        #         present_EOI.add(gene.family.name)
         if gene.name in elements or any(x in gene.product for x in elements):
             present_EOI.add(gene.name)
     return present_EOI
@@ -540,12 +582,10 @@ def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, mul
             #order unique rgps by occurrences
             sortedUniqRGPs = sorted(uniqRGPS, key = lambda x : countUniq[x], reverse=True)
             for rgp in sortedUniqRGPs:
-                GeneList = []
                 borders = rgp.getBorderingGenes(set_size, multigenics)
                 minpos = min([ gene.position for border in borders for gene in border ])
                 maxpos = max([ gene.position for border in borders for gene in border ])
                 GeneList = rgp.contig.genes[minpos:maxpos+1]
-                print(len(GeneList))
                 minstart = min([ gene.start for border in borders for gene in border ])
                 maxstop = max([ gene.stop for border in borders for gene in border ])
                 RNAstoadd = set()

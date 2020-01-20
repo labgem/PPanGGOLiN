@@ -67,6 +67,13 @@ class Region:
         return self.genes[0].contig
 
     @property
+    def isWholeContig(self):
+        """ Indicates if the region is an entire contig """
+        if self.startGene.position == 0 and self.stopGene.position == len(self.contig.genes)-1:
+            return True
+        return False
+
+    @property
     def isContigBorder(self):
         if len(self.genes) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")

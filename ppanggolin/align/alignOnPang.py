@@ -15,7 +15,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
 from ppanggolin.cluster import writeGeneSequencesFromAnnotations
 from ppanggolin.RGP.genomicIsland import compute_org_rgp
-from ppanggolin.RGP.hotspot import makeSpotGraph, draw_spots
+from ppanggolin.RGP.hotspot import makeSpotGraph, draw_spots, subgraph
 
 
 def createdb(fileObj, tmpdir):
@@ -244,6 +244,12 @@ def getFam2spot(pang, output):
 def add_spot_str(a):
     return "spot_" + str(a)
 
+def draw_spot_gexf(spots, output, multigenics, set_size = 3):
+    for i, spot in enumerate(spots):
+        if spot is not None:
+            fname = "spot_" + str(i) + ".gexf"
+            subgraph(spot[1],output, fname, set_size=set_size, multigenics=multigenics)
+
 def getProtInfo(prot2pang, pangenome, output, cpu):
     finfo = open(output+"/info_input_prot.tsv","w")
     finfo.write("family\trgp_list\tspot_list\n")
@@ -260,7 +266,8 @@ def getProtInfo(prot2pang, pangenome, output, cpu):
     for spot_id in spot_list:
         spot_interest[spot_id] = spots[spot_id]
 
-    draw_spots(spot_interest, output, cpu, 2, 1, 3, multigenics, "RNA")
+    draw_spots(spot_interest, output, cpu, 2, 1, 3, multigenics, [])
+    draw_spot_gexf(spot_interest, output, multigenics = multigenics)
 
     logging.getLogger().info(f"File listing RGP and spots where proteins of interest are located : '{output+'/info_input_prot.tsv'}'")
 
