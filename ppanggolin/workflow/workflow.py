@@ -28,20 +28,28 @@ def launch(args):
             getSeq = False
         readAnnotations(pangenome, args.anno, getSeq)
         writePangenome(pangenome, filename, args.force)
-        if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
+        if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta_list is None and args.fastas is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
 
-        elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is not None:
-            getGeneSequencesFromFastas(pangenome, args.fasta)
+        elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta_list is not None:
+            getGeneSequencesFromFastas(pangenome, args.fasta_list)
+
+        elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fastas is not None:
+            getGeneSequencesFromFastas(pangenome, args.fastas)
 
         if args.clusters is not None:
             readClustering(pangenome, args.clusters)
 
         elif args.clusters is None:#we should have the sequences here.
             clustering(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, defrag = args.defrag)
-    elif args.fasta is not None:
+    elif args.fasta_list is not None:
         pangenome = Pangenome()
-        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
+        annotatePangenome(pangenome, args.fasta_list, args.tmpdir, args.cpu, fastaList=True)
+        writePangenome(pangenome, filename, args.force)
+        clustering(pangenome, tmpdir = args.tmpdir,cpu = args.cpu, defrag = args.defrag)
+    elif args.fastas is not None:
+        pangenome = Pangenome()
+        annotatePangenome(pangenome, args.fastas, args.tmpdir, args.cpu, fastaList=False)
         writePangenome(pangenome, filename, args.force)
         clustering(pangenome, tmpdir = args.tmpdir,cpu = args.cpu, defrag = args.defrag)
 
@@ -60,13 +68,13 @@ def launch(args):
 
     printInfo(filename, content = True)
 
-
 def workflowSubparser(subparser):
     parser = subparser.add_parser("workflow", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title = "Input arguments", description = "The possible input arguments :")
-    required.add_argument('--fasta',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism. This option can be used alone.")
-    required.add_argument('--anno', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
+    required.add_argument('--fasta_list',  required=False, type=str, help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism. This option can be used alone. If this option is used the option --fastas is ignored")
+    required.add_argument('--fastas',  required=False, nargs='+', type=str, help="All the fasta files to be used, the filepaths will be used as organism names.")
+    required.add_argument('--anno', required=False, type=str, help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise the argument --fasta_list or --fastas needs to be used.")
     required.add_argument("--clusters",required=False, type=str, help = "a tab-separated file listing the cluster names, the gene IDs, and optionnally whether they are a fragment or not.")
 
     optional = parser.add_argument_group(title = "Optional arguments")

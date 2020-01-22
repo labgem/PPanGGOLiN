@@ -47,7 +47,7 @@ PPanGGOLiN has a minimal command for the non-expert users :
 
 .. code:: bash
 
-	ppanggolin workflow --fasta ORGANISMS_FASTA_LIST
+	ppanggolin workflow --fasta_list ORGANISMS_FASTA_LIST
 
 It uses parameters that we found to be generally the best when working with species pangenomes.
 
