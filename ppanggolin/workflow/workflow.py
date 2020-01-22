@@ -43,12 +43,10 @@ def launch(args):
         elif args.clusters is None:#we should have the sequences here.
             clustering(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, defrag = args.defrag)
     elif args.fasta_list is not None:
-        pangenome = Pangenome()
         annotatePangenome(pangenome, args.fasta_list, args.tmpdir, args.cpu, fastaList=True)
         writePangenome(pangenome, filename, args.force)
         clustering(pangenome, tmpdir = args.tmpdir,cpu = args.cpu, defrag = args.defrag)
     elif args.fastas is not None:
-        pangenome = Pangenome()
         annotatePangenome(pangenome, args.fastas, args.tmpdir, args.cpu, fastaList=False)
         writePangenome(pangenome, filename, args.force)
         clustering(pangenome, tmpdir = args.tmpdir,cpu = args.cpu, defrag = args.defrag)
