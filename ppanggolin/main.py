@@ -42,9 +42,18 @@ def checkTsvSanity(tsv):
         if not os.path.exists(elements[1]):
             nonExistingFiles.add(elements[1])
     if len(nonExistingFiles) != 0:
-        raise Exception(f"Some of the given files do not exist. The non-existing files are the following : '{' '.join(nonExistingFiles)}'")
+        raise FileNotFoundError(f"Some of the given files do not exist. The non-existing files are the following : '{' '.join(nonExistingFiles)}'")
     if len(duplicatedNames) != 0:
         raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : '{' '.join(duplicatedNames)}'")
+
+def check_files_sanify(list_of_files):
+    """ takes an Iterable containing filepaths, and checks that they all exist or throws an error indicating which file did not exist"""
+    nonExistingFiles = set()
+    for fname in list_of_files:
+        if not os.path.exists(fname):
+            nonExistingFiles.add(fname)
+    if len(nonExistingFiles) != 0:
+        raise FileNotFoundError(f"Some of the given files do not exist. The non-existing files are the following : '{' '.join(nonExistingFiles)}'")
 
 def checkInputFiles(anno=None, pangenome=None, fasta=None):
     """
@@ -122,18 +131,19 @@ def cmdLine():
     args = parser.parse_args()
     if args.subcommand == "annotate":
         if args.fasta_files is None and args.fasta_list is None and args.anno is None:
-            raise Exception( "You must provide at least a file with the --fasta_list or the --fasta_files option to annotate from sequences, or a file with the --gff option to load annotations from.")
+            raise Exception( "You must provide at least a file with the --fasta_list or the --fasta_files option to annotate from sequences, or a file with the --anno option to load annotations from.")
     return args
 
 def main():
     args = cmdLine()
-
     if hasattr(args, "pangenome"):
         checkInputFiles(pangenome = args.pangenome)
-    if hasattr(args, "fasta"):
-        checkInputFiles(fasta = args.fasta)
+    if hasattr(args, "fasta_list"):
+        checkInputFiles(fasta = args.fasta_list)
     if hasattr(args,"anno"):
         checkInputFiles(anno = args.anno)
+    if hasattr(args, "fasta_files") and args.fasta_files is not None:
+        check_files_sanify(args.fasta_files)
 
     if hasattr(args, "verbose"):
         if args.verbose == 2:
