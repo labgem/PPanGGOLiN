@@ -29,7 +29,7 @@ def detect_filetype(filename):
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
-def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11, protein_id = ""):
+def create_gene(org, contig, geneCounter, rnaCounter, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11, protein_id = ""):
     if any('MaGe' in dbref for dbref in dbxref):
         if gene_name == "":
             gene_name = ID
@@ -40,7 +40,8 @@ def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, positio
     if gene_type == "CDS":
         if ID == "":
             ID = protein_id#on rare occasions, there are no 'locus_tag' from downloaded .gbk file. So we use the protein_id field instead. (which is not supposed to be unique, but was when cases like this were encountered)
-        newGene = Gene(ID)
+
+        newGene = Gene(org.name + "_CDS_"+ str(geneCounter).zfill(4))
         newGene.fill_annotations(start = start,
                                 stop = stop,
                                 strand = strand,
@@ -48,10 +49,11 @@ def create_gene(org, contig, ID, dbxref, start, stop, strand, gene_type, positio
                                 position = position,
                                 name = gene_name,
                                 product = product,
-                                genetic_code = genetic_code)
+                                genetic_code = genetic_code,
+                                local_identifier = ID)
         contig.addGene(newGene)
-    else:#either a CDS, or a RNA
-        newGene = RNA(ID)
+    else:# if not CDS, it is a RNA
+        newGene = RNA(org.name + "_RNA_"+ str(rnaCounter).zfill(4))
         newGene.fill_annotations(start = start,
                                 stop = stop,
                                 strand = strand,
@@ -68,6 +70,8 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
     logging.getLogger().debug("Extracting genes informations from the given gbff")
     # revert the order of the file, to read the first line first.
     lines = read_compressed_or_not(gbff_file_path).readlines()[::-1]
+    geneCounter = 0
+    rnaCounter = 0
     while len(lines) != 0:
         line = lines.pop()
         # beginning of contig
@@ -107,7 +111,11 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             currType = line[5:21].strip()
             if currType != "":
                 if usefulInfo:
-                    create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code, protein_id)
+                    create_gene(org, contig, geneCounter, rnaCounter, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code, protein_id)
+                    if objType == "CDS":
+                        geneCounter+=1
+                    else:
+                        rnaCounter+=1
                 usefulInfo = False
                 objType = currType
                 if objType in ['CDS','rRNA','tRNA']:
@@ -157,8 +165,11 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             line = lines.pop()
             #end of contig
         if usefulInfo:#saving the last element...
-            create_gene(org, contig, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code, protein_id)
-
+            create_gene(org, contig, geneCounter, rnaCounter, locus_tag, dbxref, start, end, strand, objType, len(contig.genes), gene_name, product, genetic_code, protein_id)
+            if objType == "CDS":
+                geneCounter+=1
+            else:
+                rnaCounter+=1
         if getSeq:
             line = lines.pop()#first sequence line.
             #if the seq was to be gotten, it would be here.
@@ -206,6 +217,8 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq, p
     hasFasta = False
     fastaString = ""
     org = Organism(organism)
+    geneCounter = 0
+    rnaCounter = 0
     with read_compressed_or_not(gff_file_path) as gff_file:
         for line in gff_file:
             if hasFasta:
@@ -253,7 +266,8 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq, p
                 if contig.name != gff_fields[GFF_seqname]:
                     contig = org.getOrAddContig(gff_fields[GFF_seqname])#get the current contig
                 if gff_fields[GFF_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
-                    gene = Gene(geneID)
+                    gene = Gene(org.name + "_CDS_"+ str(geneCounter).zfill(4))
+
                     #here contig is filled in order, so position is the number of genes already stored in the contig.
                     gene.fill_annotations(start = int(gff_fields[GFF_start]),
                                         stop = int(gff_fields[GFF_end]),
@@ -262,20 +276,23 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq, p
                                         position = len(contig.genes),
                                         name = name,
                                         product=product,
-                                        genetic_code = genetic_code )
+                                        genetic_code = genetic_code,
+                                        local_identifier = geneID )
                     gene.fill_parents(org, contig)
                     contig.addGene(gene)
+                    geneCounter +=1
                 elif "RNA" in gff_fields[GFF_type]:
-                    rna = RNA(geneID)
+                    rna = RNA(org.name + "_CDS_"+ str(rnaCounter).zfill(4))
                     rna.fill_annotations(start = int(gff_fields[GFF_start]),
                                         stop = int(gff_fields[GFF_end]),
                                         strand =gff_fields[GFF_strand],
                                         geneType = gff_fields[GFF_type],
                                         name = name,
-                                        product=product)
+                                        product=product,
+                                        local_identifier = geneID)
                     rna.fill_parents(organism, contig)
                     contig.addRNA(rna)
-
+                    rnaCounter+=1
     ### GET THE FASTA SEQUENCES OF THE GENES
     if hasFasta and fastaString != "":
         contigSequences = read_fasta( org, fastaString.split('\n'))

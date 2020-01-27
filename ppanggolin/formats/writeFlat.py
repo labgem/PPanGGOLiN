@@ -64,7 +64,8 @@ def writeJSONGeneFam(geneFam, json):
                 contigstr.append('"' + contig.name + '": {')
                 genestr = []
                 for gene in orgDict[org][contig]:
-                    genestr.append('"' + gene.ID + '": {' + f'"name": "{gene.name}", "product": "{gene.product}", "is_fragment": {"true" if gene.is_fragment else "false"}, "position": {gene.position}, "strand": "{gene.strand}", "end": {gene.stop}, "start": {gene.start}'+'}')
+                    identifier = gene.ID if gene.local_identifier == "" else gene.local_identifier
+                    genestr.append('"' + identifier + '": {' + f'"name": "{gene.name}", "product": "{gene.product}", "is_fragment": {"true" if gene.is_fragment else "false"}, "position": {gene.position}, "strand": "{gene.strand}", "end": {gene.stop}, "start": {gene.start}'+'}')
                 contigstr[-1] += ", ".join(genestr) + "}"
             orgstr[-1] += ", ".join(contigstr) + "}"
         json.write(", ".join(orgstr) + "}}")
@@ -178,7 +179,7 @@ def writeGEXFnodes(gexf, light, soft_core = 0.95):
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
         if not light:
             for org, genes in fam.getOrgDict().items():
-                gexf.write(f'          <attvalue for="{index[org]+12}" value="{"|".join([ gene.ID for gene in genes])}" />\n')
+                gexf.write(f'          <attvalue for="{index[org]+12}" value="{"|".join([ gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in genes])}" />\n')
         gexf.write(f'        </attvalues>\n')
         gexf.write(f'      </node>\n')
     gexf.write('    </nodes>\n')
@@ -402,7 +403,7 @@ def writeOrgFile(org, output, compress=False):
                         nb_shell+=1
                     else:
                         nb_cloud+=1
-                outfile.write("\t".join(map(str,[gene.ID,
+                outfile.write("\t".join(map(str,[ gene.ID if gene.local_identifier == "" else gene.local_identifier,
                                         contig.name,
                                         gene.start,
                                         gene.stop,
@@ -460,7 +461,7 @@ def writeGeneFamiliesTSV(output, compress=False):
     with write_compressed_or_not(outname,compress) as tsv:
         for fam in pan.geneFamilies:
             for gene in fam.genes:
-            	tsv.write("\t".join([fam.name,gene.ID])+"\n")
+            	tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier])+"\n")
     logging.getLogger().info(f"Done writing the file providing the association between genes and gene families : '{outname}'")
 
 def writeFastaGenFam(output, compress=False):
@@ -586,7 +587,7 @@ def writeFlatSubparser(subparser):
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o','--output', required=True, type=str, help="Output directory where the file(s) will be written")
     optional = parser.add_argument_group(title = "Optional arguments")
-    optional.add_argument("--soft_core",required=False, default = 0.95, help = "Soft core threshold to use")
+    optional.add_argument("--soft_core",required=False, type=float, default = 0.95, help = "Soft core threshold to use")
     optional.add_argument("--dup_margin", required=False, default=0.05, help = "minimum ratio of organisms in which the family must have multiple genes for it to be considered 'duplicated'")
     optional.add_argument("--gexf",required = False, action = "store_true", help = "write a gexf file with all the annotations and all the genes of each gene family")
     optional.add_argument("--light_gexf",required = False, action="store_true",help = "write a gexf file with the gene families and basic informations about them")

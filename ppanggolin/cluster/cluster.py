@@ -224,6 +224,18 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", coverage = 
     pangenome.parameters["cluster"]["translation_table"] = code
     pangenome.parameters["cluster"]["read_clustering_from_file"] = False
 
+def mkLocal2Gene(pangenome):
+    """
+        Creates a dictionnary that stores local identifiers, if all local identifiers are unique (and if they exist)
+    """
+    localDict = {}
+    for gene in pangenome.genes:
+        oldLen = len(localDict)
+        localDict[gene.local_identifier] = gene
+        if len(localDict) == oldLen:
+            return {}#local identifiers are not unique.
+    return localDict
+
 def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=False):
     """
         Creates the pangenome, the gene families and the genes with an associated gene family.
@@ -238,6 +250,7 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
     frag = False
     #the genome annotations are necessarily loaded.
     nbGeneWtFam = 0
+    localDict = mkLocal2Gene(pangenome)
     bar = tqdm(total = filesize, unit = "bytes")
     for line in families_tsv_file:
         bar.update(len(line))
@@ -248,6 +261,8 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
         (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
 
         geneObj = pangenome.getGene(gene_id)
+        if geneObj is None:
+            geneObj = localDict.get(gene_id)
         if geneObj is not None:
             nbGeneWtFam+=1
             fam = pangenome.addGeneFamily(fam_id)
@@ -259,7 +274,7 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
     families_tsv_file.close()
     if nbGeneWtFam < len(pangenome.genes):#not all genes have an associated cluster
         if nbGeneWtFam == 0:
-            raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step. Please ensure that the annotations that you loaded previously and the clustering results that you have use the same gene IDs.")
+            raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step. Please ensure that the annotations that you loaded previously and the clustering results that you have used the same gene IDs. If you use .gff files it is the identifier stored in the field 'ID'. If you use .gbff files it is the identifier stored in 'locus_tag'.")
         else:
             if infer_singletons:
                 inferSingletons(pangenome)

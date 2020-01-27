@@ -7,7 +7,7 @@ class Feature:
         self.is_fragment = False
         self.type = ""
 
-    def fill_annotations(self, start, stop, strand, geneType = "", name = "", product="",position = None, genetic_code = 11):
+    def fill_annotations(self, start, stop, strand, geneType = "", name = "", product="", local_identifier = "", position = None, genetic_code = 11):
         #genetic code, and position are not used in the default function.
         self.start = int(start)
         self.stop = int(stop)
@@ -15,6 +15,7 @@ class Feature:
         self.strand = strand
         self.product = product
         self.name = name
+        self.local_identifier = local_identifier
 
     def fill_parents(self, organism, contig):
         self.organism = organism
@@ -37,8 +38,8 @@ class Gene(Feature):
     def __str__(self):
         return str(self.ID)
 
-    def fill_annotations(self, start, stop, strand, geneType = "", name = "", product="", position = None, genetic_code = 11):
-        super().fill_annotations(start, stop, strand, geneType, name, product)
+    def fill_annotations(self, start, stop, strand, geneType = "", name = "", product="", local_identifier = "", position = None, genetic_code = 11):
+        super().fill_annotations(start, stop, strand, geneType, name, product, local_identifier)
         self.position = position
         self.genetic_code = genetic_code
 
@@ -109,7 +110,6 @@ class Organism:
 
     def number_of_genes(self):
         return sum([len(list(contig.genes)) for contig in self.contigs])
-
 
     @property
     def contigs(self):

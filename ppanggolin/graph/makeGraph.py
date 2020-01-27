@@ -28,6 +28,8 @@ def checkPangenomeForNeighborsGraph(pangenome, force):
         pass#nothing to do, can just continue.
     elif pangenome.status["genomesAnnotated"] == "inFile" and pangenome.status["genesClustered"] == "inFile":
         readPangenome(pangenome, annotation = True, geneFamilies=True)
+    elif pangenome.status["genesClustered"] == "No" and pangenome.status["genomesAnnotated"] in ['inFile','Computed','Loaded']:
+        raise Exception("You did not cluster the genes. See the 'ppanggolin cluster' if you want to do that.")
     else:
         #You probably can use readPangenome anyways.
         msg = "Dev : You are probably writing a new workflow with a combination that I did not test. You can probably use readPangenome instead of raising this Error. However please test it carefully.\n"
@@ -59,11 +61,14 @@ def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False):
         for contig in org.contigs:
             prev = None
             for gene in contig.genes:
-                if not gene.family.removed:
-                    if prev is not None:
-                        if not (prev.family == gene.family and (prev.is_fragment or gene.is_fragment)):
-                            pangenome.addEdge(gene, prev)
-                    prev = gene
+                try:
+                    if not gene.family.removed:
+                        if prev is not None:
+                            if not (prev.family == gene.family and (prev.is_fragment or gene.is_fragment)):
+                                pangenome.addEdge(gene, prev)
+                        prev = gene
+                except AttributeError:
+                    raise AttributeError("a Gene does not have a GeneFamily object associated")
             if contig.is_circular and len(contig.genes) > 0:
                 pangenome.addEdge(contig.genes[0],prev)
     logging.getLogger().info("Done making the neighbors graph.")

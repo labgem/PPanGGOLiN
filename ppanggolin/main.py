@@ -48,7 +48,7 @@ def checkTsvSanity(tsv):
         raise Exception(f"Some of the given files do not exist. The non-existing files are the following : '{' '.join(nonExistingFiles)}'")
     if len(duplicatedNames) != 0:
         raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : '{' '.join(duplicatedNames)}'")
-            
+
 def checkInputFiles(anno=None, pangenome=None, fasta=None):
     """
         Checks if the provided input files exist and are of the proper format
