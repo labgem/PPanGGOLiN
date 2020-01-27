@@ -57,6 +57,7 @@ def launch(args):
     writePangenome(pangenome, filename, args.force)
 
     predictHotspots(pangenome, args.output, interest=args.interest)
+    writePangenome(pangenome, filename, args.force)
 
     if args.rarefaction:
         makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)

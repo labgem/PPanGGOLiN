@@ -292,6 +292,37 @@ def writeRGP(pangenome, h5f, force):
     bar.close()
     RGPTable.flush()
 
+def spotDesc(maxRGPLen):
+    return { 
+            'spot': tables.UInt32Col(),
+            'RGP':tables.StringCol(itemsize=maxRGPLen)
+        }
+
+def getSpotDesc(pangenome):
+    maxRGPLen = 1
+    for spot in pangenome.spots:
+        for region in spot.regions:
+            if len(region.name) > maxRGPLen:
+                maxRGPLen = len(region.name)
+    return maxRGPLen
+
+def writeSpots(pangenome, h5f, force):
+    if '/spots' in h5f and force is True:
+        logging.getLogger().info("Erasing the formerly computed spots")
+        h5f.remove_node("/","spots")
+    
+    SpoTable = h5f.create_table("/","spots",spotDesc(getSpotDesc(pangenome)), expectedrows= sum([len(spot.regions) for spot in pangenome.spots]))
+    SpotRow = SpoTable.row
+    bar = tqdm(pangenome.spots, unit="spot")
+    for spot in pangenome.spots:
+        for region in spot.regions:
+            SpotRow["spot"] = spot.ID
+            SpotRow["RGP"] = region.name
+            SpotRow.append()
+    bar.close()
+    SpoTable.flush()
+
+
 def writeStatus(pangenome, h5f):
     if "/status" in h5f:#if statuses are already written
         statusGroup = h5f.root.status
@@ -305,8 +336,9 @@ def writeStatus(pangenome, h5f):
     statusGroup._v_attrs.Partitionned = True if pangenome.status["partitionned"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.predictedRGP = True if pangenome.status["predictedRGP"] in  ["Computed","Loaded","inFile"] else False
-    statusGroup._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
+    statusGroup._v_attrs.spots = True if pangenome.status["spots"] in ["Computed","Loaded","inFile"] else False
 
+    statusGroup._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
 
 def writeInfo(pangenome, h5f):
     """ writes information and numbers to be eventually called with the 'info' submodule """
@@ -366,6 +398,8 @@ def writeInfo(pangenome, h5f):
         infoGroup._v_attrs.numberOfSubpartitions = subpartCounter
     if pangenome.status["predictedRGP"] in ["Computed", "Loaded"]:
         infoGroup._v_attrs.numberOfRGP = len(pangenome.regions)
+    if pangenome.status["spots"] in ["Computed", "Loaded"]:
+        infoGroup._v_attrs.numberOfSpots = len(pangenome.spots)
 
     infoGroup._v_attrs.parameters = pangenome.parameters#saving the pangenome parameters
 
@@ -475,6 +509,12 @@ def writePangenome(pangenome, filename, force):
     if pangenome.status['predictedRGP'] == "Computed":
         logging.getLogger().info("Writing Regions of Genomic Plasticity...")
         writeRGP(pangenome, h5f, force)
+        pangenome.status['predictedRGP'] = "Loaded"
+
+    if pangenome.status["spots"] == "Computed":
+        logging.getLogger().info("Writing Spots of Insertion...")
+        writeSpots(pangenome, h5f, force)
+        pangenome.status['spots'] = "Loaded"
 
     writeStatus(pangenome, h5f)
     writeInfo(pangenome, h5f)

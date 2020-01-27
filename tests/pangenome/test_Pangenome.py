@@ -4,7 +4,9 @@ import pytest
 from random import choices, randint, sample
 
 from ppanggolin.genome import Gene, Organism
-from ppanggolin.pangenome import Edge, GeneFamily, Pangenome
+from ppanggolin.pangenome import Edge, Pangenome
+from ppanggolin.geneFamily import GeneFamily
+
 
 def test_cstr():
     o_pang = Pangenome()

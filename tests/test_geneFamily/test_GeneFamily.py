@@ -5,7 +5,8 @@ from random import randint, sample
 
 from collections import defaultdict
 
-from ppanggolin.pangenome import Edge, GeneFamily
+from ppanggolin.pangenome import Edge
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene
 
 

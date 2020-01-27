@@ -198,17 +198,24 @@ def predictHotspots(pangenome, output, cpu = 1, spot_graph = False, flanking_gra
         if len(drawn_spots)>0:
             draw_spots(drawn_spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements)#TODO: add a parameter to control how much presence is needed for a 'hotspot'
 
-    all_spot_fams = set()
-    for spot in spots:
-        for rgp in spot[1]:
-            all_spot_fams |= rgp.families
-    maxHTg = uniform_spots(len(spots),len(all_spot_fams) )
+    if len(spots) > 0:
+        all_spot_fams = set()
+        for spot in spots:
+            for rgp in spot.regions:
+                all_spot_fams |= rgp.families
+        maxHTg = uniform_spots(len(spots),len(all_spot_fams) )
 
-    if write_spots:
-        writeSpots(spots, output, elements)
-        summarize_spots(spots, output, maxHTg)
-        write_RGP_content_graph(spots, output)
-    return spots
+        if write_spots:
+            writeSpots(spots, output, elements)
+            summarize_spots(spots, output, maxHTg)
+            write_RGP_content_graph(spots, output)
+
+    pangenome.addSpots(spots)
+    pangenome.status["spots"] = "Computed"
+    pangenome.parameters["spots"] = {}
+    pangenome.parameters["spots"]["set_size"] = set_size
+    pangenome.parameters["spots"]["overlapping_match"] = overlapping_match
+    pangenome.parameters["spots"]["exact_match"] = exact_match
 
 def write_RGP_content_graph(spots, output):
     logging.getLogger().info("Writing spots as graphs of rgp linked by shared content..")
@@ -228,47 +235,47 @@ def write_RGP_content_graph(spots, output):
             nx.write_gexf(s_g, output + f"/spot_{spot.ID}.gexf")
 
 def subgraph(spot, output, filename, with_border=True, set_size=3, multigenics = None):
-    """ write a pangenome subgraph of the gene families of a spot in gexf format"""
-    g = nx.Graph()
-    for rgp in spot:
-        if with_border:
-            borders = rgp.getBorderingGenes(set_size, multigenics)
-            minpos = min([ gene.position for border in borders for gene in border ])
-            maxpos = max([ gene.position for border in borders for gene in border ])
-        else:
-            minpos = rgp.startGene.position
-            maxpos = rgp.stopGene.position
-        GeneList = rgp.contig.genes[minpos:maxpos+1]
-        prev = None
-        for gene in GeneList:
-            g.add_node(gene.family.name, partition = gene.family.namedPartition)
-            try:
-                g.nodes[gene.family.name]["occurrence"] += 1
-            except KeyError:
-                g.nodes[gene.family.name]["occurrence"] = 1
-            if gene.name != "":
-                if "name" in g.nodes[gene.family.name]:
-                    try:
-                        g.nodes[gene.family.name]["name"][gene.name] +=1
-                    except KeyError:
-                        g.nodes[gene.family.name]["name"][gene.name] = 1
-                else:
-                    g.nodes[gene.family.name]["name"] = Counter([gene.name])
-            if prev is not None:
-                g.add_edge(gene.family.name, prev)
+        """ write a pangenome subgraph of the gene families of a spot in gexf format"""
+        g = nx.Graph()
+        for rgp in spot.regions:
+            if with_border:
+                borders = rgp.getBorderingGenes(set_size, multigenics)
+                minpos = min([ gene.position for border in borders for gene in border ])
+                maxpos = max([ gene.position for border in borders for gene in border ])
+            else:
+                minpos = rgp.startGene.position
+                maxpos = rgp.stopGene.position
+            GeneList = rgp.contig.genes[minpos:maxpos+1]
+            prev = None
+            for gene in GeneList:
+                g.add_node(gene.family.name, partition = gene.family.namedPartition)
                 try:
-                    g[gene.family.name][prev]["rgp"].add(rgp)
+                    g.nodes[gene.family.name]["occurrence"] += 1
                 except KeyError:
-                    g[gene.family.name][prev]["rgp"] = set(rgp)
-            prev = gene.family.name
-    for node1, node2 in g.edges:
-        g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot)
-        del g[node1][node2]["rgp"]
-    for node in g.nodes:
-        if "name" in g.nodes[node]:
-            g.nodes[node]["name"] = g.nodes[node]["name"].most_common(1)[0][0]
+                    g.nodes[gene.family.name]["occurrence"] = 1
+                if gene.name != "":
+                    if "name" in g.nodes[gene.family.name]:
+                        try:
+                            g.nodes[gene.family.name]["name"][gene.name] +=1
+                        except KeyError:
+                            g.nodes[gene.family.name]["name"][gene.name] = 1
+                    else:
+                        g.nodes[gene.family.name]["name"] = Counter([gene.name])
+                if prev is not None:
+                    g.add_edge(gene.family.name, prev)
+                    try:
+                        g[gene.family.name][prev]["rgp"].add(rgp)
+                    except KeyError:
+                        g[gene.family.name][prev]["rgp"] = set(rgp)
+                prev = gene.family.name
+        for node1, node2 in g.edges:
+            g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot.regions)
+            del g[node1][node2]["rgp"]
+        for node in g.nodes:
+            if "name" in g.nodes[node]:
+                g.nodes[node]["name"] = g.nodes[node]["name"].most_common(1)[0][0]
 
-    nx.write_gexf(g, output+"/"+filename)
+        nx.write_gexf(g, output+"/"+filename)
 
 def uniform_spots(S, N):
     logging.getLogger().info(f"There are {N} gene families among {S} spots")
@@ -293,7 +300,7 @@ def summarize_spots(spots, output, nbFamLimit):
     logging.getLogger().info("Computing sorensen, turnover, nestedness, spot fluidity and other descriptive metrics for spots with more than 1 rgp...")
     bar = tqdm(spots, unit = "spot")#can multi
     for spot in bar:
-        if spot.regions > 1:
+        if len(spot.regions) > 1:
             tot_fams = set()
             summin = 0
             spot_fluidity=[]
@@ -608,6 +615,8 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     mkOutdir(args.output, args.force)
     predictHotspots(pangenome, args.output, cpu = args.cpu, spot_graph=args.spot_graph, flanking_graph=args.flanking_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest)
+    writePangenome(pangenome, pangenome.file, args.force)
+
 
 def hotspotSubparser(subparser):
     parser = subparser.add_parser("spot", formatter_class=argparse.ArgumentDefaultsHelpFormatter)

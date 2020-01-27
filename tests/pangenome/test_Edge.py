@@ -3,7 +3,8 @@
 import pytest
 
 from ppanggolin.genome import Gene
-from ppanggolin.pangenome import Edge, GeneFamily
+from ppanggolin.pangenome import Edge
+from ppanggolin.geneFamily import GeneFamily
 
 def test_cstr_error():
     o_src = Gene('source')

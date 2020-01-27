@@ -7,7 +7,6 @@ from collections.abc import Iterable
 
 #local libraries
 from ppanggolin.genome import Organism, Gene
-from ppanggolin.pangenome import GeneFamily
 
 class Region:
     def __init__(self, ID):
