@@ -25,19 +25,13 @@ from scipy.cluster.hierarchy import linkage, dendrogram
 from numpy import percentile
 
 #local libraries
-from ppanggolin.pangenome import Pangenome, Region
+from ppanggolin.pangenome import Pangenome
+from ppanggolin.region import Region, Spot
 from ppanggolin.formats import checkPangenomeInfo, writePangenome
 from ppanggolin.utils import mkOutdir, jaccard_similarities
 
-
-def spot_distribution(spots, pangenome, output):
-    """takes in spots are a list of sets of rgps"""
-    fdistrib = open(output + "/spot_rgp_distribution.tsv","w")
-    for rgps in spots:
-        fdistrib.write(str(len(rgps)) + "\t" + str(len(getUniqRGP(rgps))) + "\t" + str(round(len(rgps) / len(pangenome.organisms),2)) +"\n")
-    fdistrib.close()
-
 def countUniqContent(rgpList):
+    """ Groups RGP into identical groups based on gene families"""
     uniqRGP = Counter()
     for rgp in rgpList:
         z = True
@@ -50,6 +44,7 @@ def countUniqContent(rgpList):
     return uniqRGP
 
 def countUniqRGP(rgpList):
+    """ Groups RGP into identical groups based on conserved synteny of gene families"""
     uniqRGP = Counter()
     for rgp in rgpList:
         z = True
@@ -132,11 +127,13 @@ def makeSpotGraph(rgps, multigenics, output="", spot_graph=False, overlapping_ma
                 spotGraph.add_edge(nodei, nodej)
 
     spots = []
+    spot_id = 0
     for comp in nx.algorithms.components.connected_components(spotGraph):
-        spots.append([ [], set() ])
+        curr_spot = Spot(spot_id)
+        spots.append(curr_spot)
         for node in comp:
-            spots[-1][1] |= spotGraph.nodes[node]["rgp"]
-            spots[-1][0].append([spotGraph.nodes[node]["border1"], spotGraph.nodes[node]["border0"]])
+            curr_spot.addRegions(spotGraph.nodes[node]["rgp"])
+        spot_id+=1
 
     if spot_graph:
         for node in spotGraph.nodes:
@@ -148,6 +145,7 @@ def makeSpotGraph(rgps, multigenics, output="", spot_graph=False, overlapping_ma
     return spots
 
 def makeFlanking(spots, output):
+    raise NotImplementedError()
     flankGraph = nx.Graph()
     c = 0
     for borders, rgps in spots:
@@ -189,8 +187,6 @@ def predictHotspots(pangenome, output, cpu = 1, spot_graph = False, flanking_gra
     if flanking_graph:
         makeFlanking(spots, output)
 
-    # spot_rgps = [ set(rgps) for _, rgps in spots]#list of rgps, regrouped by spots.
-    #spot_distribution(spot_rgps, pangenome, output)
     #ADD : Associate rgps on contig borders to known spots. (using both gene content and bordering gene families?)
     if interest != "":
         elements = [ el.strip() for el in interest.split(',') ]
@@ -212,15 +208,13 @@ def predictHotspots(pangenome, output, cpu = 1, spot_graph = False, flanking_gra
         writeSpots(spots, output, elements)
         summarize_spots(spots, output, maxHTg)
         write_RGP_content_graph(spots, output)
-        #writeBorders_spots(spots,pangenome, output)
     return spots
 
 def write_RGP_content_graph(spots, output):
     logging.getLogger().info("Writing spots as graphs of rgp linked by shared content..")
     bar = tqdm(spots, unit="spot")
-    n_spot = 0
     for spot in bar:
-        uniq_dic = countUniqRGP(spot[1])
+        uniq_dic = countUniqRGP(spot.regions)
         uniq_list = list(uniq_dic.keys())
         if len(uniq_list) > 10:
             s_g = nx.Graph()
@@ -231,8 +225,7 @@ def write_RGP_content_graph(spots, output):
                     s_g.add_edge(rgp.name, rgp2.name, weight=len(interfams)/ len(set(rgp.families) | set(rgp2.families)), fluidity = (((len(rgp.families) - len(interfams)) + (len(rgp2.families) - len(interfams))) / (len(rgp.families) + len(rgp2.families))) )
             s_g.add_node(uniq_list[-1].name, occurrence = uniq_dic[uniq_list[-1]])
 
-            nx.write_gexf(s_g, output + f"/spot_{n_spot}.gexf")
-        n_spot+=1
+            nx.write_gexf(s_g, output + f"/spot_{spot.ID}.gexf")
 
 def subgraph(spot, output, filename, with_border=True, set_size=3, multigenics = None):
     """ write a pangenome subgraph of the gene families of a spot in gexf format"""
@@ -298,17 +291,16 @@ def summarize_spots(spots, output, nbFamLimit):
     fout = open(output + "/summarize_spots.tsv","w")
     fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tnb_content\tmean_spot_fluidity\tstdev_spot_fluidity\tmean_nb_genes\tstdev_nb_genes\tfam_limit\tstatus\n")
     logging.getLogger().info("Computing sorensen, turnover, nestedness, spot fluidity and other descriptive metrics for spots with more than 1 rgp...")
-    n_spot = 0
     bar = tqdm(spots, unit = "spot")#can multi
     for spot in bar:
-        if len(spot[1]) > 1:
+        if spot.regions > 1:
             tot_fams = set()
             summin = 0
             spot_fluidity=[]
             summax = 0
-            rgp_list = list(spot[1])
-            len_uniq_content = len(countUniqContent(spot[1]))
-            uniq_dic = countUniqRGP(spot[1])
+            rgp_list = list(spot.regions)
+            len_uniq_content = len(countUniqContent(spot.regions))
+            uniq_dic = countUniqRGP(spot.regions)
             uniq_list = list(uniq_dic.keys())
             nbuniq_organizations = len(uniq_list)
             size_list = []
@@ -334,8 +326,7 @@ def summarize_spots(spots, output, nbFamLimit):
             turnover = summin / (sumSiSt + summin)
             nestedness = sorensen - turnover
             status = "hotspot" if nbFamLimit <= len(tot_fams) else "coldspot"
-            fout.write("\t".join(map(str,[f"spot_{n_spot}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,stdev_spot_fluidity, mean_size,stdev_size,nbFamLimit, status])) + "\n")
-        n_spot+=1
+            fout.write("\t".join(map(str,[f"spot_{spot.ID}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,stdev_spot_fluidity, mean_size,stdev_size,nbFamLimit, status])) + "\n")
     bar.update()
     fout.close()
 
@@ -344,18 +335,19 @@ def writeSpots(spots, output, elements):
     fout.write("spot_id\trgp_id\tinterest\n")
     n_spot = 0
     for spot in spots:
-        for rgp in spot[1]:
+        for rgp in spot.regions:
             curr_intest = defineElementsOfInterest(rgp.genes, elements)
 
-            fout.write(f"spot_{n_spot}\t{rgp.name}\t")
+            fout.write(f"spot_{spot.ID}\t{rgp.name}\t")
             fout.write("-\n" if len(curr_intest) == 0 else ','.join(curr_intest)+"\n")
         n_spot+=1
     fout.close()
 
+#useless atm, but could be useful for the futur should we want to study spots cross-species.
 def writeBorders_spots(spots, pangenome, output):
     fout = open(output + "/spots_families.faa","w")
     n_spot = 0
-    
+
     for spot in spots:
         n_border_group = 0
         for borders in spot[0]:
@@ -618,7 +610,7 @@ def launch(args):
     predictHotspots(pangenome, args.output, cpu = args.cpu, spot_graph=args.spot_graph, flanking_graph=args.flanking_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest)
 
 def hotspotSubparser(subparser):
-    parser = subparser.add_parser("hotspot", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = subparser.add_parser("spot", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--spot_graph", required = False, action="store_true", help = "Writes a graph in a .gexf format of pairs of blocks of single copy markers flanking RGPs, supposedly belonging to the same hotspot")

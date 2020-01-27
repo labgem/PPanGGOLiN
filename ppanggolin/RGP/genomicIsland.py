@@ -11,7 +11,8 @@ import os
 from tqdm import tqdm
 
 #local libraries
-from ppanggolin.pangenome import Pangenome, Region
+from ppanggolin.pangenome import Pangenome
+from ppanggolin.region import Region
 from ppanggolin.formats import checkPangenomeInfo, writePangenome
 from ppanggolin.utils import mkOutdir
 

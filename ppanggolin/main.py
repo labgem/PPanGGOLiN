@@ -72,8 +72,8 @@ def cmdLine():
     #need to manually write the description so that it's displayed into groups of subcommands ....
     desc = "\n"
     desc += "  Basic:\n"
-    desc += "    workflow      Easy workflow to run a pangenome analysis in one go without parameter tuning\n"
-    desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection without parameter tuning\n"
+    desc += "    workflow      Easy workflow to run a pangenome analysis in one go\n"
+    desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection\n"
     desc += "  \n"
     desc += "  Expert:\n"
     desc += "    annotate      Annotate genomes\n"
@@ -90,7 +90,7 @@ def cmdLine():
     desc += "  Regions of genomic Plasticity:\n"
     desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
     desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
-    desc += "    hotspot      predicts hotspots in your pangenome\n"
+    desc += "    spot         predicts spots in your pangenome\n"
 
     parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
@@ -177,7 +177,7 @@ def main():
         ppanggolin.align.launch(args)
     elif args.subcommand == "rgp":
         ppanggolin.RGP.genomicIsland.launch(args)
-    elif args.subcommand == "hotspot":
+    elif args.subcommand == "spot":
         ppanggolin.RGP.hotspot.launch(args)
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
