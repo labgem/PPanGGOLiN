@@ -21,7 +21,8 @@ def test_cstr():
                                 'defragmented':"No",
                                 'geneFamilySequences':"No",
                                 'neighborsGraph':  "No",
-                                'partitionned':  "No"
+                                'partitionned':  "No",
+                                'predictedRGP' : "No"
                             }
 
 
