@@ -192,7 +192,7 @@ def readRGP(pangenome, h5f):
     pangenome.status["predictedRGP"] = "Loaded"
 
 def readSpots(pangenome, h5f):
-    table = h5f.root.spot
+    table = h5f.root.spots
     bar = tqdm(range(table.nrows), unit= "region")
     spots = {}
     for row in read_chunks(table):

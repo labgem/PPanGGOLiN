@@ -109,7 +109,7 @@ def cmdLine():
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
     subs.append(ppanggolin.align.alignSubparser(subparsers))
     subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
-    subs.append(ppanggolin.RGP.hotspot.hotspotSubparser(subparsers))
+    subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
     for sub in subs:#add options common to all subcommands
@@ -178,7 +178,7 @@ def main():
     elif args.subcommand == "rgp":
         ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "spot":
-        ppanggolin.RGP.hotspot.launch(args)
+        ppanggolin.RGP.spot.launch(args)
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
 

@@ -18,7 +18,7 @@ from ppanggolin.formats import writePangenome, writeFlatFiles
 from ppanggolin.figures import drawTilePlot, drawUCurve
 from ppanggolin.info import printInfo
 from ppanggolin.RGP.genomicIsland import predictRGP
-from ppanggolin.RGP.hotspot import predictHotspots
+from ppanggolin.RGP.spot import predictHotspots
 ### a global workflow that does everything in one go.
 
 def launch(args):

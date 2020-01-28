@@ -17,7 +17,7 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.utils import read_compressed_or_not
-from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, ErasePangenome
+from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, writeGeneSequencesFromAnnotations, ErasePangenome
 
 def alignRep(faaFile, tmpdir, cpu, coverage, identity):
     seqdb = tmpdir.name + '/rep_sequence_db'
@@ -150,20 +150,6 @@ def read_fam2seq(pangenome, fam2seq):
         fam = pangenome.addGeneFamily(family)
         fam.addSequence(protein)
 
-def writeGeneSequencesFromAnnotations(pangenome, fileObj):
-    """
-        Writes the CDS sequences of the Pangenome object to a tmpFile object
-        Loads the sequences from previously computed or loaded annotations
-    """
-    logging.getLogger().info("Writing all of the CDS sequences for clustering...")
-    bar =  tqdm(pangenome.genes, unit="gene")
-    for gene in bar:
-        if gene.type == "CDS":
-            fileObj.write('>' + gene.ID + "\n")
-            fileObj.write(gene.dna + "\n")
-    fileObj.flush()
-    bar.close()
-
 def checkPangenomeFormerClustering(pangenome, force):
     """ checks pangenome status and .h5 files for former clusterings, delete them if allowed or raise an error """
     if pangenome.status["genesClustered"] == "inFile" and force == False:
@@ -177,6 +163,7 @@ def checkPangenomeForClustering(pangenome, tmpFile, force):
     """
     checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed","Loaded"]:
+        logging.getLogger().info("Writing all of the CDS sequences for clustering...")
         writeGeneSequencesFromAnnotations(pangenome, tmpFile)
     elif pangenome.status["geneSequences"] == "inFile":
         getGeneSequencesFromFile(pangenome, tmpFile)#write CDS sequences to the tmpFile

@@ -135,6 +135,10 @@ class Spot:
     def __init__(self, ID):
         self.ID = ID
         self.regions = set()
+        self._uniqSyn = {}
+        self._compSyn = False
+        self._uniqContent = {}
+        self._compContent = False
 
     def addRegions(self, regions):
         """ Adds region(s) contained in an Iterable to the spot which all have the same bordering persistent genes provided with 'borders'"""
@@ -150,3 +154,55 @@ class Spot:
 
     def borders(self, set_size, multigenics):
         raise NotImplementedError()
+
+    def _mkUniqSyntenyObj(self):
+        """cluster RGP into groups that have an identical synteny""" 
+        for rgp in self.regions:
+            z = True
+            for seenRgp in self._uniqSyn:
+                if rgp == seenRgp:
+                    z = False
+                    self._uniqSyn[seenRgp].add(rgp)
+            if z:
+                self._uniqSyn[seenRgp] = set(seenRgp)
+
+    def _mkUniqContent(self):
+        """cluster RGP into groups that have identical gene content"""
+        for rgp in self.regions:
+            z = True
+            for seenRgp in self._uniqContent:
+                if rgp.families == seenRgp.families:
+                    z = False
+                    self._uniqContent[seenRgp].add(rgp)
+            if z:
+                self._uniqContent[seenRgp] = set(seenRgp)
+
+    def _getContent(self):
+        """Creates the _uniqContent object if it was never computed. Return it in any case"""
+        if not self._compContent:
+            self._mkUniqContent()
+            self._compContent = True
+        return self._uniqContent
+
+    def _getSyn(self):
+        """Creates the _uniqSyn object if it was never computed. Return it in any case"""
+        if not self._compSyn:
+            self._mkUniqSyntenyObj()
+            self._compSyn = True
+        return self._uniqSyn
+
+    def getUniqSynteny(self):
+        """ returns an Iterable of all the unique syntenies in the spot"""
+        return set(self._getSyn().keys())
+
+    def getUniqContent(self):
+        """ returns an Iterable of all the unique rgp (in terms of gene family content) in the spot"""
+        return set(self._getContent().keys())
+
+    def countUniqContent(self):
+        """Returns a counter with a representative rgp as key and the number of identical rgp in terms of gene family content as value"""
+        return dict([ (key, len(val)) for key, val in self._getSyn().items()])
+
+    def countUniqSynteny(self):
+        """ Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value"""
+        return dict([ (key, len(val)) for key, val in self._getContent().items()])

@@ -15,7 +15,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
 from ppanggolin.cluster import writeGeneSequencesFromAnnotations
 from ppanggolin.RGP.genomicIsland import compute_org_rgp
-from ppanggolin.RGP.hotspot import makeSpotGraph, draw_spots, subgraph
+from ppanggolin.RGP.spot import makeSpotGraph, draw_spots, subgraph
 
 
 def createdb(fileObj, tmpdir):

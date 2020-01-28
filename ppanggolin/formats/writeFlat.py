@@ -7,8 +7,9 @@ from multiprocessing import Pool
 from collections import Counter, defaultdict
 import logging
 import pkg_resources
-from statistics import median
+from statistics import median, mean, stdev
 import os
+from random import randint, shuffle
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
@@ -16,7 +17,8 @@ from ppanggolin.utils import write_compressed_or_not, mkOutdir
 from ppanggolin.formats import checkPangenomeInfo, getGeneSequencesFromFile
 
 #installed libraries
-from tqdm import tqdm
+from tqdm import tqdm, trange
+from numpy import percentile
 
 #global variable to store the pangenome
 pan = None
@@ -252,16 +254,24 @@ def writeMatrix(sep, ext, output, compress=False, geneNames = False):
         for fam in pan.geneFamilies:
             genes = default_genes.copy()
             l = []
+            alt = fam.namedPartition if fam.partition != "" else False
+            genenames = Counter()
             product = Counter()
             for org, gene_list in fam.getOrgDict().items():
                 genes[org_index[org]] = " ".join([ '"' + str(gene) + '"' for gene in gene_list]) if geneNames else str(len(gene_list))
                 for gene in gene_list:
                     l.append(gene.stop - gene.start)
                     product[gene.product] +=1
+                    genenames[gene.name] += 1
+
+            if fam.partition != "":
+                alt = fam.namedPartition
+            else:
+                alt = str(product.most_common(1)[0][0])
 
             l = [ gene.stop - gene.start for gene in fam.genes ]
             matrix.write(sep.join(['"'+fam.name+'"',#1
-                                    '"'+fam.namedPartition+'"',#2
+                                    '"'+alt+'"',#2
                                     '"'+ str(product.most_common(1)[0][0])  +'"',#3
                                     '"' + str(len(fam.organisms)) + '"',#4
                                     '"' + str(len(fam.genes)) + '"',#5
@@ -483,11 +493,32 @@ def writeFastaProtFam(output, compress=False):
         bar.close()
     logging.getLogger().info(f"Done writing the representative proteic sequences of all the gene families : '{outname}'")
 
+def writeGeneSequencesFromAnnotations(pangenome, fileObj, verbose = False):
+    """
+        Writes the CDS sequences of the Pangenome object to a tmpFile object
+        Loads the sequences from previously computed or loaded annotations
+    """
+    logging.getLogger().info("Writing all of the CDS sequences for clustering...")
+    bar =  tqdm(pangenome.genes, unit="gene", disable= not verbose)
+    for gene in bar:
+        if gene.type == "CDS":
+            fileObj.write('>' + gene.ID + "\n")
+            fileObj.write(gene.dna + "\n")
+    fileObj.flush()
+    bar.close()
+
 def writeGeneSequences(output, compress=False):
     logging.getLogger().info("Writing all the gene nucleic sequences...")
     outname = output + "/all_genes.fna"
+    
     with write_compressed_or_not(outname,compress) as fasta:
-        getGeneSequencesFromFile(pan,fasta)
+        if pan.status["geneSequences"] in ["inFile"]:
+            getGeneSequencesFromFile(pan,fasta)
+        elif pan.status["geneSequences"] in ["Computed","Loaded"]:
+            writeGeneSequencesFromAnnotations(pan, fasta)
+        else:
+            #this should never happen if the pangenome has been properly checked before launching this function.
+            raise Exception("The pangenome does not include gene sequences")
     logging.getLogger().info(f"Done writing all the gene sequences : '{outname}'")
 
 def writeRegionTab(contigDict, outfile, compress=False):
@@ -517,32 +548,120 @@ def writeRegions(output, compress = False):
         writeRegionTab(contigDict, outname, compress)
     logging.getLogger().info(f"Done writing the .tab files for the RGP. They are in the folder : '{outdir}'")
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, compress = False):
+
+def uniform_spots(S, N):
+    logging.getLogger().info(f"There are {N} gene families among {S} spots")
+    el1 = int(N / 3)#number of 1 gene elements
+    el3 = int(((2*N) / 3)/3)#number of 3 gene elements
+    logging.getLogger().info(f"There are {el1} elements of 1 gene and {el3} elements of 3 genes")
+    # p_el = 1 / S#proba of an element to be placed in a given spot
+    maxHTdist = []
+
+    els = [1] * el1 + [3] * el3
+    for _ in trange(1000, unit = "sample"):
+        th_spots = Counter()
+        shuffle(els)
+        for i in els:
+            th_spots[randint(1,S)]+=i
+        maxHTdist.append(th_spots.most_common(1)[0][1])
+    return percentile(maxHTdist, 95)
+
+def summarize_spots(spots, output, nbFamLimit, compress):
+    with write_compressed_or_not(output + "/summarize_spots.tsv", compress) as fout:
+        fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tnb_content\tmean_spot_fluidity\tstdev_spot_fluidity\tmean_nb_genes\tstdev_nb_genes\tfam_limit\tstatus\n")
+        bar = tqdm(spots, unit = "spot")#can multi
+        for spot in bar:
+            if len(spot.regions) > 1:
+                tot_fams = set()
+                summin = 0
+                spot_fluidity=[]
+                summax = 0
+                rgp_list = list(spot.regions)
+                len_uniq_content = len(spot.getUniqContent())
+                uniq_dic = spot.countUniqSynteny()
+                uniq_list = list(uniq_dic.keys())
+                nbuniq_organizations = len(uniq_list)
+                size_list = []
+                #could parallelize this by changing the way the rgp/families/genes are stored.
+                for i, rgp in enumerate(uniq_list[:-1]):
+                    tot_fams |= rgp.families
+                    size_list.append(len(rgp.genes))
+                    spot_fluidity.extend([0] * uniq_dic[rgp] )
+                    for rgp2 in uniq_list[i+1:]:
+                        interfams = set(rgp.families) & set(rgp2.families)
+                        spot_fluidity.extend([(((len(rgp.families) - len(interfams)) + (len(rgp2.families) - len(interfams))) / (len(rgp.families) + len(rgp2.families)))] * (uniq_dic[rgp] * uniq_dic[rgp2]))
+                        summin += min(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams)) * uniq_dic[rgp] * uniq_dic[rgp2]
+                        summax += max(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams)) * uniq_dic[rgp] * uniq_dic[rgp2]
+                tot_fams |= rgp_list[-1].families
+                size_list.extend([len(rgp_list[-1].genes)] * uniq_dic[uniq_list[-1]] )
+                spot_fluidity.extend([0] * uniq_dic[uniq_list[-1]] )
+                mean_size = mean(size_list)
+                stdev_size = stdev(size_list)
+                mean_spot_fluidity = mean(spot_fluidity)
+                stdev_spot_fluidity = stdev(spot_fluidity)
+                sumSiSt = sum([ len(rgp.families) for rgp in rgp_list ])-len(tot_fams)
+                sorensen = (summin + summax) / (2*sumSiSt + summin + summax )
+                turnover = summin / (sumSiSt + summin)
+                nestedness = sorensen - turnover
+                status = "hotspot" if nbFamLimit <= len(tot_fams) else "coldspot"
+                fout.write("\t".join(map(str,[f"spot_{spot.ID}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,stdev_spot_fluidity, mean_size,stdev_size,nbFamLimit, status])) + "\n")
+        bar.update()
+
+def spot2rgp(spots, output, compress):
+    with write_compressed_or_not(output + "/spots.tsv", compress) as fout:
+        fout.write("spot_id\trgp_id\n")
+        n_spot = 0
+        for spot in spots:
+            for rgp in spot.regions:
+                fout.write(f"spot_{spot.ID}\t{rgp.name}\n")
+            n_spot+=1
+
+def writeSpots(output, compress):
+    if len(pan.spots) > 0:
+        spot2rgp(pan.spots, output, compress)
+        all_spot_fams = set()
+        for spot in pan.spots:
+            for rgp in spot.regions:
+                all_spot_fams |= rgp.families
+        maxHTg = uniform_spots(len(pan.spots),len(all_spot_fams) )
+        summarize_spots(pan.spots, output, maxHTg, compress)
+
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, spots = False, compress = False):
     global pan
     pan = pangenome
     processes = []
+    needAnnotations = False
+    needFamilies = False
+    needGraph = False
+    needPartitions = False
+    needSpots = False
     needRegions = False
-    if regions:
-        needRegions = True
+    logging.getLogger().warning("This function needs more extensive testing in the different conditions of input before getting pushed to master")
 
-    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, families_tsv, all_genes, all_prot_families, all_gene_families]):
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv:
+        needAnnotations = True 
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or all_prot_families or all_gene_families:
+        needFamilies = True
+    if projection or stats or partitions or regions or spots:
+        needPartitions = True
+    if gexf or light_gexf or json:
+        needGraph = True
+    if regions or spots:
+        needRegions = True
+    if spots:
+        needSpots = True
+
+    #need to deal with sequence-related flags outside of checkPangenomeInfo since 
+    ex_geneSequences = Exception("The provided pangenome has no gene sequences. This is not compatible with any of the following options : --all_genes, --all_gene_families")
+    ex_geneFamilySequences = Exception("The provided pangenome has no gene families. This is not compatible with any of the following options : --all_prot_families, all_gene_families")
+    if not pan.status["geneSequences"] in ["inFile"] and (all_genes or all_gene_families):
+        raise ex_geneSequences
+    if not pan.status["geneFamilySequences"] in ["Loaded","Computed","inFile"] and (all_prot_families):
+        raise ex_geneFamilySequences
+
+    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots,families_tsv, all_genes, all_prot_families, all_gene_families]):
         #then it's useful to load the pangenome.
-        checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True, needRGP = needRegions)
-        ex_partitionned = Exception("The provided pangenome has not been partitionned. This is not compatible with any of the following options : --light_gexf, --gexf, --csv, --partitions")
-        ex_genesClustered =  Exception("The provided pangenome has not gene families. This is not compatible with any of the following options : --families_tsv --all_prot_families --all_gene_families")
-        ex_genomesAnnotated =  Exception("The provided pangenome has no annotated sequences. This is not compatible with any of the following options : --all_genes")
-        ex_geneSequences =  Exception("The provided pangenome has no gene sequences. This is not compatible with any of the following options : --all_genes, --all_gene_families")
-        ex_geneFamilySequences = Exception("The provided pangenome has no gene families. This is not compatible with any of the following options : --all_prot_families, all_gene_families")
-        if not pan.status["partitionned"] in ["Loaded","Computed"] and (light_gexf or gexf or csv or projection or partitions):#could allow to write the csv or genePA without partition...
-            raise ex_partitionned
-        if not pan.status["genesClustered"] in ["Loaded","Computed"] and (families_tsv):
-            raise ex_genesClustered
-        if not pan.status["genomesAnnotated"] in ["Loaded","Computed"] and (all_genes):
-            raise ex_genomesAnnotated
-        if not pan.status["geneSequences"] in ["inFile"] and (all_genes or all_gene_families):
-            raise ex_geneSequences
-        if not pan.status["geneFamilySequences"] in ["Loaded","Computed"] and (all_prot_families):
-            raise ex_geneFamilySequences
+        checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
         pan.getIndex()#make the index because it will be used most likely
         with Pool(processes = cpu) as p:
             if csv:
@@ -571,6 +690,8 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
                 processes.append(p.apply_async(func = writeFastaGenFam, args = (output, compress)))
             if regions:
                 processes.append(p.apply_async(func = writeRegions, args = (output, compress)))
+            if spots:
+                processes.append(p.apply_async(func = writeSpots, args=(output, compress)))
 
             for process in processes:
                 process.get()#get all the results
@@ -579,7 +700,7 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.partitions, args.regions, args.families_tsv, args.all_genes, args.all_prot_families, args.all_gene_families, args.compress)
+    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.partitions, args.regions, args.families_tsv, args.all_genes, args.all_prot_families, args.all_gene_families, args.spots, args.compress)
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -598,7 +719,8 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--partitions", required=False, action = "store_true", help = "list of families belonging to each partition, with one file per partitions and one family per line")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     optional.add_argument("--json", required=False, action = "store_true", help = "Writes the graph in a json file format")
-    optional.add_argument("--regions", required=False, action = "store_true", help = "Write the RGP in a tab format, one file per genome.")
+    optional.add_argument("--regions", required=False, action = "store_true", help = "Write the RGP in a tab format, one file per genome")
+    optional.add_argument("--spots", required=False, action = "store_true", help = "Write spot summary and a list of all rgp in each spot")
     optional.add_argument("--families_tsv", required=False, action = "store_true", help = "Write a tsv file providing the association between genes and gene families")
     optional.add_argument("--all_genes", required=False, action = "store_true", help = "Write all nucleotic CDS sequences")
     optional.add_argument("--all_prot_families", required=False, action = "store_true", help = "Write Write representative proteic sequences of all the gene families")
