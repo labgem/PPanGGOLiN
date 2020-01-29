@@ -63,7 +63,7 @@ def create_gene(org, contig, geneCounter, rnaCounter, ID, dbxref, start, stop, s
         contig.addRNA(newGene)
     newGene.fill_parents(org, contig)
 
-def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq, pseudo = False):
+def read_org_gbff(organism, gbff_file_path, circular_contigs, getSeq, pseudo = False):
     """ reads a gbff file and fills Organism, Contig and Genes objects based on information contained in this file """
     org = Organism(organism)
 
@@ -181,9 +181,9 @@ def read_org_gbff(pangenome, organism, gbff_file_path, circular_contigs, getSeq,
             for gene in contig.genes:
                 gene.add_dna(get_dna_sequence(sequence, gene))
 
-    pangenome.addOrganism(org)
+    return org, True#There are always fasta sequences in a gbff
 
-def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq, pseudo = False):
+def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo = False):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0,9)#missing values : source, score, frame. They are unused.
     def getGffAttributes(gff_fields):
         """
@@ -290,7 +290,7 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq, p
                                         name = name,
                                         product=product,
                                         local_identifier = geneID)
-                    rna.fill_parents(organism, contig)
+                    rna.fill_parents(org, contig)
                     contig.addRNA(rna)
                     rnaCounter+=1
     ### GET THE FASTA SEQUENCES OF THE GENES
@@ -301,28 +301,39 @@ def read_org_gff(pangenome, organism, gff_file_path, circular_contigs, getSeq, p
                 gene.add_dna(get_dna_sequence(contigSequences[contig.name], gene))
             for rna in contig.RNAs:
                 rna.add_dna(get_dna_sequence(contigSequences[contig.name], rna))
-    elif not hasFasta:
-        pangenome.status["geneSequences"] = "No"
-    pangenome.addOrganism(org)
+    return org, hasFasta
 
-def readAnnotations(pangenome, organisms_file, getSeq = True, pseudo = False):
+
+def launchReadAnno(args):
+    return readAnnoFile(*args)
+
+def readAnnoFile(organism_name, filename, circular_contigs, getSeq, pseudo):
+    filetype = detect_filetype(filename)
+    if filetype == "gff":
+        return read_org_gff(organism_name, filename, circular_contigs, getSeq, pseudo)
+    elif filetype == "gbff":
+        return read_org_gbff(organism_name, filename, circular_contigs, getSeq, pseudo)
+
+def readAnnotations(pangenome, organisms_file, cpu, getSeq = True, pseudo = False):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
 
-    bar = tqdm(read_compressed_or_not(organisms_file),total=get_num_lines(organisms_file), unit = "annotation file")
     pangenome.status["geneSequences"] = "Computed"#we assume there are gene sequences in the annotation files, unless a gff file without fasta is met (which is the only case where sequences can be asbent)
-    for line in bar:
+    args = []
+    for line in read_compressed_or_not(organisms_file):
         elements = [el.strip() for el in line.split("\t")]
         if len(elements)<=1:
             logging.getLogger().error(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
             exit(1)
-        bar.set_description("Processing "+elements[1].split("/")[-1])
-        bar.refresh()
-        filetype = detect_filetype(elements[1])
-        if filetype == "gff":
-            read_org_gff(pangenome, elements[0], elements[1], elements[2:], getSeq, pseudo)
-        elif filetype == "gbff":
-            read_org_gbff(pangenome, elements[0], elements[1], elements[2:], getSeq, pseudo)
+        args.append((elements[0], elements[1], elements[2:], getSeq, pseudo))
+    bar = tqdm(range(len(args)), unit = "file")
+    with Pool(cpu) as p:
+        for org, flag in p.imap_unordered(launchReadAnno, args):
+            pangenome.addOrganism(org)
+            if flag == False:
+                pangenome.status["geneSequences"] = "No"
+            bar.update()
     bar.close()
+
     pangenome.status["genomesAnnotated"] = "Computed"
     pangenome.parameters["annotation"] = {}
     pangenome.parameters["annotation"]["read_annotations_from_file"] = True
@@ -395,7 +406,7 @@ def launch(args):
     if args.fasta is not None and args.anno is None:
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
     elif args.anno is not None:
-        readAnnotations(pangenome, args.anno, pseudo = args.use_pseudo)
+        readAnnotations(pangenome, args.anno, cpu = args.cpu, pseudo = args.use_pseudo)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 getGeneSequencesFromFastas(pangenome, args.fasta)
