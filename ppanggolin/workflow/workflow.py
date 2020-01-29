@@ -26,7 +26,7 @@ def launch(args):
         getSeq = True
         if args.clusters is not None:
             getSeq = False
-        readAnnotations(pangenome, args.anno, getSeq)
+        readAnnotations(pangenome, args.anno, cpu = args.cpu, getSeq = getSeq)
         writePangenome(pangenome, filename, args.force)
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
