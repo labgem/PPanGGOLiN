@@ -236,7 +236,7 @@ class Pangenome:
                 dup=len([genes for org, genes in fam.getOrgDict().items() if len(genes) > 1])
                 if (dup / len(fam.organisms)) >= dup_margin:#tot / nborgs >= 1.05
                     multigenics.add(fam)
-        logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic. (duplicated in more than {dup_margin} of the genomes)")
+        # logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic. (duplicated in more than {dup_margin} of the genomes)")
         return multigenics
 
     def addRegions(self, regionGroup):

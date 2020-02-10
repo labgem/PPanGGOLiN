@@ -498,7 +498,6 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj, verbose = False):
         Writes the CDS sequences of the Pangenome object to a tmpFile object
         Loads the sequences from previously computed or loaded annotations
     """
-    logging.getLogger().info("Writing all of the CDS sequences for clustering...")
     bar =  tqdm(pangenome.genes, unit="gene", disable= not verbose)
     for gene in bar:
         if gene.type == "CDS":
@@ -547,7 +546,6 @@ def writeRegions(output, compress = False):
         outname = outdir + "/" + org.name + ".tab"
         writeRegionTab(contigDict, outname, compress)
     logging.getLogger().info(f"Done writing the .tab files for the RGP. They are in the folder : '{outdir}'")
-
 
 def uniform_spots(S, N):
     logging.getLogger().info(f"There are {N} gene families among {S} spots")
