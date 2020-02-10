@@ -319,6 +319,7 @@ def writeSpots(pangenome, h5f, force):
             SpotRow["spot"] = spot.ID
             SpotRow["RGP"] = region.name
             SpotRow.append()
+        bar.update()
     bar.close()
     SpoTable.flush()
 

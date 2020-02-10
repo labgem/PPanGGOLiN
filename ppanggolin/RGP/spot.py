@@ -71,13 +71,16 @@ def makeSpotGraph(rgps, multigenics, output="", spot_graph=False, overlapping_ma
 
     spotGraph = nx.Graph()
     lost = 0
+    used = 0
     for rgp in rgps:
         border = rgp.getBorderingGenes(set_size, multigenics)
         if len(border[0]) < set_size or len(border[1]) < set_size:
             lost+=1
         else:
+            used+=1
             addNewNode(spotGraph, rgp, border)
     logging.getLogger().info(f"{lost} RGPs were not used as they are on a contig border (or have less than {set_size} persistent gene families until the contig border)")
+    logging.getLogger().info(f"{used} RGPs are being used to predict spots of insertion")
     nodeList = list(spotGraph.nodes)
     logging.getLogger().info(f"{len(nodeList)} number of different pairs of flanking gene families")
     for i, nodei in enumerate(nodeList[:-1]):
