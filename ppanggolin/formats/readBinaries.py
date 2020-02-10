@@ -84,10 +84,10 @@ def getGeneSequencesFromFile(pangenome, fileObj, list_CDS=None):
 def launchReadOrganism(args):
     return readOrganism(*args)
 
-def readOrganism(pangenome, orgName, contigDict, link = False):
+def readOrganism(pangenome, orgName, contigDict, circularContigs, link = False):
     org = Organism(orgName)
     for contigName, geneList in contigDict.items():
-        contig = org.getOrAddContig(contigName, is_circular=geneList[0][0][0])
+        contig = org.getOrAddContig(contigName, is_circular=circularContigs[contigName])
         for row in geneList:
             if link:#if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.getGene(row["ID"].decode())
@@ -173,14 +173,17 @@ def readAnnotation(pangenome, h5f, filename):
     table = annotations.genes
     bar = tqdm(range(table.nrows), unit="gene")
     pangenomeDict = {}
+    circularContigs = {}
     for row in read_chunks(table):
         try:
             pangenomeDict[row["organism"].decode()][row["contig"]["name"].decode()].append(row["gene"])#new gene, seen contig, seen org
         except KeyError:
             try:
                 pangenomeDict[row["organism"].decode()][row["contig"]["name"].decode()] = [row["gene"]]#new contig, seen org
+                circularContigs[row["organism"].decode()][row["contig"]["name"].decode()] = row["contig"]["is_circular"]
             except KeyError:
                 pangenomeDict[sys.intern(row["organism"].decode())] = { row["contig"]["name"].decode() : [row["gene"]]}#new org
+                circularContigs[row["organism"].decode()] = {row["contig"]["name"].decode():row["contig"]["is_circular"]}
         bar.update()
     bar.close()
 
@@ -188,7 +191,7 @@ def readAnnotation(pangenome, h5f, filename):
 
     bar = tqdm(range(len(pangenomeDict)), unit = "organism")
     for orgName, contigDict in pangenomeDict.items():
-        readOrganism(pangenome, orgName, contigDict, link)
+        readOrganism(pangenome, orgName, contigDict, circularContigs[orgName], link)
         bar.update()
     bar.close()
     pangenome.status["genomesAnnotated"] = "Loaded"
