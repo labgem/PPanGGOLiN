@@ -202,8 +202,8 @@ class Spot:
 
     def countUniqContent(self):
         """Returns a counter with a representative rgp as key and the number of identical rgp in terms of gene family content as value"""
-        return dict([ (key, len(val)) for key, val in self._getSyn().items()])
+        return dict([ (key, len(val)) for key, val in self._getContent().items()])
 
     def countUniqSynteny(self):
         """ Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value"""
-        return dict([ (key, len(val)) for key, val in self._getContent().items()])
+        return dict([ (key, len(val)) for key, val in self._getSyn().items()])
