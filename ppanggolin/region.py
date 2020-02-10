@@ -153,6 +153,7 @@ class Spot:
             self.regions.add(region)
 
     def borders(self, set_size, multigenics):
+        """ extracts all the borders of all RGPs belonging to the spot"""
         raise NotImplementedError()
 
     def _mkUniqSyntenyObj(self):
@@ -164,7 +165,7 @@ class Spot:
                     z = False
                     self._uniqSyn[seenRgp].add(rgp)
             if z:
-                self._uniqSyn[seenRgp] = set(seenRgp)
+                self._uniqSyn[rgp] = set([rgp])
 
     def _mkUniqContent(self):
         """cluster RGP into groups that have identical gene content"""
@@ -175,7 +176,7 @@ class Spot:
                     z = False
                     self._uniqContent[seenRgp].add(rgp)
             if z:
-                self._uniqContent[seenRgp] = set(seenRgp)
+                self._uniqContent[rgp] = set([rgp])
 
     def _getContent(self):
         """Creates the _uniqContent object if it was never computed. Return it in any case"""

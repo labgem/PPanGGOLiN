@@ -196,10 +196,14 @@ def readSpots(pangenome, h5f):
     bar = tqdm(range(table.nrows), unit= "region")
     spots = {}
     for row in read_chunks(table):
-        curr_spot = spots.get(row["spot"], Spot(row["spot"]))
+        curr_spot = spots.get(row["spot"])
+        if curr_spot is None:
+            curr_spot = Spot(row["spot"])
+            spots[row["spot"]] = curr_spot
         curr_spot.addRegion(pangenome.getOrAddRegion(row["RGP"].decode()))
         bar.update()
     bar.close()
+    pangenome.addSpots(spots.values())
     pangenome.status["spots"] = "Loaded"
 
 def readAnnotation(pangenome, h5f, filename):

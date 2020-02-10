@@ -567,6 +567,14 @@ def uniform_spots(S, N):
     return percentile(maxHTdist, 95)
 
 def summarize_spots(spots, output, nbFamLimit, compress):
+
+    def r_and_s(value):
+        """ rounds to dp figures and returns a str of the provided value"""
+        if isinstance(value, float):
+            return str(round(value,3))
+        else:
+            return str(value)
+
     with write_compressed_or_not(output + "/summarize_spots.tsv", compress) as fout:
         fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tnb_content\tmean_spot_fluidity\tstdev_spot_fluidity\tmean_nb_genes\tstdev_nb_genes\tfam_limit\tstatus\n")
         bar = tqdm(spots, unit = "spot")#can multi
@@ -604,8 +612,9 @@ def summarize_spots(spots, output, nbFamLimit, compress):
                 turnover = summin / (sumSiSt + summin)
                 nestedness = sorensen - turnover
                 status = "hotspot" if nbFamLimit <= len(tot_fams) else "coldspot"
-                fout.write("\t".join(map(str,[f"spot_{spot.ID}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,stdev_spot_fluidity, mean_size,stdev_size,nbFamLimit, status])) + "\n")
+                fout.write("\t".join(map(r_and_s,[f"spot_{spot.ID}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,stdev_spot_fluidity, mean_size,stdev_size,nbFamLimit, status])) + "\n")
         bar.update()
+    logging.getLogger().info(f"Done writing spots in : '{output + '/summarize_spots.tsv'}'")
 
 def spot2rgp(spots, output, compress):
     with write_compressed_or_not(output + "/spots.tsv", compress) as fout:
@@ -625,6 +634,7 @@ def writeSpots(output, compress):
                 all_spot_fams |= rgp.families
         maxHTg = uniform_spots(len(pan.spots),len(all_spot_fams) )
         summarize_spots(pan.spots, output, maxHTg, compress)
+
 
 def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, spots = False, compress = False):
     global pan
@@ -700,7 +710,7 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.partitions, args.regions, args.families_tsv, args.all_genes, args.all_prot_families, args.all_gene_families, args.spots, args.compress)
+    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, all_genes=args.all_genes, all_prot_families=args.all_prot_families, all_gene_families= args.all_gene_families,spots= args.spots, compress=args.compress)
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
