@@ -566,7 +566,7 @@ def uniform_spots(S, N):
         maxHTdist.append(th_spots.most_common(1)[0][1])
     return percentile(maxHTdist, 95)
 
-def summarize_spots(spots, output, nbFamLimit, compress):
+def summarize_spots(spots, output, compress):
 
     def r_and_s(value):
         """ rounds to dp figures and returns a str of the provided value"""
@@ -576,44 +576,21 @@ def summarize_spots(spots, output, nbFamLimit, compress):
             return str(value)
 
     with write_compressed_or_not(output + "/summarize_spots.tsv", compress) as fout:
-        fout.write("spot\tsorensen\tturnover\tnestedness\tnb_rgp\tnb_families\tnb_organisations\tnb_content\tmean_spot_fluidity\tstdev_spot_fluidity\tmean_nb_genes\tstdev_nb_genes\tfam_limit\tstatus\n")
-        bar = tqdm(spots, unit = "spot")#can multi
-        for spot in bar:
+        fout.write("spot\tnb_rgp\tnb_families\tnb_unique_family_sets\tmean_nb_genes\tstdev_nb_genes\tmax_nb_genes\tmin_nb_genes\n")
+        for spot in spots:
             if len(spot.regions) > 1:
                 tot_fams = set()
-                summin = 0
-                spot_fluidity=[]
-                summax = 0
                 rgp_list = list(spot.regions)
                 len_uniq_content = len(spot.getUniqContent())
-                uniq_dic = spot.countUniqSynteny()
-                uniq_list = list(uniq_dic.keys())
-                nbuniq_organizations = len(uniq_list)
                 size_list = []
-                #could parallelize this by changing the way the rgp/families/genes are stored.
-                for i, rgp in enumerate(uniq_list[:-1]):
+                for rgp in spot.regions:
                     tot_fams |= rgp.families
                     size_list.append(len(rgp.genes))
-                    spot_fluidity.extend([0] * uniq_dic[rgp] )
-                    for rgp2 in uniq_list[i+1:]:
-                        interfams = set(rgp.families) & set(rgp2.families)
-                        spot_fluidity.extend([(((len(rgp.families) - len(interfams)) + (len(rgp2.families) - len(interfams))) / (len(rgp.families) + len(rgp2.families)))] * (uniq_dic[rgp] * uniq_dic[rgp2]))
-                        summin += min(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams)) * uniq_dic[rgp] * uniq_dic[rgp2]
-                        summax += max(len(rgp.families) - len(interfams), len(rgp2.families) - len(interfams)) * uniq_dic[rgp] * uniq_dic[rgp2]
-                tot_fams |= rgp_list[-1].families
-                size_list.extend([len(rgp_list[-1].genes)] * uniq_dic[uniq_list[-1]] )
-                spot_fluidity.extend([0] * uniq_dic[uniq_list[-1]] )
                 mean_size = mean(size_list)
                 stdev_size = stdev(size_list)
-                mean_spot_fluidity = mean(spot_fluidity)
-                stdev_spot_fluidity = stdev(spot_fluidity)
-                sumSiSt = sum([ len(rgp.families) for rgp in rgp_list ])-len(tot_fams)
-                sorensen = (summin + summax) / (2*sumSiSt + summin + summax )
-                turnover = summin / (sumSiSt + summin)
-                nestedness = sorensen - turnover
-                status = "hotspot" if nbFamLimit <= len(tot_fams) else "coldspot"
-                fout.write("\t".join(map(r_and_s,[f"spot_{spot.ID}", sorensen, turnover, nestedness, len(rgp_list), len(tot_fams), nbuniq_organizations, len_uniq_content, mean_spot_fluidity,stdev_spot_fluidity, mean_size,stdev_size,nbFamLimit, status])) + "\n")
-        bar.update()
+                max_size = max(size_list)
+                min_size = min(size_list)
+                fout.write("\t".join(map(r_and_s,[f"spot_{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content, mean_size,stdev_size,max_size, min_size])) + "\n")
     logging.getLogger().info(f"Done writing spots in : '{output + '/summarize_spots.tsv'}'")
 
 def spot2rgp(spots, output, compress):
@@ -628,12 +605,7 @@ def spot2rgp(spots, output, compress):
 def writeSpots(output, compress):
     if len(pan.spots) > 0:
         spot2rgp(pan.spots, output, compress)
-        all_spot_fams = set()
-        for spot in pan.spots:
-            for rgp in spot.regions:
-                all_spot_fams |= rgp.families
-        maxHTg = uniform_spots(len(pan.spots),len(all_spot_fams) )
-        summarize_spots(pan.spots, output, maxHTg, compress)
+        summarize_spots(pan.spots, output, compress)
 
 
 def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, spots = False, compress = False):
