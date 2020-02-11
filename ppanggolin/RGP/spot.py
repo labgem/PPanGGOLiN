@@ -258,7 +258,7 @@ def writeBorders_spots(spots, pangenome, output):
 def select_spots(pangenome, spots, elements, min_presence_ratio=0.05, min_org_ratio=0.01):
     to_draw= []
     for spot in spots:
-        nb_uniq = len(spot.getUniqSynteny())
+        nb_uniq = len(spot.getUniqOrderedSet())
         if nb_uniq> 10:
             to_draw.append(spot)
     return to_draw
