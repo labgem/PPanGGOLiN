@@ -113,7 +113,7 @@ def readOrganism(pangenome, orgName, contigDict, circularContigs, link = False):
             gene.fill_annotations(
                 start = row["start"],
                 stop = row["stop"],
-                strand =  row["strand"],
+                strand =  row["strand"].decode(),
                 geneType = row["type"].decode(),
                 position = row["position"],
                 genetic_code= row["genetic_code"],

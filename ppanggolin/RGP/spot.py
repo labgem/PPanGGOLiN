@@ -442,41 +442,40 @@ def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename):
 
 def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, verbose=False):
     logging.getLogger().info("Selecting and ordering genes among regions...")
-    bar = tqdm(range(len(spots)), unit = "region", disable = not verbose)
+    bar = tqdm(range(len(spots)), unit = "spot", disable = not verbose)
     spots_to_draw = []
-    for i, spot in enumerate(spots):
-        if spot is not None:
-            uniqRGPS = frozenset(spot.getUniqSynteny())
-            Fams = set()
-            GeneLists = []
+    for spot in spots:
+        uniqRGPS = frozenset(spot.getUniqOrderedSet())
+        Fams = set()
+        GeneLists = []
 
-            countUniq = spot.countUniqSynteny()
+        countUniq = spot.countUniqOrderedSet()
 
-            #order unique rgps by occurrences
-            sortedUniqRGPs = sorted(uniqRGPS, key = lambda x : countUniq[x], reverse=True)
-            for rgp in sortedUniqRGPs:
-                borders = rgp.getBorderingGenes(set_size, multigenics)
-                minpos = min([ gene.position for border in borders for gene in border ])
-                maxpos = max([ gene.position for border in borders for gene in border ])
-                GeneList = rgp.contig.genes[minpos:maxpos+1]
-                minstart = min([ gene.start for border in borders for gene in border ])
-                maxstop = max([ gene.stop for border in borders for gene in border ])
-                RNAstoadd = set()
-                for rna in rgp.contig.RNAs:
-                    if rna.start > minstart and rna.start < maxstop:
-                        RNAstoadd.add(rna)
-                GeneList.extend(RNAstoadd)
-                GeneList = sorted(GeneList, key = lambda x : x.start)
+        #order unique rgps by occurrences
+        sortedUniqRGPs = sorted(uniqRGPS, key = lambda x : countUniq[x], reverse=True)
+        for rgp in sortedUniqRGPs:
+            borders = rgp.getBorderingGenes(set_size, multigenics)
+            minpos = min([ gene.position for border in borders for gene in border ])
+            maxpos = max([ gene.position for border in borders for gene in border ])
+            GeneList = rgp.contig.genes[minpos:maxpos+1]
+            minstart = min([ gene.start for border in borders for gene in border ])
+            maxstop = max([ gene.stop for border in borders for gene in border ])
+            RNAstoadd = set()
+            for rna in rgp.contig.RNAs:
+                if rna.start > minstart and rna.start < maxstop:
+                    RNAstoadd.add(rna)
+            GeneList.extend(RNAstoadd)
+            GeneList = sorted(GeneList, key = lambda x : x.start)
 
-                Fams |= { gene.family for gene in GeneList if gene.type == "CDS"}
+            Fams |= { gene.family for gene in GeneList if gene.type == "CDS"}
 
-                GeneLists.append([GeneList, borders, rgp])
-            famcol = makeColorsForFams(Fams)
-            ordered_counts = sorted(countUniq.values(), reverse = True)
-            GeneLists, ordered_counts = orderGeneLists(GeneLists, ordered_counts, overlapping_match, exact_match, set_size)
-            fname = output + '/spot_' + str(i)
-            # spots_to_draw.append((GeneLists, ordered_counts, elements, famcol, fname))
-            spots_to_draw.append(drawCurrSpot(GeneLists, ordered_counts, elements, famcol, fname))#make R dataframes, and plot them using genoPlotR.
+            GeneLists.append([GeneList, borders, rgp])
+        famcol = makeColorsForFams(Fams)
+        ordered_counts = sorted(countUniq.values(), reverse = True)
+        GeneLists, ordered_counts = orderGeneLists(GeneLists, ordered_counts, overlapping_match, exact_match, set_size)
+        fname = output + '/spot_' + str(spot.ID)
+        # spots_to_draw.append((GeneLists, ordered_counts, elements, famcol, fname))
+        spots_to_draw.append(drawCurrSpot(GeneLists, ordered_counts, elements, famcol, fname))#make R dataframes, and plot them using genoPlotR.
         bar.update()
     logging.getLogger().info("Drawing spots...")
     bar = tqdm(spots_to_draw, unit = "spot drawn")
