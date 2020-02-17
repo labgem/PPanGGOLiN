@@ -80,7 +80,7 @@ def cmdLine():
     desc += "    cluster       Cluster proteins in protein families\n"
     desc += "    graph         Create the pangenome graph\n"
     desc += "    partition     Partition the pangenome graph\n"
-    desc += "    rarefaction     Compute the rarefaction curve of the pangenome\n"
+    desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
@@ -88,9 +88,9 @@ def cmdLine():
     desc += "    info          Prints information about a given pangenome graph file\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
-    desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
-    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
-    desc += "    spot         predicts spots in your pangenome\n"
+    desc += "    align         Aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
+    desc += "    rgp           Predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
+    desc += "    spot          Predicts spots in your pangenome\n"
 
     parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
