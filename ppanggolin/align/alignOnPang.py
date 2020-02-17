@@ -217,25 +217,27 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
         logging.getLogger().info("Writing the RGP in a gbff file...")
         writeGbffRegions(annotation, genomeRGP, output)
 
-def getFam2RGP(pang):
+def getFam2RGP(pangenome, multigenics):
+    """associates families to the RGP they belong to, and those they are bordering"""
     fam2rgp = defaultdict(list)
-    for rgp in pang.regions:
+    for rgp in pangenome.regions:
         for fam in rgp.families:
+            fam2rgp[fam].append(rgp.name)
+        for fam in [ gene.family for border in rgp.getBorderingGenes(pangenome.parameters["spots"]["set_size"], multigenics) for gene in border ]:
             fam2rgp[fam].append(rgp.name)
     return fam2rgp
 
-def getFam2spot(pang, output):
+def getFam2spot(pangenome, output, multigenics):
     """ reads a pangenome object and returns a dictionnary of family to RGP and family to spot, that indicates where each family is"""
-    multigenics = pang.get_multigenics(pang.parameters["RGP"]["dup_margin"])
     ##those are to be replaced as spots should be stored in the pangenome, and in the h5.
     fam2spot = defaultdict(list)
     fam2border = defaultdict(list)
-    for spot in pang.spots:
+    for spot in pangenome.spots:
         fams = set()
         famsBorder = set()
         for rgp in spot.regions:
             fams |= rgp.families
-            famsBorder |= set([ gene.family for border in rgp.getBorderingGenes(pang.parameters["spots"]["set_size"], multigenics) for gene in border ])
+            famsBorder |= set([ gene.family for border in rgp.getBorderingGenes(pangenome.parameters["spots"]["set_size"], multigenics) for gene in border ])
         for fam in fams:
             fam2spot[fam].append(spot)
         for fam in famsBorder:
@@ -252,10 +254,12 @@ def draw_spot_gexf(spots, output, multigenics, set_size = 3):
 
 def getProtInfo(prot2pang, pangenome, output, cpu, draw_related):
     logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
+    multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
+
     finfo = open(output+"/info_input_prot.tsv","w")
     finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
-    fam2rgp = getFam2RGP(pangenome)
-    fam2spot, fam2border, multigenics= getFam2spot(pangenome, output)
+    fam2rgp = getFam2RGP(pangenome, multigenics)
+    fam2spot, fam2border, multigenics= getFam2spot(pangenome, output, multigenics)
     spot_list = set()
     for prot, panfam in prot2pang.items():
         finfo.write(prot +'\t' + panfam.name + "\t" + panfam.namedPartition + "\t" + ",".join(map(add_spot_str, fam2spot[panfam])) + "\t" + ",".join(map(add_spot_str, fam2border[panfam])) + "\t" + ','.join(fam2rgp[panfam]) + "\n")
