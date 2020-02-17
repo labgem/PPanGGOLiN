@@ -577,7 +577,7 @@ def summarize_spots(spots, output, compress):
 
     with write_compressed_or_not(output + "/summarize_spots.tsv", compress) as fout:
         fout.write("spot\tnb_rgp\tnb_families\tnb_unique_family_sets\tmean_nb_genes\tstdev_nb_genes\tmax_nb_genes\tmin_nb_genes\n")
-        for spot in spots:
+        for spot in sorted(spots, key=lambda x : len(x.regions), reverse=True):
             if len(spot.regions) > 1:
                 tot_fams = set()
                 rgp_list = list(spot.regions)
