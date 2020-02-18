@@ -5,6 +5,7 @@
 import os
 import time
 import argparse
+import logging
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
@@ -42,20 +43,31 @@ def launch(args):
         elif args.clusters is None:#we should have the sequences here.
             clustering(pangenome, args.tmpdir, args.cpu, defrag=args.defrag)
     elif args.fasta is not None:
+        start_anno = time.time()
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
+        annotime = time.time() - start_anno
         writePangenome(pangenome, filename, args.force)
+        start_clust = time.time()
         clustering(pangenome, args.tmpdir, args.cpu, defrag=args.defrag)
+        clust_time = time.time() - start_clust
 
     writePangenome(pangenome, filename, args.force)
+    start_graph = time.time()
     computeNeighborsGraph(pangenome)
+    graph_time = time.time() - start_graph
 
+    start_part = time.time()
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, K=args.nb_of_partitions)
+    part_time = time.time() - start_part
     writePangenome(pangenome, filename, args.force)
 
+    start_regions = time.time()
     predictRGP(pangenome, args.output)
-    writePangenome(pangenome, filename, args.force)
+    regions_time = time.time() - start_regions
 
+    start_spots = time.time()
     predictHotspots(pangenome, args.output, interest=args.interest)
+    spot_time = time.time() - start_spots
     writePangenome(pangenome, filename, args.force)
 
     if args.rarefaction:
@@ -65,6 +77,13 @@ def launch(args):
     drawUCurve(pangenome, args.output)
 
     writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True, json = True, stats = True, partitions = True)
+
+    logging.getLogger().info(f"Annotation took : {round(annotime,2)} seconds")
+    logging.getLogger().info(f"Clustering took : {round(clust_time,2)} seconds")
+    logging.getLogger().info(f"Building the graph took : {round(graph_time,2)} seconds")
+    logging.getLogger().info(f"Partitionning the pangenome took : {round(part_time,2)} seconds")
+    logging.getLogger().info(f"Predicting RGP took : {round(regions_time,2)} seconds")
+    logging.getLogger().info(f"Gathering RGP into spots took : {round(spot_time,2)} seconds")
 
     printInfo(filename, content = True)
 
