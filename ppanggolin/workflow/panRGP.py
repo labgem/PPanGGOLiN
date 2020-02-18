@@ -46,7 +46,9 @@ def launch(args):
         start_anno = time.time()
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
         annotime = time.time() - start_anno
+        start_writing = time.time()
         writePangenome(pangenome, filename, args.force)
+        writing_time = time.time() - start_writing
         start_clust = time.time()
         clustering(pangenome, args.tmpdir, args.cpu, defrag=args.defrag)
         clust_time = time.time() - start_clust
@@ -59,7 +61,10 @@ def launch(args):
     start_part = time.time()
     partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, K=args.nb_of_partitions)
     part_time = time.time() - start_part
+
+    start_writing = time.time()
     writePangenome(pangenome, filename, args.force)
+    writing_time = writing_time + time.time() - start_writing
 
     start_regions = time.time()
     predictRGP(pangenome, args.output)
@@ -68,7 +73,10 @@ def launch(args):
     start_spots = time.time()
     predictHotspots(pangenome, args.output, interest=args.interest)
     spot_time = time.time() - start_spots
+
+    start_writing = time.time()
     writePangenome(pangenome, filename, args.force)
+    writing_time = writing_time + time.time() - start_writing
 
     if args.rarefaction:
         makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
@@ -76,7 +84,9 @@ def launch(args):
         drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)
 
+    start_desc = time.time()
     writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True, json = True, stats = True, partitions = True)
+    desc_time = time.time() - start_desc
 
     logging.getLogger().info(f"Annotation took : {round(annotime,2)} seconds")
     logging.getLogger().info(f"Clustering took : {round(clust_time,2)} seconds")
@@ -84,7 +94,8 @@ def launch(args):
     logging.getLogger().info(f"Partitionning the pangenome took : {round(part_time,2)} seconds")
     logging.getLogger().info(f"Predicting RGP took : {round(regions_time,2)} seconds")
     logging.getLogger().info(f"Gathering RGP into spots took : {round(spot_time,2)} seconds")
-
+    logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time,2)} seconds")
+    logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time,2)} seconds")
     printInfo(filename, content = True)
 
 
