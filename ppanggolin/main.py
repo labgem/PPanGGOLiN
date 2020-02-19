@@ -67,6 +67,14 @@ def checkInputFiles(anno=None, pangenome=None, fasta=None):
             raise FileNotFoundError(f"No such file or directory: '{fasta}'")
         checkTsvSanity(fasta)
 
+def checkLog(name):
+    if name == "stdout":
+        return sys.stdout
+    elif name == "stderr":
+        return sys.stderr
+    else:
+        return open(name,"w")
+
 def cmdLine():
 
     #need to manually write the description so that it's displayed into groups of subcommands ....
@@ -117,7 +125,7 @@ def cmdLine():
         common.title = "Common arguments"
         common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(), help = "directory for storing temporary files")
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-        common.add_argument("--log", required=False, type=argparse.FileType('w'), default=sys.stdout, help = "log output file" )
+        common.add_argument("--log", required=False, type=checkLog, default="stdout", help = "log output file")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
         sub._action_groups.append(common)
@@ -152,11 +160,7 @@ def main():
             level = logging.INFO#info, warnings and errors
         elif args.verbose == 0:
             level = logging.WARNING#only warnings and errors
-        if hasattr(args, "log"):
-            log = args.log
-        else:
-            log = sys.stdout
-        logging.basicConfig(stream=log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        logging.basicConfig(stream=args.log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
 
