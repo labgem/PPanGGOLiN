@@ -178,7 +178,7 @@ def main():
         logging.basicConfig(stream=args.log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
-    if args.memory is not None:
+    if hasattr(args,"memory") and args.memory is not None:
         p = Process(target = monitor_mem, args = (args.memory,))
         p.start()
     logging.getLogger().info("starting writing mem stats...")
@@ -209,7 +209,7 @@ def main():
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
 
-    if args.memory is not None:
+    if hasattr(args,"memory") and args.memory is not None:
         p.terminate()
 
 if __name__ == "__main__":
