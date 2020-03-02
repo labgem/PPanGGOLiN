@@ -40,7 +40,7 @@ def firstClustering(sequences, tmpdir, cpu, code, coverage, identity ):
     seqNucdb = tmpdir.name + '/nucleotid_sequences_db'
     cmd = ["mmseqs","createdb"]
     cmd.append(sequences.name)
-    cmd.extend([seqNucdb,"--dont-shuffle","false"])
+    cmd.extend([seqNucdb])
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Creating sequence database...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
