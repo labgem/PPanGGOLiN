@@ -76,7 +76,7 @@ If you want to use personalized parameters for each subcommand most options shou
 Issues, Questions, Remarks
 ==========================
 
-If you have any question or issue with installing, using or understanding PPanGGOLiN, please do not hesitate to post an issue ! We cannot correct bugs if we do not know about it, and will try to help you the best we can.
+If you have any question or issue with installing, using or understanding PPanGGOLiN, please do not hesitate to post an issue ! We cannot correct bugs if we do not know about them, and will try to help you the best we can.
 
 
 Citation
