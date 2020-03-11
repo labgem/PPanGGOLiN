@@ -430,7 +430,7 @@ def updateGeneFragments(pangenome, h5f):
     table.flush()
 
 
-def ErasePangenome(pangenome, graph=False, geneFamilies = False):
+def ErasePangenome(pangenome, graph=False, geneFamilies = False, partition = False, rgp = False, spots = False):
     """ erases tables from a pangenome .h5 file """
     compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
     h5f = tables.open_file(pangenome.file,"a", filters=compressionFilter)
@@ -455,11 +455,16 @@ def ErasePangenome(pangenome, graph=False, geneFamilies = False):
         pangenome.status["geneFamilySequences"] = "No"
         statusGroup._v_attrs.geneFamilySequences = False
         statusGroup._v_attrs.Partitionned = False
-    if '/RGP' in h5f and geneFamilies:
+    if '/RGP' in h5f and (geneFamilies or partition or rgp):
         logging.getLogger().info("Erasing the formerly computer RGP...")
         pangenome.status["predictedRGP"] = "No"
         statusGroup._v_attrs.predictedRGP = False
-        h5f.remove_node('/', 'RGP')
+        h5f.remove_node("/", "RGP")
+    if '/spots' in h5f and (geneFamilies or partition or rgp or spots):
+        logging.getLogger().info("Erasing the formerly computed spots...")
+        pangenome.status["spots"] = "No"
+        statusGroup._v_attrs.spots = False
+        h5f.remove_node("/","spots")
 
     h5f.close()
 
