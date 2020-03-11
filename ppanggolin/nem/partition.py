@@ -19,7 +19,7 @@ import plotly.graph_objs as go
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mkOutdir
-from ppanggolin.formats import checkPangenomeInfo, writePangenome
+from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
 
 #cython library (local)
 import nem_stats
@@ -316,7 +316,14 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
         out_plotly.plot(fig, filename=outputdir+"/ICL_curve_K"+str(best_K)+".html", auto_open=False)
     return ChosenK
 
-def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = 10, free_dispersion=False, chunk_size=500, K=-1, Krange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
+def checkPangenomeFormerPartition(pangenome,force):
+    """ checks pangenome status and .h5 files for former partitions, delete them if allowed or raise an error """
+    if pangenome.status["partitionned"] == "inFile" and force == False:
+        raise Exception("You are trying to partition a pangenome already partitionned. If you REALLY want to do that, use --force (it will erase partitions and every feature computed from them.")
+    elif pangenome.status["partitionned"] == "inFile" and force == True:
+        ErasePangenome(pangenome, partition = True)
+
+def partition(pangenome, tmpdir, outputdir = None, force = False, beta = 2.5, sm_degree = 10, free_dispersion=False, chunk_size=500, K=-1, Krange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
 
     Krange = Krange or [3,20]
     global pan
@@ -325,7 +332,7 @@ def partition(pangenome, tmpdir, outputdir = None, beta = 2.5, sm_degree = 10, f
 
     if draw_ICL and outputdir is None:
         raise Exception("Combination of option impossible: You asked to draw the ICL curves but did not provide an output directory!")
-
+    checkPangenomeFormerPartition(pangenome, force)
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
     organisms = set(pangenome.organisms)
 
@@ -447,7 +454,7 @@ def launch(args):
         mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    partition(pangenome, args.tmpdir, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.krange, args.ICL_margin, args.draw_ICL, args.cpu, args.seed, args.keep_tmp_files)
+    partition(pangenome, args.tmpdir, args.output, args.force, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.krange, args.ICL_margin, args.draw_ICL, args.cpu, args.seed, args.keep_tmp_files)
     writePangenome(pangenome,pangenome.file, args.force)
 
 def partitionSubparser(subparser):

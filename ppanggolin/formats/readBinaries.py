@@ -259,7 +259,6 @@ def readInfo(h5f):
         if 'numberOfSpots' in infoGroup._v_attrs._f_list():
             print(f"Spots : {infoGroup._v_attrs['numberOfSpots']}")
 
-
 def readParameters(h5f):
     if "/info" in h5f:
         infoGroup = h5f.root.info

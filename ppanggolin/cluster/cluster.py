@@ -153,7 +153,7 @@ def read_fam2seq(pangenome, fam2seq):
 def checkPangenomeFormerClustering(pangenome, force):
     """ checks pangenome status and .h5 files for former clusterings, delete them if allowed or raise an error """
     if pangenome.status["genesClustered"] == "inFile" and force == False:
-        raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to do that, use --force (it will erase everything except annotation data !)")
+        raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to do that, use --force (it will erase everything except annotation data in your HDF5 file!)")
     elif pangenome.status["genesClustered"] == "inFile" and force == True:
         ErasePangenome(pangenome, geneFamilies = True)
 

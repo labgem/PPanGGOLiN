@@ -27,7 +27,7 @@ from numpy import percentile
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region, Spot
-from ppanggolin.formats import checkPangenomeInfo, writePangenome
+from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
 from ppanggolin.utils import mkOutdir, jaccard_similarities
 
 def compBorder(border1, border2, overlapping_match, exact_match, set_size):
@@ -56,7 +56,7 @@ def checkSim(pairKnownBorder, pairBorderGenes, overlapping_match, exact_match, s
         return True
     return False
 
-def makeSpotGraph(rgps, multigenics, output="", spot_graph=False, overlapping_match=2, set_size=3, exact_match=1):
+def makeSpotGraph(rgps, multigenics, output, spot_graph=False, overlapping_match=2, set_size=3, exact_match=1):
     def addNewNode(g, rgp, borders):
         blocks = str(sorted([[gene.family.ID for gene in borders[0]],[gene.family.ID for gene in borders[1]]], key = lambda x : x[0]))
         g.add_node(blocks)
@@ -133,30 +133,45 @@ def makeFlanking(spots, output):
         del flankGraph.nodes[node]["borders"]
     nx.readwrite.gexf.write_gexf(flankGraph, output + "/flankGraph.gexf")
 
-def predictHotspots(pangenome, output, cpu = 1, spot_graph = False, flanking_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = "", write_spots = True):
+def checkPangenomeFormerSpots(pangenome, force):
+    """ checks pangenome status and .h5 files for former spots, delete them if allowed or raise an error """
+    if pangenome.status["spots"] == "inFile" and force == False:
+        raise Exception("You are trying to partition a pangenome already partitionned. If you REALLY want to do that, use --force (it will erase spots).")
+    elif pangenome.status["spots"] == "inFile" and force == True:
+        ErasePangenome(pangenome, spots = True)
+
+
+def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False, flanking_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = "", write_spots = True):
     
     #check that given parameters for hotspot computation make sense
     checkParameterLogic(overlapping_match, set_size, exact_match)
-
+    #check for formerly computed stuff, and erase if allowed
+    checkPangenomeFormerSpots(pangenome, force)
     #check statuses and load info
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True, needRGP=True)
 
+    #get multigenic gene families
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
     
     logging.getLogger().info("Detecting hotspots in the pangenome...")
 
+    #predict spots
     spots = makeSpotGraph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size, exact_match)
 
+    #build the flanking graph (a node = a spot, spots with shared borders are linked)
     if flanking_graph:
         makeFlanking(spots, output)
 
     #ADD : Associate rgps on contig borders to known spots. (using both gene content and bordering gene families?)
+
+    #define elements of interest (e.g. gene name, product substring) to search in gene annotations
     if interest != "":
         elements = [ el.strip() for el in interest.split(',') ]
     else:
         elements = []
 
+    #draw spots of interest
     if draw_hotspot:
         drawn_spots = select_spots(pangenome, spots, elements)
         if len(drawn_spots)>0:
@@ -487,7 +502,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     mkOutdir(args.output, args.force)
-    predictHotspots(pangenome, args.output, cpu = args.cpu, spot_graph=args.spot_graph, flanking_graph=args.flanking_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest)
+    predictHotspots(pangenome, args.output, force=args.force, cpu = args.cpu, spot_graph=args.spot_graph, flanking_graph=args.flanking_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest)
     writePangenome(pangenome, pangenome.file, args.force)
 
 

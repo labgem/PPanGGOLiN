@@ -13,7 +13,7 @@ from tqdm import tqdm
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region
-from ppanggolin.formats import checkPangenomeInfo, writePangenome
+from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
 from ppanggolin.utils import mkOutdir
 
 
@@ -174,10 +174,17 @@ def write_GI(pangenome, output):
     for region in regions:
         fname.write('\t'.join(map(str,[region.name, region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder, region.isWholeContig]))+"\n")
 
+def checkPangenomeFormerRGP(pangenome,force):
+    """ checks pangenome status and .h5 files for former rgp, delete them if allowed or raise an error """
+    if pangenome.status["predictedRGP"] == "inFile" and force == False:
+        raise Exception("You are trying to predict RGPs in a pangenome that already have them predicted. If you REALLY want to do that, use --force (it will erase RGPs and every feature computed from them).")
+    elif pangenome.status["predictedRGP"] == "inFile" and force == True:
+        ErasePangenome(pangenome, rgp = True)
 
-def predictRGP(pangenome, output, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1, write_gis = True):
+def predictRGP(pangenome, output, force = False,persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1, write_gis = True):
 
     #check statuses and load info
+    checkPangenomeFormerRGP(pangenome, force)
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True)
 
     logging.getLogger().info("Detecting multigenic families...")
@@ -206,7 +213,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     mkOutdir(args.output, args.force)
-    predictRGP(pangenome, args.output, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, cpu=args.cpu)
+    predictRGP(pangenome, args.output, force = args.force, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, cpu=args.cpu)
     writePangenome(pangenome, pangenome.file, args.force)
 
 def rgpSubparser(subparser):
