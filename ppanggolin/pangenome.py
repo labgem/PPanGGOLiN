@@ -123,8 +123,6 @@ class Pangenome:
         except AttributeError:#in that case the gene getter has not been computed
             self._mkgeneGetter()#make it
             return self.genes#return what was expected
-        except KeyError:
-            return None
 
     @property
     def geneFamilies(self):
