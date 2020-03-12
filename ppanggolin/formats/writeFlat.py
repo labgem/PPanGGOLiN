@@ -521,33 +521,13 @@ def writeGeneSequences(output, compress=False):
             raise Exception("The pangenome does not include gene sequences")
     logging.getLogger().info(f"Done writing all the gene sequences : '{outname}'")
 
-def writeRegionTab(contigDict, outfile, compress=False):
-    with write_compressed_or_not(outfile, compress) as tab:
-        tab.write("contig\tstart\tstop\tscore\n")
-        for contig, regions in contigDict.items():
-            for region in sorted(regions, key=lambda x : x.start):
-                tab.write('\t'.join(map(str,[contig.name, region.start, region.stop, region.score])) + "\n")
-
 def writeRegions(output, compress = False):
-    logging.getLogger().info(f"Writing the .tab files for the RGP in each organisms")
-    outdir = output + "/regions/"
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    orgContig = {}
-    for region in pan.regions:
-        try:
-            orgContig[region.genes[0].organism][region.genes[0].contig].add(region)
-        except KeyError:#new contig
-            try:
-                orgContig[region.genes[0].organism][region.genes[0].contig] = set([region])
-            except KeyError:#new organism
-                orgContig[region.genes[0].organism] = {region.genes[0].contig : set([region])}
-
-    for org, contigDict in orgContig.items():
-        outname = outdir + "/" + org.name + ".tab"
-        writeRegionTab(contigDict, outname, compress)
-    logging.getLogger().info(f"Done writing the .tab files for the RGP. They are in the folder : '{outdir}'")
-
+    fname = output + "/plastic_regions.tsv"
+    with write_compressed_or_not(fname, compress) as tab:
+        tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
+        regions = sorted(pan.regions, key = lambda x : (x.organism.name, x.contig.name, x.start))
+        for region in regions:
+            tab.write('\t'.join(map(str,[region.name, region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder, region.isWholeContig]))+"\n")
 
 def uniform_spots(S, N):
     logging.getLogger().info(f"There are {N} gene families among {S} spots")

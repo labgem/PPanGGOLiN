@@ -167,13 +167,6 @@ def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min
             orgRegions |= mkRegions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain, multigenics)
     return orgRegions
 
-def write_GI(pangenome, output):
-    fname = open(output + "/plastic_regions.tsv","w")
-    fname.write("id\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
-    regions = sorted(pangenome.regions, key = lambda x : (x.organism.name, x.contig.name, x.start))
-    for region in regions:
-        fname.write('\t'.join(map(str,[region.name, region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder, region.isWholeContig]))+"\n")
-
 def checkPangenomeFormerRGP(pangenome,force):
     """ checks pangenome status and .h5 files for former rgp, delete them if allowed or raise an error """
     if pangenome.status["predictedRGP"] == "inFile" and force == False:
@@ -181,7 +174,7 @@ def checkPangenomeFormerRGP(pangenome,force):
     elif pangenome.status["predictedRGP"] == "inFile" and force == True:
         ErasePangenome(pangenome, rgp = True)
 
-def predictRGP(pangenome, output, force = False,persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1, write_gis = True):
+def predictRGP(pangenome, force = False, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1):
 
     #check statuses and load info
     checkPangenomeFormerRGP(pangenome, force)
@@ -194,8 +187,6 @@ def predictRGP(pangenome, output, force = False,persistent_penalty = 3, variable
     for org in bar:
         pangenome.addRegions(compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics))
     logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")
-    if write_gis:
-        write_GI(pangenome, output)#should this be here?
 
     #save parameters and save status
     pangenome.parameters["RGP"] = {}
@@ -212,8 +203,7 @@ def predictRGP(pangenome, output, force = False,persistent_penalty = 3, variable
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    mkOutdir(args.output, args.force)
-    predictRGP(pangenome, args.output, force = args.force, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, cpu=args.cpu)
+    predictRGP(pangenome, force = args.force, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, cpu=args.cpu)
     writePangenome(pangenome, pangenome.file, args.force)
 
 def rgpSubparser(subparser):
@@ -224,7 +214,6 @@ def rgpSubparser(subparser):
     optional.add_argument('--min_score', required=False, type=int, default=4, help="Minimal score wanted for considering a region as being a RGP")
     optional.add_argument('--min_length', required=False, type=int, default=3000, help="Minimum length (bp) of a region to be considered a RGP")
     optional.add_argument("--dup_margin", required = False, type=int, default=0.05, help="Minimum ratio of organisms where the family is present in which the family must have multiple genes for it to be considered 'duplicated'" )
-    optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser

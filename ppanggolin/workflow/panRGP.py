@@ -67,7 +67,7 @@ def launch(args):
     writing_time = writing_time + time.time() - start_writing
 
     start_regions = time.time()
-    predictRGP(pangenome, args.output)
+    predictRGP(pangenome)
     regions_time = time.time() - start_regions
 
     start_spots = time.time()
