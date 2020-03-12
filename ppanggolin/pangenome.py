@@ -41,7 +41,11 @@ class Edge:
         self.organisms[org].append((sourceGene, targetGene))
 
 class Pangenome:
+    """This is a class representing your pangenome. It is used as a basic unit for all of the analysis to access to the different elements of your pangenome, such as organisms, contigs, genes or gene families. It has setter and getter methods for most elements in your pangenome and you can use those to add new elements to it, or get objects that have a specific identifier to manipulate them directly.
+    """
     def __init__(self):
+        """Constructor method.
+        """
         #basic parameters
         self._famGetter = {}
         self.max_fam_id = 0
@@ -64,6 +68,10 @@ class Pangenome:
         self.parameters = {}
 
     def addFile(self, pangenomeFile):
+        """Links an HDF5 file to the pangenome. If needed elements will be loaded from this file, and anything that is computed will be saved to this file when :meth: `ppanggolin.formats.writePangenome` is called.
+        :param pangenomeFile: A string representing the filepath to the hdf5 pangenome file to be either used or created.
+        :type pangenomeFile: str
+        """
         from ppanggolin.formats import getStatus#importing on call instead of importing on top to avoid cross-reference problems.
         getStatus(self, pangenomeFile)
         self.file = pangenomeFile
