@@ -181,7 +181,7 @@ def main():
     if hasattr(args,"memory") and args.memory is not None:
         p = Process(target = monitor_mem, args = (args.memory,))
         p.start()
-    logging.getLogger().info("starting writing mem stats...")
+        logging.getLogger().info("starting writing mem stats...")
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
     elif args.subcommand == "cluster":
