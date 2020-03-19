@@ -529,23 +529,6 @@ def writeRegions(output, compress = False):
         for region in regions:
             tab.write('\t'.join(map(str,[region.name, region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder, region.isWholeContig]))+"\n")
 
-def uniform_spots(S, N):
-    logging.getLogger().info(f"There are {N} gene families among {S} spots")
-    el1 = int(N / 3)#number of 1 gene elements
-    el3 = int(((2*N) / 3)/3)#number of 3 gene elements
-    logging.getLogger().info(f"There are {el1} elements of 1 gene and {el3} elements of 3 genes")
-    # p_el = 1 / S#proba of an element to be placed in a given spot
-    maxHTdist = []
-
-    els = [1] * el1 + [3] * el3
-    for _ in trange(1000, unit = "sample"):
-        th_spots = Counter()
-        shuffle(els)
-        for i in els:
-            th_spots[randint(1,S)]+=i
-        maxHTdist.append(th_spots.most_common(1)[0][1])
-    return percentile(maxHTdist, 95)
-
 def summarize_spots(spots, output, compress):
 
     def r_and_s(value):
@@ -558,19 +541,18 @@ def summarize_spots(spots, output, compress):
     with write_compressed_or_not(output + "/summarize_spots.tsv", compress) as fout:
         fout.write("spot\tnb_rgp\tnb_families\tnb_unique_family_sets\tmean_nb_genes\tstdev_nb_genes\tmax_nb_genes\tmin_nb_genes\n")
         for spot in sorted(spots, key=lambda x : len(x.regions), reverse=True):
-            if len(spot.regions) > 1:
-                tot_fams = set()
-                rgp_list = list(spot.regions)
-                len_uniq_content = len(spot.getUniqContent())
-                size_list = []
-                for rgp in spot.regions:
-                    tot_fams |= rgp.families
-                    size_list.append(len(rgp.genes))
-                mean_size = mean(size_list)
-                stdev_size = stdev(size_list)
-                max_size = max(size_list)
-                min_size = min(size_list)
-                fout.write("\t".join(map(r_and_s,[f"spot_{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content, mean_size,stdev_size,max_size, min_size])) + "\n")
+            tot_fams = set()
+            rgp_list = list(spot.regions)
+            len_uniq_content = len(spot.getUniqContent())
+            size_list = []
+            for rgp in spot.regions:
+                tot_fams |= rgp.families
+                size_list.append(len(rgp.genes))
+            mean_size = mean(size_list)
+            stdev_size = stdev(size_list) if len(size_list) > 1 else 0
+            max_size = max(size_list)
+            min_size = min(size_list)
+            fout.write("\t".join(map(r_and_s,[f"spot_{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content, mean_size,stdev_size,max_size, min_size])) + "\n")
     logging.getLogger().info(f"Done writing spots in : '{output + '/summarize_spots.tsv'}'")
 
 def spot2rgp(spots, output, compress):

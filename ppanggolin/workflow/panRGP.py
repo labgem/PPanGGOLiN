@@ -85,7 +85,7 @@ def launch(args):
     drawUCurve(pangenome, args.output)
 
     start_desc = time.time()
-    writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True, json = True, stats = True, partitions = True)
+    writeFlatFiles(pangenome, args.output, args.cpu, csv = True, genePA=True, gexf=True, light_gexf = True, projection=True, json = True, stats = True, partitions = True, regions = True, spots=True)
     desc_time = time.time() - start_desc
 
     logging.getLogger().info(f"Annotation took : {round(annotime,2)} seconds")
