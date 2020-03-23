@@ -498,7 +498,7 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj, verbose = False):
         Writes the CDS sequences of the Pangenome object to a tmpFile object
         Loads the sequences from previously computed or loaded annotations
     """
-    logging.getLogger().info("Writing all of the CDS sequences for clustering...")
+    logging.getLogger().info("Writing all of the CDS sequences...")
     bar =  tqdm(pangenome.genes, unit="gene", disable= not verbose)
     for gene in bar:
         if gene.type == "CDS":

@@ -163,7 +163,6 @@ def checkPangenomeForClustering(pangenome, tmpFile, force):
     """
     checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed","Loaded"]:
-        logging.getLogger().info("Writing all of the CDS sequences for clustering...")
         writeGeneSequencesFromAnnotations(pangenome, tmpFile)
     elif pangenome.status["geneSequences"] == "inFile":
         getGeneSequencesFromFile(pangenome, tmpFile)#write CDS sequences to the tmpFile
