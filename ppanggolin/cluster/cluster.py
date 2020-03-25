@@ -17,7 +17,7 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.utils import read_compressed_or_not
-from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, ErasePangenome
+from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, writeGeneSequencesFromAnnotations, ErasePangenome
 
 def alignRep(faaFile, tmpdir, cpu, coverage, identity):
     seqdb = tmpdir.name + '/rep_sequence_db'
@@ -150,24 +150,10 @@ def read_fam2seq(pangenome, fam2seq):
         fam = pangenome.addGeneFamily(family)
         fam.addSequence(protein)
 
-def writeGeneSequencesFromAnnotations(pangenome, fileObj):
-    """
-        Writes the CDS sequences of the Pangenome object to a tmpFile object
-        Loads the sequences from previously computed or loaded annotations
-    """
-    logging.getLogger().info("Writing all of the CDS sequences for clustering...")
-    bar =  tqdm(pangenome.genes, unit="gene")
-    for gene in bar:
-        if gene.type == "CDS":
-            fileObj.write('>' + gene.ID + "\n")
-            fileObj.write(gene.dna + "\n")
-    fileObj.flush()
-    bar.close()
-
 def checkPangenomeFormerClustering(pangenome, force):
     """ checks pangenome status and .h5 files for former clusterings, delete them if allowed or raise an error """
     if pangenome.status["genesClustered"] == "inFile" and force == False:
-        raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to do that, use --force (it will erase everything except annotation data !)")
+        raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to do that, use --force (it will erase everything except annotation data in your HDF5 file!)")
     elif pangenome.status["genesClustered"] == "inFile" and force == True:
         ErasePangenome(pangenome, geneFamilies = True)
 
@@ -213,6 +199,7 @@ def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", coverage = 
     newtmpdir.cleanup()
     read_fam2seq(pangenome, fam2seq)
     read_gene2fam(pangenome, genes2fam)
+
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
 
@@ -258,15 +245,15 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
             logging.getLogger().error("No tabulation separator found in gene families file")
             exit(1)
         (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
-
-        geneObj = pangenome.getGene(gene_id)
-        if geneObj is None:
+        try:
+            geneObj = pangenome.getGene(gene_id)
+        except KeyError:
             geneObj = localDict.get(gene_id)
-        if geneObj is not None:
-            nbGeneWtFam+=1
-            fam = pangenome.addGeneFamily(fam_id)
-            geneObj.is_fragment =  True if is_frag == "F" else False
-            fam.addGene(geneObj)
+            if geneObj is not None:
+                nbGeneWtFam+=1
+                fam = pangenome.addGeneFamily(fam_id)
+                geneObj.is_fragment =  True if is_frag == "F" else False
+                fam.addGene(geneObj)
         if is_frag == "F":
             frag=True
     bar.close()

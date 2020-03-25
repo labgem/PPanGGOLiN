@@ -11,18 +11,26 @@ import resource
 import pkg_resources
 import tempfile
 import os
+from multiprocessing import Process 
+import time
+
+#installed modules
+import psutil
 
 #local modules
 import ppanggolin.pangenome
-import ppanggolin.nem
+import ppanggolin.nem.partition
+import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
-import ppanggolin.workflow
+import ppanggolin.workflow.workflow
+import ppanggolin.workflow.panRGP
 import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
 import ppanggolin.align
+import ppanggolin.RGP
 
 def checkTsvSanity(tsv):
     f = open(tsv,"r")
@@ -64,27 +72,38 @@ def checkInputFiles(anno=None, pangenome=None, fasta=None):
             raise FileNotFoundError(f"No such file or directory: '{fasta}'")
         checkTsvSanity(fasta)
 
+def checkLog(name):
+    if name == "stdout":
+        return sys.stdout
+    elif name == "stderr":
+        return sys.stderr
+    else:
+        return open(name,"w")
+
 def cmdLine():
 
     #need to manually write the description so that it's displayed into groups of subcommands ....
     desc = "\n"
     desc += "  Basic:\n"
-    desc += "    workflow      Easy workflow to run a pangenome analysis in one go without parameter tuning\n"
+    desc += "    workflow      Easy workflow to run a pangenome analysis in one go\n"
+    desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection\n"
     desc += "  \n"
     desc += "  Expert:\n"
     desc += "    annotate      Annotate genomes\n"
     desc += "    cluster       Cluster proteins in protein families\n"
     desc += "    graph         Create the pangenome graph\n"
     desc += "    partition     Partition the pangenome graph\n"
-    desc += "    rarefaction     Compute the rarefaction curve of the pangenome\n"
+    desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
     desc += "    write         Writes 'flat' files representing the pangenome that can be used with other softwares\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
     desc += "  \n"
-    desc += "  Specific analysis:\n"
-    desc += "    align        aligns proteins to the pangenome gene families representatives\n"
+    desc += "  Regions of genomic Plasticity:\n"
+    desc += "    align         Aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
+    desc += "    rgp           Predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
+    desc += "    spot          Predicts spots in your pangenome\n"
 
     parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
@@ -97,10 +116,13 @@ def cmdLine():
     subs.append(ppanggolin.graph.graphSubparser(subparsers))
     subs.append(ppanggolin.nem.partition.partitionSubparser(subparsers))
     subs.append(ppanggolin.nem.rarefaction.rarefactionSubparser(subparsers))
-    subs.append(ppanggolin.workflow.workflowSubparser(subparsers))
+    subs.append(ppanggolin.workflow.workflow.workflowSubparser(subparsers))
+    subs.append(ppanggolin.workflow.panRGP.panRGPSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
     subs.append(ppanggolin.align.alignSubparser(subparsers))
+    subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
+    subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
     for sub in subs:#add options common to all subcommands
@@ -108,6 +130,7 @@ def cmdLine():
         common.title = "Common arguments"
         common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(), help = "directory for storing temporary files")
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+        common.add_argument("--log", required=False, type=checkLog, default="stdout", help = "log output file")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
         sub._action_groups.append(common)
@@ -142,10 +165,9 @@ def main():
             level = logging.INFO#info, warnings and errors
         elif args.verbose == 0:
             level = logging.WARNING#only warnings and errors
-        logging.basicConfig(stream=sys.stdout, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        logging.basicConfig(stream=args.log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
-
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
     elif args.subcommand == "cluster":
@@ -155,7 +177,7 @@ def main():
     elif args.subcommand == "partition":
         ppanggolin.nem.partition.launch(args)
     elif args.subcommand == "workflow":
-        ppanggolin.workflow.launch(args)
+        ppanggolin.workflow.workflow.launch(args)
     elif args.subcommand == "rarefaction":
         ppanggolin.nem.rarefaction.launch(args)
     elif args.subcommand == "draw":
@@ -166,6 +188,12 @@ def main():
         ppanggolin.info.launch(args)
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
+    elif args.subcommand == "rgp":
+        ppanggolin.RGP.genomicIsland.launch(args)
+    elif args.subcommand == "spot":
+        ppanggolin.RGP.spot.launch(args)
+    elif args.subcommand == "panrgp":
+        ppanggolin.workflow.panRGP.launch(args)
 
 if __name__ == "__main__":
     main()

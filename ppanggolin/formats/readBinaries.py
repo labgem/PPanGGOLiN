@@ -11,7 +11,7 @@ import tables
 
 #local libraries
 from ppanggolin.genome import Organism, Gene, RNA
-
+from ppanggolin.region import Spot
 
 def getNumberOfOrganisms(pangenome):
     """ standalone function to get the number of organisms in a pangenome"""
@@ -48,6 +48,15 @@ def getStatus(pangenome, pangenomeFile):
         pangenome.status["neighborsGraph"] = "inFile"
     if statusGroup._v_attrs.Partitionned:
         pangenome.status["partitionned"] = "inFile"
+    
+    if hasattr(statusGroup._v_attrs, "predictedRGP"):
+        if statusGroup._v_attrs.predictedRGP:
+            pangenome.status["predictedRGP"] = "inFile"
+
+    if hasattr(statusGroup._v_attrs, "spots"):
+        if statusGroup._v_attrs.spots:
+            pangenome.status["spots"] = "inFile"
+
     if "/info" in h5f:
         infoGroup = h5f.root.info
         pangenome.parameters = infoGroup._v_attrs.parameters
@@ -55,7 +64,7 @@ def getStatus(pangenome, pangenomeFile):
 
 def read_chunks(table, column = None, chunk=10000):
     """
-        Reading entirely the provided table chunk per chunk to limit RAM usage.
+        Reading entirely the provided table (or column if specified) chunk per chunk to limit RAM usage.
     """
     for i in range(0,  table.nrows, chunk):
         for row in table.read(start = i, stop = i + chunk, field = column):
@@ -104,21 +113,21 @@ def readOrganism(pangenome, orgName, contigDict, circularContigs, link = False):
             gene.fill_annotations(
                 start = row["start"],
                 stop = row["stop"],
-                strand =  row["strand"],
+                strand =  row["strand"].decode(),
                 geneType = row["type"].decode(),
                 position = row["position"],
                 genetic_code= row["genetic_code"],
                 name = row["name"].decode(),
                 product = row["product"].decode(),
                 local_identifier=local)
-            gene.is_fragment = row=["is_fragment"]
+            gene.is_fragment = row["is_fragment"]
             gene.fill_parents(org, contig)
-            if gene.type == "CDS":
+            if gene_type == "CDS":
                 contig.addGene(gene)
-            elif "RNA" in gene.type.upper():
+            elif "RNA" in gene_type:
                 contig.addRNA(gene)
             else:
-                raise Exception(f"A strange type ({gene.type}), which we do not know what to do with, was met.")
+                raise Exception(f"A strange type '{gene_type}', which we do not know what to do with, was met.")
     pangenome.addOrganism(org)
 
 def readGraph(pangenome, h5f):
@@ -166,6 +175,36 @@ def readGeneFamiliesInfo(pangenome, h5f):
         pangenome.status["partitionned"] = "Loaded"
     if h5f.root.status._v_attrs.geneFamilySequences:
         pangenome.status["geneFamilySequences"] = "Loaded"
+
+
+def readRGP(pangenome, h5f):
+    table = h5f.root.RGP
+
+    bar = tqdm(range(table.nrows), unit = "gene")
+    for row in read_chunks(table):
+        region = pangenome.getOrAddRegion(row["RGP"].decode())
+        region.append(pangenome.getGene(row["gene"].decode()))
+        bar.update()
+    bar.close()
+    #order the genes properly in the regions
+    for region in pangenome.regions:
+        region.genes = sorted(region.genes, key = lambda x : x.position )#order the same way than on the contig
+    pangenome.status["predictedRGP"] = "Loaded"
+
+def readSpots(pangenome, h5f):
+    table = h5f.root.spots
+    bar = tqdm(range(table.nrows), unit= "region")
+    spots = {}
+    for row in read_chunks(table):
+        curr_spot = spots.get(row["spot"])
+        if curr_spot is None:
+            curr_spot = Spot(row["spot"])
+            spots[row["spot"]] = curr_spot
+        curr_spot.addRegion(pangenome.getOrAddRegion(row["RGP"].decode()))
+        bar.update()
+    bar.close()
+    pangenome.addSpots(spots.values())
+    pangenome.status["spots"] = "Loaded"
 
 def readAnnotation(pangenome, h5f, filename):
     annotations = h5f.root.annotations
@@ -215,6 +254,10 @@ def readInfo(h5f):
             if infoGroup._v_attrs['numberOfPartitions'] != 3:
                 for key, val in infoGroup._v_attrs['numberOfSubpartitions'].items():
                     print(f"Shell {key} : {val}")
+        if 'numberOfRGP' in infoGroup._v_attrs._f_list():
+            print(f"RGPs : {infoGroup._v_attrs['numberOfRGP']}")
+        if 'numberOfSpots' in infoGroup._v_attrs._f_list():
+            print(f"Spots : {infoGroup._v_attrs['numberOfSpots']}")
 
 def readParameters(h5f):
     if "/info" in h5f:
@@ -225,9 +268,9 @@ def readParameters(h5f):
                 for key2, val in dic.items():
                     print(f"    {key2} : {val}")
 
-def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False):
+def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False, rgp = False, spots = False):
     """
-        Reads a previously written pangenome, with all of its parts, depending on what is asked.
+        Reads a previously written pangenome, with all of its parts, depending on what is asked, with regards to what is filled in the 'status' field of the hdf5 file.
     """
     # compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
     if hasattr(pangenome,"file"):
@@ -253,28 +296,57 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
             logging.getLogger().info("Reading the neighbors graph edges...")
             readGraph(pangenome, h5f)
         else:
-            raise Exception(f"The pangenome in file '{filename}' does not have graph informations, or has been improperly filled")
+            raise Exception(f"The pangenome in file '{filename}' does not have graph information, or has been improperly filled")
+    if rgp:
+        if h5f.root.status._v_attrs.predictedRGP:
+            logging.getLogger().info("Reading the RGP...")
+            readRGP(pangenome, h5f)
+        else:
+            raise Exception(f"The pangenome in file '{filename}' does not have RGP information, or has been improperly filled")
+    if spots:
+        if h5f.root.status._v_attrs.spots:
+            logging.getLogger().info("Reading the spots...")
+            readSpots(pangenome, h5f)
+        else:
+            raise Exception(f"The pangenome in file '{filename}' does not have spots information, or has been improperly filled")
     h5f.close()
 
-def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False):
-    """defines what needs to be read depending on what is needed"""
+def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False, needPartitions = False, needRGP = False, needSpots = False):
+    """defines what needs to be read depending on what is needed, and automatically checks if the required elements have been computed with regards to the pangenome.status"""
     annotation = False
     geneFamilies = False
     graph = False
+    rgp = False
+    spots = False
+
     if needAnnotations:
         if pangenome.status["genomesAnnotated"] == "inFile":
             annotation = True
         elif not pangenome.status["genomesAnnotated"] in ["Computed","Loaded"]:
-            raise Exception("You want to partition an unannotated pangenome")
+            raise Exception("Your pangenome has no genes. See the 'annotate' subcommand.")
     if needFamilies:
         if pangenome.status["genesClustered"] == "inFile":
             geneFamilies = True
         elif not pangenome.status["genesClustered"] in ["Computed","Loaded"]:
-            raise Exception("You want to partition a pangenome whose genes have not been clustered")
+            raise Exception("Your pangenome has no gene families. See the 'cluster' subcommand.")
     if needGraph:
         if pangenome.status["neighborsGraph"] == "inFile":
             graph=True
         elif not pangenome.status["neighborsGraph"] in ["Computed","Loaded"]:
-            raise Exception("You want to partition a pangenome whose neighbors graph has not been computed.")
-    if annotation or geneFamilies or graph:#if anything is true, else we need nothing.
-        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph)
+            raise Exception("Your pangenome does not have a graph (no edges). See the 'graph' subcommand.")
+    if needPartitions:
+        if not pangenome.status["partitionned"] in ["Computed", "Loaded", "inFile"]:
+            raise Exception("Your pangenome has not been partitionned. See the 'partition' subcommand")
+    if needRGP:
+        if pangenome.status["predictedRGP"] == "inFile":
+            rgp = True
+        elif not pangenome.status["predictedRGP"] in ["Computed","Loaded"]:
+            raise Exception("Your pangenome's regions of genomic plasticity have not been predicted. See the 'rgp' subcommand")
+    if needSpots:
+        if pangenome.status["spots"] == "inFile":
+            spots = True
+        elif not pangenome.status["spots"] in ["Computed","Loaded"]:
+            raise Exception("Your pangenome spots of insertion have not been predicted. See the 'spot' subcommand")
+
+    if annotation or geneFamilies or graph or rgp or spots:#if anything is true, else we need nothing.
+        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph, rgp = rgp, spots = spots)

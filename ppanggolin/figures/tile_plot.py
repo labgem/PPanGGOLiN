@@ -15,19 +15,7 @@ import plotly.offline as out_plotly
 import colorlover as cl
 #local libraries
 from ppanggolin.formats import checkPangenomeInfo
-
-def jaccard_similarities(mat,jaccard_similarity_th):
-    cols_sum = mat.getnnz(axis=0)
-    ab = mat.T * mat
-    # for rows
-    aa = numpy.repeat(cols_sum, ab.getnnz(axis=0))
-    # for columns
-    bb = cols_sum[ab.indices]
-    similarities = ab.copy()
-    similarities.data /= (aa + bb - ab.data)
-    similarities.data[similarities.data<jaccard_similarity_th] = 0
-    similarities.eliminate_zeros()
-    return similarities
+from ppanggolin.utils import jaccard_similarities
 
 def drawTilePlot(pangenome, output, nocloud = False):
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)

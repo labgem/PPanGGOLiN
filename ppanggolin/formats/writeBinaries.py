@@ -58,6 +58,18 @@ def getMaxLenAnnotations(pangenome):
                     maxTypeLen = len(gene.type)
                 if len(gene.local_identifier) > maxLocalId:
                     maxLocalId = len(gene.local_identifier)
+            for gene in contig.RNAs:
+                if len(gene.ID) > maxGeneIDLen:
+                    maxGeneIDLen = len(gene.ID)
+                if len(gene.name) > maxNameLen:
+                    maxNameLen = len(gene.name)
+                if len(gene.product) > maxProductLen:
+                    maxProductLen = len(gene.product)
+                if len(gene.type) > maxTypeLen:
+                    maxTypeLen = len(gene.type)
+                if len(gene.local_identifier) > maxLocalId:
+                    maxLocalId = len(gene.local_identifier)
+
     return maxOrgLen, maxContigLen, maxGeneIDLen, maxTypeLen, maxNameLen, maxProductLen, maxLocalId
 
 def writeAnnotations(pangenome, h5f):
@@ -70,8 +82,6 @@ def writeAnnotations(pangenome, h5f):
     for org in pangenome.organisms:
         for contig in org.contigs:
             nbRNA += len(contig.RNAs)
-    rnaTable = h5f.create_table(annotation, "RNA",geneDesc(*getMaxLenAnnotations(pangenome)), expectedrows=nbRNA)
-    rnaRow = rnaTable.row
     bar = tqdm(pangenome.organisms, unit="genome")
     geneRow = geneTable.row
     for org in bar:
@@ -93,22 +103,20 @@ def writeAnnotations(pangenome, h5f):
                 geneRow["gene/local"] = gene.local_identifier
                 geneRow.append()
             for rna in contig.RNAs:
-                rnaRow["organism"] = org.name
-                rnaRow["contig/name"] = contig.name
-                rnaRow["contig/is_circular"] = contig.is_circular#this should be somewhere else.
-                rnaRow["gene/ID"]= rna.ID
-                rnaRow["gene/start"] = rna.start
-                rnaRow["gene/stop"] = rna.stop
-                rnaRow["gene/strand"] = rna.strand
-                rnaRow["gene/type"] = rna.type
-                rnaRow["gene/name"] = rna.name
-                rnaRow["gene/product"] = rna.product
-                rnaRow["gene/is_fragment"] = rna.is_fragment
-                rnaRow["gene/local"] = rna.local_identifier
+                geneRow["organism"] = org.name
+                geneRow["contig/name"] = contig.name
+                geneRow["contig/is_circular"] = contig.is_circular#this should be somewhere else.
+                geneRow["gene/ID"]= rna.ID
+                geneRow["gene/start"] = rna.start
+                geneRow["gene/stop"] = rna.stop
+                geneRow["gene/strand"] = rna.strand
+                geneRow["gene/type"] = rna.type
+                geneRow["gene/name"] = rna.name
+                geneRow["gene/product"] = rna.product
+                geneRow["gene/is_fragment"] = rna.is_fragment
+                geneRow.append()
     geneTable.flush()
-    rnaTable.flush()
     bar.close()
-
 
 def getGeneSequencesLen(pangenome):
     maxSeqLen = 1
@@ -242,13 +250,79 @@ def writeGraph(pangenome, h5f, force):
     edgeRow = edgeTable.row
     bar = tqdm(pangenome.edges, unit = "edge")
     for edge in bar:
-        for _, genePairs in edge.organisms.items():
+        for genePairs in edge.organisms.values():
             for gene1, gene2 in genePairs:
                 edgeRow["geneTarget"] = gene1.ID
                 edgeRow["geneSource"] = gene2.ID
                 edgeRow.append()
     bar.close()
     edgeTable.flush()
+
+
+def RGPDesc(maxRGPLen, maxGeneLen):
+    return { 
+            'RGP': tables.StringCol(itemsize=maxRGPLen),
+            'gene':tables.StringCol(itemsize=maxGeneLen)
+        }
+
+def getRGPLen(pangenome):
+    maxGeneLen = 1
+    maxRGPLen = 1
+    for region in pangenome.regions:
+        for gene in region.genes:
+            if len(gene.ID) > maxGeneLen:
+                maxGeneLen = len(gene.ID)
+        if len(region.name) > maxRGPLen:
+            maxRGPLen = len(region.name)
+    return maxRGPLen, maxGeneLen
+
+def writeRGP(pangenome, h5f, force):
+    if '/RGP' in h5f and force is True:
+        logging.getLogger().info("Erasing the formerly computer RGP")
+        h5f.remove_node('/', 'RGP')
+
+    RGPTable = h5f.create_table('/', 'RGP', RGPDesc(*getRGPLen(pangenome)), expectedrows = sum([ len(region.genes) for region in pangenome.regions ]) )
+    RGPRow = RGPTable.row
+    bar = tqdm(pangenome.regions, unit="region")
+    for region in bar:
+        for gene in region.genes:
+            RGPRow["RGP"] = region.name
+            RGPRow["gene"] = gene.ID
+            RGPRow.append()
+    bar.close()
+    RGPTable.flush()
+
+def spotDesc(maxRGPLen):
+    return { 
+            'spot': tables.UInt32Col(),
+            'RGP':tables.StringCol(itemsize=maxRGPLen)
+        }
+
+def getSpotDesc(pangenome):
+    maxRGPLen = 1
+    for spot in pangenome.spots:
+        for region in spot.regions:
+            if len(region.name) > maxRGPLen:
+                maxRGPLen = len(region.name)
+    return maxRGPLen
+
+def writeSpots(pangenome, h5f, force):
+    if '/spots' in h5f and force is True:
+        logging.getLogger().info("Erasing the formerly computed spots")
+        h5f.remove_node("/","spots")
+    
+    SpoTable = h5f.create_table("/","spots",spotDesc(getSpotDesc(pangenome)), expectedrows= sum([len(spot.regions) for spot in pangenome.spots]))
+    SpotRow = SpoTable.row
+    bar = tqdm(pangenome.spots, unit="spot")
+    for spot in pangenome.spots:
+        for region in spot.regions:
+            SpotRow["spot"] = spot.ID
+            SpotRow["RGP"] = region.name
+            SpotRow.append()
+        bar.update()
+    bar.close()
+    SpoTable.flush()
+
 
 def writeStatus(pangenome, h5f):
     if "/status" in h5f:#if statuses are already written
@@ -262,8 +336,10 @@ def writeStatus(pangenome, h5f):
     statusGroup._v_attrs.NeighborsGraph = True if pangenome.status["neighborsGraph"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.Partitionned = True if pangenome.status["partitionned"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed","Loaded","inFile"] else False
-    statusGroup._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
+    statusGroup._v_attrs.predictedRGP = True if pangenome.status["predictedRGP"] in  ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.spots = True if pangenome.status["spots"] in ["Computed","Loaded","inFile"] else False
 
+    statusGroup._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
 
 def writeInfo(pangenome, h5f):
     """ writes information and numbers to be eventually called with the 'info' submodule """
@@ -321,6 +397,10 @@ def writeInfo(pangenome, h5f):
         infoGroup._v_attrs.cloudStats = {"min":getmin(partDistribs["cloud"]), "max":getmax(partDistribs["cloud"]),"sd":getstdev(partDistribs["cloud"]), "mean":getmean(partDistribs["cloud"])}
         infoGroup._v_attrs.numberOfPartitions = len(partSet)
         infoGroup._v_attrs.numberOfSubpartitions = subpartCounter
+    if pangenome.status["predictedRGP"] in ["Computed", "Loaded"]:
+        infoGroup._v_attrs.numberOfRGP = len(pangenome.regions)
+    if pangenome.status["spots"] in ["Computed", "Loaded"]:
+        infoGroup._v_attrs.numberOfSpots = len(pangenome.spots)
 
     infoGroup._v_attrs.parameters = pangenome.parameters#saving the pangenome parameters
 
@@ -343,12 +423,14 @@ def updateGeneFragments(pangenome, h5f):
     row = table.row
     bar =  tqdm(range(table.nrows), unit="gene")
     for row in table:
-        row['gene/is_fragment'] = pangenome.getGene(row['gene/ID'].decode()).is_fragment
+        if row['gene/type'].decode() == b'CDS':
+            row['gene/is_fragment'] = pangenome.getGene(row['gene/ID'].decode()).is_fragment
         bar.update()
     bar.close()
+    table.flush()
 
 
-def ErasePangenome(pangenome, graph=False, geneFamilies = False):
+def ErasePangenome(pangenome, graph=False, geneFamilies = False, partition = False, rgp = False, spots = False):
     """ erases tables from a pangenome .h5 file """
     compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
     h5f = tables.open_file(pangenome.file,"a", filters=compressionFilter)
@@ -373,6 +455,17 @@ def ErasePangenome(pangenome, graph=False, geneFamilies = False):
         pangenome.status["geneFamilySequences"] = "No"
         statusGroup._v_attrs.geneFamilySequences = False
         statusGroup._v_attrs.Partitionned = False
+    if '/RGP' in h5f and (geneFamilies or partition or rgp):
+        logging.getLogger().info("Erasing the formerly computer RGP...")
+        pangenome.status["predictedRGP"] = "No"
+        statusGroup._v_attrs.predictedRGP = False
+        h5f.remove_node("/", "RGP")
+    if '/spots' in h5f and (geneFamilies or partition or rgp or spots):
+        logging.getLogger().info("Erasing the formerly computed spots...")
+        pangenome.status["spots"] = "No"
+        statusGroup._v_attrs.spots = False
+        h5f.remove_node("/","spots")
+
     h5f.close()
 
 def writePangenome(pangenome, filename, force):
@@ -418,6 +511,16 @@ def writePangenome(pangenome, filename, force):
     if pangenome.status["partitionned"] == "Computed" and pangenome.status["genesClustered"] in ["Loaded","inFile"]:#otherwise it's been written already.
         updateGeneFamPartition(pangenome, h5f)
         pangenome.status["partitionned"] = "Loaded"
+
+    if pangenome.status['predictedRGP'] == "Computed":
+        logging.getLogger().info("Writing Regions of Genomic Plasticity...")
+        writeRGP(pangenome, h5f, force)
+        pangenome.status['predictedRGP'] = "Loaded"
+
+    if pangenome.status["spots"] == "Computed":
+        logging.getLogger().info("Writing Spots of Insertion...")
+        writeSpots(pangenome, h5f, force)
+        pangenome.status['spots'] = "Loaded"
 
     writeStatus(pangenome, h5f)
     writeInfo(pangenome, h5f)

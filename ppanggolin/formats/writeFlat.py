@@ -7,8 +7,9 @@ from multiprocessing import Pool
 from collections import Counter, defaultdict
 import logging
 import pkg_resources
-from statistics import median
+from statistics import median, mean, stdev
 import os
+from random import randint, shuffle
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
@@ -16,7 +17,8 @@ from ppanggolin.utils import write_compressed_or_not, mkOutdir
 from ppanggolin.formats import checkPangenomeInfo, getGeneSequencesFromFile
 
 #installed libraries
-from tqdm import tqdm
+from tqdm import tqdm, trange
+from numpy import percentile
 
 #global variable to store the pangenome
 pan = None
@@ -252,16 +254,24 @@ def writeMatrix(sep, ext, output, compress=False, geneNames = False):
         for fam in pan.geneFamilies:
             genes = default_genes.copy()
             l = []
+            alt = fam.namedPartition if fam.partition != "" else False
+            genenames = Counter()
             product = Counter()
             for org, gene_list in fam.getOrgDict().items():
                 genes[org_index[org]] = " ".join([ '"' + str(gene) + '"' for gene in gene_list]) if geneNames else str(len(gene_list))
                 for gene in gene_list:
                     l.append(gene.stop - gene.start)
                     product[gene.product] +=1
+                    genenames[gene.name] += 1
+
+            if fam.partition != "":
+                alt = fam.namedPartition
+            else:
+                alt = str(product.most_common(1)[0][0])
 
             l = [ gene.stop - gene.start for gene in fam.genes ]
             matrix.write(sep.join(['"'+fam.name+'"',#1
-                                    '"'+fam.namedPartition+'"',#2
+                                    '"'+alt+'"',#2
                                     '"'+ str(product.most_common(1)[0][0])  +'"',#3
                                     '"' + str(len(fam.organisms)) + '"',#4
                                     '"' + str(len(fam.genes)) + '"',#5
@@ -463,12 +473,14 @@ def writeGeneFamiliesTSV(output, compress=False):
             for gene in fam.genes:
             	tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier])+"\n")
     logging.getLogger().info(f"Done writing the file providing the association between genes and gene families : '{outname}'")
+
 def writeFastaGenFam(output, compress=False):
     logging.getLogger().info("Writing the representative nucleic sequences of all the gene families...")
     outname = output + "/representative_gene_families.fna"
     with write_compressed_or_not(outname,compress) as fasta:
         getGeneSequencesFromFile(pan,fasta,[fam.name for fam in pan.geneFamilies])
     logging.getLogger().info(f"Done writing the representative nucleic sequences of all the gene families : '{outname}'")
+
 def writeFastaProtFam(output, compress=False):
     logging.getLogger().info("Writing the representative proteic sequences of all the gene families...")
     outname = output + "/representative_gene_families.faa"
@@ -481,35 +493,118 @@ def writeFastaProtFam(output, compress=False):
         bar.close()
     logging.getLogger().info(f"Done writing the representative proteic sequences of all the gene families : '{outname}'")
 
+def writeGeneSequencesFromAnnotations(pangenome, fileObj, verbose = False):
+    """
+        Writes the CDS sequences of the Pangenome object to a tmpFile object
+        Loads the sequences from previously computed or loaded annotations
+    """
+    logging.getLogger().info("Writing all of the CDS sequences...")
+    bar =  tqdm(pangenome.genes, unit="gene", disable= not verbose)
+    for gene in bar:
+        if gene.type == "CDS":
+            fileObj.write('>' + gene.ID + "\n")
+            fileObj.write(gene.dna + "\n")
+    fileObj.flush()
+    bar.close()
+
 def writeGeneSequences(output, compress=False):
     logging.getLogger().info("Writing all the gene nucleic sequences...")
     outname = output + "/all_genes.fna"
+    
     with write_compressed_or_not(outname,compress) as fasta:
-        getGeneSequencesFromFile(pan,fasta)
+        if pan.status["geneSequences"] in ["inFile"]:
+            getGeneSequencesFromFile(pan,fasta)
+        elif pan.status["geneSequences"] in ["Computed","Loaded"]:
+            writeGeneSequencesFromAnnotations(pan, fasta)
+        else:
+            #this should never happen if the pangenome has been properly checked before launching this function.
+            raise Exception("The pangenome does not include gene sequences")
     logging.getLogger().info(f"Done writing all the gene sequences : '{outname}'")
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, compress = False):
+def writeRegions(output, compress = False):
+    fname = output + "/plastic_regions.tsv"
+    with write_compressed_or_not(fname, compress) as tab:
+        tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
+        regions = sorted(pan.regions, key = lambda x : (x.organism.name, x.contig.name, x.start))
+        for region in regions:
+            tab.write('\t'.join(map(str,[region.name, region.organism, region.contig, region.start, region.stop, len(region.genes), region.isContigBorder, region.isWholeContig]))+"\n")
+
+def summarize_spots(spots, output, compress):
+
+    def r_and_s(value):
+        """ rounds to dp figures and returns a str of the provided value"""
+        if isinstance(value, float):
+            return str(round(value,3))
+        else:
+            return str(value)
+
+    with write_compressed_or_not(output + "/summarize_spots.tsv", compress) as fout:
+        fout.write("spot\tnb_rgp\tnb_families\tnb_unique_family_sets\tmean_nb_genes\tstdev_nb_genes\tmax_nb_genes\tmin_nb_genes\n")
+        for spot in sorted(spots, key=lambda x : len(x.regions), reverse=True):
+            tot_fams = set()
+            rgp_list = list(spot.regions)
+            len_uniq_content = len(spot.getUniqContent())
+            size_list = []
+            for rgp in spot.regions:
+                tot_fams |= rgp.families
+                size_list.append(len(rgp.genes))
+            mean_size = mean(size_list)
+            stdev_size = stdev(size_list) if len(size_list) > 1 else 0
+            max_size = max(size_list)
+            min_size = min(size_list)
+            fout.write("\t".join(map(r_and_s,[f"spot_{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content, mean_size,stdev_size,max_size, min_size])) + "\n")
+    logging.getLogger().info(f"Done writing spots in : '{output + '/summarize_spots.tsv'}'")
+
+def spot2rgp(spots, output, compress):
+    with write_compressed_or_not(output + "/spots.tsv", compress) as fout:
+        fout.write("spot_id\trgp_id\n")
+        n_spot = 0
+        for spot in spots:
+            for rgp in spot.regions:
+                fout.write(f"spot_{spot.ID}\t{rgp.name}\n")
+            n_spot+=1
+
+def writeSpots(output, compress):
+    if len(pan.spots) > 0:
+        spot2rgp(pan.spots, output, compress)
+        summarize_spots(pan.spots, output, compress)
+
+
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, spots = False, compress = False):
     global pan
     pan = pangenome
     processes = []
-    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, families_tsv, all_genes, all_prot_families, all_gene_families]):
+    needAnnotations = False
+    needFamilies = False
+    needGraph = False
+    needPartitions = False
+    needSpots = False
+    needRegions = False
+
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv:
+        needAnnotations = True 
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or all_prot_families or all_gene_families:
+        needFamilies = True
+    if projection or stats or partitions or regions or spots:
+        needPartitions = True
+    if gexf or light_gexf or json:
+        needGraph = True
+    if regions or spots:
+        needRegions = True
+    if spots:
+        needSpots = True
+
+    #need to deal with sequence-related flags outside of checkPangenomeInfo since 
+    ex_geneSequences = Exception("The provided pangenome has no gene sequences. This is not compatible with any of the following options : --all_genes, --all_gene_families")
+    ex_geneFamilySequences = Exception("The provided pangenome has no gene families. This is not compatible with any of the following options : --all_prot_families, all_gene_families")
+    if not pan.status["geneSequences"] in ["inFile"] and (all_genes or all_gene_families):
+        raise ex_geneSequences
+    if not pan.status["geneFamilySequences"] in ["Loaded","Computed","inFile"] and (all_prot_families):
+        raise ex_geneFamilySequences
+
+    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots,families_tsv, all_genes, all_prot_families, all_gene_families]):
         #then it's useful to load the pangenome.
-        checkPangenomeInfo(pan, needAnnotations=True, needFamilies=True, needGraph=True)
-        ex_partitionned = Exception("The provided pangenome has not been partitionned. This is not compatible with any of the following options : --light_gexf, --gexf, --csv, --partitions")
-        ex_genesClustered =  Exception("The provided pangenome has not gene families. This is not compatible with any of the following options : --families_tsv --all_prot_families --all_gene_families")
-        ex_genomesAnnotated =  Exception("The provided pangenome has no annotated sequences. This is not compatible with any of the following options : --all_genes")
-        ex_geneSequences =  Exception("The provided pangenome has no gene sequences. This is not compatible with any of the following options : --all_genes, --all_gene_families")
-        ex_geneFamilySequences = Exception("The provided pangenome has no gene families. This is not compatible with any of the following options : --all_prot_families, all_gene_families")
-        if not pan.status["partitionned"] in ["Loaded","Computed"] and (light_gexf or gexf or csv or projection or partitions):#could allow to write the csv or genePA without partition...
-            raise ex_partitionned
-        if not pan.status["genesClustered"] in ["Loaded","Computed"] and (families_tsv):
-            raise ex_genesClustered
-        if not pan.status["genomesAnnotated"] in ["Loaded","Computed"] and (all_genes):
-            raise ex_genomesAnnotated
-        if not pan.status["geneSequences"] in ["inFile"] and (all_genes or all_gene_families):
-            raise ex_geneSequences
-        if not pan.status["geneFamilySequences"] in ["Loaded","Computed"] and (all_prot_families):
-            raise ex_geneFamilySequences
+        checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
         pan.getIndex()#make the index because it will be used most likely
         with Pool(processes = cpu) as p:
             if csv:
@@ -521,21 +616,26 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
             if light_gexf:
                 processes.append(p.apply_async(func = writeGEXF, args = (output, True, soft_core, compress)))
             if projection:
-                processes.append(p.apply_async(func=writeProjections, args=(output, compress)))
+                processes.append(p.apply_async(func = writeProjections, args = (output, compress)))
             if stats:
-                processes.append(p.apply_async(func=writeStats, args=(output, soft_core, dup_margin, compress)))
+                processes.append(p.apply_async(func = writeStats, args = (output, soft_core, dup_margin, compress)))
             if json:
-                processes.append(p.apply_async(func=writeJSON, args=(output, compress)))
+                processes.append(p.apply_async(func = writeJSON, args = (output, compress)))
             if partitions:
-                processes.append(p.apply_async(func=writeParts, args=(output, soft_core, compress)))
+                processes.append(p.apply_async(func = writeParts, args = (output, soft_core, compress)))
             if families_tsv:
-                processes.append(p.apply_async(func=writeGeneFamiliesTSV, args=(output, compress)))
+                processes.append(p.apply_async(func = writeGeneFamiliesTSV, args = (output, compress)))
             if all_genes:
-                processes.append(p.apply_async(func=writeGeneSequences, args=(output, compress)))
+                processes.append(p.apply_async(func = writeGeneSequences, args = (output, compress)))
             if all_prot_families:
-                processes.append(p.apply_async(func=writeFastaProtFam, args=(output, compress)))
+                processes.append(p.apply_async(func = writeFastaProtFam, args = (output, compress)))
             if all_gene_families:
-                processes.append(p.apply_async(func=writeFastaGenFam, args=(output, compress)))
+                processes.append(p.apply_async(func = writeFastaGenFam, args = (output, compress)))
+            if regions:
+                processes.append(p.apply_async(func = writeRegions, args = (output, compress)))
+            if spots:
+                processes.append(p.apply_async(func = writeSpots, args=(output, compress)))
+
             for process in processes:
                 process.get()#get all the results
 
@@ -543,7 +643,7 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output, args.cpu, args.soft_core, args.dup_margin, args.csv, args.Rtab, args.gexf, args.light_gexf, args.projection, args.stats, args.json, args.partitions, args.families_tsv, args.all_genes, args.all_prot_families, args.all_gene_families, args.compress)
+    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, all_genes=args.all_genes, all_prot_families=args.all_prot_families, all_gene_families= args.all_gene_families,spots= args.spots, compress=args.compress)
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -562,6 +662,8 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--partitions", required=False, action = "store_true", help = "list of families belonging to each partition, with one file per partitions and one family per line")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     optional.add_argument("--json", required=False, action = "store_true", help = "Writes the graph in a json file format")
+    optional.add_argument("--regions", required=False, action = "store_true", help = "Write the RGP in a tab format, one file per genome")
+    optional.add_argument("--spots", required=False, action = "store_true", help = "Write spot summary and a list of all rgp in each spot")
     optional.add_argument("--families_tsv", required=False, action = "store_true", help = "Write a tsv file providing the association between genes and gene families")
     optional.add_argument("--all_genes", required=False, action = "store_true", help = "Write all nucleotic CDS sequences")
     optional.add_argument("--all_prot_families", required=False, action = "store_true", help = "Write Write representative proteic sequences of all the gene families")

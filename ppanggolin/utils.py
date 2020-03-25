@@ -7,6 +7,20 @@ from io import TextIOWrapper
 import mmap
 from pathlib import Path
 import os
+import numpy
+
+def jaccard_similarities(mat,jaccard_similarity_th):
+    cols_sum = mat.getnnz(axis=0)
+    ab = mat.T * mat
+    # for rows
+    aa = numpy.repeat(cols_sum, ab.getnnz(axis=0))
+    # for columns
+    bb = cols_sum[ab.indices]
+    similarities = ab.copy()
+    similarities.data /= (aa + bb - ab.data)
+    similarities.data[similarities.data<jaccard_similarity_th] = 0
+    similarities.eliminate_zeros()
+    return similarities
 
 def read_compressed_or_not(file_or_file_path):
     """

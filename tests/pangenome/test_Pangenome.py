@@ -4,7 +4,9 @@ import pytest
 from random import choices, randint, sample
 
 from ppanggolin.genome import Gene, Organism
-from ppanggolin.pangenome import Edge, GeneFamily, Pangenome
+from ppanggolin.pangenome import Edge, Pangenome
+from ppanggolin.geneFamily import GeneFamily
+
 
 def test_cstr():
     o_pang = Pangenome()
@@ -21,7 +23,9 @@ def test_cstr():
                                 'defragmented':"No",
                                 'geneFamilySequences':"No",
                                 'neighborsGraph':  "No",
-                                'partitionned':  "No"
+                                'partitionned':  "No",
+                                'predictedRGP' : "No",
+                                'spots' : "No"
                             }
 
 
@@ -325,9 +329,8 @@ def test_familyHaveBitarrays(o_pang, l_orgs):
 
 
 def test_getGene_empty(o_pang):
-    o_gene = o_pang.getGene(33)
-    assert o_gene is None
-
+    with pytest.raises(KeyError):
+        o_gene = o_pang.getGene(33)
 
 def test_getGene_org(o_pang, make_org_with_genes):
     # orgs with genes.
@@ -345,11 +348,3 @@ def test_getGene_fam(o_pang, fill_fam_with_genes):
 
     for o_gene in l_genes:
         assert o_pang.getGene(o_gene.ID) == o_gene
-
-
-@pytest.mark.xfail(reason="not implemented !")
-def test_info(o_pang):
-    # ~ assert o_pang.info() == "..." # FIXME
-    assert False
-
-
