@@ -83,8 +83,4 @@ Citation
 ========
 If you use this tool for your research please cite :
 
-<<<<<<< HEAD
 Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
-=======
-Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
->>>>>>> cf1e9ce1142dc058fde75b89f35070b824a96d8d
