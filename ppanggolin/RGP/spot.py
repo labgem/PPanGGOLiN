@@ -108,31 +108,6 @@ def makeSpotGraph(rgps, multigenics, output, spot_graph=False, overlapping_match
         nx.readwrite.gexf.write_gexf(spotGraph, output + "/spotGraph.gexf")
     return spots
 
-def makeFlanking(spots, output):
-    raise NotImplementedError()#need to implement the extraction of spot borders.
-    flankGraph = nx.Graph()
-    c = 0
-    for spot in spots:
-        flankGraph.add_node(c)
-        flankGraph.nodes[c]["nb_rgp"] = len(spot.regions)
-        flankGraph.nodes[c]["nb_organisations"] = len(spot.getUniqSynteny())
-        bords = set()
-        for border in spot.borders:
-            bords.add(frozenset(border[0]))
-            bords.add(frozenset(border[1]))
-        flankGraph.nodes[c]["borders"] = frozenset(bords)
-        c+=1
-
-    nodeList = list(flankGraph.nodes)
-    for i, nodei in enumerate(nodeList[:-1]):
-        for nodej in nodeList[i+1:]:
-            inter = len(flankGraph.nodes[nodei]["borders"] & flankGraph.nodes[nodej]["borders"])
-            if inter != 0:
-                flankGraph.add_edge(nodei, nodej, nb_bord=inter)
-    for node in nodeList:
-        del flankGraph.nodes[node]["borders"]
-    nx.readwrite.gexf.write_gexf(flankGraph, output + "/flankGraph.gexf")
-
 def checkPangenomeFormerSpots(pangenome, force):
     """ checks pangenome status and .h5 files for former spots, delete them if allowed or raise an error """
     if pangenome.status["spots"] == "inFile" and force == False:
@@ -141,7 +116,7 @@ def checkPangenomeFormerSpots(pangenome, force):
         ErasePangenome(pangenome, spots = True)
 
 
-def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False, flanking_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = "", write_spots = True):
+def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = ""):
     
     #check that given parameters for hotspot computation make sense
     checkParameterLogic(overlapping_match, set_size, exact_match)
@@ -158,10 +133,6 @@ def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False,
 
     #predict spots
     spots = makeSpotGraph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size, exact_match)
-
-    #build the flanking graph (a node = a spot, spots with shared borders are linked)
-    if flanking_graph:
-        makeFlanking(spots, output)
 
     #define elements of interest (e.g. gene name, product substring) to search in gene annotations
     if interest != "":
@@ -494,7 +465,7 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     if args.spot_graph or args.flanking_graph or args.draw_hotspots:
         mkOutdir(args.output, args.force)
-    predictHotspots(pangenome, args.output, force=args.force, cpu = args.cpu, spot_graph=args.spot_graph, flanking_graph=args.flanking_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest)
+    predictHotspots(pangenome, args.output, force=args.force, cpu = args.cpu, spot_graph=args.spot_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest)
     writePangenome(pangenome, pangenome.file, args.force)
 
 
@@ -503,7 +474,6 @@ def spotSubparser(subparser):
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("--spot_graph", required = False, action="store_true", help = "Writes a graph in a .gexf format of pairs of blocks of single copy markers flanking RGPs, supposedly belonging to the same hotspot")
-    optional.add_argument("--flanking_graph", required = False, action="store_true", help = "Writes a graph in a .gexf format of common blocks of single copy markers flanking RGPs, supposedly with some common origin")
     optional.add_argument("--draw_hotspots", required=False, action="store_true", help = "Draws a figure representing all of the hotspots syntenies")
     optional.add_argument("--overlapping_match", required=False, type=int, default = 2, help="The number of 'missing' persistent genes allowed when comparing flanking genes during hotspot computations")
     optional.add_argument("--set_size", required = False, type = int, default = 3, help = "Number of single copy markers to use as flanking genes for a RGP during hotspot computation")
