@@ -163,8 +163,6 @@ def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False,
     if flanking_graph:
         makeFlanking(spots, output)
 
-    #ADD : Associate rgps on contig borders to known spots. (using both gene content and bordering gene families?)
-
     #define elements of interest (e.g. gene name, product substring) to search in gene annotations
     if interest != "":
         elements = [ el.strip() for el in interest.split(',') ]
@@ -175,11 +173,7 @@ def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False,
     if draw_hotspot:
         drawn_spots = select_spots(pangenome, spots, elements)
         if len(drawn_spots)>0:
-            draw_spots(drawn_spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements)#TODO: add a parameter to control how much presence is needed for a 'hotspot'
-
-    # if len(spots) > 0:
-        # if write_spots:
-        #     write_RGP_content_graph(spots, output)
+            draw_spots(drawn_spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements)
 
     pangenome.addSpots(spots)
     pangenome.status["spots"] = "Computed"
@@ -274,7 +268,7 @@ def select_spots(pangenome, spots, elements, min_presence_ratio=0.05, min_org_ra
     to_draw= []
     for spot in spots:
         nb_uniq = len(spot.getUniqOrderedSet())
-        if nb_uniq> 10:
+        if nb_uniq> 2:
             to_draw.append(spot)
     return to_draw
 
@@ -362,10 +356,7 @@ def defineElementsOfInterest(genelist, elements):
             present_EOI.add(gene.type)
         if 'integrase' in gene.product.lower():
             present_EOI.add('integrase')
-        # if hasattr(gene, "family"):
-        #     if gene.family.name in elements:
-        #         present_EOI.add(gene.family.name)
-        if gene.name in elements or any(x in gene.product for x in elements):
+        if gene.name in elements:
             present_EOI.add(gene.name)
     return present_EOI
 
