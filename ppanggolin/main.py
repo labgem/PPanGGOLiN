@@ -140,7 +140,7 @@ def cmdLine():
 
     if len(sys.argv) == 1:
         parser.print_help()
-        sys.exit(1)
+        sys.exit(0)
 
     args = parser.parse_args()
     if args.subcommand == "annotate":
