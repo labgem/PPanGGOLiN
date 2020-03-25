@@ -33,6 +33,7 @@ You will need the following conda channels if you don't have them already:
 	conda config --add channels defaults
 	conda config --add channels bioconda
 	conda config --add channels conda-forge
+	conda config --add channels r
 
 And then you can just run :
 
