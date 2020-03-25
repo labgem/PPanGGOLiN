@@ -14,4 +14,3 @@ pandas=0.25
 colorlover=0.3
 rpy2=2.*
 r-genoplotr=0.8.*
-psutil=5.*

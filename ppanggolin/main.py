@@ -14,9 +14,6 @@ import os
 from multiprocessing import Process 
 import time
 
-#installed modules
-import psutil
-
 #local modules
 import ppanggolin.pangenome
 import ppanggolin.nem.partition
