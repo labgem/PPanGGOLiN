@@ -174,7 +174,7 @@ def checkPangenomeFormerRGP(pangenome,force):
     elif pangenome.status["predictedRGP"] == "inFile" and force == True:
         ErasePangenome(pangenome, rgp = True)
 
-def predictRGP(pangenome, force = False, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, spot_graph = False,flanking_graph = False,overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, cpu = 1):
+def predictRGP(pangenome, force = False, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, cpu = 1):
 
     #check statuses and load info
     checkPangenomeFormerRGP(pangenome, force)
@@ -195,9 +195,6 @@ def predictRGP(pangenome, force = False, persistent_penalty = 3, variable_gain =
     pangenome.parameters["RGP"]["min_length"] = min_length
     pangenome.parameters["RGP"]["min_score"] = min_score
     pangenome.parameters["RGP"]["dup_margin"] = dup_margin
-    pangenome.parameters["RGP"]["overlapping_match"] = overlapping_match
-    pangenome.parameters["RGP"]["set_size"] = set_size
-    pangenome.parameters["RGP"]["exact_match"] = exact_match
     pangenome.status['predictedRGP'] = "Computed"
 
 def launch(args):
