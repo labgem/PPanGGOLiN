@@ -133,7 +133,6 @@ def cmdLine():
         common.add_argument("--log", required=False, type=checkLog, default="stdout", help = "log output file")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
-        common.add_argument("--memory", required=False, type=str, help = "If provided, will report the memory used and memory shared on the machine running PPanGGOLiN every second to the given filename")
         sub._action_groups.append(common)
         if (len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]):
             sub.print_help()
@@ -148,15 +147,6 @@ def cmdLine():
         if args.fasta is None and args.anno is None:
             raise Exception( "You must provide at least a file with the --fasta option to annotate from sequences, or a file with the --gff option to load annotations from.")
     return args
-
-def monitor_mem(fname):
-    fout = open(fname, "w")
-    start = time.time()
-    while True:
-        mem = psutil.virtual_memory()
-        fout.write(f"{round(time.time()-start,1)} = used : {int(mem.used/(1024**2))} ; shared : {int(mem.shared/(1024**2))}\n")
-        fout.flush()
-        time.sleep(1)
 
 def main():
     args = cmdLine()
@@ -178,10 +168,6 @@ def main():
         logging.basicConfig(stream=args.log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
-    if hasattr(args,"memory") and args.memory is not None:
-        p = Process(target = monitor_mem, args = (args.memory,))
-        p.start()
-        logging.getLogger().info("starting writing mem stats...")
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
     elif args.subcommand == "cluster":
@@ -208,9 +194,6 @@ def main():
         ppanggolin.RGP.spot.launch(args)
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
-
-    if hasattr(args,"memory") and args.memory is not None:
-        p.terminate()
 
 if __name__ == "__main__":
     main()
