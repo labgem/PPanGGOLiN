@@ -580,7 +580,6 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
     needPartitions = False
     needSpots = False
     needRegions = False
-    logging.getLogger().warning("This function needs more extensive testing in the different conditions of input before getting pushed to master")
 
     if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv:
         needAnnotations = True 
