@@ -5,6 +5,10 @@ PPanGGOLiN is a software suite used to create and manipulate prokaryotic pangeno
 
 PPanGGOLiN builds pangenomes through a graphical model and a statistical method to partition gene families in persistent, shell and cloud genomes. It integrates both information on protein-coding genes and their genomic neighborhood to build a graph of gene families where each node is a gene family and each edge is a relation of genetic contiguity. The partitioning method promotes that two gene families that are consistent neighbors in the graph are more likely to belong to the same partition. It results in a Partitioned Pangenome Graph (PPG) made of persistent, shell and cloud nodes drawing genomes on rails like a subway map to help biologists navigate the great diversity of microbial life.
 
+Moreover, the panRGP method (Bazin et al. 2020) included in PPanGGOLiN predicts, for each genome, Regions of Genome Plasticity (RGPs) that are clusters of genes made of shell and cloud genomes in the pangenome graph.
+Most of them arise from Horizontal gene transfer (HGT) and correspond to Genomic Islands (GIs).
+RGPs from different genomes are next grouped in spots of insertion based on their conserved flanking persistent genes.
+
 |qual| |cov| |bioconda| |plat| |version|
 
 .. |qual| image:: https://api.codacy.com/project/badge/Grade/a24bff9354504a3294f4acf70681765a
@@ -85,3 +89,5 @@ Citation
 If you use this tool for your research please cite :
 
 Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
+
+Bazin A. et al. (2020) panRGP: a pangenome-based method to predict genomic islands and explore their diversity. bioRxiv preprint. https://doi.org/10.1101/2020.03.26.007484
