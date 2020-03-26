@@ -5,10 +5,14 @@ Developper doc
 This part of the documentation is made for people that want to use PPanGGOLiN as a python library, or for those that need to maintain the package or want to modify it.
 
 If you were looking for the command line tool documentation of PPanGGOLiN, you should check the github wiki instead.
+
 Subpackages
 -----------
 
+There is a dedicated summary for ppanggolin's subpackages. They are supposed to work independently so, if you are here to add a new one or to modify an existing one, you should not worry about the others, except eventually the 'formats' subpackage to see how to write and read data from the HDF-5 file.
+
 .. toctree::
+   :maxdepth: 1
 
    ppanggolin.RGP
    ppanggolin.align
@@ -24,29 +28,12 @@ Subpackages
 Submodules
 ----------
 
-The ``Pangenome`` class
------------------------
+.. toctree::
+   :maxdepth: 2
 
-.. autoclass:: ppanggolin.pangenome.Pangenome
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-The ``Edge`` class
-------------------
-
-.. autoclass:: ppanggolin.pangenome.Edge
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-The ``GeneFamily`` class
-------------------------
-
-.. autoclass:: ppanggolin.geneFamily.GeneFamily
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   classes/pangenome
+   classes/edge
+   classes/geneFamily
 
 ppanggolin.genome module
 ------------------------
