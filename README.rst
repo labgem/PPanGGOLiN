@@ -84,7 +84,7 @@ Moreover, to run the complete panRGP workflow including the pangenome partioning
 
 	ppanggolin panrgp --fasta ORGANISMS_FASTA_LIST
 
-Further details are available here(https://github.com/labgem/PPanGGOLiN/wiki/Regions-of-Genome-Plasticity) and in the panRPG publication (see below)
+Further details are available `here <https://github.com/labgem/PPanGGOLiN/wiki/Regions-of-Genome-Plasticity>`_ and in the panRPG publication (see below)
 
 Issues, Questions, Remarks
 ==========================
