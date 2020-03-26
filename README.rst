@@ -78,6 +78,14 @@ A minimum of 5 genomes is generally required to perform a pangenomics analysis u
 
 If you want to use personalized parameters for each subcommand most options should be self descriptive. If you want to know more about what each output file is, or briefly how each subcommand works you can check the `github wiki <https://github.com/labgem/PPanGGOLiN/wiki>`_
 
+Moreover, to run the complete panRGP workflow including the pangenome partioning:
+
+.. code:: bash
+
+	ppanggolin panrgp --fasta ORGANISMS_FASTA_LIST
+
+Further details are available here(https://github.com/labgem/PPanGGOLiN/wiki/Regions-of-Genome-Plasticity) and in the panRPG publication (see below)
+
 Issues, Questions, Remarks
 ==========================
 
