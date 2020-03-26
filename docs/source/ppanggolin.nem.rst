@@ -1,5 +1,7 @@
-ppanggolin.nem package
+The `nem` package
 ======================
+
+This package is there to use the NEM algorithm.
 
 Submodules
 ----------
@@ -16,15 +18,6 @@ ppanggolin.nem.rarefaction module
 ---------------------------------
 
 .. automodule:: ppanggolin.nem.rarefaction
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: ppanggolin.nem
    :members:
    :undoc-members:
    :show-inheritance:

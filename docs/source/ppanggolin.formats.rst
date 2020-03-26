@@ -1,5 +1,7 @@
-ppanggolin.formats package
-==========================
+The `formats` package
+=====================
+
+This package is used by the other packages to read and write the pangenome to/from the HDF-5 file.
 
 Submodules
 ----------
@@ -24,15 +26,6 @@ ppanggolin.formats.writeFlat module
 -----------------------------------
 
 .. automodule:: ppanggolin.formats.writeFlat
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: ppanggolin.formats
    :members:
    :undoc-members:
    :show-inheritance:

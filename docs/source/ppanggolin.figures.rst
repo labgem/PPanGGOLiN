@@ -1,5 +1,7 @@
-ppanggolin.figures package
+The `figures` package
 ==========================
+
+This package is there to draw informative figures about the pangenome after it has been computed.
 
 Submodules
 ----------
@@ -24,15 +26,6 @@ ppanggolin.figures.ucurve module
 --------------------------------
 
 .. automodule:: ppanggolin.figures.ucurve
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: ppanggolin.figures
    :members:
    :undoc-members:
    :show-inheritance:

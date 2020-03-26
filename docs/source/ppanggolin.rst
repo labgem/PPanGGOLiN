@@ -9,7 +9,7 @@ If you were looking for the command line tool documentation of PPanGGOLiN, you s
 Subpackages
 -----------
 
-There is a dedicated summary for ppanggolin's subpackages. They are supposed to work independently so, if you are here to add a new one or to modify an existing one, you should not worry about the others, except eventually the 'formats' subpackage to see how to write and read data from the HDF-5 file.
+There is a ppanggolin subpackage for each specific step of the analysis. Each subpackage is associated to one or more subcommand.
 
 .. toctree::
    :maxdepth: 1
@@ -27,6 +27,8 @@ There is a dedicated summary for ppanggolin's subpackages. They are supposed to 
 
 Submodules
 ----------
+
+Submodules includes all of the basic classes of PPanGGOLiN that will be used by the subpackages.
 
 .. toctree::
    :maxdepth: 2
