@@ -413,9 +413,9 @@ def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename):
 def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename):
     plot_gene_map = robjects.r["plot_gene_map"]
     grdevices = importr('grDevices')
-    grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)
+    grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)#pylint: disable=no-member
     plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, lwd = 4)
-    grdevices.dev_off()
+    grdevices.dev_off()#pylint: disable=no-member
 
 def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, verbose=False):
     logging.getLogger().info("Selecting and ordering genes among regions...")
