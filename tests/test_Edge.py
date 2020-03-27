@@ -3,7 +3,7 @@
 import pytest
 
 from ppanggolin.genome import Gene
-from ppanggolin.pangenome import Edge
+from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
 
 def test_cstr_error():
