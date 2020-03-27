@@ -78,13 +78,13 @@ A minimum of 5 genomes is generally required to perform a pangenomics analysis u
 
 If you want to use personalized parameters for each subcommand most options should be self descriptive. If you want to know more about what each output file is, or briefly how each subcommand works you can check the `github wiki <https://github.com/labgem/PPanGGOLiN/wiki>`_
 
-Moreover, to run the complete panRGP workflow including the pangenome partioning:
+Furthermore, you can also predict genomic islands and cluster them into spots of insertion using the panRGP pipeline. The usage is identical to the previous 'workflow' command:
 
 .. code:: bash
 
 	ppanggolin panrgp --fasta ORGANISMS_FASTA_LIST
 
-Further details are available `here <https://github.com/labgem/PPanGGOLiN/wiki/Regions-of-Genome-Plasticity>`_ and in the panRPG publication (see below)
+It will run more analyses after the pangenome has been partitionned. Further details are available `here <https://github.com/labgem/PPanGGOLiN/wiki/Regions-of-Genome-Plasticity>`_ and in the panRPG publication (see below)
 
 Issues, Questions, Remarks
 ==========================
@@ -94,8 +94,10 @@ If you have any question or issue with installing, using or understanding PPanGG
 
 Citation
 ========
-If you use this tool for your research please cite :
+If you use this tool for your research please cite:
 
 Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
+
+If you use this tool to study genomic islands, please cite:
 
 Bazin A. et al. (2020) panRGP: a pangenome-based method to predict genomic islands and explore their diversity. bioRxiv preprint. https://doi.org/10.1101/2020.03.26.007484
