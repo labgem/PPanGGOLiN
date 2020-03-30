@@ -42,17 +42,17 @@ def compBorder(border1, border2, overlapping_match, exact_match, set_size):
                 return True
     return False
 
-def checkSim(pairKnownBorder, pairBorderGenes, overlapping_match, exact_match, set_size):
+def checkSim(pairBorder1, pairBorder2, overlapping_match, exact_match, set_size):
     """ Checks if the two pairs of 'exact_match' first gene families are identical, or eventually if they overlap in an ordered way at least 'overlapping_match'"""
-    kbpair = [False, False]
-    bpair = [False, False]
-    for countkb, kb in enumerate(pairKnownBorder):
-        for countb, b in enumerate(pairBorderGenes):
-            if compBorder(b, kb, overlapping_match, exact_match, set_size):
-                kbpair[countkb] = True
-                bpair[countb] = True
+    b1pair = [False, False]
+    b2pair = [False, False]
+    for countb1, b1 in enumerate(pairBorder1):
+        for countb2, b2 in enumerate(pairBorder2):
+            if compBorder(b2, b1, overlapping_match, exact_match, set_size):
+                b1pair[countb1] = True
+                b2pair[countb2] = True
 
-    if kbpair[0] and kbpair[1] and bpair[0] and bpair[1]:
+    if b1pair[0] and b1pair[1] and b2pair[0] and b2pair[1]:
         return True
     return False
 
