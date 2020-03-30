@@ -569,8 +569,21 @@ def writeSpots(output, compress):
         spot2rgp(pan.spots, output, compress)
         summarize_spots(pan.spots, output, compress)
 
+def writeBorders(output, dup_margin, compress):
+    multigenics = pan.get_multigenics(dup_margin=dup_margin)
+    with write_compressed_or_not(output+"/spot_borders.tsv",compress) as fout:
+        fout.write("spot_id\tnumber\tborder\n")
+        for spot in sorted(pan.spots, key= lambda x: len(x.regions), reverse=True):
+            curr_borders=spot.borders(pan.parameters["RGP"]["set_size"], multigenics)
+            for c, border in curr_borders:
+                famstring = ",".join([ fam.name for fam in border[0] ]) + "/" + ",".join([ fam.name for fam in border[1]])
+                fout.write(f"{spot.ID}\t{c}\t{famstring}\n")
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, spots = False, compress = False):
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, spots = False, borders=False, compress = False):
+    
+    if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv, all_genes, all_prot_families, all_gene_families]):
+        raise Exception("You did not indicate what file you wanted to write.")
+
     global pan
     pan = pangenome
     processes = []
@@ -581,17 +594,17 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
     needSpots = False
     needRegions = False
 
-    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv:
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or borders:
         needAnnotations = True 
-    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or all_prot_families or all_gene_families:
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or all_prot_families or all_gene_families or borders:
         needFamilies = True
-    if projection or stats or partitions or regions or spots:
+    if projection or stats or partitions or regions or spots or borders:
         needPartitions = True
     if gexf or light_gexf or json:
         needGraph = True
-    if regions or spots:
+    if regions or spots or borders:
         needRegions = True
-    if spots:
+    if spots or borders:
         needSpots = True
 
     #need to deal with sequence-related flags outside of checkPangenomeInfo since 
@@ -602,48 +615,48 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
     if not pan.status["geneFamilySequences"] in ["Loaded","Computed","inFile"] and (all_prot_families):
         raise ex_geneFamilySequences
 
-    if any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots,families_tsv, all_genes, all_prot_families, all_gene_families]):
-        #then it's useful to load the pangenome.
-        checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
-        pan.getIndex()#make the index because it will be used most likely
-        with Pool(processes = cpu) as p:
-            if csv:
-                processes.append(p.apply_async(func = writeMatrix, args = (',', "csv", output, compress, True)))
-            if genePA:
-                processes.append(p.apply_async(func = writeGenePresenceAbsence, args = (output, compress)))
-            if gexf:
-                processes.append(p.apply_async(func = writeGEXF, args = (output, False, soft_core, compress)))
-            if light_gexf:
-                processes.append(p.apply_async(func = writeGEXF, args = (output, True, soft_core, compress)))
-            if projection:
-                processes.append(p.apply_async(func = writeProjections, args = (output, compress)))
-            if stats:
-                processes.append(p.apply_async(func = writeStats, args = (output, soft_core, dup_margin, compress)))
-            if json:
-                processes.append(p.apply_async(func = writeJSON, args = (output, compress)))
-            if partitions:
-                processes.append(p.apply_async(func = writeParts, args = (output, soft_core, compress)))
-            if families_tsv:
-                processes.append(p.apply_async(func = writeGeneFamiliesTSV, args = (output, compress)))
-            if all_genes:
-                processes.append(p.apply_async(func = writeGeneSequences, args = (output, compress)))
-            if all_prot_families:
-                processes.append(p.apply_async(func = writeFastaProtFam, args = (output, compress)))
-            if all_gene_families:
-                processes.append(p.apply_async(func = writeFastaGenFam, args = (output, compress)))
-            if regions:
-                processes.append(p.apply_async(func = writeRegions, args = (output, compress)))
-            if spots:
-                processes.append(p.apply_async(func = writeSpots, args=(output, compress)))
+    checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
+    pan.getIndex()#make the index because it will be used most likely
+    with Pool(processes = cpu) as p:
+        if csv:
+            processes.append(p.apply_async(func = writeMatrix, args = (',', "csv", output, compress, True)))
+        if genePA:
+            processes.append(p.apply_async(func = writeGenePresenceAbsence, args = (output, compress)))
+        if gexf:
+            processes.append(p.apply_async(func = writeGEXF, args = (output, False, soft_core, compress)))
+        if light_gexf:
+            processes.append(p.apply_async(func = writeGEXF, args = (output, True, soft_core, compress)))
+        if projection:
+            processes.append(p.apply_async(func = writeProjections, args = (output, compress)))
+        if stats:
+            processes.append(p.apply_async(func = writeStats, args = (output, soft_core, dup_margin, compress)))
+        if json:
+            processes.append(p.apply_async(func = writeJSON, args = (output, compress)))
+        if partitions:
+            processes.append(p.apply_async(func = writeParts, args = (output, soft_core, compress)))
+        if families_tsv:
+            processes.append(p.apply_async(func = writeGeneFamiliesTSV, args = (output, compress)))
+        if all_genes:
+            processes.append(p.apply_async(func = writeGeneSequences, args = (output, compress)))
+        if all_prot_families:
+            processes.append(p.apply_async(func = writeFastaProtFam, args = (output, compress)))
+        if all_gene_families:
+            processes.append(p.apply_async(func = writeFastaGenFam, args = (output, compress)))
+        if regions:
+            processes.append(p.apply_async(func = writeRegions, args = (output, compress)))
+        if spots:
+            processes.append(p.apply_async(func = writeSpots, args=(output, compress)))
+        if borders:
+            processes.append(p.apply_async(func=writeBorders, args=(output, dup_margin, compress)))
 
-            for process in processes:
-                process.get()#get all the results
+        for process in processes:
+            process.get()#get all the results
 
 def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, all_genes=args.all_genes, all_prot_families=args.all_prot_families, all_gene_families= args.all_gene_families,spots= args.spots, compress=args.compress)
+    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, all_genes=args.all_genes, all_prot_families=args.all_prot_families, all_gene_families= args.all_gene_families,spots= args.spots, borders=args.borders, compress=args.compress)
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -664,6 +677,7 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--json", required=False, action = "store_true", help = "Writes the graph in a json file format")
     optional.add_argument("--regions", required=False, action = "store_true", help = "Write the RGP in a tab format, one file per genome")
     optional.add_argument("--spots", required=False, action = "store_true", help = "Write spot summary and a list of all rgp in each spot")
+    optional.add_argument("--borders", required=False, action = "store_true", help = "List all borders of each spot")
     optional.add_argument("--families_tsv", required=False, action = "store_true", help = "Write a tsv file providing the association between genes and gene families")
     optional.add_argument("--all_genes", required=False, action = "store_true", help = "Write all nucleotic CDS sequences")
     optional.add_argument("--all_prot_families", required=False, action = "store_true", help = "Write Write representative proteic sequences of all the gene families")

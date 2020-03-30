@@ -154,7 +154,25 @@ class Spot:
 
     def borders(self, set_size, multigenics):
         """ extracts all the borders of all RGPs belonging to the spot"""
-        raise NotImplementedError()
+        all_borders = []
+        for rgp in self.regions:
+            all_borders.append(rgp.getBorderingGenes(set_size, multigenics))
+        
+        family_borders=[]
+        c=0
+        for borders in all_borders:
+            c+=1
+            new=True
+            curr_set = [ [ gene.family for gene in borders[0]], [gene.family for gene in borders[1]]]
+            for i, (c, former_borders) in enumerate(family_borders):
+                if former_borders == curr_set or former_borders == curr_set[::-1]:
+                    family_borders[i][0]+=1
+                    new=False
+                    break
+            if new:
+                family_borders.append([1, curr_set])
+
+        return family_borders
 
     def _mkUniqOrderedSetObj(self):
         """cluster RGP into groups that have an identical synteny""" 
