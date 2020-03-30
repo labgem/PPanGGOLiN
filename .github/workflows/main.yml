@@ -1,0 +1,48 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+on:
+  push:
+    branches: 
+      - '*'
+  pull_request:
+    branches: 
+      - '*'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  test:
+    name: test PPanGGOLiN on ${{ matrix.os }} with python ${{ matrix.python-version }}
+    # The type of runner that the job will run on
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ['ubuntu-latest', 'macos-latest']
+        python-version: ['3.6', '3.7']
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
+    # Setting up miniconda
+    - uses: goanpeca/setup-miniconda@v1.0.2
+      with:
+        condarc-file: .condarc.yml
+        activate-environment: test
+        python-version: 3.6
+    # Install the dependencies
+    - name: Set up test environment
+      shell: bash -l {0}
+      run: |
+        conda install --file requirements.txt
+        conda install pytest
+        pip install .
+    # Check that it is installed and displays help without error
+    - name: Check that PPanGGOLiN is installed
+      shell: bash -l {0}
+      run: |
+        ppanggolin --version
+        ppanggolin --help
+    # Check that unit tests are all passing
+    - name: Unit tests
+      sheel: bash -l {0}
+      run: pytest
