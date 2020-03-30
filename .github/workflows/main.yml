@@ -44,5 +44,5 @@ jobs:
         ppanggolin --help
     # Check that unit tests are all passing
     - name: Unit tests
-      sheel: bash -l {0}
+      shell: bash -l {0}
       run: pytest
