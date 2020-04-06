@@ -571,13 +571,22 @@ def writeSpots(output, compress):
 
 def writeBorders(output, dup_margin, compress):
     multigenics = pan.get_multigenics(dup_margin=dup_margin)
+    all_fams = set()
     with write_compressed_or_not(output+"/spot_borders.tsv",compress) as fout:
-        fout.write("spot_id\tnumber\tborder\n")
+        fout.write("spot_id\tnumber\tborder1\tborder2\n")
         for spot in sorted(pan.spots, key= lambda x: len(x.regions), reverse=True):
             curr_borders=spot.borders(pan.parameters["RGP"]["set_size"], multigenics)
             for c, border in curr_borders:
-                famstring = ",".join([ fam.name for fam in border[0] ]) + "/" + ",".join([ fam.name for fam in border[1]])
-                fout.write(f"{spot.ID}\t{c}\t{famstring}\n")
+                famstring1 = ",".join([ fam.name for fam in border[0] ])
+                famstring2 = ",".join([ fam.name for fam in border[1]])
+                all_fams |= set(border[0])
+                all_fams |= set(border[1])
+                fout.write(f"{spot.ID}\t{c}\t{famstring1}\t{famstring2}\n")
+
+    with write_compressed_or_not(output + "/border_protein_genes.fasta",compress) as fout:
+        for fam in all_fams:
+            fout.write(f">{fam.name}\n")
+            fout.write(f"{fam.sequence}\n")
 
 def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, spots = False, borders=False, compress = False):
     
