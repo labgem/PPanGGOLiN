@@ -471,7 +471,7 @@ def writeGeneFamiliesTSV(output, compress=False):
     with write_compressed_or_not(outname,compress) as tsv:
         for fam in pan.geneFamilies:
             for gene in fam.genes:
-            	tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier])+"\n")
+                tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier, "F" if gene.is_fragment else ""])+"\n")
     logging.getLogger().info(f"Done writing the file providing the association between genes and gene families : '{outname}'")
 
 def writeFastaGenFam(output, compress=False):
