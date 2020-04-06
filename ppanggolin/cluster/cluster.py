@@ -117,7 +117,7 @@ def refineClustering(tsv, alnFile, fam2seq):
         if choice[0] is not None:
             genestochange = fam2genes[node]
             for gene in genestochange:
-                genes2fam[gene] = (choice[0], "F")
+                genes2fam[gene] = (choice[0], True)
                 fam2genes[choice[0]].add(gene)
             del fam2genes[node]
     newFam2seq = {}

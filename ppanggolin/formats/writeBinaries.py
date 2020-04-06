@@ -423,8 +423,9 @@ def updateGeneFragments(pangenome, h5f):
     row = table.row
     bar =  tqdm(range(table.nrows), unit="gene")
     for row in table:
-        if row['gene/type'].decode() == b'CDS':
+        if row['gene/type'].decode() == 'CDS':
             row['gene/is_fragment'] = pangenome.getGene(row['gene/ID'].decode()).is_fragment
+            row.update()
         bar.update()
     bar.close()
     table.flush()
