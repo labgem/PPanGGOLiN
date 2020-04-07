@@ -290,7 +290,7 @@ class Pangenome:
         multigenics = set()
         for fam in self.geneFamilies:
             if fam.namedPartition == "persistent":
-                dup=len([genes for org, genes in fam.getOrgDict().items() if len(genes) > 1])
+                dup=len([genes for org, genes in fam.getOrgDict().items() if len([ gene for gene in genes if not gene.is_fragment]) > 1])
                 if (dup / len(fam.organisms)) >= dup_margin:#tot / nborgs >= 1.05
                     multigenics.add(fam)
         logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic. (duplicated in more than {dup_margin} of the genomes)")
