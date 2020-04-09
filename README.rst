@@ -9,10 +9,8 @@ Moreover, the panRGP method (Bazin et al. 2020) included in PPanGGOLiN predicts,
 Most of them arise from Horizontal gene transfer (HGT) and correspond to Genomic Islands (GIs).
 RGPs from different genomes are next grouped in spots of insertion based on their conserved flanking persistent genes.
 
-|qual| |cov| |bioconda| |plat| |version|
+|bioconda| |plat| |version|
 
-.. |qual| image:: https://api.codacy.com/project/badge/Grade/a24bff9354504a3294f4acf70681765a
-.. |cov| image:: https://api.codacy.com/project/badge/Coverage/806fdcd8d04a469e8233728780576160
 .. |plat| image:: https://anaconda.org/bioconda/ppanggolin/badges/platforms.svg
    :target: https://anaconda.org/bioconda/ppanggolin
 .. |version| image:: https://anaconda.org/bioconda/ppanggolin/badges/version.svg
