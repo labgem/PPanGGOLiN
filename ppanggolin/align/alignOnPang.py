@@ -179,12 +179,15 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
     singleOrgPang = Pangenome()#need to create a new 'pangenome' as the annotation reading functions take a pangenome as input.
     filetype = detect_filetype(annotation)
     if filetype == "gff":
-        singleOrgPang.status["geneSequences"] = "Computed"#if there are no sequences in the gff, this value will change to 'No'
-        read_org_gff(singleOrgPang, 'myGenome', annotation, [], True)
-        if singleOrgPang.status["geneSequences"] == "No":
-            raise Exception(f"The given annotation file did not have a FASTA sequence included (expected '##FASTA' pragma followed by a fasta-like file format). This is required for computing the Regions of Genomic Plasticity of your organism")
+        org, hasFasta = read_org_gff('myGenome', annotation, [], True)
+        singleOrgPang.addOrganism(org)
     elif filetype == "gbff":
-        read_org_gbff(singleOrgPang, 'myGenome', annotation, [], True)
+        org, hasFasta = read_org_gbff('myGenome', annotation, [], True)
+        singleOrgPang.addOrganism(org)
+    if hasFasta:
+        singleOrgPang.status["geneSequences"] = "Computed"
+    else:
+        raise Exception(f"The given annotation file did not have a FASTA sequence included (expected '##FASTA' pragma followed by a fasta-like file format). This is required for computing the Regions of Genomic Plasticity of your organism")
 
     #check and read given pangenome
     checkPangenomeInfo(pangenome, needFamilies=True, needPartitions = True, needAnnotations = True)
