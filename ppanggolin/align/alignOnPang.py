@@ -104,9 +104,11 @@ def linkNewGenomeFamilies(orgPangenome, formerPangenome, blastTab):
 def linkMultigenicFamilies(pangenome, multigenics):
     panMulti = set()
     for fam in multigenics:
-        panFam = pangenome.getGeneFamily(fam.name)
-        if panFam is not None:
+        try:
+            panFam = pangenome.getGeneFamily(fam.name)
             panMulti.add(panFam)
+        except KeyError:#the family is not in the genome
+            pass
     return panMulti
 
 def writeGbffRegions(filename, regions, output):
