@@ -170,7 +170,7 @@ def writeGffRegions(filename, regions, output):
             logging.getLogger().warning("Somes regions were not written in the new gff file for unknown reasons")
     logging.getLogger().info(f"RGP have been written in the following file : '{output + '/genome_annotation.gff'}' ")
 
-def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, translation_table = 11):
+def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, translation_table = 11, pseudo=False):
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
 
@@ -179,10 +179,10 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
     singleOrgPang = Pangenome()#need to create a new 'pangenome' as the annotation reading functions take a pangenome as input.
     filetype = detect_filetype(annotation)
     if filetype == "gff":
-        org, hasFasta = read_org_gff('myGenome', annotation, [], True)
+        org, hasFasta = read_org_gff('myGenome', annotation, [], True, pseudo=pseudo)
         singleOrgPang.addOrganism(org)
     elif filetype == "gbff":
-        org, hasFasta = read_org_gbff('myGenome', annotation, [], True)
+        org, hasFasta = read_org_gbff('myGenome', annotation, [], True, pseudo=pseudo)
         singleOrgPang.addOrganism(org)
     if hasFasta:
         singleOrgPang.status["geneSequences"] = "Computed"
@@ -214,6 +214,10 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
     for org in singleOrgPang.organisms:
         genomeRGP = compute_org_rgp(org, pangenome.parameters["RGP"]["persistent_penalty"], pangenome.parameters["RGP"]["variable_gain"], pangenome.parameters["RGP"]["min_length"], pangenome.parameters["RGP"]["min_score"], genomeMultigenics)
 
+    #write the rgps in a single file
+    write_RGPs_cgview(genomeRGP, output)
+    write_partitions_cgview(org, output)
+
     if filetype == "gff":
         #reread the file and insert sequence_feature objects corresponding to the predicted regions
         logging.getLogger().info("Writing the RGP in a gff file...")
@@ -221,6 +225,24 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
     elif filetype == "gbff":
         logging.getLogger().info("Writing the RGP in a gbff file...")
         writeGbffRegions(annotation, genomeRGP, output)
+
+def write_partitions_cgview(organism, output):
+    """writes the partition of each gene in a table that is compatible with cgview server"""
+    with open(output + "/partitions.cgview.tab","w") as fout:
+        fout.write("name\ttype\tstart\tstop\tstrand\n")
+        for gene in organism.genes:
+            fout.write("\t".join(map(str,[gene.ID, gene.family.namedPartition,gene.start, gene.stop, gene.strand]))+ "\n")
+        fout.close()
+    logging.getLogger().info(f"Done writing all of the partitions of each gene in a tsv file: {output + '/partitions.cgview.tab'}")
+
+def write_RGPs_cgview(regions, output):
+    """write RGPs in a table that is compatible with cgview server"""
+    with open(output + "/regions.cgview.tab","w") as fout:
+        fout.write("name\ttype\tstart\tstop\tstrand\n")
+        for region in regions:
+            fout.write("\t".join(map(str,[region.name, "RGP",region.start, region.stop, "+"]))+ "\n")
+        fout.close()
+    logging.getLogger().info(f"Done writing all of the RGP in a tsv file: {output + '/regions.cgview.tab'}")
 
 def getFam2RGP(pangenome, multigenics):
     """associates families to the RGP they belong to, and those they are bordering"""
@@ -321,7 +343,7 @@ def launch(args):
         align(pangenome = pangenome, proteinFile = args.proteins, output = args.output, tmpdir = args.tmpdir, identity = args.identity, coverage =args.coverage, defrag =args.defrag,cpu= args.cpu, getinfo =args.getinfo, draw_related = args.draw_related )
 
     if args.annotation is not None:
-        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.translation_table)
+        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.translation_table, pseudo=args.use_pseudo)
 
 def alignSubparser(subparser):
     parser = subparser.add_parser("align", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -341,4 +363,5 @@ def alignSubparser(subparser):
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--getinfo", required=False, action="store_true",help = "Use this option to extract info related to the best hit of each query, such as the RGP it is in, or the spots.")
     optional.add_argument("--draw_related", required=False, action = "store_true",help = "Draw figures and provide graphs in a gexf format of the eventual spots associated to the input proteins")
+    optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to read pseudogenes. (Default behavior is to ignore them)")
     return parser

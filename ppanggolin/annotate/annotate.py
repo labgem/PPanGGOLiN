@@ -434,5 +434,5 @@ def syntaSubparser(subparser):
     optional.add_argument("--kingdom",required = False, type = str.lower, default = "bacteria", choices = ["bacteria","archaea"], help = "Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
-    optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to use pseudogenes. (Default behavior is to ignore them)")
+    optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to read pseudogenes. (Default behavior is to ignore them)")
     return parser
