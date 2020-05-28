@@ -30,11 +30,14 @@ class MatriceNode:
         # current score of the node. If the given score is negative, set to 0.
         self.score = score if score >= 0 else 0
 
-def extractRGP(contig, node, ID):
+def extractRGP(contig, node, ID, naming):
     """
         Extract the region from the given starting node
     """
-    new_region = Region(contig.name + "_RGP_" + str(ID))
+    if naming == "contig":
+        new_region = Region(contig.name + "_RGP_" + str(ID))
+    elif naming == "organism":
+        new_region = Region(node.gene.organism.name + "_" + contig.name + "_RGP_" + str(ID))
     while node.state:
         new_region.append(node.gene)
         node.state = 0
@@ -129,7 +132,7 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi ):
             c += 1
     return mat
 
-def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, multi):
+def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, multi, naming = "contig"):
     # processing matrix and 'emptying' it to get the regions.
     def maxIndexNode(lst):
         """gets the last node with the highest score from a list of matriceNode"""
@@ -149,7 +152,7 @@ def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, mul
     val, index = maxIndexNode(matrix)
     c = 0
     while val >= min_score:
-        new_region = extractRGP(contig, matrix[index], len(contigRegions))
+        new_region = extractRGP(contig, matrix[index], len(contigRegions), naming)
         new_region.score = val
         if (new_region[0].stop - new_region[-1].start) > min_length:
             contigRegions.add(new_region)
@@ -158,14 +161,25 @@ def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, mul
         c += 1
     return contigRegions
 
-def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min_score, multigenics):
+def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min_score, multigenics, naming = "contig"):
     orgRegions = set()
     for contig in organism.contigs:
         if len(contig.genes) != 0:#some contigs have no coding genes...
             ## can definitely multiprocess this part, as not THAT much information is needed...
             matrix = initMatrices(contig, persistent_penalty, variable_gain, multigenics)
-            orgRegions |= mkRegions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain, multigenics)
+            orgRegions |= mkRegions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain, multigenics, naming = naming)
     return orgRegions
+
+def testNamingScheme(pangenome):
+    contigsids = set()
+    for org in pangenome.organisms:
+        for contig in org.contigs:
+            oldlen = len(contigsids)
+            contigsids.add(contig.name)
+            if oldlen == len(contigsids):
+                logging.getLogger().warning("You have contigs with identical identifiers in your assemblies. identifiers will be supplemented with your provided organism names.")
+                return "organism"
+    return "contig"
 
 def checkPangenomeFormerRGP(pangenome,force):
     """ checks pangenome status and .h5 files for former rgp, delete them if allowed or raise an error """
@@ -183,9 +197,10 @@ def predictRGP(pangenome, force = False, persistent_penalty = 3, variable_gain =
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
     logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
+    namingScheme = testNamingScheme(pangenome)
     bar = tqdm(pangenome.organisms, unit = "genomes")
     for org in bar:
-        pangenome.addRegions(compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics))
+        pangenome.addRegions(compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics, naming = namingScheme))
     logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")
 
     #save parameters and save status
