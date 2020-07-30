@@ -81,6 +81,9 @@ def cmdLine():
 
     #need to manually write the description so that it's displayed into groups of subcommands ....
     desc = "\n"
+    desc += "All of the following subcommands have their own set of options. To see them for a given subcommand, use it with -h or --help, as such:\n"
+    desc += "  ppanggolin <subcommand> -h\n"
+    desc += "\n"
     desc += "  Basic:\n"
     desc += "    workflow      Easy workflow to run a pangenome analysis in one go\n"
     desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection\n"
