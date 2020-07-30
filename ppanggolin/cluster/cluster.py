@@ -36,7 +36,7 @@ def alignRep(faaFile, tmpdir, cpu, coverage, identity):
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     return outfile
 
-def firstClustering(sequences, tmpdir, cpu, code, coverage, identity ):
+def firstClustering(sequences, tmpdir, cpu, code, coverage, identity, mode):
     seqNucdb = tmpdir.name + '/nucleotid_sequences_db'
     cmd = ["mmseqs","createdb"]
     cmd.append(sequences.name)
@@ -49,7 +49,7 @@ def firstClustering(sequences, tmpdir, cpu, code, coverage, identity ):
     logging.getLogger().debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     cludb = tmpdir.name + '/cluster_db'
-    cmd = ["mmseqs","cluster",seqdb, cludb, tmpdir.name , "--min-seq-id", str(identity), "-c", str(coverage), "--threads", str(cpu), "--kmer-per-seq","80","--max-seqs","300"]
+    cmd = ["mmseqs","cluster",seqdb, cludb, tmpdir.name ,"--cluster-mode", mode, "--min-seq-id", str(identity), "-c", str(coverage), "--threads", str(cpu), "--kmer-per-seq","80","--max-seqs","300"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Clustering sequences...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -179,13 +179,13 @@ def inferSingletons(pangenome):
             singletonCounter+=1
     logging.getLogger().info(f"Inferred {singletonCounter} singleton families")
 
-def clustering(pangenome, tmpdir, cpu , defrag = True, code = "11", coverage = 0.8, identity = 0.8, force = False):
+def clustering(pangenome, tmpdir, cpu , defrag = True, code = "11", coverage = 0.8, identity = 0.8, mode="1", force = False):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     sequenceFile = open(newtmpdir.name + '/nucleotid_sequences',"w")
 
     checkPangenomeForClustering(pangenome, sequenceFile, force)
     logging.getLogger().info("Clustering all of the genes sequences...")
-    rep, tsv = firstClustering(sequenceFile, newtmpdir, cpu, code, coverage, identity)
+    rep, tsv = firstClustering(sequenceFile, newtmpdir, cpu, code, coverage, identity, mode)
 
     sequenceFile.close()
     fam2seq = read_faa(rep)
@@ -282,7 +282,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.clusters is None:
-        clustering(pangenome, args.tmpdir, args.cpu, not args.no_defrag, args.translation_table, args.coverage, args.identity, args.force)
+        clustering(pangenome, args.tmpdir, args.cpu, defrag= not args.no_defrag, code=args.translation_table, coverage=args.coverage, identity=args.identity, mode=args.mode, force=args.force)
         logging.getLogger().info("Done with the clustering")
     else:
         readClustering(pangenome, args.clusters, args.infer_singletons, args.force)
@@ -305,6 +305,8 @@ def clusterSubparser(subparser):
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument('--clusters', required = False, type = str, help = "A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
     optional.add_argument("--infer_singletons",required=False, action="store_true", help = "When reading a clustering result with --clusters, if a gene is not in the provided file it will be placed in a cluster where the gene is the only member.")
+    optional.add_argument("--mode", required=False, default="1", choices=["0","1","2","3"], help = "the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component), 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
     optional.add_argument("--coverage", required=False, type=restricted_float, default=0.8, help = "Minimal coverage of the alignment for two proteins to be in the same cluster")
     optional.add_argument("--identity", required=False, type=restricted_float, default=0.8, help = "Minimal identity percent for two proteins to be in the same cluster")
     return parser
+
