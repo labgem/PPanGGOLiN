@@ -45,7 +45,7 @@ def launch(args):
             readClustering(pangenome, args.clusters)
 
         elif args.clusters is None:#we should have the sequences here.
-            clustering(pangenome, args.tmpdir, args.cpu, defrag=args.defrag)
+            clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag)
         clust_time = time.time() - start_clust
     elif args.fasta is not None:
         start_anno = time.time()
@@ -55,7 +55,7 @@ def launch(args):
         writePangenome(pangenome, filename, args.force)
         writing_time = time.time() - start_writing
         start_clust = time.time()
-        clustering(pangenome, args.tmpdir, args.cpu, defrag=args.defrag)
+        clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag)
         clust_time = time.time() - start_clust
 
     writePangenome(pangenome, filename, args.force)
@@ -118,6 +118,7 @@ def panRGPSubparser(subparser):
     optional.add_argument("--rarefaction", required=False, action = "store_true", help = "Use to compute the rarefaction curves (WARNING: can be time consumming)")
     optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 3. If under 3, it will be detected automatically.")
     optional.add_argument("--interest",required=False, type=str, default="",help = "Comma separated list of elements to flag when drawing and writing hotspots")
-    optional.add_argument("--defrag",required=False, action="store_true", help = "Realign gene families to associated fragments with their non-fragmented gene family.")
+    optional.add_argument("--defrag", required=False, action = "store_true", help = argparse.SUPPRESS)##This ensures compatibility with workflows built with the old option "defrag" when it was not the default
+    optional.add_argument("--no_defrag",required=False, action="store_true", help = "DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
 
     return parser

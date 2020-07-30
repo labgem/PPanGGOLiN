@@ -179,7 +179,7 @@ def inferSingletons(pangenome):
             singletonCounter+=1
     logging.getLogger().info(f"Inferred {singletonCounter} singleton families")
 
-def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", coverage = 0.8, identity = 0.8, force = False):
+def clustering(pangenome, tmpdir, cpu , defrag = True, code = "11", coverage = 0.8, identity = 0.8, force = False):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     sequenceFile = open(newtmpdir.name + '/nucleotid_sequences',"w")
 
@@ -282,7 +282,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.clusters is None:
-        clustering(pangenome, args.tmpdir, args.cpu, args.defrag, args.translation_table, args.coverage, args.identity, args.force)
+        clustering(pangenome, args.tmpdir, args.cpu, not args.no_defrag, args.translation_table, args.coverage, args.identity, args.force)
         logging.getLogger().info("Done with the clustering")
     else:
         readClustering(pangenome, args.clusters, args.infer_singletons, args.force)
@@ -300,7 +300,8 @@ def clusterSubparser(subparser):
             raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
         return x
     optional = parser.add_argument_group(title = "Optional arguments")
-    optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associated potential fragments with their original gene family.")
+    optional.add_argument("--defrag", required=False, action = "store_true", help = argparse.SUPPRESS)##This ensures compatibility with workflows built with the old option "defrag" when it was not the default
+    optional.add_argument('--no_defrag', required=False,default=False, action="store_true", help = "DO NOT Use the defragmentation strategy to link potential fragments with their original gene family.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument('--clusters', required = False, type = str, help = "A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
     optional.add_argument("--infer_singletons",required=False, action="store_true", help = "When reading a clustering result with --clusters, if a gene is not in the provided file it will be placed in a cluster where the gene is the only member.")
