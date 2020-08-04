@@ -16,7 +16,7 @@ from tqdm import tqdm
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
-from ppanggolin.utils import read_compressed_or_not
+from ppanggolin.utils import read_compressed_or_not, restricted_float
 from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, writeGeneSequencesFromAnnotations, ErasePangenome
 
 def alignRep(faaFile, tmpdir, cpu, coverage, identity):
@@ -294,11 +294,6 @@ def clusterSubparser(subparser):
 
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    def restricted_float(x):
-        x = float(x)
-        if x < 0.0 or x > 1.0:
-            raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
-        return x
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("--defrag", required=False, action = "store_true", help = argparse.SUPPRESS)##This ensures compatibility with workflows built with the old option "defrag" when it was not the default
     optional.add_argument('--no_defrag', required=False,default=False, action="store_true", help = "DO NOT Use the defragmentation strategy to link potential fragments with their original gene family.")
