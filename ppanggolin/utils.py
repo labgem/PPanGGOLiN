@@ -8,6 +8,7 @@ import mmap
 from pathlib import Path
 import os
 import numpy
+import argparse
 
 def jaccard_similarities(mat,jaccard_similarity_th):
     cols_sum = mat.getnnz(axis=0)
@@ -96,3 +97,9 @@ def mkFilename(basename, output, force):
     if filename.exists() and not force:
         raise FileExistsError(f"{filename.name} already exists. Use -f if you want to overwrite the file")
     return filename
+
+def restricted_float(x):
+    x = float(x)
+    if x < 0.0 or x > 1.0:
+        raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
+    return x

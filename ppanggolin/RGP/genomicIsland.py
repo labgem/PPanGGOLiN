@@ -14,7 +14,7 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region
 from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
-from ppanggolin.utils import mkOutdir
+from ppanggolin.utils import mkOutdir, restricted_float
 
 
 class MatriceNode:
@@ -225,7 +225,7 @@ def rgpSubparser(subparser):
     optional.add_argument('--variable_gain', required=False, type=int, default=1, help="Gain score to apply to variable genes")
     optional.add_argument('--min_score', required=False, type=int, default=4, help="Minimal score wanted for considering a region as being a RGP")
     optional.add_argument('--min_length', required=False, type=int, default=3000, help="Minimum length (bp) of a region to be considered a RGP")
-    optional.add_argument("--dup_margin", required = False, type=int, default=0.05, help="Minimum ratio of organisms where the family is present in which the family must have multiple genes for it to be considered 'duplicated'" )
+    optional.add_argument("--dup_margin", required = False, type=restricted_float, default=0.05, help="Minimum ratio of organisms where the family is present in which the family must have multiple genes for it to be considered 'duplicated'" )
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser
