@@ -575,7 +575,7 @@ def writeBorders(output, dup_margin, compress):
     with write_compressed_or_not(output+"/spot_borders.tsv",compress) as fout:
         fout.write("spot_id\tnumber\tborder1\tborder2\n")
         for spot in sorted(pan.spots, key= lambda x: len(x.regions), reverse=True):
-            curr_borders=spot.borders(pan.parameters["RGP"]["set_size"], multigenics)
+            curr_borders=spot.borders(pan.parameters["spots"]["set_size"], multigenics)
             for c, border in curr_borders:
                 famstring1 = ",".join([ fam.name for fam in border[0] ])
                 famstring2 = ",".join([ fam.name for fam in border[1]])
