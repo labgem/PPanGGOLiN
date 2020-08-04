@@ -26,7 +26,6 @@ jobs:
     # Setting up miniconda
     - uses: goanpeca/setup-miniconda@v1
       with:
-        installer-url: https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
         condarc-file: .condarc.yml
         activate-environment: test
         python-version: ${{ matrix.python-version }}
