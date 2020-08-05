@@ -111,7 +111,7 @@ def makeSpotGraph(rgps, multigenics, output, spot_graph=False, overlapping_match
 def checkPangenomeFormerSpots(pangenome, force):
     """ checks pangenome status and .h5 files for former spots, delete them if allowed or raise an error """
     if pangenome.status["spots"] == "inFile" and force == False:
-        raise Exception("You are trying to partition a pangenome already partitionned. If you REALLY want to do that, use --force (it will erase spots).")
+        raise Exception("You are trying to detect spots on a pangenome which already has predicted spots. If you REALLY want to do that, use --force (it will erase spots previously predicted).")
     elif pangenome.status["spots"] == "inFile" and force == True:
         ErasePangenome(pangenome, spots = True)
 
