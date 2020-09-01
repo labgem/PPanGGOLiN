@@ -93,10 +93,10 @@ def getGeneSequencesFromFile(pangenome, fileObj, list_CDS=None):
 def launchReadOrganism(args):
     return readOrganism(*args)
 
-def readOrganism(pangenome, orgName, contigDict, link = False):
+def readOrganism(pangenome, orgName, contigDict, circularContigs, link = False):
     org = Organism(orgName)
     for contigName, geneList in contigDict.items():
-        contig = org.getOrAddContig(contigName, is_circular=geneList[0][0][0])
+        contig = org.getOrAddContig(contigName, is_circular=circularContigs[contigName])
         for row in geneList:
             if link:#if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.getGene(row["ID"].decode())
@@ -113,7 +113,7 @@ def readOrganism(pangenome, orgName, contigDict, link = False):
             gene.fill_annotations(
                 start = row["start"],
                 stop = row["stop"],
-                strand =  row["strand"],
+                strand =  row["strand"].decode(),
                 geneType = row["type"].decode(),
                 position = row["position"],
                 genetic_code= row["genetic_code"],
@@ -196,10 +196,14 @@ def readSpots(pangenome, h5f):
     bar = tqdm(range(table.nrows), unit= "region")
     spots = {}
     for row in read_chunks(table):
-        curr_spot = spots.get(row["spot"], Spot(row["spot"]))
+        curr_spot = spots.get(row["spot"])
+        if curr_spot is None:
+            curr_spot = Spot(row["spot"])
+            spots[row["spot"]] = curr_spot
         curr_spot.addRegion(pangenome.getOrAddRegion(row["RGP"].decode()))
         bar.update()
     bar.close()
+    pangenome.addSpots(spots.values())
     pangenome.status["spots"] = "Loaded"
 
 def readAnnotation(pangenome, h5f, filename):
@@ -208,14 +212,17 @@ def readAnnotation(pangenome, h5f, filename):
     table = annotations.genes
     bar = tqdm(range(table.nrows), unit="gene")
     pangenomeDict = {}
+    circularContigs = {}
     for row in read_chunks(table):
         try:
             pangenomeDict[row["organism"].decode()][row["contig"]["name"].decode()].append(row["gene"])#new gene, seen contig, seen org
         except KeyError:
             try:
                 pangenomeDict[row["organism"].decode()][row["contig"]["name"].decode()] = [row["gene"]]#new contig, seen org
+                circularContigs[row["organism"].decode()][row["contig"]["name"].decode()] = row["contig"]["is_circular"]
             except KeyError:
                 pangenomeDict[sys.intern(row["organism"].decode())] = { row["contig"]["name"].decode() : [row["gene"]]}#new org
+                circularContigs[row["organism"].decode()] = {row["contig"]["name"].decode():row["contig"]["is_circular"]}
         bar.update()
     bar.close()
 
@@ -223,7 +230,7 @@ def readAnnotation(pangenome, h5f, filename):
 
     bar = tqdm(range(len(pangenomeDict)), unit = "organism")
     for orgName, contigDict in pangenomeDict.items():
-        readOrganism(pangenome, orgName, contigDict, link)
+        readOrganism(pangenome, orgName, contigDict, circularContigs[orgName], link)
         bar.update()
     bar.close()
     pangenome.status["genomesAnnotated"] = "Loaded"
@@ -251,7 +258,6 @@ def readInfo(h5f):
             print(f"RGPs : {infoGroup._v_attrs['numberOfRGP']}")
         if 'numberOfSpots' in infoGroup._v_attrs._f_list():
             print(f"Spots : {infoGroup._v_attrs['numberOfSpots']}")
-
 
 def readParameters(h5f):
     if "/info" in h5f:

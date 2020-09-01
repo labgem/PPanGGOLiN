@@ -109,8 +109,8 @@ class Region:
             if pos == -1 and self.contig.is_circular:
                 pos = len(self.contig.genes)
             if pos == init:
+                logging.getLogger().warning("looped around the contig")
                 break#looped around the contig
-
         pos = self.stopGene.position
         init = pos
         while len(border[1]) < n and (pos != len(self.contig.genes)-1 and not self.contig.is_circular):
@@ -135,8 +135,8 @@ class Spot:
     def __init__(self, ID):
         self.ID = ID
         self.regions = set()
-        self._uniqSyn = {}
-        self._compSyn = False
+        self._uniqOrderedSet = {}
+        self._compOrderedSet = False
         self._uniqContent = {}
         self._compContent = False
 
@@ -153,18 +153,37 @@ class Spot:
             self.regions.add(region)
 
     def borders(self, set_size, multigenics):
-        raise NotImplementedError()
+        """ extracts all the borders of all RGPs belonging to the spot"""
+        all_borders = []
+        for rgp in self.regions:
+            all_borders.append(rgp.getBorderingGenes(set_size, multigenics))
+        
+        family_borders=[]
+        c=0
+        for borders in all_borders:
+            c+=1
+            new=True
+            curr_set = [ [ gene.family for gene in borders[0]], [gene.family for gene in borders[1]]]
+            for i, (c, former_borders) in enumerate(family_borders):
+                if former_borders == curr_set or former_borders == curr_set[::-1]:
+                    family_borders[i][0]+=1
+                    new=False
+                    break
+            if new:
+                family_borders.append([1, curr_set])
 
-    def _mkUniqSyntenyObj(self):
+        return family_borders
+
+    def _mkUniqOrderedSetObj(self):
         """cluster RGP into groups that have an identical synteny""" 
         for rgp in self.regions:
             z = True
-            for seenRgp in self._uniqSyn:
+            for seenRgp in self._uniqOrderedSet:
                 if rgp == seenRgp:
                     z = False
-                    self._uniqSyn[seenRgp].add(rgp)
+                    self._uniqOrderedSet[seenRgp].add(rgp)
             if z:
-                self._uniqSyn[seenRgp] = set(seenRgp)
+                self._uniqOrderedSet[rgp] = set([rgp])
 
     def _mkUniqContent(self):
         """cluster RGP into groups that have identical gene content"""
@@ -175,7 +194,7 @@ class Spot:
                     z = False
                     self._uniqContent[seenRgp].add(rgp)
             if z:
-                self._uniqContent[seenRgp] = set(seenRgp)
+                self._uniqContent[rgp] = set([rgp])
 
     def _getContent(self):
         """Creates the _uniqContent object if it was never computed. Return it in any case"""
@@ -184,16 +203,16 @@ class Spot:
             self._compContent = True
         return self._uniqContent
 
-    def _getSyn(self):
+    def _getOrderedSet(self):
         """Creates the _uniqSyn object if it was never computed. Return it in any case"""
-        if not self._compSyn:
-            self._mkUniqSyntenyObj()
-            self._compSyn = True
-        return self._uniqSyn
+        if not self._compOrderedSet:
+            self._mkUniqOrderedSetObj()
+            self._compOrderedSet = True
+        return self._uniqOrderedSet
 
-    def getUniqSynteny(self):
+    def getUniqOrderedSet(self):
         """ returns an Iterable of all the unique syntenies in the spot"""
-        return set(self._getSyn().keys())
+        return set(self._getOrderedSet().keys())
 
     def getUniqContent(self):
         """ returns an Iterable of all the unique rgp (in terms of gene family content) in the spot"""
@@ -201,8 +220,8 @@ class Spot:
 
     def countUniqContent(self):
         """Returns a counter with a representative rgp as key and the number of identical rgp in terms of gene family content as value"""
-        return dict([ (key, len(val)) for key, val in self._getSyn().items()])
-
-    def countUniqSynteny(self):
-        """ Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value"""
         return dict([ (key, len(val)) for key, val in self._getContent().items()])
+
+    def countUniqOrderedSet(self):
+        """ Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value"""
+        return dict([ (key, len(val)) for key, val in self._getOrderedSet().items()])

@@ -319,6 +319,7 @@ def writeSpots(pangenome, h5f, force):
             SpotRow["spot"] = spot.ID
             SpotRow["RGP"] = region.name
             SpotRow.append()
+        bar.update()
     bar.close()
     SpoTable.flush()
 
@@ -422,14 +423,15 @@ def updateGeneFragments(pangenome, h5f):
     row = table.row
     bar =  tqdm(range(table.nrows), unit="gene")
     for row in table:
-        if row['gene/type'].decode() == b'CDS':
+        if row['gene/type'].decode() == 'CDS':
             row['gene/is_fragment'] = pangenome.getGene(row['gene/ID'].decode()).is_fragment
+            row.update()
         bar.update()
     bar.close()
     table.flush()
 
 
-def ErasePangenome(pangenome, graph=False, geneFamilies = False):
+def ErasePangenome(pangenome, graph=False, geneFamilies = False, partition = False, rgp = False, spots = False):
     """ erases tables from a pangenome .h5 file """
     compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
     h5f = tables.open_file(pangenome.file,"a", filters=compressionFilter)
@@ -454,11 +456,16 @@ def ErasePangenome(pangenome, graph=False, geneFamilies = False):
         pangenome.status["geneFamilySequences"] = "No"
         statusGroup._v_attrs.geneFamilySequences = False
         statusGroup._v_attrs.Partitionned = False
-    if '/RGP' in h5f and geneFamilies:
+    if '/RGP' in h5f and (geneFamilies or partition or rgp):
         logging.getLogger().info("Erasing the formerly computer RGP...")
         pangenome.status["predictedRGP"] = "No"
         statusGroup._v_attrs.predictedRGP = False
-        h5f.remove_node('/', 'RGP')
+        h5f.remove_node("/", "RGP")
+    if '/spots' in h5f and (geneFamilies or partition or rgp or spots):
+        logging.getLogger().info("Erasing the formerly computed spots...")
+        pangenome.status["spots"] = "No"
+        statusGroup._v_attrs.spots = False
+        h5f.remove_node("/","spots")
 
     h5f.close()
 

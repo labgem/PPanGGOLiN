@@ -185,6 +185,7 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, getSeq, pseudo = F
 
 def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo = False):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0,9)#missing values : source, score, frame. They are unused.
+    
     def getGffAttributes(gff_fields):
         """
             Parses the gff attribute's line and outputs the attributes in a dict structure.
@@ -196,8 +197,11 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo = Fal
         attributes_field = [f for f in gff_fields[GFF_attribute].strip().split(';') if len(f)>0]
         attributes = {}
         for att in attributes_field:
-            (key, value) = att.strip().split('=')
-            attributes[key.upper()]=value
+            try:
+                (key, value) = att.strip().split('=')
+                attributes[key.upper()]=value
+            except ValueError:
+                pass#we assume that it is a strange, but useless field for our analysis
         return attributes
 
     def getIDAttribute(attributes):
@@ -430,5 +434,5 @@ def syntaSubparser(subparser):
     optional.add_argument("--kingdom",required = False, type = str.lower, default = "bacteria", choices = ["bacteria","archaea"], help = "Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
-    optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to use pseudogenes. (Default behavior is to ignore them)")
+    optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to read pseudogenes. (Default behavior is to ignore them)")
     return parser

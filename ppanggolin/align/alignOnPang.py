@@ -104,11 +104,12 @@ def linkNewGenomeFamilies(orgPangenome, formerPangenome, blastTab):
 def linkMultigenicFamilies(pangenome, multigenics):
     panMulti = set()
     for fam in multigenics:
-        panFam = pangenome.getGeneFamily(fam.name)
-        if panFam is not None:
+        try:
+            panFam = pangenome.getGeneFamily(fam.name)
             panMulti.add(panFam)
+        except KeyError:#the family is not in the genome
+            pass
     return panMulti
-
 
 def writeGbffRegions(filename, regions, output):
     ContigRegions = defaultdict(set)
@@ -169,7 +170,7 @@ def writeGffRegions(filename, regions, output):
             logging.getLogger().warning("Somes regions were not written in the new gff file for unknown reasons")
     logging.getLogger().info(f"RGP have been written in the following file : '{output + '/genome_annotation.gff'}' ")
 
-def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, translation_table = 11):
+def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, translation_table = 11, pseudo=False):
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
 
@@ -178,12 +179,15 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
     singleOrgPang = Pangenome()#need to create a new 'pangenome' as the annotation reading functions take a pangenome as input.
     filetype = detect_filetype(annotation)
     if filetype == "gff":
-        singleOrgPang.status["geneSequences"] = "Computed"#if there are no sequences in the gff, this value will change to 'No'
-        read_org_gff(singleOrgPang, 'myGenome', annotation, [], True)
-        if singleOrgPang.status["geneSequences"] == "No":
-            raise Exception(f"The given annotation file did not have a FASTA sequence included (expected '##FASTA' pragma followed by a fasta-like file format). This is required for computing the Regions of Genomic Plasticity of your organism")
+        org, hasFasta = read_org_gff('myGenome', annotation, [], True, pseudo=pseudo)
+        singleOrgPang.addOrganism(org)
     elif filetype == "gbff":
-        read_org_gbff(singleOrgPang, 'myGenome', annotation, [], True)
+        org, hasFasta = read_org_gbff('myGenome', annotation, [], True, pseudo=pseudo)
+        singleOrgPang.addOrganism(org)
+    if hasFasta:
+        singleOrgPang.status["geneSequences"] = "Computed"
+    else:
+        raise Exception(f"The given annotation file did not have a FASTA sequence included (expected '##FASTA' pragma followed by a fasta-like file format). This is required for computing the Regions of Genomic Plasticity of your organism")
 
     #check and read given pangenome
     checkPangenomeInfo(pangenome, needFamilies=True, needPartitions = True, needAnnotations = True)
@@ -210,6 +214,10 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
     for org in singleOrgPang.organisms:
         genomeRGP = compute_org_rgp(org, pangenome.parameters["RGP"]["persistent_penalty"], pangenome.parameters["RGP"]["variable_gain"], pangenome.parameters["RGP"]["min_length"], pangenome.parameters["RGP"]["min_score"], genomeMultigenics)
 
+    #write the rgps in a single file
+    write_RGPs_cgview(genomeRGP, output)
+    write_partitions_cgview(org, output)
+
     if filetype == "gff":
         #reread the file and insert sequence_feature objects corresponding to the predicted regions
         logging.getLogger().info("Writing the RGP in a gff file...")
@@ -218,64 +226,89 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
         logging.getLogger().info("Writing the RGP in a gbff file...")
         writeGbffRegions(annotation, genomeRGP, output)
 
-def getFam2RGP(pang):
+def write_partitions_cgview(organism, output):
+    """writes the partition of each gene in a table that is compatible with cgview server"""
+    with open(output + "/partitions.cgview.tab","w") as fout:
+        fout.write("name\ttype\tstart\tstop\tstrand\n")
+        for gene in organism.genes:
+            fout.write("\t".join(map(str,[gene.ID, gene.family.namedPartition,gene.start, gene.stop, gene.strand]))+ "\n")
+        fout.close()
+    logging.getLogger().info(f"Done writing all of the partitions of each gene in a tsv file: {output + '/partitions.cgview.tab'}")
+
+def write_RGPs_cgview(regions, output):
+    """write RGPs in a table that is compatible with cgview server"""
+    with open(output + "/regions.cgview.tab","w") as fout:
+        fout.write("name\ttype\tstart\tstop\tstrand\n")
+        for region in regions:
+            fout.write("\t".join(map(str,[region.name, "RGP",region.start, region.stop, "+"]))+ "\n")
+        fout.close()
+    logging.getLogger().info(f"Done writing all of the RGP in a tsv file: {output + '/regions.cgview.tab'}")
+
+def getFam2RGP(pangenome, multigenics):
+    """associates families to the RGP they belong to, and those they are bordering"""
     fam2rgp = defaultdict(list)
-    for rgp in pang.regions:
+    for rgp in pangenome.regions:
         for fam in rgp.families:
+            fam2rgp[fam].append(rgp.name)
+        for fam in [ gene.family for border in rgp.getBorderingGenes(pangenome.parameters["spots"]["set_size"], multigenics) for gene in border ]:
             fam2rgp[fam].append(rgp.name)
     return fam2rgp
 
-def getFam2spot(pang, output):
+def getFam2spot(pangenome, output, multigenics):
     """ reads a pangenome object and returns a dictionnary of family to RGP and family to spot, that indicates where each family is"""
-    multigenics = pang.get_multigenics(pang.parameters["RGP"]["dup_margin"])
     ##those are to be replaced as spots should be stored in the pangenome, and in the h5.
-    spots = makeSpotGraph(pang.regions, multigenics, output, overlapping_match = 2, set_size = 3, exact_match = 1)
     fam2spot = defaultdict(list)
-    n_spot = 0
-    for spot in spots:
+    fam2border = defaultdict(list)
+    for spot in pangenome.spots:
         fams = set()
-        for rgp in spot[1]:
+        famsBorder = set()
+        for rgp in spot.regions:
             fams |= rgp.families
+            famsBorder |= set([ gene.family for border in rgp.getBorderingGenes(pangenome.parameters["spots"]["set_size"], multigenics) for gene in border ])
         for fam in fams:
-            fam2spot[fam].append(n_spot)
-        n_spot+=1
-    return fam2spot, spots, multigenics
+            fam2spot[fam].append(spot)
+        for fam in famsBorder:
+            fam2border[fam].append(spot)
+    return fam2spot, fam2border,  multigenics
 
 def add_spot_str(a):
-    return "spot_" + str(a)
+    return "spot_" + str(a.ID)
 
 def draw_spot_gexf(spots, output, multigenics, set_size = 3):
-    for i, spot in enumerate(spots):
-        if spot is not None:
-            fname = "spot_" + str(i) + ".gexf"
-            subgraph(spot[1],output, fname, set_size=set_size, multigenics=multigenics)
+    for spot in spots:
+        fname = "spot_" + str(spot.ID) + ".gexf"
+        subgraph(spot,output, fname, set_size=set_size, multigenics=multigenics)
 
-def getProtInfo(prot2pang, pangenome, output, cpu):
+def getProtInfo(prot2pang, pangenome, output, cpu, draw_related):
+    logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
+    multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
+
     finfo = open(output+"/info_input_prot.tsv","w")
-    finfo.write("family\trgp_list\tspot_list\n")
-    fam2rgp = getFam2RGP(pangenome)
-    fam2spot, spots, multigenics= getFam2spot(pangenome, output)
+    finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
+    fam2rgp = getFam2RGP(pangenome, multigenics)
+    fam2spot, fam2border, multigenics= getFam2spot(pangenome, output, multigenics)
     spot_list = set()
     for prot, panfam in prot2pang.items():
-        finfo.write(prot +'\t' + ','.join(fam2rgp[panfam])+"\t" + ",".join(map(add_spot_str, fam2spot[panfam])) + "\n")
+        finfo.write(prot +'\t' + panfam.name + "\t" + panfam.namedPartition + "\t" + ",".join(map(add_spot_str, fam2spot[panfam])) + "\t" + ",".join(map(add_spot_str, fam2border[panfam])) + "\t" + ','.join(fam2rgp[panfam]) + "\n")
         spot_list |= set(fam2spot[panfam])
+        spot_list |= set(fam2border[panfam])
     finfo.close()
-
-    #getting only the spots that we are interested in here.
-    spot_interest = [None] * len(spots)
-    for spot_id in spot_list:
-        spot_interest[spot_id] = spots[spot_id]
-
-    draw_spots(spot_interest, output, cpu, 2, 1, 3, multigenics, [])
-    draw_spot_gexf(spot_interest, output, multigenics = multigenics)
+    if draw_related:
+        drawn_spots = set()
+        for spot in spot_list:
+            if len(spot.getUniqOrderedSet()) > 1:
+                drawn_spots.add(spot)
+        logging.getLogger().info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization related to hits of the input proteins...")
+        draw_spots(drawn_spots, output, cpu, 2, 1, 3, multigenics, [])
+        draw_spot_gexf(drawn_spots, output, multigenics = multigenics)
 
     logging.getLogger().info(f"File listing RGP and spots where proteins of interest are located : '{output+'/info_input_prot.tsv'}'")
 
-def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, getinfo = False):
+def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, getinfo = False, draw_related = False):
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
     if getinfo:
-        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True)
+        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True, needSpots=True)
     else:
         checkPangenomeInfo(pangenome, needFamilies=True)
 
@@ -289,14 +322,16 @@ def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, 
         alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, newtmpdir, cpu, defrag, identity, coverage)
 
     prot2pang = readAlignments(alignFile, pangenome)
-    partProj = projectPartition(prot2pang, protSet, output)
+    
 
     if getinfo:
-        getProtInfo(prot2pang, pangenome, output, cpu)
-
+        getProtInfo(prot2pang, pangenome, output, cpu, draw_related)
+    else:
+        partProj = projectPartition(prot2pang, protSet, output)#write the partition assignation only
+        logging.getLogger().info(f"proteins partition projection : '{partProj}'")
     logging.getLogger().info(f"{len(prot2pang)} proteins over {len(protSet)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{alignFile}'")
-    logging.getLogger().info(f"proteins partition projection : '{partProj}'")
+
     tmpPangFile.close()
     newtmpdir.cleanup()
 
@@ -305,10 +340,10 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.proteins is not None:
-        align(pangenome, args.proteins, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.getinfo)
+        align(pangenome = pangenome, proteinFile = args.proteins, output = args.output, tmpdir = args.tmpdir, identity = args.identity, coverage =args.coverage, defrag =args.defrag,cpu= args.cpu, getinfo =args.getinfo, draw_related = args.draw_related )
 
     if args.annotation is not None:
-        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.translation_table)
+        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.translation_table, pseudo=args.use_pseudo)
 
 def alignSubparser(subparser):
     parser = subparser.add_parser("align", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -327,4 +362,6 @@ def alignSubparser(subparser):
     optional.add_argument('--coverage', required = False, type = float, default=0.8, help = "min coverage percentage threshold")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--getinfo", required=False, action="store_true",help = "Use this option to extract info related to the best hit of each query, such as the RGP it is in, or the spots.")
+    optional.add_argument("--draw_related", required=False, action = "store_true",help = "Draw figures and provide graphs in a gexf format of the eventual spots associated to the input proteins")
+    optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to read pseudogenes. (Default behavior is to ignore them)")
     return parser

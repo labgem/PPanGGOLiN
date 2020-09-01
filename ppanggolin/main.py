@@ -11,6 +11,8 @@ import resource
 import pkg_resources
 import tempfile
 import os
+from multiprocessing import Process 
+import time
 
 #local modules
 import ppanggolin.pangenome
@@ -68,10 +70,21 @@ def checkInputFiles(anno=None, pangenome=None, fasta=None):
             raise FileNotFoundError(f"No such file or directory: '{fasta}'")
         checkTsvSanity(fasta)
 
+def checkLog(name):
+    if name == "stdout":
+        return sys.stdout
+    elif name == "stderr":
+        return sys.stderr
+    else:
+        return open(name,"w")
+
 def cmdLine():
 
     #need to manually write the description so that it's displayed into groups of subcommands ....
     desc = "\n"
+    desc += "All of the following subcommands have their own set of options. To see them for a given subcommand, use it with -h or --help, as such:\n"
+    desc += "  ppanggolin <subcommand> -h\n"
+    desc += "\n"
     desc += "  Basic:\n"
     desc += "    workflow      Easy workflow to run a pangenome analysis in one go\n"
     desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection\n"
@@ -81,7 +94,7 @@ def cmdLine():
     desc += "    cluster       Cluster proteins in protein families\n"
     desc += "    graph         Create the pangenome graph\n"
     desc += "    partition     Partition the pangenome graph\n"
-    desc += "    rarefaction     Compute the rarefaction curve of the pangenome\n"
+    desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
@@ -120,6 +133,7 @@ def cmdLine():
         common.title = "Common arguments"
         common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(), help = "directory for storing temporary files")
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+        common.add_argument("--log", required=False, type=checkLog, default="stdout", help = "log output file")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
         sub._action_groups.append(common)
@@ -129,7 +143,7 @@ def cmdLine():
 
     if len(sys.argv) == 1:
         parser.print_help()
-        sys.exit(1)
+        sys.exit(0)
 
     args = parser.parse_args()
     if args.subcommand == "annotate":
@@ -154,10 +168,9 @@ def main():
             level = logging.INFO#info, warnings and errors
         elif args.verbose == 0:
             level = logging.WARNING#only warnings and errors
-        logging.basicConfig(stream=sys.stdout, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        logging.basicConfig(stream=args.log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
-
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
     elif args.subcommand == "cluster":

@@ -16,7 +16,7 @@ from tqdm import tqdm
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
-from ppanggolin.utils import read_compressed_or_not
+from ppanggolin.utils import read_compressed_or_not, restricted_float
 from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, writeGeneSequencesFromAnnotations, ErasePangenome
 
 def alignRep(faaFile, tmpdir, cpu, coverage, identity):
@@ -36,11 +36,11 @@ def alignRep(faaFile, tmpdir, cpu, coverage, identity):
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     return outfile
 
-def firstClustering(sequences, tmpdir, cpu, code, coverage, identity ):
+def firstClustering(sequences, tmpdir, cpu, code, coverage, identity, mode):
     seqNucdb = tmpdir.name + '/nucleotid_sequences_db'
     cmd = ["mmseqs","createdb"]
     cmd.append(sequences.name)
-    cmd.extend([seqNucdb,"--dont-shuffle","false"])
+    cmd.extend([seqNucdb])
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Creating sequence database...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -49,7 +49,7 @@ def firstClustering(sequences, tmpdir, cpu, code, coverage, identity ):
     logging.getLogger().debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     cludb = tmpdir.name + '/cluster_db'
-    cmd = ["mmseqs","cluster",seqdb, cludb, tmpdir.name , "--min-seq-id", str(identity), "-c", str(coverage), "--threads", str(cpu), "--kmer-per-seq","80","--max-seqs","300"]
+    cmd = ["mmseqs","cluster",seqdb, cludb, tmpdir.name ,"--cluster-mode", mode, "--min-seq-id", str(identity), "-c", str(coverage), "--threads", str(cpu), "--kmer-per-seq","80","--max-seqs","300"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Clustering sequences...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -117,7 +117,7 @@ def refineClustering(tsv, alnFile, fam2seq):
         if choice[0] is not None:
             genestochange = fam2genes[node]
             for gene in genestochange:
-                genes2fam[gene] = (choice[0], "F")
+                genes2fam[gene] = (choice[0], True)
                 fam2genes[choice[0]].add(gene)
             del fam2genes[node]
     newFam2seq = {}
@@ -153,7 +153,7 @@ def read_fam2seq(pangenome, fam2seq):
 def checkPangenomeFormerClustering(pangenome, force):
     """ checks pangenome status and .h5 files for former clusterings, delete them if allowed or raise an error """
     if pangenome.status["genesClustered"] == "inFile" and force == False:
-        raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to do that, use --force (it will erase everything except annotation data !)")
+        raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to do that, use --force (it will erase everything except annotation data in your HDF5 file!)")
     elif pangenome.status["genesClustered"] == "inFile" and force == True:
         ErasePangenome(pangenome, geneFamilies = True)
 
@@ -163,7 +163,6 @@ def checkPangenomeForClustering(pangenome, tmpFile, force):
     """
     checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed","Loaded"]:
-        logging.getLogger().info("Writing all of the CDS sequences for clustering...")
         writeGeneSequencesFromAnnotations(pangenome, tmpFile)
     elif pangenome.status["geneSequences"] == "inFile":
         getGeneSequencesFromFile(pangenome, tmpFile)#write CDS sequences to the tmpFile
@@ -180,13 +179,13 @@ def inferSingletons(pangenome):
             singletonCounter+=1
     logging.getLogger().info(f"Inferred {singletonCounter} singleton families")
 
-def clustering(pangenome, tmpdir, cpu , defrag = False, code = "11", coverage = 0.8, identity = 0.8, force = False):
+def clustering(pangenome, tmpdir, cpu , defrag = True, code = "11", coverage = 0.8, identity = 0.8, mode="1", force = False):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     sequenceFile = open(newtmpdir.name + '/nucleotid_sequences',"w")
 
     checkPangenomeForClustering(pangenome, sequenceFile, force)
     logging.getLogger().info("Clustering all of the genes sequences...")
-    rep, tsv = firstClustering(sequenceFile, newtmpdir, cpu, code, coverage, identity)
+    rep, tsv = firstClustering(sequenceFile, newtmpdir, cpu, code, coverage, identity, mode)
 
     sequenceFile.close()
     fam2seq = read_faa(rep)
@@ -239,24 +238,28 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
     nbGeneWtFam = 0
     localDict = mkLocal2Gene(pangenome)
     bar = tqdm(total = filesize, unit = "bytes")
+    lineCounter = 0
     for line in families_tsv_file:
+        lineCounter+=1
         bar.update(len(line))
-        elements = [el.strip() for el in line.split()] # 2 or 3 fields expected
-        if len(elements)<=1:
-            logging.getLogger().error("No tabulation separator found in gene families file")
-            exit(1)
-        (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
-
-        geneObj = pangenome.getGene(gene_id)
-        if geneObj is None:
-            geneObj = localDict.get(gene_id)
-        if geneObj is not None:
-            nbGeneWtFam+=1
-            fam = pangenome.addGeneFamily(fam_id)
-            geneObj.is_fragment =  True if is_frag == "F" else False
-            fam.addGene(geneObj)
-        if is_frag == "F":
-            frag=True
+        try:
+            elements = [el.strip() for el in line.split()] # 2 or 3 fields expected
+            if len(elements)<=1:
+                raise ValueError("No tabulation separator found in gene families file")
+            (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements+[None]
+            try:
+                geneObj = pangenome.getGene(gene_id)
+            except KeyError:
+                geneObj = localDict.get(gene_id)
+                if geneObj is not None:
+                    nbGeneWtFam+=1
+                    fam = pangenome.addGeneFamily(fam_id)
+                    geneObj.is_fragment =  True if is_frag == "F" else False
+                    fam.addGene(geneObj)
+            if is_frag == "F":
+                frag=True
+        except:
+            raise Exception(f"line {lineCounter} of the file '{families_tsv_file.name}' raised an error.")
     bar.close()
     families_tsv_file.close()
     if nbGeneWtFam < len(pangenome.genes):#not all genes have an associated cluster
@@ -266,7 +269,7 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
             if infer_singletons:
                 inferSingletons(pangenome)
             else:
-                raise Exception("Some genes did not have an associated cluster. Either change your cluster file so that each gene has a cluster, or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
+                raise Exception(f"Some genes ({nbGeneWtFam}) did not have an associated cluster. Either change your cluster file so that each gene has a cluster, or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
     pangenome.status["genesClustered"] = "Computed"
     if frag:#if there was fragment informations in the file.
         pangenome.status["defragmented"] = "Computed"
@@ -279,7 +282,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.clusters is None:
-        clustering(pangenome, args.tmpdir, args.cpu, args.defrag, args.translation_table, args.coverage, args.identity, args.force)
+        clustering(pangenome, args.tmpdir, args.cpu, defrag= not args.no_defrag, code=args.translation_table, coverage=args.coverage, identity=args.identity, mode=args.mode, force=args.force)
         logging.getLogger().info("Done with the clustering")
     else:
         readClustering(pangenome, args.clusters, args.infer_singletons, args.force)
@@ -291,16 +294,14 @@ def clusterSubparser(subparser):
 
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    def restricted_float(x):
-        x = float(x)
-        if x < 0.0 or x > 1.0:
-            raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
-        return x
     optional = parser.add_argument_group(title = "Optional arguments")
-    optional.add_argument('--defrag', required=False,default=False, action="store_true", help = "Use the defragmentation strategy to associated potential fragments with their original gene family.")
+    optional.add_argument("--defrag", required=False, action = "store_true", help = argparse.SUPPRESS)##This ensures compatibility with workflows built with the old option "defrag" when it was not the default
+    optional.add_argument('--no_defrag', required=False,default=False, action="store_true", help = "DO NOT Use the defragmentation strategy to link potential fragments with their original gene family.")
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument('--clusters', required = False, type = str, help = "A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
     optional.add_argument("--infer_singletons",required=False, action="store_true", help = "When reading a clustering result with --clusters, if a gene is not in the provided file it will be placed in a cluster where the gene is the only member.")
+    optional.add_argument("--mode", required=False, default="1", choices=["0","1","2","3"], help = "the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component), 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
     optional.add_argument("--coverage", required=False, type=restricted_float, default=0.8, help = "Minimal coverage of the alignment for two proteins to be in the same cluster")
     optional.add_argument("--identity", required=False, type=restricted_float, default=0.8, help = "Minimal identity percent for two proteins to be in the same cluster")
     return parser
+

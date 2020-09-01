@@ -5,10 +5,12 @@ PPanGGOLiN is a software suite used to create and manipulate prokaryotic pangeno
 
 PPanGGOLiN builds pangenomes through a graphical model and a statistical method to partition gene families in persistent, shell and cloud genomes. It integrates both information on protein-coding genes and their genomic neighborhood to build a graph of gene families where each node is a gene family and each edge is a relation of genetic contiguity. The partitioning method promotes that two gene families that are consistent neighbors in the graph are more likely to belong to the same partition. It results in a Partitioned Pangenome Graph (PPG) made of persistent, shell and cloud nodes drawing genomes on rails like a subway map to help biologists navigate the great diversity of microbial life.
 
-|qual| |cov| |bioconda| |plat| |version|
+Moreover, the panRGP method (Bazin et al. 2020) included in PPanGGOLiN predicts, for each genome, Regions of Genome Plasticity (RGPs) that are clusters of genes made of shell and cloud genomes in the pangenome graph.
+Most of them arise from Horizontal gene transfer (HGT) and correspond to Genomic Islands (GIs).
+RGPs from different genomes are next grouped in spots of insertion based on their conserved flanking persistent genes.
 
-.. |qual| image:: https://api.codacy.com/project/badge/Grade/a24bff9354504a3294f4acf70681765a
-.. |cov| image:: https://api.codacy.com/project/badge/Coverage/806fdcd8d04a469e8233728780576160
+|bioconda| |plat| |version|
+
 .. |plat| image:: https://anaconda.org/bioconda/ppanggolin/badges/platforms.svg
    :target: https://anaconda.org/bioconda/ppanggolin
 .. |version| image:: https://anaconda.org/bioconda/ppanggolin/badges/version.svg
@@ -31,6 +33,7 @@ You will need the following conda channels if you don't have them already:
 .. code:: bash
 
 	conda config --add channels defaults
+	conda config --add channels r 
 	conda config --add channels bioconda
 	conda config --add channels conda-forge
 
@@ -73,7 +76,26 @@ A minimum of 5 genomes is generally required to perform a pangenomics analysis u
 
 If you want to use personalized parameters for each subcommand most options should be self descriptive. If you want to know more about what each output file is, or briefly how each subcommand works you can check the `github wiki <https://github.com/labgem/PPanGGOLiN/wiki>`_
 
+Furthermore, you can also predict genomic islands and cluster them into spots of insertion using the panRGP pipeline. The usage is identical to the previous 'workflow' command:
+
+.. code:: bash
+
+	ppanggolin panrgp --fasta ORGANISMS_FASTA_LIST
+
+It will run more analyses after the pangenome has been partitionned. Further details are available `here <https://github.com/labgem/PPanGGOLiN/wiki/Regions-of-Genome-Plasticity>`_ and in the panRPG publication (see below)
+
+Issues, Questions, Remarks
+==========================
+
+If you have any question or issue with installing, using or understanding PPanGGOLiN, please do not hesitate to post an issue ! We cannot correct bugs if we do not know about them, and will try to help you the best we can.
+
+
 Citation
 ========
+If you use this tool for your research please cite:
 
-A preprint is available on BioRxiv : https://doi.org/10.1101/836239
+Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
+
+If you use this tool to study genomic islands, please cite:
+
+Bazin A. et al. (2020) panRGP: a pangenome-based method to predict genomic islands and explore their diversity. bioRxiv preprint. https://doi.org/10.1101/2020.03.26.007484
