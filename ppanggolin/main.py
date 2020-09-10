@@ -98,6 +98,7 @@ def cmdLine():
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
     desc += "    write         Writes 'flat' files representing the pangenome that can be used with other softwares\n"
+    desc += "    fasta         Writes fasta files for different elements of the pangenome\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
@@ -120,6 +121,7 @@ def cmdLine():
     subs.append(ppanggolin.workflow.panRGP.panRGPSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
+    subs.append(ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers))
     subs.append(ppanggolin.align.alignSubparser(subparsers))
     subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
     subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
@@ -183,7 +185,9 @@ def main():
     elif args.subcommand == "draw":
         ppanggolin.figures.launch(args)
     elif args.subcommand == "write":
-        ppanggolin.formats.launch(args)
+        ppanggolin.formats.launchFlat(args)
+    elif args.subcommand == "fasta":
+        ppanggolin.formats.launchSequences(args)
     elif args.subcommand == "info":
         ppanggolin.info.launch(args)
     elif args.subcommand == "align":

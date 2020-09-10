@@ -72,10 +72,10 @@ def read_chunks(table, column = None, chunk=10000):
 
 def getGeneSequencesFromFile(pangenome, fileObj, list_CDS=None):
     """
-        Writes the CDS sequences of the Pangenome object to a tmpFile object that can by filtered or not by a list of CDS
+        Writes the CDS sequences of the Pangenome object to a File object that can by filtered or not by a list of CDS
         Loads the sequences from a .h5 pangenome file
     """
-    logging.getLogger().info("Extracting and writing all of the CDS sequences from a .h5 pangenome file to a fasta file")
+    logging.getLogger().info("Extracting and writing CDS sequences from a .h5 pangenome file to a fasta file")
     h5f = tables.open_file(pangenome.file,"r", driver_core_backing_store=0)
     table = h5f.root.geneSequences
     bar =  tqdm(range(table.nrows), unit="gene")
