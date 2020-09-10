@@ -67,6 +67,7 @@ jobs:
         ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --cpu 1 --output stepbystep -f
         ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
         ppanggolin spot -p stepbystep/pangenome.h5 --cpu 1 --spot_graph --draw_hotspots --overlapping_match 2 --set_size 3 --exact_match_size 1 --interest tRNA
-        ppanggolin write -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --csv --Rtab --projection --stats --partitions --compress --json --regions --spots --borders --families_tsv --all_genes --all_prot_families --all_gene_families --cpu 1
+        ppanggolin write -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --csv --Rtab --projection --stats --partitions --compress --json --regions --spots --borders --families_tsv --cpu 1
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
         cd -
     ## can test the remaining options in 'annotate', 'cluster' (when reading cluster files) and 'align'.
