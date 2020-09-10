@@ -19,13 +19,15 @@ from ppanggolin.utils import read_compressed_or_not, mkFilename, get_num_lines
 from ppanggolin.formats import writePangenome
 
 def detect_filetype(filename):
-    """ detects whether the current file is gff3, gbk/gbff or unknown. If unknown, it will raise an error"""
+    """ detects whether the current file is gff3, gbk/gbff, fasta or unknown. If unknown, it will raise an error"""
     with read_compressed_or_not(filename) as f:
         firstLine = f.readline()
     if firstLine.startswith("LOCUS       "):#then this is probably a gbff/gbk file
         return "gbff"
     elif firstLine.startswith("##gff-version 3"):
         return 'gff'
+    elif firstLine.startswith(">"):
+        return 'fasta'
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
@@ -317,6 +319,8 @@ def readAnnoFile(organism_name, filename, circular_contigs, getSeq, pseudo):
         return read_org_gff(organism_name, filename, circular_contigs, getSeq, pseudo)
     elif filetype == "gbff":
         return read_org_gbff(organism_name, filename, circular_contigs, getSeq, pseudo)
+    else:
+        raise Exception("Wrong file type provided. This looks like a fasta file. You may be able to use --fasta instead.")
 
 def readAnnotations(pangenome, organisms_file, cpu, getSeq = True, pseudo = False):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
