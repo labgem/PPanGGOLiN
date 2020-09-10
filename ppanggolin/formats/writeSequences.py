@@ -125,7 +125,7 @@ def read_fasta_or_gff(filename):
                 if line.startswith('>'):
                     if seq != "":
                         sequence_dict[seqname] = seq
-                    seqname = line[1:].strip()
+                    seqname = line[1:].strip().split()[0]
                 else:
                     seq += line.strip()
         if seq != "":
