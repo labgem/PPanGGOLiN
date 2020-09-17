@@ -70,15 +70,15 @@ def read_chunks(table, column = None, chunk=10000):
         for row in table.read(start = i, stop = i + chunk, field = column):
             yield row
 
-def getGeneSequencesFromFile(pangenome, fileObj, list_CDS=None):
+def getGeneSequencesFromFile(filename, fileObj, list_CDS=None, verbose = False):
     """
         Writes the CDS sequences of the Pangenome object to a File object that can by filtered or not by a list of CDS
         Loads the sequences from a .h5 pangenome file
     """
-    logging.getLogger().info("Extracting and writing CDS sequences from a .h5 pangenome file to a fasta file")
-    h5f = tables.open_file(pangenome.file,"r", driver_core_backing_store=0)
+    logging.getLogger().info("Extracting and writing CDS sequences from a .h5 pangenome file to a fasta file...")
+    h5f = tables.open_file(filename,"r", driver_core_backing_store=0)
     table = h5f.root.geneSequences
-    bar =  tqdm(range(table.nrows), unit="gene")
+    bar =  tqdm(range(table.nrows), unit="gene", disable= not verbose)
     list_CDS=set(list_CDS) if list_CDS is not None else None
     for row in read_chunks(table, chunk = 20000):#reading the table chunk per chunk otherwise RAM dies on big pangenomes
         nameCDS = row["gene"].decode()
@@ -176,6 +176,17 @@ def readGeneFamiliesInfo(pangenome, h5f):
     if h5f.root.status._v_attrs.geneFamilySequences:
         pangenome.status["geneFamilySequences"] = "Loaded"
 
+def readGeneSequences(pangenome, h5f):
+    table = h5f.root.geneSequences
+
+    bar = tqdm(range(table.nrows), unit = "gene")
+    for row in read_chunks(table):
+        gene = pangenome.getGene(row['gene'].decode())
+        gene.add_dna(row['dna'].decode())
+        bar.update()
+    bar.close()
+    pangenome.status["geneSequences"] = "Loaded"
+
 
 def readRGP(pangenome, h5f):
     table = h5f.root.RGP
@@ -206,7 +217,7 @@ def readSpots(pangenome, h5f):
     pangenome.addSpots(spots.values())
     pangenome.status["spots"] = "Loaded"
 
-def readAnnotation(pangenome, h5f, filename):
+def readAnnotation(pangenome, h5f):
     annotations = h5f.root.annotations
 
     table = annotations.genes
@@ -268,7 +279,7 @@ def readParameters(h5f):
                 for key2, val in dic.items():
                     print(f"    {key2} : {val}")
 
-def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False, rgp = False, spots = False):
+def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False, rgp = False, spots = False, geneSequences = False):
     """
         Reads a previously written pangenome, with all of its parts, depending on what is asked, with regards to what is filled in the 'status' field of the hdf5 file.
     """
@@ -281,9 +292,16 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
     if annotation:
         if h5f.root.status._v_attrs.genomesAnnotated:
             logging.getLogger().info("Reading pangenome annotations...")
-            readAnnotation(pangenome, h5f, filename)
+            readAnnotation(pangenome, h5f)
         else:
             raise Exception(f"The pangenome in file '{filename}' has not been annotated, or has been improperly filled")
+    if geneSequences:
+        if h5f.root.status_v_attrs.geneSequences:
+            logging.getLogger().info("Reading pangenome gene dna sequences...")
+            readGeneSequences(pangenome, h5f)
+        else:
+            raise Exception(f"The pangenome in file '{filename}' does not have gene sequences, or has been improperly filled")
+
     if geneFamilies:
         if h5f.root.status._v_attrs.genesClustered:
             logging.getLogger().info("Reading pangenome gene families...")
@@ -311,13 +329,14 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
             raise Exception(f"The pangenome in file '{filename}' does not have spots information, or has been improperly filled")
     h5f.close()
 
-def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False, needPartitions = False, needRGP = False, needSpots = False):
+def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False, needPartitions = False, needRGP = False, needSpots = False, needGeneSequences = False):
     """defines what needs to be read depending on what is needed, and automatically checks if the required elements have been computed with regards to the pangenome.status"""
     annotation = False
     geneFamilies = False
     graph = False
     rgp = False
     spots = False
+    geneSequences = False
 
     if needAnnotations:
         if pangenome.status["genomesAnnotated"] == "inFile":
@@ -347,6 +366,11 @@ def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False,
             spots = True
         elif not pangenome.status["spots"] in ["Computed","Loaded"]:
             raise Exception("Your pangenome spots of insertion have not been predicted. See the 'spot' subcommand")
+    if needGeneSequences:
+        if pangenome.status["geneSequences"] == "inFile":
+            geneSequences = True
+        elif not pangenome.status["geneSequences"] in ["Computed","Loaded"]:
+            raise Exception("Your pangenome does not include gene sequences. This is possible only if you provided your own cluster file with the 'cluster' subcommand")
 
-    if annotation or geneFamilies or graph or rgp or spots:#if anything is true, else we need nothing.
-        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph, rgp = rgp, spots = spots)
+    if annotation or geneFamilies or graph or rgp or spots or geneSequences:#if anything is true, else we need nothing.
+        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph, rgp = rgp, spots = spots, geneSequences=geneSequences)

@@ -165,7 +165,7 @@ def checkPangenomeForClustering(pangenome, tmpFile, force):
     if pangenome.status["geneSequences"] in ["Computed","Loaded"]:
         writeGeneSequencesFromAnnotations(pangenome, tmpFile)
     elif pangenome.status["geneSequences"] == "inFile":
-        getGeneSequencesFromFile(pangenome, tmpFile)#write CDS sequences to the tmpFile
+        getGeneSequencesFromFile(pangenome.file, tmpFile)#write CDS sequences to the tmpFile
     else:
         tmpFile.close()#closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster the genes in gene families. Either provide clustering results (see --clusters), or provide a way to access the gene sequence during the annotation step (having the fasta in the gff files, or providing the fasta files through the --fasta option)")

@@ -14,7 +14,7 @@ from random import randint, shuffle
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mkOutdir, restricted_float
-from ppanggolin.formats import checkPangenomeInfo, getGeneSequencesFromFile
+from ppanggolin.formats import checkPangenomeInfo
 
 #installed libraries
 from tqdm import tqdm, trange

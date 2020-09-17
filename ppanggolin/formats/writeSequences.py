@@ -50,7 +50,7 @@ def writeGeneSequences(pangenome, output, compress, genes):
     logging.getLogger().info(f"There are {len(genes_to_write)} genes to write")
     with write_compressed_or_not(outname,compress) as fasta:
         if pangenome.status["geneSequences"] in ["inFile"]:
-            getGeneSequencesFromFile(pangenome,fasta, set([gene.ID for gene in genes_to_write]))
+            getGeneSequencesFromFile(pangenome.file ,fasta, set([gene.ID for gene in genes_to_write]))
         elif pangenome.status["geneSequences"] in ["Computed","Loaded"]:
             writeGeneSequencesFromAnnotations(pangenome, fasta, genes_to_write)
         else:
@@ -76,7 +76,7 @@ def writeFastaGeneFam(pangenome, output, compress, gene_families):
             genefams |= region.families
 
     with write_compressed_or_not(outname,compress) as fasta:
-        getGeneSequencesFromFile(pangenome,fasta,[fam.name for fam in genefams])
+        getGeneSequencesFromFile(pangenome.file ,fasta,[fam.name for fam in genefams])
 
     logging.getLogger().info(f"Done writing the representative nucleotide sequences of the gene families : '{outname}'")
 
