@@ -3,13 +3,7 @@
 
 #default libraries
 import argparse
-from multiprocessing import Pool
-from collections import Counter, defaultdict
 import logging
-import pkg_resources
-from statistics import median, mean, stdev
-import os
-from random import randint, shuffle
 
 #installed libraries
 from tqdm import tqdm
