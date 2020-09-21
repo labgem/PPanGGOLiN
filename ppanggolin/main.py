@@ -94,6 +94,7 @@ def cmdLine():
     desc += "    graph         Create the pangenome graph\n"
     desc += "    partition     Partition the pangenome graph\n"
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
+    desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
@@ -122,6 +123,7 @@ def cmdLine():
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
     subs.append(ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers))
+    subs.append(ppanggolin.formats.writeMSA.writeMSASubparser(subparsers))
     subs.append(ppanggolin.align.alignSubparser(subparsers))
     subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
     subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
@@ -188,6 +190,8 @@ def main():
         ppanggolin.formats.launchFlat(args)
     elif args.subcommand == "fasta":
         ppanggolin.formats.launchSequences(args)
+    elif args.subcommand == "msa":
+        ppanggolin.formats.launchMSA(args)
     elif args.subcommand == "info":
         ppanggolin.info.launch(args)
     elif args.subcommand == "align":
