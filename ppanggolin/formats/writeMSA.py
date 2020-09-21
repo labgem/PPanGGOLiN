@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mkOutdir
+from ppanggolin.utils import mkOutdir
 from ppanggolin.formats import checkPangenomeInfo
 from ppanggolin.genetic_codes import genetic_codes
 
@@ -87,7 +87,7 @@ def launchMafft(fname, output, fam_name):
 def launchMultiMafft(args):
     launchMafft(*args)
 
-def computeMSA(families, output, cpu, tmpdir, compress, source, code):
+def computeMSA(families, output, cpu, tmpdir, source, code):
 
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
 
@@ -113,9 +113,8 @@ def computeMSA(families, output, cpu, tmpdir, compress, source, code):
     bar.close()
 
     msa_total = msa_total + (time.time() - start_msa)
-    
 
-def writeMSAFiles(pangenome, output, cpu = 1, partition = "core",compress = False, tmpdir = "/tmp", source="protein", force=False):
+def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp", source="protein", force=False):
     
     needPartitions = False
     if partition in ["persistent","shell","cloud"]:
@@ -131,14 +130,14 @@ def writeMSAFiles(pangenome, output, cpu = 1, partition = "core",compress = Fals
     #this must exist since we loaded the pangenome and families are required
     code = pangenome.parameters["cluster"]["translation_table"]
 
-    computeMSA(families, outname, cpu=cpu, compress=compress, tmpdir=tmpdir, source=source, code = code)
+    computeMSA(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, code = code)
     logging.getLogger().info(f"Done writing all {partition} MSA in: {outname}")
 
 def launchMSA(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition = args.partition, compress=args.compress, tmpdir=args.tmpdir, source=args.source, force=args.force)
+    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition = args.partition, tmpdir=args.tmpdir, source=args.source, force=args.force)
 
 def writeMSASubparser(subparser):
     parser = subparser.add_parser("msa", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -149,6 +148,5 @@ def writeMSASubparser(subparser):
     optional = parser.add_argument_group(title = "Optional arguments. Indicating 'all' writes all elements. Writing a partition ('persistent', 'shell', 'cloud', 'core' or 'accessory') write the elements associated to said partition.")
     ##could make choice to allow customization
     optional.add_argument("--partition", required=False, default="core", choices=["all","persistent","shell","cloud","core","accessory"], help = "compute Multiple Sequence Alignement of the gene families in the given partition")
-    optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     optional.add_argument("--source",required=False, default = "protein", choices = ["dna","protein"], help = "indicates whether to use protein or dna sequences to compute the msa")
     return parser
