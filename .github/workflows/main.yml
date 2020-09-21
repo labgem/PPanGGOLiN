@@ -54,7 +54,7 @@ jobs:
         ppanggolin panrgp --cpu 1 --fasta organisms.fasta.list --output mybasicpangenome
         ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status
         cd -
-    # test most options calls. If there is a change in the API somewhere (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
+    # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
     - name: Step by Step workflow with most options calls
       shell: bash -l {0}
       run: |
@@ -69,5 +69,12 @@ jobs:
         ppanggolin spot -p stepbystep/pangenome.h5 --cpu 1 --spot_graph --draw_hotspots --overlapping_match 2 --set_size 3 --exact_match_size 1 --interest tRNA
         ppanggolin write -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --csv --Rtab --projection --stats --partitions --compress --json --regions --spots --borders --families_tsv --cpu 1
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
+        cd -
+    - name: gbff parsing and MSA computing
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        ppanggolin workflow --cpu 1 --anno organisms.gbff.list --output myannopang
+        ppanggolin msa --pangenome myannopang/pangenome.h5 --source protein --partition core -o myannopang/ -f
         cd -
     ## can test the remaining options in 'annotate', 'cluster' (when reading cluster files) and 'align'.
