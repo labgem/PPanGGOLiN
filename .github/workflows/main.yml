@@ -33,8 +33,9 @@ jobs:
     - name: Set up test environment
       shell: bash -l {0}
       run: |
-        conda install --file requirements.txt
-        conda install pytest
+        conda install -y mamba
+        mamba install -y --file requirements.txt
+        mamba install -y pytest
         pip install .
     # Check that it is installed and displays help without error
     - name: Check that PPanGGOLiN is installed

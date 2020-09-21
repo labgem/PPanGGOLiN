@@ -4,3 +4,4 @@ channels:
   - bioconda
   - conda-forge
 show_channels_urls: True
+channel_priority: strict
