@@ -72,3 +72,14 @@ def test_getRNAs(o_rna, o_region, l_glist):
     for gene in l_glist:
         o_region.append(gene)
     assert set(o_region.getRNAs()) == set([o_rna])
+
+def test_hash(o_region):
+    """ a hash function returns an integer"""
+    # the same int if called twice on the same object
+    h = hash(o_region)
+    assert isinstance(h, int)
+    assert h == hash(o_region)
+
+    # different ints if called on objects representing the same entity
+    name = "charming"
+    assert hash(Region(name)) != hash(Region(name))
