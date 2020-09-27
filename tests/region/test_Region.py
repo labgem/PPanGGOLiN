@@ -63,8 +63,11 @@ def test_append__error(o_region):
         o_region.append(42)
 
 def test_properties(l_genes, o_region, o_org, o_contig):
+    s_families = set()
     for gene in l_genes:
         o_region.append(gene)
+        s_families.add(gene.family)
+
     #checking properties sanity
     assert o_region.start == o_region.startGene.start
     assert o_region.stop == o_region.stopGene.stop
@@ -72,6 +75,7 @@ def test_properties(l_genes, o_region, o_org, o_contig):
     assert o_region.isContigBorder is True
     assert o_region.contig == o_contig
     assert o_region.organism == o_org
+    assert o_region.families == s_families
 
 def test_getRNAs(o_rna, o_region, l_genes):
     for gene in l_genes:
