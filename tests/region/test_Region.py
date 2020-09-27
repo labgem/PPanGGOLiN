@@ -83,3 +83,29 @@ def test_hash(o_region):
     # different ints if called on objects representing the same entity
     name = "charming"
     assert hash(Region(name)) != hash(Region(name))
+
+def test_equality(o_region, l_genes):
+    """2 regions are equals if they contains the same list of genes."""
+    for gene in l_genes:
+        o_region.append(gene)
+
+    # not the same list => False
+    o_other = Region("other")
+    assert o_region != o_other
+
+    # the exact same list => True
+    o_other = Region("other")
+    for gene in l_genes:
+        o_other.append(gene)
+    assert o_region == o_other
+
+    # the same list in reverse order => True
+    o_other = Region("other")
+    for gene in reversed(l_genes):
+        o_other.append(gene)
+    assert o_region == o_other
+
+def test_equality__error(o_region):
+    """equality raises error if not compared to another Region"""
+    with pytest.raises( TypeError ):
+        o_region == 42
