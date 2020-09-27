@@ -37,9 +37,9 @@ def o_rna(o_contig):
     return o_rna
 
 @pytest.fixture
-def l_glist(o_org, o_contig):
+def l_genes(o_org, o_contig):
     """ creates a small testing context, with 4 CDS, 1 RNA that are all on the same contig in the same organism"""
-    l_glist = []
+    l_genes = []
     c=10
     for i, gene_id in enumerate(["toto","tata","titi","tutu"]):
         gene = Gene(gene_id)
@@ -47,18 +47,18 @@ def l_glist(o_org, o_contig):
         gene.fill_parents(o_org, o_contig)
         o_contig.addGene(gene)
         gene.family = gene_id
-        l_glist.append(gene)
+        l_genes.append(gene)
         c+=35
-    return l_glist
+    return l_genes
 
-def test_append(l_glist, o_region):
-    for gene in l_glist:
+def test_append(l_genes, o_region):
+    for gene in l_genes:
         o_region.append(gene)
     
-    assert set(o_region.genes) == set(l_glist)
+    assert set(o_region.genes) == set(l_genes)
 
-def test_properties(l_glist, o_region, o_org, o_contig):
-    for gene in l_glist:
+def test_properties(l_genes, o_region, o_org, o_contig):
+    for gene in l_genes:
         o_region.append(gene)
     #checking properties sanity
     assert o_region.start == o_region.startGene.start
@@ -68,8 +68,8 @@ def test_properties(l_glist, o_region, o_org, o_contig):
     assert o_region.contig == o_contig
     assert o_region.organism == o_org
 
-def test_getRNAs(o_rna, o_region, l_glist):
-    for gene in l_glist:
+def test_getRNAs(o_rna, o_region, l_genes):
+    for gene in l_genes:
         o_region.append(gene)
     assert set(o_region.getRNAs()) == set([o_rna])
 
