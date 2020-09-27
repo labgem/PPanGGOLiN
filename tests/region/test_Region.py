@@ -57,6 +57,11 @@ def test_append(l_genes, o_region):
     
     assert set(o_region.genes) == set(l_genes)
 
+def test_append__error(o_region):
+    """append should raise a TypeError is used with non Gene param."""
+    with pytest.raises(TypeError):
+        o_region.append(42)
+
 def test_properties(l_genes, o_region, o_org, o_contig):
     for gene in l_genes:
         o_region.append(gene)
