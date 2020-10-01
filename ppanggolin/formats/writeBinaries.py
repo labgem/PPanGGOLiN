@@ -475,8 +475,8 @@ def writePangenome(pangenome, filename, force):
         pangenome is the corresponding pangenome object, filename the h5 file and status what has been modified.
     """
 
-    compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')#test the other compressors from blosc, this one was arbitrarily chosen.
     if pangenome.status["genomesAnnotated"] == "Computed":
+        compressionFilter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
         h5f = tables.open_file(filename,"w", filters=compressionFilter)
         logging.getLogger().info("Writing genome annotations...")
         writeAnnotations(pangenome, h5f)
@@ -488,7 +488,7 @@ def writePangenome(pangenome, filename, force):
         raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. Please post an issue on github with what you did to reach this error.")
 
     #from there, appending to existing file.
-    h5f = tables.open_file(filename,"a", filters=compressionFilter)
+    h5f = tables.open_file(filename,"a")
 
     if pangenome.status["geneSequences"] == "Computed":
         logging.getLogger().info("writing the protein coding gene dna sequences")
