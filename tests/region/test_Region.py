@@ -85,7 +85,26 @@ def test_properties(l_genes, o_region, o_org, o_contig):
     assert o_region.families == s_families
     assert o_region.contig == o_contig
     assert o_region.isWholeContig is True
-    assert o_region.isContigBorder is True
+    assert o_region.isContigBorder is True  # first contig gene is in the region
+
+    # remove the first gene of the contig
+    o_region.genes.pop(0)
+    assert o_region.isContigBorder is True  # last contig gene is in the region
+
+
+    # remove the last gene of the contig
+    # => the whole contig is not in the Region anymore
+    o_region.genes.pop()
+    assert o_region.isWholeContig is False
+    assert o_region.isContigBorder is False
+
+
+def test_isContigBorder(o_region):
+    """isContigBorder raise an exception
+       when the region contain no genes.
+    """
+    with pytest.raises(Exception):
+        o_region.isContigBorder
 
 
 def test_getRNAs(o_rna, o_region, l_genes):
