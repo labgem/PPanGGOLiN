@@ -6,17 +6,21 @@ from random import choices, randint, sample
 from ppanggolin.region import Region
 from ppanggolin.genome import Gene, Contig, Organism, RNA
 
+
+# ================================================
 def test_cstr():
     ID = 4
     o_region = Region(ID)
     assert isinstance(o_region, Region)
     for attr in "genes", "name", "score":
         assert hasattr(o_region, attr)
-    
+
     assert o_region.score == 0
     assert o_region.name == ID
     assert o_region.genes == []
 
+
+# ================================================
 @pytest.fixture
 def o_region():
     return Region(4)
@@ -38,7 +42,10 @@ def o_rna(o_contig):
 
 @pytest.fixture
 def l_genes(o_org, o_contig):
-    """ creates a small testing context, with 4 CDS, 1 RNA that are all on the same contig in the same organism"""
+    """ creates a small gene set for testing.
+
+        returns a list of 4 genes that belongs
+        to the same contig and the same organism."""
     l_genes = []
     c=10
     for i, gene_id in enumerate(["toto","tata","titi","tutu"]):
@@ -51,10 +58,12 @@ def l_genes(o_org, o_contig):
         c+=35
     return l_genes
 
+
+# ================================================
 def test_append(l_genes, o_region):
     for gene in l_genes:
         o_region.append(gene)
-    
+
     assert set(o_region.genes) == set(l_genes)
 
 def test_append__error(o_region):
@@ -63,6 +72,7 @@ def test_append__error(o_region):
         o_region.append(42)
 
 def test_properties(l_genes, o_region, o_org, o_contig):
+    """All properties expect a region with genes."""
     s_families = set()
     for gene in l_genes:
         o_region.append(gene)
@@ -71,16 +81,18 @@ def test_properties(l_genes, o_region, o_org, o_contig):
     #checking properties sanity
     assert o_region.start == o_region.startGene.start
     assert o_region.stop == o_region.stopGene.stop
-    assert o_region.isWholeContig is True
-    assert o_region.isContigBorder is True
-    assert o_region.contig == o_contig
     assert o_region.organism == o_org
     assert o_region.families == s_families
+    assert o_region.contig == o_contig
+    assert o_region.isWholeContig is True
+    assert o_region.isContigBorder is True
+
 
 def test_getRNAs(o_rna, o_region, l_genes):
     for gene in l_genes:
         o_region.append(gene)
     assert set(o_region.getRNAs()) == set([o_rna])
+
 
 def test_hash(o_region):
     """ a hash function returns an integer"""
