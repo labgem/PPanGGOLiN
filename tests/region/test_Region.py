@@ -4,6 +4,7 @@ import pytest
 from random import choices, randint, sample
 
 from ppanggolin.region import Region
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Contig, Organism, RNA
 
 
@@ -48,12 +49,16 @@ def l_genes(o_org, o_contig):
         to the same contig and the same organism."""
     l_genes = []
     c=10
-    for i, gene_id in enumerate(["toto","tata","titi","tutu"]):
+    for i, gene_id in enumerate([
+        "toto","tata","titi","tutu",
+        "lolo","lala","lili","lulu",
+    ]):
         gene = Gene(gene_id)
         gene.fill_annotations(c,c+30, "+",position=i)
         gene.fill_parents(o_org, o_contig)
         o_contig.addGene(gene)
-        gene.family = gene_id
+        gene.family = GeneFamily(i, gene_id)
+        gene.family.addPartition("c-cloud")
         l_genes.append(gene)
         c+=35
     return l_genes
@@ -149,3 +154,41 @@ def test_equality__error(o_region):
     """equality raises error if not compared to another Region"""
     with pytest.raises( TypeError ):
         o_region == 42
+
+def test_len(o_region, l_genes):
+    assert 0 == len(o_region)
+
+    for gene in l_genes:
+        o_region.append(gene)
+    assert len(l_genes) == len(o_region)
+
+def test_get_item(o_region, l_genes):
+    with pytest.raises( IndexError ):
+        o_region[1]
+
+    for gene in l_genes:
+        o_region.append(gene)
+    assert o_region[2] == l_genes[2]
+
+def test_getBorderingGenes(o_region, l_genes):
+    # return at most n-1 genes not in multigenics families
+    # nor in family with persistent partition.
+
+    print("\n")
+    for gene in l_genes:
+        o_region.append(gene)
+
+    (l_first, l_last) = o_region.getBorderingGenes(0, ['f1', 'f2'])
+    assert [] == l_first
+    assert [] == l_last
+
+    # line 101 & 125 != while condition. => unreachable lines.
+    # return nothing if isContigBorder
+    (l_first, l_last) = o_region.getBorderingGenes(2, ['f1', 'f2'])
+    assert [] == l_first
+    assert [] == l_last
+
+    # remove first and last gene
+    o_region.genes.pop(0)
+    o_region.genes.pop()
+    (l_first, l_last) = o_region.getBorderingGenes(4, ['f1', 'f2'])
