@@ -9,16 +9,11 @@ import logging
 import pkg_resources
 from statistics import median, mean, stdev
 import os
-from random import randint, shuffle
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mkOutdir, restricted_float
 from ppanggolin.formats import checkPangenomeInfo
-
-#installed libraries
-from tqdm import tqdm, trange
-from numpy import percentile
 
 #global variable to store the pangenome
 pan = None

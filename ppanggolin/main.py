@@ -169,6 +169,12 @@ def main():
             level = logging.INFO#info, warnings and errors
         elif args.verbose == 0:
             level = logging.WARNING#only warnings and errors
+
+        if args.log == sys.stdout:#if output is not to stdout, we remove progress bars.
+            args.show_prog_bars = True
+        else:
+            args.show_prog_bars = False
+
         logging.basicConfig(stream=args.log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)

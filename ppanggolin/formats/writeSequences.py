@@ -14,7 +14,7 @@ from ppanggolin.utils import write_compressed_or_not, mkOutdir, read_compressed_
 from ppanggolin.formats import checkPangenomeInfo, getGeneSequencesFromFile
 from ppanggolin.annotate import detect_filetype
 
-def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, verbose = False):
+def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, show_bar = True):
     """
         Writes the CDS sequences of the Pangenome object to a tmpFile object
         Loads the sequences from previously computed or loaded annotations
@@ -22,7 +22,7 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, verbose
     if list_CDS is None:
         list_CDS = pangenome.genes
     logging.getLogger().info("Writing all of the CDS sequences...")
-    bar =  tqdm(list_CDS, unit="gene", disable= not verbose)
+    bar =  tqdm(list_CDS, unit="gene", disable= not show_bar)
     for gene in bar:
         if gene.type == "CDS":
             fileObj.write('>' + gene.ID + "\n")
@@ -30,7 +30,7 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, verbose
     fileObj.flush()
     bar.close()
 
-def writeGeneSequences(pangenome, output, compress, genes):
+def writeGeneSequences(pangenome, output, compress, genes, show_bar=True):
     logging.getLogger().info("Writing all the gene nucleic sequences...")
     outname = output + f"/{genes}_genes.fna"
 
@@ -50,15 +50,15 @@ def writeGeneSequences(pangenome, output, compress, genes):
     logging.getLogger().info(f"There are {len(genes_to_write)} genes to write")
     with write_compressed_or_not(outname,compress) as fasta:
         if pangenome.status["geneSequences"] in ["inFile"]:
-            getGeneSequencesFromFile(pangenome.file ,fasta, set([gene.ID for gene in genes_to_write]))
+            getGeneSequencesFromFile(pangenome.file ,fasta, set([gene.ID for gene in genes_to_write]), show_bar=show_bar)
         elif pangenome.status["geneSequences"] in ["Computed","Loaded"]:
-            writeGeneSequencesFromAnnotations(pangenome, fasta, genes_to_write)
+            writeGeneSequencesFromAnnotations(pangenome, fasta, genes_to_write, show_bar=show_bar)
         else:
             #this should never happen if the pangenome has been properly checked before launching this function.
             raise Exception("The pangenome does not include gene sequences")
     logging.getLogger().info(f"Done writing the gene sequences : '{outname}'")
 
-def writeFastaGeneFam(pangenome, output, compress, gene_families):
+def writeFastaGeneFam(pangenome, output, compress, gene_families, show_bar=True):
     outname = output + f"/{gene_families}_nucleotide_families.fasta"
 
     genefams = set()
@@ -76,11 +76,11 @@ def writeFastaGeneFam(pangenome, output, compress, gene_families):
             genefams |= region.families
 
     with write_compressed_or_not(outname,compress) as fasta:
-        getGeneSequencesFromFile(pangenome.file ,fasta,[fam.name for fam in genefams])
+        getGeneSequencesFromFile(pangenome.file ,fasta,[fam.name for fam in genefams], show_bar=show_bar)
 
     logging.getLogger().info(f"Done writing the representative nucleotide sequences of the gene families : '{outname}'")
 
-def writeFastaProtFam(pangenome, output, compress, prot_families):
+def writeFastaProtFam(pangenome, output, compress, prot_families, show_bar = False):
     outname = output + f"/{prot_families}_protein_families.faa"
 
     genefams = set()
@@ -98,7 +98,7 @@ def writeFastaProtFam(pangenome, output, compress, prot_families):
             genefams |= region.families
 
     with write_compressed_or_not(outname,compress) as fasta:
-        bar = tqdm(genefams,unit="prot families")
+        bar = tqdm(genefams,unit="prot families", disable=not show_bar)
         for fam in bar:
             fasta.write('>' +fam.name + "\n")
             fasta.write(fam.sequence + "\n")
@@ -171,7 +171,7 @@ def write_spaced_fasta(sequence, space):
         j+=space
     return seq
 
-def writeRegionsSequences(pangenome, output, compress, regions, fasta, anno):
+def writeRegionsSequences(pangenome, output, compress, regions, fasta, anno, show_bar=True):
     organisms_file = fasta if fasta is not None else anno
     org_dict = {}
     for line in read_compressed_or_not(organisms_file):
@@ -195,7 +195,7 @@ def writeRegionsSequences(pangenome, output, compress, regions, fasta, anno):
     outname = output + f"/{regions}_rgp_genomic_sequences.fasta"
     with write_compressed_or_not(outname,compress) as fasta:
         loaded_genome = ""
-        bar = tqdm(regions_to_write, unit = "rgp")
+        bar = tqdm(regions_to_write, unit = "rgp", disable=not show_bar)
         for region in bar:
             if region.organism.name != loaded_genome:
                 loaded_genome = region.organism.name
@@ -205,7 +205,7 @@ def writeRegionsSequences(pangenome, output, compress, regions, fasta, anno):
         bar.close()
     logging.getLogger().info(f"Done writing the regions nucleotide sequences: '{outname}'")
 
-def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, regions=None, genes=None, gene_families=None, prot_families=None, compress=False):
+def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, regions=None, genes=None, gene_families=None, prot_families=None, compress=False, show_bar=True):
     if not any(x for x in [ regions, genes, prot_families, gene_families]):
         raise Exception("You did not indicate what file you wanted to write.")
 
@@ -236,13 +236,13 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, regions=
     checkPangenomeInfo(pangenome, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
 
     if prot_families is not None:
-        writeFastaProtFam(pangenome, output, compress, prot_families)
+        writeFastaProtFam(pangenome, output, compress, prot_families, show_bar=show_bar)
     if gene_families is not None:
-        writeFastaGeneFam(pangenome, output, compress, gene_families)
+        writeFastaGeneFam(pangenome, output, compress, gene_families, show_bar=show_bar)
     if genes is not None:
-        writeGeneSequences(pangenome, output, compress, genes)
+        writeGeneSequences(pangenome, output, compress, genes, show_bar=show_bar)
     if regions is not None:
-        writeRegionsSequences(pangenome, output, compress, regions, fasta, anno)
+        writeRegionsSequences(pangenome, output, compress, regions, fasta, anno, show_bar=show_bar)
 
 def checkOptions(args):
     if hasattr(args,"regions"):
@@ -255,7 +255,7 @@ def launchSequences(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     checkOptions(args)
-    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, cpu=args.cpu, regions=args.regions, genes=args.genes, prot_families=args.prot_families, gene_families= args.gene_families, compress=args.compress)
+    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, cpu=args.cpu, regions=args.regions, genes=args.genes, prot_families=args.prot_families, gene_families= args.gene_families, compress=args.compress, show_bar=args.show_prog_bar)
 
 def writeSequenceSubparser(subparser):
     parser = subparser.add_parser("fasta", formatter_class=argparse.ArgumentDefaultsHelpFormatter)

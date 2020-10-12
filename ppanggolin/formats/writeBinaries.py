@@ -72,7 +72,7 @@ def getMaxLenAnnotations(pangenome):
 
     return maxOrgLen, maxContigLen, maxGeneIDLen, maxTypeLen, maxNameLen, maxProductLen, maxLocalId
 
-def writeAnnotations(pangenome, h5f):
+def writeAnnotations(pangenome, h5f, show_bar = True):
     """
         Function writing all of the pangenome's annotations
     """
@@ -82,7 +82,7 @@ def writeAnnotations(pangenome, h5f):
     for org in pangenome.organisms:
         for contig in org.contigs:
             nbRNA += len(contig.RNAs)
-    bar = tqdm(pangenome.organisms, unit="genome")
+    bar = tqdm(pangenome.organisms, unit="genome", disable = not show_bar)
     geneRow = geneTable.row
     for org in bar:
         for contig in org.contigs:
@@ -138,10 +138,10 @@ def geneSequenceDesc(geneIDLen, geneSeqLen, geneTypeLen):
         "type":tables.StringCol(itemsize=geneTypeLen)
     }
 
-def writeGeneSequences(pangenome, h5f):
+def writeGeneSequences(pangenome, h5f, show_bar=True):
     geneSeq = h5f.create_table("/","geneSequences", geneSequenceDesc(*getGeneSequencesLen(pangenome)), expectedrows=len(pangenome.genes))
     geneRow = geneSeq.row
-    bar = tqdm(pangenome.genes, unit = "gene")
+    bar = tqdm(pangenome.genes, unit = "gene", disable=not show_bar)
     for gene in bar:
         geneRow["gene"] = gene.ID
         geneRow["dna"] = gene.dna
@@ -171,7 +171,7 @@ def getGeneFamLen(pangenome):
             maxPartLen = len(genefam.partition)
     return maxGeneFamNameLen, maxGeneFamSeqLen, maxPartLen
 
-def writeGeneFamInfo(pangenome, h5f, force):
+def writeGeneFamInfo(pangenome, h5f, force, show_bar=True):
     """
         Writing a table containing the protein sequences of each family
     """
@@ -181,7 +181,7 @@ def writeGeneFamInfo(pangenome, h5f, force):
     geneFamSeq = h5f.create_table("/","geneFamiliesInfo",geneFamDesc(*getGeneFamLen(pangenome)), expectedrows=len(pangenome.geneFamilies))
 
     row = geneFamSeq.row
-    bar = tqdm( pangenome.geneFamilies, unit = "gene family")
+    bar = tqdm( pangenome.geneFamilies, unit = "gene family", disable = not show_bar)
     for fam in bar:
         row["name"] = fam.name
         row["protein"] = fam.sequence
@@ -208,7 +208,7 @@ def getGene2famLen(pangenome):
                 maxGeneID = len(gene.ID)
     return maxGeneFamName, maxGeneID
 
-def writeGeneFamilies(pangenome, h5f, force):
+def writeGeneFamilies(pangenome, h5f, force, show_bar = True):
     """
         Function writing all of the pangenome's gene families
     """
@@ -217,7 +217,7 @@ def writeGeneFamilies(pangenome, h5f, force):
         h5f.remove_node('/', 'geneFamilies')#erasing the table, and rewriting a new one.
     geneFamilies = h5f.create_table("/", "geneFamilies",gene2famDesc(*getGene2famLen(pangenome)))
     geneRow = geneFamilies.row
-    bar = tqdm(pangenome.geneFamilies, unit = "gene family")
+    bar = tqdm(pangenome.geneFamilies, unit = "gene family", disable = not show_bar)
     for geneFam in bar:
         for gene in geneFam.genes:
             geneRow["gene"] = gene.ID
@@ -240,7 +240,7 @@ def getGeneIDLen(pangenome):
             maxGeneLen=len(gene.ID)
     return maxGeneLen
 
-def writeGraph(pangenome, h5f, force):
+def writeGraph(pangenome, h5f, force, show_bar = True):
     #if we want to be able to read the graph without reading the annotations (because it is one of the most time consumming parts to read), it might be good to add the organism name in the table here.
     #for now, forcing the read of annotations.
     if '/edges' in h5f and force is True:
@@ -248,7 +248,7 @@ def writeGraph(pangenome, h5f, force):
         h5f.remove_node("/","edges")
     edgeTable = h5f.create_table("/","edges", graphDesc(getGeneIDLen(pangenome)), expectedrows=len(pangenome.edges))
     edgeRow = edgeTable.row
-    bar = tqdm(pangenome.edges, unit = "edge")
+    bar = tqdm(pangenome.edges, unit = "edge", disable = not show_bar)
     for edge in bar:
         for genePairs in edge.organisms.values():
             for gene1, gene2 in genePairs:
@@ -276,14 +276,14 @@ def getRGPLen(pangenome):
             maxRGPLen = len(region.name)
     return maxRGPLen, maxGeneLen
 
-def writeRGP(pangenome, h5f, force):
+def writeRGP(pangenome, h5f, force, show_bar=True):
     if '/RGP' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computer RGP")
         h5f.remove_node('/', 'RGP')
 
     RGPTable = h5f.create_table('/', 'RGP', RGPDesc(*getRGPLen(pangenome)), expectedrows = sum([ len(region.genes) for region in pangenome.regions ]) )
     RGPRow = RGPTable.row
-    bar = tqdm(pangenome.regions, unit="region")
+    bar = tqdm(pangenome.regions, unit="region", disable = not show_bar)
     for region in bar:
         for gene in region.genes:
             RGPRow["RGP"] = region.name
@@ -306,14 +306,14 @@ def getSpotDesc(pangenome):
                 maxRGPLen = len(region.name)
     return maxRGPLen
 
-def writeSpots(pangenome, h5f, force):
+def writeSpots(pangenome, h5f, force, show_bar=True):
     if '/spots' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed spots")
         h5f.remove_node("/","spots")
     
     SpoTable = h5f.create_table("/","spots",spotDesc(getSpotDesc(pangenome)), expectedrows= sum([len(spot.regions) for spot in pangenome.spots]))
     SpotRow = SpoTable.row
-    bar = tqdm(pangenome.spots, unit="spot")
+    bar = tqdm(pangenome.spots, unit="spot", disable = not show_bar)
     for spot in pangenome.spots:
         for region in spot.regions:
             SpotRow["spot"] = spot.ID
@@ -404,24 +404,24 @@ def writeInfo(pangenome, h5f):
 
     infoGroup._v_attrs.parameters = pangenome.parameters#saving the pangenome parameters
 
-def updateGeneFamPartition(pangenome, h5f):
+def updateGeneFamPartition(pangenome, h5f, show_bar=True):
     logging.getLogger().info("Updating gene families with partition information")
     table = h5f.root.geneFamiliesInfo
-    bar = tqdm(range(table.nrows), unit = "gene family")
+    bar = tqdm(range(table.nrows), unit = "gene family", disable = not show_bar)
     for row in table:
         row["partition"] = pangenome.getGeneFamily(row["name"].decode()).partition
         row.update()
         bar.update()
     bar.close()
 
-def updateGeneFragments(pangenome, h5f):
+def updateGeneFragments(pangenome, h5f, show_bar=True):
     """
         updates the annotation table with the fragmentation informations from the defrag pipeline
     """
     logging.getLogger().info("Updating annotations with fragment information")
     table = h5f.root.annotations.genes
     row = table.row
-    bar =  tqdm(range(table.nrows), unit="gene")
+    bar =  tqdm(range(table.nrows), unit="gene", disable= not show_bar)
     for row in table:
         if row['gene/type'].decode() == 'CDS':
             row['gene/is_fragment'] = pangenome.getGene(row['gene/ID'].decode()).is_fragment
@@ -469,7 +469,7 @@ def ErasePangenome(pangenome, graph=False, geneFamilies = False, partition = Fal
 
     h5f.close()
 
-def writePangenome(pangenome, filename, force):
+def writePangenome(pangenome, filename, force, show_bar = True):
     """
         Writes or updates a pangenome file
         pangenome is the corresponding pangenome object, filename the h5 file and status what has been modified.
@@ -479,7 +479,7 @@ def writePangenome(pangenome, filename, force):
         compressionFilter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
         h5f = tables.open_file(filename,"w", filters=compressionFilter)
         logging.getLogger().info("Writing genome annotations...")
-        writeAnnotations(pangenome, h5f)
+        writeAnnotations(pangenome, h5f, show_bar=show_bar)
         pangenome.status["genomesAnnotated"] = "Loaded"
         h5f.close()
     elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
@@ -492,35 +492,35 @@ def writePangenome(pangenome, filename, force):
 
     if pangenome.status["geneSequences"] == "Computed":
         logging.getLogger().info("writing the protein coding gene dna sequences")
-        writeGeneSequences(pangenome, h5f)
+        writeGeneSequences(pangenome, h5f, show_bar=show_bar)
         pangenome.status["geneSequences"] = "Loaded"
 
     if pangenome.status["genesClustered"] == "Computed":
         logging.getLogger().info("Writing gene families and gene associations...")
-        writeGeneFamilies(pangenome, h5f, force)
+        writeGeneFamilies(pangenome, h5f, force, show_bar=show_bar)
         logging.getLogger().info("Writing gene families information...")
-        writeGeneFamInfo(pangenome, h5f, force)
+        writeGeneFamInfo(pangenome, h5f, force, show_bar=show_bar)
         if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and pangenome.status["defragmented"] == "Computed":
             #if the annotations have not been computed in this run, and there has been a clustering with defragmentation, then the annotations can be updated
-            updateGeneFragments(pangenome,h5f)
+            updateGeneFragments(pangenome,h5f, show_bar=show_bar)
         pangenome.status["genesClustered"] = "Loaded"
     if pangenome.status["neighborsGraph"] == "Computed":
         logging.getLogger().info("Writing the edges...")
-        writeGraph(pangenome, h5f, force)
+        writeGraph(pangenome, h5f, force, show_bar=show_bar)
         pangenome.status["neighborsGraph"] = "Loaded"
 
     if pangenome.status["partitionned"] == "Computed" and pangenome.status["genesClustered"] in ["Loaded","inFile"]:#otherwise it's been written already.
-        updateGeneFamPartition(pangenome, h5f)
+        updateGeneFamPartition(pangenome, h5f, show_bar=show_bar)
         pangenome.status["partitionned"] = "Loaded"
 
     if pangenome.status['predictedRGP'] == "Computed":
         logging.getLogger().info("Writing Regions of Genomic Plasticity...")
-        writeRGP(pangenome, h5f, force)
+        writeRGP(pangenome, h5f, force, show_bar=show_bar)
         pangenome.status['predictedRGP'] = "Loaded"
 
     if pangenome.status["spots"] == "Computed":
         logging.getLogger().info("Writing Spots of Insertion...")
-        writeSpots(pangenome, h5f, force)
+        writeSpots(pangenome, h5f, force, show_bar=show_bar)
         pangenome.status['spots'] = "Loaded"
 
     writeStatus(pangenome, h5f)

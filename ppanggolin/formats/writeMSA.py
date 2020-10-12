@@ -87,7 +87,7 @@ def launchMafft(fname, output, fam_name):
 def launchMultiMafft(args):
     launchMafft(*args)
 
-def computeMSA(families, output, cpu, tmpdir, source, code):
+def computeMSA(families, output, cpu, tmpdir, source, code, show_bar=True):
 
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
 
@@ -114,7 +114,7 @@ def computeMSA(families, output, cpu, tmpdir, source, code):
 
     msa_total = msa_total + (time.time() - start_msa)
 
-def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp", source="protein", force=False):
+def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp", source="protein", force=False, show_bar=True):
     
     needPartitions = False
     if partition in ["persistent","shell","cloud"]:
@@ -123,21 +123,21 @@ def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp
     outname = output + f"/msa_{partition}_{source}/"
     mkOutdir(outname, force=force)
 
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions= needPartitions, needGeneSequences=True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions= needPartitions, needGeneSequences=True, show_bar=show_bar)
     logging.getLogger().info(f"computing msa for {partition} families...")
     families = getFamiliesToWrite(pangenome, partitionFilter=partition)
 
     #this must exist since we loaded the pangenome and families are required
     code = pangenome.parameters["cluster"]["translation_table"]
 
-    computeMSA(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, code = code)
+    computeMSA(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, code = code, show_bar=show_bar)
     logging.getLogger().info(f"Done writing all {partition} MSA in: {outname}")
 
 def launchMSA(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition = args.partition, tmpdir=args.tmpdir, source=args.source, force=args.force)
+    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition = args.partition, tmpdir=args.tmpdir, source=args.source, force=args.force, show_bar=args.show_prog_bars)
 
 def writeMSASubparser(subparser):
     parser = subparser.add_parser("msa", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
