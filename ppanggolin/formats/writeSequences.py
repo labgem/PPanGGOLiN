@@ -255,7 +255,7 @@ def launchSequences(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     checkOptions(args)
-    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, cpu=args.cpu, regions=args.regions, genes=args.genes, prot_families=args.prot_families, gene_families= args.gene_families, compress=args.compress, show_bar=args.show_prog_bar)
+    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, cpu=args.cpu, regions=args.regions, genes=args.genes, prot_families=args.prot_families, gene_families= args.gene_families, compress=args.compress, show_bar=args.show_prog_bars)
 
 def writeSequenceSubparser(subparser):
     parser = subparser.add_parser("fasta", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
