@@ -243,7 +243,7 @@ def write_nem_input_files( tmpdir, organisms, sm_degree):
         str_file.write("S\t"+str(len(index_fam))+"\t"+str(len(organisms))+"\n")
     return total_edges_weight/2, len(index_fam)
 
-def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Krange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir):
+def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Krange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir, show_bar=True):
     Newtmpdir = tmpdir + "/eval_partitions"
     ChosenK = 3
     if len(organisms) > chunk_size:
@@ -259,7 +259,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
     allLogLikelihood = []
 
     if cpu > 1:
-        bar = tqdm(range(len(argsPartitionning)), unit = "Number of number of partitions")
+        bar = tqdm(range(len(argsPartitionning)), unit = "Number of number of partitions", disable = not show_bar)
         with Pool(processes = cpu) as p:
             for result in p.imap_unordered(nemSingle, argsPartitionning):
                 allLogLikelihood.append(result)
@@ -323,7 +323,7 @@ def checkPangenomeFormerPartition(pangenome,force):
     elif pangenome.status["partitionned"] == "inFile" and force == True:
         ErasePangenome(pangenome, partition = True)
 
-def partition(pangenome, tmpdir, outputdir = None, force = False, beta = 2.5, sm_degree = 10, free_dispersion=False, chunk_size=500, K=-1, Krange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False):
+def partition(pangenome, tmpdir, outputdir = None, force = False, beta = 2.5, sm_degree = 10, free_dispersion=False, chunk_size=500, K=-1, Krange=None, ICL_margin=0.05, draw_ICL = False, cpu = 1, seed = 42, keep_tmp_files = False, show_bar=True):
 
     Krange = Krange or [3,20]
     global pan
@@ -333,7 +333,7 @@ def partition(pangenome, tmpdir, outputdir = None, force = False, beta = 2.5, sm
     if draw_ICL and outputdir is None:
         raise Exception("Combination of option impossible: You asked to draw the ICL curves but did not provide an output directory!")
     checkPangenomeFormerPartition(pangenome, force)
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, show_bar=show_bar)
     organisms = set(pangenome.organisms)
 
     tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
@@ -354,7 +354,7 @@ def partition(pangenome, tmpdir, outputdir = None, force = False, beta = 2.5, sm
     if K < 3:
         pangenome.parameters["partition"]["computed_K"] = True
         logging.getLogger().info("Estimating the optimal number of partitions...")
-        K = evaluate_nb_partitions( organisms, sm_degree, free_dispersion, chunk_size, Krange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir)
+        K = evaluate_nb_partitions( organisms, sm_degree, free_dispersion, chunk_size, Krange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir, show_bar=show_bar)
         logging.getLogger().info(f"The number of partitions has been evaluated at {K}")
 
     pangenome.parameters["partition"]["K"] = K
@@ -410,7 +410,7 @@ def partition(pangenome, tmpdir, outputdir = None, force = False, beta = 2.5, sm
             logging.getLogger().info("Launching NEM")
             with Pool(processes = cpu) as p:
                 #launch partitionnings
-                bar = tqdm(range(len(args)), unit = " samples partitionned")
+                bar = tqdm(range(len(args)), unit = " samples partitionned", disable=not show_bar)
                 for result in p.imap_unordered(nemSamples, args):
                     validate_family(result)
                     bar.update()
@@ -454,8 +454,8 @@ def launch(args):
         mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    partition(pangenome, args.tmpdir, args.output, args.force, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.krange, args.ICL_margin, args.draw_ICL, args.cpu, args.seed, args.keep_tmp_files)
-    writePangenome(pangenome,pangenome.file, args.force)
+    partition(pangenome, args.tmpdir, args.output, args.force, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.krange, args.ICL_margin, args.draw_ICL, args.cpu, args.seed, args.keep_tmp_files, show_bar=args.show_prog_bars)
+    writePangenome(pangenome,pangenome.file, args.force, show_bar=args.show_prog_bars)
 
 def partitionSubparser(subparser):
     parser = subparser.add_parser("partition", formatter_class=argparse.ArgumentDefaultsHelpFormatter)

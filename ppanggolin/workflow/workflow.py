@@ -26,7 +26,7 @@ def launch(args):
         getSeq = True
         if args.clusters is not None:
             getSeq = False
-        readAnnotations(pangenome, args.anno, cpu = args.cpu, getSeq = getSeq)
+        readAnnotations(pangenome, args.anno, cpu = args.cpu, getSeq = getSeq, show_bar=args.show_prog_bars)
         writePangenome(pangenome, filename, args.force)
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
@@ -35,23 +35,23 @@ def launch(args):
             getGeneSequencesFromFastas(pangenome, args.fasta)
 
         if args.clusters is not None:
-            readClustering(pangenome, args.clusters)
+            readClustering(pangenome, args.clusters, show_bar=args.show_prog_bars)
 
         elif args.clusters is None:#we should have the sequences here.
-            clustering(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, defrag = not args.no_defrag)
+            clustering(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, defrag = not args.no_defrag, show_bar=args.show_prog_bars)
     elif args.fasta is not None:
         pangenome = Pangenome()
-        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
-        writePangenome(pangenome, filename, args.force)
-        clustering(pangenome, tmpdir = args.tmpdir,cpu = args.cpu, defrag = not args.no_defrag)
+        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, show_bar=args.show_prog_bars)
+        writePangenome(pangenome, filename, args.force,show_bar=args.show_prog_bars)
+        clustering(pangenome, tmpdir = args.tmpdir,cpu = args.cpu, defrag = not args.no_defrag,show_bar=args.show_prog_bars)
 
-    computeNeighborsGraph(pangenome)
+    computeNeighborsGraph(pangenome,show_bar=args.show_prog_bars)
 
-    partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, K=args.nb_of_partitions)
-    writePangenome(pangenome, filename, args.force)
+    partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, K=args.nb_of_partitions,show_bar=args.show_prog_bars)
+    writePangenome(pangenome, filename, args.force,show_bar=args.show_prog_bars)
 
     if args.rarefaction:
-        makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
+        makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu,show_bar=args.show_prog_bars)
     if len(pangenome.organisms) > 1 and len(pangenome.organisms) < 5000:
         drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)

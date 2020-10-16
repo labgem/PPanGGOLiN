@@ -95,10 +95,12 @@ def cmdLine():
     desc += "    graph         Create the pangenome graph\n"
     desc += "    partition     Partition the pangenome graph\n"
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
+    desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
     desc += "    write         Writes 'flat' files representing the pangenome that can be used with other softwares\n"
+    desc += "    fasta         Writes fasta files for different elements of the pangenome\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
@@ -122,6 +124,8 @@ def cmdLine():
     subs.append(ppanggolin.workflow.panRGP.panRGPSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
+    subs.append(ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers))
+    subs.append(ppanggolin.formats.writeMSA.writeMSASubparser(subparsers))
     subs.append(ppanggolin.align.alignSubparser(subparsers))
     subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
     subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
@@ -168,6 +172,12 @@ def main():
             level = logging.INFO#info, warnings and errors
         elif args.verbose == 0:
             level = logging.WARNING#only warnings and errors
+
+        if args.log == sys.stdout:#if output is not to stdout, we remove progress bars.
+            args.show_prog_bars = True
+        else:
+            args.show_prog_bars = False
+
         logging.basicConfig(stream=args.log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
@@ -186,7 +196,11 @@ def main():
     elif args.subcommand == "draw":
         ppanggolin.figures.launch(args)
     elif args.subcommand == "write":
-        ppanggolin.formats.launch(args)
+        ppanggolin.formats.launchFlat(args)
+    elif args.subcommand == "fasta":
+        ppanggolin.formats.launchSequences(args)
+    elif args.subcommand == "msa":
+        ppanggolin.formats.launchMSA(args)
     elif args.subcommand == "info":
         ppanggolin.info.launch(args)
     elif args.subcommand == "align":

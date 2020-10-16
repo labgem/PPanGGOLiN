@@ -19,7 +19,7 @@ def checkPangenomeFormerGraph(pangenome, force):
     elif pangenome.status["neighborsGraph"] == "inFile" and force == True:
         ErasePangenome(pangenome, graph = True)
 
-def checkPangenomeForNeighborsGraph(pangenome, force):
+def checkPangenomeForNeighborsGraph(pangenome, force, show_bar=True):
     """
         Checks the pangenome for neighbors graph computing.
     """
@@ -27,7 +27,7 @@ def checkPangenomeForNeighborsGraph(pangenome, force):
     if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] and pangenome.status["genesClustered"] in ["Computed","Loaded"]:
         pass#nothing to do, can just continue.
     elif pangenome.status["genomesAnnotated"] == "inFile" and pangenome.status["genesClustered"] == "inFile":
-        readPangenome(pangenome, annotation = True, geneFamilies=True)
+        readPangenome(pangenome, annotation = True, geneFamilies=True, show_bar=show_bar)
     elif pangenome.status["genesClustered"] == "No" and pangenome.status["genomesAnnotated"] in ['inFile','Computed','Loaded']:
         raise Exception("You did not cluster the genes. See the 'ppanggolin cluster' if you want to do that.")
     else:
@@ -44,17 +44,17 @@ def remove_high_copy_number(pangenome, number):
                 fam.removed = True
 
 
-def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False):
+def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False, show_bar = True):
     """
         Creates the Pangenome Graph. Will either load the informations from the pangenome file if they are not loaded, or use the informations loaded if they are.
     """
-    checkPangenomeForNeighborsGraph(pangenome, force)
+    checkPangenomeForNeighborsGraph(pangenome, force, show_bar=show_bar)
 
     if remove_copy_number > 0 :
         remove_high_copy_number(pangenome, remove_copy_number)
 
     logging.getLogger().info("Computing the neighbors graph...")
-    bar = tqdm(pangenome.organisms, total = len(pangenome.organisms), unit = "organism")
+    bar = tqdm(pangenome.organisms, total = len(pangenome.organisms), unit = "organism", disable=not show_bar)
     for org in bar:
         bar.set_description(f"Processing {org.name}")
         bar.refresh()
@@ -84,8 +84,8 @@ def computeNeighborsGraph(pangenome, remove_copy_number = 0, force = False):
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    computeNeighborsGraph(pangenome, args.remove_high_copy_number, args.force)
-    writePangenome(pangenome, pangenome.file, args.force)
+    computeNeighborsGraph(pangenome, args.remove_high_copy_number, args.force, show_bar=args.show_prog_bars)
+    writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
 
 
 def graphSubparser(subparser):

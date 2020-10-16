@@ -126,14 +126,14 @@ def refineClustering(tsv, alnFile, fam2seq):
     logging.getLogger().info(f"Ending with {len(newFam2seq)} gene families")
     return genes2fam, newFam2seq
 
-def read_gene2fam(pangenome, gene2fam):
+def read_gene2fam(pangenome, gene2fam, show_bar=True):
     logging.getLogger().info(f"Adding {len(gene2fam)} genes to the gene families")
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed","Loaded"] else False
     if link:
         if len(gene2fam) != len(pangenome.genes):#then maybe there are genes with identical IDs
             raise Exception("Something unexpected happened during clustering (have less genes clustered than genes in the pangenome). A probable reason is that two genes in two different organisms have the same IDs; If you are sure that all of your genes have non identical IDs, please post an issue at https://github.com/labgem/PPanGGOLiN/")
-    bar = tqdm(gene2fam.items(), unit = "gene")
+    bar = tqdm(gene2fam.items(), unit = "gene", disable=not show_bar)
     for gene, (family, is_frag) in bar:
         fam = pangenome.addGeneFamily(family)
         if link:#doing the linking if the annotations are loaded.
@@ -157,15 +157,15 @@ def checkPangenomeFormerClustering(pangenome, force):
     elif pangenome.status["genesClustered"] == "inFile" and force == True:
         ErasePangenome(pangenome, geneFamilies = True)
 
-def checkPangenomeForClustering(pangenome, tmpFile, force):
+def checkPangenomeForClustering(pangenome, tmpFile, force, show_bar=True):
     """
         Check the pangenome statuses and write the gene sequences in the provided tmpFile. (whether they are written in the .h5 file or currently in memory)
     """
     checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed","Loaded"]:
-        writeGeneSequencesFromAnnotations(pangenome, tmpFile)
+        writeGeneSequencesFromAnnotations(pangenome, tmpFile, show_bar=show_bar)
     elif pangenome.status["geneSequences"] == "inFile":
-        getGeneSequencesFromFile(pangenome, tmpFile)#write CDS sequences to the tmpFile
+        getGeneSequencesFromFile(pangenome.file, tmpFile, show_bar=show_bar)#write CDS sequences to the tmpFile
     else:
         tmpFile.close()#closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster the genes in gene families. Either provide clustering results (see --clusters), or provide a way to access the gene sequence during the annotation step (having the fasta in the gff files, or providing the fasta files through the --fasta option)")
@@ -179,11 +179,11 @@ def inferSingletons(pangenome):
             singletonCounter+=1
     logging.getLogger().info(f"Inferred {singletonCounter} singleton families")
 
-def clustering(pangenome, tmpdir, cpu , defrag = True, code = "11", coverage = 0.8, identity = 0.8, mode="1", force = False):
+def clustering(pangenome, tmpdir, cpu , defrag = True, code = "11", coverage = 0.8, identity = 0.8, mode="1", force = False, show_bar = True):
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
     sequenceFile = open(newtmpdir.name + '/nucleotid_sequences',"w")
 
-    checkPangenomeForClustering(pangenome, sequenceFile, force)
+    checkPangenomeForClustering(pangenome, sequenceFile, force, show_bar=show_bar)
     logging.getLogger().info("Clustering all of the genes sequences...")
     rep, tsv = firstClustering(sequenceFile, newtmpdir, cpu, code, coverage, identity, mode)
 
@@ -198,7 +198,7 @@ def clustering(pangenome, tmpdir, cpu , defrag = True, code = "11", coverage = 0
         pangenome.status["defragmented"] = "Computed"
     newtmpdir.cleanup()
     read_fam2seq(pangenome, fam2seq)
-    read_gene2fam(pangenome, genes2fam)
+    read_gene2fam(pangenome, genes2fam, show_bar=show_bar)
 
     pangenome.status["genesClustered"] = "Computed"
     pangenome.status["geneFamilySequences"] = "Computed"
@@ -222,13 +222,13 @@ def mkLocal2Gene(pangenome):
             return {}#local identifiers are not unique.
     return localDict
 
-def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=False):
+def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=False, show_bar=True):
     """
         Creates the pangenome, the gene families and the genes with an associated gene family.
         Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
     """
     checkPangenomeFormerClustering(pangenome, force)
-    checkPangenomeInfo(pangenome, needAnnotations=True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, show_bar=show_bar)
 
     logging.getLogger().info("Reading "+families_tsv_file+" the gene families file ...")
     filesize = os.stat(families_tsv_file).st_size
@@ -237,7 +237,7 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
     #the genome annotations are necessarily loaded.
     nbGeneWtFam = 0
     localDict = mkLocal2Gene(pangenome)
-    bar = tqdm(total = filesize, unit = "bytes")
+    bar = tqdm(total = filesize, unit = "bytes", disable=not show_bar)
     lineCounter = 0
     for line in families_tsv_file:
         lineCounter+=1
@@ -282,12 +282,12 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.clusters is None:
-        clustering(pangenome, args.tmpdir, args.cpu, defrag= not args.no_defrag, code=args.translation_table, coverage=args.coverage, identity=args.identity, mode=args.mode, force=args.force)
+        clustering(pangenome, args.tmpdir, args.cpu, defrag= not args.no_defrag, code=args.translation_table, coverage=args.coverage, identity=args.identity, mode=args.mode, force=args.force, show_bar=args.show_prog_bars)
         logging.getLogger().info("Done with the clustering")
     else:
-        readClustering(pangenome, args.clusters, args.infer_singletons, args.force)
+        readClustering(pangenome, args.clusters, args.infer_singletons, args.force, show_bar=args.show_prog_bars)
         logging.getLogger().info("Done reading the cluster file")
-    writePangenome(pangenome, pangenome.file, args.force)
+    writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
 
 def clusterSubparser(subparser):
     parser = subparser.add_parser("cluster", formatter_class=argparse.ArgumentDefaultsHelpFormatter)

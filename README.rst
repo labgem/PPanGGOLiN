@@ -37,7 +37,15 @@ You will need the following conda channels if you don't have them already:
 	conda config --add channels bioconda
 	conda config --add channels conda-forge
 
-And then you can just run :
+We recommand using `mamba <https://github.com/mamba-org/mamba>`_, as it solves many dependency and version checking problems we have with conda from time to time.
+You can do it as such:
+
+.. code:: bash
+
+	conda install mamba
+	mamba install -c bioconda ppanggolin
+
+Else, if you do not wish to use mamba, you can just run :
 
 .. code:: bash
 

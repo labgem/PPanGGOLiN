@@ -188,17 +188,17 @@ def checkPangenomeFormerRGP(pangenome,force):
     elif pangenome.status["predictedRGP"] == "inFile" and force == True:
         ErasePangenome(pangenome, rgp = True)
 
-def predictRGP(pangenome, force = False, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, cpu = 1):
+def predictRGP(pangenome, force = False, persistent_penalty = 3, variable_gain = 1, min_length = 3000, min_score = 4, dup_margin = 0.05, cpu = 1, show_bar=True):
 
     #check statuses and load info
     checkPangenomeFormerRGP(pangenome, force)
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True, show_bar=show_bar)
 
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
     logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
     namingScheme = testNamingScheme(pangenome)
-    bar = tqdm(pangenome.organisms, unit = "genomes")
+    bar = tqdm(pangenome.organisms, unit = "genomes", disable=not show_bar)
     for org in bar:
         pangenome.addRegions(compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics, naming = namingScheme))
     logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")
@@ -215,8 +215,8 @@ def predictRGP(pangenome, force = False, persistent_penalty = 3, variable_gain =
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    predictRGP(pangenome, force = args.force, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, cpu=args.cpu)
-    writePangenome(pangenome, pangenome.file, args.force)
+    predictRGP(pangenome, force = args.force, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, cpu=args.cpu, show_bar=args.show_prog_bars)
+    writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
 
 def rgpSubparser(subparser):
     parser = subparser.add_parser("rgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)

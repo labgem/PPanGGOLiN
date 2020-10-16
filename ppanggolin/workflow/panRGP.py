@@ -30,10 +30,10 @@ def launch(args):
         if args.clusters is not None:
             getSeq = False
         start_anno = time.time()
-        readAnnotations(pangenome, args.anno, cpu = args.cpu, getSeq = getSeq)
+        readAnnotations(pangenome, args.anno, cpu = args.cpu, getSeq = getSeq, show_bar=args.show_prog_bars)
         annotime = time.time() - start_anno
         start_writing = time.time()
-        writePangenome(pangenome, filename, args.force)
+        writePangenome(pangenome, filename, args.force, show_bar=args.show_prog_bars)
         writing_time = time.time() - start_writing
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
@@ -42,49 +42,49 @@ def launch(args):
             getGeneSequencesFromFastas(pangenome, args.fasta)
         start_clust = time.time()
         if args.clusters is not None:
-            readClustering(pangenome, args.clusters)
+            readClustering(pangenome, args.clusters, show_bar=args.show_prog_bars)
 
         elif args.clusters is None:#we should have the sequences here.
-            clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag)
+            clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, show_bar=args.show_prog_bars)
         clust_time = time.time() - start_clust
     elif args.fasta is not None:
         start_anno = time.time()
-        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu)
+        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, show_bar=args.show_prog_bars)
         annotime = time.time() - start_anno
         start_writing = time.time()
-        writePangenome(pangenome, filename, args.force)
+        writePangenome(pangenome, filename, args.force, show_bar=args.show_prog_bars)
         writing_time = time.time() - start_writing
         start_clust = time.time()
-        clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag)
+        clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, show_bar=args.show_prog_bars)
         clust_time = time.time() - start_clust
 
-    writePangenome(pangenome, filename, args.force)
+    writePangenome(pangenome, filename, args.force, show_bar=args.show_prog_bars)
     start_graph = time.time()
-    computeNeighborsGraph(pangenome)
+    computeNeighborsGraph(pangenome, show_bar=args.show_prog_bars)
     graph_time = time.time() - start_graph
 
     start_part = time.time()
-    partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, K=args.nb_of_partitions)
+    partition(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, K=args.nb_of_partitions, show_bar=args.show_prog_bars)
     part_time = time.time() - start_part
 
     start_writing = time.time()
-    writePangenome(pangenome, filename, args.force)
+    writePangenome(pangenome, filename, args.force, show_bar=args.show_prog_bars)
     writing_time = writing_time + time.time() - start_writing
 
     start_regions = time.time()
-    predictRGP(pangenome)
+    predictRGP(pangenome, show_bar=args.show_prog_bars)
     regions_time = time.time() - start_regions
 
     start_spots = time.time()
-    predictHotspots(pangenome, args.output, interest=args.interest)
+    predictHotspots(pangenome, args.output, interest=args.interest, show_bar=args.show_prog_bars)
     spot_time = time.time() - start_spots
 
     start_writing = time.time()
-    writePangenome(pangenome, filename, args.force)
+    writePangenome(pangenome, filename, args.force, show_bar=args.show_prog_bars)
     writing_time = writing_time + time.time() - start_writing
 
     if args.rarefaction:
-        makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu)
+        makeRarefactionCurve(pangenome,args.output, args.tmpdir, cpu=args.cpu, show_bar=args.show_prog_bars)
     if len(pangenome.organisms) > 1 and len(pangenome.organisms) < 5000:
         drawTilePlot(pangenome, args.output, nocloud = False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)

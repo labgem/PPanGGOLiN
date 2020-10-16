@@ -249,7 +249,7 @@ def drawCurve(output, maxSampling, data):
     out_plotly.plot(fig, filename=output+"/rarefaction_curve.html", auto_open=False)
     params_file.close()
 
-def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = 10, free_dispersion=False, chunk_size = 500, K=-1, cpu = 1, seed=42, kestimate = False, krange = [3,-1], soft_core = 0.95):
+def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSampling =1, maxSampling = 100, sm_degree = 10, free_dispersion=False, chunk_size = 500, K=-1, cpu = 1, seed=42, kestimate = False, krange = [3,-1], soft_core = 0.95, show_bar=True):
 
     ppp.pan = pangenome#use the global from partition to store the pangenome, so that it is usable
 
@@ -258,7 +258,7 @@ def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSa
         krange[1] = ppp.pan.parameters["partition"]["K"] if krange[1]<0 else krange[1]
     except KeyError:
         krange=[3,20]
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, show_bar=show_bar)
 
     tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
     tmpdir = tmpdirObj.name
@@ -289,10 +289,10 @@ def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSa
     index_org = pangenome.computeFamilyBitarrays()
     logging.getLogger().info(f"Done computing bitarrays. Comparing them to get exact and soft core stats for {len(AllSamples)} samples...")
 
-    bar = tqdm( range(len(AllSamples) * len(pangenome.geneFamilies)), unit = "gene family")
+    bar = tqdm( range(len(AllSamples) * len(pangenome.geneFamilies)), unit = "gene family", disable=not show_bar)
     for samp in AllSamples:
         #make the sample's organism bitarray.
-        sampBitarray = gmpy2.xmpz(0)
+        sampBitarray = gmpy2.xmpz(0)#pylint: disable=no-member
         for org in samp:
             sampBitarray[index_org[org]] = 1
 
@@ -302,7 +302,7 @@ def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSa
         part["exact_accessory"] = 0
         part["soft_accessory"] = 0
         for fam in pangenome.geneFamilies:
-            nbCommonOrg = gmpy2.popcount(fam.bitarray & sampBitarray)
+            nbCommonOrg = gmpy2.popcount(fam.bitarray & sampBitarray)#pylint: disable=no-member
             part["nborgs"] = len(samp)
             if nbCommonOrg != 0:#in that case the node 'does not exist'
                 if nbCommonOrg == len(samp):
@@ -329,7 +329,7 @@ def makeRarefactionCurve( pangenome, output, tmpdir, beta=2.5, depth = 30, minSa
     with Pool(processes = cpu) as p:
         #launch partitionnings
         logging.getLogger().info("Partitionning all samples...")
-        bar = tqdm(range(len(args)), unit = "samples partitionned")
+        bar = tqdm(range(len(args)), unit = "samples partitionned", disable=not show_bar)
         random.shuffle(args)#shuffling the processing so that the progress bar is closer to reality.
         for result in p.imap_unordered(launch_raref_nem, args):
             SampNbPerPart[result[1]] = {**result[0], **SampNbPerPart[result[1]]}
@@ -365,7 +365,8 @@ def launch(args):
                         seed = args.seed,
                         kestimate=args.reestimate_K,
                         krange = args.krange,
-                        soft_core = args.soft_core)
+                        soft_core = args.soft_core,
+                        show_bar=args.show_prog_bars)
 
 def rarefactionSubparser(subparser):
     parser = subparser.add_parser("rarefaction", formatter_class=argparse.ArgumentDefaultsHelpFormatter)

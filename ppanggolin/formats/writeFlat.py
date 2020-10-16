@@ -9,16 +9,11 @@ import logging
 import pkg_resources
 from statistics import median, mean, stdev
 import os
-from random import randint, shuffle
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mkOutdir, restricted_float
-from ppanggolin.formats import checkPangenomeInfo, getGeneSequencesFromFile
-
-#installed libraries
-from tqdm import tqdm, trange
-from numpy import percentile
+from ppanggolin.formats import checkPangenomeInfo
 
 #global variable to store the pangenome
 pan = None
@@ -474,53 +469,6 @@ def writeGeneFamiliesTSV(output, compress=False):
                 tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier, "F" if gene.is_fragment else ""])+"\n")
     logging.getLogger().info(f"Done writing the file providing the association between genes and gene families : '{outname}'")
 
-def writeFastaGenFam(output, compress=False):
-    logging.getLogger().info("Writing the representative nucleic sequences of all the gene families...")
-    outname = output + "/representative_gene_families.fna"
-    with write_compressed_or_not(outname,compress) as fasta:
-        getGeneSequencesFromFile(pan,fasta,[fam.name for fam in pan.geneFamilies])
-    logging.getLogger().info(f"Done writing the representative nucleic sequences of all the gene families : '{outname}'")
-
-def writeFastaProtFam(output, compress=False):
-    logging.getLogger().info("Writing the representative proteic sequences of all the gene families...")
-    outname = output + "/representative_gene_families.faa"
-    with write_compressed_or_not(outname,compress) as fasta:
-        bar = tqdm(range(pan.number_of_geneFamilies()),unit="prot families")
-        for fam in list(pan.geneFamilies):
-            fasta.write('>' +fam.name + "\n")
-            fasta.write(fam.sequence + "\n")
-            bar.update()
-        bar.close()
-    logging.getLogger().info(f"Done writing the representative proteic sequences of all the gene families : '{outname}'")
-
-def writeGeneSequencesFromAnnotations(pangenome, fileObj, verbose = False):
-    """
-        Writes the CDS sequences of the Pangenome object to a tmpFile object
-        Loads the sequences from previously computed or loaded annotations
-    """
-    logging.getLogger().info("Writing all of the CDS sequences...")
-    bar =  tqdm(pangenome.genes, unit="gene", disable= not verbose)
-    for gene in bar:
-        if gene.type == "CDS":
-            fileObj.write('>' + gene.ID + "\n")
-            fileObj.write(gene.dna + "\n")
-    fileObj.flush()
-    bar.close()
-
-def writeGeneSequences(output, compress=False):
-    logging.getLogger().info("Writing all the gene nucleic sequences...")
-    outname = output + "/all_genes.fna"
-    
-    with write_compressed_or_not(outname,compress) as fasta:
-        if pan.status["geneSequences"] in ["inFile"]:
-            getGeneSequencesFromFile(pan,fasta)
-        elif pan.status["geneSequences"] in ["Computed","Loaded"]:
-            writeGeneSequencesFromAnnotations(pan, fasta)
-        else:
-            #this should never happen if the pangenome has been properly checked before launching this function.
-            raise Exception("The pangenome does not include gene sequences")
-    logging.getLogger().info(f"Done writing all the gene sequences : '{outname}'")
-
 def writeRegions(output, compress = False):
     fname = output + "/plastic_regions.tsv"
     with write_compressed_or_not(fname, compress) as tab:
@@ -588,9 +536,9 @@ def writeBorders(output, dup_margin, compress):
             fout.write(f">{fam.name}\n")
             fout.write(f"{fam.sequence}\n")
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, all_genes = False, all_prot_families = False, all_gene_families = False, spots = False, borders=False, compress = False):
-    
-    if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv, all_genes, all_prot_families, all_gene_families]):
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, spots = False, borders=False, compress = False):
+
+    if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv]):
         raise Exception("You did not indicate what file you wanted to write.")
 
     global pan
@@ -605,7 +553,7 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
 
     if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or borders:
         needAnnotations = True 
-    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or all_prot_families or all_gene_families or borders:
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv  or borders:
         needFamilies = True
     if projection or stats or partitions or regions or spots or borders:
         needPartitions = True
@@ -615,14 +563,6 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
         needRegions = True
     if spots or borders:
         needSpots = True
-
-    #need to deal with sequence-related flags outside of checkPangenomeInfo since 
-    ex_geneSequences = Exception("The provided pangenome has no gene sequences. This is not compatible with any of the following options : --all_genes, --all_gene_families")
-    ex_geneFamilySequences = Exception("The provided pangenome has no gene families. This is not compatible with any of the following options : --all_prot_families, all_gene_families")
-    if not pan.status["geneSequences"] in ["inFile"] and (all_genes or all_gene_families):
-        raise ex_geneSequences
-    if not pan.status["geneFamilySequences"] in ["Loaded","Computed","inFile"] and (all_prot_families):
-        raise ex_geneFamilySequences
 
     checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
     pan.getIndex()#make the index because it will be used most likely
@@ -645,12 +585,6 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
             processes.append(p.apply_async(func = writeParts, args = (output, soft_core, compress)))
         if families_tsv:
             processes.append(p.apply_async(func = writeGeneFamiliesTSV, args = (output, compress)))
-        if all_genes:
-            processes.append(p.apply_async(func = writeGeneSequences, args = (output, compress)))
-        if all_prot_families:
-            processes.append(p.apply_async(func = writeFastaProtFam, args = (output, compress)))
-        if all_gene_families:
-            processes.append(p.apply_async(func = writeFastaGenFam, args = (output, compress)))
         if regions:
             processes.append(p.apply_async(func = writeRegions, args = (output, compress)))
         if spots:
@@ -661,11 +595,11 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
         for process in processes:
             process.get()#get all the results
 
-def launch(args):
+def launchFlat(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, all_genes=args.all_genes, all_prot_families=args.all_prot_families, all_gene_families= args.all_gene_families,spots= args.spots, borders=args.borders, compress=args.compress)
+    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, compress=args.compress)
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -688,7 +622,4 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--spots", required=False, action = "store_true", help = "Write spot summary and a list of all rgp in each spot")
     optional.add_argument("--borders", required=False, action = "store_true", help = "List all borders of each spot")
     optional.add_argument("--families_tsv", required=False, action = "store_true", help = "Write a tsv file providing the association between genes and gene families")
-    optional.add_argument("--all_genes", required=False, action = "store_true", help = "Write all nucleotic CDS sequences")
-    optional.add_argument("--all_prot_families", required=False, action = "store_true", help = "Write Write representative proteic sequences of all the gene families")
-    optional.add_argument("--all_gene_families", required=False, action = "store_true", help = "Write representative nucleic sequences of all the gene families")
     return parser

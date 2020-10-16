@@ -14,7 +14,7 @@ from multiprocessing import Pool
 from random import randint, shuffle
 
 #installed libraries
-from tqdm import tqdm, trange
+from tqdm import tqdm
 import networkx as nx
 from rpy2 import robjects
 from rpy2.robjects.packages import importr
@@ -116,14 +116,14 @@ def checkPangenomeFormerSpots(pangenome, force):
         ErasePangenome(pangenome, spots = True)
 
 
-def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = ""):
+def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = "", show_bar=True):
     
     #check that given parameters for hotspot computation make sense
     checkParameterLogic(overlapping_match, set_size, exact_match)
     #check for formerly computed stuff, and erase if allowed
     checkPangenomeFormerSpots(pangenome, force)
     #check statuses and load info
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True, needRGP=True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True, needRGP=True, show_bar=show_bar)
 
     #get multigenic gene families
     logging.getLogger().info("Detecting multigenic families...")
@@ -144,7 +144,7 @@ def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False,
     if draw_hotspot:
         drawn_spots = select_spots(pangenome, spots, elements)
         if len(drawn_spots)>0:
-            draw_spots(drawn_spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements)
+            draw_spots(drawn_spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, show_bar=show_bar)
 
     pangenome.addSpots(spots)
     pangenome.status["spots"] = "Computed"
@@ -152,23 +152,6 @@ def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False,
     pangenome.parameters["spots"]["set_size"] = set_size
     pangenome.parameters["spots"]["overlapping_match"] = overlapping_match
     pangenome.parameters["spots"]["exact_match"] = exact_match
-
-def write_RGP_content_graph(spots, output):
-    logging.getLogger().info("Writing spots as graphs of rgp linked by shared content..")
-    bar = tqdm(spots, unit="spot")
-    for spot in bar:
-        uniq_dic = spot.countUniqSynteny()
-        uniq_list = list(uniq_dic.keys())
-        if len(uniq_list) > 10:
-            s_g = nx.Graph()
-            for i, rgp in enumerate(uniq_list[:-1]):
-                s_g.add_node(rgp.name, occurrence = uniq_dic[rgp], genes = len(rgp.genes))
-                for rgp2 in uniq_list[i+1:]:
-                    interfams = set(rgp.families) & set(rgp2.families)
-                    s_g.add_edge(rgp.name, rgp2.name, weight=len(interfams)/ len(set(rgp.families) | set(rgp2.families)), fluidity = (((len(rgp.families) - len(interfams)) + (len(rgp2.families) - len(interfams))) / (len(rgp.families) + len(rgp2.families))) )
-            s_g.add_node(uniq_list[-1].name, occurrence = uniq_dic[uniq_list[-1]])
-
-            nx.write_gexf(s_g, output + f"/spot_{spot.ID}.gexf")
 
 def subgraph(spot, output, filename, with_border=True, set_size=3, multigenics = None):
         """ write a pangenome subgraph of the gene families of a spot in gexf format"""
@@ -417,9 +400,9 @@ def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename):
     plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, lwd = 4)
     grdevices.dev_off()#pylint: disable=no-member
 
-def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, verbose=False):
+def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, show_bar=False):
     logging.getLogger().info("Selecting and ordering genes among regions...")
-    bar = tqdm(range(len(spots)), unit = "spot", disable = not verbose)
+    bar = tqdm(range(len(spots)), unit = "spot", disable = not show_bar)
     spots_to_draw = []
     for spot in spots:
         uniqRGPS = frozenset(spot.getUniqOrderedSet())
@@ -455,7 +438,7 @@ def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, mul
         spots_to_draw.append(drawCurrSpot(GeneLists, ordered_counts, elements, famcol, fname))#make R dataframes, and plot them using genoPlotR.
         bar.update()
     logging.getLogger().info("Drawing spots...")
-    bar = tqdm(spots_to_draw, unit = "spot drawn")
+    bar = tqdm(spots_to_draw, unit = "spot drawn", disable=not show_bar)
     with Pool(cpu) as p:
         p.starmap(_spotDrawing, bar)
     bar.close()
@@ -465,8 +448,8 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     if args.spot_graph or args.draw_hotspots:
         mkOutdir(args.output, args.force)
-    predictHotspots(pangenome, args.output, force=args.force, cpu = args.cpu, spot_graph=args.spot_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest)
-    writePangenome(pangenome, pangenome.file, args.force)
+    predictHotspots(pangenome, args.output, force=args.force, cpu = args.cpu, spot_graph=args.spot_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest, show_bar=args.show_prog_bars)
+    writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
 
 
 def spotSubparser(subparser):

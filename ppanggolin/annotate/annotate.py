@@ -19,13 +19,15 @@ from ppanggolin.utils import read_compressed_or_not, mkFilename, get_num_lines
 from ppanggolin.formats import writePangenome
 
 def detect_filetype(filename):
-    """ detects whether the current file is gff3, gbk/gbff or unknown. If unknown, it will raise an error"""
+    """ detects whether the current file is gff3, gbk/gbff, fasta or unknown. If unknown, it will raise an error"""
     with read_compressed_or_not(filename) as f:
         firstLine = f.readline()
     if firstLine.startswith("LOCUS       "):#then this is probably a gbff/gbk file
         return "gbff"
     elif firstLine.startswith("##gff-version 3"):
         return 'gff'
+    elif firstLine.startswith(">"):
+        return 'fasta'
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
@@ -317,8 +319,10 @@ def readAnnoFile(organism_name, filename, circular_contigs, getSeq, pseudo):
         return read_org_gff(organism_name, filename, circular_contigs, getSeq, pseudo)
     elif filetype == "gbff":
         return read_org_gbff(organism_name, filename, circular_contigs, getSeq, pseudo)
+    else:
+        raise Exception("Wrong file type provided. This looks like a fasta file. You may be able to use --fasta instead.")
 
-def readAnnotations(pangenome, organisms_file, cpu, getSeq = True, pseudo = False):
+def readAnnotations(pangenome, organisms_file, cpu, getSeq = True, pseudo = False, show_bar= True):
     logging.getLogger().info("Reading "+organisms_file+" the list of organism files ...")
 
     pangenome.status["geneSequences"] = "Computed"#we assume there are gene sequences in the annotation files, unless a gff file without fasta is met (which is the only case where sequences can be asbent)
@@ -329,7 +333,7 @@ def readAnnotations(pangenome, organisms_file, cpu, getSeq = True, pseudo = Fals
             logging.getLogger().error(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
             exit(1)
         args.append((elements[0], elements[1], elements[2:], getSeq, pseudo))
-    bar = tqdm(range(len(args)), unit = "file")
+    bar = tqdm(range(len(args)), unit = "file", disable= not show_bar)
     with Pool(cpu) as p:
         for org, flag in p.imap_unordered(launchReadAnno, args):
             pangenome.addOrganism(org)
@@ -372,7 +376,7 @@ def getGeneSequencesFromFastas(pangenome, fasta_file):
 def launchAnnotateOrganism(pack):
     return annotate_organism(*pack)
 
-def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11", kingdom = "bacteria", norna=False,  overlap=True):
+def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11", kingdom = "bacteria", norna=False,  overlap=True, show_bar = True):
     logging.getLogger().info(f"Reading {fastaList} the list of organism files")
 
     arguments = []
@@ -386,7 +390,7 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
         raise Exception("There are no genomes in the provided file")
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
     with Pool(processes = cpu) as p:
-        bar = tqdm(range(len(arguments)), unit = "genome")
+        bar = tqdm(range(len(arguments)), unit = "genome", disable=not show_bar)
         for organism in p.imap_unordered(launchAnnotateOrganism, arguments):
             bar.update()
             pangenome.addOrganism(organism)
@@ -408,9 +412,9 @@ def launch(args):
     filename = mkFilename(args.basename, args.output, args.force)
     pangenome = Pangenome()
     if args.fasta is not None and args.anno is None:
-        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu,  args.translation_table, args.kingdom, args.norna, args.overlap)
+        annotatePangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, translation_table=args.translation_table,  kingdom=args.kingdom,  norna=args.norna, overlap=args.overlap, show_bar=args.show_prog_bars)
     elif args.anno is not None:
-        readAnnotations(pangenome, args.anno, cpu = args.cpu, pseudo = args.use_pseudo)
+        readAnnotations(pangenome, args.anno, cpu = args.cpu, pseudo = args.use_pseudo, show_bar=args.show_prog_bars)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 getGeneSequencesFromFastas(pangenome, args.fasta)
@@ -418,7 +422,7 @@ def launch(args):
                 logging.getLogger().warning("You provided gff files without sequences, and you did not provide fasta sequences. Thus it was not possible to get the gene sequences.")
                 logging.getLogger().warning("You will be able to proceed with your analysis ONLY if you provide the clustering results in the next step.")
 
-    writePangenome(pangenome, filename, args.force)
+    writePangenome(pangenome, filename, args.force, show_bar=args.show_prog_bars)
 
 def syntaSubparser(subparser):
     parser = subparser.add_parser("annotate", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
