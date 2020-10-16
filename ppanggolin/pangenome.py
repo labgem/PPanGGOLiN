@@ -278,18 +278,20 @@ class Pangenome:
         #case where there is an index but the bitarrays have not been computed???
         return self._orgIndex
 
-    def get_multigenics(self, dup_margin):
+    def get_multigenics(self, dup_margin, persistent = True):
         """
         Returns the multigenic persistent families of the pangenome graph. A family will be considered multigenic if it is duplicated in more than `dup_margin` of the genomes where it is present.
         
         :param dup_margin: the ratio of presence in multicopy above which a gene family is considered multigenic
         :type dup_margin: float
+        :param persistent: if we consider only the persistent genes
+        :type persistent: bool
         :return: a `set` of gene families considered multigenic
         :rtype: set[:class:`ppanggolin.geneFamily.GeneFamily`]
         """
         multigenics = set()
         for fam in self.geneFamilies:
-            if fam.namedPartition == "persistent":
+            if fam.namedPartition == "persistent" or not persistent:
                 dup=len([genes for org, genes in fam.getOrgDict().items() if len([ gene for gene in genes if not gene.is_fragment]) > 1])
                 if (dup / len(fam.organisms)) >= dup_margin:#tot / nborgs >= 1.05
                     multigenics.add(fam)

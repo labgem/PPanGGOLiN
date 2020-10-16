@@ -27,7 +27,7 @@ class Edge:
 
     def getOrgDict(self):
         """
-        
+
         :return: A dictionnary of the Organisms in which the edge is found, with organisms as key and an iterable of the pairs of genes as value
         :rtype: dict[:class:`ppanggolin.genome.Organism`, tuple[:class:`ppanggolin.genome.Gene`, :class:`ppanggolin.genome.Gene`]]
         """
