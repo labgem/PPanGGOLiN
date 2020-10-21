@@ -169,41 +169,25 @@ def compute_rgp_graph(organisms, t=1):
     :param t: the size of the transitive closure
     :type t: int
     """
-    # g = nx.Graph()
-    # for region in pangenome.regions:
-    #     start_gene = region.startGene
-        
-    #     g.add_node(start_gene.family)
-    #     # add_gene(g.nodes[start_gene.family], start_gene)
-    #     # add_rgp(g.nodes[start_gene.family], region)
-    #     for i, gene in enumerate(region.genes):
-    #         for j, a_gene in enumerate(region.genes[i+1:i+t+2], start=i+1):
-    #             g.add_edge(gene.family, a_gene.family)
-    #             edge = g[gene.family][a_gene.family]
-    #             #add_rgp(edge, region)#add rgp to the edge
-    #             add_gene(edge, gene)
-    #             add_gene(edge, a_gene)
-    #             #if j == i+t+1 or i == 0:#if it's the last gene of the serie, or the first serie
-    #                 #add_rgp(g.nodes[a_gene.family], region)#add rgp to the eventual new node
-    #                 #add_gene(g.nodes[a_gene.family], a_gene)
 
     g = nx.Graph()
     for org in tqdm(organisms, unit="genome", disable = True):
         for contig in org.contigs:
-            start_gene = contig.genes[0]
-            g.add_node(start_gene.family)
-            add_gene(g.nodes[start_gene.family], start_gene, fam_split=False)
-            # add_rgp(g.nodes[start_gene.family], region)
-            for i, gene in enumerate(contig.genes):
-                for j, a_gene in enumerate(contig.genes[i+1:i+t+2], start=i+1):
-                    g.add_edge(gene.family, a_gene.family)
-                    edge = g[gene.family][a_gene.family]
-                    #add_rgp(edge, region)#add rgp to the edge
-                    add_gene(edge, gene)
-                    add_gene(edge, a_gene)
-                    if j == i+t+1 or i == 0:#if it's the last gene of the serie, or the first serie
-                        #add_rgp(g.nodes[a_gene.family], region)#add rgp to the eventual new node
-                        add_gene(g.nodes[a_gene.family], a_gene, fam_split=False)
+            if len(contig.genes) > 0:
+                start_gene = contig.genes[0]
+                g.add_node(start_gene.family)
+                add_gene(g.nodes[start_gene.family], start_gene, fam_split=False)
+                # add_rgp(g.nodes[start_gene.family], region)
+                for i, gene in enumerate(contig.genes):
+                    for j, a_gene in enumerate(contig.genes[i+1:i+t+2], start=i+1):
+                        g.add_edge(gene.family, a_gene.family)
+                        edge = g[gene.family][a_gene.family]
+                        #add_rgp(edge, region)#add rgp to the edge
+                        add_gene(edge, gene)
+                        add_gene(edge, a_gene)
+                        if j == i+t+1 or i == 0:#if it's the last gene of the serie, or the first serie
+                            #add_rgp(g.nodes[a_gene.family], region)#add rgp to the eventual new node
+                            add_gene(g.nodes[a_gene.family], a_gene, fam_split=False)
 
     return g
 
