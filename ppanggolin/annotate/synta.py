@@ -133,20 +133,23 @@ def read_fasta(org, fnaFile):
     """
         Reads a fna file  (or stream, or string) and stores it in a dictionnary with contigs as key and sequence as value.
     """
-    contigs = {}
-    contig_seq = ""
-    contig = None
-    for line in fnaFile:
-        if line.startswith('>'):
-            if contig_seq != "":
-                contigs[contig.name] = contig_seq.upper()
-            contig_seq = ""
-            contig = org.getOrAddContig(line.split()[0][1:])
-        else:
-            contig_seq += line.strip()
-    # processing the last contig
-    if contig_seq != "":
-        contigs[contig.name] = contig_seq.upper()
+    try:
+        contigs = {}
+        contig_seq = ""
+        contig = None
+        for line in fnaFile:
+            if line.startswith('>'):
+                if contig_seq != "":
+                    contigs[contig.name] = contig_seq.upper()
+                contig_seq = ""
+                contig = org.getOrAddContig(line.split()[0][1:])
+            else:
+                contig_seq += line.strip()
+        # processing the last contig
+        if contig_seq != "":
+            contigs[contig.name] = contig_seq.upper()
+    except AttributeError as e:
+        raise AttributeError(f"{e}\nAn error was raised when reading file: '{fnaFile.name}'. One possibility for this error is that the file did not start with a '>' as it would be expected from a fna file.")
     return contigs
 
 def write_tmp_fasta(contigs, tmpdir ):
