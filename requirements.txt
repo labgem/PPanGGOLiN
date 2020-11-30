@@ -15,4 +15,5 @@ rpy2=2.*
 r-genoplotr=0.8.*
 mafft=7.*
 libiconv#because broken dependencies from rpy2
-mkl
+mkl#broken dependencies on macOS...
+libopenblas#broken dependencies on macOS 2...
