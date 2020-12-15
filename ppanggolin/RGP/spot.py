@@ -350,7 +350,10 @@ def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename):
             if 'RNA' in gene.type:
                 gene_names.append(' ' + gene.product)
             else:
-                gene_names.append(' ' + gene.name)
+                if gene.name != "":
+                    gene_names.append(' ' + gene.name)
+                else:
+                    gene_names.append(' ' + str(gene.ID))
             df['name'].append(gene.ID)
             if ordered:
                 if gene.strand == "+":

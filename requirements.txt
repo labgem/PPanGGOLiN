@@ -14,6 +14,3 @@ colorlover=0.3
 rpy2=2.*
 r-genoplotr=0.8.*
 mafft=7.*
-numpy=1.17.*
-libiconv#because broken dependencies from rpy2
-mkl#broken dependencies on macOS...
