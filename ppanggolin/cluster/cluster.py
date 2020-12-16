@@ -251,11 +251,11 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
                 geneObj = pangenome.getGene(gene_id)
             except KeyError:
                 geneObj = localDict.get(gene_id)
-                if geneObj is not None:
-                    nbGeneWtFam+=1
-                    fam = pangenome.addGeneFamily(fam_id)
-                    geneObj.is_fragment =  True if is_frag == "F" else False
-                    fam.addGene(geneObj)
+            if geneObj is not None:
+                nbGeneWtFam+=1
+                fam = pangenome.addGeneFamily(fam_id)
+                geneObj.is_fragment =  True if is_frag == "F" else False
+                fam.addGene(geneObj)
             if is_frag == "F":
                 frag=True
         except:

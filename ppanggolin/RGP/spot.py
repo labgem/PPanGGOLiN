@@ -134,18 +134,23 @@ def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False,
     #predict spots
     spots = makeSpotGraph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size, exact_match)
 
+    if len(spots) == 0:
+        logging.getLogger().warning("No spots were detected.")
+    else:
+        logging.getLogger().info(f"{len(spots)} spots were detected")
     #define elements of interest (e.g. gene name, product substring) to search in gene annotations
     if interest != "":
         elements = [ el.strip() for el in interest.split(',') ]
     else:
         elements = []
-
     #draw spots of interest
     if draw_hotspot:
         drawn_spots = select_spots(pangenome, spots, elements)
         if len(drawn_spots)>0:
+            logging.getLogger().info(f"Drawing {len(drawn_spots)} spots...")
             draw_spots(drawn_spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, show_bar=show_bar)
-
+        else:
+            logging.getLogger().warning("No spot has enough variability to be drawn in a meaningful figure")
     pangenome.addSpots(spots)
     pangenome.status["spots"] = "Computed"
     pangenome.parameters["spots"] = {}
@@ -222,7 +227,7 @@ def select_spots(pangenome, spots, elements, min_presence_ratio=0.05, min_org_ra
     to_draw= []
     for spot in spots:
         nb_uniq = len(spot.getUniqOrderedSet())
-        if nb_uniq> 2:
+        if nb_uniq > 2:
             to_draw.append(spot)
     return to_draw
 
@@ -345,7 +350,10 @@ def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename):
             if 'RNA' in gene.type:
                 gene_names.append(' ' + gene.product)
             else:
-                gene_names.append(' ' + gene.name)
+                if gene.name != "":
+                    gene_names.append(' ' + gene.name)
+                else:
+                    gene_names.append(' ' + str(gene.ID))
             df['name'].append(gene.ID)
             if ordered:
                 if gene.strand == "+":

@@ -32,11 +32,14 @@ def detect_filetype(filename):
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') nor gbff/gbk (file starts with 'LOCUS       '). Only those two file formats are supported (for now).")
 
 def create_gene(org, contig, geneCounter, rnaCounter, ID, dbxref, start, stop, strand, gene_type, position = None, gene_name = "", product = "", genetic_code = 11, protein_id = ""):
-    if any('MaGe' in dbref for dbref in dbxref):
+    if any('MaGe' or 'SEED' in dbref for dbref in dbxref):
         if gene_name == "":
             gene_name = ID
         for val in dbxref:
             if 'MaGe' in val:
+                ID = val.split(':')[1]
+                break
+            if 'SEED' in val:
                 ID = val.split(':')[1]
                 break
     if gene_type == "CDS":

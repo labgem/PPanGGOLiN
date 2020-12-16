@@ -1,5 +1,3 @@
-# This is a basic workflow to help you get started with Actions
-
 name: CI
 
 on:
@@ -24,7 +22,7 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
     # Setting up miniconda
-    - uses: goanpeca/setup-miniconda@v1
+    - uses: conda-incubator/setup-miniconda@v2
       with:
         condarc-file: .condarc.yml
         activate-environment: test
@@ -56,6 +54,7 @@ jobs:
         ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status
         cd -
     # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
+    #--draw_hotspots option is problematic on macOS.
     - name: Step by Step workflow with most options calls
       shell: bash -l {0}
       run: |
@@ -67,7 +66,7 @@ jobs:
         ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
         ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --cpu 1 --output stepbystep -f
         ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
-        ppanggolin spot -p stepbystep/pangenome.h5 --cpu 1 --spot_graph --draw_hotspots --overlapping_match 2 --set_size 3 --exact_match_size 1 --interest tRNA
+        ppanggolin spot -p stepbystep/pangenome.h5 --cpu 1 --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1 --interest tRNA
         ppanggolin write -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --csv --Rtab --projection --stats --partitions --compress --json --regions --spots --borders --families_tsv --cpu 1
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
         cd -
