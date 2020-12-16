@@ -10,7 +10,7 @@ import tempfile
 import subprocess
 from itertools import combinations
 from statistics import mean, median
-
+from collections import defaultdict
 #installed libraries
 from tqdm import tqdm
 import networkx as nx
@@ -47,24 +47,24 @@ class Module:
 
 
 def getFam2Mod(modules):
-    fam2mod = {}
+    fam2mod = defaultdict(set)
     for mod in modules:
         for fam in mod.families:
-            fam2mod[fam] = mod
+            fam2mod[fam].add(mod)
     return fam2mod
 
 
-def connected_components(g, removed, weight):
+def connected_components(g, removed, multi, weight):
     """
         Yields subgraphs of each connected component.
     """
     for v in g.nodes:
         if v not in removed:
-            c = set(_plain_bfs(g, v, removed, weight))
+            c = set(_plain_bfs(g, v, removed, multi, weight))
             yield c
             removed.update(c)
 
-def _plain_bfs(g, source, removed, weight):
+def _plain_bfs(g, source, removed, multi, weight):
     """A fast BFS node generator, copied from networkx"""
     nextlevel = {source}
     while nextlevel:
@@ -76,24 +76,23 @@ def _plain_bfs(g, source, removed, weight):
                 removed.add(v)
 
                 for n in g.neighbors(v):
-                    if n not in removed:
+                    if n not in removed or n in multi:
                         edge_genes_v = g[v][n]["genes"][v]
                         edge_genes_n = g[v][n]["genes"][n]
                         #if the edge is indeed existent for most genes of both families, we use it
                         if len(edge_genes_n) / len(g.nodes[n]["genes"]) >= weight and len(edge_genes_v) / len(g.nodes[v]["genes"]) >= weight:
                             nextlevel.add(n)
-                        # edge_rgps = set([rgp.organism for rgp in g[v][n]["rgp"]])
-                        # if len(edge_rgps) / popcount( v.bitarray | n.bitarray) >= weight:
-                        #     nextlevel.add(n)
+                        elif n in multi and len(edge_genes_v) / len(g.nodes[v]["genes"]) >= weight:#while the gene is not in the module, it may be a multigenic often associated to it, indicating how the module got here
+                            yield n#return n, but do not use it to extend the module.
 
 
 def set_mod_identifiers(fam2mod, modules):
-    fam2id = {}
+    fam2id = defaultdict(set)
     mod2id = {}
     for i, mod in enumerate(modules):
         mod2id[mod] = i
         for fam in mod.families:
-            fam2id[fam] = i
+            fam2id[fam].add(i)
     return fam2id, mod2id
 
 def predictModules(pangenome, output, cpu, tmpdir):
@@ -127,14 +126,18 @@ def write_cgview(genome, output, fam2id):
     fmods.write("name\ttype\tstart\tstop\tstrand\n")
     prev_size = 0
     for contig in genome.contigs:
+        max_curr_size = 0
         for gene in contig.genes + list(contig.RNAs):
+            if gene.stop > max_curr_size:#if someday the actual genome sequences are saved, it would be better...
+                max_curr_size = gene.stop
             fgenes.write(f"{gene.name}\t{gene.type}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
             if gene.type == "CDS":
                 fparts.write(f"{gene.family.name}\t{gene.family.namedPartition}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
                 mod = fam2id.get(gene.family)
                 if mod is not None:
                     #then the family has an assigned module
-                    fmods.write(f"{gene.family.name}\tmodule{mod}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
+                    fmods.write(f"{gene.family.name}\tmodule{','.join(map(str,mod))}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
+        prev_size = prev_size + max_curr_size
     fgenes.close()
     fparts.close()
     fmods.close()
@@ -191,7 +194,7 @@ def compute_rgp_graph(organisms, t=1):
 
     return g
 
-def compute_modules(g, weight, min_fam):
+def compute_modules(g, multi, weight, min_fam):
     """
 
     :param weight: the minimal weight under which edges are not considered
@@ -203,7 +206,7 @@ def compute_modules(g, weight, min_fam):
     removed = set([fam for fam in g.nodes if len(fam.organisms) < min_fam])
     max_size = 0
     modules = set()
-    for comp in connected_components(g, removed, weight):
+    for comp in connected_components(g, removed, multi, weight):
         if len(comp) >= 3:
             if len(comp) > max_size:
                 max_size = len(comp)
