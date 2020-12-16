@@ -96,7 +96,7 @@ class Region:
         border = [[], []]
         pos = self.startGene.position
         init = pos
-        while len(border[0]) < n and (pos != 0 and not self.contig.is_circular):
+        while len(border[0]) < n and (pos != 0 or self.contig.is_circular):
             curr_gene = None
             if pos == 0:
                 if self.contig.is_circular:
@@ -109,11 +109,10 @@ class Region:
             if pos == -1 and self.contig.is_circular:
                 pos = len(self.contig.genes)
             if pos == init:
-                logging.getLogger().warning("looped around the contig")
                 break#looped around the contig
         pos = self.stopGene.position
         init = pos
-        while len(border[1]) < n and (pos != len(self.contig.genes)-1 and not self.contig.is_circular):
+        while len(border[1]) < n and (pos != len(self.contig.genes)-1 or self.contig.is_circular):
             curr_gene = None
             if pos == len(self.contig.genes)-1:
                 if self.contig.is_circular:
@@ -126,7 +125,6 @@ class Region:
             if pos == len(self.contig.genes) and self.contig.is_circular:
                 pos = -1
             if pos == init:
-                logging.getLogger().warning("looped around the contig")
                 break#looped around the contig
         return border
 
