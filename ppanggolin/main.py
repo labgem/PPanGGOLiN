@@ -135,6 +135,7 @@ def cmdLine():
         common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(), help = "directory for storing temporary files")
         common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
         common.add_argument("--log", required=False, type=checkLog, default="stdout", help = "log output file")
+        common.add_argument("-d","--disable_prog_bar", required=False, action="store_true", help = "disables the progress bars")
         common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
         common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
         sub._action_groups.append(common)
@@ -170,7 +171,7 @@ def main():
         elif args.verbose == 0:
             level = logging.WARNING#only warnings and errors
 
-        if args.log == sys.stdout:#if output is not to stdout, we remove progress bars.
+        if args.log == sys.stdout and not args.disable_prog_bar:#if output is not to stdout we remove progress bars.
             args.show_prog_bars = True
         else:
             args.show_prog_bars = False
