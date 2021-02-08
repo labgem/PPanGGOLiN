@@ -123,31 +123,49 @@ def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, show_bar=True)
     phyloDict = {}
     for org in pangenome.organisms:
         phyloDict[org.name]=""
-
     for fam in families:
         missing_genomes = set(phyloDict.keys())
         fin = open(outname + "/"+fam.name + ".aln","r")
         genome_id = ""
         seq = ""
         curr_len = 0
+        dup_gene =0
+        curr_phyloDict = {}
+
         for line in fin:
             if line.startswith('>'):
+                if genome_id!="":
+                    if genome_id not in missing_genomes:
+                        dup_gene +=1
+                        #duplicated genes. Replacing them with gaps.
+                        curr_phyloDict[genome_id] = "-" * curr_len
+                    else:
+                        curr_phyloDict[genome_id] = seq
+                        missing_genomes -= set([genome_id])
+                        curr_len = len(seq)
                 genome_id = pangenome.getGene(line[1:].strip()).organism.name
-                missing_genomes -= set([genome_id])
+                seq = ""
             else:
-                seq = line.strip()
+                seq += line.strip()
+        if genome_id!="":
+            if genome_id not in missing_genomes:
+                #duplicated genes. Replacing them with gaps.
+                curr_phyloDict[genome_id] = "-" * curr_len
+            else:
+                curr_phyloDict[genome_id] = seq
                 curr_len = len(seq)
-                phyloDict[genome_id]+=seq
         fin.close()
         for genome in missing_genomes:
-            phyloDict[genome] += "-" * curr_len
+            curr_phyloDict[genome] = "-" * curr_len
+
+        for key, val in curr_phyloDict.items():
+            phyloDict[key]+=val
 
     fout = open(phylo_name,"w")
     for key, val in phyloDict.items():
         fout.write(">" + key + "\n")
         fout.write(val + "\n")
     fout.close()
-
 
 
 def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp", source="protein", soft_core=0.95, phylo=False, force=False, show_bar=True):
