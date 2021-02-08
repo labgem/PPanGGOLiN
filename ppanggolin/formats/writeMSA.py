@@ -119,7 +119,38 @@ def computeMSA(families, output, cpu, tmpdir, source, code, show_bar=True):
 
     msa_total = msa_total + (time.time() - start_msa)
 
-def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp", source="protein", soft_core=0.95, force=False, show_bar=True):
+def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, show_bar=True):
+    phyloDict = {}
+    for org in pangenome.organisms:
+        phyloDict[org.name]=""
+
+    for fam in families:
+        missing_genomes = set(phyloDict.keys())
+        fin = open(outname + "/"+fam.name + ".aln","r")
+        genome_id = ""
+        seq = ""
+        curr_len = 0
+        for line in fin:
+            if line.startswith('>'):
+                genome_id = pangenome.getGene(line[1:].strip()).organism.name
+                missing_genomes -= set([genome_id])
+            else:
+                seq = line.strip()
+                curr_len = len(seq)
+                phyloDict[genome_id]+=seq
+        fin.close()
+        for genome in missing_genomes:
+            phyloDict[genome] += "-" * curr_len
+
+    fout = open(phylo_name,"w")
+    for key, val in phyloDict.items():
+        fout.write(">" + key + "\n")
+        fout.write(val + "\n")
+    fout.close()
+
+
+
+def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp", source="protein", soft_core=0.95, phylo=False, force=False, show_bar=True):
     
     needPartitions = False
     if partition in ["persistent","shell","cloud"]:
@@ -138,14 +169,20 @@ def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp
     computeMSA(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, code = code, show_bar=show_bar)
     logging.getLogger().info(f"Done writing all {partition} MSA in: {outname}")
 
-
-
+    if phylo:
+        logging.getLogger().info("Writing the whole genome msa file")
+        if partition == "softcore":
+            phylo_name = output + f"/{partition}_{soft_core}_genome_alignment.aln"
+        else:
+            phylo_name = output + f"/{partition}_genome_alignment.aln"
+        writeWholeGenomeMSA(pangenome, families, phylo_name, outname, show_bar=show_bar)
+        logging.getLogger().info(f"Done writing the {partition} genome alignment in: '{phylo_name}'")
 
 def launchMSA(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition = args.partition, tmpdir=args.tmpdir, source=args.source, soft_core=args.soft_core, force=args.force, show_bar=args.show_prog_bars)
+    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition = args.partition, tmpdir=args.tmpdir, source=args.source, soft_core=args.soft_core, phylo=args.phylo, force=args.force, show_bar=args.show_prog_bars)
 
 def writeMSASubparser(subparser):
     parser = subparser.add_parser("msa", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -158,4 +195,5 @@ def writeMSASubparser(subparser):
     optional.add_argument("--soft_core",required=False, type=restricted_float, default = 0.95, help = "Soft core threshold to use if 'softcore' partition is chosen")
     optional.add_argument("--partition", required=False, default="core", choices=["all","persistent","shell","cloud","core","accessory", 'softcore'], help = "compute Multiple Sequence Alignement of the gene families in the given partition")
     optional.add_argument("--source",required=False, default = "protein", choices = ["dna","protein"], help = "indicates whether to use protein or dna sequences to compute the msa")
+    optional.add_argument("--phylo",required=False, action='store_true', help="Writes a whole genome msa file for additional phylogenetic analysis")
     return parser
