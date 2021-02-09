@@ -324,12 +324,12 @@ def readAnnoFile(organism_name, filename, circular_contigs, getSeq, pseudo):
         try:
             return read_org_gff(organism_name, filename, circular_contigs, getSeq, pseudo)
         except:
-            Exception(f"Reading the gff3 file '{filename}' raised an error.")
+            raise Exception(f"Reading the gff3 file '{filename}' raised an error.")
     elif filetype == "gbff":
         try:
             return read_org_gbff(organism_name, filename, circular_contigs, getSeq, pseudo)
         except:
-            Exception(f"Reading the gbff file '{filename}' raised an error.")
+            raise Exception(f"Reading the gbff file '{filename}' raised an error.")
     else:
         raise Exception("Wrong file type provided. This looks like a fasta file. You may be able to use --fasta instead.")
 
