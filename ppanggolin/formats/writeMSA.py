@@ -63,15 +63,23 @@ def translate(seq, code):
             "Given sequence length modulo 3 was different than 0, which is unexpected.")
     return protein
 
-def writeFastaFamilies(family, tmpdir, source, code_table):
+def writeFastaFamilies(family, tmpdir, source, use_gene_id, code_table):
 
     #have a directory for each gene family, to make deletion of tmp files simpler
     
     fname = tmpdir.name + "/" + family.name + ".fasta"
     fObj = open(fname,"w")
-    
-    for gene in family.genes:
-        fObj.write('>' + gene.ID + "\n")
+    #get genes that are present in only one copy for our family in each organism.
+    single_copy_genes = []
+    for _, genes in family.getOrgDict().items():
+        if len(genes) == 1:
+            single_copy_genes.extend(genes)
+
+    for gene in single_copy_genes:
+        if use_gene_id:
+            fObj.write('>' + gene.ID + "\n")
+        else:
+            fObj.write('>' + gene.organism.name + "\n")
         if source == "dna":
             fObj.write(gene.dna + '\n')
         elif source == "protein":
@@ -91,7 +99,7 @@ def launchMafft(fname, output, fam_name):
 def launchMultiMafft(args):
     launchMafft(*args)
 
-def computeMSA(families, output, cpu, tmpdir, source, code, show_bar=True):
+def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, show_bar=True):
 
     newtmpdir = tempfile.TemporaryDirectory(dir = tmpdir)
 
@@ -104,7 +112,7 @@ def computeMSA(families, output, cpu, tmpdir, source, code, show_bar=True):
 
     for family in bar:
         start_write = time.time()
-        fname = writeFastaFamilies(family, newtmpdir, source, code_table)
+        fname = writeFastaFamilies(family, newtmpdir, source, use_gene_id, code_table)
         write_total = write_total + (time.time() - start_write)
         args.append((fname, output, family.name))
     bar.close()
@@ -168,8 +176,8 @@ def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, show_bar=True)
     fout.close()
 
 
-def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp", source="protein", soft_core=0.95, phylo=False, force=False, show_bar=True):
-    
+def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp", source="protein", soft_core=0.95, phylo=False,use_gene_id=False, force=False, show_bar=True):
+
     needPartitions = False
     if partition in ["persistent","shell","cloud"]:
         needPartitions = True
@@ -184,7 +192,7 @@ def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp
     #this must exist since we loaded the pangenome and families are required
     code = pangenome.parameters["cluster"]["translation_table"]
 
-    computeMSA(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, code = code, show_bar=show_bar)
+    computeMSA(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, use_gene_id=use_gene_id, code = code, show_bar=show_bar)
     logging.getLogger().info(f"Done writing all {partition} MSA in: {outname}")
 
     if phylo:
@@ -200,7 +208,7 @@ def launchMSA(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition = args.partition, tmpdir=args.tmpdir, source=args.source, soft_core=args.soft_core, phylo=args.phylo, force=args.force, show_bar=args.show_prog_bars)
+    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition = args.partition, tmpdir=args.tmpdir, source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id, force=args.force, show_bar=args.show_prog_bars)
 
 def writeMSASubparser(subparser):
     parser = subparser.add_parser("msa", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -214,4 +222,5 @@ def writeMSASubparser(subparser):
     optional.add_argument("--partition", required=False, default="core", choices=["all","persistent","shell","cloud","core","accessory", 'softcore'], help = "compute Multiple Sequence Alignement of the gene families in the given partition")
     optional.add_argument("--source",required=False, default = "protein", choices = ["dna","protein"], help = "indicates whether to use protein or dna sequences to compute the msa")
     optional.add_argument("--phylo",required=False, action='store_true', help="Writes a whole genome msa file for additional phylogenetic analysis")
+    optional.add_argument("--use_gene_id", required=False, action='store_true', help="Use gene identifiers rather than organism names for sequences in the family MSA (organism names are used by default)")
     return parser
