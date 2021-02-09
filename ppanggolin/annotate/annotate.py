@@ -244,6 +244,8 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo = Fal
                 continue
             elif line.startswith('#!',0,2):## special refseq comment lines for versionning softs, assemblies and annotations.
                 continue
+            elif line == "":#empty lines are not expected, but they do not carry information so we'll ignore them
+                continue
             gff_fields = [el.strip() for el in line.split('\t')]
             attributes = getGffAttributes(gff_fields)
             pseudogene = False
