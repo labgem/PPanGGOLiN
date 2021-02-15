@@ -54,17 +54,17 @@ def getFam2Mod(modules):
     return fam2mod
 
 
-def connected_components(g, removed, multi, weight):
+def connected_components(g, removed, weight):
     """
         Yields subgraphs of each connected component.
     """
     for v in g.nodes:
         if v not in removed:
-            c = set(_plain_bfs(g, v, removed, multi, weight))
+            c = set(_plain_bfs(g, v, removed, weight))
             yield c
             removed.update(c)
 
-def _plain_bfs(g, source, removed, multi, weight):
+def _plain_bfs(g, source, removed, weight):
     """A fast BFS node generator, copied from networkx"""
     nextlevel = {source}
     while nextlevel:
@@ -76,14 +76,12 @@ def _plain_bfs(g, source, removed, multi, weight):
                 removed.add(v)
 
                 for n in g.neighbors(v):
-                    if n not in removed or n in multi:
+                    if n not in removed:
                         edge_genes_v = g[v][n]["genes"][v]
                         edge_genes_n = g[v][n]["genes"][n]
                         #if the edge is indeed existent for most genes of both families, we use it
                         if len(edge_genes_n) / len(g.nodes[n]["genes"]) >= weight and len(edge_genes_v) / len(g.nodes[v]["genes"]) >= weight:
                             nextlevel.add(n)
-                        elif n in multi and len(edge_genes_v) / len(g.nodes[v]["genes"]) >= weight:#while the gene is not in the module, it may be a multigenic often associated to it, indicating how the module got here
-                            yield n#return n, but do not use it to extend the module.
 
 
 def set_mod_identifiers(fam2mod, modules):
@@ -108,7 +106,9 @@ def predictModules(pangenome, output, cpu, tmpdir):
     logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     start_time = time.time()
-    modules = compute_modules(g, 0.9, 5)
+    #get all multigenic gene families
+    multi = pangenome.get_multigenics(0.05, persistent=False)
+    modules = compute_modules(g, multi, 0.9, 5)
     fam2mod = getFam2Mod(modules)
     logging.getLogger().info(f"There are {len(fam2mod)} families among {len(modules)} modules")
     logging.getLogger().info(f"Computing modules took {round(time.time() - start_time,2)} seconds")
@@ -137,7 +137,6 @@ def write_cgview(genome, output, fam2id):
                 if mod is not None:
                     #then the family has an assigned module
                     fmods.write(f"{gene.family.name}\tmodule{','.join(map(str,mod))}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
-        prev_size = prev_size + max_curr_size
     fgenes.close()
     fparts.close()
     fmods.close()
@@ -204,13 +203,14 @@ def compute_modules(g, multi, weight, min_fam):
     """
     #removing families with low presence
     removed = set([fam for fam in g.nodes if len(fam.organisms) < min_fam])
-    max_size = 0
+
     modules = set()
-    for comp in connected_components(g, removed, multi, weight):
-        if len(comp) >= 3:
-            if len(comp) > max_size:
-                max_size = len(comp)
+    for comp in connected_components(g, removed, weight):
+        if len(comp) >= 3:#keep only the modules with at least 3 non-multigenic genes.
             modules.add(Module(geneFamilies=comp))
+
+    ##parse the graph to get multigenics near modules that are not classified.
+    
 
     return modules
 
