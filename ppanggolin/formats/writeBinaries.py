@@ -433,8 +433,8 @@ def updateGeneFragments(pangenome, h5f, show_bar=True):
 
 def ErasePangenome(pangenome, graph=False, geneFamilies = False, partition = False, rgp = False, spots = False):
     """ erases tables from a pangenome .h5 file """
-    compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
-    h5f = tables.open_file(pangenome.file,"a", filters=compressionFilter)
+
+    h5f = tables.open_file(pangenome.file,"a")
     statusGroup = h5f.root.status
 
     if '/edges' in h5f and (graph or geneFamilies):
