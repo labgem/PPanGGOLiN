@@ -223,6 +223,7 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo = Fal
             exit(1)
         return ElementID
 
+    contig = None#initialize contig
     hasFasta = False
     fastaString = ""
     org = Organism(organism)
@@ -274,8 +275,8 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo = Fal
                     genetic_code = attributes.pop("TRANSL_TABLE")
                 except KeyError:
                     genetic_code = "11"
-                if contig.name != gff_fields[GFF_seqname]:
-                    contig = org.getOrAddContig(gff_fields[GFF_seqname])#get the current contig
+                if contig is None or contig.name != gff_fields[GFF_seqname]:
+                    contig = org.getOrAddContig(gff_fields[GFF_seqname], True if gff_fields[GFF_seqname] in circular_contigs else False)#get the current contig
                 if gff_fields[GFF_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(org.name + "_CDS_"+ str(geneCounter).zfill(4))
 
