@@ -365,7 +365,10 @@ def getGeneSequencesFromFastas(pangenome, fasta_file):
         if len(elements)<=1:
             logging.getLogger().error("No tabulation separator found in organisms file")
             exit(1)
-        org = pangenome.addOrganism(elements[0])
+        try:
+            org = pangenome.getOrganism(elements[0])
+        except KeyError:
+            raise KeyError(f"One of the genome in your '{fasta_file}' was not found in the pangenome. This might mean that the genome names between your annotation file and your fasta file are different.")
         with read_compressed_or_not(elements[1]) as currFastaFile:
             fastaDict[org] = read_fasta(org, currFastaFile)
     if not set(pangenome.organisms) <= set(fastaDict.keys()):
