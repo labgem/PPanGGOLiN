@@ -127,7 +127,7 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, show_ba
 
     msa_total = msa_total + (time.time() - start_msa)
 
-def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, show_bar=True):
+def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id = False, show_bar=True):
     phyloDict = {}
     for org in pangenome.organisms:
         phyloDict[org.name]=""
@@ -151,7 +151,10 @@ def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, show_bar=True)
                         curr_phyloDict[genome_id] = seq
                         missing_genomes -= set([genome_id])
                         curr_len = len(seq)
-                genome_id = pangenome.getGene(line[1:].strip()).organism.name
+                if use_gene_id:
+                    genome_id = pangenome.getGene(line[1:].strip()).organism.name
+                else:
+                    genome_id = line[1:].strip()
                 seq = ""
             else:
                 seq += line.strip()
@@ -201,7 +204,7 @@ def writeMSAFiles(pangenome, output, cpu = 1, partition = "core", tmpdir = "/tmp
             phylo_name = output + f"/{partition}_{soft_core}_genome_alignment.aln"
         else:
             phylo_name = output + f"/{partition}_genome_alignment.aln"
-        writeWholeGenomeMSA(pangenome, families, phylo_name, outname, show_bar=show_bar)
+        writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=use_gene_id, show_bar=show_bar)
         logging.getLogger().info(f"Done writing the {partition} genome alignment in: '{phylo_name}'")
 
 def launchMSA(args):
