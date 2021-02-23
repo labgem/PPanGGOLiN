@@ -76,6 +76,6 @@ jobs:
         cd testingDataset
         ppanggolin workflow --cpu 1 --anno organisms.gbff.list --output myannopang
         ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f
-        ppanggolin msa --pangenome myannopang/pangenome.h5 --source protein --partition persistent -o myannopang/ -f
+        ppanggolin msa --pangenome myannopang/pangenome.h5 --partition persistent -o myannopang/ -f --phylo
         cd -
     ## can test the remaining options in 'annotate', 'cluster' (when reading cluster files) and 'align'
