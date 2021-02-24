@@ -223,11 +223,13 @@ def writeBorders_spots(spots, pangenome, output):
         n_spot+=1
     fout.close()
 
-def select_spots(pangenome, spots, elements, min_presence_ratio=0.05, min_org_ratio=0.01):
+def select_spots(pangenome, spots, elements, min_uniq_orders = 2):
+    if min_uniq_orders <= 1:
+        raise Exception("Can't draw spots with only a single (or less) gene order")
     to_draw= []
     for spot in spots:
         nb_uniq = len(spot.getUniqOrderedSet())
-        if nb_uniq > 2:
+        if nb_uniq >= min_uniq_orders:
             to_draw.append(spot)
     return to_draw
 
