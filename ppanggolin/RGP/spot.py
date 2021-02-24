@@ -16,6 +16,8 @@ from random import randint, shuffle
 #installed libraries
 from tqdm import tqdm
 import networkx as nx
+
+import rpy2
 from rpy2 import robjects
 from rpy2.robjects.packages import importr
 
@@ -404,11 +406,14 @@ def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename):
     return Rdna_segs, Rannot, rdframes, longest_gene_list, filename
 
 def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename):
-    plot_gene_map = robjects.r["plot_gene_map"]
-    grdevices = importr('grDevices')
-    grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)#pylint: disable=no-member
-    plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, lwd = 4)
-    grdevices.dev_off()#pylint: disable=no-member
+    try:
+        plot_gene_map = robjects.r["plot_gene_map"]
+        grdevices = importr('grDevices')
+        grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)#pylint: disable=no-member
+        plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, lwd = 4)
+        grdevices.dev_off()#pylint: disable=no-member
+    except rpy2.rinterface_lib.embedded.RRuntimeError:
+        logging.getLogger().warning(f"{os.path.basename(filename)} cannot be drawn as the spot is probably too large to be rendered")
 
 def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, show_bar=False):
     logging.getLogger().info("Selecting and ordering genes among regions...")
