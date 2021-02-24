@@ -219,10 +219,9 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, soft_cor
 
     if any(x is not None for x in [regions, genes, gene_families, prot_families]):
         needAnnotations=True
+        needFamilies=True
     if regions is not None or any(x == "rgp" for x in (genes, gene_families, prot_families)):
         needRegions= True
-    if regions is not None or gene_families is not None or prot_families is not None or genes in ["persistent","shell","cloud"]:
-        needFamilies=True
     if any(x in ["persistent","shell","cloud"] for x in (genes, gene_families, prot_families)):
         needPartitions=True
 
