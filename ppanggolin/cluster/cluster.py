@@ -219,6 +219,8 @@ def mkLocal2Gene(pangenome):
         oldLen = len(localDict)
         localDict[gene.local_identifier] = gene
         if len(localDict) == oldLen:
+            if pangenome.parameters["annotation"]["read_annotations_from_file"]:
+                raise Exception(f"'{gene.local_identifier}' was found multiple times used as an identifier. The identifier of the genes (locus_tag, protein_id in gbff, ID in gff) were not unique throughout all of the files. It is thus impossible to differentiate the genes. To use this function while importing annotation, all identifiers MUST be unique throughout all of your genomes")
             return {}#local identifiers are not unique.
     return localDict
 
@@ -252,7 +254,7 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
             except KeyError:
                 geneObj = localDict.get(gene_id)
             if geneObj is not None:
-                nbGeneWtFam+=1
+                nbGeneWithFam+=1
                 fam = pangenome.addGeneFamily(fam_id)
                 geneObj.is_fragment =  True if is_frag == "F" else False
                 fam.addGene(geneObj)
@@ -262,14 +264,14 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
             raise Exception(f"line {lineCounter} of the file '{families_tsv_file.name}' raised an error.")
     bar.close()
     families_tsv_file.close()
-    if nbGeneWtFam < len(pangenome.genes):#not all genes have an associated cluster
-        if nbGeneWtFam == 0:
+    if nbGeneWithFam < len(pangenome.genes):#not all genes have an associated cluster
+        if nbGeneWithFam == 0:
             raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step. Please ensure that the annotations that you loaded previously and the clustering results that you have used the same gene IDs. If you use .gff files it is the identifier stored in the field 'ID'. If you use .gbff files it is the identifier stored in 'locus_tag'.")
         else:
             if infer_singletons:
                 inferSingletons(pangenome)
             else:
-                raise Exception(f"Some genes ({nbGeneWtFam}) did not have an associated cluster. Either change your cluster file so that each gene has a cluster, or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
+                raise Exception(f"Some genes ({len(pangenome.genes) - nbGeneWithFam}) did not have an associated cluster. Either change your cluster file so that each gene has a cluster, or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
     pangenome.status["genesClustered"] = "Computed"
     if frag:#if there was fragment informations in the file.
         pangenome.status["defragmented"] = "Computed"
