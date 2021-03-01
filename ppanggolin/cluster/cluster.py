@@ -237,7 +237,7 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
     families_tsv_file = read_compressed_or_not(families_tsv_file)
     frag = False
     #the genome annotations are necessarily loaded.
-    nbGeneWtFam = 0
+    nbGeneWithFam = 0
     localDict = mkLocal2Gene(pangenome)
     bar = tqdm(total = filesize, unit = "bytes", disable=not show_bar)
     lineCounter = 0
