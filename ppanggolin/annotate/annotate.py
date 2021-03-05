@@ -68,7 +68,7 @@ def create_gene(org, contig, geneCounter, rnaCounter, ID, dbxref, start, stop, s
         contig.addRNA(newGene)
     newGene.fill_parents(org, contig)
 
-def read_org_gbff(organism, gbff_file_path, circular_contigs, getSeq, pseudo = False):
+def read_org_gbff(organism, gbff_file_path, circular_contigs, pseudo = False):
     """ reads a gbff file and fills Organism, Contig and Genes objects based on information contained in this file """
     org = Organism(organism)
 
@@ -175,18 +175,20 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, getSeq, pseudo = F
                 geneCounter+=1
             else:
                 rnaCounter+=1
-        if getSeq:
-            line = lines.pop()#first sequence line.
-            #if the seq was to be gotten, it would be here.
-            sequence = ""
-            while not line.startswith('//'):
-                sequence += line[10:].replace(" ", "").strip().upper()
-                line = lines.pop()
-            #get each gene's sequence.
-            for gene in contig.genes:
-                gene.add_dna(get_dna_sequence(sequence, gene))
 
-    return org, True#There are always fasta sequences in a gbff
+        #now extract the gene sequences
+        line = lines.pop()#first sequence line.
+        #if the seq was to be gotten, it would be here.
+        sequence = ""
+        while not line.startswith('//'):
+            sequence += line[10:].replace(" ", "").strip().upper()
+            line = lines.pop()
+        #get each gene's sequence.
+        for gene in contig.genes:
+            gene.add_dna(get_dna_sequence(sequence, gene))
+
+
+    return org, True
 
 def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo = False):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0,9)#missing values : source, score, frame. They are unused.
@@ -328,7 +330,7 @@ def readAnnoFile(organism_name, filename, circular_contigs, getSeq, pseudo):
             raise Exception(f"Reading the gff3 file '{filename}' raised an error.")
     elif filetype == "gbff":
         try:
-            return read_org_gbff(organism_name, filename, circular_contigs, getSeq, pseudo)
+            return read_org_gbff(organism_name, filename, circular_contigs, pseudo)
         except:
             raise Exception(f"Reading the gbff file '{filename}' raised an error.")
     else:
@@ -342,8 +344,7 @@ def readAnnotations(pangenome, organisms_file, cpu, getSeq = True, pseudo = Fals
     for line in read_compressed_or_not(organisms_file):
         elements = [el.strip() for el in line.split("\t")]
         if len(elements)<=1:
-            logging.getLogger().error(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
-            exit(1)
+            raise Exception(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
         args.append((elements[0], elements[1], elements[2:], getSeq, pseudo))
     bar = tqdm(range(len(args)), unit = "file", disable= not show_bar)
     with Pool(cpu) as p:
