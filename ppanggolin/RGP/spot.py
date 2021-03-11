@@ -16,6 +16,8 @@ from random import randint, shuffle
 #installed libraries
 from tqdm import tqdm
 import networkx as nx
+
+import rpy2
 from rpy2 import robjects
 from rpy2.robjects.packages import importr
 
@@ -223,11 +225,13 @@ def writeBorders_spots(spots, pangenome, output):
         n_spot+=1
     fout.close()
 
-def select_spots(pangenome, spots, elements, min_presence_ratio=0.05, min_org_ratio=0.01):
+def select_spots(pangenome, spots, elements, min_uniq_orders = 2):
+    if min_uniq_orders <= 1:
+        raise Exception("Can't draw spots with only a single (or less) gene order")
     to_draw= []
     for spot in spots:
         nb_uniq = len(spot.getUniqOrderedSet())
-        if nb_uniq > 2:
+        if nb_uniq >= min_uniq_orders:
             to_draw.append(spot)
     return to_draw
 
@@ -402,11 +406,14 @@ def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename):
     return Rdna_segs, Rannot, rdframes, longest_gene_list, filename
 
 def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename):
-    plot_gene_map = robjects.r["plot_gene_map"]
-    grdevices = importr('grDevices')
-    grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)#pylint: disable=no-member
-    plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, lwd = 4)
-    grdevices.dev_off()#pylint: disable=no-member
+    try:
+        plot_gene_map = robjects.r["plot_gene_map"]
+        grdevices = importr('grDevices')
+        grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)#pylint: disable=no-member
+        plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, lwd = 4)
+        grdevices.dev_off()#pylint: disable=no-member
+    except rpy2.rinterface_lib.embedded.RRuntimeError:
+        logging.getLogger().warning(f"{os.path.basename(filename)} cannot be drawn as the spot is probably too large to be rendered")
 
 def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, show_bar=False):
     logging.getLogger().info("Selecting and ordering genes among regions...")

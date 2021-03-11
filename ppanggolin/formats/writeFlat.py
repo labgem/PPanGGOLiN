@@ -170,7 +170,7 @@ def writeGEXFnodes(gexf, light, soft_core = 0.95):
         gexf.write(f'          <attvalue for="4" value="{fam.namedPartition}" />\n')
         gexf.write(f'          <attvalue for="5" value="{fam.partition}" />\n')
         gexf.write(f'          <attvalue for="6" value="{"exact_accessory" if len(fam.organisms) != len(pan.organisms) else "exact_core"}" />\n')
-        gexf.write(f'          <attvalue for="7" value="{"soft_core" if len(fam.organisms) > (len(pan.organisms)*soft_core) else "soft_accessory"}" />\n')
+        gexf.write(f'          <attvalue for="7" value="{"soft_core" if len(fam.organisms) >= (len(pan.organisms)*soft_core) else "soft_accessory"}" />\n')
         gexf.write(f'          <attvalue for="8" value="{round(sum(l) / len(l),2)}" />\n')
         gexf.write(f'          <attvalue for="9" value="{ int(median(l))}" />\n')
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')

@@ -171,6 +171,21 @@ class Pangenome:
         """
         self.spots |= set(spots)
 
+    def getOrganism(self, orgName):
+        """
+        Get an organism that is expected to be in the pangenome using its name, which is supposedly unique. Raises an error if the organism does not exist.
+
+        :param orgName: Name of the :class:`ppanggolin.genome.Organism` to get
+        :type orgName: str
+        :return: The related Organism object
+        :rtype: :class:`ppanggolin.genome.Organism`
+        :raises KeyError: If the provided name is not in the pangenome
+        """
+        try:
+            return self._orgGetter[orgName]
+        except KeyError:
+            raise KeyError(f"{orgName} does not seem to be in your pangenome")
+
     def addOrganism(self, newOrg):
         """
             adds an organism that did not exist previously in the pangenome if an :class:`ppanggolin.genome.Organism` object is provided. If an organism with the same name exists it will raise an error.

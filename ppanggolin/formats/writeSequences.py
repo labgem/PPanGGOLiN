@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 #local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mkOutdir, read_compressed_or_not
+from ppanggolin.utils import write_compressed_or_not, mkOutdir, read_compressed_or_not, restricted_float
 from ppanggolin.formats import checkPangenomeInfo, getGeneSequencesFromFile
 from ppanggolin.annotate import detect_filetype
 
@@ -30,23 +30,16 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, show_ba
     fileObj.flush()
     bar.close()
 
-def writeGeneSequences(pangenome, output, compress, genes, show_bar=True):
-    logging.getLogger().info("Writing all the gene nucleic sequences...")
+def writeGeneSequences(pangenome, output, compress, genes, soft_core=0.95, show_bar=True):
+    logging.getLogger().info("Writing all the gene nucleotide sequences...")
     outname = output + f"/{genes}_genes.fna"
 
+    genefams = selectFamilies(pangenome, genes, "gene nucleotide sequences", soft_core)
     genes_to_write = []
-    if genes == 'all':
-        logging.getLogger().info("Writing all of the gene sequences...")
-        genes_to_write = pangenome.genes
-    if genes in ['persistent','shell','cloud']:
-        logging.getLogger().info(f"Writing all of the {genes} gene sequences...")
-        for gene in pangenome.genes:
-            if gene.family.namedPartition == genes:
-                genes_to_write.append(gene)
-    if genes == "rgp":
-        logging.getLogger().info(f"Writing all of the gene sequences in RGP...")
-        for region in pangenome.regions:
-            genes_to_write.extend(region.genes)
+
+    for fam in genefams:
+        genes_to_write.extend(fam.genes)
+
     logging.getLogger().info(f"There are {len(genes_to_write)} genes to write")
     with write_compressed_or_not(outname,compress) as fasta:
         if pangenome.status["geneSequences"] in ["inFile"]:
@@ -58,44 +51,52 @@ def writeGeneSequences(pangenome, output, compress, genes, show_bar=True):
             raise Exception("The pangenome does not include gene sequences")
     logging.getLogger().info(f"Done writing the gene sequences : '{outname}'")
 
-def writeFastaGeneFam(pangenome, output, compress, gene_families, show_bar=True):
-    outname = output + f"/{gene_families}_nucleotide_families.fasta"
+def selectFamilies(pangenome, partition, type_name, soft_core):
+    """ function used to filter down families to the given partition
 
+    """
     genefams = set()
-    if gene_families == 'all':
-        logging.getLogger().info("Writing all of the representative nucleotide sequences of the gene families...")
+    if partition == 'all':
+        logging.getLogger().info(f"Writing all of the {type_name}...")
         genefams = pangenome.geneFamilies
-    if gene_families in ['persistent','shell','cloud']:
-        logging.getLogger().info(f"Writing the representative nucleotide sequences of the {gene_families} gene families...")
+    elif partition in ['persistent','shell','cloud']:
+        logging.getLogger().info(f"Writing the {type_name} of the {partition}...")
         for fam in pangenome.geneFamilies:
-            if fam.namedPartition == gene_families:
+            if fam.namedPartition == partition:
                 genefams.add(fam)
-    if gene_families == "rgp":
-        logging.getLogger().info(f"Writing the representative nucleotide sequences of the gene families in RGPs...")
+    elif partition == "rgp":
+        logging.getLogger().info(f"Writing the {type_name} in RGPs...")
         for region in pangenome.regions:
             genefams |= region.families
+    elif partition == "softcore":
+        logging.getLogger().info(f"Writing the {type_name} in {partition} genome, that are present in more than {soft_core} of genomes")
+        threshold = pangenome.number_of_organisms() * soft_core
+        for fam in pangenome.geneFamilies:
+            if len(fam.organisms) >= threshold:
+                genefams.add(fam)
+    elif partition == "core":
+        logging.getLogger().info(f"Writing the representative {type_name} of the {partition} gene families...")
+        for fam in pangenome.geneFamilies:
+            if len(fam.organisms) == pangenome.number_of_organisms():
+                genefams.add(fam)
+
+    return genefams
+
+
+def writeFastaGeneFam(pangenome, output, compress, gene_families, soft_core=0.95, show_bar=True):
+    outname = output + f"/{gene_families}_nucleotide_families.fasta"
+
+    genefams = selectFamilies(pangenome, gene_families, "representative nucleotide sequences of the gene families", soft_core)
 
     with write_compressed_or_not(outname,compress) as fasta:
         getGeneSequencesFromFile(pangenome.file ,fasta,[fam.name for fam in genefams], show_bar=show_bar)
 
     logging.getLogger().info(f"Done writing the representative nucleotide sequences of the gene families : '{outname}'")
 
-def writeFastaProtFam(pangenome, output, compress, prot_families, show_bar = False):
+def writeFastaProtFam(pangenome, output, compress, prot_families, soft_core=0.95, show_bar = False):
     outname = output + f"/{prot_families}_protein_families.faa"
 
-    genefams = set()
-    if prot_families == 'all':
-        logging.getLogger().info("Writing all of the representative amino acid sequences of the gene families...")
-        genefams = pangenome.geneFamilies
-    if prot_families in ['persistent','shell','cloud']:
-        logging.getLogger().info(f"Writing the representative amino acid sequences of the {prot_families} gene families...")
-        for fam in pangenome.geneFamilies:
-            if fam.namedPartition == prot_families:
-                genefams.add(fam)
-    if prot_families == "rgp":
-        logging.getLogger().info(f"Writing the representative amino acid sequences of the gene families in RGPs...")
-        for region in pangenome.regions:
-            genefams |= region.families
+    genefams = selectFamilies(pangenome, prot_families, "representative amino acid sequences of the gene families", soft_core)
 
     with write_compressed_or_not(outname,compress) as fasta:
         bar = tqdm(genefams,unit="prot families", disable=not show_bar)
@@ -205,7 +206,7 @@ def writeRegionsSequences(pangenome, output, compress, regions, fasta, anno, sho
         bar.close()
     logging.getLogger().info(f"Done writing the regions nucleotide sequences: '{outname}'")
 
-def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, regions=None, genes=None, gene_families=None, prot_families=None, compress=False, show_bar=True):
+def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, soft_core=0.95,regions=None, genes=None, gene_families=None, prot_families=None, compress=False, show_bar=True):
     if not any(x for x in [ regions, genes, prot_families, gene_families]):
         raise Exception("You did not indicate what file you wanted to write.")
 
@@ -218,10 +219,9 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, regions=
 
     if any(x is not None for x in [regions, genes, gene_families, prot_families]):
         needAnnotations=True
+        needFamilies=True
     if regions is not None or any(x == "rgp" for x in (genes, gene_families, prot_families)):
         needRegions= True
-    if regions is not None or gene_families is not None or prot_families is not None or genes in ["persistent","shell","cloud"]:
-        needFamilies=True
     if any(x in ["persistent","shell","cloud"] for x in (genes, gene_families, prot_families)):
         needPartitions=True
 
@@ -236,11 +236,11 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, regions=
     checkPangenomeInfo(pangenome, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
 
     if prot_families is not None:
-        writeFastaProtFam(pangenome, output, compress, prot_families, show_bar=show_bar)
+        writeFastaProtFam(pangenome, output, compress, prot_families, soft_core=soft_core, show_bar=show_bar)
     if gene_families is not None:
-        writeFastaGeneFam(pangenome, output, compress, gene_families, show_bar=show_bar)
+        writeFastaGeneFam(pangenome, output, compress, gene_families, soft_core=soft_core, show_bar=show_bar)
     if genes is not None:
-        writeGeneSequences(pangenome, output, compress, genes, show_bar=show_bar)
+        writeGeneSequences(pangenome, output, compress, genes, soft_core=soft_core,show_bar=show_bar)
     if regions is not None:
         writeRegionsSequences(pangenome, output, compress, regions, fasta, anno, show_bar=show_bar)
 
@@ -255,7 +255,7 @@ def launchSequences(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     checkOptions(args)
-    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, cpu=args.cpu, regions=args.regions, genes=args.genes, prot_families=args.prot_families, gene_families= args.gene_families, compress=args.compress, show_bar=args.show_prog_bars)
+    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, cpu=args.cpu, soft_core=args.soft_core, regions=args.regions, genes=args.genes, prot_families=args.prot_families, gene_families= args.gene_families, compress=args.compress, show_bar=args.show_prog_bars)
 
 def writeSequenceSubparser(subparser):
     parser = subparser.add_parser("fasta", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -270,8 +270,9 @@ def writeSequenceSubparser(subparser):
     optional = parser.add_argument_group(title = "Optional arguments. Indicating 'all' writes all elements. Writing a partition ('persistent', 'shell' or 'cloud') write the elements associated to said partition. Writing 'rgp' writes elements associated to RGPs.")
     ##could make choice to allow customization
     optional.add_argument("--regions", required=False, choices=["all","complete"], help = "Write the RGP nucleotide sequences (requires --anno or --fasta used to compute the pangenome to be given)")
-    optional.add_argument("--genes", required=False,choices=["all","persistent","shell","cloud","rgp"], help = "Write all nucleotide CDS sequences")
-    optional.add_argument("--prot_families", required=False, choices=["all","persistent","shell","cloud","rgp"], help = "Write representative amino acid sequences of gene families")
-    optional.add_argument("--gene_families", required=False, choices=["all","persistent","shell","cloud","rgp"], help = "Write representative nucleotide sequences of gene families")
+    optional.add_argument("--genes", required=False,choices=["all","persistent","shell","cloud","rgp","softcore","core"], help = "Write all nucleotide CDS sequences")
+    optional.add_argument("--prot_families", required=False, choices=["all","persistent","shell","cloud","rgp","softcore","core"], help = "Write representative amino acid sequences of gene families")
+    optional.add_argument("--gene_families", required=False, choices=["all","persistent","shell","cloud","rgp","softcore","core"], help = "Write representative nucleotide sequences of gene families")
+    optional.add_argument("--soft_core",required=False, type=restricted_float, default = 0.95, help = "Soft core threshold to use if 'softcore' partition is chosen")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     return parser

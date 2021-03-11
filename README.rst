@@ -108,4 +108,4 @@ Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partiti
 
 If you use this tool to study genomic islands, please cite:
 
-Bazin A. et al. (2020) panRGP: a pangenome-based method to predict genomic islands and explore their diversity. bioRxiv preprint. https://doi.org/10.1101/2020.03.26.007484
+Bazin et al., panRGP: a pangenome-based method to predict genomic islands and explore their diversity, Bioinformatics, Volume 36, Issue Supplement_2, December 2020, Pages i651–i658, https://doi.org/10.1093/bioinformatics/btaa792
