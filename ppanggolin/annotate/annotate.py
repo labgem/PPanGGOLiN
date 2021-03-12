@@ -136,7 +136,8 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, pseudo = False):
                             else:
                                 strand = "+"
                                 start, end = line[21:].strip().split('..')
-                            if '>' in start or '<' in start or '>' in end or '<' in end:
+                            if '>' in start or '<' in start or '>' in end or '<' in end or pseudo:
+                                #pseudogene likely
                                 usefulInfo = False
                     except ValueError:
                         pass
