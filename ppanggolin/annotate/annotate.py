@@ -136,9 +136,13 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, pseudo = False):
                             else:
                                 strand = "+"
                                 start, end = line[21:].strip().split('..')
-                            if ('>' in start or '<' in start or '>' in end or '<' in end) and not pseudo:
-                                #pseudogene likely
-                                usefulInfo = False
+                            if ('>' in start or '<' in start or '>' in end or '<' in end):
+                                if not pseudo:
+                                    #pseudogene likely
+                                    usefulInfo = False
+                                else:
+                                    start = start.replace('>','').replace('<','')
+                                    end = end.replace('>','').replace('<','')
                     except ValueError:
                         pass
                         #don't know what to do with that, ignoring for now.
