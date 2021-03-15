@@ -21,6 +21,14 @@ def printInfo(pangenome, status = False, content = False, parameters = False):
             print(f"gene families have their sequences : {'true' if statusGroup._v_attrs.geneFamilySequences else 'false' }")
             print(f"neighbors graph : {'true' if statusGroup._v_attrs.NeighborsGraph else 'false' }")
             print(f"pangenome partitioned : {'true' if statusGroup._v_attrs.Partitionned else 'false' }")
+            if hasattr(statusGroup._v_attrs, "predictedRGP"):
+                print(f"RGP predicted : {'true' if statusGroup._v_attrs.predictedRGP else 'false' }")
+
+            if hasattr(statusGroup._v_attrs, "spots"):
+                print(f"Spots predicted : {'true' if statusGroup._v_attrs.spots else 'false' }")
+
+            if hasattr(statusGroup._v_attrs, "version"):
+                print(f"PPanGGOLiN version : {statusGroup._v_attrs.version}")
 
         if content:
             readInfo(h5f)
