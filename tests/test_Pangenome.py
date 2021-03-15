@@ -25,7 +25,8 @@ def test_cstr():
                                 'neighborsGraph':  "No",
                                 'partitionned':  "No",
                                 'predictedRGP' : "No",
-                                'spots' : "No"
+                                'spots' : "No",
+                                'modules': "No"
                             }
 
 
