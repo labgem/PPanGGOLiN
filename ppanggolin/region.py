@@ -7,6 +7,7 @@ from collections.abc import Iterable
 
 #local libraries
 from ppanggolin.genome import Organism, Gene
+from ppanggolin.geneFamily import GeneFamily
 
 class Region:
     def __init__(self, ID):
@@ -128,7 +129,6 @@ class Region:
                 break#looped around the contig
         return border
 
-
 class Spot:
     def __init__(self, ID):
         self.ID = ID
@@ -223,3 +223,32 @@ class Spot:
     def countUniqOrderedSet(self):
         """ Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value"""
         return dict([ (key, len(val)) for key, val in self._getOrderedSet().items()])
+
+class Module:
+    def __init__(self, ID, core=None, associated_families=None):
+        ""
+        self.ID = ID
+        self.core = set()
+        if core is not None:
+            if not all(isinstance(fam, GeneFamily) for fam in core):
+                raise Exception(f"You provided elements that were not GeneFamily object. Modules are only made of GeneFamily")
+            self.core |= set(core)
+        self.associated_families = set()
+        if associated_families is not None:
+            if not all(isinstance(fam, GeneFamily) for fam in associated_families):
+                raise Exception(f"You provided elements that were not GeneFamily object. Modules are only made of GeneFamily")
+            self.associated_families |= set(associated_families)
+
+    def associate_families(self, associated_families):
+        if not all(isinstance(fam, GeneFamily) for fam in associated_families):
+            raise Exception(f"You provided elements that were not GeneFamily object. Modules are only made of GeneFamily")
+        self.associated_families |= set(associated_families)
+
+    def addCore(self, family):
+        if not isinstance(family, GeneFamily):
+            raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
+        self.core.add(family)
+
+    @property
+    def families(self):
+        return self.core | self.associated_families

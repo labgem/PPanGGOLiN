@@ -28,6 +28,7 @@ class Pangenome:
         self._edgeGetter = {}
         self._regionGetter = {}
         self.spots = set()
+        self.modules = set()
 
         self.status = {
                     'genomesAnnotated': "No",
@@ -38,7 +39,8 @@ class Pangenome:
                     'neighborsGraph':  "No",
                     'partitionned':  "No",
                     'predictedRGP' : "No",
-                    'spots' : "No"
+                    'spots' : "No",
+                    'modules' : 'No'
                 }
         self.parameters = {}
 
@@ -163,10 +165,18 @@ class Pangenome:
         except KeyError:
             raise KeyError(f"{geneID} does not exist in the pangenome.")
 
+    def addModules(self, modules):
+        """Adds the given iterable of modules to the pangenome
+
+        :param modules: an iterable of :class:`ppanggolin.module.Module`
+        :type modules: Iterable[:class:`ppanggolin.module.Module`]
+        """
+        self.modules |= set(modules)
+
     def addSpots(self, spots):
         """Adds the given iterable of spots to the pangenome.
         
-        :param spots: An iterable of spots.
+        :param spots: An iterable of :class:`ppanggolin.region.Spot`.
         :type spots: Iterable[:class:`ppanggolin.region.Spot`]
         """
         self.spots |= set(spots)

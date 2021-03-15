@@ -11,7 +11,7 @@ import tables
 
 #local libraries
 from ppanggolin.genome import Organism, Gene, RNA
-from ppanggolin.region import Spot
+from ppanggolin.region import Spot, Module
 
 def getNumberOfOrganisms(pangenome):
     """ standalone function to get the number of organisms in a pangenome"""
@@ -56,6 +56,10 @@ def getStatus(pangenome, pangenomeFile):
     if hasattr(statusGroup._v_attrs, "spots"):
         if statusGroup._v_attrs.spots:
             pangenome.status["spots"] = "inFile"
+    
+    if hasattr(statusGroup._v_attrs, "modules"):
+        if statusGroup._v_attrs.modules:
+            pangenome.status["modules"] = "inFile"
 
     if "/info" in h5f:
         infoGroup = h5f.root.info
@@ -217,6 +221,25 @@ def readSpots(pangenome, h5f, show_bar = True):
     pangenome.addSpots(spots.values())
     pangenome.status["spots"] = "Loaded"
 
+def readModules(pangenome, h5f, show_bar = True):
+    table = h5f.root.modules
+    bar = tqdm(range(table.nrows), unit="module", disable = not show_bar)
+    modules = {}#id2mod
+    for row in read_chunks(table):
+        curr_module = modules.get(row['ID'])
+        if curr_module is None:
+            curr_module = Module(row['ID'])
+            modules[row["ID"]] = curr_module
+        if row['is_core']:
+            curr_module.addCore(pangenome.getGeneFamily(row['geneFam']))
+        else:
+            curr_module.associate_families([pangenome.getGeneFamily(row['geneFam'])])
+        bar.update()
+    bar.close()
+    pangenome.addModules(modules.values())
+    pangenome.status["modules"] = "Loaded"
+
+
 def readAnnotation(pangenome, h5f, show_bar = True):
     annotations = h5f.root.annotations
 
@@ -269,6 +292,9 @@ def readInfo(h5f):
             print(f"RGPs : {infoGroup._v_attrs['numberOfRGP']}")
         if 'numberOfSpots' in infoGroup._v_attrs._f_list():
             print(f"Spots : {infoGroup._v_attrs['numberOfSpots']}")
+        if 'numberOfModules' in infoGroup._v_attrs._f_list():
+            print(f"Modules : {infoGroup._v_attrs['numberOfModules']}")
+            print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}")
 
 def readParameters(h5f):
     if "/info" in h5f:
@@ -279,7 +305,7 @@ def readParameters(h5f):
                 for key2, val in dic.items():
                     print(f"    {key2} : {val}")
 
-def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False, rgp = False, spots = False, geneSequences = False, show_bar=True):
+def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = False, rgp = False, spots = False, geneSequences = False, modules = False, show_bar=True):
     """
         Reads a previously written pangenome, with all of its parts, depending on what is asked, with regards to what is filled in the 'status' field of the hdf5 file.
     """
@@ -327,9 +353,15 @@ def readPangenome(pangenome, annotation = False, geneFamilies = False, graph = F
             readSpots(pangenome, h5f, show_bar = show_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have spots information, or has been improperly filled")
+    if modules:
+        if h5f.root.status._v_attrs.modules:
+            logging.getLogger().info("Reading the modules...")
+            readModules(pangenome, h5f, show_bar = show_bar)
+        else:
+            raise Exception(f"The pangenome in file '{filename}' does not have modules information, or has been improperly filled")
     h5f.close()
 
-def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False, needPartitions = False, needRGP = False, needSpots = False, needGeneSequences = False, show_bar=True):
+def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False, needGraph = False, needPartitions = False, needRGP = False, needSpots = False, needGeneSequences = False, needModules = False, show_bar=True):
     """defines what needs to be read depending on what is needed, and automatically checks if the required elements have been computed with regards to the pangenome.status"""
     annotation = False
     geneFamilies = False
@@ -337,6 +369,7 @@ def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False,
     rgp = False
     spots = False
     geneSequences = False
+    modules = False
 
     if needAnnotations:
         if pangenome.status["genomesAnnotated"] == "inFile":
@@ -372,5 +405,11 @@ def checkPangenomeInfo(pangenome, needAnnotations = False, needFamilies = False,
         elif not pangenome.status["geneSequences"] in ["Computed","Loaded"]:
             raise Exception("Your pangenome does not include gene sequences. This is possible only if you provided your own cluster file with the 'cluster' subcommand")
 
-    if annotation or geneFamilies or graph or rgp or spots or geneSequences:#if anything is true, else we need nothing.
-        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph, rgp = rgp, spots = spots, geneSequences=geneSequences, show_bar=show_bar)
+    if needModules:
+        if pangenome.status["modules"] == "inFile":
+            modules = True
+        elif not pangenome.status["modules"] in ["Computed","Loaded"]:
+            raise Exception("Your pangenome modules have not been predicted. See the 'module' subcommand")
+
+    if annotation or geneFamilies or graph or rgp or spots or geneSequences or modules:#if anything is true, else we need nothing.
+        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph, rgp = rgp, spots = spots, geneSequences=geneSequences, modules=modules, show_bar=show_bar)

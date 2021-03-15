@@ -18,33 +18,9 @@ from gmpy2 import xmpz, popcount#pylint: disable=no-name-in-module
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.region import Region
-from ppanggolin.formats import checkPangenomeInfo, writePangenome
-from ppanggolin.utils import mkOutdir
-
-
-class Module:
-    def __init__(self, geneFamilies):
-        if not all(isinstance(fam, GeneFamily) for fam in geneFamilies):
-            raise Exception(f"You provided elements that were not GeneFamily objetcs. Modules are only made of GeneFamily")
-        self.families = set(geneFamilies)
-
-    @property
-    def distance(self):
-        if hasattr(self, "_distance"):
-            return self._distance
-        else:
-            self._get_dist()
-            return self._distance
-
-    def _get_dist(self):
-        union = xmpz(0)#infinitely long vector of 0-bit
-        inter = xmpz(-1)#infinitely long vector of 1-bit
-        for fam in self.families:
-            union = union | fam.bitarray
-            inter = inter & fam.bitarray
-        self._distance = float(popcount(inter) / popcount(union))
-
+from ppanggolin.region import Region, Module
+from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
+from ppanggolin.utils import mkOutdir, restricted_float
 
 def getFam2Mod(modules):
     fam2mod = defaultdict(set)
@@ -53,10 +29,9 @@ def getFam2Mod(modules):
             fam2mod[fam].add(mod)
     return fam2mod
 
-
 def connected_components(g, removed, weight):
     """
-        Yields subgraphs of each connected component.
+        Yields subgraphs of each connected component you get when filtering edges based on the given weight.
     """
     for v in g.nodes:
         if v not in removed:
@@ -65,7 +40,7 @@ def connected_components(g, removed, weight):
             removed.update(c)
 
 def _plain_bfs(g, source, removed, weight):
-    """A fast BFS node generator, copied from networkx"""
+    """A fast BFS node generator, copied from networkx then adapted to the current use case"""
     nextlevel = {source}
     while nextlevel:
         thislevel = nextlevel
@@ -93,22 +68,33 @@ def set_mod_identifiers(fam2mod, modules):
             fam2id[fam].add(i)
     return fam2id, mod2id
 
-def predictModules(pangenome, output, cpu, tmpdir):
-    #check statuses and load info
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True, needRGP = True)
-    ##do the module thing
-    pangenome.computeFamilyBitarrays()#might need that
 
+def checkPangenomeFormerModules(pangenome, force):
+    """ checks pangenome status and .h5 files for former modules, delete them if allowed or raise an error """
+    if pangenome.status["modules"] == "inFile" and force == False:
+        raise Exception("You are trying to detect modules on a pangenome which already has predicted modules. If you REALLY want to do that, use --force (it will erase modules previously predicted).")
+    elif pangenome.status["modules"] == "inFile" and force == True:
+        ErasePangenome(pangenome, modules = True)
+
+def predictModules(pangenome, output, cpu, tmpdir, force=False, dup_margin=0.05, size=3, min_presence=3, transitive=5, jaccard=0.85, show_bar=True):
+    #check statuses and load info
+    checkPangenomeFormerModules(pangenome, force)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions = True)
+
+    ##compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
-    g = compute_rgp_graph(pangenome.organisms, t=5)
-    logging.getLogger().info(f"Took {round(time.time() - start_time,2)} seconds to build the graph")
+    g = compute_mod_graph(pangenome.organisms, t=transitive, show_bar=show_bar)
+    logging.getLogger().info(f"Took {round(time.time() - start_time,2)} seconds to build the graph to find modules in")
     logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     start_time = time.time()
     #get all multigenic gene families
-    multi = pangenome.get_multigenics(0.05, persistent=False)
-    modules = compute_modules(g, multi, 0.9, 5)
+    multi = pangenome.get_multigenics(dup_margin, persistent=False)
+
+    #extract the modules from the graph
+    modules = compute_modules(g, multi, jaccard, min_presence, size=size)
+
     fam2mod = getFam2Mod(modules)
     logging.getLogger().info(f"There are {len(fam2mod)} families among {len(modules)} modules")
     logging.getLogger().info(f"Computing modules took {round(time.time() - start_time,2)} seconds")
@@ -116,36 +102,70 @@ def predictModules(pangenome, output, cpu, tmpdir):
     fam2id, mod2id = set_mod_identifiers(fam2mod, modules)
     # write_cgview(pangenome._orgGetter["GCF_000005845.2_ASM584v2"], output, fam2id)
 
+    pangenome.addModules(modules)
 
-def write_cgview(genome, output, fam2id):
+    pangenome.status["modules"] = "Computed"
+    pangenome.parameters["modules"] = {}
+    pangenome.parameters["modules"]["size"] = size
+    pangenome.parameters["modules"]["min_presence"] = min_presence
+    pangenome.parameters["modules"]["transitive"] = transitive
+    pangenome.parameters["modules"]["jaccard"] = jaccard
+    pangenome.parameters["modules"]["dup_margin"] = dup_margin
+
+def write_mod_file(modules, output):
+    fout = open(output + "/" + "functional_modules.tsv","w")
+    for mod in modules:
+        for core in mod.core:
+            fout.write(f"module_{mod.ID}\t{core.name}\tcore\n")
+        for associated in mod.associated_families:
+            fout.write(f"module_{mod.ID}\t{associated.name}\tassociated\n")
+    fout.close()
+
+
+def write_cgview(genome, output, multi, fam2core, fam2associated, t):
     fgenes = open(output + "/" + genome.name+"_cgview_genes.tab","w")
     fparts = open(output+"/" + genome.name+"_cgview_partitions.tab","w")
+    fmulti = open(output+"/" + genome.name+"_cgview_multigenics.tab","w")
     fmods = open(output+"/" + genome.name + "_cgview_modules.tab","w")
     fgenes.write("name\ttype\tstart\tstop\tstrand\n")
     fparts.write("name\ttype\tstart\tstop\tstrand\n")
     fmods.write("name\ttype\tstart\tstop\tstrand\n")
+    fmulti.write("name\ttype\tstart\tstop\tstrand\n")
     prev_size = 0
+
     for contig in genome.contigs:
         max_curr_size = 0
-        for gene in contig.genes + list(contig.RNAs):
+        for position, gene in enumerate(contig.genes + list(contig.RNAs)):
             if gene.stop > max_curr_size:#if someday the actual genome sequences are saved, it would be better...
                 max_curr_size = gene.stop
             fgenes.write(f"{gene.name}\t{gene.type}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
             if gene.type == "CDS":
                 fparts.write(f"{gene.family.name}\t{gene.family.namedPartition}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
-                mod = fam2id.get(gene.family)
+                if gene.family in multi:
+                    fmulti.write(f"{gene.family.name}\tmultigenic\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
+                mod = fam2core.get(gene.family)
+
                 if mod is not None:
                     #then the family has an assigned module
-                    fmods.write(f"{gene.family.name}\tmodule{','.join(map(str,mod))}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
+                    fmods.write(f"core\tmodule{','.join(map(str,sorted(mod)))}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
+        ##now need to write the associated gene families.
+                else:
+                    associated_mod = fam2associated.get(gene.family)
+                    if associated_mod is not None:
+                        lower_bound = position-t if position - t > 0 else 0
+                        local_mods = set()
+                        for local_gene in contig.genes[lower_bound:position+t]:
+                            curr_mods = fam2core.get(local_gene.family)
+                            if curr_mods is not None:
+                                local_mods |= curr_mods
+                        actual_mods = associated_mod & local_mods
+                        if len(actual_mods) > 0:
+                            fmods.write(f"associated\tmodule{','.join(map(str,sorted(actual_mods)))}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
+
+    fmulti.close()
     fgenes.close()
     fparts.close()
     fmods.close()
-
-def add_rgp(obj, rgp):
-    try:
-        obj["rgp"].add(rgp)
-    except KeyError:
-        obj["rgp"] = set([rgp])
 
 def add_gene(obj, gene, fam_split=True):
     if fam_split:
@@ -162,41 +182,56 @@ def add_gene(obj, gene, fam_split=True):
         except KeyError:
             obj["genes"] = set([gene])
 
-def compute_rgp_graph(organisms, t=1):
+def compute_mod_graph(organisms, t=1, show_bar=True):
     """
-    Computes a graph using the RGPs only with a transitive closure of size t
+    Computes a graph using all provided genomes with a transitive closure of size t
     
     :param organisms: the list of organisms to compute the graph with
     :type list: list[:class:`ppanggolin.genome.Organism`]
     :param t: the size of the transitive closure
     :type t: int
+    :param show_bar: whether to show a progress bar or not
+    :type show_bar: bool
     """
 
     g = nx.Graph()
-    for org in tqdm(organisms, unit="genome", disable = True):
+    for org in tqdm(organisms, unit="genome", disable=not show_bar):
         for contig in org.contigs:
             if len(contig.genes) > 0:
                 start_gene = contig.genes[0]
                 g.add_node(start_gene.family)
                 add_gene(g.nodes[start_gene.family], start_gene, fam_split=False)
-                # add_rgp(g.nodes[start_gene.family], region)
                 for i, gene in enumerate(contig.genes):
                     for j, a_gene in enumerate(contig.genes[i+1:i+t+2], start=i+1):
                         g.add_edge(gene.family, a_gene.family)
                         edge = g[gene.family][a_gene.family]
-                        #add_rgp(edge, region)#add rgp to the edge
                         add_gene(edge, gene)
                         add_gene(edge, a_gene)
                         if j == i+t+1 or i == 0:#if it's the last gene of the serie, or the first serie
-                            #add_rgp(g.nodes[a_gene.family], region)#add rgp to the eventual new node
                             add_gene(g.nodes[a_gene.family], a_gene, fam_split=False)
 
     return g
 
-def compute_modules(g, multi, weight, min_fam):
-    """
+def lookForMultiNeighbors(g, multi, mod, classified, weight):
+    linked_multi = set()
+    for v in mod.core:
+        for n in g.neighbors(v):
+            if n in multi and n not in classified:
+                edge_genes_v = g[v][n]["genes"][v]
+                #if the edge is indeed existent for most genes of the module's families, we use it
+                if len(edge_genes_v) / len(g.nodes[v]["genes"]) >= weight:
+                    linked_multi.add(n)
+    return linked_multi
 
-    :param weight: the minimal weight under which edges are not considered
+def compute_modules(g, multi, weight, min_fam, size):
+    """
+    Computes modules using a graph built by :func:`ppanggolin.mod.module.compute_mod_graph` and differents parameters defining how restrictive the modules will be.
+
+    :param g: The networkx graph from :func:`ppanggolin.mod.module.compute_mod_graph`
+    :type g: :class:`networkx.Graph`
+    :param multi: a set of families :class:`ppanggolin.geneFamily.GeneFamily` considered multigenic
+    :type multi: set
+    :param weight: the minimal jaccard under which edges are not considered
     :type weight: float
     :param min_fam: the minimal number of presence under which the family is not considered
     :type min_fam: int
@@ -205,28 +240,45 @@ def compute_modules(g, multi, weight, min_fam):
     removed = set([fam for fam in g.nodes if len(fam.organisms) < min_fam])
 
     modules = set()
+    #define core modules
+    classified_families = set(removed)
+    c = 0
     for comp in connected_components(g, removed, weight):
-        if len(comp) >= 3:#keep only the modules with at least 3 non-multigenic genes.
-            modules.add(Module(geneFamilies=comp))
+        if len(comp) >= size:#keep only the modules with at least 'size' non-multigenic genes.
+            if not any(fam.namedPartition == "persistent" and fam not in multi for fam in comp):#remove 'persistent' and non-multigenic modules
+                modules.add(Module(ID = c, core=comp))
+                classified_families |= comp
+                c += 1
 
-    ##parse the graph to get multigenics near modules that are not classified.
-    
+    ##parse the graph to get multigenics near modules that are not classified, to associate them to modules
+    nb_added = 0
+    nb_mod = 0
+    for mod in modules:
+        curr_multi = lookForMultiNeighbors(g, multi, mod, classified_families, weight)
 
+        if len(curr_multi) > 0:
+            nb_added += len(curr_multi)
+            nb_mod +=1
+            mod.associate_families(curr_multi)
+    logging.getLogger().info(f"Associated {nb_added} multigenic families to {nb_mod} modules")
     return modules
 
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     mkOutdir(args.output, args.force)
-    predictModules(pangenome = pangenome, output=args.output, cpu = args.cpu, tmpdir = args.tmpdir)
-    #write modules to the hdf5 file
+    predictModules(pangenome = pangenome, output=args.output, cpu = args.cpu, tmpdir = args.tmpdir, force=args.force, dup_margin=args.dup_margin, size=args.size, min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard, show_bar=args.show_prog_bars)
+    writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
+
 
 def moduleSubparser(subparser):
     parser = subparser.add_parser("module", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("--size", required=False, type=int, default=3, help = "Minimal number of gene family in a module")
-    optional.add_argument("--min_presence", required=False, type=int, default=5, help = "Minimum number of times the module needs to be present in the pangenome to be reported")
-
+    optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05, help = "minimum ratio of organisms in which the family must have multiple genes for it to be considered 'duplicated'")
+    optional.add_argument("--min_presence", required=False, type=int, default=5, help = "Minimum number of times the module needs to be present in the pangenome to be reported. Increasing it will improve precision but lower sensitivity.")
+    optional.add_argument("--transitive",required=False, type=int, default = 5, help = "Size of the transitive closure used to build the graph. This indicates the number of non related genes allowed in-between two related genes. Increasing it will improve precision but lower sensitivity a little.")
+    optional.add_argument("--jaccard", required=False, type=restricted_float, default=0.85, help = "minimum jaccard similarity used to filter edges between gene families. Increasing it will improve precision but lower sensitivity a lot." )
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
