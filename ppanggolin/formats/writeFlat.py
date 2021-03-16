@@ -536,9 +536,22 @@ def writeBorders(output, dup_margin, compress):
             fout.write(f">{fam.name}\n")
             fout.write(f"{fam.sequence}\n")
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, spots = False, borders=False, compress = False):
+def writeModules(output, compress):
+    logging.getLogger().info("Writing functional modules...")
+    with write_compressed_or_not(output + "/functional_modules.tsv", compress) as fout:
+        fout.write("module_id\tfamily_id\tstatus\n")
+        for mod in pan.modules:
+            for core_family in mod.core:
+                fout.write(f"module_{mod.ID}\t{core_family.name}\tcore\n")
+            for ass_family in mod.associated_families:
+                fout.write(f"module_{mod.ID}\t{ass_family.name}\tassociated\n")
+        fout.close()
 
-    if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv]):
+    logging.getLogger().info(f"Done writing functional modules to: '{output+'/functional_modules.tsv'}'")
+
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, spots = False, borders=False, modules=False, compress = False):
+
+    if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv, modules]):
         raise Exception("You did not indicate what file you wanted to write.")
 
     global pan
@@ -550,10 +563,11 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
     needPartitions = False
     needSpots = False
     needRegions = False
+    needModules = False
 
     if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or borders:
         needAnnotations = True 
-    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv  or borders:
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv  or borders or modules:
         needFamilies = True
     if projection or stats or partitions or regions or spots or borders:
         needPartitions = True
@@ -563,8 +577,10 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
         needRegions = True
     if spots or borders:
         needSpots = True
+    if modules:
+        needModules = True
 
-    checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
+    checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots, needModules=needModules)
     pan.getIndex()#make the index because it will be used most likely
     with Pool(processes = cpu) as p:
         if csv:
@@ -591,6 +607,8 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
             processes.append(p.apply_async(func = writeSpots, args=(output, compress)))
         if borders:
             processes.append(p.apply_async(func=writeBorders, args=(output, dup_margin, compress)))
+        if modules:
+            processes.append(p.apply_async(func = writeModules, args= (output, compress)))
 
         for process in processes:
             process.get()#get all the results
@@ -599,7 +617,7 @@ def launchFlat(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, compress=args.compress)
+    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, modules=args.modules, compress=args.compress)
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -619,7 +637,8 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     optional.add_argument("--json", required=False, action = "store_true", help = "Writes the graph in a json file format")
     optional.add_argument("--regions", required=False, action = "store_true", help = "Write the RGP in a tab format, one file per genome")
-    optional.add_argument("--spots", required=False, action = "store_true", help = "Write spot summary and a list of all rgp in each spot")
+    optional.add_argument("--spots", required=False, action = "store_true", help = "Write spot summary and a list of all RGP in each spot")
     optional.add_argument("--borders", required=False, action = "store_true", help = "List all borders of each spot")
+    optional.add_argument("--modules",required=False, action="store_true", help = "Write a tsv file listing functional modules and the families that belong to them")
     optional.add_argument("--families_tsv", required=False, action = "store_true", help = "Write a tsv file providing the association between genes and gene families")
     return parser
