@@ -17,17 +17,9 @@ import networkx as nx
 from gmpy2 import xmpz, popcount#pylint: disable=no-name-in-module
 #local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.region import Region, Module
+from ppanggolin.region import Module
 from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
 from ppanggolin.utils import mkOutdir, restricted_float
-
-def getFam2Mod(modules):
-    fam2mod = defaultdict(set)
-    for mod in modules:
-        for fam in mod.families:
-            fam2mod[fam].add(mod)
-    return fam2mod
 
 def connected_components(g, removed, weight):
     """
@@ -58,17 +50,6 @@ def _plain_bfs(g, source, removed, weight):
                         if len(edge_genes_n) / len(g.nodes[n]["genes"]) >= weight and len(edge_genes_v) / len(g.nodes[v]["genes"]) >= weight:
                             nextlevel.add(n)
 
-
-def set_mod_identifiers(fam2mod, modules):
-    fam2id = defaultdict(set)
-    mod2id = {}
-    for i, mod in enumerate(modules):
-        mod2id[mod] = i
-        for fam in mod.families:
-            fam2id[fam].add(i)
-    return fam2id, mod2id
-
-
 def checkPangenomeFormerModules(pangenome, force):
     """ checks pangenome status and .h5 files for former modules, delete them if allowed or raise an error """
     if pangenome.status["modules"] == "inFile" and force == False:
@@ -95,12 +76,12 @@ def predictModules(pangenome, output, cpu, tmpdir, force=False, dup_margin=0.05,
     #extract the modules from the graph
     modules = compute_modules(g, multi, jaccard, min_presence, size=size)
 
-    fam2mod = getFam2Mod(modules)
-    logging.getLogger().info(f"There are {len(fam2mod)} families among {len(modules)} modules")
-    logging.getLogger().info(f"Computing modules took {round(time.time() - start_time,2)} seconds")
+    fams = set()
+    for mod in modules:
+        fams |= mod.families
 
-    fam2id, mod2id = set_mod_identifiers(fam2mod, modules)
-    # write_cgview(pangenome._orgGetter["GCF_000005845.2_ASM584v2"], output, fam2id)
+    logging.getLogger().info(f"There are {len(fams)} families among {len(modules)} modules")
+    logging.getLogger().info(f"Computing modules took {round(time.time() - start_time,2)} seconds")
 
     pangenome.addModules(modules)
 
@@ -111,61 +92,6 @@ def predictModules(pangenome, output, cpu, tmpdir, force=False, dup_margin=0.05,
     pangenome.parameters["modules"]["transitive"] = transitive
     pangenome.parameters["modules"]["jaccard"] = jaccard
     pangenome.parameters["modules"]["dup_margin"] = dup_margin
-
-def write_mod_file(modules, output):
-    fout = open(output + "/" + "functional_modules.tsv","w")
-    for mod in modules:
-        for core in mod.core:
-            fout.write(f"module_{mod.ID}\t{core.name}\tcore\n")
-        for associated in mod.associated_families:
-            fout.write(f"module_{mod.ID}\t{associated.name}\tassociated\n")
-    fout.close()
-
-
-def write_cgview(genome, output, multi, fam2core, fam2associated, t):
-    fgenes = open(output + "/" + genome.name+"_cgview_genes.tab","w")
-    fparts = open(output+"/" + genome.name+"_cgview_partitions.tab","w")
-    fmulti = open(output+"/" + genome.name+"_cgview_multigenics.tab","w")
-    fmods = open(output+"/" + genome.name + "_cgview_modules.tab","w")
-    fgenes.write("name\ttype\tstart\tstop\tstrand\n")
-    fparts.write("name\ttype\tstart\tstop\tstrand\n")
-    fmods.write("name\ttype\tstart\tstop\tstrand\n")
-    fmulti.write("name\ttype\tstart\tstop\tstrand\n")
-    prev_size = 0
-
-    for contig in genome.contigs:
-        max_curr_size = 0
-        for position, gene in enumerate(contig.genes + list(contig.RNAs)):
-            if gene.stop > max_curr_size:#if someday the actual genome sequences are saved, it would be better...
-                max_curr_size = gene.stop
-            fgenes.write(f"{gene.name}\t{gene.type}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
-            if gene.type == "CDS":
-                fparts.write(f"{gene.family.name}\t{gene.family.namedPartition}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
-                if gene.family in multi:
-                    fmulti.write(f"{gene.family.name}\tmultigenic\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
-                mod = fam2core.get(gene.family)
-
-                if mod is not None:
-                    #then the family has an assigned module
-                    fmods.write(f"core\tmodule{','.join(map(str,sorted(mod)))}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
-        ##now need to write the associated gene families.
-                else:
-                    associated_mod = fam2associated.get(gene.family)
-                    if associated_mod is not None:
-                        lower_bound = position-t if position - t > 0 else 0
-                        local_mods = set()
-                        for local_gene in contig.genes[lower_bound:position+t]:
-                            curr_mods = fam2core.get(local_gene.family)
-                            if curr_mods is not None:
-                                local_mods |= curr_mods
-                        actual_mods = associated_mod & local_mods
-                        if len(actual_mods) > 0:
-                            fmods.write(f"associated\tmodule{','.join(map(str,sorted(actual_mods)))}\t{gene.start + prev_size}\t{gene.stop + prev_size}\t{gene.strand}\n")
-
-    fmulti.close()
-    fgenes.close()
-    fparts.close()
-    fmods.close()
 
 def add_gene(obj, gene, fam_split=True):
     if fam_split:
