@@ -226,14 +226,14 @@ def readModules(pangenome, h5f, show_bar = True):
     bar = tqdm(range(table.nrows), unit="module", disable = not show_bar)
     modules = {}#id2mod
     for row in read_chunks(table):
-        curr_module = modules.get(row['ID'])
+        curr_module = modules.get(row['module'])
         if curr_module is None:
-            curr_module = Module(row['ID'])
-            modules[row["ID"]] = curr_module
+            curr_module = Module(row['module'])
+            modules[row["module"]] = curr_module
         if row['is_core']:
-            curr_module.addCore(pangenome.getGeneFamily(row['geneFam']))
+            curr_module.addCore(pangenome.getGeneFamily(row['geneFam'].decode()))
         else:
-            curr_module.associate_families([pangenome.getGeneFamily(row['geneFam'])])
+            curr_module.associate_families([pangenome.getGeneFamily(row['geneFam'].decode())])
         bar.update()
     bar.close()
     pangenome.addModules(modules.values())
