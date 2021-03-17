@@ -27,12 +27,13 @@ jobs:
         condarc-file: .condarc.yml
         activate-environment: test
         python-version: ${{ matrix.python-version }}
-    # Install the dependencies, with r channel as priority channel
+    # Install the dependencies, with a forced r-base version because something between conda priority channels and macosx is broken
     - name: Set up test environment
       shell: bash -l {0}
       run: |
         conda install -y mamba
-        mamba install -y --channel r --strict-channel-priority --file requirements.txt 
+        mamba install -y -c r r-base==3.6.1
+        mamba install -y --file requirements.txt 
         mamba install -y pytest
         pip install .
     # Check that it is installed and displays help without error
