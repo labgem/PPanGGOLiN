@@ -119,7 +119,6 @@ def checkPangenomeFormerSpots(pangenome, force):
 
 
 def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = "", show_bar=True):
-    
     #check that given parameters for hotspot computation make sense
     checkParameterLogic(overlapping_match, set_size, exact_match)
     #check for formerly computed stuff, and erase if allowed
