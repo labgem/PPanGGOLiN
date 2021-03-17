@@ -182,7 +182,7 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
         org, hasFasta = read_org_gff('myGenome', annotation, [], True, pseudo=pseudo)
         singleOrgPang.addOrganism(org)
     elif filetype == "gbff":
-        org, hasFasta = read_org_gbff('myGenome', annotation, [], True, pseudo=pseudo)
+        org, hasFasta = read_org_gbff('myGenome', annotation, [], pseudo=pseudo)
         singleOrgPang.addOrganism(org)
     if hasFasta:
         singleOrgPang.status["geneSequences"] = "Computed"
