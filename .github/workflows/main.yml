@@ -32,7 +32,7 @@ jobs:
       shell: bash -l {0}
       run: |
         conda install -y mamba
-        mamba install -y --channel r --file requirements.txt 
+        mamba install -y --channel r --strict-channel-priority --file requirements.txt 
         mamba install -y pytest
         pip install .
     # Check that it is installed and displays help without error
