@@ -13,5 +13,6 @@ pandas=1.*
 colorlover=0.3
 rpy2=2.*
 r-genoplotr=0.8.*
+r-base=3.6.1
 mafft=7.*
 numpy=1.17.*
