@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest', 'macos-latest']
+        os: ['ubuntu-latest']
         python-version: ['3.6', '3.7']
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -32,10 +32,6 @@ jobs:
       shell: bash -l {0}
       run: |
         conda install -y mamba
-        if [ ${{ matrix.os }} == 'macos-latest' ]
-        then
-          mamba install -c r r-base=3.6.1=hcb44179_1
-        fi
         mamba install -y --file requirements.txt 
         mamba install -y pytest
         pip install .
