@@ -318,12 +318,16 @@ def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
 def defineElementsOfInterest(genelist, elements):
     present_EOI = set()
     for gene in genelist:
-        if gene.name in elements:
+        if gene.name in elements and gene.name != "":
             present_EOI.add(gene.name)
+        elif gene.ID in elements:
+            present_EOI.add(gene.ID)
+        elif gene.local_identifier in elements and gene.local_identifier != "":
+            present_EOI.add(gene.local_identifier)
         for el in elements:
             if el in gene.product:
                 present_EOI.add(el)
-    return present_EOI#sort EOI so that they are in the same order between different runs of the same analysis
+    return present_EOI
 
 def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename, priority):
     rdframes = []
