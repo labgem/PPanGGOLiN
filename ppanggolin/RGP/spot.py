@@ -323,7 +323,7 @@ def defineElementsOfInterest(genelist, elements):
         for el in elements:
             if el in gene.product:
                 present_EOI.add(el)
-    return sorted(present_EOI)#sort EOI so that they are in the same order between different runs of the same analysis
+    return present_EOI#sort EOI so that they are in the same order between different runs of the same analysis
 
 def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename, priority):
     rdframes = []
@@ -412,7 +412,7 @@ def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename, priority
         annot = annotation(x1 = middle(dnasegObj), text=robjects.StrVector(gene_names), rot = 20)
         annotList.append((f'{GeneList[2].organism.name}, x'+str(ordered_counts[index]), annot))
         rdframes.append((f'{GeneList[2].organism.name}, x'+str(ordered_counts[index]), dnasegObj))
-    filename = filename +('_' + "_".join(present_EOI) if len(present_EOI) > 0 else "") + ".png"
+    filename = filename +('_' + "_".join(sorted(present_EOI)) if len(present_EOI) > 0 else "") + ".png"
     Rannot = robjects.ListVector(annotList)
     Rdna_segs = robjects.ListVector(rdframes)
     return Rdna_segs, Rannot, rdframes, longest_gene_list, filename
