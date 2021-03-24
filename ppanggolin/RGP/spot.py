@@ -436,7 +436,19 @@ def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, mul
     bar = tqdm(range(len(spots)), unit = "spot", disable = not show_bar)
     spots_to_draw = []
     for spot in spots:
-        uniqRGPS = frozenset(spot.getUniqOrderedSet())
+
+        fname = output + '/spot_' + str(spot.ID)
+
+        ##write identical rgps and the rgps they are identical to
+        uniqRGPS = set()
+        out_struc = open(fname + '_identical_rgps.tsv','w')
+        out_struc.write('representative_rgp\trepresentative_rgp_organism\tidentical_rgp\tidentical_rgp_organism\n')
+        for keyRGP, otherRGPs in spot.getUniq2RGP().items():
+            uniqRGPS.add(keyRGP)
+            for rgp in otherRGPs:
+                out_struc.write(f"{keyRGP.name}\t{keyRGP.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
+        out_struc.close()
+
         Fams = set()
         GeneLists = []
 
