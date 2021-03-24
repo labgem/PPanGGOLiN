@@ -327,7 +327,6 @@ def modDesc(geneFamNameLen):
     return {
         "geneFam": tables.StringCol(itemsize = geneFamNameLen),
         "module":tables.UInt32Col(),
-        "is_core":tables.BoolCol(),#True if core, False if associated
         }
 
 def getModDesc(pangenome):
@@ -348,15 +347,9 @@ def writeModules(pangenome, h5f, force, show_bar=True):
 
     bar = tqdm(pangenome.modules, unit="modules", disable = not show_bar)
     for mod in bar:
-        for fam in mod.core:
+        for fam in mod.families:
             modRow["geneFam"] = fam.name
             modRow["module"] = mod.ID
-            modRow["is_core"] = True
-            modRow.append()
-        for fam in mod.associated_families:
-            modRow["geneFam"] = fam.name
-            modRow["module"] = mod.ID
-            modRow["is_core"] = False
             modRow.append()
     bar.close()
     modTable.flush()

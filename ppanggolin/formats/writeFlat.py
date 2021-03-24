@@ -539,12 +539,10 @@ def writeBorders(output, dup_margin, compress):
 def writeModules(output, compress):
     logging.getLogger().info("Writing functional modules...")
     with write_compressed_or_not(output + "/functional_modules.tsv", compress) as fout:
-        fout.write("module_id\tfamily_id\tstatus\n")
+        fout.write("module_id\tfamily_id\n")
         for mod in pan.modules:
-            for core_family in mod.core:
-                fout.write(f"module_{mod.ID}\t{core_family.name}\tcore\n")
-            for ass_family in mod.associated_families:
-                fout.write(f"module_{mod.ID}\t{ass_family.name}\tassociated\n")
+            for family in mod.families:
+                fout.write(f"module_{mod.ID}\t{family.name}\n")
         fout.close()
 
     logging.getLogger().info(f"Done writing functional modules to: '{output+'/functional_modules.tsv'}'")

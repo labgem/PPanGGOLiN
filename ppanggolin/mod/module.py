@@ -138,17 +138,6 @@ def compute_mod_graph(organisms, t=1, show_bar=True):
 
     return g
 
-def lookForMultiNeighbors(g, multi, mod, classified, weight):
-    linked_multi = set()
-    for v in mod.core:
-        for n in g.neighbors(v):
-            if n in multi and n not in classified:
-                edge_genes_v = g[v][n]["genes"][v]
-                #if the edge is indeed existent for most genes of the module's families, we use it
-                if len(edge_genes_v) / len(g.nodes[v]["genes"]) >= weight:
-                    linked_multi.add(n)
-    return linked_multi
-
 def compute_modules(g, multi, weight, min_fam, size):
     """
     Computes modules using a graph built by :func:`ppanggolin.mod.module.compute_mod_graph` and differents parameters defining how restrictive the modules will be.
@@ -166,27 +155,13 @@ def compute_modules(g, multi, weight, min_fam, size):
     removed = set([fam for fam in g.nodes if len(fam.organisms) < min_fam])
 
     modules = set()
-    #define core modules
-    classified_families = set(removed)
     c = 0
     for comp in connected_components(g, removed, weight):
         if len(comp) >= size:#keep only the modules with at least 'size' non-multigenic genes.
             if not any(fam.namedPartition == "persistent" and fam not in multi for fam in comp):#remove 'persistent' and non-multigenic modules
-                modules.add(Module(ID = c, core=comp))
-                classified_families |= comp
+                modules.add(Module(ID = c, families=comp))
                 c += 1
 
-    ##parse the graph to get multigenics near modules that are not classified, to associate them to modules
-    nb_added = 0
-    nb_mod = 0
-    for mod in modules:
-        curr_multi = lookForMultiNeighbors(g, multi, mod, classified_families, weight)
-
-        if len(curr_multi) > 0:
-            nb_added += len(curr_multi)
-            nb_mod +=1
-            mod.associate_families(curr_multi)
-    logging.getLogger().info(f"Associated {nb_added} multigenic families to {nb_mod} modules")
     return modules
 
 def launch(args):

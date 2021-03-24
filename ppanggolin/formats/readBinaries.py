@@ -230,10 +230,7 @@ def readModules(pangenome, h5f, show_bar = True):
         if curr_module is None:
             curr_module = Module(row['module'])
             modules[row["module"]] = curr_module
-        if row['is_core']:
-            curr_module.addCore(pangenome.getGeneFamily(row['geneFam'].decode()))
-        else:
-            curr_module.associate_families([pangenome.getGeneFamily(row['geneFam'].decode())])
+        curr_module.addFamily(pangenome.getGeneFamily(row['geneFam'].decode()))
         bar.update()
     bar.close()
     pangenome.addModules(modules.values())
