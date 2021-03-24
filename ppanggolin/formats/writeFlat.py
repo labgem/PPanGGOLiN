@@ -536,6 +536,22 @@ def writeBorders(output, dup_margin, compress):
             fout.write(f">{fam.name}\n")
             fout.write(f"{fam.sequence}\n")
 
+def writeModuleSummary(output, compress):
+    logging.getLogger().info("Writing functional modules summary...")
+    with write_compressed_or_not(output + "/modules_summary.tsv", compress) as fout:
+        fout.write("module_id\tnb_families\tnb_organisms\tpartition\tmean_number_of_occurrence\n")
+        for mod in pan.modules:
+            org_dict = defaultdict(set)
+            partition_counter = Counter()
+            for family in mod.families:
+                partition_counter[family.namedPartition]+=1
+                for gene in family.genes:
+                    org_dict[gene.organism].add(gene)
+            fout.write(f"module_{mod.ID}\t{len(mod.families)}\t{len(org_dict)}\t{partition_counter.most_common(1)[0][0]}\t{round((sum([len(genes) for genes in org_dict.values()])/len(org_dict))/len(mod.families),3)}\n")
+        fout.close()
+
+    logging.getLogger().info(f"Done writing module summary: '{output + '/modules_summary.tsv'}'")
+
 def writeModules(output, compress):
     logging.getLogger().info("Writing functional modules...")
     with write_compressed_or_not(output + "/functional_modules.tsv", compress) as fout:
@@ -563,9 +579,8 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
     needRegions = False
     needModules = False
 
-    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv or borders:
-        needAnnotations = True 
     if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv  or borders or modules:
+        needAnnotations = True 
         needFamilies = True
     if projection or stats or partitions or regions or spots or borders:
         needPartitions = True
@@ -607,6 +622,7 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
             processes.append(p.apply_async(func=writeBorders, args=(output, dup_margin, compress)))
         if modules:
             processes.append(p.apply_async(func = writeModules, args= (output, compress)))
+            processes.append(p.apply_async(func=writeModuleSummary, args=(output, compress)))
 
         for process in processes:
             process.get()#get all the results
