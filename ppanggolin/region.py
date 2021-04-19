@@ -208,6 +208,10 @@ class Spot:
             self._compOrderedSet = True
         return self._uniqOrderedSet
 
+    def getUniq2RGP(self):
+        """ returns the dictionnary with a representing RGP as key, and all identical RGPs as value"""
+        return self._getOrderedSet()
+
     def getUniqOrderedSet(self):
         """ returns an Iterable of all the unique syntenies in the spot"""
         return set(self._getOrderedSet().keys())

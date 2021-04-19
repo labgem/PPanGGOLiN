@@ -173,6 +173,8 @@ def writeGffRegions(filename, regions, output):
 def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, translation_table = 11, pseudo=False):
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
+    ## could be possible either by picking a representative somehow, or by aligning on genes rather than on families, if they are in the pangenome.
+
 
     #read given file
     logging.getLogger().info("Retrieving the annotations from the given file")
@@ -182,7 +184,7 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity = 0.8, coverage=0
         org, hasFasta = read_org_gff('myGenome', annotation, [], True, pseudo=pseudo)
         singleOrgPang.addOrganism(org)
     elif filetype == "gbff":
-        org, hasFasta = read_org_gbff('myGenome', annotation, [], True, pseudo=pseudo)
+        org, hasFasta = read_org_gbff('myGenome', annotation, [], pseudo=pseudo)
         singleOrgPang.addOrganism(org)
     if hasFasta:
         singleOrgPang.status["geneSequences"] = "Computed"
@@ -279,7 +281,12 @@ def draw_spot_gexf(spots, output, multigenics, set_size = 3):
         fname = "spot_" + str(spot.ID) + ".gexf"
         subgraph(spot,output, fname, set_size=set_size, multigenics=multigenics)
 
-def getProtInfo(prot2pang, pangenome, output, cpu, draw_related):
+def checkLabelPriorityLogic(priority):
+    for p in priority.split(','):
+        if p.lower() not in ["name","id","family"]:
+            raise Exception(f"You have indicated a label which is not supported with --label_priority. You indicated '{p}'. Supported labels are 'name', 'id' and 'family'")
+
+def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
     logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
@@ -299,15 +306,18 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related):
             if len(spot.getUniqOrderedSet()) > 1:
                 drawn_spots.add(spot)
         logging.getLogger().info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization related to hits of the input proteins...")
-        draw_spots(drawn_spots, output, cpu, 2, 1, 3, multigenics, [])
+        draw_spots(drawn_spots, output, cpu, 2, 1, 3, multigenics, [], priority)
         draw_spot_gexf(drawn_spots, output, multigenics = multigenics)
 
     logging.getLogger().info(f"File listing RGP and spots where proteins of interest are located : '{output+'/info_input_prot.tsv'}'")
 
-def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, getinfo = False, draw_related = False):
+def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, defrag = False, cpu = 1, getinfo = False, draw_related = False, priority='name,ID'):
     if pangenome.status["geneFamilySequences"] not in ["inFile","Loaded","Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
+    ## could be possible either by picking a representative somehow, or by aligning on genes rather than on families, if they are in the pangenome.
+
     if getinfo:
+        checkLabelPriorityLogic(priority)
         checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True, needSpots=True)
     else:
         checkPangenomeInfo(pangenome, needFamilies=True)
@@ -325,7 +335,7 @@ def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, 
     
 
     if getinfo:
-        getProtInfo(prot2pang, pangenome, output, cpu, draw_related)
+        getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority)
     else:
         partProj = projectPartition(prot2pang, protSet, output)#write the partition assignation only
         logging.getLogger().info(f"proteins partition projection : '{partProj}'")
@@ -340,7 +350,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.proteins is not None:
-        align(pangenome = pangenome, proteinFile = args.proteins, output = args.output, tmpdir = args.tmpdir, identity = args.identity, coverage =args.coverage, defrag =args.defrag,cpu= args.cpu, getinfo =args.getinfo, draw_related = args.draw_related )
+        align(pangenome = pangenome, proteinFile = args.proteins, output = args.output, tmpdir = args.tmpdir, identity = args.identity, coverage =args.coverage, defrag =args.defrag,cpu= args.cpu, getinfo =args.getinfo, draw_related = args.draw_related, priority=args.label_priority )
 
     if args.annotation is not None:
         projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag, args.cpu, args.translation_table, pseudo=args.use_pseudo)
@@ -364,4 +374,5 @@ def alignSubparser(subparser):
     optional.add_argument("--getinfo", required=False, action="store_true",help = "Use this option to extract info related to the best hit of each query, such as the RGP it is in, or the spots.")
     optional.add_argument("--draw_related", required=False, action = "store_true",help = "Draw figures and provide graphs in a gexf format of the eventual spots associated to the input proteins")
     optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to read pseudogenes. (Default behavior is to ignore them)")
+    optional.add_argument("--label_priority", required=False, type=str, default='name,ID', help = "Option to use with --draw_hotspots. Will indicate what to write in the figure labels as a comma-separated list. Order gives priority. Possible values are: name (for gene names), ID (for the gene IDs), family (for the family IDs)")
     return parser
