@@ -563,6 +563,20 @@ def writeModules(output, compress):
 
     logging.getLogger().info(f"Done writing functional modules to: '{output+'/functional_modules.tsv'}'")
 
+def writeOrgModules(output, compress):
+    logging.getLogger().info("Writing modules to organisms associations...")
+    with write_compressed_or_not(output + "/modules_in_organisms.tsv", compress) as fout:
+        fout.write("module_id\torganism\tcompletion\n")
+        for mod in pan.modules:
+            mod_orgs = set()
+            for fam in mod.families:
+                mod_orgs |= fam.organisms
+            for org in mod_orgs:
+                completion = round(len(org.families & mod.families)/len(mod.families),2)
+                fout.write(f"module_{mod.ID}\t{org.name}\t{completion}\n")
+        fout.close()
+    logging.getLogger().info(f"Done writing modules to organisms associations to: '{output+'/modules_in_organisms.tsv'}'")
+
 def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, spots = False, borders=False, modules=False, compress = False):
 
     if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv, modules]):
@@ -623,6 +637,7 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
         if modules:
             processes.append(p.apply_async(func = writeModules, args= (output, compress)))
             processes.append(p.apply_async(func=writeModuleSummary, args=(output, compress)))
+            processes.append(p.apply_async(func=writeOrgModules, args=(output, compress)))
 
         for process in processes:
             process.get()#get all the results
@@ -653,6 +668,6 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--regions", required=False, action = "store_true", help = "Write the RGP in a tab format, one file per genome")
     optional.add_argument("--spots", required=False, action = "store_true", help = "Write spot summary and a list of all RGP in each spot")
     optional.add_argument("--borders", required=False, action = "store_true", help = "List all borders of each spot")
-    optional.add_argument("--modules",required=False, action="store_true", help = "Write a tsv file listing functional modules and the families that belong to them")
+    optional.add_argument("--modules",required=False, action = "store_true", help = "Write a tsv file listing functional modules and the families that belong to them")
     optional.add_argument("--families_tsv", required=False, action = "store_true", help = "Write a tsv file providing the association between genes and gene families")
     return parser
