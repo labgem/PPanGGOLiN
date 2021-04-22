@@ -27,7 +27,9 @@ import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
 import ppanggolin.align
-import ppanggolin.RGP
+import ppanggolin.RGP.genomicIsland
+import ppanggolin.RGP.draw_spot
+import ppanggolin.RGP.spot
 import ppanggolin.mod
 
 def checkTsvSanity(tsv):
@@ -99,6 +101,7 @@ def cmdLine():
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
+    desc += "    drawspot      Draw figures representing genome organizations in spots of insertion\n"
     desc += "    write         Writes 'flat' files representing the pangenome that can be used with other softwares\n"
     desc += "    fasta         Writes fasta files for different elements of the pangenome\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
@@ -129,6 +132,7 @@ def cmdLine():
     subs.append(ppanggolin.align.alignSubparser(subparsers))
     subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
     subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
+    subs.append(ppanggolin.RGP.draw_spot.drawSpotSubparser(subparsers))
     subs.append(ppanggolin.mod.moduleSubparser(subparsers))
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
@@ -214,6 +218,8 @@ def main():
         ppanggolin.workflow.panRGP.launch(args)
     elif args.subcommand == "module":
         ppanggolin.mod.launch(args)
+    elif args.subcommand == 'drawspot':
+        ppanggolin.RGP.draw_spot.launch(args)
 
 if __name__ == "__main__":
     main()
