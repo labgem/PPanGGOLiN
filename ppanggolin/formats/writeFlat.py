@@ -155,7 +155,7 @@ def writeGEXFnodes(gexf, light, soft_core = 0.95):
         l = []
         for gene in fam.genes:
             name[gene.name] +=1
-            product[gene.product] += 1
+            product[gene.product.replace('&','and')] += 1
             gtype[gene.type] += 1
             l.append(gene.stop - gene.start)
 
