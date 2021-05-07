@@ -241,8 +241,8 @@ def checkParameterLogic(overlapping_match, set_size, exact_match, priority):
         raise Exception(f'--exact_match_size_hotspot ({exact_match}) cannot be bigger than --set_size_hotspot ({set_size})')
 
     for p in priority.split(','):
-        if p.lower() not in ["name","id","family"]:
-            raise Exception(f"You have indicated a label which is not supported with --label_priority. You indicated '{p}'. Supported labels are name, id and family")
+        if p.lower() not in ["name","id","family","product"]:
+            raise Exception(f"You have indicated a label which is not supported with --label_priority. You indicated '{p}'. Supported labels are 'name', 'id','product', and 'family'")
 
 def makeColorsForFams(fams):
     famcol = {}
@@ -365,6 +365,10 @@ def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename, priority
                         if gene.name != "":
                             gene_names.append(' ' + gene.name)
                             break
+                    elif p == "product":
+                        if gene.product != "":
+                            gene_names.append(' ' + gene.product)
+                            break
                     elif p == "ID":
                         if gene.local_identifier != "":
                             gene_names.append(' ' + gene.local_identifier)
@@ -425,8 +429,8 @@ def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename):
     try:
         plot_gene_map = robjects.r["plot_gene_map"]
         grdevices = importr('grDevices')
-        grdevices.png(file=filename, width = longest_gene_list * 70, height= len(rdframes) * 60)#pylint: disable=no-member
-        plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, lwd = 4)
+        grdevices.png(file=filename, width = longest_gene_list * 70, height= (len(rdframes)+1) * 100, pointsize=16)#pylint: disable=no-member
+        plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, annotation_height = 5, lwd = 4)
         grdevices.dev_off()#pylint: disable=no-member
     except rpy2.rinterface_lib.embedded.RRuntimeError:
         logging.getLogger().warning(f"{os.path.basename(filename)} cannot be drawn as the spot is probably too large to be rendered")
@@ -505,7 +509,7 @@ def spotSubparser(subparser):
     optional.add_argument("--set_size", required = False, type = int, default = 3, help = "Number of single copy markers to use as flanking genes for a RGP during hotspot computation")
     optional.add_argument("--exact_match_size", required = False, type= int, default = 1, help = "Number of perfecty matching flanking single copy markers required to associate RGPs during hotspot computation (Ex: If set to 1, two RGPs are in the same hotspot if both their 1st flanking genes are the same)")
     optional.add_argument("--interest",required=False, type=str, default="tRNA,integrase",help = "Comma separated list of elements to indicate in figure file names if present whenD drawing hotspots (any text which can be found as 'gene name' or 'product' if annotations were provided). Defaults are 'tRNA' and 'integrase' which are often found near the most dynamic spots of insertion")
-    optional.add_argument("--label_priority", required=False, type=str, default='name,ID', help = "Option to use with --draw_hotspots. Will indicate what to write in the figure labels as a comma-separated list. Order gives priority. Possible values are: name (for gene names), ID (for the gene IDs), family (for the family IDs)")
+    optional.add_argument("--label_priority", required=False, type=str, default='name,ID', help = "Option to use with --draw_hotspots. Will indicate what to write in the figure labels as a comma-separated list. Order gives priority. Possible values are: name (for gene names), ID (for the gene IDs), family (for the family IDs), product (for the product string)")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser
