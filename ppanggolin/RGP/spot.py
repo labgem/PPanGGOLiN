@@ -118,7 +118,7 @@ def checkPangenomeFormerSpots(pangenome, force):
         ErasePangenome(pangenome, spots = True)
 
 
-def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = "", priority="name,ID", show_bar=True):
+def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False, overlapping_match = 2, set_size = 3, exact_match = 1, draw_hotspot = False, interest = "", priority="name,ID", fig_margin=100, show_bar=True):
     #check that given parameters for hotspot computation make sense
     checkParameterLogic(overlapping_match, set_size, exact_match, priority)
     #check for formerly computed stuff, and erase if allowed
@@ -149,7 +149,7 @@ def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False,
         drawn_spots = select_spots(pangenome, spots, elements)
         if len(drawn_spots)>0:
             logging.getLogger().info(f"Drawing {len(drawn_spots)} spots...")
-            draw_spots(drawn_spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, priority, show_bar=show_bar)
+            draw_spots(drawn_spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, priority, fig_margin, show_bar=show_bar)
         else:
             logging.getLogger().warning("No spot has enough variability to be drawn in a meaningful figure")
     pangenome.addSpots(spots)
@@ -425,17 +425,17 @@ def drawCurrSpot(genelists, ordered_counts, elements, famCol, filename, priority
     Rdna_segs = robjects.ListVector(rdframes)
     return Rdna_segs, Rannot, rdframes, longest_gene_list, filename
 
-def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename):
+def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename, fig_margin):
     try:
         plot_gene_map = robjects.r["plot_gene_map"]
         grdevices = importr('grDevices')
-        grdevices.png(file=filename, width = longest_gene_list * 70, height= (len(rdframes)+1) * 100, pointsize=16)#pylint: disable=no-member
+        grdevices.png(file=filename, width = longest_gene_list * 80, height= (len(rdframes)+1) * fig_margin, pointsize=16)#pylint: disable=no-member
         plot_gene_map(dna_segs = Rdna_segs, annotations=Rannot, annotation_height = 5, lwd = 4)
         grdevices.dev_off()#pylint: disable=no-member
     except rpy2.rinterface_lib.embedded.RRuntimeError:
         logging.getLogger().warning(f"{os.path.basename(filename)} cannot be drawn as the spot is probably too large to be rendered")
 
-def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, priority, show_bar=False):
+def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, priority, fig_margin, show_bar=False):
     logging.getLogger().info("Selecting and ordering genes among regions...")
     bar = tqdm(range(len(spots)), unit = "spot", disable = not show_bar)
     spots_to_draw = []
@@ -482,7 +482,7 @@ def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, mul
         GeneLists, ordered_counts = orderGeneLists(GeneLists, ordered_counts, overlapping_match, exact_match, set_size)
         fname = output + '/spot_' + str(spot.ID)
         # spots_to_draw.append((GeneLists, ordered_counts, elements, famcol, fname))
-        spots_to_draw.append(drawCurrSpot(GeneLists, ordered_counts, elements, famcol, fname, priority))#make R dataframes, and plot them using genoPlotR.
+        spots_to_draw.append(drawCurrSpot(GeneLists, ordered_counts, elements, famcol, fname, priority) + (fig_margin,))#make R dataframes, and plot them using genoPlotR.
         bar.update()
     logging.getLogger().info("Drawing spots...")
     bar = tqdm(spots_to_draw, unit = "spot drawn", disable=not show_bar)
@@ -495,7 +495,7 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     if args.spot_graph or args.draw_hotspots:
         mkOutdir(args.output, args.force)
-    predictHotspots(pangenome, args.output, force=args.force, cpu = args.cpu, spot_graph=args.spot_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest, priority=args.label_priority, show_bar=args.show_prog_bars)
+    predictHotspots(pangenome, args.output, force=args.force, cpu = args.cpu, spot_graph=args.spot_graph, overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size, draw_hotspot=args.draw_hotspots, interest=args.interest, priority=args.label_priority, fig_margin=args.fig_margin, show_bar=args.show_prog_bars)
     writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
 
 
@@ -510,6 +510,7 @@ def spotSubparser(subparser):
     optional.add_argument("--exact_match_size", required = False, type= int, default = 1, help = "Number of perfecty matching flanking single copy markers required to associate RGPs during hotspot computation (Ex: If set to 1, two RGPs are in the same hotspot if both their 1st flanking genes are the same)")
     optional.add_argument("--interest",required=False, type=str, default="tRNA,integrase",help = "Comma separated list of elements to indicate in figure file names if present whenD drawing hotspots (any text which can be found as 'gene name' or 'product' if annotations were provided). Defaults are 'tRNA' and 'integrase' which are often found near the most dynamic spots of insertion")
     optional.add_argument("--label_priority", required=False, type=str, default='name,ID', help = "Option to use with --draw_hotspots. Will indicate what to write in the figure labels as a comma-separated list. Order gives priority. Possible values are: name (for gene names), ID (for the gene IDs), family (for the family IDs), product (for the product string)")
+    optional.add_argument("--fig_margin",required=False, type=int, default=100, help = "Option to use with --draw_hotspots. Length of margin between regions in px.")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser
