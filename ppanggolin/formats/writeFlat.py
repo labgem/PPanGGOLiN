@@ -577,9 +577,33 @@ def writeOrgModules(output, compress):
         fout.close()
     logging.getLogger().info(f"Done writing modules to organisms associations to: '{output+'/modules_in_organisms.tsv'}'")
 
-def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, spots = False, borders=False, modules=False, compress = False):
+def writeSpotModules(output, compress):
+    logging.getLogger().info("Writing modules to spot associations...")
 
-    if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv, modules]):
+    fam2mod = {}
+    for mod in pan.modules:
+        for fam in mod.families:
+            fam2mod[fam] = mod
+
+    with write_compressed_or_not(output + "/modules_spots.tsv", compress) as fout:
+        fout.write("module_id\tspot_id\n")
+
+        for spot in pan.spots:
+            curr_mods = set()
+            for rgp in spot.regions:
+                for fam in rgp.families:
+                    mod = fam2mod.get(fam)
+                    if mod is not None:
+                        curr_mods.add(mod)
+
+            for mod in curr_mods:
+                fout.write(f"module_{mod.ID}\tspot_{spot.ID}\n")
+
+    logging.getLogger().info(f"Done writing module to spot associations to: {output + '/modules_spots.tsv'}")
+
+def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, spots = False, borders=False, modules=False, spot_modules=False, compress = False):
+
+    if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv, modules, spot_modules]):
         raise Exception("You did not indicate what file you wanted to write.")
 
     global pan
@@ -593,18 +617,18 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
     needRegions = False
     needModules = False
 
-    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv  or borders or modules:
+    if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or families_tsv  or borders or modules or spot_modules:
         needAnnotations = True 
         needFamilies = True
     if projection or stats or partitions or regions or spots or borders:
         needPartitions = True
     if gexf or light_gexf or json:
         needGraph = True
-    if regions or spots or borders:
+    if regions or spots or borders or spot_modules:
         needRegions = True
-    if spots or borders:
+    if spots or borders or spot_modules:
         needSpots = True
-    if modules:
+    if modules or spot_modules:
         needModules = True
 
     checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots, needModules=needModules)
@@ -638,6 +662,8 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
             processes.append(p.apply_async(func = writeModules, args= (output, compress)))
             processes.append(p.apply_async(func=writeModuleSummary, args=(output, compress)))
             processes.append(p.apply_async(func=writeOrgModules, args=(output, compress)))
+        if spot_modules:
+            processes.append(p.apply_async(func = writeSpotModules, args= (output, compress)))
 
         for process in processes:
             process.get()#get all the results
@@ -646,7 +672,7 @@ def launchFlat(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, modules=args.modules, compress=args.compress)
+    writeFlatFiles(pangenome, args.output,cpu= args.cpu, soft_core=args.soft_core,dup_margin= args.dup_margin,csv= args.csv,genePA= args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions, families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, modules=args.modules, spot_modules=args.spot_modules, compress=args.compress)
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -670,4 +696,5 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--borders", required=False, action = "store_true", help = "List all borders of each spot")
     optional.add_argument("--modules",required=False, action = "store_true", help = "Write a tsv file listing functional modules and the families that belong to them")
     optional.add_argument("--families_tsv", required=False, action = "store_true", help = "Write a tsv file providing the association between genes and gene families")
+    optional.add_argument("--spot_modules", required=False, action="store_true", help = "writes 3 files comparing the presence of modules within spots")
     return parser
