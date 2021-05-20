@@ -589,15 +589,16 @@ def writeSpotModules(output, compress):
         fout.write("module_id\tspot_id\n")
 
         for spot in pan.spots:
-            curr_mods = set()
-            for rgp in spot.regions:
+            curr_mods = defaultdict(set)
+            for rgp in spot.getUniqContent():
                 for fam in rgp.families:
                     mod = fam2mod.get(fam)
                     if mod is not None:
-                        curr_mods.add(mod)
+                        curr_mods[mod].add(fam)
 
             for mod in curr_mods:
-                fout.write(f"module_{mod.ID}\tspot_{spot.ID}\n")
+                if curr_mods[mod] == mod.families:#if all of the families in the module are found in the spot, write the association
+                    fout.write(f"module_{mod.ID}\tspot_{spot.ID}\n")
 
     logging.getLogger().info(f"Done writing module to spot associations to: {output + '/modules_spots.tsv'}")
 
