@@ -607,7 +607,7 @@ def writeRGPModules(output, compress):
 
 
     lists =  write_compressed_or_not(output+"/modules_RGP_lists.tsv",compress)
-    lists.write("RGP_id\tnb_spots\tmod_list\tRGP_list\n")
+    lists.write("representative_RGP\tnb_spots\tmod_list\tRGP_list\n")
     fam2mod = {}
     for mod in pan.modules:
         for fam in mod.families:
@@ -626,8 +626,8 @@ def writeRGPModules(output, compress):
             mod = fam2mod.get(fam)
             if mod is not None:
                 curr_mod_list.add(mod)
-
-        mod_group2rgps[frozenset(curr_mod_list)].append(region)
+        if curr_mod_list != set():
+            mod_group2rgps[frozenset(curr_mod_list)].append(region)
 
     for mod_list, regions in mod_group2rgps.items():
         spot_list = set()
@@ -635,7 +635,7 @@ def writeRGPModules(output, compress):
             myspot = region2spot.get(region)
             if myspot is not None:
                 spot_list.add(region2spot[region])
-        lists.write(f"{regions[0].name}\t{','.join(['module_' + str(mod.ID) for mod in mod_list])}\t{','.join([reg.name for reg in regions])}\n")
+        lists.write(f"{regions[0].name}\t{len(spot_list)}\t{','.join(['module_' + str(mod.ID) for mod in mod_list])}\t{','.join([reg.name for reg in regions])}\n")
 
     lists.close()
 
