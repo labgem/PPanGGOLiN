@@ -602,6 +602,45 @@ def writeSpotModules(output, compress):
 
     logging.getLogger().info(f"Done writing module to spot associations to: {output + '/modules_spots.tsv'}")
 
+def writeRGPModules(output, compress):
+    logging.getLogger().info("Clustering RGPs based on module content...")
+
+
+    lists =  write_compressed_or_not(output+"/modules_RGP_lists.tsv",compress)
+    lists.write("RGP_id\tnb_spots\tmod_list\tRGP_list\n")
+    fam2mod = {}
+    for mod in pan.modules:
+        for fam in mod.families:
+            fam2mod[fam] = mod
+
+    region2spot = {}
+    for spot in pan.spots:
+        for region in spot.regions:
+            region2spot[region] = spot
+
+    mod_group2rgps = defaultdict(list)
+
+    for region in pan.regions:
+        curr_mod_list = set()
+        for fam in region.families:
+            mod = fam2mod.get(fam)
+            if mod is not None:
+                curr_mod_list.add(mod)
+
+        mod_group2rgps[frozenset(curr_mod_list)].append(region)
+
+    for mod_list, regions in mod_group2rgps.items():
+        spot_list = set()
+        for region in regions:
+            myspot = region2spot.get(region)
+            if myspot is not None:
+                spot_list.add(region2spot[region])
+        lists.write(f"{regions[0].name}\t{','.join(['module_' + str(mod.ID) for mod in mod_list])}\t{','.join([reg.name for reg in regions])}\n")
+
+    lists.close()
+
+    logging.getLogger().info(f"RGP and associated modules are listed in : {output + '/modules_RGP_lists.tsv'}")
+
 def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.05, csv=False, genePA = False, gexf = False, light_gexf = False, projection = False, stats = False, json = False, partitions=False,regions = False, families_tsv = False, spots = False, borders=False, modules=False, spot_modules=False, compress = False):
 
     if not any(x for x in [csv, genePA, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders, families_tsv, modules, spot_modules]):
@@ -656,15 +695,16 @@ def writeFlatFiles(pangenome, output, cpu = 1, soft_core = 0.95, dup_margin = 0.
         if regions:
             processes.append(p.apply_async(func = writeRegions, args = (output, compress)))
         if spots:
-            processes.append(p.apply_async(func = writeSpots, args=(output, compress)))
+            processes.append(p.apply_async(func = writeSpots, args =(output, compress)))
         if borders:
-            processes.append(p.apply_async(func=writeBorders, args=(output, dup_margin, compress)))
+            processes.append(p.apply_async(func = writeBorders, args =(output, dup_margin, compress)))
         if modules:
-            processes.append(p.apply_async(func = writeModules, args= (output, compress)))
-            processes.append(p.apply_async(func=writeModuleSummary, args=(output, compress)))
-            processes.append(p.apply_async(func=writeOrgModules, args=(output, compress)))
+            processes.append(p.apply_async(func = writeModules, args = (output, compress)))
+            processes.append(p.apply_async(func = writeModuleSummary, args = (output, compress)))
+            processes.append(p.apply_async(func = writeOrgModules, args = (output, compress)))
         if spot_modules:
-            processes.append(p.apply_async(func = writeSpotModules, args= (output, compress)))
+            processes.append(p.apply_async(func = writeSpotModules, args = (output, compress)))
+            processes.append(p.apply_async(func = writeRGPModules, args = (output, compress)))
 
         for process in processes:
             process.get()#get all the results
