@@ -41,7 +41,7 @@ def launch(args):
             clustering(pangenome, tmpdir = args.tmpdir, cpu = args.cpu, defrag = not args.no_defrag, show_bar=args.show_prog_bars)
     elif args.fasta is not None:
         pangenome = Pangenome()
-        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, show_bar=args.show_prog_bars)
+        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, contig_filter=args.contig_filter, show_bar=args.show_prog_bars)
         writePangenome(pangenome, filename, args.force,show_bar=args.show_prog_bars)
         clustering(pangenome, tmpdir = args.tmpdir,cpu = args.cpu, defrag = not args.no_defrag,show_bar=args.show_prog_bars)
 
@@ -76,4 +76,5 @@ def workflowSubparser(subparser):
     optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 3. If under 3, it will be detected automatically.")
     optional.add_argument("--defrag", required=False, action = "store_true", help = argparse.SUPPRESS)##This ensures compatibility with workflows built with the old option "defrag" when it was not the default
     optional.add_argument("--no_defrag",required=False, action="store_true", help = "DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
+    optional.add_argument("--contig_filter",required=False, default=0, type=int, help = "remove contigs that are smaller than this length")
     return parser

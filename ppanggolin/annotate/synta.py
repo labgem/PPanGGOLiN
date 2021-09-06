@@ -129,7 +129,7 @@ def launch_infernal(fnaFile, org, kingdom, tmpdir):
 
     return geneObjs
 
-def read_fasta(org, fnaFile):
+def read_fasta(org, fnaFile, contig_filter):
     """
         Reads a fna file  (or stream, or string) and stores it in a dictionnary with contigs as key and sequence as value.
     """
@@ -139,14 +139,14 @@ def read_fasta(org, fnaFile):
         contig = None
         for line in fnaFile:
             if line.startswith('>'):
-                if contig_seq != "":
+                if len(contig_seq) >= contig_filter:
                     contigs[contig.name] = contig_seq.upper()
                 contig_seq = ""
                 contig = org.getOrAddContig(line.split()[0][1:])
             else:
                 contig_seq += line.strip()
         # processing the last contig
-        if contig_seq != "":
+        if len(contig_seq) >= contig_filter:
             contigs[contig.name] = contig_seq.upper()
     except AttributeError as e:
         raise AttributeError(f"{e}\nAn error was raised when reading file: '{fnaFile.name}'. One possibility for this error is that the file did not start with a '>' as it would be expected from a fna file.")
@@ -221,14 +221,14 @@ def get_dna_sequence(contigSeq, gene):
     elif gene.strand == "-":
         return reverse_complement(contigSeq[gene.start-1:gene.stop])
 
-def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna, tmpdir, overlap):
+def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna, tmpdir, overlap, contig_filter):
     """
         Function to annotate a single organism
     """
     org = Organism(orgName)
 
     fastaFile = read_compressed_or_not(fileName)
-    contigSequences = read_fasta(org, fastaFile)
+    contigSequences = read_fasta(org, fastaFile, contig_filter)
     if is_compressed(fileName):
         fastaFile = write_tmp_fasta(contigSequences, tmpdir)
 

@@ -392,7 +392,7 @@ def getGeneSequencesFromFastas(pangenome, fasta_file):
 def launchAnnotateOrganism(pack):
     return annotate_organism(*pack)
 
-def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11", kingdom = "bacteria", norna=False,  overlap=True, show_bar = True):
+def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11", kingdom = "bacteria", norna=False,  overlap=True,contig_filter=1, show_bar = True):
     logging.getLogger().info(f"Reading {fastaList} the list of organism files")
 
     arguments = []
@@ -401,7 +401,7 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
         if len(elements)<=1:
             logging.getLogger().error("No tabulation separator found in organisms file")
             exit(1)
-        arguments.append((elements[0], elements[1], elements[2:], translation_table, kingdom, norna, tmpdir, overlap))
+        arguments.append((elements[0], elements[1], elements[2:], translation_table, kingdom, norna, tmpdir, overlap, contig_filter))
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
@@ -422,13 +422,14 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
     pangenome.parameters["annotation"]["annotate_RNA"] = True if not norna else False
     pangenome.parameters["annotation"]["kingdom"] = kingdom
     pangenome.parameters["annotation"]["translation_table"] = translation_table
+    pangenome.parameters["annotation"]["contig_filter"] = contig_filter
     pangenome.parameters["annotation"]["read_annotations_from_file"] = False
 
 def launch(args):
     filename = mkFilename(args.basename, args.output, args.force)
     pangenome = Pangenome()
     if args.fasta is not None and args.anno is None:
-        annotatePangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, translation_table=args.translation_table,  kingdom=args.kingdom,  norna=args.norna, overlap=args.overlap, show_bar=args.show_prog_bars)
+        annotatePangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, translation_table=args.translation_table,  kingdom=args.kingdom,  norna=args.norna, overlap=args.overlap, contig_filter = args.contig_filter, show_bar=args.show_prog_bars)
     elif args.anno is not None:
         readAnnotations(pangenome, args.anno, cpu = args.cpu, pseudo = args.use_pseudo, show_bar=args.show_prog_bars)
         if pangenome.status["geneSequences"] == "No":
@@ -455,4 +456,6 @@ def syntaSubparser(subparser):
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
     optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to read pseudogenes. (Default behavior is to ignore them)")
+    optional.add_argument("--contig_filter",required=False, default=0, type=int, help = "remove contigs that are smaller than this length")
+
     return parser
