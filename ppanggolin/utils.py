@@ -103,3 +103,9 @@ def restricted_float(x):
     if x < 0.0 or x > 1.0:
         raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
     return x
+
+def min_one(x):
+    x = int(x)
+    if x < 1:
+        raise argparse.ArgumentTypeError("%r is inferior to 1"%(x,))
+    return x
