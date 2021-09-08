@@ -77,7 +77,7 @@ def launch(args):
     regions_time = time.time() - start_regions
 
     start_spots = time.time()
-    predictHotspots(pangenome, args.output, interest=args.interest, show_bar=args.show_prog_bars)
+    predictHotspots(pangenome, args.output, show_bar=args.show_prog_bars)
     spot_time = time.time() - start_spots
 
     start_mods = time.time()
