@@ -131,13 +131,18 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, pseudo = False):
                             usefulInfo = True
                             if line[21:].startswith('complement('):
                                 strand = "-"
-                                start, end = line[32:].replace(
+                                start, end = line[32:].strip().replace(
                                     ')', '').split("..")
                             else:
                                 strand = "+"
                                 start, end = line[21:].strip().split('..')
-                            if '>' in start or '<' in start or '>' in end or '<' in end:
-                                usefulInfo = False
+                            if ('>' in start or '<' in start or '>' in end or '<' in end):
+                                if not pseudo:
+                                    #pseudogene likely
+                                    usefulInfo = False
+                                else:
+                                    start = start.replace('>','').replace('<','')
+                                    end = end.replace('>','').replace('<','')
                     except ValueError:
                         pass
                         #don't know what to do with that, ignoring for now.
@@ -161,11 +166,11 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, pseudo = False):
                         while line.count('"') != 1:
                             line = lines.pop()
                             product += line.strip().replace('"', '')
-                #if it's a pseudogene, we're not keeping it.
+                #if it's a pseudogene, we're not keeping it, unless pseudo
                 elif line[21:].startswith("/pseudo") and not pseudo:
                     usefulInfo = False
                 #that's probably a 'stop' codon into selenocystein.
-                elif line[21:].startswith("/transl_except"):
+                elif line[21:].startswith("/transl_except") and not pseudo:
                     usefulInfo = False
             line = lines.pop()
             #end of contig
@@ -245,7 +250,7 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo = Fal
                     fields = [el.strip() for el in line.split()]
                     contig = org.getOrAddContig(fields[1], True if fields[1] in circular_contigs else False)
                 continue
-            elif line.startswith('#!',0,2):## special refseq comment lines for versionning softs, assemblies and annotations.
+            elif line.startswith('#'):## comment lines to be ignores by parsers
                 continue
             elif line == "":#empty lines are not expected, but they do not carry information so we'll ignore them
                 continue
@@ -357,6 +362,7 @@ def readAnnotations(pangenome, organisms_file, cpu, getSeq = True, pseudo = Fals
 
     pangenome.status["genomesAnnotated"] = "Computed"
     pangenome.parameters["annotation"] = {}
+    pangenome.parameters["annotation"]["read_pseudogenes"] = pseudo
     pangenome.parameters["annotation"]["read_annotations_from_file"] = True
 
 def getGeneSequencesFromFastas(pangenome, fasta_file):

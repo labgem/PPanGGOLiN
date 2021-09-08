@@ -159,9 +159,10 @@ def predictHotspots(pangenome, output, force=False, cpu = 1, spot_graph = False,
     pangenome.parameters["spots"]["overlapping_match"] = overlapping_match
     pangenome.parameters["spots"]["exact_match"] = exact_match
 
-def subgraph(spot, output, filename, with_border=True, set_size=3, multigenics = None):
+def subgraph(spot, output, filename, with_border=True, set_size=3, multigenics = None, fam2mod = None):
         """ write a pangenome subgraph of the gene families of a spot in gexf format"""
         g = nx.Graph()
+
         for rgp in spot.regions:
             if with_border:
                 borders = rgp.getBorderingGenes(set_size, multigenics)
@@ -174,6 +175,10 @@ def subgraph(spot, output, filename, with_border=True, set_size=3, multigenics =
             prev = None
             for gene in GeneList:
                 g.add_node(gene.family.name, partition = gene.family.namedPartition)
+                if fam2mod is not None:
+                    curr_mod = fam2mod.get(gene.family)
+                    if curr_mod is not None:
+                        g.nodes[gene.family.name]["module"] = curr_mod.ID
                 try:
                     g.nodes[gene.family.name]["occurrence"] += 1
                 except KeyError:

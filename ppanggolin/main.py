@@ -28,6 +28,7 @@ import ppanggolin.formats
 import ppanggolin.info
 import ppanggolin.align
 import ppanggolin.RGP
+import ppanggolin.mod
 
 def checkTsvSanity(tsv):
     f = open(tsv,"r")
@@ -103,9 +104,10 @@ def cmdLine():
     desc += "    info          Prints information about a given pangenome graph file\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
-    desc += "    align         Aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
-    desc += "    rgp           Predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
-    desc += "    spot          Predicts spots in your pangenome\n"
+    desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
+    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
+    desc += "    spot         predicts spots in your pangenome\n"
+    desc += "    module       Predicts functional modules in your pangenome\t"
 
     parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
@@ -127,6 +129,7 @@ def cmdLine():
     subs.append(ppanggolin.align.alignSubparser(subparsers))
     subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
     subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
+    subs.append(ppanggolin.mod.moduleSubparser(subparsers))
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
     for sub in subs:#add options common to all subcommands
@@ -209,6 +212,8 @@ def main():
         ppanggolin.RGP.spot.launch(args)
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
+    elif args.subcommand == "module":
+        ppanggolin.mod.launch(args)
 
 if __name__ == "__main__":
     main()
