@@ -7,6 +7,7 @@ from collections.abc import Iterable
 
 #local libraries
 from ppanggolin.genome import Organism, Gene
+from ppanggolin.geneFamily import GeneFamily
 
 class Region:
     def __init__(self, ID):
@@ -128,7 +129,6 @@ class Region:
                 break#looped around the contig
         return border
 
-
 class Spot:
     def __init__(self, ID):
         self.ID = ID
@@ -137,6 +137,13 @@ class Spot:
         self._compOrderedSet = False
         self._uniqContent = {}
         self._compContent = False
+
+    @property
+    def families(self):
+        union = set()
+        for region in self.regions:
+            union |= region.families
+        return union
 
     def addRegions(self, regions):
         """ Adds region(s) contained in an Iterable to the spot which all have the same bordering persistent genes provided with 'borders'"""
@@ -227,3 +234,20 @@ class Spot:
     def countUniqOrderedSet(self):
         """ Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value"""
         return dict([ (key, len(val)) for key, val in self._getOrderedSet().items()])
+
+class Module:
+    def __init__(self, ID, families=None):
+        """'core' are gene families that define the module.
+        'associated_families' are gene families that you believe are associated to the module in some way, but do not define it.
+        """
+        self.ID = ID
+        self.families = set()
+        if families is not None:
+            if not all(isinstance(fam, GeneFamily) for fam in families):
+                raise Exception(f"You provided elements that were not GeneFamily object. Modules are only made of GeneFamily")
+            self.families |= set(families)
+
+    def addFamily(self, family):
+        if not isinstance(family, GeneFamily):
+            raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
+        self.families.add(family)
