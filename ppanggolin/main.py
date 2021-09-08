@@ -23,6 +23,8 @@ import ppanggolin.annotate
 import ppanggolin.cluster
 import ppanggolin.workflow.workflow
 import ppanggolin.workflow.panRGP
+import ppanggolin.workflow.panModule
+import ppanggolin.workflow.all
 import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
@@ -86,8 +88,10 @@ def cmdLine():
     desc += "  ppanggolin <subcommand> -h\n"
     desc += "\n"
     desc += "  Basic:\n"
+    desc += "    all           Easy workflow to run all possible analysis\n"
     desc += "    workflow      Easy workflow to run a pangenome analysis in one go\n"
     desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection\n"
+    desc += "    panmodule     Easy workflow to run a pangenome analysis with module prediction\n"
     desc += "  \n"
     desc += "  Expert:\n"
     desc += "    annotate      Annotate genomes\n"
@@ -122,6 +126,8 @@ def cmdLine():
     subs.append(ppanggolin.nem.rarefaction.rarefactionSubparser(subparsers))
     subs.append(ppanggolin.workflow.workflow.workflowSubparser(subparsers))
     subs.append(ppanggolin.workflow.panRGP.panRGPSubparser(subparsers))
+    subs.append(ppanggolin.workflow.panModule.panModuleSubparser(subparsers))
+    subs.append(ppanggolin.workflow.all.allSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
     subs.append(ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers))
@@ -214,6 +220,10 @@ def main():
         ppanggolin.workflow.panRGP.launch(args)
     elif args.subcommand == "module":
         ppanggolin.mod.launch(args)
+    elif args.subcommand == "panmodule":
+        ppanggolin.workflow.panModule.launch(args)
+    elif args.subcommand == "all":
+        ppanggolin.workflow.all.launch(args)
 
 if __name__ == "__main__":
     main()

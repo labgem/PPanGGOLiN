@@ -45,12 +45,12 @@ jobs:
     - name: Unit tests
       shell: bash -l {0}
       run: pytest
-    # Test a basic workflow
-    - name: Basic panrgp workflow
+    # Test the complete workflow
+    - name: Complete workflow
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin panrgp --cpu 1 --fasta organisms.fasta.list --output mybasicpangenome
+        ppanggolin all --cpu 1 --fasta organisms.fasta.list --output mybasicpangenome
         ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status
         cd -
     # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
