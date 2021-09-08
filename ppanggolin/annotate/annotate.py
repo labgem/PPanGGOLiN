@@ -131,7 +131,7 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, pseudo = False):
                             usefulInfo = True
                             if line[21:].startswith('complement('):
                                 strand = "-"
-                                start, end = line[32:].replace(
+                                start, end = line[32:].strip().replace(
                                     ')', '').split("..")
                             else:
                                 strand = "+"
@@ -166,11 +166,11 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, pseudo = False):
                         while line.count('"') != 1:
                             line = lines.pop()
                             product += line.strip().replace('"', '')
-                #if it's a pseudogene, we're not keeping it.
+                #if it's a pseudogene, we're not keeping it, unless pseudo
                 elif line[21:].startswith("/pseudo") and not pseudo:
                     usefulInfo = False
                 #that's probably a 'stop' codon into selenocystein.
-                elif line[21:].startswith("/transl_except"):
+                elif line[21:].startswith("/transl_except") and not pseudo:
                     usefulInfo = False
             line = lines.pop()
             #end of contig
