@@ -276,10 +276,10 @@ def getFam2spot(pangenome, output, multigenics):
 def add_spot_str(a):
     return "spot_" + str(a.ID)
 
-def draw_spot_gexf(spots, output, multigenics, set_size = 3):
+def draw_spot_gexf(spots, output, multigenics, fam2mod, set_size = 3):
     for spot in spots:
         fname = "spot_" + str(spot.ID) + ".gexf"
-        subgraph(spot,output, fname, set_size=set_size, multigenics=multigenics)
+        subgraph(spot,output, fname, set_size=set_size, multigenics=multigenics, fam2mod = fam2mod)
 
 def checkLabelPriorityLogic(priority):
     for p in priority.split(','):
@@ -307,7 +307,15 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
                 drawn_spots.add(spot)
         logging.getLogger().info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization related to hits of the input proteins...")
         draw_spots(drawn_spots, output, cpu, 2, 1, 3, multigenics, [], priority)
-        draw_spot_gexf(drawn_spots, output, multigenics = multigenics)
+
+        #fam2module
+        fam2mod = {}
+        if pangenome.parameters["modules"] != "No":
+            for mod in pangenome.modules:
+                for fam in mod.families:
+                    fam2mod[fam] = mod
+
+        draw_spot_gexf(drawn_spots, output, multigenics = multigenics, fam2mod = fam2mod)
 
     logging.getLogger().info(f"File listing RGP and spots where proteins of interest are located : '{output+'/info_input_prot.tsv'}'")
 
@@ -318,7 +326,10 @@ def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, 
 
     if getinfo:
         checkLabelPriorityLogic(priority)
-        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True, needSpots=True)
+        needMod = False
+        if pangenome.parameters["modules"] != "No":#modules are not required to be loaded, but if they have been computed we load them.
+            needMod = True
+        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True, needSpots=True, needModules = needMod)
     else:
         checkPangenomeInfo(pangenome, needFamilies=True)
 

@@ -14,6 +14,8 @@ from ppanggolin.utils import write_compressed_or_not, mkOutdir, read_compressed_
 from ppanggolin.formats import checkPangenomeInfo, getGeneSequencesFromFile
 from ppanggolin.annotate import detect_filetype
 
+poss_values_log = "Possible values are 'all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', 'module_X' with X being a module id."
+
 def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, show_bar = True):
     """
         Writes the CDS sequences of the Pangenome object to a tmpFile object
@@ -79,7 +81,14 @@ def selectFamilies(pangenome, partition, type_name, soft_core):
         for fam in pangenome.geneFamilies:
             if len(fam.organisms) == pangenome.number_of_organisms():
                 genefams.add(fam)
-
+    elif "module_" in partition:
+        logging.getLogger().info(f"Writing the representation {type_name} of {partition} gene families...")
+        modID = int(partition.replace("module_",""))
+        for mod in pangenome.modules:
+            #could be way more efficient with a dict structure instead of a set
+            if mod.ID == modID:
+                genefams |= mod.families
+                break
     return genefams
 
 
@@ -216,6 +225,7 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, soft_cor
     needPartitions = False
     needSpots = False
     needRegions = False
+    needModules = False
 
     if any(x is not None for x in [regions, genes, gene_families, prot_families]):
         needAnnotations=True
@@ -224,16 +234,32 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, soft_cor
         needRegions= True
     if any(x in ["persistent","shell","cloud"] for x in (genes, gene_families, prot_families)):
         needPartitions=True
+    for x in (genes, gene_families, prot_families):
+        if x is not None:
+            if 'module_' in x:
+                needModules = True
 
-    #need to deal with sequence-related flags outside of checkPangenomeInfo since 
+    if not (needAnnotations or needFamilies or needGraph or needPartitions or needSpots or needRegions or needModules):
+        #then nothing is needed, then something is wrong.
+        #find which filter was provided
+        provided_filter = ''
+        if genes is not None:
+            provided_filter = genes
+        if gene_families is not None:
+            provided_filter = gene_families
+        if prot_families is not None:
+            provided_filter = prot_families
+        if regions is not None:
+            provided_filter = regions
+        raise Exception(f"The filter that you indicated '{provided_filter}' was not understood by PPanGGOLiN. {poss_values_log}")
     ex_geneSequences = Exception("The provided pangenome has no gene sequences. This is not compatible with any of the following options : --genes, --gene_families")
     ex_geneFamilySequences = Exception("The provided pangenome has no gene families. This is not compatible with any of the following options : --prot_families, --gene_families")
     if not pangenome.status["geneSequences"] in ["inFile"] and (genes or gene_families):
         raise ex_geneSequences
     if not pangenome.status["geneFamilySequences"] in ["Loaded","Computed","inFile"] and prot_families:
         raise ex_geneFamilySequences
-    
-    checkPangenomeInfo(pangenome, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots)
+
+    checkPangenomeInfo(pangenome, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots, needModules=needModules)
 
     if prot_families is not None:
         writeFastaProtFam(pangenome, output, compress, prot_families, soft_core=soft_core, show_bar=show_bar)
@@ -270,9 +296,9 @@ def writeSequenceSubparser(subparser):
     optional = parser.add_argument_group(title = "Optional arguments. Indicating 'all' writes all elements. Writing a partition ('persistent', 'shell' or 'cloud') write the elements associated to said partition. Writing 'rgp' writes elements associated to RGPs.")
     ##could make choice to allow customization
     optional.add_argument("--regions", required=False, choices=["all","complete"], help = "Write the RGP nucleotide sequences (requires --anno or --fasta used to compute the pangenome to be given)")
-    optional.add_argument("--genes", required=False,choices=["all","persistent","shell","cloud","rgp","softcore","core"], help = "Write all nucleotide CDS sequences")
-    optional.add_argument("--prot_families", required=False, choices=["all","persistent","shell","cloud","rgp","softcore","core"], help = "Write representative amino acid sequences of gene families")
-    optional.add_argument("--gene_families", required=False, choices=["all","persistent","shell","cloud","rgp","softcore","core"], help = "Write representative nucleotide sequences of gene families")
+    optional.add_argument("--genes", required=False, help = f"Write all nucleotide CDS sequences. {poss_values_log}")
+    optional.add_argument("--prot_families", required=False, help = f"Write representative amino acid sequences of gene families. {poss_values_log}")
+    optional.add_argument("--gene_families", required=False, help = f"Write representative nucleotide sequences of gene families. {poss_values_log}")
     optional.add_argument("--soft_core",required=False, type=restricted_float, default = 0.95, help = "Soft core threshold to use if 'softcore' partition is chosen")
     optional.add_argument("--compress",required=False, action="store_true",help="Compress the files in .gz")
     return parser

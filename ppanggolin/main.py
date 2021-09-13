@@ -23,11 +23,14 @@ import ppanggolin.annotate
 import ppanggolin.cluster
 import ppanggolin.workflow.workflow
 import ppanggolin.workflow.panRGP
+import ppanggolin.workflow.panModule
+import ppanggolin.workflow.all
 import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
 import ppanggolin.align
 import ppanggolin.RGP
+import ppanggolin.mod
 
 def checkTsvSanity(tsv):
     f = open(tsv,"r")
@@ -85,8 +88,10 @@ def cmdLine():
     desc += "  ppanggolin <subcommand> -h\n"
     desc += "\n"
     desc += "  Basic:\n"
+    desc += "    all           Easy workflow to run all possible analysis\n"
     desc += "    workflow      Easy workflow to run a pangenome analysis in one go\n"
     desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection\n"
+    desc += "    panmodule     Easy workflow to run a pangenome analysis with module prediction\n"
     desc += "  \n"
     desc += "  Expert:\n"
     desc += "    annotate      Annotate genomes\n"
@@ -103,9 +108,10 @@ def cmdLine():
     desc += "    info          Prints information about a given pangenome graph file\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
-    desc += "    align         Aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
-    desc += "    rgp           Predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
-    desc += "    spot          Predicts spots in your pangenome\n"
+    desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
+    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
+    desc += "    spot         predicts spots in your pangenome\n"
+    desc += "    module       Predicts functional modules in your pangenome\t"
 
     parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
@@ -120,6 +126,8 @@ def cmdLine():
     subs.append(ppanggolin.nem.rarefaction.rarefactionSubparser(subparsers))
     subs.append(ppanggolin.workflow.workflow.workflowSubparser(subparsers))
     subs.append(ppanggolin.workflow.panRGP.panRGPSubparser(subparsers))
+    subs.append(ppanggolin.workflow.panModule.panModuleSubparser(subparsers))
+    subs.append(ppanggolin.workflow.all.allSubparser(subparsers))
     subs.append(ppanggolin.figures.figureSubparser(subparsers))
     subs.append(ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers))
     subs.append(ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers))
@@ -127,6 +135,7 @@ def cmdLine():
     subs.append(ppanggolin.align.alignSubparser(subparsers))
     subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
     subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
+    subs.append(ppanggolin.mod.moduleSubparser(subparsers))
     ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
 
     for sub in subs:#add options common to all subcommands
@@ -209,6 +218,12 @@ def main():
         ppanggolin.RGP.spot.launch(args)
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
+    elif args.subcommand == "module":
+        ppanggolin.mod.launch(args)
+    elif args.subcommand == "panmodule":
+        ppanggolin.workflow.panModule.launch(args)
+    elif args.subcommand == "all":
+        ppanggolin.workflow.all.launch(args)
 
 if __name__ == "__main__":
     main()

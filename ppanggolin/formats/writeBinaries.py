@@ -323,6 +323,36 @@ def writeSpots(pangenome, h5f, force, show_bar=True):
     bar.close()
     SpoTable.flush()
 
+def modDesc(geneFamNameLen):
+    return {
+        "geneFam": tables.StringCol(itemsize = geneFamNameLen),
+        "module":tables.UInt32Col(),
+        }
+
+def getModDesc(pangenome):
+    maxFamLen = 1
+    for mod in pangenome.modules:
+        for fam in mod.families:
+            if len(fam.name) > maxFamLen:
+                maxFamLen=len(fam.name)
+    return maxFamLen
+
+def writeModules(pangenome, h5f, force, show_bar=True):
+    if '/modules' in h5f and force is True:
+        logging.getLogger().info("Erasing the formerly computed modules")
+        h5f.remove_node("/","modules")
+
+    modTable = h5f.create_table('/','modules', modDesc(getModDesc(pangenome)), expectedrows=sum([len(mod.families) for mod in pangenome.modules]))
+    modRow = modTable.row
+
+    bar = tqdm(pangenome.modules, unit="modules", disable = not show_bar)
+    for mod in bar:
+        for fam in mod.families:
+            modRow["geneFam"] = fam.name
+            modRow["module"] = mod.ID
+            modRow.append()
+    bar.close()
+    modTable.flush()
 
 def writeStatus(pangenome, h5f):
     if "/status" in h5f:#if statuses are already written
@@ -338,6 +368,7 @@ def writeStatus(pangenome, h5f):
     statusGroup._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.predictedRGP = True if pangenome.status["predictedRGP"] in  ["Computed","Loaded","inFile"] else False
     statusGroup._v_attrs.spots = True if pangenome.status["spots"] in ["Computed","Loaded","inFile"] else False
+    statusGroup._v_attrs.modules = True if pangenome.status["modules"] in ["Computed","Loaded","inFile"] else False
 
     statusGroup._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
 
@@ -401,6 +432,9 @@ def writeInfo(pangenome, h5f):
         infoGroup._v_attrs.numberOfRGP = len(pangenome.regions)
     if pangenome.status["spots"] in ["Computed", "Loaded"]:
         infoGroup._v_attrs.numberOfSpots = len(pangenome.spots)
+    if pangenome.status["modules"] in ["Computed","Loaded"]:
+        infoGroup._v_attrs.numberOfModules = len(pangenome.modules)
+        infoGroup._v_attrs.numberOfFamiliesInModules = sum([len(mod.families) for mod in pangenome.modules])
 
     infoGroup._v_attrs.parameters = pangenome.parameters#saving the pangenome parameters
 
@@ -431,7 +465,7 @@ def updateGeneFragments(pangenome, h5f, show_bar=True):
     table.flush()
 
 
-def ErasePangenome(pangenome, graph=False, geneFamilies = False, partition = False, rgp = False, spots = False):
+def ErasePangenome(pangenome, graph=False, geneFamilies = False, partition = False, rgp = False, spots = False, modules = False):
     """ erases tables from a pangenome .h5 file """
 
     h5f = tables.open_file(pangenome.file,"a")
@@ -466,6 +500,12 @@ def ErasePangenome(pangenome, graph=False, geneFamilies = False, partition = Fal
         pangenome.status["spots"] = "No"
         statusGroup._v_attrs.spots = False
         h5f.remove_node("/","spots")
+
+    if '/modules' in h5f and (geneFamilies or partition or modules):
+        logging.getLogger().info("Erasing the formerly computed modules...")
+        pangenome.status["modules"] = "No"
+        statusGroup._v_attrs.modules = False
+        h5f.remove_node("/","modules")
 
     h5f.close()
 
@@ -522,6 +562,11 @@ def writePangenome(pangenome, filename, force, show_bar = True):
         logging.getLogger().info("Writing Spots of Insertion...")
         writeSpots(pangenome, h5f, force, show_bar=show_bar)
         pangenome.status['spots'] = "Loaded"
+
+    if pangenome.status["modules"] == "Computed":
+        logging.getLogger().info("Writing Modules...")
+        writeModules(pangenome, h5f, force, show_bar=show_bar)
+        pangenome.status["modules"] = "Loaded"
 
     writeStatus(pangenome, h5f)
     writeInfo(pangenome, h5f)
