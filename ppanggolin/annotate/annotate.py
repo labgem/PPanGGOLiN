@@ -456,6 +456,6 @@ def syntaSubparser(subparser):
     optional.add_argument("--translation_table",required=False, default="11", help = "Translation table (genetic code) to use.")
     optional.add_argument("--basename",required = False, default = "pangenome", help = "basename for the output file")
     optional.add_argument("--use_pseudo",required=False, action="store_true",help = "In the context of provided annotation, use this option to read pseudogenes. (Default behavior is to ignore them)")
-    optional.add_argument("--contig_filter",required=False, default=1, type=min_one, help = "remove contigs that are smaller than this length")
+    optional.add_argument("--contig_filter",required=False, default=1, type=min_one, help = argparse.SUPPRESS)
 
     return parser

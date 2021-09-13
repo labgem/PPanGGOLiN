@@ -76,5 +76,5 @@ def workflowSubparser(subparser):
     optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 3. If under 3, it will be detected automatically.")
     optional.add_argument("--defrag", required=False, action = "store_true", help = argparse.SUPPRESS)##This ensures compatibility with workflows built with the old option "defrag" when it was not the default
     optional.add_argument("--no_defrag",required=False, action="store_true", help = "DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
-    optional.add_argument("--contig_filter",required=False, default=1, type=min_one, help = "remove contigs that are smaller than this length")
+    optional.add_argument("--contig_filter",required=False, default=1, type=min_one, help = argparse.SUPPRESS)
     return parser
