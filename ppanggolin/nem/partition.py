@@ -36,13 +36,14 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K = 3, seed = 
             mu=[]
             epsilon=[]
             step = 0.5/(math.ceil(K/2))
+            pichenette = 0.1 if K == 2 else 0
             for k in range(1,K+1):
                 if k <= K/2:
                     mu += ["1"]*nb_org
-                    epsilon += [str(step*k)]*nb_org
+                    epsilon += [str((step*k)-pichenette)]*nb_org
                 else:
                     mu += ["0"]*nb_org
-                    epsilon += [str(step*(K-k+1))]*nb_org
+                    epsilon += [str((step*(K-k+1))-pichenette)]*nb_org
 
             m_file.write(" ".join(mu)+" "+" ".join(epsilon))
 
@@ -351,7 +352,7 @@ def partition(pangenome, tmpdir, outputdir = None, force = False, beta = 2.5, sm
         pangenome.parameters["partition"]["chunk_size"] = chunk_size
     pangenome.parameters["partition"]["computed_K"] = False
 
-    if K < 3:
+    if K < 2:
         pangenome.parameters["partition"]["computed_K"] = True
         logging.getLogger().info("Estimating the optimal number of partitions...")
         K = evaluate_nb_partitions( organisms, sm_degree, free_dispersion, chunk_size, Krange, ICL_margin, draw_ICL, cpu, tmpdir, seed, outputdir, show_bar=show_bar)
@@ -468,7 +469,7 @@ def partitionSubparser(subparser):
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
     optional.add_argument("-fd","--free_dispersion",required = False, default = False, action = "store_true",help = "use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all organisms by default.")
     optional.add_argument("-ck","--chunk_size",required=False, default = 500, type = int, help = "Size of the chunks when performing partitionning using chunks of organisms. Chunk partitionning will be used automatically if the number of genomes is above this number.")
-    optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 3. If under 3, it will be detected automatically.")
+    optional.add_argument("-K","--nb_of_partitions",required=False, default=-1, type=int, help = "Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.")
     optional.add_argument("-Kmm","--krange",nargs=2,required = False, type=int, default=[3,20], help="Range of K values to test when detecting K automatically. Default between 3 and 20.")
     optional.add_argument("-im","--ICL_margin",required = False, type = float, default = 0.05, help = "K is detected automatically by maximizing ICL. However at some point the ICL reaches a plateau. Therefore we are looking for the minimal value of K without significative gain from the larger values of K measured by ICL. For that we take the lowest K that is found within a given 'margin' of the maximal ICL value. Basically, change this option only if you truly understand it, otherwise just leave it be.")
     optional.add_argument("--draw_ICL", required =False, default = False, action="store_true",help = "Use if you can to draw the ICL curve for all of the tested K values. Will not be done if K is given.")
