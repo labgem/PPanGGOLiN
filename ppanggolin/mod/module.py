@@ -57,7 +57,7 @@ def checkPangenomeFormerModules(pangenome, force):
     elif pangenome.status["modules"] == "inFile" and force == True:
         ErasePangenome(pangenome, modules = True)
 
-def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3, min_presence=3, transitive=5, jaccard=0.85, show_bar=True):
+def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3, min_presence=2, transitive=4, jaccard=0.85, show_bar=True):
     #check statuses and load info
     checkPangenomeFormerModules(pangenome, force)
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions = True)
@@ -176,8 +176,8 @@ def moduleSubparser(subparser):
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument("--size", required=False, type=int, default=3, help = "Minimal number of gene family in a module")
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05, help = "minimum ratio of organisms in which the family must have multiple genes for it to be considered 'duplicated'")
-    optional.add_argument("-m","--min_presence", required=False, type=int, default=5, help = "Minimum number of times the module needs to be present in the pangenome to be reported. Increasing it will improve precision but lower sensitivity.")
-    optional.add_argument("-t", "--transitive",required=False, type=int, default = 5, help = "Size of the transitive closure used to build the graph. This indicates the number of non related genes allowed in-between two related genes. Increasing it will improve precision but lower sensitivity a little.")
+    optional.add_argument("-m","--min_presence", required=False, type=int, default=2, help = "Minimum number of times the module needs to be present in the pangenome to be reported. Increasing it will improve precision but lower sensitivity.")
+    optional.add_argument("-t", "--transitive",required=False, type=int, default = 4, help = "Size of the transitive closure used to build the graph. This indicates the number of non related genes allowed in-between two related genes. Increasing it will improve precision but lower sensitivity a little.")
     optional.add_argument("-j", "--jaccard", required=False, type=restricted_float, default=0.85, help = "minimum jaccard similarity used to filter edges between gene families. Increasing it will improve precision but lower sensitivity a lot." )
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
