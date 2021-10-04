@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-#coding:utf-8
+# coding:utf-8
 
-#default libraries
+# default libraries
 import sys
-if sys.version_info < (3, 6):#minimum is python3.6
-    raise AssertionError("Minimum python version to run PPanGGOLiN is 3.6. Your current python version is " + ".".join(map(str,sys.version_info)))
+
+if sys.version_info < (3, 6):  # minimum is python3.6
+    raise AssertionError("Minimum python version to run PPanGGOLiN is 3.6. Your current python version is " + ".".join(
+        map(str, sys.version_info)))
 import argparse
 import logging
-import resource
 import pkg_resources
 import tempfile
 import os
-from multiprocessing import Process 
-import time
 
-#local modules
+# local modules
 import ppanggolin.pangenome
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
@@ -31,18 +30,21 @@ import ppanggolin.info
 import ppanggolin.align
 import ppanggolin.RGP
 import ppanggolin.mod
+import ppanggolin.context
+
 
 def checkTsvSanity(tsv):
-    f = open(tsv,"r")
+    f = open(tsv, "r")
     nameSet = set()
     duplicatedNames = set()
     nonExistingFiles = set()
     for line in f:
         elements = [el.strip() for el in line.split("\t")]
-        if len(elements)<=1:
+        if len(elements) <= 1:
             raise Exception(f"No tabulation separator found in given file: {tsv}")
         if " " in elements[0]:
-            raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string : '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN this is not allowed. Please remove spaces from your genome names.")
+            raise Exception(
+                f"Your genome names contain spaces (The first encountered genome name that had this string : '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN this is not allowed. Please remove spaces from your genome names.")
         oldLen = len(nameSet)
         nameSet.add(elements[0])
         if len(nameSet) == oldLen:
@@ -50,9 +52,12 @@ def checkTsvSanity(tsv):
         if not os.path.exists(elements[1]):
             nonExistingFiles.add(elements[1])
     if len(nonExistingFiles) != 0:
-        raise Exception(f"Some of the given files do not exist. The non-existing files are the following : '{' '.join(nonExistingFiles)}'")
+        raise Exception(
+            f"Some of the given files do not exist. The non-existing files are the following : '{' '.join(nonExistingFiles)}'")
     if len(duplicatedNames) != 0:
-        raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : '{' '.join(duplicatedNames)}'")
+        raise Exception(
+            f"Some of your genomes have identical names. The duplicated names are the following : '{' '.join(duplicatedNames)}'")
+
 
 def checkInputFiles(anno=None, pangenome=None, fasta=None):
     """
@@ -72,17 +77,18 @@ def checkInputFiles(anno=None, pangenome=None, fasta=None):
             raise FileNotFoundError(f"No such file or directory: '{fasta}'")
         checkTsvSanity(fasta)
 
+
 def checkLog(name):
     if name == "stdout":
         return sys.stdout
     elif name == "stderr":
         return sys.stderr
     else:
-        return open(name,"w")
+        return open(name, "w")
+
 
 def cmdLine():
-
-    #need to manually write the description so that it's displayed into groups of subcommands ....
+    # need to manually write the description so that it's displayed into groups of subcommands ....
     desc = "\n"
     desc += "All of the following subcommands have their own set of options. To see them for a given subcommand, use it with -h or --help, as such:\n"
     desc += "  ppanggolin <subcommand> -h\n"
@@ -111,14 +117,20 @@ def cmdLine():
     desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and predict informations from it\n"
     desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
     desc += "    spot         predicts spots in your pangenome\n"
-    desc += "    module       Predicts functional modules in your pangenome\t"
+    desc += "    module       Predicts functional modules in your pangenome\n"
+    desc += "  \n"
+    desc += "  Genomic context:\n"
+    desc += "    context      Genomic context analyse (inDev)\t"
 
-    parser = argparse.ArgumentParser(description = "Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors", formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-v','--version', action='version', version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
-    subparsers = parser.add_subparsers( metavar = "", dest="subcommand", title="subcommands", description = desc)
-    subparsers.required = True#because python3 sent subcommands to hell apparently
+    parser = argparse.ArgumentParser(
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-v', '--version', action='version',
+                        version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
+    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
+    subparsers.required = True  # because python3 sent subcommands to hell apparently
 
-    subs = []#subparsers
+    subs = []  # subparsers
     subs.append(ppanggolin.annotate.syntaSubparser(subparsers))
     subs.append(ppanggolin.cluster.clusterSubparser(subparsers))
     subs.append(ppanggolin.graph.graphSubparser(subparsers))
@@ -136,17 +148,22 @@ def cmdLine():
     subs.append(ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers))
     subs.append(ppanggolin.RGP.spot.spotSubparser(subparsers))
     subs.append(ppanggolin.mod.moduleSubparser(subparsers))
-    ppanggolin.info.infoSubparser(subparsers)#not adding to subs because the 'common' options are not needed for this.
+    subs.append(ppanggolin.context.contextSubparser(subparsers))
+    ppanggolin.info.infoSubparser(subparsers)  # not adding to subs because the 'common' options are not needed for this.
 
-    for sub in subs:#add options common to all subcommands
-        common = sub._action_groups.pop(1)#get the 'optional arguments' action group.
+    for sub in subs:  # add options common to all subcommands
+        common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
         common.title = "Common arguments"
-        common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(), help = "directory for storing temporary files")
-        common.add_argument("--verbose",required=False, type=int,default=1,choices=[0,1,2], help = "Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-        common.add_argument("--log", required=False, type=checkLog, default="stdout", help = "log output file")
-        common.add_argument("-d","--disable_prog_bar", required=False, action="store_true", help = "disables the progress bars")
-        common.add_argument("-c","--cpu",required = False, default = 1,type=int, help = "Number of available cpus")
-        common.add_argument('-f', '--force', action="store_true", help="Force writing in output directory and in pangenome output file.")
+        common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+                            help="directory for storing temporary files")
+        common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                            help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+        common.add_argument("--log", required=False, type=checkLog, default="stdout", help="log output file")
+        common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                            help="disables the progress bars")
+        common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+        common.add_argument('-f', '--force', action="store_true",
+                            help="Force writing in output directory and in pangenome output file.")
         sub._action_groups.append(common)
         if (len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]):
             sub.print_help()
@@ -159,35 +176,39 @@ def cmdLine():
     args = parser.parse_args()
     if args.subcommand == "annotate":
         if args.fasta is None and args.anno is None:
-            raise Exception( "You must provide at least a file with the --fasta option to annotate from sequences, or a file with the --gff option to load annotations from.")
+            raise Exception(
+                "You must provide at least a file with the --fasta option to annotate from sequences, or a file with the --gff option to load annotations from.")
     return args
+
 
 def main():
     args = cmdLine()
 
     if hasattr(args, "pangenome"):
-        checkInputFiles(pangenome = args.pangenome)
+        checkInputFiles(pangenome=args.pangenome)
     if hasattr(args, "fasta"):
-        checkInputFiles(fasta = args.fasta)
-    if hasattr(args,"anno"):
-        checkInputFiles(anno = args.anno)
+        checkInputFiles(fasta=args.fasta)
+    if hasattr(args, "anno"):
+        checkInputFiles(anno=args.anno)
 
     if hasattr(args, "verbose"):
         if args.verbose == 2:
-            level = logging.DEBUG#info, debug, warnings and errors
+            level = logging.DEBUG  # info, debug, warnings and errors
         elif args.verbose == 1:
-            level = logging.INFO#info, warnings and errors
+            level = logging.INFO  # info, warnings and errors
         elif args.verbose == 0:
-            level = logging.WARNING#only warnings and errors
+            level = logging.WARNING  # only warnings and errors
 
-        if args.log == sys.stdout and not args.disable_prog_bar:#if output is not to stdout we remove progress bars.
+        if args.log == sys.stdout and not args.disable_prog_bar:  # if output is not to stdout we remove progress bars.
             args.show_prog_bars = True
         else:
             args.show_prog_bars = False
 
-        logging.basicConfig(stream=args.log, level = level, format = '%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-        logging.getLogger().info("Command: "+" ".join([arg for arg in sys.argv]))
-        logging.getLogger().info("PPanGGOLiN version: "+pkg_resources.get_distribution("ppanggolin").version)
+        logging.basicConfig(stream=args.log, level=level,
+                            format='%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')
+        logging.getLogger().info("Command: " + " ".join([arg for arg in sys.argv]))
+        logging.getLogger().info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
     elif args.subcommand == "cluster":
@@ -224,6 +245,9 @@ def main():
         ppanggolin.workflow.panModule.launch(args)
     elif args.subcommand == "all":
         ppanggolin.workflow.all.launch(args)
+    elif args.subcommand == "context":
+        ppanggolin.context.launch(args)
+
 
 if __name__ == "__main__":
     main()
