@@ -371,6 +371,37 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
         f"File listing RGP and spots where proteins of interest are located : '{output + '/info_input_prot.tsv'}'")
 
 
+def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, defrag=False, identity=0.8, coverage=0.8):
+    """
+    Allow to extract the best alignement between protein and gene's families
+
+    :param pangenome:
+    :param proteinFile:
+    :param output:
+    :param tmpdir:
+    :param cpu:
+    :param defrag:
+    :param identity:
+    :param coverage:
+
+    :return: protein set and protein align with families
+    :rtype: set, dic
+    """
+    tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
+
+    writeGeneFamSequences(pangenome, tmpPangFile)
+
+    with read_compressed_or_not(proteinFile) as protFileObj:
+        protSet = getProt(protFileObj)  # set of all proteins id
+        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, tmpdir, cpu, defrag, identity, coverage)
+
+    prot2pang = readAlignments(alignFile, pangenome)
+
+    tmpPangFile.close()
+
+    return protSet, alignFile, prot2pang
+
+
 def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, defrag=False, cpu=1, getinfo=False,
           draw_related=False, priority='name,ID'):
     """
@@ -419,15 +450,9 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, de
         checkPangenomeInfo(pangenome, needFamilies=True)
 
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-    tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir=new_tmpdir.name)
 
-    writeGeneFamSequences(pangenome, tmpPangFile)
-
-    with read_compressed_or_not(proteinFile) as protFileObj:
-        protSet = getProt(protFileObj)  # set of all proteins id
-        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, new_tmpdir, cpu, defrag, identity, coverage)
-
-    prot2pang = readAlignments(alignFile, pangenome)
+    protSet, alignFile, prot2pang = get_prot2pang(pangenome, proteinFile, output, new_tmpdir,
+                                                  cpu, defrag, identity, coverage)
 
     if getinfo:
         getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority)
@@ -437,7 +462,6 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, de
     logging.getLogger().info(f"{len(prot2pang)} proteins over {len(protSet)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{alignFile}'")
 
-    tmpPangFile.close()
     new_tmpdir.cleanup()
 
 
