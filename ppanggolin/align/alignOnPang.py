@@ -36,7 +36,7 @@ def createdb(fileObj, tmpdir):
     return seqdb
 
 
-def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, defrag=False, identity=0.8, coverage=0.8, is_nucl=False,
+def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8, is_nucl=False,
                    code=11):
     pang_db = createdb(pangFile, tmpdir)
     seq_db = createdb(seqFile, tmpdir)
@@ -48,7 +48,7 @@ def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, defrag=False, ident
         subprocess.run(cmd, stdout=subprocess.DEVNULL)
         seq_db = seq_nuc_db
     cov_mode = "0"  # coverage of query and target
-    if defrag:
+    if not no_defrag:
         cov_mode = "1"  # coverage of target
     aln_db = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
     cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
@@ -196,7 +196,7 @@ def writeGffRegions(filename, regions, output):
     logging.getLogger().info(f"RGP have been written in the following file : '{output + '/genome_annotation.gff'}' ")
 
 
-def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8, defrag=False, cpu=1,
+def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1,
                translation_table=11, pseudo=False):
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
@@ -230,7 +230,7 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8
     writeGeneSequencesFromAnnotations(singleOrgPang, tmpGeneFile)
     writeGeneFamSequences(pangenome, tmpPangFile)
 
-    blastout = alignSeqToPang(tmpPangFile, tmpGeneFile, output, newtmpdir, cpu, defrag, identity, coverage, True,
+    blastout = alignSeqToPang(tmpPangFile, tmpGeneFile, output, newtmpdir, cpu, no_defrag, identity, coverage, True,
                               translation_table)
 
     tmpPangFile.close()
@@ -371,7 +371,7 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
         f"File listing RGP and spots where proteins of interest are located : '{output + '/info_input_prot.tsv'}'")
 
 
-def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, defrag=False, identity=0.8, coverage=0.8):
+def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8):
     """
     Allow to extract the best alignement between protein and gene's families
 
@@ -380,7 +380,7 @@ def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, defrag=False, i
     :param output:
     :param tmpdir:
     :param cpu:
-    :param defrag:
+    :param no_defrag:
     :param identity:
     :param coverage:
 
@@ -393,7 +393,7 @@ def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, defrag=False, i
 
     with read_compressed_or_not(proteinFile) as protFileObj:
         protSet = getProt(protFileObj)  # set of all proteins id
-        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, tmpdir, cpu, defrag, identity, coverage)
+        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, tmpdir, cpu, no_defrag, identity, coverage)
 
     prot2pang = readAlignments(alignFile, pangenome)
 
@@ -402,7 +402,7 @@ def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, defrag=False, i
     return protSet, alignFile, prot2pang
 
 
-def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, defrag=False, cpu=1, getinfo=False,
+def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1, getinfo=False,
           draw_related=False, priority='name,ID'):
     """
 
@@ -418,8 +418,8 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, de
     :type identity:
     :param coverage:
     :type coverage:
-    :param defrag:
-    :type defrag:
+    :param no_defrag:
+    :type no_defrag:
     :param cpu:
     :type cpu:
     :param getinfo:
@@ -452,7 +452,7 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, de
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 
     protSet, alignFile, prot2pang = get_prot2pang(pangenome, proteinFile, output, new_tmpdir,
-                                                  cpu, defrag, identity, coverage)
+                                                  cpu, no_defrag, identity, coverage)
 
     if getinfo:
         getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority)
@@ -478,11 +478,11 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     if args.proteins is not None:
         align(pangenome=pangenome, proteinFile=args.proteins, output=args.output, tmpdir=args.tmpdir,
-              identity=args.identity, coverage=args.coverage, defrag=args.defrag, cpu=args.cpu, getinfo=args.getinfo,
+              identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, cpu=args.cpu, getinfo=args.getinfo,
               draw_related=args.draw_related, priority=args.label_priority)
 
     if args.annotation is not None:
-        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag,
+        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.no_defrag,
                    args.cpu, args.translation_table, pseudo=args.use_pseudo)
 
 
@@ -511,9 +511,9 @@ def alignSubparser(sub_parser):
                           help="Output directory where the file(s) will be written")
 
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument('--defrag', required=False, default=False, action="store_true",
-                          help="Use the defragmentation strategy to associate potential fragments with their original "
-                               "gene family.")
+    optional.add_argument('--no_defrag', required=False, action="store_true",
+                          help="DO NOT Realign gene families to link fragments with"
+                               "their non-fragmented gene family. (default: False)")
     optional.add_argument('--identity', required=False, type=float, default=0.5,
                           help="min identity percentage threshold")
     optional.add_argument('--coverage', required=False, type=float, default=0.8,
