@@ -11,6 +11,7 @@ import logging
 #installed libraries
 from tqdm import tqdm
 import networkx as nx
+import pandas as pd
 
 # local libraries
 from ppanggolin.formats import checkPangenomeInfo
@@ -20,7 +21,7 @@ from ppanggolin.align.alignOnPang import get_prot2pang
 from ppanggolin.geneFamily import GeneFamily
 
 
-def _write_graph(g):
+def _write_graph(g, outname='graph.png'):
     import matplotlib.pyplot as plt
 
     labelnodes = {node: node.ID for node in g.nodes}
@@ -29,7 +30,7 @@ def _write_graph(g):
     p = nx.spring_layout(g)
     nx.draw(g, p, with_labels=True, labels=labelnodes)
     nx.draw_networkx_edge_labels(g, p, edge_labels=labeledges, font_color='red')
-    plt.savefig("test.png")
+    plt.savefig(outname)
 
 
 class CC:
@@ -46,13 +47,6 @@ class CC:
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
         self.families.add(family)
-
-# def checkPangenomeFormerCC(pangenome, force):
-#     """ checks pangenome status and .h5 files for former modules, delete them if allowed or raise an error """
-#     if pangenome.status["modules"] == "inFile" and force == False:
-#         raise Exception("You are trying to detect modules on a pangenome which already has predicted modules. If you REALLY want to do that, use --force (it will erase modules previously predicted).")
-#     elif pangenome.status["modules"] == "inFile" and force == True:
-#         ErasePangenome(pangenome, modules = True)
 
 
 def search_cc_in_pangenome(pangenome, proteins, output, tmpdir,  transitive=4, identity=0.5, coverage=0.8, jaccard=0.85,
@@ -73,45 +67,60 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir,  transitive=4, i
     logging.getLogger().info(f"Took {round(time.time() - start_time,2)} seconds to build the graph to find commont component in")
     logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
+    # _write_graph(g)
     #extract the modules from the graph
     common_components = compute_cc(g, jaccard)
 
-    print([elem.ID for elem in common_components])
-    # write_graph(g)
+    # _write_graph(g, 'graph2.png')
     families = set()
     for cc in common_components:
         families |= cc.families
 
-    logging.getLogger().info(f"There are {len(families)} families among {len(common_components)} modules")
+    logging.getLogger().info(f"There are {len(families)} families among {len(common_components)} common components")
     logging.getLogger().info(f"Computing common components took {round(time.time() - start_time,2)} seconds")
+
+    fam_2_prot = fam2prot(prot2pan)
+
+    lines = []
+    for cc in common_components:
+        for family in cc.families:
+            line = [cc.ID]
+            if fam_2_prot.get(family.ID) is None:
+                line += [family.ID, None, len(family._genePerOrg.keys())]
+            else:
+                line += [family.ID, ','.join(fam_2_prot.get(family.ID)), len(family._genePerOrg.keys())]
+            lines.append(line)
+
+    df = pd.DataFrame(lines, columns=["CC ID", "Gene family", "Protein ID", "Nb Genomes"]).set_index("CC ID").sort_index()
+    df.to_csv(path_or_buf=f"{output}/Common_component.tsv", sep="\t")
 
 
 def compute_cc_graph(alignment, t, show_bar=True):
     g = nx.Graph()
     for protein, gene_family in tqdm(alignment.items(), unit="proteins", disable=not show_bar):
-        # print(protein, gene_family)
         for gene in gene_family.genes:
             contig = gene.contig._genes_position  # TODO create method to extract
             pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, alignment, t)
             if in_context_left or in_context_right:
-                # print(contig[pos_left:pos_right + 1], len(contig[pos_left:pos_right + 1]), gene.position, pos_left,
-                #       pos_right)
                 for env_gene in contig[pos_left:pos_right + 1]:
-                    g.add_node(env_gene.family)
-                    add_gene(g.nodes[env_gene.family], gene, fam_split=False)
-                    pos = env_gene.position + 1
-                    while pos <= pos_right and pos < len(contig):
-                        if env_gene.family != contig[pos].family:
-                            g.add_edge(env_gene.family, contig[pos].family)
-                            edge = g[env_gene.family][contig[pos].family]
-                            add_gene(edge, env_gene)
-                            add_gene(edge, contig[pos])
-                        pos += 1
+                    _compute_cc_graph(g, gene, env_gene, contig, pos_right)
     return g
 
 
+def _compute_cc_graph(g, gene, env_gene, contig, pos_r):
+    g.add_node(env_gene.family)
+    add_gene(g.nodes[env_gene.family], gene, fam_split=False)
+    pos = env_gene.position + 1
+    while pos <= pos_r and pos < len(contig):
+        if env_gene.family != contig[pos].family:
+            g.add_edge(env_gene.family, contig[pos].family)
+            edge = g[env_gene.family][contig[pos].family]
+            add_gene(edge, env_gene)
+            add_gene(edge, contig[pos])
+        pos += 1
+
+
 def extract_gene_context(gene, contig, alignment, t=4):
-    # print(gene.contig._genes_position[gene.position-t:gene.position+t+1])
     pos_left, pos_right = (max(0, gene.position - t),
                            gene.position + t)  # Gene position to compare family
     in_context_left, in_context_right = (False, False)
@@ -132,12 +141,21 @@ def extract_gene_context(gene, contig, alignment, t=4):
 
 def compute_cc(g, jaccard=0.85):
     cc = set()
-    c = 0
-    for comp in connected_components(g, removed=set(), weight=0.85):
-        if not any(fam.namedPartition == "persistent" for fam in comp):
-            cc.add(CC(ID=c, families=comp))
-            c += 1
+    c = 1
+    for comp in connected_components(g, removed=set(), weight=jaccard):
+        cc.add(CC(ID=c, families=comp))
+        c += 1
     return cc
+
+
+def fam2prot(prot2pan):
+    fam_2_prot = {}
+    for protein, family in prot2pan.items():
+        if family.ID in fam_2_prot.keys():
+            fam_2_prot[family.ID].append(protein)
+        else:
+            fam_2_prot[family.ID] = [protein]
+    return fam_2_prot
 
 
 def launch(args):
@@ -151,7 +169,7 @@ def launch(args):
 
 def contextSubparser(sub_parser):
     """
-    Parser arguments specific to align command
+    Parser arguments specific to context command
 
     :param sub_parser : sub_parser for align command
     :type sub_parser : argparse._SubParsersAction
