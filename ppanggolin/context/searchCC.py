@@ -8,7 +8,7 @@ import tempfile
 import time
 import logging
 
-#installed libraries
+# installed libraries
 from tqdm import tqdm
 import networkx as nx
 import pandas as pd
@@ -17,15 +17,15 @@ import pandas as pd
 from ppanggolin.formats import checkPangenomeInfo
 from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.align.alignOnPang import get_prot2pang
+from ppanggolin.align.alignOnPang import get_prot2pang, projectPartition
 from ppanggolin.geneFamily import GeneFamily
 
 
 def _write_graph(g, outname='graph.png'):
     import matplotlib.pyplot as plt
 
-    labelnodes = {node: node.ID for node in g.nodes}
-    labeledges = {edge: f'({str(edge[0].ID)}, {str(edge[1].ID)})' for edge in g.edges}
+    labelnodes = {node: len(node.genes) for node in g.nodes}
+    labeledges = {edge: f'({str(len(edge[0].genes))}, {str(len(edge[1].genes))})' for edge in g.edges}
     plt.figure(figsize=(24, 24))
     p = nx.spring_layout(g)
     nx.draw(g, p, with_labels=True, labels=labelnodes)
@@ -49,26 +49,27 @@ class CC:
         self.families.add(family)
 
 
-def search_cc_in_pangenome(pangenome, proteins, output, tmpdir,  transitive=4, identity=0.5, coverage=0.8, jaccard=0.85,
+def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, identity=0.5, coverage=0.8, jaccard=0.85,
                            no_defrag=False, cpu=1, force=False, show_bar=True):
-    #check statuses and load info
-    # checkPangenomeFormerCC(pangenome, force)
+    # check statuses and load info
     checkPangenomeInfo(pangenome, needFamilies=True, needAnnotations=True)
 
-    #Alignment of proteins on pangenome's families
+    # Alignment of proteins on pangenome's families
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-    prot2pan = get_prot2pang(pangenome, proteins, output, new_tmpdir, cpu, no_defrag, identity, coverage)[-1]
+    protSet, _, prot2pan = get_prot2pang(pangenome, proteins, output, new_tmpdir, cpu, no_defrag, identity, coverage)
+    projectPartition(prot2pan, protSet, output)
     new_tmpdir.cleanup()
 
-    #Compute the graph with transitive closure size provided as parameter
+    # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
     g = compute_cc_graph(alignment=prot2pan, t=transitive, show_bar=show_bar)
-    logging.getLogger().info(f"Took {round(time.time() - start_time,2)} seconds to build the graph to find commont component in")
+    logging.getLogger().info(
+        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find commont component in")
     logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
-    # _write_graph(g)
-    #extract the modules from the graph
+    _write_graph(g)
+    # extract the modules from the graph
     common_components = compute_cc(g, jaccard)
 
     # _write_graph(g, 'graph2.png')
@@ -76,23 +77,27 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir,  transitive=4, i
     for cc in common_components:
         families |= cc.families
 
-    logging.getLogger().info(f"There are {len(families)} families among {len(common_components)} common components")
-    logging.getLogger().info(f"Computing common components took {round(time.time() - start_time,2)} seconds")
+    if len(families) != 0:
+        logging.getLogger().info(f"There are {len(families)} families among {len(common_components)} common components")
+        logging.getLogger().info(f"Computing common components took {round(time.time() - start_time, 2)} seconds")
 
-    fam_2_prot = fam2prot(prot2pan)
+        fam_2_prot = fam2prot(prot2pan)
 
-    lines = []
-    for cc in common_components:
-        for family in cc.families:
-            line = [cc.ID]
-            if fam_2_prot.get(family.ID) is None:
-                line += [family.ID, None, len(family._genePerOrg.keys())]
-            else:
-                line += [family.ID, ','.join(fam_2_prot.get(family.ID)), len(family._genePerOrg.keys())]
-            lines.append(line)
-
-    df = pd.DataFrame(lines, columns=["CC ID", "Gene family", "Protein ID", "Nb Genomes"]).set_index("CC ID").sort_index()
-    df.to_csv(path_or_buf=f"{output}/Common_component.tsv", sep="\t")
+        lines = []
+        for cc in common_components:
+            for family in cc.families:
+                line = [cc.ID]
+                if fam_2_prot.get(family.ID) is None:
+                    line += [family.name, None, len(family._genePerOrg.keys())]
+                else:
+                    line += [family.name, ','.join(fam_2_prot.get(family.ID)), len(family._genePerOrg.keys())]
+                lines.append(line)
+        df = pd.DataFrame(lines, columns=["CC ID", "Gene family", "Protein ID", "Nb Genomes"]).set_index(
+            "CC ID").sort_index()
+        df.to_csv(path_or_buf=f"{output}/Common_component_{transitive}_{jaccard}.tsv", sep="\t", na_rep='NA')
+    else:
+        logging.getLogger().info(f"No common component were find")
+        logging.getLogger().info(f"Computing common components took {round(time.time() - start_time, 2)} seconds")
 
 
 def compute_cc_graph(alignment, t, show_bar=True):
@@ -103,15 +108,15 @@ def compute_cc_graph(alignment, t, show_bar=True):
             pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, alignment, t)
             if in_context_left or in_context_right:
                 for env_gene in contig[pos_left:pos_right + 1]:
-                    _compute_cc_graph(g, gene, env_gene, contig, pos_right)
+                    _compute_cc_graph(g, env_gene, contig, pos_right)
     return g
 
 
-def _compute_cc_graph(g, gene, env_gene, contig, pos_r):
+def _compute_cc_graph(g, env_gene, contig, pos_r):
     g.add_node(env_gene.family)
-    add_gene(g.nodes[env_gene.family], gene, fam_split=False)
+    add_gene(g.nodes[env_gene.family], env_gene, fam_split=False)
     pos = env_gene.position + 1
-    while pos <= pos_r and pos < len(contig):
+    while pos <= pos_r:
         if env_gene.family != contig[pos].family:
             g.add_edge(env_gene.family, contig[pos].family)
             edge = g[env_gene.family][contig[pos].family]
@@ -122,7 +127,7 @@ def _compute_cc_graph(g, gene, env_gene, contig, pos_r):
 
 def extract_gene_context(gene, contig, alignment, t=4):
     pos_left, pos_right = (max(0, gene.position - t),
-                           gene.position + t)  # Gene position to compare family
+                           min(gene.position + t, len(contig)-1))  # Gene position to compare family
     in_context_left, in_context_right = (False, False)
     while pos_left < gene.position and not in_context_left:
         if contig[pos_left].family in alignment.values():
@@ -130,7 +135,7 @@ def extract_gene_context(gene, contig, alignment, t=4):
         else:
             pos_left += 1
 
-    while pos_right < gene.position and not in_context_right:
+    while pos_right > gene.position and not in_context_right:
         if contig[pos_right].family in alignment.values():
             in_context_right = True
         else:
@@ -164,8 +169,9 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     search_cc_in_pangenome(pangenome=pangenome, proteins=args.proteins, output=args.output, identity=args.identity,
                            coverage=args.coverage, jaccard=args.jaccard, transitive=args.transitive, tmpdir=args.tmpdir,
-                           no_defrag=args.no_defrag, cpu=args.cpu,  force=args.force, show_bar=args.show_prog_bars)
+                           no_defrag=args.no_defrag, cpu=args.cpu, force=args.force, show_bar=args.disable_prog_bar)
     # writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
+
 
 def contextSubparser(sub_parser):
     """
@@ -186,7 +192,7 @@ def contextSubparser(sub_parser):
                           help="Output directory where the file(s) will be written")
     required.add_argument('-P', '--proteins', required=True, type=str, help="Fasta with all proteins of interest")
 
-    optional = parser.add_argument_group(title = "Optional arguments")
+    optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
