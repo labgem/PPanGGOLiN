@@ -52,7 +52,7 @@ class CC:
 def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, identity=0.5, coverage=0.8, jaccard=0.85,
                            no_defrag=False, cpu=1, disable_bar=True):
     # check statuses and load info
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=not disable_bar)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=disable_bar)
 
     # Alignment of proteins on pangenome's families
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
@@ -94,7 +94,7 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, id
                 lines.append(line)
         df = pd.DataFrame(lines, columns=["CC ID", "Gene family", "Protein ID", "Nb Genomes"]).set_index(
             "CC ID").sort_index()
-        df.to_csv(path_or_buf=f"{output}/Common_component_{transitive}_{jaccard}.tsv", sep="\t", na_rep='NA')
+        df.to_csv(path_or_buf=f"{output}/Common_component.tsv", sep="\t", na_rep='NA')
     else:
         logging.getLogger().info(f"No common component were find")
         logging.getLogger().info(f"Computing common components took {round(time.time() - start_time, 2)} seconds")
