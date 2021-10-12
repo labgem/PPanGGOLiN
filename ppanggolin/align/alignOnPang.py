@@ -197,7 +197,7 @@ def writeGffRegions(filename, regions, output):
 
 
 def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1,
-               translation_table=11, pseudo=False):
+               translation_table=11, pseudo=False, disable_bar=False):
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
                         "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
@@ -221,7 +221,7 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8
                         f"Plasticity of your organism")
 
     # check and read given pangenome
-    checkPangenomeInfo(pangenome, needFamilies=True, needPartitions=True, needAnnotations=True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True, disable_bar=disable_bar)
 
     newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
     tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir=newtmpdir.name)
@@ -297,8 +297,10 @@ def getFam2RGP(pangenome, multigenics):
 
 
 def getFam2spot(pangenome, output, multigenics):
-    """ reads a pangenome object and returns a dictionnary of family to RGP and family to spot, that indicates where each family is"""
-    ##those are to be replaced as spots should be stored in the pangenome, and in the h5.
+    """
+    reads a pangenome object and returns a dictionnary of family to RGP and family to spot,
+    that indicates where each family is"""
+    # those are to be replaced as spots should be stored in the pangenome, and in the h5.
     fam2spot = defaultdict(list)
     fam2border = defaultdict(list)
     for spot in pangenome.spots:
@@ -403,7 +405,7 @@ def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, no_defrag=False
 
 
 def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1, getinfo=False,
-          draw_related=False, priority='name,ID'):
+          draw_related=False, priority='name,ID', disable_bar=False):
     """
 
     :param pangenome:
@@ -444,10 +446,10 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no
         if pangenome.parameters["modules"] != "No":  # modules are not required to be loaded, but if they have been
             # computed we load them.
             need_mod = True
-        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True,
-                           needSpots=True, needModules=need_mod)
+        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True, needRGP=True,
+                           needSpots=True, needModules=need_mod, disable_bar=disable_bar)
     else:
-        checkPangenomeInfo(pangenome, needFamilies=True)
+        checkPangenomeInfo(pangenome, needFamilies=True, disable_bar=disable_bar)
 
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 
@@ -479,11 +481,11 @@ def launch(args):
     if args.proteins is not None:
         align(pangenome=pangenome, proteinFile=args.proteins, output=args.output, tmpdir=args.tmpdir,
               identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, cpu=args.cpu, getinfo=args.getinfo,
-              draw_related=args.draw_related, priority=args.label_priority)
+              draw_related=args.draw_related, priority=args.label_priority, disable_bar=args.disable_prog_bar)
 
     if args.annotation is not None:
         projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.no_defrag,
-                   args.cpu, args.translation_table, pseudo=args.use_pseudo)
+                   args.cpu, args.translation_table, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
 
 
 def alignSubparser(sub_parser):

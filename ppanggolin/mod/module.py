@@ -34,7 +34,7 @@ def checkPangenomeFormerModules(pangenome, force):
 
 
 def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3, min_presence=2, transitive=4,
-                   jaccard=0.85, show_bar=True):
+                   jaccard=0.85, disable_bar=False):
     # check statuses and load info
     checkPangenomeFormerModules(pangenome, force)
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True)
@@ -42,7 +42,7 @@ def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3,
     ##compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
-    g = compute_mod_graph(pangenome.organisms, t=transitive, show_bar=show_bar)
+    g = compute_mod_graph(pangenome.organisms, t=transitive, disable_bar=disable_bar)
     logging.getLogger().info(f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
     logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
@@ -71,7 +71,7 @@ def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3,
     pangenome.parameters["modules"]["dup_margin"] = dup_margin
 
 
-def compute_mod_graph(organisms, t=1, show_bar=True):
+def compute_mod_graph(organisms, t=1, disable_bar=False):
     """
     Computes a graph using all provided genomes with a transitive closure of size t
     
@@ -79,12 +79,12 @@ def compute_mod_graph(organisms, t=1, show_bar=True):
     :type list: list[:class:`ppanggolin.genome.Organism`]
     :param t: the size of the transitive closure
     :type t: int
-    :param show_bar: whether to show a progress bar or not
-    :type show_bar: bool
+    :param disable_bar: whether to show a progress bar or not
+    :type disable_bar: bool
     """
 
     g = nx.Graph()
-    for org in tqdm(organisms, unit="genome", disable=not show_bar):
+    for org in tqdm(organisms, unit="genome", disable=disable_bar):
         for contig in org.contigs:
             if len(contig.genes) > 0:
                 start_gene = contig.genes[0]
@@ -135,8 +135,8 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     predictModules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, force=args.force, dup_margin=args.dup_margin,
                    size=args.size, min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard,
-                   show_bar=args.show_prog_bars)
-    writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
+                   disable_bar=args.disable_prog_bars)
+    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bars)
 
 
 def moduleSubparser(subparser):

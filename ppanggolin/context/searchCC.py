@@ -50,25 +50,25 @@ class CC:
 
 
 def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, identity=0.5, coverage=0.8, jaccard=0.85,
-                           no_defrag=False, cpu=1, force=False, show_bar=True):
+                           no_defrag=False, cpu=1, disable_bar=True):
     # check statuses and load info
-    checkPangenomeInfo(pangenome, needFamilies=True, needAnnotations=True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=not disable_bar)
 
     # Alignment of proteins on pangenome's families
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-    protSet, _, prot2pan = get_prot2pang(pangenome, proteins, output, new_tmpdir, cpu, no_defrag, identity, coverage)
-    projectPartition(prot2pan, protSet, output)
+    prot_set, _, prot2pan = get_prot2pang(pangenome, proteins, output, new_tmpdir, cpu, no_defrag, identity, coverage)
+    projectPartition(prot2pan, prot_set, output)
     new_tmpdir.cleanup()
 
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
-    g = compute_cc_graph(alignment=prot2pan, t=transitive, show_bar=show_bar)
+    g = compute_cc_graph(alignment=prot2pan, t=transitive, disable_bar=disable_bar)
     logging.getLogger().info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find commont component in")
     logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
-    _write_graph(g)
+    # _write_graph(g)
     # extract the modules from the graph
     common_components = compute_cc(g, jaccard)
 
@@ -100,9 +100,9 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, id
         logging.getLogger().info(f"Computing common components took {round(time.time() - start_time, 2)} seconds")
 
 
-def compute_cc_graph(alignment, t, show_bar=True):
+def compute_cc_graph(alignment, t, disable_bar=False):
     g = nx.Graph()
-    for protein, gene_family in tqdm(alignment.items(), unit="proteins", disable=not show_bar):
+    for protein, gene_family in tqdm(alignment.items(), unit="proteins", disable=disable_bar):
         for gene in gene_family.genes:
             contig = gene.contig._genes_position  # TODO create method to extract
             pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, alignment, t)
@@ -169,8 +169,7 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     search_cc_in_pangenome(pangenome=pangenome, proteins=args.proteins, output=args.output, identity=args.identity,
                            coverage=args.coverage, jaccard=args.jaccard, transitive=args.transitive, tmpdir=args.tmpdir,
-                           no_defrag=args.no_defrag, cpu=args.cpu, force=args.force, show_bar=args.disable_prog_bar)
-    # writePangenome(pangenome, pangenome.file, args.force, show_bar=args.show_prog_bars)
+                           no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
 
 
 def contextSubparser(sub_parser):

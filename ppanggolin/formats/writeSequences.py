@@ -259,7 +259,8 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, cpu=1, soft_cor
     if not pangenome.status["geneFamilySequences"] in ["Loaded","Computed","inFile"] and prot_families:
         raise ex_geneFamilySequences
 
-    checkPangenomeInfo(pangenome, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph, needPartitions= needPartitions, needRGP = needRegions, needSpots = needSpots, needModules=needModules)
+    checkPangenomeInfo(pangenome, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph,
+                       needPartitions=needPartitions, needRGP=needRegions, needSpots=needSpots, needModules=needModules)
 
     if prot_families is not None:
         writeFastaProtFam(pangenome, output, compress, prot_families, soft_core=soft_core, show_bar=show_bar)

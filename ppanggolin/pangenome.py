@@ -1,27 +1,28 @@
 #!/usr/bin/env python3
-#coding: utf8
+# coding: utf8
 
-#default libraries
-from collections import defaultdict
+# default libraries
 from collections.abc import Iterable
-import logging
 
-#installed libraries
-import gmpy2
-
-#local libraries
-from ppanggolin.genome import Organism, Gene
-from ppanggolin.region import Region, Spot
+# local libraries
+from ppanggolin.genome import Organism
+from ppanggolin.region import Region
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.edge import Edge
 
+
 class Pangenome:
-    """This is a class representing your pangenome. It is used as a basic unit for all of the analysis to access to the different elements of your pangenome, such as organisms, contigs, genes or gene families. It has setter and getter methods for most elements in your pangenome and you can use those to add new elements to it, or get objects that have a specific identifier to manipulate them directly.
     """
+    This is a class representing your pangenome. It is used as a basic unit for all of the analysis to access to the
+    different elements of your pangenome, such as organisms, contigs, genes or gene families. It has setter and getter
+    methods for most elements in your pangenome and you can use those to add new elements to it,
+    or get objects that have a specific identifier to manipulate them directly.
+    """
+
     def __init__(self):
         """Constructor method.
         """
-        #basic parameters
+        # basic parameters
         self._famGetter = {}
         self.max_fam_id = 0
         self._orgGetter = {}
@@ -31,17 +32,17 @@ class Pangenome:
         self.modules = set()
 
         self.status = {
-                    'genomesAnnotated': "No",
-                    'geneSequences' : "No",
-                    'genesClustered':  "No",
-                    'defragmented':"No",
-                    'geneFamilySequences':"No",
-                    'neighborsGraph':  "No",
-                    'partitionned':  "No",
-                    'predictedRGP' : "No",
-                    'spots' : "No",
-                    'modules' : 'No'
-                }
+            'genomesAnnotated': "No",
+            'geneSequences': "No",
+            'genesClustered': "No",
+            'defragmented': "No",
+            'geneFamilySequences': "No",
+            'neighborsGraph': "No",
+            'partitionned': "No",
+            'predictedRGP': "No",
+            'spots': "No",
+            'modules': 'No'
+        }
         self.parameters = {}
 
     def addFile(self, pangenomeFile):
@@ -50,7 +51,8 @@ class Pangenome:
         :param pangenomeFile: A string representing the filepath to the hdf5 pangenome file to be either used or created
         :type pangenomeFile: str
         """
-        from ppanggolin.formats import getStatus#importing on call instead of importing on top to avoid cross-reference problems.
+        from ppanggolin.formats import \
+            getStatus  # importing on call instead of importing on top to avoid cross-reference problems.
         getStatus(self, pangenomeFile)
         self.file = pangenomeFile
 
@@ -72,9 +74,9 @@ class Pangenome:
         """
         try:
             return list(self._geneGetter.values())
-        except AttributeError:#in that case the gene getter has not been computed
-            self._mkgeneGetter()#make it
-            return self.genes#return what was expected
+        except AttributeError:  # in that case the gene getter has not been computed
+            self._mkgeneGetter()  # make it
+            return self.genes  # return what was expected
 
     @property
     def geneFamilies(self):
@@ -126,12 +128,12 @@ class Pangenome:
             :return: an iterator of :class:`ppanggolin.genome.Gene`
             :rtype: Iterator[:class:`ppanggolin.genome.Gene`]
         """
-        if self.number_of_organisms() > 0:#if we have organisms, they're supposed to have genes
+        if self.number_of_organisms() > 0:  # if we have organisms, they're supposed to have genes
             for org in self.organisms:
                 for contig in org.contigs:
-                     for gene in contig.genes:
-                         yield gene
-        elif self.number_of_geneFamilies() > 0:#we might have no organism loaded, in that case there are gene families.
+                    for gene in contig.genes:
+                        yield gene
+        elif self.number_of_geneFamilies() > 0:  # we might have no organism loaded, in that case there are gene families.
             for geneFam in self.geneFamilies:
                 for gene in geneFam.genes:
                     yield gene
@@ -140,7 +142,8 @@ class Pangenome:
         """
             Builds the :attr:`ppanggolin.pangenome.Pangenome._geneGetter` of the pangenome
 
-            Since the genes are never explicitely 'added' to a pangenome (but rather to a gene family, or a contig), the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
+            Since the genes are never explicitely 'added' to a pangenome (but rather to a gene family, or a contig),
+            the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
             if at some point we want to extract genes from a pangenome we'll create a geneGetter.
             The assumption behind this is that the pangenome has been filled and no more gene will be added.
         """
@@ -159,9 +162,10 @@ class Pangenome:
         """
         try:
             return self._geneGetter[geneID]
-        except AttributeError:#in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
-            self._mkgeneGetter()#make it
-            return self.getGene(geneID)#return what was expected. If the geneID does not exist it will raise an error.
+        except AttributeError:  # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
+            self._mkgeneGetter()  # make it
+            return self.getGene(
+                geneID)  # return what was expected. If the geneID does not exist it will raise an error.
         except KeyError:
             raise KeyError(f"{geneID} does not exist in the pangenome.")
 
@@ -183,7 +187,8 @@ class Pangenome:
 
     def getOrganism(self, orgName):
         """
-        Get an organism that is expected to be in the pangenome using its name, which is supposedly unique. Raises an error if the organism does not exist.
+        Get an organism that is expected to be in the pangenome using its name, which is supposedly unique.
+        Raises an error if the organism does not exist.
 
         :param orgName: Name of the :class:`ppanggolin.genome.Organism` to get
         :type orgName: str
@@ -198,8 +203,10 @@ class Pangenome:
 
     def addOrganism(self, newOrg):
         """
-            adds an organism that did not exist previously in the pangenome if an :class:`ppanggolin.genome.Organism` object is provided. If an organism with the same name exists it will raise an error.
-            If a :class:`str` object is provided, will return the corresponding organism that has this name OR create a new one if it does not exist.
+            adds an organism that did not exist previously in the pangenome if an :class:`ppanggolin.genome.Organism`
+            object is provided. If an organism with the same name exists it will raise an error.
+            If a :class:`str` object is provided, will return the corresponding organism that has this name
+            OR create a new one if it does not exist.
 
             :param newOrg: Organism to add to the pangenome
             :type newOrg: :class:`ppanggolin.genome.Organism` or str
@@ -211,7 +218,8 @@ class Pangenome:
             oldLen = len(self._orgGetter)
             self._orgGetter[newOrg.name] = newOrg
             if len(self._orgGetter) == oldLen:
-                raise KeyError(f"Redondant organism name was found ({newOrg.name}). All of your organisms must have unique names.")
+                raise KeyError(
+                    f"Redondant organism name was found ({newOrg.name}). All of your organisms must have unique names.")
         elif isinstance(newOrg, str):
             org = self._orgGetter.get(newOrg)
             if org is None:
@@ -224,7 +232,8 @@ class Pangenome:
 
     def addGeneFamily(self, name):
         """
-            Get the :class:`ppanggolin.geneFamily.GeneFamily` object that has the given `name`. If it does not exist, creates it.
+            Get the :class:`ppanggolin.geneFamily.GeneFamily` object that has the given `name`. If it does not exist,
+            creates it.
             returns the geneFamily object.
 
             :param name: The gene family name to get if it exists, and create otherwise.
@@ -246,7 +255,8 @@ class Pangenome:
         return self._famGetter[name]
 
     def addEdge(self, gene1, gene2):
-        """Adds an edge between the two gene families that the two given genes belong to. Genes object are expected, and they are also expected to have a family assigned
+        """Adds an edge between the two gene families that the two given genes belong to. Genes object are expected,
+        and they are also expected to have a family assigned
 
         :param gene1: The first gene
         :type gene1: :class:`ppanggolin.genome.Gene`
@@ -255,13 +265,13 @@ class Pangenome:
         :return: the created Edge
         :rtype: :class:`ppanggolin.pangenome.Edge`
         """
-        key = frozenset([gene1.family,gene2.family])
+        key = frozenset([gene1.family, gene2.family])
         edge = self._edgeGetter.get(key)
         if edge is None:
             edge = Edge(gene1, gene2)
             self._edgeGetter[key] = edge
         else:
-            edge.addGenes(gene1,gene2)
+            edge.addGenes(gene1, gene2)
         return edge
 
     def _createGeneFamily(self, name):
@@ -272,41 +282,45 @@ class Pangenome:
         :return: the created GeneFamily object
         :rtype: :class:`ppanggolin.geneFamily.GeneFamily`
         """
-        newFam = GeneFamily(ID = self.max_fam_id, name = name)
-        self.max_fam_id+=1
+        newFam = GeneFamily(ID=self.max_fam_id, name=name)
+        self.max_fam_id += 1
         self._famGetter[newFam.name] = newFam
         return newFam
 
-    def getIndex(self):#will not make a new index if it exists already
+    def getIndex(self):  # will not make a new index if it exists already
         """Creates an index for Organisms (each organism is assigned an Integer).
         
         :return: A dictionnary with :class:`ppanggolin.genome.Organism` as key and `int` as value.
         :rtype: dict[:class:`ppanggolin.genome.Organism`, int]
         """
-        if not hasattr(self, "_orgIndex"):#then the index does not exist yet
+        if not hasattr(self, "_orgIndex"):  # then the index does not exist yet
             self._orgIndex = {}
             for index, org in enumerate(self.organisms):
                 self._orgIndex[org] = index
         return self._orgIndex
 
     def computeFamilyBitarrays(self):
-        """Based on the index generated by :meth:`ppanggolin.pangenome.Pangenome.getIndex`, generated a bitarray for each gene family.
-        If the family j is present in the organism with the index i, the bit at position i will be 1. If it is not, the bit will be 0.
+        """Based on the index generated by :meth:`ppanggolin.pangenome.Pangenome.getIndex`, generated a bitarray
+        for each gene family.
+        If the family j is present in the organism with the index i, the bit at position i will be 1. If it is not,
+        the bit will be 0.
         The bitarrays are gmpy2.xmpz object.
 
         :return: A dictionnary with :class:`ppanggolin.genome.Organism` as key and `int` as value.
         :rtype: dict[:class:`ppanggolin.genome.Organism`, int]
         """
-        if not hasattr(self, "_orgIndex"):#then the bitarrays don't exist yet, since the org index does not exist either.
+        if not hasattr(self,
+                       "_orgIndex"):  # then the bitarrays don't exist yet, since the org index does not exist either.
             self.getIndex()
             for fam in self.geneFamilies:
                 fam.mkBitarray(self._orgIndex)
-        #case where there is an index but the bitarrays have not been computed???
+        # case where there is an index but the bitarrays have not been computed???
         return self._orgIndex
 
-    def get_multigenics(self, dup_margin, persistent = True):
+    def get_multigenics(self, dup_margin, persistent=True):
         """
-        Returns the multigenic persistent families of the pangenome graph. A family will be considered multigenic if it is duplicated in more than `dup_margin` of the genomes where it is present.
+        Returns the multigenic persistent families of the pangenome graph. A family will be considered multigenic
+        if it is duplicated in more than `dup_margin` of the genomes where it is present.
         
         :param dup_margin: the ratio of presence in multicopy above which a gene family is considered multigenic
         :type dup_margin: float
@@ -318,10 +332,12 @@ class Pangenome:
         multigenics = set()
         for fam in self.geneFamilies:
             if fam.namedPartition == "persistent" or not persistent:
-                dup=len([genes for org, genes in fam.getOrgDict().items() if len([ gene for gene in genes if not gene.is_fragment]) > 1])
-                if (dup / len(fam.organisms)) >= dup_margin:#tot / nborgs >= 1.05
+                dup = len([genes for org, genes in fam.getOrgDict().items() if
+                           len([gene for gene in genes if not gene.is_fragment]) > 1])
+                if (dup / len(fam.organisms)) >= dup_margin:  # tot / nborgs >= 1.05
                     multigenics.add(fam)
-        # logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic. (duplicated in more than {dup_margin} of the genomes)")
+        # logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic.
+        # (duplicated in more than {dup_margin} of the genomes)")
         return multigenics
 
     def addRegions(self, regionGroup):
@@ -335,12 +351,13 @@ class Pangenome:
         if isinstance(regionGroup, Iterable):
             for region in regionGroup:
                 self._regionGetter[region.name] = region
-            if len(self._regionGetter) != len(regionGroup)+oldLen:
+            if len(self._regionGetter) != len(regionGroup) + oldLen:
                 raise Exception("Two regions had an identical name, which was unexpected.")
         elif isinstance(regionGroup, Region):
             self._regionGetter[regionGroup.name] = regionGroup
         else:
-            raise TypeError(f"An iterable or a 'Region' type object were expected, but you provided a {type(regionGroup)} type object")
+            raise TypeError(
+                f"An iterable or a 'Region' type object were expected, but you provided a {type(regionGroup)} type object")
 
     def getOrAddRegion(self, regionName):
         """Returns a region with the given `regionName`. Creates it if it does not exist.
@@ -352,7 +369,7 @@ class Pangenome:
         """
         try:
             return self._regionGetter[regionName]
-        except KeyError:#then the region is not stored in this pangenome.
+        except KeyError:  # then the region is not stored in this pangenome.
             newRegion = Region(regionName)
             self._regionGetter[regionName] = newRegion
             return newRegion

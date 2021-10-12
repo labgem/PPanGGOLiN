@@ -7,7 +7,7 @@ from io import TextIOWrapper
 import mmap
 from pathlib import Path
 import os
-import numpy
+from numpy import repeat
 import argparse
 
 
@@ -15,7 +15,7 @@ def jaccard_similarities(mat, jaccard_similarity_th):
     cols_sum = mat.getnnz(axis=0)
     ab = mat.T * mat
     # for rows
-    aa = numpy.repeat(cols_sum, ab.getnnz(axis=0))
+    aa = repeat(cols_sum, ab.getnnz(axis=0))
     # for columns
     bb = cols_sum[ab.indices]
     similarities = ab.copy()

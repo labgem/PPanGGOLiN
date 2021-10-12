@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-#coding: utf8
+# coding: utf8
 
-#default libraries
+# default libraries
 from collections import defaultdict
 
-#installed libraries
+# installed libraries
 import gmpy2
 
-#local libraries
+# local libraries
 from ppanggolin.genome import Gene
 
 
@@ -15,6 +15,7 @@ class GeneFamily:
     """This represents a single gene family. It will be a node in the pangenome graph, and be aware of its genes and edges.
 
     """
+
     def __init__(self, ID, name):
         """Constructor method
 
@@ -28,7 +29,7 @@ class GeneFamily:
         self._edges = {}
         self._genePerOrg = defaultdict(set)
         self.genes = set()
-        self.removed = False#for the repeated family not added in the main graph
+        self.removed = False  # for the repeated family not added in the main graph
         self.sequence = ""
         self.partition = ""
 
@@ -88,7 +89,7 @@ class GeneFamily:
         :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
         :type index: dict[:class:`ppanggolin.genome.Organism`, int]
         """
-        self.bitarray = gmpy2.xmpz(0)#pylint: disable=no-member
+        self.bitarray = gmpy2.xmpz(0)  # pylint: disable=no-member
         for org in self.organisms:
             self.bitarray[index[org]] = 1
 
@@ -147,7 +148,7 @@ class GeneFamily:
         """
         try:
             return set(self._genePerOrg.keys())
-        except AttributeError:#then the genes have been added before they had organisms
+        except AttributeError:  # then the genes have been added before they had organisms
             for gene in self.genes:
                 self._genePerOrg[gene.organism].add(gene)
             return set(self._genePerOrg.keys())
