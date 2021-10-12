@@ -306,7 +306,7 @@ def launchSequences(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     checkOptions(args)
-    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, cpu=args.cpu, soft_core=args.soft_core,
+    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
                        regions=args.regions, genes=args.genes, prot_families=args.prot_families,
                        gene_families=args.gene_families, compress=args.compress, disable_bar=args.disable_prog_bars)
 
