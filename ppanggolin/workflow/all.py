@@ -81,7 +81,7 @@ def launch(args):
     regions_time = time.time() - start_regions
 
     start_spots = time.time()
-    predictHotspots(pangenome, args.output, disable_bar=args.show_prog_bars)
+    predictHotspots(pangenome, args.output, disable_bar=args.disable_prog_bars)
     spot_time = time.time() - start_spots
 
     start_mods = time.time()
@@ -94,7 +94,7 @@ def launch(args):
 
     if not args.only_pangenome:
         if args.rarefaction:
-            makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.show_prog_bars)
+            makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bars)
         if len(pangenome.organisms) > 1 and len(pangenome.organisms) < 5000:
             drawTilePlot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
         drawUCurve(pangenome, args.output)
