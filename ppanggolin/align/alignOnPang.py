@@ -148,8 +148,8 @@ def writeGbffRegions(filename, regions, output):
             if line.startswith("VERSION"):
                 curr_contig = line.split()[1]
             if curr_contig in ContigRegions and len(ContigRegions[curr_contig]) > 0:
-                if line[0:5].strip() == "" and line[0:20].strip() != "" and len(
-                        line[20:].split("..")) == 2:  # should be a FEATURE with its position
+                if line[0:5].strip() == "" and line[0:20].strip() != "" and len(line[20:].split("..")) == 2:
+                    # should be a FEATURE with its position
                     start = line[20:].replace("complement(", "").replace(")", "").split("..")[0]
                     if int(start) == ContigRegions[curr_contig][-1].start:
                         reg = ContigRegions[curr_contig].pop()
@@ -187,7 +187,8 @@ def writeGffRegions(filename, regions, output):
                             reg = ContigRegions[features[0]].pop()
                             foutfile.write('\t'.join(map(str, [features[0], "panRGP", "sequence_feature", reg.start,
                                                                reg.stop, reg.score, '+', '.',
-                                                               f'ID={region.name};note=Region of genomic plasticity;gbkey=misc_feature'])) + "\n")
+                                                               f'ID={region.name};note=Region of genomic plasticity;'
+                                                               f'gbkey=misc_feature'])) + "\n")
             foutfile.write(line)
 
     for val in ContigRegions.values():
@@ -201,11 +202,13 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
                         "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
-    ## could be possible either by picking a representative somehow, or by aligning on genes rather than on families, if they are in the pangenome.
+    # could be possible either by picking a representative somehow, or by aligning on genes rather than on
+    # families, if they are in the pangenome.
 
     # read given file
     logging.getLogger().info("Retrieving the annotations from the given file")
-    singleOrgPang = Pangenome()  # need to create a new 'pangenome' as the annotation reading functions take a pangenome as input.
+    # need to create a new 'pangenome' as the annotation reading functions take a pangenome as input.
+    singleOrgPang = Pangenome()
     filetype = detect_filetype(annotation)
     if filetype == "gff":
         org, hasFasta = read_org_gff('myGenome', annotation, [], True, pseudo=pseudo)
