@@ -516,6 +516,8 @@ def alignSubparser(sub_parser):
                           help="Output directory where the file(s) will be written")
 
     optional = parser.add_argument_group(title="Optional arguments")
+    optional.add_argument("--defrag", required=False, action="store_true",
+                          help=argparse.SUPPRESS)  ##This ensures compatibility with the old option "defrag"
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
