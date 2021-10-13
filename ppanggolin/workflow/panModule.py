@@ -82,8 +82,8 @@ def launch(args):
     writing_time = writing_time + time.time() - start_writing
 
     if args.rarefaction:
-        makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.show_prog_bars)
-    if len(pangenome.organisms) > 1 and len(pangenome.organisms) < 5000:
+        makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bars)
+    if 1 < len(pangenome.organisms) < 5000:
         drawTilePlot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)
 

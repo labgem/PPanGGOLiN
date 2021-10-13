@@ -79,7 +79,7 @@ def launch(args):
     regions_time = time.time() - start_regions
 
     start_spots = time.time()
-    predictHotspots(pangenome, args.output, interest=args.interest, disable_bar=args.show_prog_bars)
+    predictHotspots(pangenome, args.output, interest=args.interest, disable_bar=args.disable_prog_bar)
     spot_time = time.time() - start_spots
 
     start_writing = time.time()
@@ -87,7 +87,7 @@ def launch(args):
     writing_time = writing_time + time.time() - start_writing
 
     if args.rarefaction:
-        makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.show_prog_bars)
+        makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
     if len(pangenome.organisms) > 1 and len(pangenome.organisms) < 5000:
         drawTilePlot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)
