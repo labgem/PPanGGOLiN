@@ -15,7 +15,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
 from ppanggolin.cluster import writeGeneSequencesFromAnnotations
 from ppanggolin.RGP.genomicIsland import compute_org_rgp
-from ppanggolin.RGP.spot import makeSpotGraph, draw_spots, subgraph
+from ppanggolin.RGP.spot import draw_spots, subgraph
 
 
 def createdb(fileObj, tmpdir):
@@ -137,19 +137,18 @@ def writeGbffRegions(filename, regions, output):
             if line.startswith("VERSION"):
                 curr_contig = line.split()[1]
             if curr_contig in ContigRegions and len(ContigRegions[curr_contig]) > 0:
-                if line[0:5].strip() == "" and line[0:20].strip() != "" and len(
-                        line[20:].split("..")) == 2:  # should be a FEATURE with its position
+                if line[0:5].strip() == "" and line[0:20].strip() != "" and len(line[20:].split("..")) == 2:
+                    # should be a FEATURE with its position
                     start = line[20:].replace("complement(", "").replace(")", "").split("..")[0]
                     if int(start) == ContigRegions[curr_contig][-1].start:
                         reg = ContigRegions[curr_contig].pop()
                         foutfile.write("     misc_feature    " + str(reg.start) + ".." + str(reg.stop) + "\n")
                         foutfile.write('                     /note="Region of genomic plasticity"\n')
-
-            foutfile.write(line)
+                foutfile.write(line)
 
     for val in ContigRegions.values():
         if len(val) != 0:
-            logging.getLogger().warning("Somes regions were not written in the new gbff file for unknown reasons")
+            logging.getLogger().warning("Some regions were not written in the new gbff file for unknown reasons")
     logging.getLogger().info(f"RGP have been written in the following file : '{output + '/genome_annotation.gbff'}' ")
 
 
@@ -171,17 +170,18 @@ def writeGffRegions(filename, regions, output):
                 features = line.split("\t")
                 if len(features) == 9:  # gff annotation lines are supposed to be 8 columns long
                     start = int(features[3])
-                    if features[0] in ContigRegions:
-                        if len(ContigRegions[features[0]]) > 0 and ContigRegions[features[0]][-1].start == start:
-                            reg = ContigRegions[features[0]].pop()
-                            foutfile.write('\t'.join(map(str, [features[0], "panRGP", "sequence_feature", reg.start,
-                                                               reg.stop, reg.score, '+', '.',
-                                                               f'ID={region.name};note=Region of genomic plasticity;gbkey=misc_feature'])) + "\n")
+                    if features[0] in ContigRegions and len(ContigRegions[features[0]]) > 0 \
+                            and ContigRegions[features[0]][-1].start == start:
+                        reg = ContigRegions[features[0]].pop()
+                        foutfile.write('\t'.join(map(str, [features[0], "panRGP", "sequence_feature", reg.start,
+                                                           reg.stop, reg.score, '+', '.',
+                                                           f'ID={region.name};note=Region of genomic plasticity;'
+                                                           f'gbkey=misc_feature'])) + "\n")
             foutfile.write(line)
 
     for val in ContigRegions.values():
         if len(val) != 0:
-            logging.getLogger().warning("Somes regions were not written in the new gff file for unknown reasons")
+            logging.getLogger().warning("Some regions were not written in the new gff file for unknown reasons")
     logging.getLogger().info(f"RGP have been written in the following file : '{output + '/genome_annotation.gff'}' ")
 
 
@@ -291,9 +291,12 @@ def getFam2RGP(pangenome, multigenics):
     return fam2rgp
 
 
-def getFam2spot(pangenome, output, multigenics):
-    """ reads a pangenome object and returns a dictionnary of family to RGP and family to spot, that indicates where each family is"""
-    ##those are to be replaced as spots should be stored in the pangenome, and in the h5.
+def getFam2spot(pangenome, multigenics):
+    """
+    reads a pangenome object and returns a dictionary of family to RGP and family to spot,
+    that indicates where each family is
+    """
+    # those are to be replaced as spots should be stored in the pangenome, and in the h5.
     fam2spot = defaultdict(list)
     fam2border = defaultdict(list)
     for spot in pangenome.spots:
@@ -325,7 +328,8 @@ def checkLabelPriorityLogic(priority):
     for p in priority.split(','):
         if p.lower() not in ["name", "id", "family"]:
             raise Exception(
-                f"You have indicated a label which is not supported with --label_priority. You indicated '{p}'. Supported labels are 'name', 'id' and 'family'")
+                f"You have indicated a label which is not supported with --label_priority."
+                f" You indicated '{p}'. Supported labels are 'name', 'id' and 'family'")
 
 
 def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
@@ -335,7 +339,7 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
     finfo = open(output + "/info_input_prot.tsv", "w")
     finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
     fam2rgp = getFam2RGP(pangenome, multigenics)
-    fam2spot, fam2border, multigenics = getFam2spot(pangenome, output, multigenics)
+    fam2spot, fam2border, multigenics = getFam2spot(pangenome, multigenics)
     spot_list = set()
     for prot, panfam in prot2pang.items():
         finfo.write(prot + '\t' + panfam.name + "\t" + panfam.namedPartition + "\t" + ",".join(
@@ -350,7 +354,8 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
             if len(spot.getUniqOrderedSet()) > 1:
                 drawn_spots.add(spot)
         logging.getLogger().info(
-            f"Drawing the {len(drawn_spots)} spots with more than 1 organization related to hits of the input proteins...")
+            f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
+            f"related to hits of the input proteins...")
         draw_spots(drawn_spots, output, cpu, 2, 1, 3, multigenics, [], priority)
 
         # fam2module
@@ -440,7 +445,7 @@ def alignSubparser(subparser):
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--defrag", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  ##This ensures compatibility with the old option "defrag"
+                          help=argparse.SUPPRESS)  # This ensures compatibility with the old option "defrag"
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
@@ -451,11 +456,17 @@ def alignSubparser(subparser):
     optional.add_argument("--translation_table", required=False, default="11",
                           help="Translation table (genetic code) to use.")
     optional.add_argument("--getinfo", required=False, action="store_true",
-                          help="Use this option to extract info related to the best hit of each query, such as the RGP it is in, or the spots.")
+                          help="Use this option to extract info related to the best hit of each query, "
+                               "such as the RGP it is in, or the spots.")
     optional.add_argument("--draw_related", required=False, action="store_true",
-                          help="Draw figures and provide graphs in a gexf format of the eventual spots associated to the input proteins")
+                          help="Draw figures and provide graphs in a gexf format of the eventual spots"
+                               " associated to the input proteins")
     optional.add_argument("--use_pseudo", required=False, action="store_true",
-                          help="In the context of provided annotation, use this option to read pseudogenes. (Default behavior is to ignore them)")
+                          help="In the context of provided annotation, use this option to read pseudogenes. "
+                               "(Default behavior is to ignore them)")
     optional.add_argument("--label_priority", required=False, type=str, default='name,ID',
-                          help="Option to use with --draw_hotspots. Will indicate what to write in the figure labels as a comma-separated list. Order gives priority. Possible values are: name (for gene names), ID (for the gene IDs), family (for the family IDs)")
+                          help="Option to use with --draw_hotspots. Will indicate what to write in the figure labels "
+                               "as a comma-separated list. Order gives priority. "
+                               "Possible values are: name (for gene names), ID (for the gene IDs), "
+                               "family (for the family IDs)")
     return parser
