@@ -135,7 +135,7 @@ def launch_infernal(fnaFile, org, kingdom, tmpdir):
     return geneObjs
 
 
-def read_fasta(org, fnaFile, contig_filter):
+def read_fasta(org, fnaFile, contig_filter = 1):
     """
         Reads a fna file  (or stream, or string) and stores it in a dictionnary with contigs as key and sequence as value.
     """

@@ -87,4 +87,9 @@ jobs:
         ppanggolin annotate --anno organisms.gbff.list --output readclusters
         ppanggolin cluster --cluster clusters.tsv -p readclusters/pangenome.h5
         cd -
-    ## can test the remaining options in 'align'
+    - name: testing align command
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        ppanggolin align --pangenome myannopang/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_align --draw_related --getinfo --defrag
+        cd -

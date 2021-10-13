@@ -474,7 +474,7 @@ def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename, fig_m
 
 
 def draw_spots(spots, output, cpu, overlapping_match, exact_match, set_size, multigenics, elements, priority,
-               fig_margin, disable_bar=False):
+               fig_margin=100, disable_bar=False):
     logging.getLogger().info("Selecting and ordering genes among regions...")
     bar = tqdm(range(len(spots)), unit="spot", disable=disable_bar)
     spots_to_draw = []
