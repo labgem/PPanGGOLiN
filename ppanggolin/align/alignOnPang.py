@@ -446,7 +446,7 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no
     if getinfo:
         checkLabelPriorityLogic(priority)
         need_mod = False
-        if pangenome.parameters["modules"] != "No":  # modules are not required to be loaded, but if they have been
+        if pangenome.status["modules"] != "No":  # modules are not required to be loaded, but if they have been
             # computed we load them.
             need_mod = True
         checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True, needRGP=True,

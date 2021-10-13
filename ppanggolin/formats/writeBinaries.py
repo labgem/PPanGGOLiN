@@ -565,7 +565,7 @@ def writePangenome(pangenome, filename, force, disable_bar=False):
         compressionFilter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
         h5f = tables.open_file(filename, "w", filters=compressionFilter)
         logging.getLogger().info("Writing genome annotations...")
-        writeAnnotations(pangenome, h5f)
+        writeAnnotations(pangenome, h5f, disable_bar)
         pangenome.status["genomesAnnotated"] = "Loaded"
         h5f.close()
     elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:

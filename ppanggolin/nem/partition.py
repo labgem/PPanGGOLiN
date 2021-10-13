@@ -492,8 +492,8 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     partition(pangenome, args.tmpdir, args.output, args.force, args.beta, args.max_degree_smoothing,
               args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.krange, args.ICL_margin, args.draw_ICL,
-              args.cpu, args.seed, args.keep_tmp_files, disable_bar=args.disable_prog_bars)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bars)
+              args.cpu, args.seed, args.keep_tmp_files, disable_bar=args.disable_prog_bar)
+    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def partitionSubparser(subparser):

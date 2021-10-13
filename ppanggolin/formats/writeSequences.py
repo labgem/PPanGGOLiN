@@ -308,7 +308,7 @@ def launchSequences(args):
     checkOptions(args)
     writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
                        regions=args.regions, genes=args.genes, prot_families=args.prot_families,
-                       gene_families=args.gene_families, compress=args.compress, disable_bar=args.disable_prog_bars)
+                       gene_families=args.gene_families, compress=args.compress, disable_bar=args.disable_prog_bar)
 
 
 def writeSequenceSubparser(subparser):

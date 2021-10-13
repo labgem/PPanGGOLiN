@@ -396,7 +396,7 @@ def launch(args):
                          minSampling=args.min, maxSampling=args.max, sm_degree=args.max_degree_smoothing,
                          free_dispersion=args.free_dispersion, chunk_size=args.chunk_size, K=args.nb_of_partitions,
                          cpu=args.cpu, seed=args.seed, kestimate=args.reestimate_K, krange=args.krange,
-                         soft_core=args.soft_core, disable_bar=args.disable_prog_bars)
+                         soft_core=args.soft_core, disable_bar=args.disable_prog_bar)
 
 
 def rarefactionSubparser(subparser):

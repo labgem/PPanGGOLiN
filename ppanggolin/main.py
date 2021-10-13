@@ -200,7 +200,7 @@ def main():
             level = logging.WARNING  # only warnings and errors
 
         if args.log == sys.stdout and not args.disable_prog_bar:  # if output is not to stdout we remove progress bars.
-            args.disable_prog_bars = True
+            args.disable_prog_bar = True
 
         logging.basicConfig(stream=args.log, level=level,
                             format='%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s',

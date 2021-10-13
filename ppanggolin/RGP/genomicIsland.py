@@ -231,8 +231,8 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     predictRGP(pangenome, force=args.force, persistent_penalty=args.persistent_penalty,
                variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score,
-               dup_margin=args.dup_margin, cpu=args.cpu, disable_bar=args.disable_prog_bars)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bars)
+               dup_margin=args.dup_margin, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def rgpSubparser(subparser):

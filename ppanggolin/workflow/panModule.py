@@ -31,10 +31,10 @@ def launch(args):
         if args.clusters is not None:
             getSeq = False
         start_anno = time.time()
-        readAnnotations(pangenome, args.anno, cpu=args.cpu, getSeq=getSeq, disable_bar=args.disable_prog_bars)
+        readAnnotations(pangenome, args.anno, cpu=args.cpu, getSeq=getSeq, disable_bar=args.disable_prog_bar)
         annotime = time.time() - start_anno
         start_writing = time.time()
-        writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bars)
+        writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception(
@@ -44,45 +44,45 @@ def launch(args):
             getGeneSequencesFromFastas(pangenome, args.fasta)
         start_clust = time.time()
         if args.clusters is not None:
-            readClustering(pangenome, args.clusters, disable_bar=args.disable_prog_bars)
+            readClustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar)
 
         elif args.clusters is None:  # we should have the sequences here.
-            clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, disable_bar=args.disable_prog_bars)
+            clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
         clust_time = time.time() - start_clust
     elif args.fasta is not None:
         start_anno = time.time()
-        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, disable_bar=args.disable_prog_bars)
+        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, disable_bar=args.disable_prog_bar)
         annotime = time.time() - start_anno
         start_writing = time.time()
-        writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bars)
+        writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
         start_clust = time.time()
-        clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, disable_bar=args.disable_prog_bars)
+        clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
         clust_time = time.time() - start_clust
 
-    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bars)
+    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     start_graph = time.time()
-    computeNeighborsGraph(pangenome, disable_bar=args.disable_prog_bars)
+    computeNeighborsGraph(pangenome, disable_bar=args.disable_prog_bar)
     graph_time = time.time() - start_graph
 
     start_part = time.time()
-    partition(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, K=args.nb_of_partitions, disable_bar=args.disable_prog_bars)
+    partition(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, K=args.nb_of_partitions, disable_bar=args.disable_prog_bar)
     part_time = time.time() - start_part
 
     start_writing = time.time()
-    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bars)
+    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     writing_time = writing_time + time.time() - start_writing
 
     start_mods = time.time()
-    predictModules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, disable_bar=args.disable_prog_bars)
+    predictModules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, disable_bar=args.disable_prog_bar)
     mod_time = time.time() - start_mods
 
     start_writing = time.time()
-    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bars)
+    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     writing_time = writing_time + time.time() - start_writing
 
     if args.rarefaction:
-        makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bars)
+        makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
     if 1 < len(pangenome.organisms) < 5000:
         drawTilePlot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)

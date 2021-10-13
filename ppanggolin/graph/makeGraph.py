@@ -90,8 +90,8 @@ def computeNeighborsGraph(pangenome, remove_copy_number=0, force=False, disable_
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    computeNeighborsGraph(pangenome, args.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bars)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bars)
+    computeNeighborsGraph(pangenome, args.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bar)
+    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def graphSubparser(subparser):

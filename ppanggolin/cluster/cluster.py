@@ -311,10 +311,10 @@ def launch(args):
     if args.clusters is None:
         clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, code=args.translation_table,
                    coverage=args.coverage, identity=args.identity, mode=args.mode, force=args.force,
-                   disable_bar=args.disable_prog_bars)
+                   disable_bar=args.disable_prog_bar)
         logging.getLogger().info("Done with the clustering")
     else:
-        readClustering(pangenome, args.clusters, args.infer_singletons, args.force, disable_bar=args.disable_prog_bars)
+        readClustering(pangenome, args.clusters, args.infer_singletons, args.force, disable_bar=args.disable_prog_bar)
         logging.getLogger().info("Done reading the cluster file")
     writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 

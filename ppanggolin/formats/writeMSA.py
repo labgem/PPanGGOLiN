@@ -120,7 +120,7 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable
     start_msa = time.time()
 
     logging.getLogger().info("Computing the MSA ...")
-    bar = tqdm(range(len(families)), unit="family")
+    bar = tqdm(range(len(families)), unit="family", disable=disable_bar)
     with Pool(cpu) as p:
         for _ in p.imap_unordered(launchMultiMafft, args):
             bar.update()
@@ -218,7 +218,7 @@ def launchMSA(args):
     pangenome.addFile(args.pangenome)
     writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
                   source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
-                  force=args.force, disable_bar=args.disable_prog_bars)
+                  force=args.force, disable_bar=args.disable_prog_bar)
 
 
 def writeMSASubparser(subparser):

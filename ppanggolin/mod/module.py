@@ -135,8 +135,8 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     predictModules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, force=args.force, dup_margin=args.dup_margin,
                    size=args.size, min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard,
-                   disable_bar=args.disable_prog_bars)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bars)
+                   disable_bar=args.disable_prog_bar)
+    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def moduleSubparser(subparser):

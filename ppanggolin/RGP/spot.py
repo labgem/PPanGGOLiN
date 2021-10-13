@@ -539,8 +539,8 @@ def launch(args):
     predictHotspots(pangenome, args.output, force=args.force, cpu=args.cpu, spot_graph=args.spot_graph,
                     overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size,
                     draw_hotspot=args.draw_hotspots, interest=args.interest, priority=args.label_priority,
-                    fig_margin=args.fig_margin, disable_bar=args.disable_prog_bars)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bars)
+                    fig_margin=args.fig_margin, disable_bar=args.disable_prog_bar)
+    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def spotSubparser(subparser):
