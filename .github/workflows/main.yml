@@ -91,5 +91,5 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin align --pangenome myannopang/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_align --draw_related --getinfo --defrag
+        ppanggolin align --pangenome stepbystep/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_align --draw_related --getinfo --defrag
         cd -
