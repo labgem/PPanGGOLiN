@@ -310,7 +310,7 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
 
         #fam2module
         fam2mod = {}
-        if pangenome.parameters["modules"] != "No":
+        if pangenome.status["modules"] != "No":
             for mod in pangenome.modules:
                 for fam in mod.families:
                     fam2mod[fam] = mod
@@ -327,7 +327,7 @@ def align(pangenome, proteinFile, output, tmpdir, identity = 0.8, coverage=0.8, 
     if getinfo:
         checkLabelPriorityLogic(priority)
         needMod = False
-        if pangenome.parameters["modules"] != "No":#modules are not required to be loaded, but if they have been computed we load them.
+        if pangenome.status["modules"] != "No":#modules are not required to be loaded, but if they have been computed we load them.
             needMod = True
         checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True, needSpots=True, needModules = needMod)
     else:
