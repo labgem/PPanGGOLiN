@@ -77,7 +77,7 @@ def getMaxLenAnnotations(pangenome):
 
 def writeAnnotations(pangenome, h5f, disable_bar=False):
     """
-        Function writing all of the pangenome's annotations
+        Function writing all the pangenome's annotations
     """
     annotation = h5f.create_group("/", "annotations", "Annotations of the pangenome's organisms")
     geneTable = h5f.create_table(annotation, "genes", geneDesc(*getMaxLenAnnotations(pangenome)),
@@ -219,7 +219,7 @@ def getGene2famLen(pangenome):
 
 def writeGeneFamilies(pangenome, h5f, force, disable_bar=False):
     """
-        Function writing all of the pangenome's gene families
+        Function writing all the pangenome's gene families
     """
     if '/geneFamilies' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
@@ -492,7 +492,7 @@ def updateGeneFamPartition(pangenome, h5f, disable_bar=False):
 
 def updateGeneFragments(pangenome, h5f, disable_bar=False):
     """
-        updates the annotation table with the fragmentation informations from the defrag pipeline
+        updates the annotation table with the fragmentation information from the defrag pipeline
     """
     logging.getLogger().info("Updating annotations with fragment information")
     table = h5f.root.annotations.genes
@@ -567,7 +567,7 @@ def writePangenome(pangenome, filename, force, disable_bar=False):
     elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
         pass
     else:
-        # if the pangenome is not Computed not Loaded, it's probably not really in a good state
+        # if the pangenome is not Computed or not Loaded, it's probably not really in a good state
         # (or something new was coded).
         raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. "
                                   "Please post an issue on github with what you did to reach this error.")
