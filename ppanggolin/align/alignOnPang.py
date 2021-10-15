@@ -360,7 +360,7 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
 
         # fam2module
         fam2mod = {}
-        if pangenome.parameters["modules"] != "No":
+        if pangenome.status["modules"] != "No":
             for mod in pangenome.modules:
                 for fam in mod.families:
                     fam2mod[fam] = mod
