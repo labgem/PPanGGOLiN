@@ -21,24 +21,27 @@ from ppanggolin.info import printInfo
 from ppanggolin.mod import predictModules
 
 
-### a global workflow that does everything in one go.
+"""a global workflow that does everything in one go."""
+
 
 def launch(args):
     pangenome = Pangenome()
     filename = mkFilename(args.basename, args.output, args.force)
+    writing_time, anno_time, clust_time, mod_time, desc_time = (None, None, None, None, None)
     if args.anno:  # if the annotations are provided, we read from it
         getSeq = True
         if args.clusters is not None:
             getSeq = False
         start_anno = time.time()
         readAnnotations(pangenome, args.anno, cpu=args.cpu, getSeq=getSeq, disable_bar=args.disable_prog_bar)
-        annotime = time.time() - start_anno
+        anno_time = time.time() - start_anno
         start_writing = time.time()
         writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
-            raise Exception(
-                "The gff/gbff provided did not have any sequence informations, you did not provide clusters and you did not provide fasta file. Thus, we do not have the information we need to continue the analysis.")
+            raise Exception("The gff/gbff provided did not have any sequence informations, "
+                            "you did not provide clusters and you did not provide fasta file. "
+                            "Thus, we do not have the information we need to continue the analysis.")
 
         elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is not None:
             getGeneSequencesFromFastas(pangenome, args.fasta)
@@ -52,7 +55,7 @@ def launch(args):
     elif args.fasta is not None:
         start_anno = time.time()
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, disable_bar=args.disable_prog_bar)
-        annotime = time.time() - start_anno
+        anno_time = time.time() - start_anno
         start_writing = time.time()
         writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
@@ -92,11 +95,11 @@ def launch(args):
                    json=True, stats=True, partitions=True, modules=True)
     desc_time = time.time() - start_desc
 
-    logging.getLogger().info(f"Annotation took : {round(annotime, 2)} seconds")
+    logging.getLogger().info(f"Annotation took : {round(anno_time, 2)} seconds")
     logging.getLogger().info(f"Clustering took : {round(clust_time, 2)} seconds")
     logging.getLogger().info(f"Building the graph took : {round(graph_time, 2)} seconds")
-    logging.getLogger().info(f"Partitionning the pangenome took : {round(part_time, 2)} seconds")
-    logging.getLogger().info(f"Predicting modules took : {round(start_mods, 2)} seconds")
+    logging.getLogger().info(f"Partitioning the pangenome took : {round(part_time, 2)} seconds")
+    logging.getLogger().info(f"Predicting modules took : {round(mod_time, 2)} seconds")
     logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
     logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
     printInfo(filename, content=True)
@@ -107,11 +110,17 @@ def panModuleSubparser(subparser):
 
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
     required.add_argument('--fasta', required=False, type=str,
-                          help="A tab-separated file listing the organism names, and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). One line per organism. This option can be used alone.")
+                          help="A tab-separated file listing the organism names, "
+                               "and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). "
+                               "One line per organism. This option can be used alone.")
     required.add_argument('--anno', required=False, type=str,
-                          help="A tab-separated file listing the organism names, and the gff filepath of its annotations (the gffs can be compressed). One line per organism. This option can be used alone IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
+                          help="A tab-separated file listing the organism names, "
+                               "and the gff filepath of its annotations (the gffs can be compressed). "
+                               "One line per organism. This option can be used alone "
+                               "IF the fasta sequences are in the gff files, otherwise --fasta needs to be used.")
     required.add_argument("--clusters", required=False, type=str,
-                          help="a tab-separated file listing the cluster names, the gene IDs, and optionnally whether they are a fragment or not.")
+                          help="a tab-separated file listing the cluster names, the gene IDs, "
+                               "and optionally whether they are a fragment or not.")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('-o', '--output', required=False, type=str,
@@ -120,11 +129,12 @@ def panModuleSubparser(subparser):
                           help="Output directory")
     optional.add_argument("--basename", required=False, default="pangenome", help="basename for the output file")
     optional.add_argument("--rarefaction", required=False, action="store_true",
-                          help="Use to compute the rarefaction curves (WARNING: can be time consumming)")
+                          help="Use to compute the rarefaction curves (WARNING: can be time consuming)")
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
-                          help="Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.")
-    optional.add_argument("--defrag", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  ##This ensures compatibility with workflows built with the old option "defrag" when it was not the default
+                          help="Number of partitions to use. Must be at least 2. "
+                               "If under 2, it will be detected automatically.")
+    optional.add_argument("--defrag", required=False, action="store_true", help=argparse.SUPPRESS)
+    # This ensures compatibility with workflows built with the old option "defrag" when it was not the default
     optional.add_argument("--no_defrag", required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
 

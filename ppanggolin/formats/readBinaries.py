@@ -51,17 +51,14 @@ def getStatus(pangenome, pangenomeFile):
     if statusGroup._v_attrs.Partitionned:
         pangenome.status["partitionned"] = "inFile"
 
-    if hasattr(statusGroup._v_attrs, "predictedRGP"):
-        if statusGroup._v_attrs.predictedRGP:
-            pangenome.status["predictedRGP"] = "inFile"
+    if hasattr(statusGroup._v_attrs, "predictedRGP") and statusGroup._v_attrs.predictedRGP:
+        pangenome.status["predictedRGP"] = "inFile"
 
-    if hasattr(statusGroup._v_attrs, "spots"):
-        if statusGroup._v_attrs.spots:
-            pangenome.status["spots"] = "inFile"
+    if hasattr(statusGroup._v_attrs, "spots") and statusGroup._v_attrs.spots:
+        pangenome.status["spots"] = "inFile"
 
-    if hasattr(statusGroup._v_attrs, "modules"):
-        if statusGroup._v_attrs.modules:
-            pangenome.status["modules"] = "inFile"
+    if hasattr(statusGroup._v_attrs, "modules") and statusGroup._v_attrs.modules:
+        pangenome.status["modules"] = "inFile"
 
     if "/info" in h5f:
         infoGroup = h5f.root.info
@@ -80,7 +77,7 @@ def read_chunks(table, column=None, chunk=10000):
 
 def getGeneSequencesFromFile(filename, fileObj, list_CDS=None, disable_bar=False):
     """
-        Writes the CDS sequences of the Pangenome object to a File object that can by filtered or not by a list of CDS
+        Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS
         Loads the sequences from a .h5 pangenome file
     """
     logging.getLogger().info("Extracting and writing CDS sequences from a .h5 pangenome file to a fasta file...")
@@ -106,6 +103,7 @@ def launchReadOrganism(args):
 
 def readOrganism(pangenome, orgName, contigDict, circularContigs, link=False):
     org = Organism(orgName)
+    gene, gene_type = (None, None)
     for contigName, geneList in contigDict.items():
         contig = org.getOrAddContig(contigName, is_circular=circularContigs[contigName])
         for row in geneList:
@@ -145,10 +143,10 @@ def readOrganism(pangenome, orgName, contigDict, circularContigs, link=False):
 def readGraph(pangenome, h5f, disable_bar=False):
     table = h5f.root.edges
 
-    if not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] or not pangenome.status["genesClustered"] in [
-        "Computed", "Loaded"]:
-        raise Exception(
-            "It's not possible to read the graph if the annotations and the gene families have not been loaded.")
+    if not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] or \
+            not pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
+        raise Exception("It's not possible to read the graph "
+                        "if the annotations and the gene families have not been loaded.")
     bar = tqdm(range(table.nrows), unit="contig adjacency", disable=disable_bar)
     for row in read_chunks(table):
         source = pangenome.getGene(row["geneSource"].decode())
@@ -216,7 +214,7 @@ def readRGP(pangenome, h5f, disable_bar=False):
     bar.close()
     # order the genes properly in the regions
     for region in pangenome.regions:
-        region.genes = sorted(region.genes, key=lambda x: x.position)  # order the same way than on the contig
+        region.genes = sorted(region.genes, key=lambda x: x.position)  # order the same way as on the contig
     pangenome.status["predictedRGP"] = "Loaded"
 
 
@@ -330,9 +328,9 @@ def readParameters(h5f):
 def readPangenome(pangenome, annotation=False, geneFamilies=False, graph=False, rgp=False, spots=False,
                   geneSequences=False, modules=False, disable_bar=False):
     """
-        Reads a previously written pangenome, with all of its parts, depending on what is asked, with regards to what is filled in the 'status' field of the hdf5 file.
+        Reads a previously written pangenome, with all of its parts, depending on what is asked,
+        with regard to what is filled in the 'status' field of the hdf5 file.
     """
-    # compressionFilter = tables.Filters(complevel=1, complib='blosc:lz4')
     if hasattr(pangenome, "file"):
         filename = pangenome.file
     else:
@@ -349,8 +347,8 @@ def readPangenome(pangenome, annotation=False, geneFamilies=False, graph=False, 
             logging.getLogger().info("Reading pangenome gene dna sequences...")
             readGeneSequences(pangenome, h5f, disable_bar=disable_bar)
         else:
-            raise Exception(
-                f"The pangenome in file '{filename}' does not have gene sequences, or has been improperly filled")
+            raise Exception(f"The pangenome in file '{filename}' does not have gene sequences, "
+                            f"or has been improperly filled")
 
     if geneFamilies:
         if h5f.root.status._v_attrs.genesClustered:
@@ -393,7 +391,10 @@ def readPangenome(pangenome, annotation=False, geneFamilies=False, graph=False, 
 
 def checkPangenomeInfo(pangenome, needAnnotations=False, needFamilies=False, needGraph=False, needPartitions=False,
                        needRGP=False, needSpots=False, needGeneSequences=False, needModules=False, disable_bar=False):
-    """defines what needs to be read depending on what is needed, and automatically checks if the required elements have been computed with regards to the pangenome.status"""
+    """
+    defines what needs to be read depending on what is needed, and automatically checks if the required elements
+    have been computed with regard to the pangenome.status
+    """
     annotation = False
     geneFamilies = False
     graph = False
@@ -417,9 +418,8 @@ def checkPangenomeInfo(pangenome, needAnnotations=False, needFamilies=False, nee
             graph = True
         elif not pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome does not have a graph (no edges). See the 'graph' subcommand.")
-    if needPartitions:
-        if not pangenome.status["partitionned"] in ["Computed", "Loaded", "inFile"]:
-            raise Exception("Your pangenome has not been partitionned. See the 'partition' subcommand")
+    if needPartitions and pangenome.status["partitionned"] not in ["Computed", "Loaded", "inFile"]:
+        raise Exception("Your pangenome has not been partitioned. See the 'partition' subcommand")
     if needRGP:
         if pangenome.status["predictedRGP"] == "inFile":
             rgp = True
@@ -435,8 +435,8 @@ def checkPangenomeInfo(pangenome, needAnnotations=False, needFamilies=False, nee
         if pangenome.status["geneSequences"] == "inFile":
             geneSequences = True
         elif not pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-            raise Exception(
-                "Your pangenome does not include gene sequences. This is possible only if you provided your own cluster file with the 'cluster' subcommand")
+            raise Exception("Your pangenome does not include gene sequences. "
+                            "This is possible only if you provided your own cluster file with the 'cluster' subcommand")
 
     if needModules:
         if pangenome.status["modules"] == "inFile":
@@ -444,6 +444,7 @@ def checkPangenomeInfo(pangenome, needAnnotations=False, needFamilies=False, nee
         elif not pangenome.status["modules"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome modules have not been predicted. See the 'module' subcommand")
 
-    if annotation or geneFamilies or graph or rgp or spots or geneSequences or modules:  # if anything is true, else we need nothing.
+    if annotation or geneFamilies or graph or rgp or spots or geneSequences or modules:
+        # if anything is true, else we need nothing.
         readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph, rgp=rgp, spots=spots,
                       geneSequences=geneSequences, modules=modules, disable_bar=disable_bar)

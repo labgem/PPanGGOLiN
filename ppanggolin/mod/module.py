@@ -21,15 +21,47 @@ from gmpy2 import xmpz, popcount  # pylint: disable=no-name-in-module
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Module
 from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
-from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
+from ppanggolin.utils import mkOutdir, restricted_float
+
+
+def connected_components(g, removed, weight):
+    """
+        Yields subgraphs of each connected component you get when filtering edges based on the given weight.
+    """
+    for v in g.nodes:
+        if v not in removed:
+            c = set(_plain_bfs(g, v, removed, weight))
+            yield c
+            removed.update(c)
+
+
+def _plain_bfs(g, source, removed, weight):
+    """A fast BFS node generator, copied from networkx then adapted to the current use case"""
+    nextlevel = {source}
+    while nextlevel:
+        thislevel = nextlevel
+        nextlevel = set()
+        for v in thislevel:
+            if v not in removed:
+                yield v
+                removed.add(v)
+
+                for n in g.neighbors(v):
+                    if n not in removed:
+                        edge_genes_v = g[v][n]["genes"][v]
+                        edge_genes_n = g[v][n]["genes"][n]
+                        # if the edge is indeed existent for most genes of both families, we use it
+                        if len(edge_genes_n) / len(g.nodes[n]["genes"]) >= weight and len(edge_genes_v) / len(
+                                g.nodes[v]["genes"]) >= weight:
+                            nextlevel.add(n)
 
 
 def checkPangenomeFormerModules(pangenome, force):
     """ checks pangenome status and .h5 files for former modules, delete them if allowed or raise an error """
-    if pangenome.status["modules"] == "inFile" and force == False:
-        raise Exception(
-            "You are trying to detect modules on a pangenome which already has predicted modules. If you REALLY want to do that, use --force (it will erase modules previously predicted).")
-    elif pangenome.status["modules"] == "inFile" and force == True:
+    if pangenome.status["modules"] == "inFile" and not force:
+        raise Exception("You are trying to detect modules on a pangenome which already has predicted modules. "
+                        "If you REALLY want to do that, use --force (it will erase modules previously predicted).")
+    elif pangenome.status["modules"] == "inFile" and force:
         ErasePangenome(pangenome, modules=True)
 
 
@@ -37,9 +69,9 @@ def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3,
                    jaccard=0.85, disable_bar=False):
     # check statuses and load info
     checkPangenomeFormerModules(pangenome, force)
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True, disable_bar=disable_bar)
 
-    ##compute the graph with transitive closure size provided as parameter
+    # compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
     g = compute_mod_graph(pangenome.organisms, t=transitive, disable_bar=disable_bar)
@@ -69,6 +101,22 @@ def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3,
     pangenome.parameters["modules"]["transitive"] = transitive
     pangenome.parameters["modules"]["jaccard"] = jaccard
     pangenome.parameters["modules"]["dup_margin"] = dup_margin
+
+
+def add_gene(obj, gene, fam_split=True):
+    if fam_split:
+        try:
+            obj["genes"][gene.family].add(gene)
+        except KeyError:
+            try:
+                obj["genes"][gene.family] = set([gene])
+            except KeyError:
+                obj["genes"] = {gene.family: set([gene])}
+    else:
+        try:
+            obj["genes"].add(gene)
+        except KeyError:
+            obj["genes"] = set([gene])
 
 
 def compute_mod_graph(organisms, t=1, disable_bar=False):
@@ -104,7 +152,8 @@ def compute_mod_graph(organisms, t=1, disable_bar=False):
 
 def compute_modules(g, multi, weight, min_fam, size):
     """
-    Computes modules using a graph built by :func:`ppanggolin.mod.module.compute_mod_graph` and differents parameters defining how restrictive the modules will be.
+    Computes modules using a graph built by :func:`ppanggolin.mod.module.compute_mod_graph` and different parameters
+    defining how restrictive the modules will be.
 
     :param g: The networkx graph from :func:`ppanggolin.mod.module.compute_mod_graph`
     :type g: :class:`networkx.Graph`
@@ -115,18 +164,19 @@ def compute_modules(g, multi, weight, min_fam, size):
     :param min_fam: the minimal number of presence under which the family is not considered
     :type min_fam: int
     """
+
     # removing families with low presence
     removed = set([fam for fam in g.nodes if len(fam.organisms) < min_fam])
 
     modules = set()
     c = 0
     for comp in connected_components(g, removed, weight):
-        if len(comp) >= size:  # keep only the modules with at least 'size' non-multigenic genes.
-            if not any(fam.namedPartition == "persistent" and fam not in multi for fam in
-                       comp):  # remove 'persistent' and non-multigenic modules
-                modules.add(Module(ID=c, families=comp))
-                c += 1
-
+        if len(comp) >= size and not any(fam.namedPartition == "persistent" and
+                                         fam not in multi for fam in comp):
+            # keep only the modules with at least 'size' non-multigenic genes and
+            # remove 'persistent' and non-multigenic modules
+            modules.add(Module(ID=c, families=comp))
+            c += 1
     return modules
 
 
@@ -145,13 +195,18 @@ def moduleSubparser(subparser):
     optional.add_argument("--size", required=False, type=int, default=3,
                           help="Minimal number of gene family in a module")
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
-                          help="minimum ratio of organisms in which the family must have multiple genes for it to be considered 'duplicated'")
+                          help="minimum ratio of organisms in which the family must have multiple genes"
+                               " for it to be considered 'duplicated'")
     optional.add_argument("-m", "--min_presence", required=False, type=int, default=2,
-                          help="Minimum number of times the module needs to be present in the pangenome to be reported. Increasing it will improve precision but lower sensitivity.")
+                          help="Minimum number of times the module needs to be present in the pangenome to be reported."
+                               " Increasing it will improve precision but lower sensitivity.")
     optional.add_argument("-t", "--transitive", required=False, type=int, default=4,
-                          help="Size of the transitive closure used to build the graph. This indicates the number of non related genes allowed in-between two related genes. Increasing it will improve precision but lower sensitivity a little.")
+                          help="Size of the transitive closure used to build the graph. "
+                               "This indicates the number of non related genes allowed in-between two related genes. "
+                               "Increasing it will improve precision but lower sensitivity a little.")
     optional.add_argument("-j", "--jaccard", required=False, type=restricted_float, default=0.85,
-                          help="minimum jaccard similarity used to filter edges between gene families. Increasing it will improve precision but lower sensitivity a lot.")
+                          help="minimum jaccard similarity used to filter edges between gene families. "
+                               "Increasing it will improve precision but lower sensitivity a lot.")
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")

@@ -17,9 +17,9 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.tile_plot:
-        drawTilePlot(pangenome, args.output, args.nocloud)
+        drawTilePlot(pangenome, args.output, args.nocloud, disable_bar=args.disable_prog_bar)
     if args.ucurve:
-        drawUCurve(pangenome, args.output, soft_core=args.soft_core)
+        drawUCurve(pangenome, args.output, soft_core=args.soft_core, disable_bar=args.disable_prog_bar)
 
 
 def figureSubparser(subparser):

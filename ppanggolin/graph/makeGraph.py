@@ -15,10 +15,11 @@ from ppanggolin.formats import readPangenome, writePangenome, ErasePangenome
 
 def checkPangenomeFormerGraph(pangenome, force):
     """ checks pangenome status and .h5 files for former neighbors graph, delete it if allowed or raise an error """
-    if pangenome.status["neighborsGraph"] == "inFile" and force == False:
-        raise Exception(
-            "You are trying to make a neighbors graph that is already built. If you REALLY want to do that, use --force (it will erase everything except annotation data !)")
-    elif pangenome.status["neighborsGraph"] == "inFile" and force == True:
+    if pangenome.status["neighborsGraph"] == "inFile" and not force:
+        raise Exception("You are trying to make a neighbors graph that is already built. "
+                        "If you REALLY want to do that, use --force (it will erase everything except annotation data !)"
+                        )
+    elif pangenome.status["neighborsGraph"] == "inFile" and force:
         ErasePangenome(pangenome, graph=True)
 
 
@@ -27,18 +28,21 @@ def checkPangenomeForNeighborsGraph(pangenome, force, disable_bar=False):
         Checks the pangenome for neighbors graph computing.
     """
     checkPangenomeFormerGraph(pangenome, force)
-    if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] and pangenome.status["genesClustered"] in [
-        "Computed", "Loaded"]:
+    if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] and \
+            pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
         pass  # nothing to do, can just continue.
     elif pangenome.status["genomesAnnotated"] == "inFile" and pangenome.status["genesClustered"] == "inFile":
         readPangenome(pangenome, annotation=True, geneFamilies=True, disable_bar=disable_bar)
-    elif pangenome.status["genesClustered"] == "No" and pangenome.status["genomesAnnotated"] in ['inFile', 'Computed',
-                                                                                                 'Loaded']:
+    elif pangenome.status["genesClustered"] == "No" and \
+            pangenome.status["genomesAnnotated"] in ['inFile', 'Computed', 'Loaded']:
         raise Exception("You did not cluster the genes. See the 'ppanggolin cluster' if you want to do that.")
     else:
         # You probably can use readPangenome anyways.
-        msg = "Dev : You are probably writing a new workflow with a combination that I did not test. You can probably use readPangenome instead of raising this Error. However please test it carefully.\n"
-        msg += " User : I have no idea how you got there. You probably did something unexpected. Post an issue with what you did at https://github.com/labgem/PPanGGOLiN\n"
+        msg = "Dev : You are probably writing a new workflow with a combination that I did not test." \
+              " You can probably use readPangenome instead of raising this Error. " \
+              "However please test it carefully.\n"
+        msg += " User : I have no idea how you got there. You probably did something unexpected. " \
+               "Post an issue with what you did at https://github.com/labgem/PPanGGOLiN\n"
         raise NotImplementedError(msg)
 
 
@@ -52,7 +56,8 @@ def remove_high_copy_number(pangenome, number):
 
 def computeNeighborsGraph(pangenome, remove_copy_number=0, force=False, disable_bar=False):
     """
-        Creates the Pangenome Graph. Will either load the informations from the pangenome file if they are not loaded, or use the informations loaded if they are.
+        Creates the Pangenome Graph. Will either load the information from the pangenome file if they are not loaded,
+        or use the information loaded if they are.
     """
     checkPangenomeForNeighborsGraph(pangenome, force, disable_bar=disable_bar)
 
@@ -69,9 +74,9 @@ def computeNeighborsGraph(pangenome, remove_copy_number=0, force=False, disable_
             for gene in contig.genes:
                 try:
                     if not gene.family.removed:
-                        if prev is not None:
-                            if not (prev.family == gene.family and (prev.is_fragment or gene.is_fragment)):
-                                pangenome.addEdge(gene, prev)
+                        if prev is not None and not (prev.family == gene.family and (prev.is_fragment or
+                                                                                     gene.is_fragment)):
+                            pangenome.addEdge(gene, prev)
                         prev = gene
                 except AttributeError:
                     raise AttributeError("a Gene does not have a GeneFamily object associated")
@@ -98,5 +103,7 @@ def graphSubparser(subparser):
     parser = subparser.add_parser("graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
-                        help="""Positive Number: Remove families having a number of copy of gene in a single organism above or equal to this threshold in at least one organism (0 or negative values are ignored).""")
+                        help="Positive Number: Remove families having a number of copy of gene in a single organism "
+                             "above or equal to this threshold in at least one organism "
+                             "(0 or negative values are ignored).")
     return parser

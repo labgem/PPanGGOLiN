@@ -19,8 +19,8 @@ def printInfo(pangenome, status=False, content=False, parameters=False):
             print(f"genomes annotated : {'true' if statusGroup._v_attrs.genomesAnnotated else 'false'}")
             print(f"genes clustered : {'true' if statusGroup._v_attrs.genesClustered else 'false'}")
             print(f"genes have their sequences : {'true' if statusGroup._v_attrs.geneSequences else 'false'}")
-            print(
-                f"gene families have their sequences : {'true' if statusGroup._v_attrs.geneFamilySequences else 'false'}")
+            print(f"gene families have their sequences : "
+                  f"{'true' if statusGroup._v_attrs.geneFamilySequences else 'false'}")
             print(f"neighbors graph : {'true' if statusGroup._v_attrs.NeighborsGraph else 'false'}")
             print(f"pangenome partitioned : {'true' if statusGroup._v_attrs.Partitionned else 'false'}")
             if hasattr(statusGroup._v_attrs, "predictedRGP"):
@@ -58,6 +58,7 @@ def infoSubparser(subparser):
     options.add_argument("--content", required=False, action="store_true",
                          help="Shows detailled informations about the pangenome's content")
     options.add_argument("--status", required=False, action="store_true",
-                         help="Shows informations about the statuses of the different elements of the pangenome (what has been computed, or not)")
+                         help="Shows informations about the statuses of the different elements of the pangenome "
+                              "(what has been computed, or not)")
 
     return parser

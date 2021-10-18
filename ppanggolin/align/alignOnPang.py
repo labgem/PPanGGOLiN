@@ -19,51 +19,40 @@ from ppanggolin.RGP.spot import draw_spots, subgraph
 
 
 def createdb(fileObj, tmpdir):
-    """
-    Allow to create a database with MMSeqs2 before to align
-
-    :param fileObj: Fasta file
-    :type fileObj: _io.TextIOWrapper
-    :param tmpdir: temporary directory
-    :type tmpdir: tempfile.TemporaryDirectory
-
-    :return: DB file
-    :rtype: _io.TextIOWrapper
-    """
     seqdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
     cmd = ["mmseqs", "createdb", fileObj.name, seqdb.name]
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     return seqdb
 
 
-def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8, is_nucl=False,
+def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, defrag=False, identity=0.8, coverage=0.8, is_nucl=False,
                    code=11):
-    pang_db = createdb(pangFile, tmpdir)
-    seq_db = createdb(seqFile, tmpdir)
+    pangdb = createdb(pangFile, tmpdir)
+    seqdb = createdb(seqFile, tmpdir)
     if is_nucl:
-        seq_nuc_db = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
-        cmd = ["mmseqs", "translatenucs", seq_db.name, seq_nuc_db.name, "--threads", str(cpu), "--translation-table",
-               str(code)]  # Translate nucleotide database to protein databases
+        seqNucdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
+        cmd = ["mmseqs", "translatenucs", seqdb.name, seqNucdb.name, "--threads", str(cpu), "--translation-table",
+               str(code)]
         logging.getLogger().debug(" ".join(cmd))
         subprocess.run(cmd, stdout=subprocess.DEVNULL)
-        seq_db = seq_nuc_db
-    cov_mode = "0"  # coverage of query and target
-    if not no_defrag:
-        cov_mode = "1"  # coverage of target
-    aln_db = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
-    cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
-           "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)]
+        seqdb = seqNucdb
+    covmode = "0"
+    if defrag:
+        covmode = "1"
+    alndb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
+    cmd = ["mmseqs", "search", seqdb.name, pangdb.name, alndb.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
+           "-c", str(coverage), "--cov-mode", covmode, "--threads", str(cpu)]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning proteins to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     outfile = output + "/input_to_pangenome_associations.blast-tab"
-    cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile, "--format-mode", "2"]
+    cmd = ["mmseqs", "convertalis", seqdb.name, pangdb.name, alndb.name, outfile, "--format-mode", "2"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    pang_db.close()
-    seq_db.close()
-    aln_db.close()
+    pangdb.close()
+    seqdb.close()
+    alndb.close()
 
     return outfile
 
@@ -155,12 +144,11 @@ def writeGbffRegions(filename, regions, output):
                         reg = ContigRegions[curr_contig].pop()
                         foutfile.write("     misc_feature    " + str(reg.start) + ".." + str(reg.stop) + "\n")
                         foutfile.write('                     /note="Region of genomic plasticity"\n')
-
-            foutfile.write(line)
+                foutfile.write(line)
 
     for val in ContigRegions.values():
         if len(val) != 0:
-            logging.getLogger().warning("Somes regions were not written in the new gbff file for unknown reasons")
+            logging.getLogger().warning("Some regions were not written in the new gbff file for unknown reasons")
     logging.getLogger().info(f"RGP have been written in the following file : '{output + '/genome_annotation.gbff'}' ")
 
 
@@ -182,28 +170,29 @@ def writeGffRegions(filename, regions, output):
                 features = line.split("\t")
                 if len(features) == 9:  # gff annotation lines are supposed to be 8 columns long
                     start = int(features[3])
-                    if features[0] in ContigRegions:
-                        if len(ContigRegions[features[0]]) > 0 and ContigRegions[features[0]][-1].start == start:
-                            reg = ContigRegions[features[0]].pop()
-                            foutfile.write('\t'.join(map(str, [features[0], "panRGP", "sequence_feature", reg.start,
-                                                               reg.stop, reg.score, '+', '.',
-                                                               f'ID={region.name};note=Region of genomic plasticity;'
-                                                               f'gbkey=misc_feature'])) + "\n")
+                    if features[0] in ContigRegions and len(ContigRegions[features[0]]) > 0 \
+                            and ContigRegions[features[0]][-1].start == start:
+                        reg = ContigRegions[features[0]].pop()
+                        foutfile.write('\t'.join(map(str, [features[0], "panRGP", "sequence_feature", reg.start,
+                                                           reg.stop, reg.score, '+', '.',
+                                                           f'ID={region.name};note=Region of genomic plasticity;'
+                                                           f'gbkey=misc_feature'])) + "\n")
             foutfile.write(line)
 
     for val in ContigRegions.values():
         if len(val) != 0:
-            logging.getLogger().warning("Somes regions were not written in the new gff file for unknown reasons")
+            logging.getLogger().warning("Some regions were not written in the new gff file for unknown reasons")
     logging.getLogger().info(f"RGP have been written in the following file : '{output + '/genome_annotation.gff'}' ")
 
 
-def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1,
+def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8, defrag=False, cpu=1,
                translation_table=11, pseudo=False, disable_bar=False):
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
-        raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
-                        "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
-    # could be possible either by picking a representative somehow, or by aligning on genes rather than on
-    # families, if they are in the pangenome.
+        raise Exception(
+            "Cannot use this function as your pangenome does not have gene families representatives "
+            "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
+    # could be possible either by picking a representative somehow,
+    # or by aligning on genes rather than on families, if they are in the pangenome.
 
     # read given file
     logging.getLogger().info("Retrieving the annotations from the given file")
@@ -219,22 +208,25 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8
     if hasFasta:
         singleOrgPang.status["geneSequences"] = "Computed"
     else:
-        raise Exception(f"The given annotation file did not have a FASTA sequence included (expected '##FASTA' pragma "
-                        f"followed by a fasta-like file format). This is required for computing the Regions of Genomic "
-                        f"Plasticity of your organism")
+        raise Exception(
+            f"The given annotation file did not have a FASTA sequence included "
+            f"(expected '##FASTA' pragma followed by a fasta-like file format)."
+            f" This is required for computing the Regions of Genomic Plasticity of your organism"
+        )
 
     # check and read given pangenome
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True, disable_bar=disable_bar)
+    checkPangenomeInfo(pangenome, needFamilies=True, needPartitions=True, needAnnotations=True,
+                       disable_bar=disable_bar)
 
     newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
     tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir=newtmpdir.name)
     tmpGeneFile = tempfile.NamedTemporaryFile(mode="w", dir=newtmpdir.name)
 
-    writeGeneSequencesFromAnnotations(singleOrgPang, tmpGeneFile)
+    writeGeneSequencesFromAnnotations(singleOrgPang, tmpGeneFile, disable_bar=disable_bar)
     writeGeneFamSequences(pangenome, tmpPangFile)
 
-    blastout = alignSeqToPang(tmpPangFile, tmpGeneFile, output, newtmpdir, cpu, no_defrag, identity, coverage, True,
-                              translation_table)
+    blastout = alignSeqToPang(tmpPangFile, tmpGeneFile, output, newtmpdir, cpu, defrag, identity,
+                              coverage, True, translation_table)
 
     tmpPangFile.close()
     tmpGeneFile.close()
@@ -299,10 +291,11 @@ def getFam2RGP(pangenome, multigenics):
     return fam2rgp
 
 
-def getFam2spot(pangenome, output, multigenics):
+def getFam2spot(pangenome, multigenics):
     """
-    reads a pangenome object and returns a dictionnary of family to RGP and family to spot,
-    that indicates where each family is"""
+    reads a pangenome object and returns a dictionary of family to RGP and family to spot,
+    that indicates where each family is
+    """
     # those are to be replaced as spots should be stored in the pangenome, and in the h5.
     fam2spot = defaultdict(list)
     fam2border = defaultdict(list)
@@ -334,8 +327,9 @@ def draw_spot_gexf(spots, output, multigenics, fam2mod, set_size=3):
 def checkLabelPriorityLogic(priority):
     for p in priority.split(','):
         if p.lower() not in ["name", "id", "family"]:
-            raise Exception(f"You have indicated a label which is not supported with --label_priority. "
-                            f"You indicated '{p}'. Supported labels are 'name', 'id' and 'family'")
+            raise Exception(
+                f"You have indicated a label which is not supported with --label_priority."
+                f" You indicated '{p}'. Supported labels are 'name', 'id' and 'family'")
 
 
 def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
@@ -345,7 +339,7 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
     finfo = open(output + "/info_input_prot.tsv", "w")
     finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
     fam2rgp = getFam2RGP(pangenome, multigenics)
-    fam2spot, fam2border, multigenics = getFam2spot(pangenome, output, multigenics)
+    fam2spot, fam2border, multigenics = getFam2spot(pangenome, multigenics)
     spot_list = set()
     for prot, panfam in prot2pang.items():
         finfo.write(prot + '\t' + panfam.name + "\t" + panfam.namedPartition + "\t" + ",".join(
@@ -359,13 +353,14 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
         for spot in spot_list:
             if len(spot.getUniqOrderedSet()) > 1:
                 drawn_spots.add(spot)
-        logging.getLogger().info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization related to hits "
-                                 f"of the input proteins...")
+        logging.getLogger().info(
+            f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
+            f"related to hits of the input proteins...")
         draw_spots(drawn_spots, output, cpu, 2, 1, 3, multigenics, [], priority)
 
         # fam2module
         fam2mod = {}
-        if pangenome.parameters["modules"] != "No":
+        if pangenome.status["modules"] != "No":
             for mod in pangenome.modules:
                 for fam in mod.families:
                     fam2mod[fam] = mod
@@ -376,88 +371,36 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
         f"File listing RGP and spots where proteins of interest are located : '{output + '/info_input_prot.tsv'}'")
 
 
-def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8):
-    """
-    Allow to extract the best alignement between protein and gene's families
+def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, defrag=False, cpu=1, getinfo=False,
+          draw_related=False, priority='name,ID', disable_bar=False):
+    if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
+        raise Exception(
+            f"Cannot use this function as your pangenome does not have gene families representatives "
+            f"associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
+    # could be possible either by picking a representative somehow,
+    # or by aligning on genes rather than on families, if they are in the pangenome.
 
-    :param pangenome:
-    :param proteinFile:
-    :param output:
-    :param tmpdir:
-    :param cpu:
-    :param no_defrag:
-    :param identity:
-    :param coverage:
+    if getinfo:
+        checkLabelPriorityLogic(priority)
+        needMod = False
+        if pangenome.status["modules"] != "No":
+            # modules are not required to be loaded, but if they have been computed we load them.
+            needMod = True
+        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needRGP=True, needPartitions=True,
+                           needSpots=True, needModules=needMod, disable_bar=disable_bar)
+    else:
+        checkPangenomeInfo(pangenome, needFamilies=True,  disable_bar=disable_bar)
 
-    :return: protein set and protein align with families
-    :rtype: set, dic
-    """
-    tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
+    newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
+    tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir=newtmpdir.name)
 
     writeGeneFamSequences(pangenome, tmpPangFile)
 
     with read_compressed_or_not(proteinFile) as protFileObj:
-        protSet = getProt(protFileObj)  # set of all proteins id
-        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, tmpdir, cpu, no_defrag, identity, coverage)
+        protSet = getProt(protFileObj)
+        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, newtmpdir, cpu, defrag, identity, coverage)
 
     prot2pang = readAlignments(alignFile, pangenome)
-
-    tmpPangFile.close()
-
-    return protSet, alignFile, prot2pang
-
-
-def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1, getinfo=False,
-          draw_related=False, priority='name,ID', disable_bar=False):
-    """
-
-    :param pangenome:
-    :type pangenome:
-    :param proteinFile:
-    :type proteinFile:
-    :param output:
-    :type output:
-    :param tmpdir:
-    :type tmpdir:
-    :param identity:
-    :type identity:
-    :param coverage:
-    :type coverage:
-    :param no_defrag:
-    :type no_defrag:
-    :param cpu:
-    :type cpu:
-    :param getinfo:
-    :type getinfo:
-    :param draw_related:
-    :type draw_related:
-    :param priority:
-    :type priority:
-
-    :return:
-    :rtype:
-    """
-    if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
-        raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
-                        "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
-    # could be possible either by picking a representative somehow, or by aligning on genes rather than on
-    # families, if they are in the pangenome.
-
-    if getinfo:
-        checkLabelPriorityLogic(priority)
-        need_mod = False
-        if pangenome.status["modules"] != "No":  # modules are not required to be loaded, but if they have been
-            # computed we load them.
-            need_mod = True
-        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True, needRGP=True,
-                           needSpots=True, needModules=need_mod, disable_bar=disable_bar)
-    else:
-        checkPangenomeInfo(pangenome, needFamilies=True, disable_bar=disable_bar)
-
-    new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-
-    protSet, alignFile, prot2pang = get_prot2pang(pangenome, proteinFile, output, new_tmpdir,
-                                                  cpu, no_defrag, identity, coverage)
 
     if getinfo:
         getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority)
@@ -467,41 +410,26 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no
     logging.getLogger().info(f"{len(prot2pang)} proteins over {len(protSet)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{alignFile}'")
 
-    new_tmpdir.cleanup()
+    tmpPangFile.close()
+    newtmpdir.cleanup()
 
 
 def launch(args):
-    """
-    Launch align command
-
-    :param args: arguments for align command from parser
-    :type args: argparse.Namespace
-    """
-
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     if args.proteins is not None:
         align(pangenome=pangenome, proteinFile=args.proteins, output=args.output, tmpdir=args.tmpdir,
-              identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, cpu=args.cpu, getinfo=args.getinfo,
+              identity=args.identity, coverage=args.coverage, defrag=args.defrag, cpu=args.cpu, getinfo=args.getinfo,
               draw_related=args.draw_related, priority=args.label_priority, disable_bar=args.disable_prog_bar)
 
     if args.annotation is not None:
-        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.no_defrag,
+        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag,
                    args.cpu, args.translation_table, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
 
 
-def alignSubparser(sub_parser):
-    """
-    Parser arguments specific to align command
-
-    :param sub_parser : sub_parser for align command
-    :type sub_parser : argparse._SubParsersAction
-
-    :return : parser arguments for align command
-    :rtype : argparse.ArgumentParser
-    """
-    parser = sub_parser.add_parser("align", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def alignSubparser(subparser):
+    parser = subparser.add_parser("align", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
@@ -517,7 +445,7 @@ def alignSubparser(sub_parser):
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--defrag", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  ##This ensures compatibility with the old option "defrag"
+                          help=argparse.SUPPRESS)  # This ensures compatibility with the old option "defrag"
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
@@ -528,16 +456,17 @@ def alignSubparser(sub_parser):
     optional.add_argument("--translation_table", required=False, default="11",
                           help="Translation table (genetic code) to use.")
     optional.add_argument("--getinfo", required=False, action="store_true",
-                          help="Use this option to extract info related to the best hit of each query, such as the "
-                               "RGP it is in, or the spots.")
+                          help="Use this option to extract info related to the best hit of each query, "
+                               "such as the RGP it is in, or the spots.")
     optional.add_argument("--draw_related", required=False, action="store_true",
-                          help="Draw figures and provide graphs in a gexf format of the eventual spots associated to "
-                               "the input proteins")
+                          help="Draw figures and provide graphs in a gexf format of the eventual spots"
+                               " associated to the input proteins")
     optional.add_argument("--use_pseudo", required=False, action="store_true",
-                          help="In the context of provided annotation, use this option to read pseudogenes. (Default "
-                               "behavior is to ignore them)")
+                          help="In the context of provided annotation, use this option to read pseudogenes. "
+                               "(Default behavior is to ignore them)")
     optional.add_argument("--label_priority", required=False, type=str, default='name,ID',
                           help="Option to use with --draw_hotspots. Will indicate what to write in the figure labels "
-                               "as a comma-separated list. Order gives priority. Possible values are: name (for gene "
-                               "names), ID (for the gene IDs), family (for the family IDs)")
+                               "as a comma-separated list. Order gives priority. "
+                               "Possible values are: name (for gene names), ID (for the gene IDs), "
+                               "family (for the family IDs)")
     return parser

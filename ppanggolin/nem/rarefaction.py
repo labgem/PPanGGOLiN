@@ -25,8 +25,9 @@ import scipy.optimize as optimization
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mkOutdir
 from ppanggolin.formats import checkPangenomeInfo
-import \
-    ppanggolin.nem.partition as ppp  # import this way to use the global variable pan defined in ppanggolin.nem.partition
+import ppanggolin.nem.partition as ppp
+
+# import this way to use the global variable pan defined in ppanggolin.nem.partition
 
 samples = []
 
@@ -41,9 +42,9 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, kr
     if len(samp) <= chunk_size:  # all good, just write stuff.
         edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir, organisms=set(samp), sm_degree=sm_degree)
         cpt_partition = \
-        ppp.run_partitioning(currtmpdir, len(samp), beta * (nb_fam / edges_weight), free_dispersion, K=K, seed=seed,
-                             init="param_file")[0]
-    else:  # going to need multiple partitionnings for this sample...
+            ppp.run_partitioning(currtmpdir, len(samp), beta * (nb_fam / edges_weight), free_dispersion, K=K, seed=seed,
+                                 init="param_file")[0]
+    else:  # going to need multiple partitioning for this sample...
 
         families = set()
         cpt_partition = {}
@@ -53,16 +54,16 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, kr
         def validate_family(result):
             for node, nem_class in result[0].items():
                 cpt_partition[node][nem_class[0]] += 1
-                sum_partionning = sum(cpt_partition[node].values())
-                if (sum_partionning > len(samp) / chunk_size and max(
-                        cpt_partition[node].values()) >= sum_partionning * 0.5) or (sum_partionning > len(samp)):
+                sum_partitioning = sum(cpt_partition[node].values())
+                if (sum_partitioning > len(samp) / chunk_size and max(
+                        cpt_partition[node].values()) >= sum_partitioning * 0.5) or (sum_partitioning > len(samp)):
                     if node not in validated:
-                        if max(cpt_partition[node].values()) < sum_partionning * 0.5:
+                        if max(cpt_partition[node].values()) < sum_partitioning * 0.5:
                             cpt_partition[node]["U"] = len(samp)
                         validated.add(node)
 
         for fam in ppp.pan.geneFamilies:
-            if not samp.isdisjoint(fam.organisms):  # otherwise useless to keep track of
+            if not samp.isdisjoint(fam.organisms):  # otherwise, useless to keep track of
                 families.add(fam)
                 cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
 
@@ -74,8 +75,8 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, kr
         while len(validated) < len(families):
             org_samples = []
 
-            while not all(val >= condition for val in
-                          org_nb_sample.values()):  # each family must be tested at least len(select_organisms)/chunk_size times.
+            while not all(val >= condition for val in org_nb_sample.values()):
+                # each family must be tested at least len(select_organisms)/chunk_size times.
                 shuffled_orgs = list(samp)  # copy select_organisms
                 random.shuffle(shuffled_orgs)  # shuffle the copied list
                 while len(shuffled_orgs) > chunk_size:
@@ -109,7 +110,7 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, kr
                 counts["shell"] += 1
             else:
                 counts["undefined"] += 1
-    return (counts, index)
+    return counts, index
 
 
 def launch_raref_nem(args):
@@ -169,8 +170,10 @@ def drawCurve(output, maxSampling, data):
             res = optimization.curve_fit(heap_law, data_raref.loc[all_values.index]["nb_org"], all_values,
                                          initial_kappa_gamma)
             kappa, gamma = res[0]
-            error_k, error_g = numpy.sqrt(numpy.diag(res[
-                                                         1]))  # to calculate the fitting error. The variance of parameters are the diagonal elements of the variance-co variance matrix, and the standard error is the square root of it. source https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
+            error_k, error_g = numpy.sqrt(numpy.diag(res[1]))  # to calculate the fitting error.
+            # The variance of parameters are the diagonal elements of the variance-co variance matrix,
+            # and the standard error is the square root of it. source :
+            # https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
             if numpy.isinf(error_k) and numpy.isinf(error_g):
                 params_file.write(",".join([partition, "NA", "NA", "NA", "NA", str(area_IQR)]) + "\n")
             else:
@@ -330,7 +333,7 @@ def makeRarefactionCurve(pangenome, output, tmpdir, beta=2.5, depth=30, minSampl
     logging.getLogger().info(
         f"Done computing bitarrays. Comparing them to get exact and soft core stats for {len(AllSamples)} samples...")
 
-    bar = tqdm(range(len(AllSamples) * len(pangenome.geneFamilies)), unit="gene family", disable=not disable_bar)
+    bar = tqdm(range(len(AllSamples) * len(pangenome.geneFamilies)), unit="gene family", disable=disable_bar)
     for samp in AllSamples:
         # make the sample's organism bitarray.
         sampBitarray = gmpy2.xmpz(0)  # pylint: disable=no-member
@@ -368,16 +371,16 @@ def makeRarefactionCurve(pangenome, output, tmpdir, beta=2.5, depth=30, minSampl
         args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, krange, seed))
 
     with Pool(processes=cpu) as p:
-        # launch partitionnings
-        logging.getLogger().info("Partitionning all samples...")
-        bar = tqdm(range(len(args)), unit="samples partitionned", disable=not disable_bar)
+        # launch partitioning
+        logging.getLogger().info(" Partitioning all samples...")
+        bar = tqdm(range(len(args)), unit="samples partitionned", disable=disable_bar)
         random.shuffle(args)  # shuffling the processing so that the progress bar is closer to reality.
         for result in p.imap_unordered(launch_raref_nem, args):
             SampNbPerPart[result[1]] = {**result[0], **SampNbPerPart[result[1]]}
             bar.update()
     bar.close()
 
-    logging.getLogger().info("Done partitionning everything")
+    logging.getLogger().info("Done  partitioning everything")
     warnings.filterwarnings("ignore")
     drawCurve(output, maxSampling, SampNbPerPart)
     warnings.resetwarnings()
@@ -393,10 +396,10 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     makeRarefactionCurve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, beta=args.beta, depth=args.depth,
-                         minSampling=args.min, maxSampling=args.max, sm_degree=args.max_degree_smoothing,
+                         minSampling=args.min, maxSampling=args.max, sm_degree=args.max_degree_smoothing, cpu=args.cpu,
                          free_dispersion=args.free_dispersion, chunk_size=args.chunk_size, K=args.nb_of_partitions,
-                         cpu=args.cpu, seed=args.seed, kestimate=args.reestimate_K, krange=args.krange,
-                         soft_core=args.soft_core, disable_bar=args.disable_prog_bar)
+                         seed=args.seed, kestimate=args.reestimate_K, krange=args.krange, soft_core=args.soft_core,
+                         disable_bar=args.disable_prog_bar)
 
 
 def rarefactionSubparser(subparser):
@@ -408,12 +411,14 @@ def rarefactionSubparser(subparser):
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("-b", "--beta", required=False, default=2.5, type=float,
-                          help="beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
+                          help="beta is the strength of the smoothing using the graph topology during  partitioning. "
+                               "0 will deactivate spatial smoothing.")
     optional.add_argument("--depth", required=False, default=30, type=int,
                           help="Number of samplings at each sampling point")
     optional.add_argument("--min", required=False, default=1, type=int, help="Minimum number of organisms in a sample")
     optional.add_argument("--max", required=False, type=float, default=100,
-                          help="Maximum number of organisms in a sample (if above the number of provided organisms, the provided organisms will be the maximum)")
+                          help="Maximum number of organisms in a sample (if above the number of provided organisms, "
+                               "the provided organisms will be the maximum)")
 
     optional.add_argument("-ms", "--max_degree_smoothing", required=False, default=10, type=float,
                           help="max. degree of the nodes to be included in the smoothing process.")
@@ -422,15 +427,22 @@ def rarefactionSubparser(subparser):
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
     optional.add_argument("-fd", "--free_dispersion", required=False, default=False, action="store_true",
-                          help="use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all organisms by default.")
+                          help="use if the dispersion around the centroid vector of each partition during must be free."
+                               " It will be the same for all organisms by default.")
     optional.add_argument("-ck", "--chunk_size", required=False, default=500, type=int,
-                          help="Size of the chunks when performing partitionning using chunks of organisms. Chunk partitionning will be used automatically if the number of genomes is above this number.")
+                          help="Size of the chunks when performing partitioning using chunks of organisms. "
+                               "Chunk partitioning will be used automatically "
+                               "if the number of genomes is above this number.")
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
-                          help="Number of partitions to use. Must be at least 2. By default reuse K if it exists else compute it.")
+                          help="Number of partitions to use. Must be at least 2. "
+                               "By default reuse K if it exists else compute it.")
     optional.add_argument("--reestimate_K", required=False, action="store_true",
-                          help=" Will recompute the number of partitions for each sample (between the values provided by --krange) (VERY intensive. Can take a long time.)")
+                          help=" Will recompute the number of partitions for each sample "
+                               "(between the values provided by --krange) (VERY intensive. Can take a long time.)")
     optional.add_argument("-Kmm", "--krange", nargs=2, required=False, type=int, default=[3, -1],
-                          help="Range of K values to test when detecting K automatically. Default between 3 and the K previously computed if there is one, or 20 if there are none.")
+                          help="Range of K values to test when detecting K automatically. "
+                               "Default between 3 and the K previously computed "
+                               "if there is one, or 20 if there are none.")
     optional.add_argument("--soft_core", required=False, type=float, default=0.95, help="Soft core threshold")
     optional.add_argument("-se", "--seed", type=int, default=42, help="seed used to generate random numbers")
 

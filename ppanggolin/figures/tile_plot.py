@@ -18,13 +18,13 @@ from ppanggolin.formats import checkPangenomeInfo
 from ppanggolin.utils import jaccard_similarities
 
 
-def drawTilePlot(pangenome, output, nocloud=False):
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
+def drawTilePlot(pangenome, output, nocloud=False, disable_bar=False):
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
     if pangenome.status["partitionned"] == "No":
-        raise Exception("Cannot draw the tile plot as your pangenome has not been partitionned")
+        raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
     if len(pangenome.organisms) > 500 and nocloud is False:
-        logging.getLogger().warning(
-            "You asked to draw a tile plot for a lot of organisms (>500). Your browser will probably not be able to open it.")
+        logging.getLogger().warning("You asked to draw a tile plot for a lot of organisms (>500). "
+                                    "Your browser will probably not be able to open it.")
     logging.getLogger().info("Drawing the tile plot...")
     data = []
     all_indexes = []
@@ -72,27 +72,26 @@ def drawTilePlot(pangenome, output, nocloud=False):
         partitions_dict[fam.partition].append(fam)
         if fam.partition.startswith("S"):
             shell_subs.add(fam.partition)  # number of elements will tell the number of subpartitions
-    ordered_nodes = []
-    ordored_nodes_p = sorted(partitions_dict["P"], key=lambda n: len(n.organisms), reverse=True)
-    ordored_nodes_c = sorted(partitions_dict["C"], key=lambda n: len(n.organisms), reverse=True)
-    sep_p = len(ordored_nodes_p) - 0.5
+    ordered_nodes_p = sorted(partitions_dict["P"], key=lambda n: len(n.organisms), reverse=True)
+    ordered_nodes_c = sorted(partitions_dict["C"], key=lambda n: len(n.organisms), reverse=True)
+    sep_p = len(ordered_nodes_p) - 0.5
     separators = [sep_p]
     shell_NA = None
     if len(shell_subs) == 1:
-        ordored_nodes_s = sorted(partitions_dict[shell_subs.pop()], key=lambda n: len(n.organisms), reverse=True)
-        ordered_nodes = ordored_nodes_p + ordored_nodes_s + ordored_nodes_c
-        separators.append(separators[len(separators) - 1] + len(ordored_nodes_s))
-        separators.append(separators[len(separators) - 1] + len(ordored_nodes_c))
+        ordered_nodes_s = sorted(partitions_dict[shell_subs.pop()], key=lambda n: len(n.organisms), reverse=True)
+        ordered_nodes = ordered_nodes_p + ordered_nodes_s + ordered_nodes_c
+        separators.append(separators[len(separators) - 1] + len(ordered_nodes_s))
+        separators.append(separators[len(separators) - 1] + len(ordered_nodes_c))
     else:
-        ordered_nodes = ordored_nodes_p
+        ordered_nodes = ordered_nodes_p
         for subpartition in sorted(shell_subs):
             if subpartition == "S_":
                 shell_NA = len(separators) - 1
-            ordored_nodes_s = sorted(partitions_dict[subpartition], key=lambda n: len(n.organisms), reverse=True)
-            ordered_nodes += ordored_nodes_s
-            separators.append(separators[len(separators) - 1] + len(ordored_nodes_s))
-        ordered_nodes += ordored_nodes_c
-        separators.append(separators[len(separators) - 1] + len(ordored_nodes_c))
+            ordered_nodes_s = sorted(partitions_dict[subpartition], key=lambda n: len(n.organisms), reverse=True)
+            ordered_nodes += ordered_nodes_s
+            separators.append(separators[len(separators) - 1] + len(ordered_nodes_s))
+        ordered_nodes += ordered_nodes_c
+        separators.append(separators[len(separators) - 1] + len(ordered_nodes_c))
 
     logging.getLogger().info("Getting the gene name(s) and the number for each tile of the plot ...")
     for node in ordered_nodes:
@@ -130,7 +129,6 @@ def drawTilePlot(pangenome, output, nocloud=False):
     shapes = []
     sep_prec = 0
     for nb, sep in enumerate(separators):
-        color = None
         if nb == 0:
             color = COLORS["persistent"]
         elif nb == (len(separators) - 1):
