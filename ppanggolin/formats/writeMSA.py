@@ -50,7 +50,6 @@ def translate(seq, code):
     start_table = code["start_table"]
     table = code["trans_table"]
 
-    protein = ""
     if len(seq) % 3 == 0:
         protein = start_table[seq[0: 3]]
         for i in range(3, len(seq), 3):
@@ -107,7 +106,6 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable
     newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 
     write_total = 0
-    msa_total = 0
     args = []
     logging.getLogger().info("Preparing input files for MSA...")
     code_table = genetic_codes(code)
@@ -117,7 +115,6 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable
         fname = writeFastaFamilies(family, newtmpdir, source, use_gene_id, code_table)
         write_total = write_total + (time.time() - start_write)
         args.append((fname, output, family.name))
-    start_msa = time.time()
 
     logging.getLogger().info("Computing the MSA ...")
     bar = tqdm(range(len(families)), unit="family", disable=disable_bar)
@@ -126,10 +123,8 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable
             bar.update()
     bar.close()
 
-    msa_total = msa_total + (time.time() - start_msa)
 
-
-def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=False, disable_bar=False):
+def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=False):
     phyloDict = {}
     for org in pangenome.organisms:
         phyloDict[org.name] = ""
@@ -151,7 +146,7 @@ def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=Fa
                         curr_phyloDict[genome_id] = "-" * curr_len
                     else:
                         curr_phyloDict[genome_id] = seq
-                        missing_genomes -= set([genome_id])
+                        missing_genomes -= {genome_id}
                         curr_len = len(seq)
                 if use_gene_id:
                     genome_id = pangenome.getGene(line[1:].strip()).organism.name
@@ -208,7 +203,7 @@ def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", sou
             phylo_name = output + f"/{partition}_{soft_core}_genome_alignment.aln"
         else:
             phylo_name = output + f"/{partition}_genome_alignment.aln"
-        writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=use_gene_id, disable_bar=disable_bar)
+        writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=use_gene_id)
         logging.getLogger().info(f"Done writing the {partition} genome alignment in: '{phylo_name}'")
 
 
@@ -228,10 +223,10 @@ def writeMSASubparser(subparser):
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
-
-    optional = parser.add_argument_group(
-        title="Optional arguments. Indicating 'all' writes all elements. Writing a partition ('persistent', 'shell', 'cloud', 'core' or 'accessory') write the elements associated to said partition.")
-    ##could make choice to allow customization
+    optional = parser.add_argument_group(title="Optional arguments. Indicating 'all' writes all elements. "
+                                               "Writing a partition ('persistent', 'shell', 'cloud', 'core' or "
+                                               "'accessory') write the elements associated to said partition.")
+    # could make choice to allow customization
     optional.add_argument("--soft_core", required=False, type=restricted_float, default=0.95,
                           help="Soft core threshold to use if 'softcore' partition is chosen")
     optional.add_argument("--partition", required=False, default="core",
@@ -242,5 +237,6 @@ def writeMSASubparser(subparser):
     optional.add_argument("--phylo", required=False, action='store_true',
                           help="Writes a whole genome msa file for additional phylogenetic analysis")
     optional.add_argument("--use_gene_id", required=False, action='store_true',
-                          help="Use gene identifiers rather than organism names for sequences in the family MSA (organism names are used by default)")
+                          help="Use gene identifiers rather than organism names for sequences in the family MSA"
+                               " (organism names are used by default)")
     return parser

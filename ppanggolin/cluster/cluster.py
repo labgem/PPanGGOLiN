@@ -42,8 +42,7 @@ def alignRep(faaFile, tmpdir, cpu, coverage, identity):
 
 def firstClustering(sequences, tmpdir, cpu, code, coverage, identity, mode):
     seqNucdb = tmpdir.name + '/nucleotid_sequences_db'
-    cmd = ["mmseqs", "createdb"]
-    cmd.append(sequences.name)
+    cmd = ["mmseqs", "createdb", sequences.name]
     cmd.extend([seqNucdb])
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Creating sequence database...")
@@ -94,7 +93,7 @@ def read_tsv(tsvfileName):
     with open(tsvfileName, "r") as tsvfile:
         for line in tsvfile:
             line = line.split()
-            genes2fam[line[1]] = (line[0], False)  # fam id, and its a gene (and not a fragment)
+            genes2fam[line[1]] = (line[0], False)  # fam id, and it's a gene (and not a fragment)
             fam2genes[line[0]].add(line[1])
     return genes2fam, fam2genes
 
@@ -121,8 +120,9 @@ def refineClustering(tsv, alnFile, fam2seq):
             nei = simgraph.nodes[neighbor]
             score = simgraph[neighbor][node]["score"]
             if nei["length"] > nodedata["length"] and nei["nbgenes"] >= nodedata["nbgenes"] and choice[3] < score:
-                choice = (genes2fam[neighbor][0], nei["length"], nei["nbgenes"],
-                          score)  # genes2fam[neighbor] instead of just neighbor in case that family has been assigned already (this is for smaller fragments that are closer to other fragments than the actual gene family)
+                choice = (genes2fam[neighbor][0], nei["length"], nei["nbgenes"], score)
+                # genes2fam[neighbor] instead of just neighbor in case that family has been assigned already
+                # (this is for smaller fragments that are closer to other fragments than the actual gene family)
         if choice[0] is not None:
             genestochange = fam2genes[node]
             for gene in genestochange:
@@ -142,8 +142,11 @@ def read_gene2fam(pangenome, gene2fam, disable_bar=False):
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
     if link:
         if len(gene2fam) != len(pangenome.genes):  # then maybe there are genes with identical IDs
-            raise Exception(
-                "Something unexpected happened during clustering (have less genes clustered than genes in the pangenome). A probable reason is that two genes in two different organisms have the same IDs; If you are sure that all of your genes have non identical IDs, please post an issue at https://github.com/labgem/PPanGGOLiN/")
+            raise Exception("Something unexpected happened during clustering "
+                            "(have less genes clustered than genes in the pangenome). "
+                            "A probable reason is that two genes in two different organisms have the same IDs;"
+                            " If you are sure that all of your genes have non identical IDs, "
+                            "please post an issue at https://github.com/labgem/PPanGGOLiN/")
     bar = tqdm(gene2fam.items(), unit="gene", disable=disable_bar)
     for gene, (family, is_frag) in bar:
         fam = pangenome.addGeneFamily(family)
@@ -165,16 +168,17 @@ def read_fam2seq(pangenome, fam2seq):
 
 def checkPangenomeFormerClustering(pangenome, force):
     """ checks pangenome status and .h5 files for former clusterings, delete them if allowed or raise an error """
-    if pangenome.status["genesClustered"] == "inFile" and force == False:
-        raise Exception(
-            "You are trying to cluster genes that are already clustered together. If you REALLY want to do that, use --force (it will erase everything except annotation data in your HDF5 file!)")
-    elif pangenome.status["genesClustered"] == "inFile" and force == True:
+    if pangenome.status["genesClustered"] == "inFile" and not force:
+        raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to "
+                        "do that, use --force (it will erase everything except annotation data in your HDF5 file!)")
+    elif pangenome.status["genesClustered"] == "inFile" and force:
         ErasePangenome(pangenome, geneFamilies=True)
 
 
 def checkPangenomeForClustering(pangenome, tmpFile, force, disable_bar=False):
     """
-        Check the pangenome statuses and write the gene sequences in the provided tmpFile. (whether they are written in the .h5 file or currently in memory)
+        Check the pangenome statuses and write the gene sequences in the provided tmpFile.
+        (whether they are written in the .h5 file or currently in memory)
     """
     checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
@@ -183,8 +187,10 @@ def checkPangenomeForClustering(pangenome, tmpFile, force, disable_bar=False):
         getGeneSequencesFromFile(pangenome.file, tmpFile, disable_bar=disable_bar)  # write CDS sequences to the tmpFile
     else:
         tmpFile.close()  # closing the tmp file since an exception will be raised.
-        raise Exception(
-            "The pangenome does not include gene sequences, thus it is impossible to cluster the genes in gene families. Either provide clustering results (see --clusters), or provide a way to access the gene sequence during the annotation step (having the fasta in the gff files, or providing the fasta files through the --fasta option)")
+        raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster "
+                        "the genes in gene families. Either provide clustering results (see --clusters), "
+                        "or provide a way to access the gene sequence during the annotation step "
+                        "(having the fasta in the gff files, or providing the fasta files through the --fasta option)")
 
 
 def inferSingletons(pangenome):
@@ -232,7 +238,7 @@ def clustering(pangenome, tmpdir, cpu, defrag=True, code="11", coverage=0.8, ide
 
 def mkLocal2Gene(pangenome):
     """
-        Creates a dictionnary that stores local identifiers, if all local identifiers are unique (and if they exist)
+        Creates a dictionary that stores local identifiers, if all local identifiers are unique (and if they exist)
     """
     localDict = {}
     for gene in pangenome.genes:
@@ -240,8 +246,11 @@ def mkLocal2Gene(pangenome):
         localDict[gene.local_identifier] = gene
         if len(localDict) == oldLen:
             if pangenome.parameters["annotation"]["read_annotations_from_file"]:
-                raise Exception(
-                    f"'{gene.local_identifier}' was found multiple times used as an identifier. The identifier of the genes (locus_tag, protein_id in gbff, ID in gff) were not unique throughout all of the files. It is thus impossible to differentiate the genes. To use this function while importing annotation, all identifiers MUST be unique throughout all of your genomes")
+                raise Exception(f"'{gene.local_identifier}' was found multiple times used as an identifier. "
+                                f"The identifier of the genes (locus_tag, protein_id in gbff, ID in gff) were not "
+                                f"unique throughout all of the files. It is thus impossible to differentiate the genes."
+                                f" To use this function while importing annotation, all identifiers MUST be unique "
+                                f"throughout all of your genomes")
             return {}  # local identifiers are not unique.
     return localDict
 
@@ -288,16 +297,19 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
     families_tsv_file.close()
     if nbGeneWithFam < len(pangenome.genes):  # not all genes have an associated cluster
         if nbGeneWithFam == 0:
-            raise Exception(
-                "No gene ID in the cluster file matched any gene ID from the annotation step. Please ensure that the annotations that you loaded previously and the clustering results that you have used the same gene IDs. If you use .gff files it is the identifier stored in the field 'ID'. If you use .gbff files it is the identifier stored in 'locus_tag'.")
+            raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step."
+                            " Please ensure that the annotations that you loaded previously and the clustering results "
+                            "that you have used the same gene IDs. If you use .gff files it is the identifier stored in"
+                            " the field 'ID'. If you use .gbff files it is the identifier stored in 'locus_tag'.")
         else:
             if infer_singletons:
                 inferSingletons(pangenome)
             else:
-                raise Exception(
-                    f"Some genes ({len(pangenome.genes) - nbGeneWithFam}) did not have an associated cluster. Either change your cluster file so that each gene has a cluster, or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
+                raise Exception(f"Some genes ({len(pangenome.genes) - nbGeneWithFam}) did not have an associated "
+                                f"cluster. Either change your cluster file so that each gene has a cluster, "
+                                f"or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
     pangenome.status["genesClustered"] = "Computed"
-    if frag:  # if there was fragment informations in the file.
+    if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
     pangenome.parameters["cluster"] = {}
     pangenome.parameters["cluster"]["read_clustering_from_file"] = True
@@ -327,17 +339,21 @@ def clusterSubparser(subparser):
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--defrag", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  ##This ensures compatibility with workflows built with the old option "defrag" when it was not the default
+                          help=argparse.SUPPRESS)  # This ensures compatibility with the old option "defrag"
     optional.add_argument('--no_defrag', required=False, default=False, action="store_true",
-                          help="DO NOT Use the defragmentation strategy to link potential fragments with their original gene family.")
+                          help="DO NOT Use the defragmentation strategy to link potential fragments "
+                               "with their original gene family.")
     optional.add_argument("--translation_table", required=False, default="11",
                           help="Translation table (genetic code) to use.")
     optional.add_argument('--clusters', required=False, type=str,
-                          help="A tab-separated list containing the result of a clustering. One line per gene. First column is cluster ID, and second is gene ID")
+                          help="A tab-separated list containing the result of a clustering. One line per gene. "
+                               "First column is cluster ID, and second is gene ID")
     optional.add_argument("--infer_singletons", required=False, action="store_true",
-                          help="When reading a clustering result with --clusters, if a gene is not in the provided file it will be placed in a cluster where the gene is the only member.")
+                          help="When reading a clustering result with --clusters, if a gene is not in the provided file"
+                               " it will be placed in a cluster where the gene is the only member.")
     optional.add_argument("--mode", required=False, default="1", choices=["0", "1", "2", "3"],
-                          help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component), 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
+                          help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component),"
+                               " 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
     optional.add_argument("--coverage", required=False, type=restricted_float, default=0.8,
                           help="Minimal coverage of the alignment for two proteins to be in the same cluster")
     optional.add_argument("--identity", required=False, type=restricted_float, default=0.8,

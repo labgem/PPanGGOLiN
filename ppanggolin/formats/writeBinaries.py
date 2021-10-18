@@ -77,15 +77,12 @@ def getMaxLenAnnotations(pangenome):
 
 def writeAnnotations(pangenome, h5f, disable_bar=False):
     """
-        Function writing all of the pangenome's annotations
+        Function writing all the pangenome's annotations
     """
     annotation = h5f.create_group("/", "annotations", "Annotations of the pangenome's organisms")
     geneTable = h5f.create_table(annotation, "genes", geneDesc(*getMaxLenAnnotations(pangenome)),
                                  expectedrows=len(pangenome.genes))
-    nbRNA = 0
-    for org in pangenome.organisms:
-        for contig in org.contigs:
-            nbRNA += len(contig.RNAs)
+
     bar = tqdm(pangenome.organisms, unit="genome", disable=disable_bar)
     geneRow = geneTable.row
     for org in bar:
@@ -223,7 +220,7 @@ def getGene2famLen(pangenome):
 
 def writeGeneFamilies(pangenome, h5f, force, disable_bar=False):
     """
-        Function writing all of the pangenome's gene families
+        Function writing all the pangenome's gene families
     """
     if '/geneFamilies' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
@@ -256,8 +253,9 @@ def getGeneIDLen(pangenome):
 
 
 def writeGraph(pangenome, h5f, force, disable_bar=False):
-    # if we want to be able to read the graph without reading the annotations (because it is one of the most time consumming parts to read), it might be good to add the organism name in the table here.
-    # for now, forcing the read of annotations.
+    # if we want to be able to read the graph without reading the annotations
+    # (because it's one of the most time consumming parts to read),
+    # it might be good to add the organism name in the table here. for now, forcing the read of annotations.
     if '/edges' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed edges")
         h5f.remove_node("/", "edges")
@@ -495,11 +493,10 @@ def updateGeneFamPartition(pangenome, h5f, disable_bar=False):
 
 def updateGeneFragments(pangenome, h5f, disable_bar=False):
     """
-        updates the annotation table with the fragmentation informations from the defrag pipeline
+        updates the annotation table with the fragmentation information from the defrag pipeline
     """
     logging.getLogger().info("Updating annotations with fragment information")
     table = h5f.root.annotations.genes
-    # row = table.row
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
     for row in table:
         if row['gene/type'].decode() == 'CDS':
@@ -565,14 +562,18 @@ def writePangenome(pangenome, filename, force, disable_bar=False):
         compressionFilter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
         h5f = tables.open_file(filename, "w", filters=compressionFilter)
         logging.getLogger().info("Writing genome annotations...")
-        writeAnnotations(pangenome, h5f, disable_bar)
+
+        writeAnnotations(pangenome, h5f, disable_bar=disable_bar)
+
         pangenome.status["genomesAnnotated"] = "Loaded"
         h5f.close()
     elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
         pass
-    else:  # if the pangenome is not Computed not Loaded, it's probably not really in a good state ( or something new was coded).
-        raise NotImplementedError(
-            "Something REALLY unexpected and unplanned for happened here. Please post an issue on github with what you did to reach this error.")
+    else:
+        # if the pangenome is not Computed or not Loaded, it's probably not really in a good state
+        # (or something new was coded).
+        raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. "
+                                  "Please post an issue on github with what you did to reach this error.")
 
     # from there, appending to existing file.
     h5f = tables.open_file(filename, "a")
@@ -587,9 +588,10 @@ def writePangenome(pangenome, filename, force, disable_bar=False):
         writeGeneFamilies(pangenome, h5f, force, disable_bar=disable_bar)
         logging.getLogger().info("Writing gene families information...")
         writeGeneFamInfo(pangenome, h5f, force, disable_bar=disable_bar)
-        if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and pangenome.status[
-            "defragmented"] == "Computed":
-            # if the annotations have not been computed in this run, and there has been a clustering with defragmentation, then the annotations can be updated
+        if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and \
+                pangenome.status["defragmented"] == "Computed":
+            # if the annotations have not been computed in this run,
+            # and there has been a clustering with defragmentation, then the annotations can be updated
             updateGeneFragments(pangenome, h5f, disable_bar=disable_bar)
         pangenome.status["genesClustered"] = "Loaded"
     if pangenome.status["neighborsGraph"] == "Computed":
@@ -597,8 +599,9 @@ def writePangenome(pangenome, filename, force, disable_bar=False):
         writeGraph(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["neighborsGraph"] = "Loaded"
 
-    if pangenome.status["partitionned"] == "Computed" and pangenome.status["genesClustered"] in ["Loaded",
-                                                                                                 "inFile"]:  # otherwise it's been written already.
+    if pangenome.status["partitionned"] == "Computed" and \
+            pangenome.status["genesClustered"] in ["Loaded", "inFile"]:  # otherwise, it's been written already.
+
         updateGeneFamPartition(pangenome, h5f, disable_bar=disable_bar)
         pangenome.status["partitionned"] = "Loaded"
 

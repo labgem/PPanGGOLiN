@@ -91,7 +91,8 @@ def launch_prodigal(fnaFile, org, code):
 
 def launch_infernal(fnaFile, org, kingdom, tmpdir):
     """
-        launches Infernal in hmmer-only mode to annotate rRNAs. Takes a fna file name and a locustag to give an ID to the found genes.
+        launches Infernal in hmmer-only mode to annotate rRNAs.
+        Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """
     locustag = org.name
@@ -106,10 +107,12 @@ def launch_infernal(fnaFile, org, kingdom, tmpdir):
     err = p.communicate()[1].decode().split()
     if err != []:
         if err[0] == 'Error: ':
-            raise Exception(
-                f"Infernal (cmscan) failed with error:  '{' '.join(err)}'. If you never used this script, you should press the .cm file using cmpress executable from Infernal. You should find the file in '{os.path.dirname(os.path.realpath(__file__))}/rRNA_DB/'.")
+            raise Exception(f"Infernal (cmscan) failed with error:  '{' '.join(err)}'. If you never used this script,"
+                            f" you should press the .cm file using cmpress executable from Infernal. "
+                            f"You should find the file in '{os.path.dirname(os.path.realpath(__file__))}/rRNA_DB/'.")
         raise Exception(f"An error occurred with Infernal. Error is:  '{' '.join(err)}'.")
-    # never managed to test what happens if the .cm files are compressed with a 'bad' version of infernal, so if that happens you are on your own.
+    # never managed to test what happens if the .cm files are compressed with a 'bad' version of infernal,
+    # so if that happens you are on your own.
 
     geneObjs = defaultdict(set)
     c = 0
@@ -134,10 +137,9 @@ def launch_infernal(fnaFile, org, kingdom, tmpdir):
 
     return geneObjs
 
-
-def read_fasta(org, fnaFile, contig_filter = 1):
+def read_fasta(org, fnaFile, contig_filter=1):
     """
-        Reads a fna file  (or stream, or string) and stores it in a dictionnary with contigs as key and sequence as value.
+        Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
     """
     try:
         contigs = {}
@@ -155,15 +157,18 @@ def read_fasta(org, fnaFile, contig_filter = 1):
         if len(contig_seq) >= contig_filter:
             contigs[contig.name] = contig_seq.upper()
     except AttributeError as e:
-        raise AttributeError(
-            f"{e}\nAn error was raised when reading file: '{fnaFile.name}'. One possibility for this error is that the file did not start with a '>' as it would be expected from a fna file.")
+        raise AttributeError(f"{e}\nAn error was raised when reading file: '{fnaFile.name}'. "
+                             f"One possibility for this error is that the file did not start with a '>' "
+                             f"as it would be expected from a fna file.")
     return contigs
 
 
 def write_tmp_fasta(contigs, tmpdir):
     """
         Writes a temporary fna formated file, and returns the file-like object.
-        This is for the cases where the given file is compressed, then we write a temporary file for the annotation tools to read from. The file will be deleted when close() is called.
+        This is for the cases where the given file is compressed,
+        then we write a temporary file for the annotation tools to read from.
+        The file will be deleted when close() is called.
     """
     tmpFile = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir)
     for header in contigs.keys():
@@ -198,7 +203,7 @@ def syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir):
     return genes
 
 
-def overlap_filter(allGenes, contigs, overlap):
+def overlap_filter(allGenes, overlap):
     """
         Removes the CDS that overlap with RNA genes.
     """
@@ -245,7 +250,7 @@ def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna,
         fastaFile = write_tmp_fasta(contigSequences, tmpdir)
 
     genes = syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir)
-    genes = overlap_filter(genes, contigSequences, overlap)
+    genes = overlap_filter(genes, overlap)
 
     for contigName, genes in genes.items():
         contig = org.getOrAddContig(contigName)

@@ -12,10 +12,13 @@ import argparse
 from collections import defaultdict, Counter
 import math
 from shutil import copytree
+
 # installed libraries
 from tqdm import tqdm
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
+
+
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mkOutdir
@@ -34,8 +37,9 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K=3, seed=42, 
     if init == "param_file":
         with open(nem_dir_path + "/nem_file_init_" + str(K) + ".m", "w") as m_file:
             m_file.write("1 ")  # 1 to initialize parameter,
-            m_file.write(" ".join([str(round(1 / float(K), 2)) for k in range(
-                K - 1)]) + " ")  # 1/K give the initial proportition to each class (the last proportion is automaticaly determined by substraction in nem)
+            m_file.write(" ".join([str(round(1 / float(K), 2))] * (K-1)) + " ")
+            # 1/K give the initial proportion to each class
+            # (the last proportion is automatically determined by subtraction in nem)
             mu = []
             epsilon = []
             step = 0.5 / (math.ceil(K / 2))
@@ -53,7 +57,12 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K=3, seed=42, 
     ALGO = b"nem"  # fuzzy classification by mean field approximation
     MODEL = b"bern"  # multivariate Bernoulli mixture model
     PROPORTION = b"pk"  # equal proportion :  "p_"     varying proportion : "pk"
-    VARIANCE_MODEL = b"skd" if free_dispersion else b"sk_"  # one variance per partition and organism : "sdk"      one variance per partition, same in all organisms : "sd_"   one variance per organism, same in all partion : "s_d"    same variance in organisms and partitions : "s__"
+
+    VARIANCE_MODEL = b"skd" if free_dispersion else b"sk_"
+    # one variance per partition and organism : "sdk"      one variance per partition,
+    # same in all organisms : "sd_"   one variance per organism,
+    # same in all partition : "s_d"    same variance in organisms and partitions : "s__"
+
     CONVERGENCE = b"clas"
     CONVERGENCE_TH = 0.01
     # (INIT_SORT, INIT_RANDOM, INIT_PARAM_FILE, INIT_FILE, INIT_LABEL, INIT_NB) = range(0,6)
@@ -104,7 +113,6 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K=3, seed=42, 
         logging.getLogger().debug("No NEM output file found: " + nem_dir_path + "/nem_file_" + str(K) + ".uf")
         no_nem = True
     index_fam = []
-    all_parameters = {}
 
     with open(nem_dir_path + "/nem_file.index", "r") as index_nem_file:
         for line in index_nem_file:
@@ -137,9 +145,8 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K=3, seed=42, 
                 else:
                     all_parameters["shell_" + str(k)] = (mu_k, epsilon_k, proportion)
 
-            partition = {}
-            partition[0] = "P"  # PERSISTENT
-            partition[K - 1] = "C"  # CLOUD
+            partition = {0: "P", K - 1: "C"}
+
             for i in range(1, K - 1):
                 partition[i] = "S" + str(i)
             entropy = 0
@@ -151,17 +158,19 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K=3, seed=42, 
                 else:
                     max_prob = max([float(el) for el in elements])
                     positions_max_prob = [pos for pos, prob in enumerate(elements) if prob == max_prob]
-                    if (len(positions_max_prob) > 1 or max_prob < 0.5):
+                    if len(positions_max_prob) > 1 or max_prob < 0.5:
                         partitions_list[i] = "S_"  # SHELL in case of doubt gene families is attributed to shell
                     else:
                         partitions_list[i] = partition[positions_max_prob.pop()]
     except IOError:
-        logging.getLogger().debug(
-            "partitioning did not work (the number of organisms used is probably too low), see logs here to obtain more details " + nem_dir_path + "/nem_file_" + str(
-                K) + ".log")
+
+        logging.getLogger().debug("partitioning did not work (the number of organisms used is probably too low), "
+                                  "see logs here to obtain more details " + nem_dir_path + "/nem_file_" +
+                                  str(K) + ".log")
+
         return [{}, None, None]  # return empty objects.
     except ValueError:
-        ## return the default partitions_list which correspond to undefined
+        # return the default partitions_list which correspond to undefined
         pass
 
     if not keep_files and no_nem is False:
@@ -176,9 +185,9 @@ def run_partitioning(nem_dir_path, nb_org, beta, free_dispersion, K=3, seed=42, 
         os.remove(nem_dir_path + "/nem_file.str")
 
     if just_log_likelihood:
-        return (tuple([K, log_likelihood, entropy]))
+        return tuple([K, log_likelihood, entropy])
     else:
-        return ((dict(zip(index_fam, partitions_list)), all_parameters, log_likelihood))
+        return dict(zip(index_fam, partitions_list)), all_parameters, log_likelihood
 
 
 def nemSingle(args):
@@ -194,7 +203,7 @@ def partition_nem(index, tmpdir, beta, sm_degree, free_dispersion, K, seed, init
 
 
 def nemSamples(pack):
-    # run partitionning
+    # run partitioning
     return partition_nem(*pack)
 
 
@@ -259,7 +268,6 @@ def write_nem_input_files(tmpdir, organisms, sm_degree):
 def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Krange, ICL_margin, draw_ICL, cpu, tmpdir,
                            seed, outputdir, disable_bar=False):
     Newtmpdir = tmpdir + "/eval_partitions"
-    ChosenK = 3
     if len(organisms) > chunk_size:
         select_organisms = set(random.sample(set(organisms), chunk_size))
     else:
@@ -287,7 +295,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
             allLogLikelihood.append(nemSingle(arguments))
 
     def calculate_BIC(log_likelihood, nb_params, nb_points):
-        return (log_likelihood - 0.5 * (math.log(nb_points) * nb_params))
+        return log_likelihood - 0.5 * (math.log(nb_points) * nb_params)
 
     all_BICs = defaultdict(float)
     all_ICLs = defaultdict(float)
@@ -340,12 +348,12 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
 
 def checkPangenomeFormerPartition(pangenome, force):
     """ checks pangenome status and .h5 files for former partitions, delete them if allowed or raise an error """
-    if pangenome.status["partitionned"] == "inFile" and force == False:
-        raise Exception(
-            "You are trying to partition a pangenome already partitionned. If you REALLY want to do that, use --force (it will erase partitions and every feature computed from them.")
-    elif pangenome.status["partitionned"] == "inFile" and force == True:
+    if pangenome.status["partitionned"] == "inFile" and not force:
+        raise Exception("You are trying to partition a pangenome already partitionned."
+                        " If you REALLY want to do that, "
+                        "use --force (it will erase partitions and every feature computed from them.")
+    elif pangenome.status["partitionned"] == "inFile" and force:
         ErasePangenome(pangenome, partition=True)
-
 
 def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degree=10, free_dispersion=False,
               chunk_size=500, K=-1, Krange=None, ICL_margin=0.05, draw_ICL=False, cpu=1, seed=42, keep_tmp_files=False,
@@ -356,8 +364,8 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
     pan = pangenome
 
     if draw_ICL and outputdir is None:
-        raise Exception(
-            "Combination of option impossible: You asked to draw the ICL curves but did not provide an output directory!")
+        raise Exception("Combination of option impossible: "
+                        "You asked to draw the ICL curves but did not provide an output directory!")
     checkPangenomeFormerPartition(pangenome, force)
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
     organisms = set(pangenome.organisms)
@@ -366,8 +374,8 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
     tmpdir = tmpdirObj.name
 
     if len(organisms) <= 10:
-        logging.getLogger().warning(
-            f"The number of selected organisms is too low ({len(organisms)} organisms used) to robustly partition the graph")
+        logging.getLogger().warning(f"The number of selected organisms is too low ({len(organisms)} "
+                                    f"organisms used) to robustly partition the graph")
 
     pangenome.parameters["partition"] = {}
     pangenome.parameters["partition"]["beta"] = beta
@@ -387,7 +395,7 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
     pangenome.parameters["partition"]["K"] = K
     init = "param_file"
 
-    partitionning_results = {}
+    partitioning_results = {}
 
     families = set()
     cpt = 0
@@ -399,7 +407,7 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
         if chunk_size < len(organisms):
             cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
 
-    start_partitionning = time.time()
+    start_partitioning = time.time()
     logging.getLogger().info("Partitioning...")
     pansize = len(families)
     if chunk_size < len(organisms):
@@ -413,8 +421,9 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
                         cpt_partition[node].values()) >= sum_partionning * 0.5) or (sum_partionning > len(organisms)):
                     if node not in validated:
                         if max(cpt_partition[node].values()) < sum_partionning * 0.5:
-                            cpt_partition[node]["U"] = len(
-                                organisms)  # if despite len(select_organisms) partionning, an abosolute majority is not found then the families is set to undefined
+                            cpt_partition[node]["U"] = len(organisms)  
+                            # if despite len(select_organisms) partionning, 
+                            # an abosolute majority is not found then the families is set to undefined
                         validated.add(node)
 
         org_nb_sample = Counter()
@@ -423,8 +432,8 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
         condition = len(organisms) / chunk_size
         while len(validated) < pansize:
             prev = len(samples)  # if we've been sampling already, samples is not empty.
-            while not all(val >= condition for val in
-                          org_nb_sample.values()):  # each family must be tested at least len(select_organisms)/chunk_size times.
+            while not all(val >= condition for val in org_nb_sample.values()):
+                # each family must be tested at least len(select_organisms)/chunk_size times.
                 shuffled_orgs = list(organisms)  # copy select_organisms
                 random.shuffle(shuffled_orgs)  # shuffle the copied list
                 while len(shuffled_orgs) > chunk_size:
@@ -439,7 +448,7 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
 
             logging.getLogger().info("Launching NEM")
             with Pool(processes=cpu) as p:
-                # launch partitionnings
+                # launch partitioning
                 bar = tqdm(range(len(args)), unit=" samples partitionned", disable=disable_bar)
                 for result in p.imap_unordered(nemSamples, args):
                     validate_family(result)
@@ -451,28 +460,28 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
                 p.close()
                 p.join()
         for fam, data in cpt_partition.items():
-            partitionning_results[fam] = max(data, key=data.get)
+            partitioning_results[fam] = max(data, key=data.get)
 
-        ## need to compute the median vectors of each partition ???
-        partitionning_results = [partitionning_results, []]  ##introduces a 'non feature'.
+        # need to compute the median vectors of each partition ???
+        partitioning_results = [partitioning_results, []]  # introduces a 'non feature'.
 
-        logging.getLogger().info(
-            f"Did {len(samples)} partitionning with chunks of size {chunk_size} among {len(organisms)} genomes in {round(time.time() - start_partitionning, 2)} seconds.")
+        logging.getLogger().info(f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
+                                 f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds.")
     else:
         edges_weight, nb_fam = write_nem_input_files(tmpdir + "/" + str(cpt) + "/", organisms, sm_degree=sm_degree)
-        partitionning_results = run_partitioning(tmpdir + "/" + str(cpt) + "/", len(organisms),
-                                                 beta * (nb_fam / edges_weight), free_dispersion, K=K, seed=seed,
-                                                 init=init, keep_files=keep_tmp_files)
-        if partitionning_results == [{}, None, None]:
-            raise Exception(
-                "Statistical partitionning does not work on your data. This usually happens because you used very few (<15) genomes.")
+        partitioning_results = run_partitioning(tmpdir + "/" + str(cpt) + "/", len(organisms),
+                                                beta * (nb_fam / edges_weight), free_dispersion, K=K, seed=seed,
+                                                init=init, keep_files=keep_tmp_files)
+        if partitioning_results == [{}, None, None]:
+            raise Exception("Statistical partitioning does not work on your data. "
+                            "This usually happens because you used very few (<15) genomes.")
         cpt += 1
-        logging.getLogger().info(
-            f"Partitionned {len(organisms)} genomes in {round(time.time() - start_partitionning, 2)} seconds.")
+        logging.getLogger().info(f"Partitioned {len(organisms)} genomes in "
+                                 f"{round(time.time() - start_partitioning, 2)} seconds.")
 
-    # pangenome.savePartitionParameters(K, beta, free_dispersion, sm_degree, partitionning_results[1], chunk_size)
+    # pangenome.savePartitionParameters(K, beta, free_dispersion, sm_degree, partitioning_results[1], chunk_size)
 
-    for famName, partition in partitionning_results[0].items():
+    for famName, partition in partitioning_results[0].items():
         pangenome.getGeneFamily(famName).partition = partition
 
     pangenome.status["partitionned"] = "Computed"
@@ -504,7 +513,8 @@ def partitionSubparser(subparser):
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("-b", "--beta", required=False, default=2.5, type=float,
-                          help="beta is the strength of the smoothing using the graph topology during partitionning. 0 will deactivate spatial smoothing.")
+                          help="beta is the strength of the smoothing using the graph topology during partitionning. "
+                               "0 will deactivate spatial smoothing.")
     optional.add_argument("-ms", "--max_degree_smoothing", required=False, default=10, type=float,
                           help="max. degree of the nodes to be included in the smoothing process.")
     optional.add_argument('-o', '--output', required=False, type=str,
@@ -512,17 +522,26 @@ def partitionSubparser(subparser):
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
     optional.add_argument("-fd", "--free_dispersion", required=False, default=False, action="store_true",
-                          help="use if the dispersion around the centroid vector of each partition during must be free. It will be the same for all organisms by default.")
+                          help="use if the dispersion around the centroid vector of each partition during must be free."
+                               " It will be the same for all organisms by default.")
     optional.add_argument("-ck", "--chunk_size", required=False, default=500, type=int,
-                          help="Size of the chunks when performing partitionning using chunks of organisms. Chunk partitionning will be used automatically if the number of genomes is above this number.")
+                          help="Size of the chunks when performing partitionning using chunks of organisms. "
+                               "Chunk partitionning will be used automatically "
+                               "if the number of genomes is above this number.")
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
-                          help="Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.")
+                          help="Number of partitions to use. Must be at least 2. "
+                               "If under 2, it will be detected automatically.")
     optional.add_argument("-Kmm", "--krange", nargs=2, required=False, type=int, default=[3, 20],
                           help="Range of K values to test when detecting K automatically. Default between 3 and 20.")
     optional.add_argument("-im", "--ICL_margin", required=False, type=float, default=0.05,
-                          help="K is detected automatically by maximizing ICL. However at some point the ICL reaches a plateau. Therefore we are looking for the minimal value of K without significative gain from the larger values of K measured by ICL. For that we take the lowest K that is found within a given 'margin' of the maximal ICL value. Basically, change this option only if you truly understand it, otherwise just leave it be.")
+                          help="K is detected automatically by maximizing ICL. However at some point the ICL "
+                               "reaches a plateau. Therefore we are looking for the minimal value of K without "
+                               "significative gain from the larger values of K measured by ICL. For that we take the "
+                               "lowest K that is found within a given 'margin' of the maximal ICL value. Basically, "
+                               "change this option only if you truly understand it, otherwise just leave it be.")
     optional.add_argument("--draw_ICL", required=False, default=False, action="store_true",
-                          help="Use if you can to draw the ICL curve for all of the tested K values. Will not be done if K is given.")
+                          help="Use if you can to draw the ICL curve for all of the tested K values. "
+                               "Will not be done if K is given.")
     optional.add_argument("--keep_tmp_files", required=False, default=False, action="store_true",
                           help="Use if you want to keep the temporary NEM files")
     optional.add_argument("-se", "--seed", type=int, default=42, help="seed used to generate random numbers")

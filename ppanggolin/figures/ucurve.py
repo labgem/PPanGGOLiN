@@ -9,17 +9,17 @@ import plotly.offline as out_plotly
 from ppanggolin.formats import checkPangenomeInfo
 
 
-def drawUCurve(pangenome, output, soft_core=0.95):
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True)
+def drawUCurve(pangenome, output, soft_core=0.95,  disable_bar=False):
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
     logging.getLogger().info("Drawing the U-shaped curve...")
     max_bar = 0
     count = defaultdict(lambda: defaultdict(int))
-    is_partitionned = False
+    is_partitioned = False
     has_undefined = False
     for fam in pangenome.geneFamilies:
         nb_org = len(fam.organisms)
         if fam.partition != "":
-            is_partitionned = True
+            is_partitioned = True
             if fam.partition == "U":
                 has_undefined = True
             count[nb_org][fam.namedPartition] += 1
@@ -32,7 +32,8 @@ def drawUCurve(pangenome, output, soft_core=0.95):
     COLORS = {"pangenome": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
               "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
               "undefined": "#828282"}
-    if is_partitionned and not has_undefined:
+
+    if is_partitioned and not has_undefined:
         persistent_values = []
         shell_values = []
         cloud_values = []
@@ -53,7 +54,6 @@ def drawUCurve(pangenome, output, soft_core=0.95):
             undefined_values.append(count[nb_org][text])
         data_plot.append(go.Bar(x=list(range(1, len(pangenome.organisms) + 1)), y=undefined_values, name=text,
                                 marker=dict(color=COLORS[text])))
-    layout = None
     x = len(pangenome.organisms) * soft_core
     layout = go.Layout(title="Gene families frequency distribution (U shape), chao=" + str(chao),
                        xaxis=dict(title='Occurring in x genomes'),

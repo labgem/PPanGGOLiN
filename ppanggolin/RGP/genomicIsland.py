@@ -4,8 +4,6 @@
 # default libraries
 import logging
 import argparse
-import time
-import os
 
 # installed libraries
 from tqdm import tqdm
@@ -14,7 +12,7 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region
 from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
-from ppanggolin.utils import mkOutdir, restricted_float
+from ppanggolin.utils import restricted_float
 
 
 class MatriceNode:
@@ -24,7 +22,7 @@ class MatriceNode:
         self.prev = prev  # previous matriceNode
         self.gene = gene  # gene this node corresponds to
 
-    def changes(self, state, score):
+    def changes(self, score):
         # state of the node. 1 for RGP and 0 for not RGP.
         self.state = 1 if score >= 0 else 0
         # current score of the node. If the given score is negative, set to 0.
@@ -35,6 +33,7 @@ def extractRGP(contig, node, ID, naming):
     """
         Extract the region from the given starting node
     """
+    new_region = None
     if naming == "contig":
         new_region = Region(contig.name + "_RGP_" + str(ID))
     elif naming == "organism":
@@ -70,9 +69,8 @@ def rewriteMatrix(contig, matrix, index, persistent, continuity, multi):
                 nbPerc = 0
 
             curr_score = modif + prev.score
-            curr_state = 1 if curr_score >= 0 else 0
             # scores can't be negative. If they are, they'll be set to 0.
-            matrix[index].changes(curr_state, curr_score)
+            matrix[index].changes(curr_score)
             index += 1
             if index >= len(matrix):
                 if contig.is_circular:
@@ -91,6 +89,7 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi):
     prev = None
     nbPerc = 0
     zeroInd = None
+    curr_state = None
     for gene in contig.genes:
         if gene.family.namedPartition == "persistent" and gene.family not in multi:
             modif = -pow(persistent_penalty, nbPerc)
@@ -110,16 +109,18 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi):
             zeroInd = prev
         mat.append(prev)
 
-    # if the contig is circular and we're in a rgp state, we need to continue from the "starting" gene until we leave rgp state.
+    # if the contig is circular, and we're in a rgp state,
+    # we need to continue from the "starting" gene until we leave rgp state.
     if contig.is_circular and curr_state and zeroInd is not None:
         # the previous node of the first processed gene is the last node.
         mat[0].prev = prev
-        curr_score = prev.score
         c = 0
         nbPerc = 0
         while curr_state:  # while state is rgp.
             matNode = mat[c]
-            if matNode == zeroInd:  # then we've parsed the entire contig twice. The whole sequence is a rgp so we're stopping the iteration now, otherwise we'll loop indefinitely
+            if matNode == zeroInd:
+                # then we've parsed the entire contig twice.
+                # The whole sequence is a rgp, so we're stopping the iteration now, otherwise we'll loop indefinitely
                 break
 
             if matNode.gene.family.namedPartition == "persistent" and matNode.gene.family not in multi:
@@ -131,7 +132,7 @@ def initMatrices(contig, persistent_penalty, variable_gain, multi):
 
             curr_score = modif + prev.score
             curr_state = 1 if curr_score >= 0 else 0
-            matNode.changes(curr_state, curr_score)
+            matNode.changes(curr_score)
             c += 1
     return mat
 
@@ -148,13 +149,12 @@ def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, mul
                 if node.score >= maxScore:
                     maxScore = node.score
                     maxIndex = index
-            return (maxScore, maxIndex)
+            return maxScore, maxIndex
         else:
-            raise TypeError("List of matriceNode is expected. The detected type was " + type(lst))
+            raise TypeError(f"List of matriceNode is expected. The detected type was {type(lst)}")
 
     contigRegions = set()
     val, index = maxIndexNode(matrix)
-    c = 0
     while val >= min_score:
         new_region = extractRGP(contig, matrix[index], len(contigRegions), naming)
         new_region.score = val
@@ -162,7 +162,6 @@ def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, mul
             contigRegions.add(new_region)
         rewriteMatrix(contig, matrix, index, persistent, continuity, multi)
         val, index = maxIndexNode(matrix)
-        c += 1
     return contigRegions
 
 
@@ -170,7 +169,7 @@ def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min
     orgRegions = set()
     for contig in organism.contigs:
         if len(contig.genes) != 0:  # some contigs have no coding genes...
-            ## can definitely multiprocess this part, as not THAT much information is needed...
+            # can definitely multiprocess this part, as not THAT much information is needed...
             matrix = initMatrices(contig, persistent_penalty, variable_gain, multigenics)
             orgRegions |= mkRegions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain,
                                     multigenics, naming=naming)
@@ -184,23 +183,24 @@ def testNamingScheme(pangenome):
             oldlen = len(contigsids)
             contigsids.add(contig.name)
             if oldlen == len(contigsids):
-                logging.getLogger().warning(
-                    "You have contigs with identical identifiers in your assemblies. identifiers will be supplemented with your provided organism names.")
+                logging.getLogger().warning("You have contigs with identical identifiers in your assemblies. "
+                                            "identifiers will be supplemented with your provided organism names.")
                 return "organism"
     return "contig"
 
 
 def checkPangenomeFormerRGP(pangenome, force):
     """ checks pangenome status and .h5 files for former rgp, delete them if allowed or raise an error """
-    if pangenome.status["predictedRGP"] == "inFile" and force == False:
-        raise Exception(
-            "You are trying to predict RGPs in a pangenome that already have them predicted. If you REALLY want to do that, use --force (it will erase RGPs and every feature computed from them).")
-    elif pangenome.status["predictedRGP"] == "inFile" and force == True:
+    if pangenome.status["predictedRGP"] == "inFile" and not force:
+        raise Exception("You are trying to predict RGPs in a pangenome that already have them predicted. "
+                        "If you REALLY want to do that, use --force "
+                        "(it will erase RGPs and every feature computed from them).")
+    elif pangenome.status["predictedRGP"] == "inFile" and force:
         ErasePangenome(pangenome, rgp=True)
 
 
 def predictRGP(pangenome, force=False, persistent_penalty=3, variable_gain=1, min_length=3000, min_score=4,
-               dup_margin=0.05, cpu=1, disable_bar=False):
+               dup_margin=0.05, disable_bar=False):
     # check statuses and load info
     checkPangenomeFormerRGP(pangenome, force)
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions=True,
@@ -231,7 +231,7 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     predictRGP(pangenome, force=args.force, persistent_penalty=args.persistent_penalty,
                variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score,
-               dup_margin=args.dup_margin, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+               dup_margin=args.dup_margin, disable_bar=args.disable_prog_bar)
     writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
@@ -247,7 +247,8 @@ def rgpSubparser(subparser):
     optional.add_argument('--min_length', required=False, type=int, default=3000,
                           help="Minimum length (bp) of a region to be considered a RGP")
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
-                          help="Minimum ratio of organisms where the family is present in which the family must have multiple genes for it to be considered 'duplicated'")
+                          help="Minimum ratio of organisms where the family is present in which the family must "
+                               "have multiple genes for it to be considered 'duplicated'")
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
