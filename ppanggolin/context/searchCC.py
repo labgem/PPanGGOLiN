@@ -328,7 +328,7 @@ def contextSubparser(sub_parser):
                           help="Size of the transitive closure used to build the graph. This indicates the number of "
                                "non related genes allowed in-between two related genes. Increasing it will improve "
                                "precision but lower sensitivity a little.")
-    optional.add_argument("-j", "--jaccard", required=False, type=restricted_float, default=0.85,
+    optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
     optional.add_argument("--write_graph", type=str, default='graph',
