@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-#coding:utf-8
+# coding:utf-8
 
-#default libraries
+# default libraries
 import os
 import tempfile
 from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
 
-#local libraries
+# local libraries
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.utils import is_compressed, read_compressed_or_not
 
+
 def reverse_complement(seq):
     """ reverse complement the given dna sequence """
-    complement = {'A':  'T', 'C':  'G', 'G':  'C', 'T':  'A', 'N': 'N', 'R': 'Y', 'Y': 'R',
+    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N', 'R': 'Y', 'Y': 'R',
                   'S': 'S', 'W': 'W', 'K': 'M', 'M': 'K', 'B': 'V', 'V': 'B', 'D': 'H', 'H': 'D'}
     # see https://www.bioinformatics.org/sms/iupac.html for the code.
     # complement = {'A':  'T', 'C':  'G', 'G':  'C', 'T':  'A', 'N': 'N' } ## basic
@@ -22,6 +23,7 @@ def reverse_complement(seq):
     for i in reversed(seq):
         rcseq += complement[i]
     return rcseq
+
 
 def launch_aragorn(fnaFile, org):
     """
@@ -44,15 +46,16 @@ def launch_aragorn(fnaFile, org):
             lineData = line.split()
             start, stop = ast.literal_eval(lineData[2].replace("c", ""))
             c += 1
-            gene = RNA(ID = locustag+'_tRNA_'+str(c).zfill(3))
+            gene = RNA(ID=locustag + '_tRNA_' + str(c).zfill(3))
             gene.fill_annotations(start=start,
-                                 stop=stop,
-                                 strand="-" if lineData[2].startswith(
-                                     "c") else "+",
-                                 geneType="tRNA",
-                                 product=lineData[1] + lineData[4])
+                                  stop=stop,
+                                  strand="-" if lineData[2].startswith(
+                                      "c") else "+",
+                                  geneType="tRNA",
+                                  product=lineData[1] + lineData[4])
             geneObjs[header].add(gene)
     return geneObjs
+
 
 def launch_prodigal(fnaFile, org, code):
     """
@@ -60,7 +63,7 @@ def launch_prodigal(fnaFile, org, code):
         returns the annotated genes in a list of gene objects.
     """
     locustag = org.name
-    cmd = ["prodigal", "-f", "sco","-g",code, "-m", "-c", "-i", fnaFile, "-p", "single", "-q"]
+    cmd = ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fnaFile, "-p", "single", "-q"]
     p = Popen(cmd, stdout=PIPE)
 
     geneObjs = defaultdict(set)
@@ -75,19 +78,21 @@ def launch_prodigal(fnaFile, org, code):
         elif line.startswith(">"):
             c += 1
             lineData = line[1:].split("_")  # not considering the '>'
-            gene = Gene(ID = locustag + "_CDS_" + str(c).zfill(4))
+            gene = Gene(ID=locustag + "_CDS_" + str(c).zfill(4))
             gene.fill_annotations(start=lineData[1],
-                                 stop=lineData[2],
-                                 strand=lineData[3],
-                                 geneType="CDS",
-                                 genetic_code=code)
+                                  stop=lineData[2],
+                                  strand=lineData[3],
+                                  geneType="CDS",
+                                  genetic_code=code)
             geneObjs[header].add(gene)
 
     return geneObjs
 
+
 def launch_infernal(fnaFile, org, kingdom, tmpdir):
     """
-        launches Infernal in hmmer-only mode to annotate rRNAs. Takes a fna file name and a locustag to give an ID to the found genes.
+        launches Infernal in hmmer-only mode to annotate rRNAs.
+        Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """
     locustag = org.name
@@ -96,15 +101,18 @@ def launch_infernal(fnaFile, org, kingdom, tmpdir):
     elif kingdom == "archaea":
         modelfile = os.path.dirname(os.path.realpath(__file__)) + "/rRNA_DB/rRNA_arch.cm"
 
-    tmpFile = tempfile.NamedTemporaryFile(mode="r", dir = tmpdir)
-    cmd = ["cmscan", "--tblout", tmpFile.name, "--hmmonly", "--cpu",str(1), "--noali", modelfile, fnaFile]
+    tmpFile = tempfile.NamedTemporaryFile(mode="r", dir=tmpdir)
+    cmd = ["cmscan", "--tblout", tmpFile.name, "--hmmonly", "--cpu", str(1), "--noali", modelfile, fnaFile]
     p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
     if err != []:
         if err[0] == 'Error: ':
-            raise Exception(f"Infernal (cmscan) failed with error:  '{ ' '.join(err) }'. If you never used this script, you should press the .cm file using cmpress executable from Infernal. You should find the file in '{os.path.dirname(os.path.realpath(__file__))}/rRNA_DB/'.")
-        raise Exception(f"An error occurred with Infernal. Error is:  '{ ' '.join(err) }'.")
-    # never managed to test what happens if the .cm files are compressed with a 'bad' version of infernal, so if that happens you are on your own.
+            raise Exception(f"Infernal (cmscan) failed with error:  '{' '.join(err)}'. If you never used this script,"
+                            f" you should press the .cm file using cmpress executable from Infernal. "
+                            f"You should find the file in '{os.path.dirname(os.path.realpath(__file__))}/rRNA_DB/'.")
+        raise Exception(f"An error occurred with Infernal. Error is:  '{' '.join(err)}'.")
+    # never managed to test what happens if the .cm files are compressed with a 'bad' version of infernal,
+    # so if that happens you are on your own.
 
     geneObjs = defaultdict(set)
     c = 0
@@ -119,19 +127,20 @@ def launch_infernal(fnaFile, org, kingdom, tmpdir):
             else:
                 start = lineData[7]
                 stop = lineData[8]
-            gene = RNA(ID = locustag + "_rRNA_" + str(c).zfill(3))
+            gene = RNA(ID=locustag + "_rRNA_" + str(c).zfill(3))
             gene.fill_annotations(start=start,
-                                 stop=stop,
-                                 strand=strand,
-                                 geneType="rRNA",
-                                 product=" ".join(lineData[17:]))
+                                  stop=stop,
+                                  strand=strand,
+                                  geneType="rRNA",
+                                  product=" ".join(lineData[17:]))
             geneObjs[lineData[2]].add(gene)
 
     return geneObjs
 
-def read_fasta(org, fnaFile):
+
+def read_fasta(org, fnaFile, contig_filter=1):
     """
-        Reads a fna file  (or stream, or string) and stores it in a dictionnary with contigs as key and sequence as value.
+        Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
     """
     try:
         contigs = {}
@@ -139,33 +148,40 @@ def read_fasta(org, fnaFile):
         contig = None
         for line in fnaFile:
             if line.startswith('>'):
-                if contig_seq != "":
+                if len(contig_seq) >= contig_filter:
                     contigs[contig.name] = contig_seq.upper()
                 contig_seq = ""
                 contig = org.getOrAddContig(line.split()[0][1:])
             else:
                 contig_seq += line.strip()
         # processing the last contig
-        if contig_seq != "":
+        if len(contig_seq) >= contig_filter:
             contigs[contig.name] = contig_seq.upper()
     except AttributeError as e:
-        raise AttributeError(f"{e}\nAn error was raised when reading file: '{fnaFile.name}'. One possibility for this error is that the file did not start with a '>' as it would be expected from a fna file.")
+        raise AttributeError(
+            f"{e}\nAn error was raised when reading file: '{fnaFile.name}'. "
+            f"One possibility for this error is that the file did not start with a '>' "
+            f"as it would be expected from a fna file.")
     return contigs
 
-def write_tmp_fasta(contigs, tmpdir ):
+
+def write_tmp_fasta(contigs, tmpdir):
     """
         Writes a temporary fna formated file, and returns the file-like object.
-        This is for the cases where the given file is compressed, then we write a temporary file for the annotation tools to read from. The file will be deleted when close() is called.
+        This is for the cases where the given file is compressed,
+        then we write a temporary file for the annotation tools to read from.
+        The file will be deleted when close() is called.
     """
-    tmpFile = tempfile.NamedTemporaryFile(mode="w", dir = tmpdir)
+    tmpFile = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir)
     for header in contigs.keys():
         tmpFile.write(f">{header}\n")
         j = 0
         while j < len(contigs[header]):
-            tmpFile.write(contigs[header][j: j+60]+"\n")
+            tmpFile.write(contigs[header][j: j + 60] + "\n")
             j += 60
     tmpFile.flush()  # force write what remains in the buffer.
     return tmpFile
+
 
 def syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir):
     """
@@ -185,10 +201,11 @@ def syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir):
             genes[key].extend(items)
         for key, items in launch_infernal(fastaFile.name, org, kingdom, tmpdir).items():
             genes[key].extend(items)
-    fastaFile.close()#closing either tmp file or original fasta file.
+    fastaFile.close()  # closing either tmp file or original fasta file.
     return genes
 
-def overlap_filter(allGenes, contigs, overlap):
+
+def overlap_filter(allGenes, overlap):
     """
         Removes the CDS that overlap with RNA genes.
     """
@@ -198,8 +215,8 @@ def overlap_filter(allGenes, contigs, overlap):
         rmGenes = set()
         if overlap:
             for i, gene_i in enumerate(tmpGenes):
-                if i+1 < len(tmpGenes):
-                    gene_j = tmpGenes[i+1]
+                if i + 1 < len(tmpGenes):
+                    gene_j = tmpGenes[i + 1]
                     if gene_i.type != "CDS" and gene_j.type == "CDS" and gene_i.stop > gene_j.start:
                         rmGenes.add(gene_j)
                     elif gene_i.type == "CDS" and gene_j.type != "CDS" and gene_i.stop > gene_j.start:
@@ -211,29 +228,31 @@ def overlap_filter(allGenes, contigs, overlap):
         for gene in tmpGenes:
             if gene.type == "CDS":
                 gene.position = CDScounter
-                CDScounter+=1
+                CDScounter += 1
         sortedGenes[key] = tmpGenes
     return sortedGenes
 
+
 def get_dna_sequence(contigSeq, gene):
     if gene.strand == "+":
-        return contigSeq[gene.start-1:gene.stop]
+        return contigSeq[gene.start - 1:gene.stop]
     elif gene.strand == "-":
-        return reverse_complement(contigSeq[gene.start-1:gene.stop])
+        return reverse_complement(contigSeq[gene.start - 1:gene.stop])
 
-def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna, tmpdir, overlap):
+
+def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna, tmpdir, overlap, contig_filter):
     """
         Function to annotate a single organism
     """
     org = Organism(orgName)
 
     fastaFile = read_compressed_or_not(fileName)
-    contigSequences = read_fasta(org, fastaFile)
+    contigSequences = read_fasta(org, fastaFile, contig_filter)
     if is_compressed(fileName):
         fastaFile = write_tmp_fasta(contigSequences, tmpdir)
 
     genes = syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir)
-    genes = overlap_filter(genes, contigSequences, overlap)
+    genes = overlap_filter(genes, overlap)
 
     for contigName, genes in genes.items():
         contig = org.getOrAddContig(contigName)

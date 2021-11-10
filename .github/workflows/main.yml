@@ -45,12 +45,12 @@ jobs:
     - name: Unit tests
       shell: bash -l {0}
       run: pytest
-    # Test a basic workflow
-    - name: Basic panrgp workflow
+    # Test the complete workflow
+    - name: Complete workflow
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin panrgp --cpu 1 --fasta organisms.fasta.list --output mybasicpangenome
+        ppanggolin all --cpu 1 --fasta organisms.fasta.list --output mybasicpangenome
         ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status
         cd -
     # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
@@ -59,7 +59,7 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin annotate --fasta organisms.fasta.list --output stepbystep --kingdom bacteria
+        ppanggolin annotate --fasta organisms.fasta.list --output stepbystep --kingdom bacteria --contig_filter 500
         ppanggolin cluster -p stepbystep/pangenome.h5 --defrag --coverage 0.8 --identity 0.8
         ppanggolin graph -p stepbystep/pangenome.h5 -r 10
         ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu 1 -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL -se $RANDOM
@@ -87,4 +87,10 @@ jobs:
         ppanggolin annotate --anno organisms.gbff.list --output readclusters
         ppanggolin cluster --cluster clusters.tsv -p readclusters/pangenome.h5
         cd -
-    ## can test the remaining options in 'align'
+    - name: testing align command
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_align --draw_related --getinfo
+        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --anno NC_010287.gbff --output test_align --draw_related --getinfo -f
+        cd -

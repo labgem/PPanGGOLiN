@@ -18,8 +18,8 @@ from ppanggolin.nem.partition import partition
 from ppanggolin.formats import writePangenome, writeFlatFiles
 from ppanggolin.figures import drawTilePlot, drawUCurve
 from ppanggolin.info import printInfo
-from ppanggolin.RGP.genomicIsland import predictRGP
-from ppanggolin.RGP.spot import predictHotspots
+from ppanggolin.mod import predictModules
+
 
 """a global workflow that does everything in one go."""
 
@@ -27,7 +27,7 @@ from ppanggolin.RGP.spot import predictHotspots
 def launch(args):
     pangenome = Pangenome()
     filename = mkFilename(args.basename, args.output, args.force)
-    writing_time, anno_time, clust_time, desc_time = (None, None, None, None)
+    writing_time, anno_time, clust_time, mod_time, desc_time = (None, None, None, None, None)
     if args.anno:  # if the annotations are provided, we read from it
         getSeq = True
         if args.clusters is not None:
@@ -76,13 +76,9 @@ def launch(args):
     writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     writing_time = writing_time + time.time() - start_writing
 
-    start_regions = time.time()
-    predictRGP(pangenome, disable_bar=args.disable_prog_bar)
-    regions_time = time.time() - start_regions
-
-    start_spots = time.time()
-    predictHotspots(pangenome, args.output, interest=args.interest, disable_bar=args.disable_prog_bar)
-    spot_time = time.time() - start_spots
+    start_mods = time.time()
+    predictModules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, disable_bar=args.disable_prog_bar)
+    mod_time = time.time() - start_mods
 
     start_writing = time.time()
     writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
@@ -96,28 +92,27 @@ def launch(args):
 
     start_desc = time.time()
     writeFlatFiles(pangenome, args.output, args.cpu, csv=True, genePA=True, gexf=True, light_gexf=True, projection=True,
-                   json=True, stats=True, partitions=True, regions=True, spots=True)
+                   json=True, stats=True, partitions=True, modules=True)
     desc_time = time.time() - start_desc
 
     logging.getLogger().info(f"Annotation took : {round(anno_time, 2)} seconds")
     logging.getLogger().info(f"Clustering took : {round(clust_time, 2)} seconds")
     logging.getLogger().info(f"Building the graph took : {round(graph_time, 2)} seconds")
     logging.getLogger().info(f"Partitioning the pangenome took : {round(part_time, 2)} seconds")
-    logging.getLogger().info(f"Predicting RGP took : {round(regions_time, 2)} seconds")
-    logging.getLogger().info(f"Gathering RGP into spots took : {round(spot_time, 2)} seconds")
+    logging.getLogger().info(f"Predicting modules took : {round(mod_time, 2)} seconds")
     logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
     logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
     printInfo(filename, content=True)
 
 
-def panRGPSubparser(subparser):
-    parser = subparser.add_parser("panrgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def panModuleSubparser(subparser):
+    parser = subparser.add_parser("panmodule", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
     required.add_argument('--fasta', required=False, type=str,
                           help="A tab-separated file listing the organism names, "
-                               "and the fasta filepath of its genomic sequence(s) (the fastas can be compressed)."
-                               " One line per organism. This option can be used alone.")
+                               "and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). "
+                               "One line per organism. This option can be used alone.")
     required.add_argument('--anno', required=False, type=str,
                           help="A tab-separated file listing the organism names, "
                                "and the gff filepath of its annotations (the gffs can be compressed). "
@@ -136,12 +131,9 @@ def panRGPSubparser(subparser):
     optional.add_argument("--rarefaction", required=False, action="store_true",
                           help="Use to compute the rarefaction curves (WARNING: can be time consuming)")
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
-                          help="Number of partitions to use. Must be at least 2. If under 2, "
-                               "it will be detected automatically.")
-    optional.add_argument("--interest", required=False, type=str, default="",
-                          help="Comma separated list of elements to flag when drawing and writing hotspots")
-    optional.add_argument("--defrag", required=False, action="store_true",
-                          help=argparse.SUPPRESS)
+                          help="Number of partitions to use. Must be at least 2. "
+                               "If under 2, it will be detected automatically.")
+    optional.add_argument("--defrag", required=False, action="store_true", help=argparse.SUPPRESS)
     # This ensures compatibility with workflows built with the old option "defrag" when it was not the default
     optional.add_argument("--no_defrag", required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with their non-fragmented gene family.")

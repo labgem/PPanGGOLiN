@@ -138,6 +138,13 @@ class Spot:
         self._uniqContent = {}
         self._compContent = False
 
+    @property
+    def families(self):
+        union = set()
+        for region in self.regions:
+            union |= region.families
+        return union
+
     def addRegions(self, regions):
         """ Adds region(s) contained in an Iterable to the spot which all have the same bordering persistent genes provided with 'borders'"""
         if isinstance(regions, Iterable):
