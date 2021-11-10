@@ -36,6 +36,7 @@ def checkPredictedSpots(pangenome):
 
 
 def makeColorsForFams(fams):
+    """randomly picks 256 colors for gene families"""
     famcol = {}
     for fam in fams:
         col =  list(random.choices(range(256), k=3))
@@ -84,11 +85,18 @@ def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
             for unclassIndex in list(to_classify):
                 border1 = [ gene.family for gene in geneLists[unclassIndex][1][0] ]
                 border2 = [ gene.family for gene in geneLists[unclassIndex][1][1] ]
-                if compBorder(base_border1, border1, overlapping_match, exact_match, set_size) or compBorder(base_border2, border2, overlapping_match, exact_match, set_size):
+                if compBorder(base_border1, border1, overlapping_match, exact_match, set_size) and compBorder(base_border2, border2, overlapping_match, exact_match, set_size):
                     to_classify.discard(unclassIndex)
                     new_classify.add(unclassIndex)
-                elif compBorder(base_border2, border1, overlapping_match, exact_match, set_size) or compBorder(base_border1, border2, overlapping_match, exact_match, set_size):
+                elif compBorder(base_border2, border1, overlapping_match, exact_match, set_size) and compBorder(base_border1, border2, overlapping_match, exact_match, set_size):
                     geneLists[unclassIndex][0] = geneLists[unclassIndex][0][::-1]#reverse the order of the genes to match the 'reference'
+                    #inverse the borders
+                    former_border_1 = geneLists[unclassIndex][1][0]
+                    former_border_2 = geneLists[unclassIndex][1][1]
+                    geneLists[unclassIndex][1][0] = former_border_2
+                    geneLists[unclassIndex][1][1] = former_border_1
+
+                    #specify the new 'classified' and remove from unclassified
                     to_classify.discard(unclassIndex)
                     new_classify.add(unclassIndex)
         classified = new_classify#the newly classified will help to check the unclassified, the formerly classified are not useful for what remains (if something remains)
@@ -118,11 +126,17 @@ def mkSourceData(genelists, ordered_counts, famCol):
             df["name"].append(gene.name)
             df["gene_local_ID"].append(gene.local_identifier)
             df['gene_ID'].append(gene.ID)
-            df["family"].append(gene.family.name)
-            df["fill_color"].append(famCol[gene.family])
-            df["partition_color"].append(partitionColors[gene.family.namedPartition])
-            df["x"].append( (abs(gene.start - start) + abs(gene.stop - start)) / 2 )
+            if "RNA" in gene.type:
+                df["family"].append(gene.type)
+                df["fill_color"].append("#A109A7")
+                df["partition_color"].append("#A109A7")
+            else:
+                df["family"].append(gene.family.name)
+                df["fill_color"].append(famCol[gene.family])
+                df["partition_color"].append(partitionColors[gene.family.namedPartition])
+            #df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
             if ordered:
+                df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
                 if gene.strand == "+":
                     df["width"].append( (gene.stop - start) - (gene.start - start) )
                     df["y"].append((index * 10) + 1)
@@ -130,10 +144,13 @@ def mkSourceData(genelists, ordered_counts, famCol):
                     df["width"].append( (gene.stop - start) - (gene.start - start) )
                     df["y"].append((index * 10) - 1)
             else:
+                #df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
                 if gene.strand == "+":
+                    df["x"].append(((abs(gene.start - start) + abs(gene.stop - start)) / 2) - (gene.stop - gene.start))
                     df["width"].append(abs(gene.stop - start) - abs(gene.start - start) )
                     df["y"].append((index * 10) - 1)
                 else:
+                    df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
                     df["width"].append(abs(gene.start - start) - abs(gene.stop - start) )
                     df["y"].append((index * 10) + 1)
             df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
@@ -220,14 +237,13 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
     labels_block = addLabels(fig, source)
 
     #other rectangle modification tools?
+    #show(column(fig, labels_block))
 
-    show(column(fig, labels_block))
+    save(column(fig, labels_block))# is to be used.
 
-    #save(fig) is to be used.
-
-def drawSelectedSpots(selected_spots, multigenics, output, overlapping_match, exact_match, set_size, show_bar):
+def drawSelectedSpots(selected_spots, multigenics, output, overlapping_match, exact_match, set_size, disable_bar):
     logging.getLogger().info("Selecting and ordering genes among regions...")
-    bar = tqdm(range(len(selected_spots)), unit = "spot", disable = not show_bar)
+    bar = tqdm(range(len(selected_spots)), unit = "spot", disable = disable_bar)
 
     for spot in selected_spots:
 
@@ -275,39 +291,47 @@ def drawSelectedSpots(selected_spots, multigenics, output, overlapping_match, ex
         drawCurrSpot(GeneLists, ordered_counts, famcolors, fname)
 
 
-def drawSpots(pangenome, output, spot_list, show_bar):
+def drawSpots(pangenome, output, spot_list, disable_bar):
     #check that the pangenome has spots
     checkPredictedSpots(pangenome)
 
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True, needRGP=True, needSpots=True, show_bar=show_bar)
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True,
+    needRGP=True, needSpots=True, disable_bar=disable_bar)
 
     selected_spots = set()
-
-    if spot_list == 'all' or any(x == 'all' for x in spot_list.split(',')):
+    curated_spot_list = ['spot_' + str(s) if 'spot' not in s else str(s) for s in spot_list.split(',')]
+    
+    if spot_list == 'all' or any(x == 'all' for x in curated_spot_list):
         selected_spots = [s for s in pangenome.spots if len(s.getUniqOrderedSet()) > 1]
     else:
-        raise NotImplementedError()
-
-    logging.getLogger().info(f"Drawing {len(selected_spots)} spots")
+        selected_spots = [ s for s in pangenome.spots if "spot_" + str(s.ID) in curated_spot_list]
+    if len(selected_spots) < 10:
+        logging.getLogger().info(f"Drawing the following spots: {','.join(['spot_' + str(s.ID) for s in selected_spots])}")
+    else:
+        logging.getLogger().info(f"Drawing {len(selected_spots)} spots")
 
     multi = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    drawSelectedSpots(selected_spots, multi, output, overlapping_match = pangenome.parameters["spots"]["overlapping_match"],exact_match = pangenome.parameters["spots"]["exact_match"] , set_size = pangenome.parameters["spots"]["set_size"], show_bar = show_bar)
+    drawSelectedSpots(selected_spots, multi, output,
+                overlapping_match = pangenome.parameters["spots"]["overlapping_match"],
+                exact_match = pangenome.parameters["spots"]["exact_match"],
+                set_size = pangenome.parameters["spots"]["set_size"],
+                disable_bar = disable_bar)
 
 
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    if args.spot == "":
-        raise Exception("You did not provide any spot to draw. see the '--spot' options.")
+    if args.spots == "":
+        raise Exception("You did not provide any spot to draw. see the '--spots' options.")
     mkOutdir(args.output, args.force)
-    drawSpots(pangenome=pangenome, output = args.output, spot_list=args.spot, show_bar=args.show_prog_bars)
+    drawSpots(pangenome=pangenome, output = args.output, spot_list=args.spots, disable_bar=args.disable_prog_bar)
 
 def drawSpotSubparser(subparser):
     parser = subparser.add_parser("drawspot", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     optional = parser.add_argument_group(title = "Optional arguments")
     optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
-    optional.add_argument("--spot", required=False, type=str, default='', help =  "a comma-separated list of spots to draw (or 'all' to draw all spots)")
+    optional.add_argument("--spots", required=False, type=str, default='', help =  "a comma-separated list of spots to draw (or 'all' to draw all spots)")
     required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
     required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
     return parser

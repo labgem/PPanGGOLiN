@@ -465,7 +465,7 @@ def _spotDrawing(Rdna_segs, Rannot, rdframes, longest_gene_list, filename, fig_m
     try:
         plot_gene_map = robjects.r["plot_gene_map"]
         grdevices = importr('grDevices')
-        grdevices.png(file=filename, width=longest_gene_list * 80, height=(len(rdframes) + 1) * fig_margin,
+        grdevices.png(file=filename, width=longest_gene_list * 80, height=(len(rdframes) + 1) * fig_margin, # pylint: disable=no-member
                       pointsize=16)  # pylint: disable=no-member
         plot_gene_map(dna_segs=Rdna_segs, annotations=Rannot, annotation_height=5, lwd=4)
         grdevices.dev_off()  # pylint: disable=no-member
