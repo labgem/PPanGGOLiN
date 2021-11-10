@@ -108,7 +108,7 @@ def mkSourceData(genelists, ordered_counts, famCol):
 
     partitionColors = {"shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF"}
 
-    df = {'name':[],'x':[],'y':[],'width':[], 'fill_color':[], 'partition_color':[], "family":[], "product":[],"x_label":[],"y_label":[], "label":[], "gene_type":[],'gene_ID':[], "gene_local_ID":[]}
+    df = {'name':[],'ordered':[],'strand':[],'x':[],'y':[],'width':[], 'fill_color':[], 'partition_color':[], "family":[], "product":[],"x_label":[],"y_label":[], "label":[], "gene_type":[],'gene_ID':[], "gene_local_ID":[]}
 
     for index, GeneList in enumerate(genelists):
         genelist = GeneList[0]
@@ -121,16 +121,19 @@ def mkSourceData(genelists, ordered_counts, famCol):
             start = genelist[0].stop
 
         for gene in genelist:
+            df["ordered"].append(str(ordered))
+            df["strand"].append(gene.strand)
             df["gene_type"].append(gene.type)
             df["product"].append(gene.product)
-            df["name"].append(gene.name)
             df["gene_local_ID"].append(gene.local_identifier)
             df['gene_ID'].append(gene.ID)
             if "RNA" in gene.type:
+                df["name"].append(gene.product)
                 df["family"].append(gene.type)
                 df["fill_color"].append("#A109A7")
                 df["partition_color"].append("#A109A7")
             else:
+                df["name"].append(gene.name)
                 df["family"].append(gene.family.name)
                 df["fill_color"].append(famCol[gene.family])
                 df["partition_color"].append(partitionColors[gene.family.namedPartition])
@@ -138,22 +141,24 @@ def mkSourceData(genelists, ordered_counts, famCol):
             if ordered:
                 df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
                 if gene.strand == "+":
-                    df["width"].append( (gene.stop - start) - (gene.start - start) )
+                    df["width"].append(gene.stop - gene.start)
                     df["y"].append((index * 10) + 1)
                 else:
-                    df["width"].append( (gene.stop - start) - (gene.start - start) )
+                    df["width"].append(gene.stop - gene.start)
                     df["y"].append((index * 10) - 1)
+                df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
             else:
                 #df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
                 if gene.strand == "+":
-                    df["x"].append(((abs(gene.start - start) + abs(gene.stop - start)) / 2) - (gene.stop - gene.start))
-                    df["width"].append(abs(gene.stop - start) - abs(gene.start - start) )
+                    df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
+                    df["width"].append(gene.stop - gene.start)
                     df["y"].append((index * 10) - 1)
+                    df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
                 else:
                     df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
-                    df["width"].append(abs(gene.start - start) - abs(gene.stop - start) )
+                    df["width"].append(gene.stop - gene.start)
+                    df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
                     df["y"].append((index * 10) + 1)
-            df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
             df["y_label"].append(df["y"][-1] + 1.5)
     df["label"] = df["name"]
     return ColumnDataSource(data=df)
@@ -216,6 +221,8 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
         ("family","@family"),
         ("local identifier","@gene_local_ID"),
         ("gene ID","@gene_ID"),
+        ("ordered","@ordered"),
+        ("strand","@strand"),
     ]
 
     #generate the figure and add some tools to it
