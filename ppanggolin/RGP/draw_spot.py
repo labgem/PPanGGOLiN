@@ -108,7 +108,7 @@ def mkSourceData(genelists, famCol):
 
     partitionColors = {"shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF"}
 
-    df = {'name':[],'ordered':[],'strand':[],'x':[],'y':[],'width':[], 'family_color':[], 'partition_color':[], 'partition':[], "family":[], "product":[],"x_label":[],"y_label":[], "label":[], "gene_type":[],'gene_ID':[], "gene_local_ID":[]}
+    df = {'name':[],'ordered':[],'strand':[],"start":[],"stop":[],'x':[],'y':[],'width':[], 'family_color':[], 'partition_color':[], 'partition':[], "family":[], "product":[],"x_label":[],"y_label":[], "label":[], "gene_type":[],'gene_ID':[], "gene_local_ID":[]}
 
     for index, GeneList in enumerate(genelists):
         genelist = GeneList[0]
@@ -123,6 +123,8 @@ def mkSourceData(genelists, famCol):
         for gene in genelist:
             df["ordered"].append(str(ordered))
             df["strand"].append(gene.strand)
+            df["start"].append(gene.start)
+            df["stop"].append(gene.stop)
             df["gene_type"].append(gene.type)
             df["product"].append(gene.product)
             df["gene_local_ID"].append(gene.local_identifier)
@@ -161,7 +163,8 @@ def mkSourceData(genelists, famCol):
     df["fill_color"] = df["family_color"]
 
     TOOLTIPS = [
-        ("position", "$x"),
+        ("start","@start"),
+        ("stop","@stop"),
         ("name", "@name"),
         ("product","@product"),
         ("family","@family"),
@@ -301,14 +304,16 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
     #gene labels and label modification tools
     labels_change_tools = addLabels(fig, GeneSource)
 
-    #other rectangle modification tools
-
     save(column(fig, row(labels_change_tools, color_change_tools)))
 
-def drawSelectedSpots(selected_spots, multigenics, output, overlapping_match, exact_match, set_size, disable_bar):
+def drawSelectedSpots(selected_spots, pangenome, output, overlapping_match, exact_match, set_size, disable_bar):
     logging.getLogger().info("Selecting and ordering genes among regions...")
-    bar = tqdm(range(len(selected_spots)), unit = "spot", disable = disable_bar)
 
+    multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
+    #bar = tqdm(range(len(selected_spots)), unit = "spot", disable = disable_bar)
+    print(pangenome.modules)
+    fam2mod = { (fam, f"module_{mod.ID}") for mod in pangenome.modules for fam in mod.families }
+    print(fam2mod)
     for spot in selected_spots:
 
         fname = output + '/spot_' + str(spot.ID)
@@ -376,7 +381,7 @@ def drawSpots(pangenome, output, spot_list, disable_bar):
 
     multi = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    drawSelectedSpots(selected_spots, multi, output,
+    drawSelectedSpots(selected_spots, pangenome, output,
                 overlapping_match = pangenome.parameters["spots"]["overlapping_match"],
                 exact_match = pangenome.parameters["spots"]["exact_match"],
                 set_size = pangenome.parameters["spots"]["set_size"],
