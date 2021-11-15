@@ -35,12 +35,15 @@ def checkPredictedSpots(pangenome):
         raise Exception("You are trying to draw spots for a pangenome that does not have spots predicted. Please see the 'spot' subcommand.")
 
 
-def makeColorsForFams(fams):
+def makeColorsForIterable(it):
     """randomly picks 256 colors for gene families"""
     famcol = {}
-    for fam in fams:
+    for element in it:
         col =  list(random.choices(range(256), k=3))
-        famcol[fam] = '#%02x%02x%02x' % (col[0], col[1], col[2])
+        if element == "none":
+            famcol[element] = "#D3D3D3"
+        else:
+            famcol[element] = '#%02x%02x%02x' % (col[0], col[1], col[2])
     return famcol
 
 def orderGeneLists(geneLists, ordered_counts, overlapping_match, exact_match, set_size):
@@ -104,16 +107,16 @@ def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
     return geneLists
 
 
-def mkSourceData(genelists, famCol):
+def mkSourceData(genelists, famCol, fam2mod):
 
     partitionColors = {"shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF"}
 
-    df = {'name':[],'ordered':[],'strand':[],"start":[],"stop":[],'x':[],'y':[],'width':[], 'family_color':[], 'partition_color':[], 'partition':[], "family":[], "product":[],"x_label":[],"y_label":[], "label":[], "gene_type":[],'gene_ID':[], "gene_local_ID":[]}
+    df = {'name':[],'ordered':[],'strand':[],"start":[],"stop":[],'module':[],'module_color':[],'x':[],'y':[],'width':[], 'family_color':[], 'partition_color':[], 'partition':[], "family":[], "product":[],"x_label":[],"y_label":[], "label":[], "gene_type":[],'gene_ID':[], "gene_local_ID":[]}
 
     for index, GeneList in enumerate(genelists):
         genelist = GeneList[0]
 
-        if genelist[0].start < genelist[1].start:
+        if genelist[0].start < genelist[1].start:#if the order has been inverted, positionning elements on the figure is different
             ordered=True
             start = genelist[0].start
         else:
@@ -129,20 +132,22 @@ def mkSourceData(genelists, famCol):
             df["product"].append(gene.product)
             df["gene_local_ID"].append(gene.local_identifier)
             df['gene_ID'].append(gene.ID)
-            if "RNA" in gene.type:
+
+            if "RNA" in gene.type:#dedicated values for RNA genes
                 df["name"].append(gene.product)
                 df["family"].append(gene.type)
                 df["partition"].append("none")
                 df["family_color"].append("#A109A7")
                 df["partition_color"].append("#A109A7")
-                #mod and mod color
+                df["module"].append("none")
             else:
                 df["name"].append(gene.name)
                 df["family"].append(gene.family.name)
                 df["partition"].append(gene.family.namedPartition)
                 df["family_color"].append(famCol[gene.family])
                 df["partition_color"].append(partitionColors[gene.family.namedPartition])
-                #mod and mod color
+                df["module"].append(fam2mod.get(gene.family, "none"))
+
             df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
             df["width"].append(gene.stop - gene.start)
             df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
@@ -162,12 +167,21 @@ def mkSourceData(genelists, famCol):
     df["line_color"] = df["partition_color"]
     df["fill_color"] = df["family_color"]
 
+    #define colors for modules
+    mod2col = makeColorsForIterable(set(df["module"]))
+    mod_colors = []
+    for mod in df["module"]:
+        mod_colors.append(mod2col[mod])
+    df["module_color"] = mod_colors
+
+    #defining things that we will see when hovering over the graphical elements
     TOOLTIPS = [
         ("start","@start"),
         ("stop","@stop"),
         ("name", "@name"),
         ("product","@product"),
         ("family","@family"),
+        ("module","@module"),
         ("partition","@partition"),
         ("local identifier","@gene_local_ID"),
         ("gene ID","@gene_ID"),
@@ -178,6 +192,7 @@ def mkSourceData(genelists, famCol):
     return ColumnDataSource(data=df), TOOLTIPS
 
 def changeColors(recs, sourceData):
+    """ define tools to change the outline and fill colors of genes"""
     def colorStr(color_element):
         """javascript code to switch between partition, family and module color for the given 'color_element'"""
         return f"""
@@ -275,7 +290,7 @@ def mkGenomes(geneLists, ordered_counts):
     ]
     return ColumnDataSource(data=df), TOOLTIP
 
-def drawCurrSpot(genelists, ordered_counts, famCol, filename):
+def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     #prepare the source data
 
     output_file(filename + "_test.html")
@@ -294,7 +309,7 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
     #genome labels?
 
     #gene rectanges
-    GeneSource, GeneTooltips = mkSourceData(genelists, famCol)
+    GeneSource, GeneTooltips = mkSourceData(genelists, famCol, fam2mod)
     recs = fig.rect(x='x', y='y',line_color='line_color', fill_color='fill_color', width='width',height = 2,line_width=5, source=GeneSource)
     recs_hover = HoverTool(renderers=[recs], tooltips=GeneTooltips)
     fig.add_tools(recs_hover)
@@ -311,9 +326,12 @@ def drawSelectedSpots(selected_spots, pangenome, output, overlapping_match, exac
 
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
     #bar = tqdm(range(len(selected_spots)), unit = "spot", disable = disable_bar)
-    print(pangenome.modules)
-    fam2mod = { (fam, f"module_{mod.ID}") for mod in pangenome.modules for fam in mod.families }
-    print(fam2mod)
+
+    fam2mod = {}
+    for mod in pangenome.modules:
+        for fam in mod.families:
+            fam2mod[fam] = f"module_{mod.ID}"
+
     for spot in selected_spots:
 
         fname = output + '/spot_' + str(spot.ID)
@@ -352,20 +370,25 @@ def drawSelectedSpots(selected_spots, pangenome, output, overlapping_match, exac
             Fams |= { gene.family for gene in GeneList if gene.type == "CDS"}
 
             GeneLists.append([GeneList, borders, rgp])
-        famcolors = makeColorsForFams(Fams)
+        famcolors = makeColorsForIterable(Fams)
         ordered_counts = sorted(countUniq.values(), reverse = True)
         GeneLists, ordered_counts = orderGeneLists(GeneLists, ordered_counts, overlapping_match, exact_match, set_size)
         fname = output + '/spot_' + str(spot.ID)
 
-        drawCurrSpot(GeneLists, ordered_counts, famcolors, fname)
-
+        drawCurrSpot(GeneLists, ordered_counts, fam2mod, famcolors, fname)
+    logging.getLogger().info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 def drawSpots(pangenome, output, spot_list, disable_bar):
     #check that the pangenome has spots
     checkPredictedSpots(pangenome)
 
+    needMod = False
+    if pangenome.status["modules"] != "No":
+        # modules are not required to be loaded, but if they have been computed we load them.
+        needMod = True
+
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions = True,
-    needRGP=True, needSpots=True, disable_bar=disable_bar)
+    needRGP=True, needSpots=True, needModules=needMod, disable_bar=disable_bar)
 
     selected_spots = set()
     curated_spot_list = ['spot_' + str(s) if 'spot' not in s else str(s) for s in spot_list.split(',')]
@@ -378,8 +401,6 @@ def drawSpots(pangenome, output, spot_list, disable_bar):
         logging.getLogger().info(f"Drawing the following spots: {','.join(['spot_' + str(s.ID) for s in selected_spots])}")
     else:
         logging.getLogger().info(f"Drawing {len(selected_spots)} spots")
-
-    multi = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
     drawSelectedSpots(selected_spots, pangenome, output,
                 overlapping_match = pangenome.parameters["spots"]["overlapping_match"],
