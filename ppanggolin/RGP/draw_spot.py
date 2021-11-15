@@ -278,7 +278,7 @@ def mkGenomes(geneLists, ordered_counts):
         df["occurrences"].append(ordered_counts[index])
 
         df["y"].append(index*10)
-        df["width"].append(genelist[-1].stop - genelist[0].start)
+        df["width"].append(abs(genelist[-1].stop - genelist[0].start))
         if genelist[0].start < genelist[1].start:
             df["x"].append((df["width"][-1])/2)
         else:
@@ -304,14 +304,14 @@ def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     #genome rectangles
     genomeSource, genomeTooltip = mkGenomes(genelists, ordered_counts)
     genomeRecs = fig.rect(x='x',y='y',fill_color="dimgray",width="width", height=0.5, source=genomeSource)
-    genomeRecs_hover = HoverTool(renderers=[genomeRecs], tooltips=genomeTooltip)
+    genomeRecs_hover = HoverTool(renderers=[genomeRecs], tooltips=genomeTooltip, mode="mouse")
     fig.add_tools(genomeRecs_hover)
     #genome labels?
 
     #gene rectanges
     GeneSource, GeneTooltips = mkSourceData(genelists, famCol, fam2mod)
     recs = fig.rect(x='x', y='y',line_color='line_color', fill_color='fill_color', width='width',height = 2,line_width=5, source=GeneSource)
-    recs_hover = HoverTool(renderers=[recs], tooltips=GeneTooltips)
+    recs_hover = HoverTool(renderers=[recs], tooltips=GeneTooltips, mode="mouse")
     fig.add_tools(recs_hover)
     #color modification tools
     color_change_tools = changeColors(recs, GeneSource)
