@@ -104,11 +104,11 @@ def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
     return geneLists
 
 
-def mkSourceData(genelists, ordered_counts, famCol):
+def mkSourceData(genelists, famCol):
 
     partitionColors = {"shell": "#00D860", "persistent":"#F7A507", "cloud":"#79DEFF"}
 
-    df = {'name':[],'ordered':[],'strand':[],'x':[],'y':[],'width':[], 'fill_color':[], 'partition_color':[], "family":[], "product":[],"x_label":[],"y_label":[], "label":[], "gene_type":[],'gene_ID':[], "gene_local_ID":[]}
+    df = {'name':[],'ordered':[],'strand':[],'x':[],'y':[],'width':[], 'family_color':[], 'partition_color':[], 'partition':[], "family":[], "product":[],"x_label":[],"y_label":[], "label":[], "gene_type":[],'gene_ID':[], "gene_local_ID":[]}
 
     for index, GeneList in enumerate(genelists):
         genelist = GeneList[0]
@@ -130,38 +130,82 @@ def mkSourceData(genelists, ordered_counts, famCol):
             if "RNA" in gene.type:
                 df["name"].append(gene.product)
                 df["family"].append(gene.type)
-                df["fill_color"].append("#A109A7")
+                df["partition"].append("none")
+                df["family_color"].append("#A109A7")
                 df["partition_color"].append("#A109A7")
+                #mod and mod color
             else:
                 df["name"].append(gene.name)
                 df["family"].append(gene.family.name)
-                df["fill_color"].append(famCol[gene.family])
+                df["partition"].append(gene.family.namedPartition)
+                df["family_color"].append(famCol[gene.family])
                 df["partition_color"].append(partitionColors[gene.family.namedPartition])
-            #df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
+                #mod and mod color
+            df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
+            df["width"].append(gene.stop - gene.start)
+            df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
             if ordered:
-                df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
                 if gene.strand == "+":
-                    df["width"].append(gene.stop - gene.start)
                     df["y"].append((index * 10) + 1)
                 else:
-                    df["width"].append(gene.stop - gene.start)
+                    
                     df["y"].append((index * 10) - 1)
-                df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
             else:
-                #df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
                 if gene.strand == "+":
-                    df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
-                    df["width"].append(gene.stop - gene.start)
                     df["y"].append((index * 10) - 1)
-                    df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
                 else:
-                    df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
-                    df["width"].append(gene.stop - gene.start)
-                    df["x_label"].append(df["x"][-1] - int(df["width"][-1]/2))
                     df["y"].append((index * 10) + 1)
             df["y_label"].append(df["y"][-1] + 1.5)
     df["label"] = df["name"]
-    return ColumnDataSource(data=df)
+    df["line_color"] = df["partition_color"]
+    df["fill_color"] = df["family_color"]
+
+    TOOLTIPS = [
+        ("position", "$x"),
+        ("name", "@name"),
+        ("product","@product"),
+        ("family","@family"),
+        ("partition","@partition"),
+        ("local identifier","@gene_local_ID"),
+        ("gene ID","@gene_ID"),
+        ("ordered","@ordered"),
+        ("strand","@strand"),
+    ]
+
+    return ColumnDataSource(data=df), TOOLTIPS
+
+def changeColors(recs, sourceData):
+    def colorStr(color_element):
+        """javascript code to switch between partition, family and module color for the given 'color_element'"""
+        return f"""
+            if(this.active == 0){{
+                source.data['{color_element}'] = source.data['partition_color'];
+            }}else if(this.active == 1){{
+                source.data['{color_element}'] = source.data['family_color'];
+            }}else if(this.active == 2){{
+                source.data['{color_element}'] = source.data['module_color'];
+            }}
+            recs.{color_element} = source.data['{color_element}'];
+            source.change.emit();
+        """
+
+    radio_line_color = RadioGroup(labels=["partition", "family", "module"], active=0)
+    radio_fill_color = RadioGroup(labels=["partition", "family", "module"], active=1)
+
+    radio_line_color.js_on_click(CustomJS(args=dict(recs=recs,source=sourceData),
+        code=colorStr("line_color")))
+    
+    radio_fill_color.js_on_click(CustomJS(args=dict(recs=recs,source=sourceData),
+        code=colorStr("fill_color")))
+
+    color_header = Div(text="<b>Colors:</b>")
+    line_title =  Div(text="""Color to use for gene outlines:""",
+        width=200, height=100)
+    fill_title = Div(text="""Color to fill genes with:""",
+        width=200, height=100)
+    color_block = column(color_header, row(column(line_title, radio_line_color), column(fill_title, radio_fill_color)))
+
+    return color_block
 
 def addLabels(fig, sourceData):
 
@@ -170,7 +214,6 @@ def addLabels(fig, sourceData):
     slider_angle = Slider(start=0, end=pi/2, value=0, step=0.01, title="Label angle in radian")
 
     radio_label_type = RadioGroup(labels=["name", "product", "family","local identifier","gene ID", "none"], active=0)
-
 
     slider_angle.js_link('value',labels,'angle')
 
@@ -185,7 +228,7 @@ def addLabels(fig, sourceData):
                 if(this.active == 5){
                     source.data['label'] = [];
                     for(var i=0;i<source.data['name'].length;i++){
-                        source.data['label'].push('')
+                        source.data['label'].push('');
                     }
                 }else if(this.active == 3){
                     source.data['label'] = source.data['gene_local_ID'];
@@ -195,8 +238,8 @@ def addLabels(fig, sourceData):
                 else{
                     source.data['label'] = source.data[this.labels[this.active]];
                 }
-                other.source = source
-                source.change.emit()
+                other.source = source;
+                source.change.emit();
                 """
         ))
 
@@ -209,21 +252,30 @@ def addLabels(fig, sourceData):
     
     return labels_block
 
+def mkGenomes(geneLists, ordered_counts):
+    df = {"name":[], "width":[], "occurrences":[],'x':[],'y':[]}
+
+    for index, GeneList in enumerate(geneLists):
+        genelist = GeneList[0]
+        df["occurrences"].append(ordered_counts[index])
+
+        df["y"].append(index*10)
+        df["width"].append(genelist[-1].stop - genelist[0].start)
+        if genelist[0].start < genelist[1].start:
+            df["x"].append((df["width"][-1])/2)
+        else:
+            df["x"].append((df["width"][-1])/2)
+        df["name"].append(genelist[0].organism.name)
+    TOOLTIP = [
+        ("name","@name"),
+        ("occurrences","@occurrences"),
+    ]
+    return ColumnDataSource(data=df), TOOLTIP
+
 def drawCurrSpot(genelists, ordered_counts, famCol, filename):
     #prepare the source data
-    source = mkSourceData(genelists, ordered_counts, famCol)
 
     output_file(filename + "_test.html")
-    TOOLTIPS = [
-        ("position", "$x"),
-        ("name", "@name"),
-        ("product","@product"),
-        ("family","@family"),
-        ("local identifier","@gene_local_ID"),
-        ("gene ID","@gene_ID"),
-        ("ordered","@ordered"),
-        ("strand","@strand"),
-    ]
 
     #generate the figure and add some tools to it
     wheel_zoom = WheelZoomTool()
@@ -232,21 +284,26 @@ def drawCurrSpot(genelists, ordered_counts, famCol, filename):
     fig.toolbar.active_scroll = wheel_zoom
 
     #genome rectangles
+    genomeSource, genomeTooltip = mkGenomes(genelists, ordered_counts)
+    genomeRecs = fig.rect(x='x',y='y',fill_color="dimgray",width="width", height=0.5, source=genomeSource)
+    genomeRecs_hover = HoverTool(renderers=[genomeRecs], tooltips=genomeTooltip)
+    fig.add_tools(genomeRecs_hover)
+    #genome labels?
 
-    #genome labels
-
-    #gene rectanges + hover tool
-    recs = fig.rect(x='x', y='y',line_color='partition_color', fill_color='fill_color', width='width',height = 2,line_width=5, source=source)
-    recs_hover = HoverTool(renderers=[recs], tooltips=TOOLTIPS)
+    #gene rectanges
+    GeneSource, GeneTooltips = mkSourceData(genelists, famCol)
+    recs = fig.rect(x='x', y='y',line_color='line_color', fill_color='fill_color', width='width',height = 2,line_width=5, source=GeneSource)
+    recs_hover = HoverTool(renderers=[recs], tooltips=GeneTooltips)
     fig.add_tools(recs_hover)
+    #color modification tools
+    color_change_tools = changeColors(recs, GeneSource)
 
     #gene labels and label modification tools
-    labels_block = addLabels(fig, source)
+    labels_change_tools = addLabels(fig, GeneSource)
 
-    #other rectangle modification tools?
-    #show(column(fig, labels_block))
+    #other rectangle modification tools
 
-    save(column(fig, labels_block))# is to be used.
+    save(column(fig, row(labels_change_tools, color_change_tools)))
 
 def drawSelectedSpots(selected_spots, multigenics, output, overlapping_match, exact_match, set_size, disable_bar):
     logging.getLogger().info("Selecting and ordering genes among regions...")
