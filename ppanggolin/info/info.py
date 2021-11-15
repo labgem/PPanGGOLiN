@@ -30,7 +30,7 @@ def printInfo(pangenome, status=False, content=False, parameters=False):
                 print(f"Spots predicted : {'true' if statusGroup._v_attrs.spots else 'false'}")
 
             if hasattr(statusGroup._v_attrs, "modules"):
-                print(f"Modules predicted : {'true' if statusGroup._v_attrs.spots else 'false'}")
+                print(f"Modules predicted : {'true' if statusGroup._v_attrs.modules else 'false'}")
 
             if hasattr(statusGroup._v_attrs, "version"):
                 print(f"PPanGGOLiN version : {statusGroup._v_attrs.version}")
