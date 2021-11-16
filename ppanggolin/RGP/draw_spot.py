@@ -191,7 +191,7 @@ def mkSourceData(genelists, famCol, fam2mod):
 
     return ColumnDataSource(data=df), TOOLTIPS
 
-def changeColors(recs, sourceData):
+def addGeneTools(recs, sourceData):
     """ define tools to change the outline and fill colors of genes"""
     def colorStr(color_element):
         """javascript code to switch between partition, family and module color for the given 'color_element'"""
@@ -216,14 +216,20 @@ def changeColors(recs, sourceData):
     radio_fill_color.js_on_click(CustomJS(args=dict(recs=recs,source=sourceData),
         code=colorStr("fill_color")))
 
-    color_header = Div(text="<b>Colors:</b>")
+    color_header = Div(text="<b>Genes:</b>")
     line_title =  Div(text="""Color to use for gene outlines:""",
         width=200, height=100)
     fill_title = Div(text="""Color to fill genes with:""",
         width=200, height=100)
-    color_block = column(color_header, row(column(line_title, radio_line_color), column(fill_title, radio_fill_color)))
 
-    return color_block
+    gene_outline_size = Slider(start=0.1, end=10, value=5, step=0.1, title="Gene outline size:")
+    gene_outline_size.js_on_change('value',CustomJS(args=dict(other=recs),
+                code="""
+                other.glyph.line_width = this.value;
+                """
+        ))
+
+    return column(color_header, row(column(line_title, radio_line_color), column(fill_title, radio_fill_color)), gene_outline_size)
 
 def addLabels(fig, sourceData):
 
@@ -237,7 +243,7 @@ def addLabels(fig, sourceData):
 
     slider_font.js_on_change('value',
         CustomJS(args=dict(other=labels),
-                code="other.text_font_size = this.value+'px'"
+                code="other.text_font_size = this.value+'px';"
         )
     )
 
@@ -268,7 +274,7 @@ def addLabels(fig, sourceData):
     
     fig.add_layout(labels)
     
-    return labels_block
+    return labels_block, labels
 
 def mkGenomes(geneLists, ordered_counts):
     df = {"name":[], "width":[], "occurrences":[],'x':[],'y':[]}
@@ -290,6 +296,35 @@ def mkGenomes(geneLists, ordered_counts):
     ]
     return ColumnDataSource(data=df), TOOLTIP
 
+def addGenomeTools(geneRecs, genomeRecs, geneSource, genomeSource, nb, labels):
+
+    slider_spacing = Slider(start=1, end=40, value=10, step=1, title="Genomes spacing")
+    slider_spacing.js_on_change('value', CustomJS(args=dict(geneRecs=geneRecs,geneSource=geneSource, genomeRecs=genomeRecs, genomeSource=genomeSource, nb_elements=nb, labels=labels),
+        code="""
+            var current_val = genomeSource.data['y'][genomeSource.data['y'].length - 1] / (nb_elements-1);
+            for (let i=0 ; i < genomeSource.data['y'].length ; i++){
+                genomeSource.data['y'][i] =  (genomeSource.data['y'][i] * this.value) / current_val;
+            }
+            for (let i=0 ; i < geneSource.data['y'].length ; i++){
+                if((geneSource.data['ordered'][i] == 'True' && geneSource.data['strand'][i] == '+') || (geneSource.data['ordered'][i] == 'False' && geneSource.data['strand'][i] == '-') ){
+                    geneSource.data['y'][i] = (((geneSource.data['y'][i]-1) * this.value) / current_val) +1;
+                    geneSource.data['y_label'][i] = (((geneSource.data['y_label'][i]-1-1.5) * this.value) / current_val) + 1 + 1.5;
+                }else{
+                    geneSource.data['y'][i] = (((geneSource.data['y'][i]+1) * this.value) / current_val) -1;
+                    geneSource.data['y_label'][i] = (((geneSource.data['y_label'][i]+1-1.5) * this.value) / current_val) -1 + 1.5;
+
+                }
+            }
+            geneRecs.source = geneSource;
+            genomeRecs.source = genomeSource;
+            labels.source=geneSource;
+            geneSource.change.emit();
+            genomeSource.change.emit();
+        """))
+
+    genome_header = Div(text="<b>Genomes:</b>")
+    return column(genome_header, slider_spacing)
+
 def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     #prepare the source data
 
@@ -306,20 +341,22 @@ def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     genomeRecs = fig.rect(x='x',y='y',fill_color="dimgray",width="width", height=0.5, source=genomeSource)
     genomeRecs_hover = HoverTool(renderers=[genomeRecs], tooltips=genomeTooltip, mode="mouse", point_policy="follow_mouse")
     fig.add_tools(genomeRecs_hover)
-    #genome labels?
 
     #gene rectanges
     GeneSource, GeneTooltips = mkSourceData(genelists, famCol, fam2mod)
     recs = fig.rect(x='x', y='y',line_color='line_color', fill_color='fill_color', width='width',height = 2,line_width=5, source=GeneSource)
     recs_hover = HoverTool(renderers=[recs], tooltips=GeneTooltips, mode="mouse", point_policy="follow_mouse")
     fig.add_tools(recs_hover)
-    #color modification tools
-    color_change_tools = changeColors(recs, GeneSource)
+    #gene modification tools
+    gene_tools = addGeneTools(recs, GeneSource)
 
-    #gene labels and label modification tools
-    labels_change_tools = addLabels(fig, GeneSource)
+    #label modification tools
+    labels_tools, labels = addLabels(fig, GeneSource)
 
-    save(column(fig, row(labels_change_tools, color_change_tools)))
+    #genome tool
+    genome_tools = addGenomeTools(recs, genomeRecs, GeneSource, genomeSource, len(genelists), labels)
+
+    save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
 
 def drawSelectedSpots(selected_spots, pangenome, output, overlapping_match, exact_match, set_size, disable_bar):
     logging.getLogger().info("Selecting and ordering genes among regions...")
