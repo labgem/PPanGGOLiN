@@ -34,9 +34,8 @@ def checkPredictedSpots(pangenome):
     if pangenome.status["spots"] == "No":
         raise Exception("You are trying to draw spots for a pangenome that does not have spots predicted. Please see the 'spot' subcommand.")
 
-
 def makeColorsForIterable(it):
-    """randomly picks 256 colors for gene families"""
+    """randomly picks a color for all elements of a given iterable"""
     famcol = {}
     for element in it:
         col =  list(random.choices(range(256), k=3))
@@ -222,7 +221,7 @@ def addGeneTools(recs, sourceData):
     fill_title = Div(text="""Color to fill genes with:""",
         width=200, height=100)
 
-    gene_outline_size = Slider(start=0.1, end=10, value=5, step=0.1, title="Gene outline size:")
+    gene_outline_size = Slider(start=0, end=10, value=5, step=0.1, title="Gene outline size:")
     gene_outline_size.js_on_change('value',CustomJS(args=dict(other=recs),
                 code="""
                 other.glyph.line_width = this.value;
@@ -444,7 +443,6 @@ def drawSpots(pangenome, output, spot_list, disable_bar):
                 exact_match = pangenome.parameters["spots"]["exact_match"],
                 set_size = pangenome.parameters["spots"]["set_size"],
                 disable_bar = disable_bar)
-
 
 def launch(args):
     pangenome = Pangenome()
