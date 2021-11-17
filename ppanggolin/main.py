@@ -12,6 +12,7 @@ import logging
 import pkg_resources
 import tempfile
 import os
+import multiprocessing as mp
 
 # local modules
 import ppanggolin.pangenome
@@ -246,4 +247,7 @@ def main():
 
 
 if __name__ == "__main__":
+    mp.set_start_method('fork')#to force the multiprocessing behavior, if any is needed.
+    #according to python doc 'Note that this should be called at most once, and it should be protected inside the if __name__ == '__main__' clause of the main module.'
+    #this specifically blocks windows compatibility. If the code can be modified to support 'spawn' multiprocessing start methods, windows "could" be supported.
     main()
