@@ -115,10 +115,9 @@ def checkPangenomeFormerSpots(pangenome, force):
 
 
 def predictHotspots(pangenome, output, force=False, cpu=1, spot_graph=False, overlapping_match=2, set_size=3,
-                    exact_match=1, draw_hotspot=False, interest="", priority="name,ID", fig_margin=100,
-                    disable_bar=False):
+                    exact_match=1, disable_bar=False):
     # check that given parameters for hotspot computation make sense
-    checkParameterLogic(overlapping_match, set_size, exact_match, priority)
+    checkParameterLogic(overlapping_match, set_size, exact_match)
     # check for formerly computed stuff, and erase if allowed
     checkPangenomeFormerSpots(pangenome, force)
     # check statuses and load info
@@ -138,11 +137,6 @@ def predictHotspots(pangenome, output, force=False, cpu=1, spot_graph=False, ove
         logging.getLogger().warning("No spots were detected.")
     else:
         logging.getLogger().info(f"{len(spots)} spots were detected")
-    # define elements of interest (e.g. gene name, product substring) to search in gene annotations
-    if interest != "":
-        elements = [el.strip() for el in interest.split(',')]
-    else:
-        elements = []
 
     pangenome.addSpots(spots)
     pangenome.status["spots"] = "Computed"
@@ -151,7 +145,7 @@ def predictHotspots(pangenome, output, force=False, cpu=1, spot_graph=False, ove
     pangenome.parameters["spots"]["overlapping_match"] = overlapping_match
     pangenome.parameters["spots"]["exact_match"] = exact_match
 
-def checkParameterLogic(overlapping_match, set_size, exact_match, priority):
+def checkParameterLogic(overlapping_match, set_size, exact_match):
     if overlapping_match >= set_size:
         raise Exception(f'--overlapping_match_hotspot ({overlapping_match}) cannot be bigger than (or equal to) '
                         f'--set_size_hotspot ({set_size})')
@@ -159,20 +153,16 @@ def checkParameterLogic(overlapping_match, set_size, exact_match, priority):
         raise Exception(f'--exact_match_size_hotspot ({exact_match}) cannot be bigger than '
                         f'--set_size_hotspot ({set_size})')
 
-    for p in priority.split(','):
-        if p.lower() not in ["name", "id", "family", "product"]:
-            raise Exception(f"You have indicated a label which is not supported with --label_priority. "
-                            f"You indicated '{p}'. Supported labels are 'name', 'id','product', and 'family'")
-
 def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    if args.spot_graph or args.draw_hotspots:
+    if args.spot_graph:
         mkOutdir(args.output, args.force)
+    if args.draw_hotspots or args.interest or args.fig_margin or args.priority:
+        logging.getLogger().warning("Options to draw the spots with the 'ppanggolin spot' subcommand have been deprecated, and are now dealt with in a dedicated subcommand 'ppanggolin drawspot'.")
     predictHotspots(pangenome, args.output, force=args.force, cpu=args.cpu, spot_graph=args.spot_graph,
                     overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size,
-                    draw_hotspot=args.draw_hotspots, interest=args.interest, priority=args.label_priority,
-                    fig_margin=args.fig_margin, disable_bar=args.disable_prog_bar)
+                    disable_bar=args.disable_prog_bar)
     writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
@@ -196,6 +186,14 @@ def spotSubparser(subparser):
                           help="Number of perfectly matching flanking single copy markers required to associate RGPs "
                                "during hotspot computation (Ex: If set to 1, two RGPs are in the same hotspot "
                                "if both their 1st flanking genes are the same)")
+    optional.add_argument("--draw_hotspots", required=False, action="store_true",
+                          help=argparse.SUPPRESS)# This ensures compatibility with the old API but does not use the option
+    optional.add_argument("--interest", required=False, action="store_true",
+                          help=argparse.SUPPRESS)# This ensures compatibility with the old API but does not use the option
+    optional.add_argument("--fig_margin", required=False, action="store_true",
+                          help=argparse.SUPPRESS)# This ensures compatibility with the old API but does not use the option
+    optional.add_argument("--priority", required=False, action="store_true",
+                          help=argparse.SUPPRESS)# This ensures compatibility with the old API but does not use the option
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
