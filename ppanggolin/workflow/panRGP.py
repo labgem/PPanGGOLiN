@@ -20,6 +20,7 @@ from ppanggolin.figures import drawTilePlot, drawUCurve
 from ppanggolin.info import printInfo
 from ppanggolin.RGP.genomicIsland import predictRGP
 from ppanggolin.RGP.spot import predictHotspots
+from ppanggolin.RGP.draw_spot import drawSpots
 
 """a global workflow that does everything in one go."""
 
@@ -81,12 +82,16 @@ def launch(args):
     regions_time = time.time() - start_regions
 
     start_spots = time.time()
-    predictHotspots(pangenome, args.output, interest=args.interest, disable_bar=args.disable_prog_bar)
+    predictHotspots(pangenome, args.output, disable_bar=args.disable_prog_bar)
     spot_time = time.time() - start_spots
 
     start_writing = time.time()
     writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     writing_time = writing_time + time.time() - start_writing
+
+    start_spot_drawing = time.time()
+    drawSpots(pangenome=pangenome, output = args.output, spot_list='all', disable_bar=args.disable_prog_bar)
+    spot_time = spot_time + time.time() - start_spot_drawing
 
     if args.rarefaction:
         makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
@@ -138,8 +143,6 @@ def panRGPSubparser(subparser):
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
                           help="Number of partitions to use. Must be at least 2. If under 2, "
                                "it will be detected automatically.")
-    optional.add_argument("--interest", required=False, type=str, default="",
-                          help="Comma separated list of elements to flag when drawing and writing hotspots")
     optional.add_argument("--defrag", required=False, action="store_true",
                           help=argparse.SUPPRESS)
     # This ensures compatibility with workflows built with the old option "defrag" when it was not the default

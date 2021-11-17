@@ -20,6 +20,7 @@ from ppanggolin.figures import drawTilePlot, drawUCurve
 from ppanggolin.info import printInfo
 from ppanggolin.RGP.genomicIsland import predictRGP
 from ppanggolin.RGP.spot import predictHotspots
+from ppanggolin.RGP.draw_spot import drawSpots
 from ppanggolin.mod import predictModules
 
 """a global workflow that does everything in one go."""
@@ -95,6 +96,10 @@ def launch(args):
     writing_time = writing_time + time.time() - start_writing
 
     if not args.only_pangenome:
+        start_spot_drawing = time.time()
+        drawSpots(pangenome=pangenome, output = args.output, spot_list='all', disable_bar=args.disable_prog_bar)
+        spot_time = spot_time + time.time() - start_spot_drawing
+
         if args.rarefaction:
             makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
         if 1 < len(pangenome.organisms) < 5000:
