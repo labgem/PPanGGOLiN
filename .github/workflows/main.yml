@@ -16,8 +16,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest']
-        python-version: ['3.6', '3.7']
+        os: ['ubuntu-latest', 'macos-latest']
+        python-version: ['3.6', '3.7', '3.8']
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
@@ -27,7 +27,7 @@ jobs:
         condarc-file: .condarc.yml
         activate-environment: test
         python-version: ${{ matrix.python-version }}
-    # Install the dependencies, with a forced r-base version and build because something between conda priority channels and macosx is broken
+    # Install the dependencies
     - name: Set up test environment
       shell: bash -l {0}
       run: |
