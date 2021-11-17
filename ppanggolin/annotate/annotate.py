@@ -3,7 +3,7 @@
 
 # default libraries
 import argparse
-from multiprocessing import Pool
+from multiprocessing import get_context
 import logging
 import os
 import time
@@ -388,7 +388,7 @@ def readAnnotations(pangenome, organisms_file, cpu, getSeq=True, pseudo=False, d
             raise Exception(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
         args.append((elements[0], elements[1], elements[2:], getSeq, pseudo))
     bar = tqdm(range(len(args)), unit="file", disable=disable_bar)
-    with Pool(cpu) as p:
+    with get_context('fork').Pool(cpu) as p:
         for org, flag in p.imap_unordered(launchReadAnno, args):
             pangenome.addOrganism(org)
             if not flag:
@@ -457,7 +457,7 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
-    with Pool(processes=cpu) as p:
+    with get_context('fork').Pool(processes=cpu) as p:
         bar = tqdm(range(len(arguments)), unit="genome", disable=disable_bar)
         for organism in p.imap_unordered(launchAnnotateOrganism, arguments):
             bar.update()

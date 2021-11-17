@@ -7,7 +7,7 @@ import logging
 import tempfile
 import subprocess
 import time
-from multiprocessing import Pool
+from multiprocessing import get_context
 
 # installed libraries
 from tqdm import tqdm
@@ -120,7 +120,7 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable
 
     logging.getLogger().info("Computing the MSA ...")
     bar = tqdm(range(len(families)), unit="family", disable=disable_bar)
-    with Pool(cpu) as p:
+    with get_context('fork').Pool(cpu) as p:
         for _ in p.imap_unordered(launchMultiMafft, args):
             bar.update()
     bar.close()
