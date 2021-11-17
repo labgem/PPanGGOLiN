@@ -7,7 +7,7 @@ import argparse
 import time
 import os
 import logging
-from collections import defaultdict
+from collections import defaultdict, Counter
 import random
 from math import pi
 
@@ -22,6 +22,7 @@ from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
 from scipy.cluster.hierarchy import linkage, dendrogram
 from numpy import percentile
+import networkx as nx
 
 from tqdm import tqdm
 from bokeh.plotting import ColumnDataSource, figure, show, save
@@ -45,11 +46,11 @@ def makeColorsForIterable(it):
             famcol[element] = '#%02x%02x%02x' % (col[0], col[1], col[2])
     return famcol
 
-def orderGeneLists(geneLists, ordered_counts, overlapping_match, exact_match, set_size):
+def orderGeneLists(geneLists, overlapping_match, exact_match, set_size):
     geneLists = lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size)
-    return rowOrderGeneLists(geneLists, ordered_counts)
+    return rowOrderGeneLists(geneLists)
 
-def rowOrderGeneLists(geneLists, ordered_counts):
+def rowOrderGeneLists(geneLists):
     famDict = defaultdict(set)
 
     for index, genelist in enumerate([genelist[0] for genelist in geneLists]):
@@ -71,8 +72,8 @@ def rowOrderGeneLists(geneLists, ordered_counts):
     dendro = dendrogram(hc,no_plot=True)
 
     new_geneLists = [ geneLists[index] for index in dendro["leaves"]]
-    new_ordered_counts = [ ordered_counts[index] for index in dendro["leaves"] ]
-    return new_geneLists, new_ordered_counts
+
+    return new_geneLists
 
 def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
     classified = set([0])#first gene list has the right order
@@ -101,10 +102,58 @@ def lineOrderGeneLists(geneLists, overlapping_match, exact_match, set_size):
                     #specify the new 'classified' and remove from unclassified
                     to_classify.discard(unclassIndex)
                     new_classify.add(unclassIndex)
-        classified = new_classify#the newly classified will help to check the unclassified, the formerly classified are not useful for what remains (if something remains)
+        classified |= new_classify#the newly classified will help to check the unclassified, 
+        #the formerly classified are not useful for what remains (if something remains)
         new_classify = set()
     return geneLists
 
+def subgraph(spot, outname, with_border=True, set_size=3, multigenics=None, fam2mod=None):
+    """ write a pangenome subgraph of the gene families of a spot in gexf format"""
+    g = nx.Graph()
+
+    for rgp in spot.regions:
+        if with_border:
+            borders = rgp.getBorderingGenes(set_size, multigenics)
+            minpos = min([gene.position for border in borders for gene in border])
+            maxpos = max([gene.position for border in borders for gene in border])
+        else:
+            minpos = rgp.startGene.position
+            maxpos = rgp.stopGene.position
+        GeneList = rgp.contig.genes[minpos:maxpos + 1]
+        prev = None
+        for gene in GeneList:
+            g.add_node(gene.family.name, partition=gene.family.namedPartition)
+            if fam2mod is not None:
+                curr_mod = fam2mod.get(gene.family)
+                if curr_mod is not None:
+                    g.nodes[gene.family.name]["module"] = curr_mod
+            try:
+                g.nodes[gene.family.name]["occurrence"] += 1
+            except KeyError:
+                g.nodes[gene.family.name]["occurrence"] = 1
+            if gene.name != "":
+                if "name" in g.nodes[gene.family.name]:
+                    try:
+                        g.nodes[gene.family.name]["name"][gene.name] += 1
+                    except KeyError:
+                        g.nodes[gene.family.name]["name"][gene.name] = 1
+                else:
+                    g.nodes[gene.family.name]["name"] = Counter([gene.name])
+            if prev is not None:
+                g.add_edge(gene.family.name, prev)
+                try:
+                    g[gene.family.name][prev]["rgp"].add(rgp)
+                except KeyError:
+                    g[gene.family.name][prev]["rgp"] = set(rgp)
+            prev = gene.family.name
+    for node1, node2 in g.edges:
+        g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot.regions)
+        del g[node1][node2]["rgp"]
+    for node in g.nodes:
+        if "name" in g.nodes[node]:
+            g.nodes[node]["name"] = g.nodes[node]["name"].most_common(1)[0][0]
+
+    nx.write_gexf(g, outname)
 
 def mkSourceData(genelists, famCol, fam2mod):
 
@@ -358,7 +407,7 @@ def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
 
 def drawSelectedSpots(selected_spots, pangenome, output, overlapping_match, exact_match, set_size, disable_bar):
-    logging.getLogger().info("Selecting and ordering genes among regions...")
+    logging.getLogger().info("Ordering genes among regions, and drawing spots...")
 
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
     #bar = tqdm(range(len(selected_spots)), unit = "spot", disable = disable_bar)
@@ -368,16 +417,14 @@ def drawSelectedSpots(selected_spots, pangenome, output, overlapping_match, exac
         for fam in mod.families:
             fam2mod[fam] = f"module_{mod.ID}"
 
-    for spot in selected_spots:
+    for spot in tqdm(selected_spots, unit="spot", disable=disable_bar):
 
         fname = output + '/spot_' + str(spot.ID)
 
-        ##write identical rgps and the rgps they are identical to
-        uniqRGPS = set()
+        ##write rgps representatives and the rgps they are identical to
         out_struc = open(fname + '_identical_rgps.tsv','w')
         out_struc.write('representative_rgp\trepresentative_rgp_organism\tidentical_rgp\tidentical_rgp_organism\n')
         for keyRGP, otherRGPs in spot.getUniq2RGP().items():
-            uniqRGPS.add(keyRGP)
             for rgp in otherRGPs:
                 out_struc.write(f"{keyRGP.name}\t{keyRGP.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
         out_struc.close()
@@ -385,11 +432,7 @@ def drawSelectedSpots(selected_spots, pangenome, output, overlapping_match, exac
         Fams = set()
         GeneLists = []
 
-        countUniq = spot.countUniqOrderedSet()
-
-        #order unique rgps by occurrences
-        sortedUniqRGPs = sorted(uniqRGPS, key = lambda x : countUniq[x], reverse=True)
-        for rgp in sortedUniqRGPs:
+        for rgp in spot.regions:
             borders = rgp.getBorderingGenes(set_size, multigenics)
             minpos = min([ gene.position for border in borders for gene in border ])
             maxpos = max([ gene.position for border in borders for gene in border ])
@@ -407,11 +450,22 @@ def drawSelectedSpots(selected_spots, pangenome, output, overlapping_match, exac
 
             GeneLists.append([GeneList, borders, rgp])
         famcolors = makeColorsForIterable(Fams)
-        ordered_counts = sorted(countUniq.values(), reverse = True)
-        GeneLists, ordered_counts = orderGeneLists(GeneLists, ordered_counts, overlapping_match, exact_match, set_size)
-        fname = output + '/spot_' + str(spot.ID)
+        #order all rgps the same way, and order them by similarity in gene content
+        GeneLists = orderGeneLists(GeneLists, overlapping_match, exact_match, set_size)
 
-        drawCurrSpot(GeneLists, ordered_counts, fam2mod, famcolors, fname)
+        countUniq = spot.countUniqOrderedSet()
+
+        #keep only the representative rgps for the figure
+        uniqGeneLists = []
+        ordered_counts =[]
+        for genelist in GeneLists:
+            curr_genelist_count = countUniq.get(genelist[2],None)
+            if curr_genelist_count is not None:
+                uniqGeneLists.append(genelist)
+                ordered_counts.append(curr_genelist_count)
+
+        drawCurrSpot(uniqGeneLists, ordered_counts, fam2mod, famcolors, fname)
+        subgraph(spot, fname+".gexf", set_size=set_size, multigenics=multigenics, fam2mod=fam2mod)
     logging.getLogger().info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 def drawSpots(pangenome, output, spot_list, disable_bar):
