@@ -408,8 +408,8 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    if args.interest or args.fig_margin or args.priority:
-        logging.getLogger().warning("Options --interest, --fig_margin and --priority are deprecated, and the actions they defined are now doable directly in the interactive figures that are drawn")
+    if args.interest or args.fig_margin or args.label_priority:
+        logging.getLogger().warning("Options --interest, --fig_margin and --label_priority are deprecated, and the actions they defined are now doable directly in the interactive figures that are drawn")
     if args.proteins is not None:
         align(pangenome=pangenome, proteinFile=args.proteins, output=args.output, tmpdir=args.tmpdir,
               identity=args.identity, coverage=args.coverage, defrag=args.defrag, cpu=args.cpu, getinfo=args.getinfo,
