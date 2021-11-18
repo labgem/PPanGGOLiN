@@ -354,7 +354,7 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=Fal
         if pangenome.status["modules"] != "No":
             for mod in pangenome.modules:
                 for fam in mod.families:
-                    fam2mod[fam] = mod
+                    fam2mod[fam] = f"module_{mod.ID}"
 
         draw_spot_gexf(drawn_spots, output, multigenics=multigenics, fam2mod=fam2mod)
 
