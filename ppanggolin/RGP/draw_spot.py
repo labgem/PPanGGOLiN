@@ -279,11 +279,11 @@ def addGeneTools(recs, sourceData):
 
     return column(color_header, row(column(line_title, radio_line_color), column(fill_title, radio_fill_color)), gene_outline_size)
 
-def addLabels(fig, sourceData):
+def addGeneLabels(fig, sourceData):
 
     labels = LabelSet(x='x_label', y='y_label', text='label', source=sourceData, render_mode='canvas', text_font_size="18px")
-    slider_font = Slider(start=0, end=64, value=16, step=1, title="Label font size in px")
-    slider_angle = Slider(start=0, end=pi/2, value=0, step=0.01, title="Label angle in radian")
+    slider_font = Slider(start=0, end=64, value=16, step=1, title="Gene label font size in px")
+    slider_angle = Slider(start=0, end=pi/2, value=0, step=0.01, title="Gene label angle in radian")
 
     radio_label_type = RadioGroup(labels=["name", "product", "family","local identifier","gene ID", "none"], active=0)
 
@@ -315,8 +315,8 @@ def addLabels(fig, sourceData):
                 """
         ))
 
-    label_header = Div(text="<b>Labels:</b>")
-    radio_title =  Div(text="""Labels to use:""",
+    label_header = Div(text="<b>Gene labels:</b>")
+    radio_title =  Div(text="""Gene labels to use:""",
     width=200, height=100)
     labels_block = column(label_header, row(slider_font, slider_angle), column(radio_title, radio_label_type))
     
@@ -325,18 +325,15 @@ def addLabels(fig, sourceData):
     return labels_block, labels
 
 def mkGenomes(geneLists, ordered_counts):
-    df = {"name":[], "width":[], "occurrences":[],'x':[],'y':[]}
+    df = {"name":[], "width":[], "occurrences":[],'x':[],'y':[], "x_label":[]}
 
     for index, GeneList in enumerate(geneLists):
         genelist = GeneList[0]
         df["occurrences"].append(ordered_counts[index])
-
         df["y"].append(index*10)
         df["width"].append(abs(genelist[-1].stop - genelist[0].start))
-        if genelist[0].start < genelist[1].start:
-            df["x"].append((df["width"][-1])/2)
-        else:
-            df["x"].append((df["width"][-1])/2)
+        df["x"].append((df["width"][-1])/2)
+        df["x_label"].append(0)
         df["name"].append(genelist[0].organism.name)
     TOOLTIP = [
         ("name","@name"),
@@ -344,10 +341,26 @@ def mkGenomes(geneLists, ordered_counts):
     ]
     return ColumnDataSource(data=df), TOOLTIP
 
-def addGenomeTools(geneRecs, genomeRecs, geneSource, genomeSource, nb, labels):
+def addGenomeTools(fig, geneRecs, genomeRecs, geneSource, genomeSource, nb, geneLabels):
+
+
+    ## add genome labels
+    genomeLabels = LabelSet(x='x_label', y='y', x_offset=-20, text='name', text_align="right", source=genomeSource, render_mode='canvas', text_font_size="16px")
+    fig.add_layout(genomeLabels)
+
+    slider_font = Slider(start=0, end=64, value=16, step=1, title="Genome label font size in px")
+    slider_font.js_on_change('value',
+        CustomJS(args=dict(other=genomeLabels),
+                code="other.text_font_size = this.value+'px';"
+        )
+    )
+
+    slider_offset = Slider(start=-400, end=0, value=-20, step=1, title="Genome label offset")
+    slider_offset.js_link('value',genomeLabels,'x_offset')
+
 
     slider_spacing = Slider(start=1, end=40, value=10, step=1, title="Genomes spacing")
-    slider_spacing.js_on_change('value', CustomJS(args=dict(geneRecs=geneRecs,geneSource=geneSource, genomeRecs=genomeRecs, genomeSource=genomeSource, nb_elements=nb, labels=labels),
+    slider_spacing.js_on_change('value', CustomJS(args=dict(geneRecs=geneRecs,geneSource=geneSource, genomeRecs=genomeRecs, genomeSource=genomeSource, nb_elements=nb, genomeLabels=genomeLabels, geneLabels=geneLabels),
         code="""
             var current_val = genomeSource.data['y'][genomeSource.data['y'].length - 1] / (nb_elements-1);
             for (let i=0 ; i < genomeSource.data['y'].length ; i++){
@@ -365,13 +378,14 @@ def addGenomeTools(geneRecs, genomeRecs, geneSource, genomeSource, nb, labels):
             }
             geneRecs.source = geneSource;
             genomeRecs.source = genomeSource;
-            labels.source=geneSource;
+            geneLabels.source = geneSource;
+            genomeLabels.source = genomeSource;
             geneSource.change.emit();
             genomeSource.change.emit();
         """))
 
     genome_header = Div(text="<b>Genomes:</b>")
-    return column(genome_header, slider_spacing)
+    return column(genome_header, slider_spacing, slider_font, slider_offset)
 
 def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     #prepare the source data
@@ -399,10 +413,10 @@ def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     gene_tools = addGeneTools(recs, GeneSource)
 
     #label modification tools
-    labels_tools, labels = addLabels(fig, GeneSource)
+    labels_tools, labels = addGeneLabels(fig, GeneSource)
 
     #genome tool
-    genome_tools = addGenomeTools(recs, genomeRecs, GeneSource, genomeSource, len(genelists), labels)
+    genome_tools = addGenomeTools(fig, recs, genomeRecs, GeneSource, genomeSource, len(genelists), labels)
 
     save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
 
