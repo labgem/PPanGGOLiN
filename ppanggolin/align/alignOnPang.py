@@ -371,7 +371,7 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, de
     # could be possible either by picking a representative somehow,
     # or by aligning on genes rather than on families, if they are in the pangenome.
 
-    if getinfo:
+    if getinfo or draw_related:
         needMod = False
         if pangenome.status["modules"] != "No":
             # modules are not required to be loaded, but if they have been computed we load them.
@@ -392,7 +392,7 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, de
 
     prot2pang = readAlignments(alignFile, pangenome)
 
-    if getinfo:
+    if getinfo or draw_related:
         getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=disable_bar)
     else:
         partProj = projectPartition(prot2pang, protSet, output)  # write the partition assignation only
