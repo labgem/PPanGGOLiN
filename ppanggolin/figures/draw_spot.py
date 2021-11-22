@@ -390,7 +390,7 @@ def addGenomeTools(fig, geneRecs, genomeRecs, geneSource, genomeSource, nb, gene
 def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     #prepare the source data
 
-    output_file(filename + "_test.html")
+    output_file(filename + ".html")
 
     #generate the figure and add some tools to it
     wheel_zoom = WheelZoomTool()
@@ -511,20 +511,3 @@ def drawSpots(pangenome, output, spot_list, disable_bar):
                 exact_match = pangenome.parameters["spots"]["exact_match"],
                 set_size = pangenome.parameters["spots"]["set_size"],
                 disable_bar = disable_bar)
-
-def launch(args):
-    pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
-    if args.spots == "":
-        raise Exception("You did not provide any spot to draw. see the '--spots' options.")
-    mkOutdir(args.output, args.force)
-    drawSpots(pangenome=pangenome, output = args.output, spot_list=args.spots, disable_bar=args.disable_prog_bar)
-
-def drawSpotSubparser(subparser):
-    parser = subparser.add_parser("drawspot", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    optional = parser.add_argument_group(title = "Optional arguments")
-    optional.add_argument('-o','--output', required=False, type=str, default="ppanggolin_output"+time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())+"_PID"+str(os.getpid()), help="Output directory")
-    optional.add_argument("--spots", required=False, type=str, default='', help =  "a comma-separated list of spots to draw (or 'all' to draw all spots)")
-    required = parser.add_argument_group(title = "Required arguments", description = "One of the following arguments is required :")
-    required.add_argument('-p','--pangenome',  required=True, type=str, help="The pangenome .h5 file")
-    return parser

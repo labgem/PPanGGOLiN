@@ -29,7 +29,6 @@ import ppanggolin.formats
 import ppanggolin.info
 import ppanggolin.align
 import ppanggolin.RGP.genomicIsland
-import ppanggolin.RGP.draw_spot
 import ppanggolin.RGP.spot
 import ppanggolin.mod
 
@@ -115,7 +114,6 @@ def cmdLine():
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
-    desc += "    drawspot      Draw interactive figures representing genome organizations in spots of insertion\n"
     desc += "    write         Writes 'flat' files representing the pangenome that can be used with other softwares\n"
     desc += "    fasta         Writes fasta files for different elements of the pangenome\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
@@ -146,7 +144,7 @@ def cmdLine():
             ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers),
             ppanggolin.formats.writeMSA.writeMSASubparser(subparsers), ppanggolin.align.alignSubparser(subparsers),
             ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers), ppanggolin.RGP.spot.spotSubparser(subparsers),
-            ppanggolin.RGP.draw_spot.drawSpotSubparser(subparsers), ppanggolin.mod.moduleSubparser(subparsers)]  # subparsers
+            ppanggolin.mod.moduleSubparser(subparsers)]  # subparsers
     ppanggolin.info.infoSubparser(
         subparsers)  # not adding to subs because the 'common' options are not needed for this.
 
@@ -237,8 +235,6 @@ def main():
         ppanggolin.workflow.panRGP.launch(args)
     elif args.subcommand == "module":
         ppanggolin.mod.launch(args)
-    elif args.subcommand == 'drawspot':
-        ppanggolin.RGP.draw_spot.launch(args)
     elif args.subcommand == "panmodule":
         ppanggolin.workflow.panModule.launch(args)
     elif args.subcommand == "all":

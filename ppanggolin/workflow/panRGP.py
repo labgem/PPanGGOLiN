@@ -9,18 +9,17 @@ import logging
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mkFilename
+from ppanggolin.utils import mkFilename, mkOutdir
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.nem.rarefaction import makeRarefactionCurve
 from ppanggolin.nem.partition import partition
 from ppanggolin.formats import writePangenome, writeFlatFiles
-from ppanggolin.figures import drawTilePlot, drawUCurve
+from ppanggolin.figures import drawTilePlot, drawUCurve, drawSpots
 from ppanggolin.info import printInfo
 from ppanggolin.RGP.genomicIsland import predictRGP
 from ppanggolin.RGP.spot import predictHotspots
-from ppanggolin.RGP.draw_spot import drawSpots
 
 """a global workflow that does everything in one go."""
 
@@ -90,6 +89,7 @@ def launch(args):
     writing_time = writing_time + time.time() - start_writing
 
     start_spot_drawing = time.time()
+    mkOutdir(args.output, force=True)
     drawSpots(pangenome=pangenome, output = args.output, spot_list='all', disable_bar=args.disable_prog_bar)
     spot_time = spot_time + time.time() - start_spot_drawing
 
