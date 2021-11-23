@@ -31,6 +31,7 @@ import ppanggolin.align
 import ppanggolin.RGP.genomicIsland
 import ppanggolin.RGP.spot
 import ppanggolin.mod
+import ppanggolin.context
 
 
 def checkTsvSanity(tsv):
@@ -245,6 +246,9 @@ def main():
         ppanggolin.workflow.panModule.launch(args)
     elif args.subcommand == "all":
         ppanggolin.workflow.all.launch(args)
+    elif args.subcommand == "context":
+        ppanggolin.context.launch(args)
+
 
 if __name__ == "__main__":
     main()

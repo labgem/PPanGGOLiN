@@ -57,13 +57,13 @@ def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, id
     logging.getLogger().info("Aligning proteins to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     outfile = output + "/input_to_pangenome_associations.blast-tab"
-    cmd = ["mmseqs", "convertalis", seqdb.name, pangdb.name, alndb.name, outfile, "--format-mode", "2"]
+    cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile, "--format-mode", "2"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    pangdb.close()
-    seqdb.close()
-    alndb.close()
+    pang_db.close()
+    seq_db.close()
+    aln_db.close()
 
     return outfile
 
@@ -331,13 +331,6 @@ def draw_spot_gexf(spots, output, multigenics, fam2mod, set_size=3):
         subgraph(spot, fname, set_size=set_size, multigenics=multigenics, fam2mod=fam2mod)
 
 
-<<<<<<< HEAD
-def checkLabelPriorityLogic(priority):
-    for p in priority.split(','):
-        if p.lower() not in ["name", "id", "family"]:
-            raise Exception(f"You have indicated a label which is not supported with --label_priority. "
-                            f"You indicated '{p}'. Supported labels are 'name', 'id' and 'family'")
-
 def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=False):
     logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
@@ -400,7 +393,7 @@ def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, no_defrag=False
 
     with read_compressed_or_not(proteinFile) as protFileObj:
         protSet = getProt(protFileObj)
-        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, newtmpdir, cpu, defrag, identity, coverage)
+        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, tmpdir, cpu, no_defrag, identity, coverage)
 
     prot2pang = readAlignments(alignFile, pangenome)
 
@@ -418,7 +411,6 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no
     # families, if they are in the pangenome.
 
     if getinfo:
-        checkLabelPriorityLogic(priority)
         need_mod = False
         if pangenome.status["modules"] != "No":
             # modules are not required to be loaded, but if they have been computed we load them.
@@ -441,8 +433,8 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no
     logging.getLogger().info(f"{len(prot2pang)} proteins over {len(protSet)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{alignFile}'")
 
-    tmpPangFile.close()
-    newtmpdir.cleanup()
+    new_tmpdir.cleanup()
+
 
 def launch(args):
     mkOutdir(args.output, args.force)

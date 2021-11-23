@@ -21,7 +21,7 @@ from gmpy2 import xmpz, popcount  # pylint: disable=no-name-in-module
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Module
 from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
-from ppanggolin.utils import mkOutdir, restricted_float
+from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
 
 
 def checkPangenomeFormerModules(pangenome, force):
