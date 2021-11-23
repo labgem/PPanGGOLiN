@@ -22,25 +22,6 @@ from ppanggolin.align.alignOnPang import get_prot2pang, projectPartition
 from ppanggolin.geneFamily import GeneFamily
 
 
-def _write_graph(g, out_name='graph'):
-    """
-    Allow to export the graph in png
-    :param g: graph to export
-    :type g: Graph
-    :param out_name: name of the png file
-    :type out_name: str
-    """
-    plt = import_module("matplotlib.pyplot")  # import only if the function is used
-
-    label_nodes = {node: len(node.genes) for node in g.nodes}
-    label_edges = {edge: f'({str(len(edge[0].genes))}, {str(len(edge[1].genes))})' for edge in g.edges}
-    plt.figure(figsize=(24, 24))
-    p = nx.spring_layout(g)
-    nx.draw(g, p, with_labels=True, labels=label_nodes)
-    nx.draw_networkx_edge_labels(g, p, edge_labels=label_edges, font_color='red')
-    plt.savefig(out_name)
-
-
 class CC:
     """
         A class used to represent a common component
@@ -85,7 +66,7 @@ class CC:
 
 
 def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, identity=0.5, coverage=0.8, jaccard=0.85,
-                           no_defrag=False, cpu=1, disable_bar=True, write_graph='graph'):
+                           no_defrag=False, cpu=1, disable_bar=True):
     """
     Main function to search common component between protein set and pangenome's families
 
@@ -111,8 +92,6 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, id
     :type cpu: int
     :param disable_bar: Allow preventing bar progress print
     :type disable_bar: Boolean
-    :param write_graph: Allow writing graph of common component
-    :type write_graph: str
     """
     # check statuses and load info
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=disable_bar)
@@ -133,10 +112,6 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, id
 
     # extract the modules from the graph
     common_components = compute_cc(g, jaccard)
-
-    if write_graph is not None:
-        _write_graph(g, out_name=f"{output}/{write_graph}.png")
-        logging.getLogger().info(f"Write graph took {round(time.time() - start_time, 2)} seconds")
 
     families = set()
     for cc in common_components:
@@ -294,8 +269,7 @@ def launch(args):
     pangenome.addFile(args.pangenome)
     search_cc_in_pangenome(pangenome=pangenome, proteins=args.proteins, output=args.output, identity=args.identity,
                            coverage=args.coverage, jaccard=args.jaccard, transitive=args.transitive, tmpdir=args.tmpdir,
-                           no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar,
-                           write_graph=args.write_graph)
+                           no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
 
 
 def contextSubparser(sub_parser):
@@ -332,6 +306,4 @@ def contextSubparser(sub_parser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
-    optional.add_argument("--write_graph", type=str, default='graph',
-                          help=argparse.SUPPRESS)  # Allow to export the graph in png
     return parser
