@@ -21,7 +21,7 @@ from gmpy2 import xmpz, popcount  # pylint: disable=no-name-in-module
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Module
 from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
-from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
+from ppanggolin.utils import mkOutdir, restricted_float
 
 
 def checkPangenomeFormerModules(pangenome, force):
@@ -116,6 +116,7 @@ def compute_modules(g, multi, weight, min_fam, size):
     :param min_fam: the minimal number of presence under which the family is not considered
     :type min_fam: int
     """
+
     # removing families with low presence
     removed = set([fam for fam in g.nodes if len(fam.organisms) < min_fam])
 

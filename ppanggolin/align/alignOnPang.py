@@ -15,7 +15,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
 from ppanggolin.cluster import writeGeneSequencesFromAnnotations
 from ppanggolin.RGP.genomicIsland import compute_org_rgp
-from ppanggolin.RGP.spot import draw_spots, subgraph
+from ppanggolin.figures.draw_spot import drawSelectedSpots, subgraph
 
 
 def createdb(fileObj, tmpdir):
@@ -57,13 +57,13 @@ def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, id
     logging.getLogger().info("Aligning proteins to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     outfile = output + "/input_to_pangenome_associations.blast-tab"
-    cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile, "--format-mode", "2"]
+    cmd = ["mmseqs", "convertalis", seqdb.name, pangdb.name, alndb.name, outfile, "--format-mode", "2"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    pang_db.close()
-    seq_db.close()
-    aln_db.close()
+    pangdb.close()
+    seqdb.close()
+    alndb.close()
 
     return outfile
 
@@ -327,18 +327,18 @@ def add_spot_str(a):
 
 def draw_spot_gexf(spots, output, multigenics, fam2mod, set_size=3):
     for spot in spots:
-        fname = "spot_" + str(spot.ID) + ".gexf"
-        subgraph(spot, output, fname, set_size=set_size, multigenics=multigenics, fam2mod=fam2mod)
+        fname = output + "/spot_" + str(spot.ID) + ".gexf"
+        subgraph(spot, fname, set_size=set_size, multigenics=multigenics, fam2mod=fam2mod)
 
 
+<<<<<<< HEAD
 def checkLabelPriorityLogic(priority):
     for p in priority.split(','):
         if p.lower() not in ["name", "id", "family"]:
             raise Exception(f"You have indicated a label which is not supported with --label_priority. "
                             f"You indicated '{p}'. Supported labels are 'name', 'id' and 'family'")
 
-
-def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
+def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=False):
     logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
@@ -359,18 +359,21 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority):
         for spot in spot_list:
             if len(spot.getUniqOrderedSet()) > 1:
                 drawn_spots.add(spot)
-        logging.getLogger().info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization related to hits "
-                                 f"of the input proteins...")
-        draw_spots(drawn_spots, output, cpu, 2, 1, 3, multigenics, [], priority)
-
+        logging.getLogger().info(
+            f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
+            f"related to hits of the input proteins...")
+        drawSelectedSpots(drawn_spots, pangenome, output, pangenome.parameters["spots"]["overlapping_match"],
+                          pangenome.parameters["spots"]["exact_match"], pangenome.parameters["spots"]["set_size"],
+                          disable_bar=disable_bar)
         # fam2module
         fam2mod = {}
         if pangenome.status["modules"] != "No":
             for mod in pangenome.modules:
                 for fam in mod.families:
-                    fam2mod[fam] = mod
+                    fam2mod[fam] = f"module_{mod.ID}"
 
         draw_spot_gexf(drawn_spots, output, multigenics=multigenics, fam2mod=fam2mod)
+
     logging.getLogger().info(
         f"File listing RGP and spots where proteins of interest are located : '{output + '/info_input_prot.tsv'}'")
 
@@ -396,8 +399,8 @@ def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, no_defrag=False
     writeGeneFamSequences(pangenome, tmpPangFile)
 
     with read_compressed_or_not(proteinFile) as protFileObj:
-        protSet = getProt(protFileObj)  # set of all proteins id
-        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, tmpdir, cpu, no_defrag, identity, coverage)
+        protSet = getProt(protFileObj)
+        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, newtmpdir, cpu, defrag, identity, coverage)
 
     prot2pang = readAlignments(alignFile, pangenome)
 
@@ -408,7 +411,6 @@ def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, no_defrag=False
 
 def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1, getinfo=False,
           draw_related=False, priority='name,ID', disable_bar=False):
-
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
                         "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
@@ -431,28 +433,25 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no
     protSet, alignFile, prot2pang = get_prot2pang(pangenome, proteinFile, output, new_tmpdir,
                                                   cpu, no_defrag, identity, coverage)
 
-    if getinfo:
-        getProtInfo(prot2pang, pangenome, output, cpu, draw_related, priority)
+    if getinfo or draw_related:
+        getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=disable_bar)
     else:
         partProj = projectPartition(prot2pang, protSet, output)  # write the partition assignation only
         logging.getLogger().info(f"proteins partition projection : '{partProj}'")
     logging.getLogger().info(f"{len(prot2pang)} proteins over {len(protSet)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{alignFile}'")
 
-    new_tmpdir.cleanup()
-
+    tmpPangFile.close()
+    newtmpdir.cleanup()
 
 def launch(args):
-    """
-    Launch align command
-
-    :param args: arguments for align command from parser
-    :type args: argparse.Namespace
-    """
-
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
+    if args.interest or args.fig_margin or args.label_priority:
+        logging.getLogger().warning("Options --interest, --fig_margin and --label_priority are deprecated, "
+                                    "and the actions they defined are now doable directly in the interactive figures "
+                                    "that are drawn")
     if args.proteins is not None:
         align(pangenome=pangenome, proteinFile=args.proteins, output=args.output, tmpdir=args.tmpdir, cpu=args.cpu,
               identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, getinfo=args.getinfo,
@@ -495,12 +494,16 @@ def alignSubparser(subparser):
     optional.add_argument("--draw_related", required=False, action="store_true",
                           help="Draw figures and provide graphs in a gexf format of the eventual spots"
                                " associated to the input proteins")
+    optional.add_argument("--interest", required=False, action="store_true",
+                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
+    # but does not use the option
+    optional.add_argument("--fig_margin", required=False, action="store_true",
+                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
+    # but does not use the option
+    optional.add_argument("--label_priority", required=False, action="store_true",
+                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
+    # but does not use the option
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
                                "(Default behavior is to ignore them)")
-    optional.add_argument("--label_priority", required=False, type=str, default='name,ID',
-                          help="Option to use with --draw_hotspots. Will indicate what to write in the figure labels "
-                               "as a comma-separated list. Order gives priority. "
-                               "Possible values are: name (for gene names), ID (for the gene IDs), "
-                               "family (for the family IDs)")
     return parser

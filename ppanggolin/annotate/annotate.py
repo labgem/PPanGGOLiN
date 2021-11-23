@@ -3,7 +3,7 @@
 
 # default libraries
 import argparse
-from multiprocessing import Pool
+from multiprocessing import get_context
 import logging
 import os
 import time
@@ -56,6 +56,7 @@ def create_gene(org, contig, geneCounter, rnaCounter, ID, dbxref, start, stop, s
             # on rare occasions, there are no 'locus_tag' from downloaded .gbk file.
             # So we use the protein_id field instead. (which is not supposed to be unique,
             # but was when cases like this were encountered)
+
         newGene = Gene(org.name + "_CDS_" + str(geneCounter).zfill(4))
         newGene.fill_annotations(start=start,
                                  stop=stop,
@@ -311,6 +312,7 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo=False
                     # get the current contig
                     contig = org.getOrAddContig(gff_fields[GFF_seqname],
                                                 True if gff_fields[GFF_seqname] in circular_contigs else False)
+
                 if gff_fields[GFF_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(org.name + "_CDS_" + str(geneCounter).zfill(4))
 
@@ -339,6 +341,7 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo=False
                     rna.fill_parents(org, contig)
                     contig.addRNA(rna)
                     rnaCounter += 1
+
     # GET THE FASTA SEQUENCES OF THE GENES
     if hasFasta and fastaString != "":
         contigSequences = read_fasta(org, fastaString.split('\n'))
@@ -384,7 +387,7 @@ def readAnnotations(pangenome, organisms_file, cpu, getSeq=True, pseudo=False, d
             raise Exception(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
         args.append((elements[0], elements[1], elements[2:], getSeq, pseudo))
     bar = tqdm(range(len(args)), unit="file", disable=disable_bar)
-    with Pool(cpu) as p:
+    with get_context('fork').Pool(cpu) as p:
         for org, flag in p.imap_unordered(launchReadAnno, args):
             pangenome.addOrganism(org)
             if not flag:
@@ -453,7 +456,7 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
-    with Pool(processes=cpu) as p:
+    with get_context('fork').Pool(processes=cpu) as p:
         bar = tqdm(range(len(arguments)), unit="genome", disable=disable_bar)
         for organism in p.imap_unordered(launchAnnotateOrganism, arguments):
             bar.update()

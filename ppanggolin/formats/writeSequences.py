@@ -211,6 +211,7 @@ def writeRegionsSequences(pangenome, output, compress, regions, fasta, anno, dis
                 regions_to_write.append(region)
     else:
         regions_to_write = pangenome.regions
+
     regions_to_write = sorted(regions_to_write, key=lambda x: x.organism.name)
     # order regions by organism, so that we only have to read one genome at the time
 
@@ -279,6 +280,7 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, soft_core=0.95,
     checkPangenomeInfo(pangenome, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph,
                        needPartitions=needPartitions, needRGP=needRegions, needSpots=needSpots, needModules=needModules,
                        disable_bar=disable_bar)
+
     if prot_families is not None:
         writeFastaProtFam(pangenome, output, compress, prot_families, soft_core=soft_core, disable_bar=disable_bar)
     if gene_families is not None:

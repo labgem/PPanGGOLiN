@@ -121,6 +121,7 @@ def panModuleSubparser(subparser):
     required.add_argument("--clusters", required=False, type=str,
                           help="a tab-separated file listing the cluster names, the gene IDs, "
                                "and optionally whether they are a fragment or not.")
+
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",

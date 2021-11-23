@@ -7,7 +7,7 @@ import logging
 import tempfile
 import subprocess
 import time
-from multiprocessing import Pool
+from multiprocessing import get_context
 
 # installed libraries
 from tqdm import tqdm
@@ -108,17 +108,19 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable
     write_total = 0
     args = []
     logging.getLogger().info("Preparing input files for MSA...")
+    bar = tqdm(families, unit="family", disable=disable_bar)
     code_table = genetic_codes(code)
 
-    for family in tqdm(families, unit="family", disable=disable_bar):
+    for family in bar:
         start_write = time.time()
         fname = writeFastaFamilies(family, newtmpdir, source, use_gene_id, code_table)
         write_total = write_total + (time.time() - start_write)
         args.append((fname, output, family.name))
+    bar.close()
 
     logging.getLogger().info("Computing the MSA ...")
     bar = tqdm(range(len(families)), unit="family", disable=disable_bar)
-    with Pool(cpu) as p:
+    with get_context('fork').Pool(cpu) as p:
         for _ in p.imap_unordered(launchMultiMafft, args):
             bar.update()
     bar.close()
@@ -223,6 +225,7 @@ def writeMSASubparser(subparser):
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
+
     optional = parser.add_argument_group(title="Optional arguments. Indicating 'all' writes all elements. "
                                                "Writing a partition ('persistent', 'shell', 'cloud', 'core' or "
                                                "'accessory') write the elements associated to said partition.")

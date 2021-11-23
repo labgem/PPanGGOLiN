@@ -8,7 +8,7 @@ import logging
 import random
 import tempfile
 import time
-from multiprocessing import Pool
+from multiprocessing import get_context
 import os
 import warnings
 
@@ -367,7 +367,7 @@ def makeRarefactionCurve(pangenome, output, tmpdir, beta=2.5, depth=30, minSampl
     for index, samp in enumerate(samples):
         args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, krange, seed))
 
-    with Pool(processes=cpu) as p:
+    with get_context('fork').Pool(processes=cpu) as p:
         # launch partitioning
         logging.getLogger().info(" Partitioning all samples...")
         bar = tqdm(range(len(args)), unit="samples partitionned", disable=disable_bar)

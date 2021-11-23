@@ -512,12 +512,14 @@ def ErasePangenome(pangenome, graph=False, geneFamilies=False, partition=False, 
 
     h5f = tables.open_file(pangenome.file, "a")
     statusGroup = h5f.root.status
+    infoGroup = h5f.root.info
 
     if '/edges' in h5f and (graph or geneFamilies):
         logging.getLogger().info("Erasing the formerly computed edges")
         h5f.remove_node("/", "edges")
         statusGroup._v_attrs.NeighborsGraph = False
         pangenome.status["neighborsGraph"] = "No"
+        h5f.del_node_attr(infoGroup, "numberOfEdges")
     if '/geneFamilies' in h5f and geneFamilies:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
         h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
@@ -525,6 +527,9 @@ def ErasePangenome(pangenome, graph=False, geneFamilies=False, partition=False, 
         pangenome.status["genesClustered"] = "No"
         statusGroup._v_attrs.defragmented = False
         statusGroup._v_attrs.genesClustered = False
+
+        h5f.del_node_attr(infoGroup, "numberOfClusters")
+
     if '/geneFamiliesInfo' in h5f and geneFamilies:
         logging.getLogger().info("Erasing the formerly computed gene family representative sequences...")
         h5f.remove_node('/', 'geneFamiliesInfo')  # erasing the table, and rewriting a new one.
@@ -532,22 +537,40 @@ def ErasePangenome(pangenome, graph=False, geneFamilies=False, partition=False, 
         pangenome.status["geneFamilySequences"] = "No"
         statusGroup._v_attrs.geneFamilySequences = False
         statusGroup._v_attrs.Partitionned = False
+
+        h5f.del_node_attr(infoGroup, "numberOfPersistent")
+        h5f.del_node_attr(infoGroup, "persistentStats")
+        h5f.del_node_attr(infoGroup, "numberOfShell")
+        h5f.del_node_attr(infoGroup, "shellStats")
+        h5f.del_node_attr(infoGroup, "numberOfCloud")
+        h5f.del_node_attr(infoGroup, "cloudStats")
+        h5f.del_node_attr(infoGroup, "numberOfPartitions")
+        h5f.del_node_attr(infoGroup, "numberOfSubpartitions")
+
     if '/RGP' in h5f and (geneFamilies or partition or rgp):
         logging.getLogger().info("Erasing the formerly computer RGP...")
         pangenome.status["predictedRGP"] = "No"
         statusGroup._v_attrs.predictedRGP = False
         h5f.remove_node("/", "RGP")
+
+        h5f.del_node_attr(infoGroup,"numberOfRGP")
+
     if '/spots' in h5f and (geneFamilies or partition or rgp or spots):
         logging.getLogger().info("Erasing the formerly computed spots...")
         pangenome.status["spots"] = "No"
         statusGroup._v_attrs.spots = False
         h5f.remove_node("/", "spots")
 
+        h5f.del_node_attr(infoGroup,"numberOfSpots")
+
     if '/modules' in h5f and (geneFamilies or partition or modules):
         logging.getLogger().info("Erasing the formerly computed modules...")
         pangenome.status["modules"] = "No"
         statusGroup._v_attrs.modules = False
         h5f.remove_node("/", "modules")
+
+        h5f.del_node_attr(infoGroup,"numberOfModules")
+        h5f.del_node_attr(infoGroup,"numberOfFamiliesInModules")
 
     h5f.close()
 

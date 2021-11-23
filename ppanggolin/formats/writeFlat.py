@@ -3,7 +3,7 @@
 
 # default libraries
 import argparse
-from multiprocessing import Pool
+from multiprocessing import get_context
 from collections import Counter, defaultdict
 import logging
 import pkg_resources
@@ -55,6 +55,7 @@ def writeJSONGeneFam(geneFam, json):
                 orgDict[gene.organism][gene.contig] = [gene]
             except KeyError:
                 orgDict[gene.organism] = {gene.contig: [gene]}
+
     json.write(f', "name": "{name_counts.most_common(1)[0][0]}", "product": "{product_counts.most_common(1)[0][0]}", '
                f'"length": {length_counts.most_common(1)[0][0]}')
 
@@ -197,8 +198,9 @@ def writeGEXFnodes(gexf, light, soft_core=0.95):
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
         if not light:
             for org, genes in fam.getOrgDict().items():
-                gexf.write(f'          <attvalue for="'
-                           f'{index[org] + 12}" value="{"|".join([gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in genes])}" />\n')
+                gexf.write(
+                    f'          <attvalue for="'
+                    f'{index[org] + 12}" value="{"|".join([gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in genes])}" />\n')
         gexf.write(f'        </attvalues>\n')
         gexf.write(f'      </node>\n')
     gexf.write('    </nodes>\n')
@@ -736,7 +738,7 @@ def writeFlatFiles(pangenome, output, cpu=1, soft_core=0.95, dup_margin=0.05, cs
                        needPartitions=needPartitions, needRGP=needRegions, needSpots=needSpots, needModules=needModules,
                        disable_bar=disable_bar)
     pan.getIndex()  # make the index because it will be used most likely
-    with Pool(processes=cpu) as p:
+    with get_context('fork').Pool(processes=cpu) as p:
         if csv:
             processes.append(p.apply_async(func=writeMatrix, args=(',', "csv", output, compress, True)))
         if genePA:
