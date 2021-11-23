@@ -3,7 +3,7 @@
 
 # default libraries
 import argparse
-from multiprocessing import Pool
+from multiprocessing import get_context
 from collections import Counter, defaultdict
 import logging
 import pkg_resources
@@ -16,7 +16,7 @@ from ppanggolin.utils import write_compressed_or_not, mkOutdir, restricted_float
 from ppanggolin.formats import checkPangenomeInfo
 
 # global variable to store the pangenome
-pan = None  # TODO change to pan:Pangenome = Pangenome=() ?
+pan = None
 
 
 def writeJSONheader(json):
@@ -743,7 +743,7 @@ def writeFlatFiles(pangenome, output, cpu=1, soft_core=0.95, dup_margin=0.05, cs
                        needPartitions=needPartitions, needRGP=needRegions, needSpots=needSpots, needModules=needModules,
                        disable_bar=disable_bar)
     pan.getIndex()  # make the index because it will be used most likely
-    with Pool(processes=cpu) as p:
+    with get_context('fork').Pool(processes=cpu) as p:
         if csv:
             processes.append(p.apply_async(func=writeMatrix, args=(',', "csv", output, compress, True)))
         if genePA:

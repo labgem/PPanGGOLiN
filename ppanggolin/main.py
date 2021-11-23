@@ -28,7 +28,8 @@ import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
 import ppanggolin.align
-import ppanggolin.RGP
+import ppanggolin.RGP.genomicIsland
+import ppanggolin.RGP.spot
 import ppanggolin.mod
 
 
@@ -122,7 +123,7 @@ def cmdLine():
             "predict informations from it\n"
     desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
     desc += "    spot         predicts spots in your pangenome\n"
-    desc += "    module       Predicts functional modules in your pangenome\t"
+    desc += "    module       Predicts conserved modules in your pangenome\t"
 
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",

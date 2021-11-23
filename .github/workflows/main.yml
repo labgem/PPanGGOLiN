@@ -16,8 +16,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest']
-        python-version: ['3.6', '3.7']
+        os: ['ubuntu-latest', 'macos-latest']
+        python-version: ['3.6', '3.7', '3.8']
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
@@ -27,7 +27,7 @@ jobs:
         condarc-file: .condarc.yml
         activate-environment: test
         python-version: ${{ matrix.python-version }}
-    # Install the dependencies, with a forced r-base version and build because something between conda priority channels and macosx is broken
+    # Install the dependencies
     - name: Set up test environment
       shell: bash -l {0}
       run: |
@@ -66,10 +66,12 @@ jobs:
         ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
         ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --cpu 1 --output stepbystep -f
         ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
-        ppanggolin spot -p stepbystep/pangenome.h5 --cpu 1 --draw_hotspots --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1 --interest tRNA --label_priority name,ID
+        ppanggolin spot -p stepbystep/pangenome.h5 --cpu 1 --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1
+        ppanggolin draw -p stepbystep/pangenome.h5 --spots all -o stepbystep -f
         ppanggolin module -p stepbystep/pangenome.h5 --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05
         ppanggolin write -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --csv --Rtab --projection --stats --partitions --compress --json --regions --spots --borders --families_tsv --cpu 1
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
+        ppanggolin draw -p stepbystep/pangenome.h5 --spots all -o stepbystep -f
         cd -
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
@@ -91,6 +93,6 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin align --pangenome myannopang/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_align --draw_related --getinfo
-        ppanggolin align --pangenome myannopang/pangenome.h5 --anno NC_010287.gbff --output test_align --draw_related --getinfo -f
+        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_align --draw_related --getinfo
+        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --anno NC_010287.gbff --output test_align -f
         cd -

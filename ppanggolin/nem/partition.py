@@ -6,7 +6,7 @@ import logging
 import random
 import tempfile
 import time
-from multiprocessing import Pool
+from multiprocessing import get_context
 import os
 import argparse
 from collections import defaultdict, Counter
@@ -277,7 +277,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, Kr
 
     if cpu > 1:
         bar = tqdm(range(len(argsPartitionning)), unit="Number of number of partitions", disable=disable_bar)
-        with Pool(processes=cpu) as p:
+        with get_context('fork').Pool(processes=cpu) as p:
             for result in p.imap_unordered(nemSingle, argsPartitionning):
                 allLogLikelihood.append(result)
                 bar.update()
@@ -442,7 +442,7 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
                 args.append((i, tmpdir, beta, sm_degree, free_dispersion, K, seed, init, keep_tmp_files))
 
             logging.getLogger().info("Launching NEM")
-            with Pool(processes=cpu) as p:
+            with get_context('fork').Pool(processes=cpu) as p:
                 # launch partitioning
                 bar = tqdm(range(len(args)), unit=" samples partitionned", disable=disable_bar)
                 for result in p.imap_unordered(nemSamples, args):
