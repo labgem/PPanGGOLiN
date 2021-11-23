@@ -7,6 +7,7 @@ import argparse
 import tempfile
 import time
 import logging
+from importlib import import_module  # Allow to load module when it's needed
 
 # installed libraries
 from tqdm import tqdm
@@ -29,7 +30,7 @@ def _write_graph(g, out_name='graph'):
     :param out_name: name of the png file
     :type out_name: str
     """
-    import matplotlib.pyplot as plt  # import only if the function is used
+    plt = import_module("matplotlib.pyplot")  # import only if the function is used
 
     label_nodes = {node: len(node.genes) for node in g.nodes}
     label_edges = {edge: f'({str(len(edge[0].genes))}, {str(len(edge[1].genes))})' for edge in g.edges}
