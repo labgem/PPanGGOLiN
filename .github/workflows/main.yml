@@ -101,3 +101,4 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin context --pangenome myannopang/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_context
+        ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f
