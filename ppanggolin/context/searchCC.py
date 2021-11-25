@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 # coding:utf-8
 
-
 # default libraries
 import argparse
 import tempfile
 import time
 import logging
-from importlib import import_module  # Allow to load module when it's needed
 
 # installed libraries
 from tqdm import tqdm
@@ -65,8 +63,8 @@ class CC:
         self.families.add(family)
 
 
-def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, identity=0.5, coverage=0.8, jaccard=0.85,
-                           no_defrag=False, cpu=1, disable_bar=True):
+def search_cc_in_pangenome(pangenome, output, tmpdir, proteins=None, families=None, transitive=4, identity=0.5,
+                           coverage=0.8, jaccard=0.85, no_defrag=False, cpu=1, disable_bar=True):
     """
     Main function to search common component between protein set and pangenome's families
 
@@ -74,6 +72,8 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, id
     :type pangenome: Pangenome
     :param proteins: Path to file containing the proteins
     :type proteins: str
+    :param families: Path to file containing families name
+    :type families: str
     :param output: Path to output directory
     :type output: str
     :param tmpdir: Path to temporary directory
@@ -93,22 +93,38 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, id
     :param disable_bar: Allow preventing bar progress print
     :type disable_bar: Boolean
     """
-    # check statuses and load info
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=disable_bar)
 
-    # Alignment of proteins on pangenome's families
-    new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-    prot_set, _, prot2pan = get_prot2pang(pangenome, proteins, output, new_tmpdir, cpu, no_defrag, identity, coverage)
-    projectPartition(prot2pan, prot_set, output)
-    new_tmpdir.cleanup()
+    # check statuses and load info
+    if proteins is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
+        raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
+                        "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
+
+    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=disable_bar)
+    gene_families = {}
+    fam_2_prot = None
+    if proteins is not None:
+        # Alignment of proteins on pangenome's families
+        new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
+        prot_set, _, prot2pan = get_prot2pang(pangenome, proteins, output, new_tmpdir, cpu, no_defrag,
+                                              identity, coverage)
+        projectPartition(prot2pan, prot_set, output)
+        new_tmpdir.cleanup()
+        for k, v in prot2pan.items():
+            gene_families[v.name] = v
+        fam_2_prot = fam2prot(prot2pan)
+
+    if families is not None:
+        with open(families, 'r') as f:
+            for fam_name in f.read().splitlines():
+                gene_families[fam_name] = pangenome.getGeneFamily(fam_name)
 
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
-    g = compute_cc_graph(alignment=prot2pan, t=transitive, disable_bar=disable_bar)
+    g = compute_cc_graph(families=gene_families, t=transitive, disable_bar=disable_bar)
     logging.getLogger().info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common component in")
-    logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
+    logging.getLogger().debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     # extract the modules from the graph
     common_components = compute_cc(g, jaccard)
@@ -118,47 +134,32 @@ def search_cc_in_pangenome(pangenome, proteins, output, tmpdir, transitive=4, id
         families |= cc.families
 
     if len(families) != 0:
-        logging.getLogger().info(f"There are {len(families)} families among {len(common_components)} common components")
-
-        fam_2_prot = fam2prot(prot2pan)
-
-        lines = []
-        for cc in common_components:
-            for family in cc.families:
-                line = [cc.ID]
-                if fam_2_prot.get(family.ID) is None:
-                    line += [family.name, None, len(family._genePerOrg.keys())]
-                else:
-                    line += [family.name, ','.join(fam_2_prot.get(family.ID)), len(family._genePerOrg.keys())]
-                lines.append(line)
-        df = pd.DataFrame(lines, columns=["CC ID", "Gene family", "Protein ID", "Nb Genomes"]).set_index(
-            "CC ID").sort_index()
-        df.to_csv(path_or_buf=f"{output}/Common_component.tsv", sep="\t", na_rep='NA')
+        export_to_dataframe(families, common_components, fam_2_prot, output)
     else:
         logging.getLogger().info(f"No common component were find")
 
     logging.getLogger().info(f"Computing common components took {round(time.time() - start_time, 2)} seconds")
 
 
-def compute_cc_graph(alignment, t, disable_bar=False):
+def compute_cc_graph(families, t, disable_bar=False):
     """
-    Construct the graph of common component between proteins and pangenome gene's families
+    Construct the graph of common component between families and genome's pangenome
 
-    :param alignment: Result of alignment between proteins and pangenome gene's families
-    :type alignment: dict
+    :param families: Gene families of interest
+    :type families: dict
     :param t: transitive value
     :type t: int
     :param disable_bar: Allow preventing bar progress print
     :type disable_bar: Boolean
 
-    :return: Graph of common component between proteins and pangenome gene's families
+    :return: Graph of common component between interesting gene families and genome's pangenome
     :rtype: nx.Graph
     """
     g = nx.Graph()
-    for protein, gene_family in tqdm(alignment.items(), unit="proteins", disable=disable_bar):
-        for gene in gene_family.genes:
-            contig = gene.contig._genes_position  # TODO create method to extract
-            pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, alignment, t)
+    for family in tqdm(families.values(), unit="families", disable=disable_bar):
+        for gene in family.genes:
+            contig = gene.contig.genes
+            pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, families, t)
             if in_context_left or in_context_right:
                 for env_gene in contig[pos_left:pos_right + 1]:
                     _compute_cc_graph(g, env_gene, contig, pos_right)
@@ -169,7 +170,7 @@ def _compute_cc_graph(g, env_gene, contig, pos_r):
     """
     Compute graph of common component between one gene and the other part of the contig
 
-    :param: Graph of common component between proteins and pangenome gene's families
+    :param: Graph of common component between interesting gene families and genome's pangenome
     :type: nx.Graph
     :param env_gene: Gene of the current position
     :type env_gene: Gene
@@ -190,7 +191,7 @@ def _compute_cc_graph(g, env_gene, contig, pos_r):
         pos += 1
 
 
-def extract_gene_context(gene, contig, alignment, t=4):
+def extract_gene_context(gene, contig, families, t=4):
     """
     Extract gene context if exist
 
@@ -198,8 +199,8 @@ def extract_gene_context(gene, contig, alignment, t=4):
     :type gene: Gene
     :param contig: Gene's contig
     :type contig: Contig
-    :param alignment: Alignment results
-    :param alignment: dict
+    :param families: Alignment results
+    :param families: dict
     :param t: transitive value
     :type t: int
 
@@ -210,13 +211,13 @@ def extract_gene_context(gene, contig, alignment, t=4):
                            min(gene.position + t, len(contig)-1))  # Gene positions to compare family
     in_context_left, in_context_right = (False, False)
     while pos_left < gene.position and not in_context_left:
-        if contig[pos_left].family in alignment.values():
+        if contig[pos_left].family in families.values():
             in_context_left = True
         else:
             pos_left += 1
 
     while pos_right > gene.position and not in_context_right:
-        if contig[pos_right].family in alignment.values():
+        if contig[pos_right].family in families.values():
             in_context_right = True
         else:
             pos_right -= 1
@@ -228,8 +229,8 @@ def compute_cc(g, jaccard=0.85):
     """
     Compute the common component in the graph
 
-    :param: Graph of common component between proteins and pangenome gene's families
-    :type: nx.Graph
+    :param g: Graph of common component between interesting gene families and genome's pangenome
+    :type g: nx.Graph
     :param jaccard: Jaccard index
     :type jaccard: float
 
@@ -263,13 +264,45 @@ def fam2prot(prot2pan):
     return fam_2_prot
 
 
+def export_to_dataframe(families, common_components, fam_2_prot, output):
+    """ Export the result into dataFrame
+
+    :param families: Families related to CC
+    :type families: set
+    :param common_components: CC find in pangenome
+    :type common_components: set
+    :param fam_2_prot: Dictionary with gene's families in keys and list of proteins in values
+    :type fam_2_prot: dict
+    :param output: output path
+    :type output: str
+    """
+    logging.getLogger().debug(f"There are {len(families)} families among {len(common_components)} common components")
+
+    lines = []
+    for cc in common_components:
+        for family in cc.families:
+            line = [cc.ID]
+            if fam_2_prot is None or fam_2_prot.get(family.ID) is None:
+                line += [family.name, None, len(family.organisms)]
+            else:
+                line += [family.name, ','.join(fam_2_prot.get(family.ID)), len(family.organisms)]
+            lines.append(line)
+    df = pd.DataFrame(lines,
+                      columns=["CC ID", "Gene family name", "Protein ID", "Nb Genomes"]
+                      ).set_index("CC ID").sort_index()
+    df.to_csv(path_or_buf=f"{output}/Common_component.tsv", sep="\t", na_rep='NA')
+
+
 def launch(args):
+    if not any([args.proteins, args.family]):
+        raise Exception("One of --proteins or --family must be given")
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    search_cc_in_pangenome(pangenome=pangenome, proteins=args.proteins, output=args.output, identity=args.identity,
-                           coverage=args.coverage, jaccard=args.jaccard, transitive=args.transitive, tmpdir=args.tmpdir,
-                           no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+    search_cc_in_pangenome(pangenome=pangenome, proteins=args.proteins, families=args.family, output=args.output,
+                           identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
+                           transitive=args.transitive, cpu=args.cpu, tmpdir=args.tmpdir, no_defrag=args.no_defrag,
+                           disable_bar=args.disable_prog_bar)
 
 
 def contextSubparser(sub_parser):
@@ -289,12 +322,16 @@ def contextSubparser(sub_parser):
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
-    required.add_argument('-P', '--proteins', required=True, type=str, help="Fasta with all proteins of interest")
+    onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
+    onereq.add_argument('-P', '--proteins', required=False, type=str,
+                        help="Fasta with all proteins of interest")
+    onereq.add_argument('-F', '--family', required=False, type=str,
+                        help="List of family IDs of interest from the pangenome")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
-                               "their non-fragmented gene family. (default: False)")
+                               "their non-fragmented gene family.")
     optional.add_argument('--identity', required=False, type=float, default=0.5,
                           help="min identity percentage threshold")
     optional.add_argument('--coverage', required=False, type=float, default=0.8,
