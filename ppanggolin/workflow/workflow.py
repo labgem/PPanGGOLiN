@@ -8,7 +8,7 @@ import argparse
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mkFilename, min_one
+from ppanggolin.utils import mkFilename, min_one, check_option_workflow
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
@@ -23,6 +23,7 @@ from ppanggolin.info import printInfo
 
 
 def launch(args):
+    check_option_workflow(args)
     pangenome = Pangenome()
     filename = mkFilename(args.basename, args.output, args.force)
     if args.anno:  # if the annotations are provided, we read from it

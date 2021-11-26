@@ -166,3 +166,11 @@ def add_gene(obj, gene, fam_split=True):
             obj["genes"].add(gene)
         except KeyError:
             obj["genes"] = set([gene])
+
+
+def check_option_workflow(args):
+    if args.clusters is not None and not any([args.fasta, args.anno]):
+        raise Exception("If you give --clusters option, you must give at least --fasta or --anno")
+
+    if not any([args.fasta, args.anno]):
+        raise Exception("At least one of --fasta or --anno must be given")
