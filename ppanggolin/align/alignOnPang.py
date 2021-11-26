@@ -437,6 +437,8 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no
 
 
 def launch(args):
+    if not any([args.proteins, args.annotation]):
+        raise Exception("At least one of --proteins or --annotation must be given")
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)

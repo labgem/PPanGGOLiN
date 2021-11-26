@@ -478,6 +478,8 @@ def annotatePangenome(pangenome, fastaList, tmpdir, cpu, translation_table="11",
 
 
 def launch(args):
+    if not any([args.fasta, args.anno]):
+        raise Exception("At least one of --fasta or --anno must be given")
     filename = mkFilename(args.basename, args.output, args.force)
     pangenome = Pangenome()
     if args.fasta is not None and args.anno is None:

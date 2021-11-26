@@ -295,7 +295,7 @@ def export_to_dataframe(families, common_components, fam_2_prot, output):
 
 def launch(args):
     if not any([args.proteins, args.family]):
-        raise Exception("One of --proteins or --family must be given")
+        raise Exception("At least one of --proteins or --family must be given")
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
