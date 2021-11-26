@@ -143,6 +143,10 @@ def launch(args):
 
 def moduleSubparser(subparser):
     parser = subparser.add_parser("module", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    required = parser.add_argument_group(title="Required arguments",
+                                         description="One of the following arguments is required :")
+    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--size", required=False, type=int, default=3,
                           help="Minimal number of gene family in a module")
@@ -159,8 +163,4 @@ def moduleSubparser(subparser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. "
                                "Increasing it will improve precision but lower sensitivity a lot.")
-
-    required = parser.add_argument_group(title="Required arguments",
-                                         description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     return parser

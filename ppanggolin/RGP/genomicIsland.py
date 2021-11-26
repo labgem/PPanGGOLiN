@@ -237,6 +237,10 @@ def launch(args):
 
 def rgpSubparser(subparser):
     parser = subparser.add_parser("rgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    required = parser.add_argument_group(title="Required arguments",
+                                         description="One of the following arguments is required :")
+    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--persistent_penalty', required=False, type=int, default=3,
                           help="Penalty score to apply to persistent genes")
@@ -249,7 +253,4 @@ def rgpSubparser(subparser):
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
                           help="Minimum ratio of organisms where the family is present in which the family must "
                                "have multiple genes for it to be considered 'duplicated'")
-    required = parser.add_argument_group(title="Required arguments",
-                                         description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     return parser
