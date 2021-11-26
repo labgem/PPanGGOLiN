@@ -298,10 +298,10 @@ def checkOptions(args):
 
 
 def launchSequences(args):
+    checkOptions(args)
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    checkOptions(args)
     writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
                        regions=args.regions, genes=args.genes, gene_families=args.gene_families,
                        prot_families=args.prot_families, compress=args.compress, disable_bar=args.disable_prog_bar)
