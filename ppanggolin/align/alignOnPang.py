@@ -224,7 +224,7 @@ def align(pangenome, sequenceFile, output, tmpdir, identity=0.8, coverage=0.8, n
     # could be possible either by picking a representative somehow, or by aligning on genes rather than on
     # families, if they are in the pangenome.
 
-    if getinfo:
+    if getinfo or draw_related:
         need_mod = False
         if pangenome.status["modules"] != "No":
             # modules are not required to be loaded, but if they have been computed we load them.
@@ -241,9 +241,8 @@ def align(pangenome, sequenceFile, output, tmpdir, identity=0.8, coverage=0.8, n
 
     if getinfo or draw_related:
         getSeqInfo(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
-    else:
-        partProj = projectPartition(seq2pang, seqSet, output)  # write the partition assignation only
-        logging.getLogger().info(f"sequences partition projection : '{partProj}'")
+    partProj = projectPartition(seq2pang, seqSet, output)  # write the partition assignation only
+    logging.getLogger().info(f"sequences partition projection : '{partProj}'")
     logging.getLogger().info(f"{len(seq2pang)} sequences over {len(seqSet)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{alignFile}'")
 
@@ -258,10 +257,9 @@ def launch(args):
         logging.getLogger().warning("Options --interest, --fig_margin and --label_priority are deprecated, "
                                     "and the actions they defined are now doable directly in the interactive figures "
                                     "that are drawn")
-    if args.sequences is not None:
-        align(pangenome=pangenome, sequenceFile=args.sequences, output=args.output, tmpdir=args.tmpdir, cpu=args.cpu,
-              identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, getinfo=args.getinfo,
-              draw_related=args.draw_related, disable_bar=args.disable_prog_bar)
+    align(pangenome=pangenome, sequenceFile=args.sequences, output=args.output, tmpdir=args.tmpdir, cpu=args.cpu,
+            identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, getinfo=args.getinfo,
+            draw_related=args.draw_related, disable_bar=args.disable_prog_bar)
 
 
 def alignSubparser(subparser):
