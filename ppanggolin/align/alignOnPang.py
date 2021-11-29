@@ -150,7 +150,9 @@ def writeGbffRegions(filename, regions, output):
             if curr_contig in ContigRegions and len(ContigRegions[curr_contig]) > 0:
                 if line[0:5].strip() == "" and line[0:20].strip() != "" and len(line[20:].split("..")) == 2:
                     # should be a FEATURE with its position
-                    start = line[20:].replace("complement(", "").replace(")", "").split("..")[0]
+                    start = line[20:].split("..")[0]
+                    for char in ['complement(', ')','<','>']:
+                        start = start.replace(char,'')
                     if int(start) == ContigRegions[curr_contig][-1].start:
                         reg = ContigRegions[curr_contig].pop()
                         foutfile.write("     misc_feature    " + str(reg.start) + ".." + str(reg.stop) + "\n")
