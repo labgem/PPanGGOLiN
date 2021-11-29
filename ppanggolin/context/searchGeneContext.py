@@ -33,8 +33,6 @@ class geneContext:
 
         Methods
         -------
-        add_family(family)
-            Prints the animals name and what sound it makes
         """
     def __init__(self, ID, families=None):
         """ Initial methods
