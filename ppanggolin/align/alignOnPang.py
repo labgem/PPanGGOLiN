@@ -9,11 +9,10 @@ import argparse
 from collections import defaultdict
 
 # local libraries
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats import checkPangenomeInfo, writeGeneSequencesFromAnnotations
 from ppanggolin.utils import mkOutdir, read_compressed_or_not
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
-from ppanggolin.cluster import writeGeneSequencesFromAnnotations
 from ppanggolin.RGP.genomicIsland import compute_org_rgp
 from ppanggolin.figures.draw_spot import drawSelectedSpots, subgraph
 
@@ -440,8 +439,6 @@ def align(pangenome, sequenceFile, output, tmpdir, identity=0.8, coverage=0.8, n
 
 
 def launch(args):
-    if not any([args.sequences, args.annotation]):
-        raise Exception("At least one of --sequences or --annotation must be given")
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
@@ -454,20 +451,12 @@ def launch(args):
               identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, getinfo=args.getinfo,
               draw_related=args.draw_related, priority=args.label_priority, disable_bar=args.disable_prog_bar)
 
-    if args.annotation is not None:
-        projectRGP(pangenome, args.annotation, args.output, args.tmpdir, args.identity, args.coverage, args.defrag,
-                   args.cpu, args.translation_table, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
-
-
 def alignSubparser(subparser):
     parser = subparser.add_parser("align", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
-    onereq.add_argument('-S','--sequences', required=False, type=str,
+    required.add_argument('-S','--sequences', required=True, type=str,
                         help="sequences (nucleotides or amino acids) to align on the pangenome gene families")
-    onereq.add_argument('--annotation', required=False, type=str,
-                        help="annotation input file (gff or gbff) from which to predict RGPs and partitions")
 
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
