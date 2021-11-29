@@ -16,20 +16,20 @@ import pandas as pd
 from ppanggolin.formats import checkPangenomeInfo
 from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.align.alignOnPang import get_prot2pang, projectPartition
+from ppanggolin.align.alignOnPang import get_seq2pang, projectPartition
 from ppanggolin.geneFamily import GeneFamily
 
 
-class CC:
+class geneContext:
     """
-        A class used to represent a common component
+        A class used to represent a geneContext
 
         Attributes
         ----------
         ID : int
-            ID of the common component
+            ID of the geneContext
         families : set
-            Gene's families related to the common component
+            Gene families related to the geneContext
 
         Methods
         -------
@@ -39,9 +39,9 @@ class CC:
     def __init__(self, ID, families=None):
         """ Initial methods
 
-        :param ID: ID of the common component
+        :param ID: ID of the geneContext
         :type ID: int
-        :param families: Gene's families related to the common component
+        :param families: Gene families related to the geneContext
         :type families: set
         """
         self.ID = ID
@@ -49,13 +49,13 @@ class CC:
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
                 raise Exception(f"You provided elements that were not GeneFamily object."
-                                f" CC are only made of GeneFamily")
+                                f" geneContext are only made of GeneFamily")
             self.families |= set(families)
 
     def add_family(self, family):
         """
-        Allow to add one family in the common component
-        :param family: family ti add
+        Allow to add one family in the geneContext
+        :param family: family to add
         :type family: GeneFamily
         """
         if not isinstance(family, GeneFamily):
@@ -63,30 +63,30 @@ class CC:
         self.families.add(family)
 
 
-def search_cc_in_pangenome(pangenome, output, tmpdir, proteins=None, families=None, transitive=4, identity=0.5,
+def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, families=None, transitive=4, identity=0.5,
                            coverage=0.8, jaccard=0.85, no_defrag=False, cpu=1, disable_bar=True):
     """
-    Main function to search common component between protein set and pangenome's families
+    Main function to search common gene contexts between sequence set and pangenome families
 
-    :param pangenome: Pangenome containing GeneFamilies to align with protein set
+    :param pangenome: Pangenome containing GeneFamilies to align with sequence set
     :type pangenome: Pangenome
-    :param proteins: Path to file containing the proteins
-    :type proteins: str
+    :param sequences: Path to file containing the sequences
+    :type sequences: str
     :param families: Path to file containing families name
     :type families: str
     :param output: Path to output directory
     :type output: str
     :param tmpdir: Path to temporary directory
     :type tmpdir: str
-    :param transitive: number of considering gene's families at each side of family align with protein
+    :param transitive: number of genes to check on both sides of a family aligned with an input sequence
     :type transitive: int
-    :param identity: minimum rate identity between proteins and gene's families
+    :param identity: minimum identity threshold between sequences and gene families for the alignment
     :type identity: float
-    :param coverage: minimum rate covery between proteins and gene's families
+    :param coverage: minimum coverage threshold between seuqneces and gene families for the alignment
     :type coverage: float
     :param jaccard: Jaccard index to filter edges in graph
     :type jaccard: float
-    :param no_defrag: Allow preventing defragmentation in alignment
+    :param no_defrag: do not use the defrag workflow if true
     :type no_defrag: Boolean
     :param cpu: Number of core used to process
     :type cpu: int
@@ -95,23 +95,23 @@ def search_cc_in_pangenome(pangenome, output, tmpdir, proteins=None, families=No
     """
 
     # check statuses and load info
-    if proteins is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
+    if sequences is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
                         "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
 
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=disable_bar)
     gene_families = {}
-    fam_2_prot = None
-    if proteins is not None:
-        # Alignment of proteins on pangenome's families
+    fam_2_seq = None
+    if sequences is not None:
+        # Alignment of sequences on pangenome families
         new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        prot_set, _, prot2pan = get_prot2pang(pangenome, proteins, output, new_tmpdir, cpu, no_defrag,
+        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag,
                                               identity, coverage)
-        projectPartition(prot2pan, prot_set, output)
+        projectPartition(seq2pan, seq_set, output)
         new_tmpdir.cleanup()
-        for k, v in prot2pan.items():
+        for k, v in seq2pan.items():
             gene_families[v.name] = v
-        fam_2_prot = fam2prot(prot2pan)
+        fam_2_seq = fam2seq(seq2pan)
 
     if families is not None:
         with open(families, 'r') as f:
@@ -121,38 +121,38 @@ def search_cc_in_pangenome(pangenome, output, tmpdir, proteins=None, families=No
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
-    g = compute_cc_graph(families=gene_families, t=transitive, disable_bar=disable_bar)
+    g = compute_geneContext_graph(families=gene_families, t=transitive, disable_bar=disable_bar)
     logging.getLogger().info(
-        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common component in")
+        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
     logging.getLogger().debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     # extract the modules from the graph
-    common_components = compute_cc(g, jaccard)
+    common_components = compute_geneContext(g, jaccard)
 
     families = set()
-    for cc in common_components:
-        families |= cc.families
+    for genecontext in common_components:
+        families |= genecontext.families
 
     if len(families) != 0:
-        export_to_dataframe(families, common_components, fam_2_prot, output)
+        export_to_dataframe(families, common_components, fam_2_seq, output)
     else:
-        logging.getLogger().info(f"No common component were find")
+        logging.getLogger().info(f"No gene contexts were found")
 
-    logging.getLogger().info(f"Computing common components took {round(time.time() - start_time, 2)} seconds")
+    logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
 
-def compute_cc_graph(families, t, disable_bar=False):
+def compute_geneContext_graph(families, t, disable_bar=False):
     """
-    Construct the graph of common component between families and genome's pangenome
+    Construct the graph of gene contexts between families of the pangenome
 
     :param families: Gene families of interest
     :type families: dict
     :param t: transitive value
     :type t: int
-    :param disable_bar: Allow preventing bar progress print
+    :param disable_bar: Prevents progress bar printing
     :type disable_bar: Boolean
 
-    :return: Graph of common component between interesting gene families and genome's pangenome
+    :return: Graph of gene contexts between interesting gene families of the pangenome
     :rtype: nx.Graph
     """
     g = nx.Graph()
@@ -162,21 +162,21 @@ def compute_cc_graph(families, t, disable_bar=False):
             pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, families, t)
             if in_context_left or in_context_right:
                 for env_gene in contig[pos_left:pos_right + 1]:
-                    _compute_cc_graph(g, env_gene, contig, pos_right)
+                    _compute_geneContext_graph(g, env_gene, contig, pos_right)
     return g
 
 
-def _compute_cc_graph(g, env_gene, contig, pos_r):
+def _compute_geneContext_graph(g, env_gene, contig, pos_r):
     """
-    Compute graph of common component between one gene and the other part of the contig
+    Compute graph of gene contexts between one gene and the other part of the contig
 
-    :param: Graph of common component between interesting gene families and genome's pangenome
+    :param: Graph of gene contexts between interesting gene families of the pangenome
     :type: nx.Graph
     :param env_gene: Gene of the current position
     :type env_gene: Gene
-    :param contig: Current contig to search CC
+    :param contig: Current contig to search a gene context
     :type contig: Contig
-    :param pos_r: Gene to search a common component
+    :param pos_r: Gene to search a gene context
     :type pos_r: Gene
     """
     g.add_node(env_gene.family)
@@ -193,7 +193,7 @@ def _compute_cc_graph(g, env_gene, contig, pos_r):
 
 def extract_gene_context(gene, contig, families, t=4):
     """
-    Extract gene context if exist
+    Extract gene context and whether said gene context exists
 
     :param gene: Gene of interest
     :type gene: Gene
@@ -204,7 +204,7 @@ def extract_gene_context(gene, contig, families, t=4):
     :param t: transitive value
     :type t: int
 
-    :return: Position of the context and if exist
+    :return: Position of the context and if it exists for each side ('left' and 'right')
     :rtype: (int, Bool, int, Bool)
     """
     pos_left, pos_right = (max(0, gene.position - t),
@@ -225,81 +225,82 @@ def extract_gene_context(gene, contig, families, t=4):
     return pos_left, in_context_left, pos_right, in_context_right
 
 
-def compute_cc(g, jaccard=0.85):
+def compute_geneContext(g, jaccard=0.85):
     """
-    Compute the common component in the graph
+    Compute the gene contexts in the graph
 
-    :param g: Graph of common component between interesting gene families and genome's pangenome
+    :param g: Graph of gene contexts between interesting gene families of the pangenome
     :type g: nx.Graph
     :param jaccard: Jaccard index
     :type jaccard: float
 
-    :return: Set of common component find in graph
+    :return: Set of gene contexts find in graph
     :rtype: Set
     """
-    cc = set()
+    geneContexts = set()
     c = 1
     for comp in connected_components(g, removed=set(), weight=jaccard):
-        cc.add(CC(ID=c, families=comp))
+        geneContexts.add(geneContext(ID=c, families=comp))
         c += 1
-    return cc
+    return geneContexts
 
 
-def fam2prot(prot2pan):
+def fam2seq(seq2pan):
     """
-    Create a dictionary with gene's families in keys and list of proteins in values
+    Create a dictionary with gene families as keys and list of sequences id as values
 
-    :param prot2pan: Dictionary to reverse
-    :param prot2pan: dict
+    :param seq2pan: Dictionary storing the sequence ids as keys and the gene families to which they are assigned as values
+    :param seq2pan: dict
 
     :return: Dictionary reversed
     :rtype: dict
     """
-    fam_2_prot = {}
-    for protein, family in prot2pan.items():
-        if family.ID in fam_2_prot.keys():
-            fam_2_prot[family.ID].append(protein)
+    fam_2_seq = {}
+    for sequence, family in seq2pan.items():
+        if family.ID in fam_2_seq.keys():
+            fam_2_seq[family.ID].append(sequence)
         else:
-            fam_2_prot[family.ID] = [protein]
-    return fam_2_prot
+            fam_2_seq[family.ID] = [sequence]
+    return fam_2_seq
 
 
-def export_to_dataframe(families, common_components, fam_2_prot, output):
-    """ Export the result into dataFrame
+def export_to_dataframe(families, geneContexts, fam_2_seq, output):
+    """ Export the results into dataFrame
 
-    :param families: Families related to CC
+    :param families: Families related to the connected components
     :type families: set
-    :param common_components: CC find in pangenome
-    :type common_components: set
-    :param fam_2_prot: Dictionary with gene's families in keys and list of proteins in values
-    :type fam_2_prot: dict
+    :param geneContexts: connected components found in the pangenome
+    :type geneContexts: set
+    :param fam_2_seq: Dictionary with gene families as keys and list of sequence ids as values
+    :type fam_2_seq: dict
     :param output: output path
     :type output: str
     """
-    logging.getLogger().debug(f"There are {len(families)} families among {len(common_components)} common components")
+    logging.getLogger().debug(f"There are {len(families)} families among {len(geneContexts)} gene contexts")
 
     lines = []
-    for cc in common_components:
-        for family in cc.families:
-            line = [cc.ID]
-            if fam_2_prot is None or fam_2_prot.get(family.ID) is None:
+    for geneContext in geneContexts:
+        for family in geneContext.families:
+            line = [geneContext.ID]
+            if fam_2_seq is None or fam_2_seq.get(family.ID) is None:
                 line += [family.name, None, len(family.organisms)]
             else:
-                line += [family.name, ','.join(fam_2_prot.get(family.ID)), len(family.organisms)]
+                line += [family.name, ','.join(fam_2_seq.get(family.ID)), len(family.organisms)]
             lines.append(line)
     df = pd.DataFrame(lines,
-                      columns=["CC ID", "Gene family name", "Protein ID", "Nb Genomes"]
-                      ).set_index("CC ID").sort_index()
-    df.to_csv(path_or_buf=f"{output}/Common_component.tsv", sep="\t", na_rep='NA')
+                      columns=["geneContext ID", "Gene family name", "sequence ID", "Nb Genomes"]
+                      ).set_index("geneContext ID").sort_index()
+    df.to_csv(path_or_buf=f"{output}/gene_contexts.tsv", sep="\t", na_rep='NA')
+    logging.getLogger(f"detected gene context(s) are listed in: '{output}/gene_contexts.tsv'")
 
 
 def launch(args):
-    if not any([args.proteins, args.family]):
-        raise Exception("At least one of --proteins or --family must be given")
+    if not any([args.sequences, args.family]):
+        raise Exception("At least one of --sequences or --family must be given")
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    search_cc_in_pangenome(pangenome=pangenome, proteins=args.proteins, families=args.family, output=args.output,
+    search_geneContext_in_pangenome(pangenome=pangenome, sequences=args.sequences, families=args.family, output=args.output,
                            identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
                            transitive=args.transitive, cpu=args.cpu, tmpdir=args.tmpdir, no_defrag=args.no_defrag,
                            disable_bar=args.disable_prog_bar)
@@ -323,8 +324,8 @@ def contextSubparser(sub_parser):
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
-    onereq.add_argument('-P', '--proteins', required=False, type=str,
-                        help="Fasta with all proteins of interest")
+    onereq.add_argument('-S', '--sequences', required=False, type=str,
+                        help="Fasta file with the sequences of interest")
     onereq.add_argument('-F', '--family', required=False, type=str,
                         help="List of family IDs of interest from the pangenome")
 

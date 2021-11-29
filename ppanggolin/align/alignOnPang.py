@@ -20,7 +20,7 @@ from ppanggolin.figures.draw_spot import drawSelectedSpots, subgraph
 
 def createdb(fileObj, tmpdir):
     """
-    Allow to create a database with MMSeqs2 before to align
+    Create a MMseqs2 sequence database with the given fasta file
 
     :param fileObj: Fasta file
     :type fileObj: _io.TextIOWrapper
@@ -31,22 +31,15 @@ def createdb(fileObj, tmpdir):
     :rtype: _io.TextIOWrapper
     """
     seqdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
-    cmd = ["mmseqs", "createdb", fileObj.name, seqdb.name]
+    cmd = ["mmseqs", "createdb", fileObj.name, seqdb.name, '--dbtype','0']
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     return seqdb
 
 
-def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8, is_nucl=False,
+def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8,
                    code=11):
     pang_db = createdb(pangFile, tmpdir)
     seq_db = createdb(seqFile, tmpdir)
-    if is_nucl:
-        seq_nuc_db = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
-        cmd = ["mmseqs", "translatenucs", seq_db.name, seq_nuc_db.name, "--threads", str(cpu), "--translation-table",
-               str(code)]  # Translate nucleotide database to protein databases
-        logging.getLogger().debug(" ".join(cmd))
-        subprocess.run(cmd, stdout=subprocess.DEVNULL)
-        seq_db = seq_nuc_db
     cov_mode = "0"  # coverage of query and target
     if not no_defrag:
         cov_mode = "1"  # coverage of target
@@ -54,7 +47,7 @@ def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, id
     cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
            "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)]
     logging.getLogger().debug(" ".join(cmd))
-    logging.getLogger().info("Aligning proteins to cluster representatives...")
+    logging.getLogger().info("Aligning sequences to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     outfile = output + "/input_to_pangenome_associations.blast-tab"
     cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile, "--format-mode", "2"]
@@ -69,21 +62,21 @@ def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, id
 
 
 def readAlignments(outfile, pangenome):
-    prot2pang = {}
+    seq2pang = {}
     with open(outfile, "r") as alnFile:
         for line in alnFile:
             line = line.split()
-            if prot2pang.get(line[0]) is None:  # if no results were found yet
-                prot2pang[line[0]] = pangenome.getGeneFamily(line[1])  # then the best hit is the first one we see.
-    return prot2pang
+            if seq2pang.get(line[0]) is None:  # if no results were found yet
+                seq2pang[line[0]] = pangenome.getGeneFamily(line[1])  # then the best hit is the first one we see.
+    return seq2pang
 
 
-def getProt(protFile):
-    protset = set()
-    for line in protFile:
+def getSeq(seqFile):
+    seqset = set()
+    for line in seqFile:
         if line.startswith(">"):
-            protset.add(line[1:])
-    return protset
+            seqset.add(line[1:])
+    return seqset
 
 
 def writeGeneFamSequences(pangenome, fileObj):
@@ -93,13 +86,13 @@ def writeGeneFamSequences(pangenome, fileObj):
     fileObj.flush()
 
 
-def projectPartition(prot2pang, protSet, output):
-    partitionProj = output + "/proteins_partition_projection.tsv"
+def projectPartition(seq2pang, seqSet, output):
+    partitionProj = output + "/sequences_partition_projection.tsv"
     with open(partitionProj, "w") as partProjFile:
-        for key, pangFam in prot2pang.items():
+        for key, pangFam in seq2pang.items():
             partProjFile.write(key + "\t" + pangFam.namedPartition + "\n")
-        for remainingProt in (prot2pang.keys() & protSet):
-            partProjFile.write(remainingProt + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
+        for remainingSeq in (seq2pang.keys() & seqSet):
+            partProjFile.write(remainingSeq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
     return partitionProj
 
 
@@ -235,7 +228,7 @@ def projectRGP(pangenome, annotation, output, tmpdir, identity=0.8, coverage=0.8
     writeGeneFamSequences(pangenome, tmpPangFile)
 
     blastout = alignSeqToPang(tmpPangFile, tmpGeneFile, output, newtmpdir, cpu, no_defrag, identity,
-                              coverage, True, translation_table)
+                              coverage, translation_table)
 
     tmpPangFile.close()
     tmpGeneFile.close()
@@ -333,17 +326,17 @@ def draw_spot_gexf(spots, output, multigenics, fam2mod, set_size=3):
         subgraph(spot, fname, set_size=set_size, multigenics=multigenics, fam2mod=fam2mod)
 
 
-def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=False):
+def getSeqInfo(seq2pang, pangenome, output, cpu, draw_related, disable_bar=False):
     logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    finfo = open(output + "/info_input_prot.tsv", "w")
+    finfo = open(output + "/info_input_seq.tsv", "w")
     finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
     fam2rgp = getFam2RGP(pangenome, multigenics)
     fam2spot, fam2border, multigenics = getFam2spot(pangenome, multigenics)
     spot_list = set()
-    for prot, panfam in prot2pang.items():
-        finfo.write(prot + '\t' + panfam.name + "\t" + panfam.namedPartition + "\t" + ",".join(
+    for seq, panfam in seq2pang.items():
+        finfo.write(seq + '\t' + panfam.name + "\t" + panfam.namedPartition + "\t" + ",".join(
             map(add_spot_str, fam2spot[panfam])) + "\t" + ",".join(
             map(add_spot_str, fam2border[panfam])) + "\t" + ','.join(fam2rgp[panfam]) + "\n")
         spot_list |= set(fam2spot[panfam])
@@ -356,7 +349,7 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=Fal
                 drawn_spots.add(spot)
         logging.getLogger().info(
             f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
-            f"related to hits of the input proteins...")
+            f"related to hits of the input sequences...")
         drawSelectedSpots(drawn_spots, pangenome, output, pangenome.parameters["spots"]["overlapping_match"],
                           pangenome.parameters["spots"]["exact_match"], pangenome.parameters["spots"]["set_size"],
                           disable_bar=disable_bar)
@@ -370,41 +363,49 @@ def getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=Fal
         draw_spot_gexf(drawn_spots, output, multigenics=multigenics, fam2mod=fam2mod)
 
     logging.getLogger().info(
-        f"File listing RGP and spots where proteins of interest are located : '{output + '/info_input_prot.tsv'}'")
+        f"File listing RGP and spots where sequences of interest are located : '{output + '/info_input_seq.tsv'}'")
 
 
-def get_prot2pang(pangenome, proteinFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8):
+def get_seq2pang(pangenome, sequenceFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8):
     """
-    Allow to extract the best alignement between protein and gene's families
+    Assign a pangenome gene family to the input sequences.
 
-    :param pangenome: Pangenome with gene's families to align with proteins
-    :param proteinFile: Proteins in fasta file to align with Pangenome
-    :param output: Alignment file
-    :param tmpdir: temporary directory
-    :param cpu: CPU core available
-    :param no_defrag: Make or not a defragmentation before to align
-    :param identity: identity rate to align
-    :param coverage: covery rate to align
+    :param pangenome: Pangenome with gene families to align with the given input sequences
+    :type pangenome: Pangenome
+    :param sequenceFile: Sequences in a .fasta file to align with the given Pangenome
+    :type sequenceFile: str
+    :param output: Output directory
+    :type output: str
+    :param tmpdir: Temporary directory
+    :type tmpdir: str
+    :param cpu: number of CPU cores to use 
+    :type cpu: int
+    :param no_defrag: do not use the defrag workflow if true
+    :type no_defrag: Boolean
+    :param identity: minimal identity threshold for the alignment
+    :type identity: float
+    :param coverage: minimal identity threshold for the alignment
+    :type coverage: float
 
-    :return: protein set and protein align with families
-    :rtype: set, dic
+    :return: sequence set, blast-tab result file string, and sequences aligned with families
+    :rtype: set, str, dic
     """
     tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
 
     writeGeneFamSequences(pangenome, tmpPangFile)
 
-    with read_compressed_or_not(proteinFile) as protFileObj:
-        protSet = getProt(protFileObj)
-        alignFile = alignSeqToPang(tmpPangFile, protFileObj, output, tmpdir, cpu, no_defrag, identity, coverage)
+    with read_compressed_or_not(sequenceFile) as seqFileObj:
+        seqSet = getSeq(seqFileObj)
+        alignFile = alignSeqToPang(tmpPangFile, seqFileObj, output, tmpdir, cpu, no_defrag, identity, coverage)
 
-    prot2pang = readAlignments(alignFile, pangenome)
+    seq2pang = readAlignments(alignFile, pangenome)
 
     tmpPangFile.close()
 
-    return protSet, alignFile, prot2pang
+    return seqSet, alignFile, seq2pang
 
 
-def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1, getinfo=False,
+def align(pangenome, sequenceFile, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1, getinfo=False,
           draw_related=False, priority='name,ID', disable_bar=False):
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
@@ -424,23 +425,23 @@ def align(pangenome, proteinFile, output, tmpdir, identity=0.8, coverage=0.8, no
 
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 
-    protSet, alignFile, prot2pang = get_prot2pang(pangenome, proteinFile, output, new_tmpdir,
+    seqSet, alignFile, seq2pang = get_seq2pang(pangenome, sequenceFile, output, new_tmpdir,
                                                   cpu, no_defrag, identity, coverage)
 
     if getinfo or draw_related:
-        getProtInfo(prot2pang, pangenome, output, cpu, draw_related, disable_bar=disable_bar)
+        getSeqInfo(seq2pang, pangenome, output, cpu, draw_related, disable_bar=disable_bar)
     else:
-        partProj = projectPartition(prot2pang, protSet, output)  # write the partition assignation only
-        logging.getLogger().info(f"proteins partition projection : '{partProj}'")
-    logging.getLogger().info(f"{len(prot2pang)} proteins over {len(protSet)} have at least one hit in the pangenome.")
+        partProj = projectPartition(seq2pang, seqSet, output)  # write the partition assignation only
+        logging.getLogger().info(f"sequences partition projection : '{partProj}'")
+    logging.getLogger().info(f"{len(seq2pang)} sequences over {len(seqSet)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{alignFile}'")
 
     new_tmpdir.cleanup()
 
 
 def launch(args):
-    if not any([args.proteins, args.annotation]):
-        raise Exception("At least one of --proteins or --annotation must be given")
+    if not any([args.sequences, args.annotation]):
+        raise Exception("At least one of --sequences or --annotation must be given")
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
@@ -448,8 +449,8 @@ def launch(args):
         logging.getLogger().warning("Options --interest, --fig_margin and --label_priority are deprecated, "
                                     "and the actions they defined are now doable directly in the interactive figures "
                                     "that are drawn")
-    if args.proteins is not None:
-        align(pangenome=pangenome, proteinFile=args.proteins, output=args.output, tmpdir=args.tmpdir, cpu=args.cpu,
+    if args.sequences is not None:
+        align(pangenome=pangenome, sequenceFile=args.sequences, output=args.output, tmpdir=args.tmpdir, cpu=args.cpu,
               identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, getinfo=args.getinfo,
               draw_related=args.draw_related, priority=args.label_priority, disable_bar=args.disable_prog_bar)
 
@@ -463,8 +464,8 @@ def alignSubparser(subparser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
-    onereq.add_argument('--proteins', required=False, type=str,
-                        help="proteins sequences to align on the pangenome gene families")
+    onereq.add_argument('-S','--sequences', required=False, type=str,
+                        help="sequences (nucleotides or amino acids) to align on the pangenome gene families")
     onereq.add_argument('--annotation', required=False, type=str,
                         help="annotation input file (gff or gbff) from which to predict RGPs and partitions")
 
@@ -489,7 +490,7 @@ def alignSubparser(subparser):
                                "such as the RGP it is in, or the spots.")
     optional.add_argument("--draw_related", required=False, action="store_true",
                           help="Draw figures and provide graphs in a gexf format of the eventual spots"
-                               " associated to the input proteins")
+                               " associated to the input sequences")
     optional.add_argument("--interest", required=False, action="store_true",
                           help=argparse.SUPPRESS)  # This ensures compatibility with the old API
     # but does not use the option
