@@ -9,11 +9,9 @@ import argparse
 from collections import defaultdict
 
 # local libraries
-from ppanggolin.formats import checkPangenomeInfo, writeGeneSequencesFromAnnotations
+from ppanggolin.formats import checkPangenomeInfo
 from ppanggolin.utils import mkOutdir, read_compressed_or_not
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.annotate import detect_filetype, read_org_gff, read_org_gbff
-from ppanggolin.RGP.genomicIsland import compute_org_rgp
 from ppanggolin.figures.draw_spot import drawSelectedSpots, subgraph
 
 
@@ -30,13 +28,12 @@ def createdb(fileObj, tmpdir):
     :rtype: _io.TextIOWrapper
     """
     seqdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
-    cmd = ["mmseqs", "createdb", fileObj.name, seqdb.name, '--dbtype','0']
+    cmd = ["mmseqs", "createdb", fileObj.name, seqdb.name, '--dbtype', '0']
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     return seqdb
 
 
-def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8,
-                   code=11):
+def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, identity=0.8, coverage=0.8):
     pang_db = createdb(pangFile, tmpdir)
     seq_db = createdb(seqFile, tmpdir)
     cov_mode = "0"  # coverage of query and target
@@ -140,7 +137,7 @@ def draw_spot_gexf(spots, output, multigenics, fam2mod, set_size=3):
         subgraph(spot, fname, set_size=set_size, multigenics=multigenics, fam2mod=fam2mod)
 
 
-def getSeqInfo(seq2pang, pangenome, output, cpu, draw_related, disable_bar=False):
+def getSeqInfo(seq2pang, pangenome, output, draw_related, disable_bar=False):
     logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
@@ -191,7 +188,7 @@ def get_seq2pang(pangenome, sequenceFile, output, tmpdir, cpu=1, no_defrag=False
     :param output: Output directory
     :type output: str
     :param tmpdir: Temporary directory
-    :type tmpdir: str
+    :type tmpdir: tempfile.TemporaryDirectory
     :param cpu: number of CPU cores to use 
     :type cpu: int
     :param no_defrag: do not use the defrag workflow if true
@@ -220,7 +217,7 @@ def get_seq2pang(pangenome, sequenceFile, output, tmpdir, cpu=1, no_defrag=False
 
 
 def align(pangenome, sequenceFile, output, tmpdir, identity=0.8, coverage=0.8, no_defrag=False, cpu=1, getinfo=False,
-          draw_related=False, priority='name,ID', disable_bar=False):
+          draw_related=False, disable_bar=False):
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
                         "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
@@ -240,10 +237,10 @@ def align(pangenome, sequenceFile, output, tmpdir, identity=0.8, coverage=0.8, n
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 
     seqSet, alignFile, seq2pang = get_seq2pang(pangenome, sequenceFile, output, new_tmpdir,
-                                                  cpu, no_defrag, identity, coverage)
+                                               cpu, no_defrag, identity, coverage)
 
     if getinfo or draw_related:
-        getSeqInfo(seq2pang, pangenome, output, cpu, draw_related, disable_bar=disable_bar)
+        getSeqInfo(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
     else:
         partProj = projectPartition(seq2pang, seqSet, output)  # write the partition assignation only
         logging.getLogger().info(f"sequences partition projection : '{partProj}'")
@@ -264,14 +261,15 @@ def launch(args):
     if args.sequences is not None:
         align(pangenome=pangenome, sequenceFile=args.sequences, output=args.output, tmpdir=args.tmpdir, cpu=args.cpu,
               identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, getinfo=args.getinfo,
-              draw_related=args.draw_related, priority=args.label_priority, disable_bar=args.disable_prog_bar)
+              draw_related=args.draw_related, disable_bar=args.disable_prog_bar)
+
 
 def alignSubparser(subparser):
     parser = subparser.add_parser("align", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-S','--sequences', required=True, type=str,
-                        help="sequences (nucleotides or amino acids) to align on the pangenome gene families")
+    required.add_argument('-S', '--sequences', required=True, type=str,
+                          help="sequences (nucleotides or amino acids) to align on the pangenome gene families")
 
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=str,

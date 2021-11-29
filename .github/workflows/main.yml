@@ -93,12 +93,11 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_align --draw_related --getinfo
-        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --anno NC_010287.gbff --output test_align -f
+        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_align --draw_related --getinfo
         cd -
     - name: testing context command
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin context --pangenome myannopang/pangenome.h5 --proteins some_chlam_proteins.fasta --output test_context
+        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context
         ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f

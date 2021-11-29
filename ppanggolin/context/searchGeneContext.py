@@ -34,6 +34,7 @@ class geneContext:
         Methods
         -------
         """
+
     def __init__(self, ID, families=None):
         """ Initial methods
 
@@ -61,8 +62,8 @@ class geneContext:
         self.families.add(family)
 
 
-def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, families=None, transitive=4, identity=0.5,
-                           coverage=0.8, jaccard=0.85, no_defrag=False, cpu=1, disable_bar=True):
+def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, families=None, transitive=4,
+                                    identity=0.5, coverage=0.8, jaccard=0.85, no_defrag=False, cpu=1, disable_bar=True):
     """
     Main function to search common gene contexts between sequence set and pangenome families
 
@@ -104,7 +105,7 @@ def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, f
         # Alignment of sequences on pangenome families
         new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
         seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag,
-                                              identity, coverage)
+                                           identity, coverage)
         projectPartition(seq2pan, seq_set, output)
         new_tmpdir.cleanup()
         for k, v in seq2pan.items():
@@ -206,7 +207,7 @@ def extract_gene_context(gene, contig, families, t=4):
     :rtype: (int, Bool, int, Bool)
     """
     pos_left, pos_right = (max(0, gene.position - t),
-                           min(gene.position + t, len(contig)-1))  # Gene positions to compare family
+                           min(gene.position + t, len(contig) - 1))  # Gene positions to compare family
     in_context_left, in_context_right = (False, False)
     while pos_left < gene.position and not in_context_left:
         if contig[pos_left].family in families.values():
@@ -247,7 +248,8 @@ def fam2seq(seq2pan):
     """
     Create a dictionary with gene families as keys and list of sequences id as values
 
-    :param seq2pan: Dictionary storing the sequence ids as keys and the gene families to which they are assigned as values
+    :param seq2pan: Dictionary storing the sequence ids as keys and the gene families
+                    to which they are assigned as values
     :param seq2pan: dict
 
     :return: Dictionary reversed
@@ -262,24 +264,24 @@ def fam2seq(seq2pan):
     return fam_2_seq
 
 
-def export_to_dataframe(families, geneContexts, fam_2_seq, output):
+def export_to_dataframe(families, gene_contexts, fam_2_seq, output):
     """ Export the results into dataFrame
 
     :param families: Families related to the connected components
     :type families: set
-    :param geneContexts: connected components found in the pangenome
-    :type geneContexts: set
+    :param gene_contexts: connected components found in the pangenome
+    :type gene_contexts: set
     :param fam_2_seq: Dictionary with gene families as keys and list of sequence ids as values
     :type fam_2_seq: dict
     :param output: output path
     :type output: str
     """
-    logging.getLogger().debug(f"There are {len(families)} families among {len(geneContexts)} gene contexts")
+    logging.getLogger().debug(f"There are {len(families)} families among {len(gene_contexts)} gene contexts")
 
     lines = []
-    for geneContext in geneContexts:
-        for family in geneContext.families:
-            line = [geneContext.ID]
+    for gene_context in gene_contexts:
+        for family in gene_context.families:
+            line = [gene_context.ID]
             if fam_2_seq is None or fam_2_seq.get(family.ID) is None:
                 line += [family.name, None, len(family.organisms)]
             else:
@@ -298,10 +300,12 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    search_geneContext_in_pangenome(pangenome=pangenome, sequences=args.sequences, families=args.family, output=args.output,
-                           identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
-                           transitive=args.transitive, cpu=args.cpu, tmpdir=args.tmpdir, no_defrag=args.no_defrag,
-                           disable_bar=args.disable_prog_bar)
+    search_geneContext_in_pangenome(pangenome=pangenome, sequences=args.sequences, families=args.family,
+                                    output=args.output,
+                                    identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
+                                    transitive=args.transitive, cpu=args.cpu, tmpdir=args.tmpdir,
+                                    no_defrag=args.no_defrag,
+                                    disable_bar=args.disable_prog_bar)
 
 
 def contextSubparser(sub_parser):
