@@ -1,0 +1,45 @@
+name: conda recipe
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on schedule but only for the default branch (which is master)
+  schedule:
+   - cron: '0 6 * * *'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "check_recipe"
+  check_recipe:
+    name: test that the bioconda recipes all still work
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ['ubuntu-latest','macos-latest']
+        python-version: ['3.6','3.7','3.8']
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      # Setting up miniconda
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          condarc-file: .condarc.yml
+          activate-environment: test
+          python-version: ${{ matrix.python-version }}
+      - name: Set up test environment
+        shell: bash -l {0}
+        run: |
+            conda install -y ppanggolin
+      - name: check installation
+        shell: bash -l {0}
+        run: |
+            python --version
+            ppanggolin --version
+      - name: all workflow run
+        shell: bash -l {0}
+        run: |
+          ppanggolin all --cpu 1 --anno organisms.gbff.list -o pango
+          ppanggolin info -p pango/pangenome.h5 --content --parameters --status
