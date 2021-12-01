@@ -41,5 +41,6 @@ jobs:
       - name: all workflow run
         shell: bash -l {0}
         run: |
-          ppanggolin all --cpu 1 --anno testingDataset/organisms.gbff.list -o pango
+          cd testingDataset/
+          ppanggolin all --cpu 1 --anno organisms.gbff.list -o pango
           ppanggolin info -p pango/pangenome.h5 --content --parameters --status
