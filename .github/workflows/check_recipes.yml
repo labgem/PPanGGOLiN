@@ -4,7 +4,7 @@ name: conda recipe
 on:
   # Triggers the workflow on schedule but only for the default branch (which is master)
   schedule:
-   - cron: '0 6 * * *'
+   - cron: '0 7 * * 1-5'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
