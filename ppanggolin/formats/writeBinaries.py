@@ -533,19 +533,22 @@ def ErasePangenome(pangenome, graph=False, geneFamilies=False, partition=False, 
     if '/geneFamiliesInfo' in h5f and geneFamilies:
         logging.getLogger().info("Erasing the formerly computed gene family representative sequences...")
         h5f.remove_node('/', 'geneFamiliesInfo')  # erasing the table, and rewriting a new one.
-        pangenome.status["partitionned"] = "No"
         pangenome.status["geneFamilySequences"] = "No"
         statusGroup._v_attrs.geneFamilySequences = False
-        statusGroup._v_attrs.Partitionned = False
+        if partition:
+            logging.getLogger().info("Erasing former partitions...")
+            pangenome.status["partitionned"] = "No"
 
-        h5f.del_node_attr(infoGroup, "numberOfPersistent")
-        h5f.del_node_attr(infoGroup, "persistentStats")
-        h5f.del_node_attr(infoGroup, "numberOfShell")
-        h5f.del_node_attr(infoGroup, "shellStats")
-        h5f.del_node_attr(infoGroup, "numberOfCloud")
-        h5f.del_node_attr(infoGroup, "cloudStats")
-        h5f.del_node_attr(infoGroup, "numberOfPartitions")
-        h5f.del_node_attr(infoGroup, "numberOfSubpartitions")
+            statusGroup._v_attrs.Partitionned = False
+
+            h5f.del_node_attr(infoGroup, "numberOfPersistent")
+            h5f.del_node_attr(infoGroup, "persistentStats")
+            h5f.del_node_attr(infoGroup, "numberOfShell")
+            h5f.del_node_attr(infoGroup, "shellStats")
+            h5f.del_node_attr(infoGroup, "numberOfCloud")
+            h5f.del_node_attr(infoGroup, "cloudStats")
+            h5f.del_node_attr(infoGroup, "numberOfPartitions")
+            h5f.del_node_attr(infoGroup, "numberOfSubpartitions")
 
     if '/RGP' in h5f and (geneFamilies or partition or rgp):
         logging.getLogger().info("Erasing the formerly computer RGP...")
