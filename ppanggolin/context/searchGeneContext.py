@@ -20,40 +20,40 @@ from ppanggolin.align.alignOnPang import get_seq2pang, projectPartition
 from ppanggolin.geneFamily import GeneFamily
 
 
-class geneContext:
+class GeneContext:
     """
-        A class used to represent a geneContext
+        A class used to represent a gene context
 
         Attributes
         ----------
-        ID : int
-            ID of the geneContext
+        gc_id : int
+            ID of the Gene context
         families : set
-            Gene families related to the geneContext
+            Gene families related to the GeneContext
 
         Methods
         -------
         """
 
-    def __init__(self, ID, families=None):
+    def __init__(self, gc_id, families=None):
         """ Initial methods
 
-        :param ID: ID of the geneContext
-        :type ID: int
-        :param families: Gene families related to the geneContext
+        :param gc_id: ID of the GeneContext
+        :type gc_id: int
+        :param families: Gene families related to the GeneContext
         :type families: set
         """
-        self.ID = ID
+        self.ID = gc_id
         self.families = set()
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
                 raise Exception(f"You provided elements that were not GeneFamily object."
-                                f" geneContext are only made of GeneFamily")
+                                f" GeneContext are only made of GeneFamily")
             self.families |= set(families)
 
     def add_family(self, family):
         """
-        Allow to add one family in the geneContext
+        Allow to add one family in the GeneContext
         :param family: family to add
         :type family: GeneFamily
         """
@@ -81,7 +81,7 @@ def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, f
     :type transitive: int
     :param identity: minimum identity threshold between sequences and gene families for the alignment
     :type identity: float
-    :param coverage: minimum coverage threshold between seuqneces and gene families for the alignment
+    :param coverage: minimum coverage threshold between sequences and gene families for the alignment
     :type coverage: float
     :param jaccard: Jaccard index to filter edges in graph
     :type jaccard: float
@@ -120,7 +120,7 @@ def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, f
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
-    g = compute_geneContext_graph(families=gene_families, t=transitive, disable_bar=disable_bar)
+    g = compute_gene_context_graph(families=gene_families, t=transitive, disable_bar=disable_bar)
     logging.getLogger().info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
     logging.getLogger().debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
@@ -129,8 +129,8 @@ def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, f
     common_components = compute_geneContext(g, jaccard)
 
     families = set()
-    for genecontext in common_components:
-        families |= genecontext.families
+    for gene_context in common_components:
+        families |= gene_context.families
 
     if len(families) != 0:
         export_to_dataframe(families, common_components, fam_2_seq, output)
@@ -140,7 +140,7 @@ def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, f
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
 
-def compute_geneContext_graph(families, t, disable_bar=False):
+def compute_gene_context_graph(families, t, disable_bar=False):
     """
     Construct the graph of gene contexts between families of the pangenome
 
@@ -236,12 +236,12 @@ def compute_geneContext(g, jaccard=0.85):
     :return: Set of gene contexts find in graph
     :rtype: Set
     """
-    geneContexts = set()
+    gene_contexts = set()
     c = 1
     for comp in connected_components(g, removed=set(), weight=jaccard):
-        geneContexts.add(geneContext(ID=c, families=comp))
+        gene_contexts.add(GeneContext(gc_id=c, families=comp))
         c += 1
-    return geneContexts
+    return gene_contexts
 
 
 def fam2seq(seq2pan):
@@ -283,14 +283,16 @@ def export_to_dataframe(families, gene_contexts, fam_2_seq, output):
         for family in gene_context.families:
             line = [gene_context.ID]
             if fam_2_seq is None or fam_2_seq.get(family.ID) is None:
-                line += [family.name, None, len(family.organisms)]
+                line += [family.name, None, len(family.organisms), family.namedPartition]
             else:
-                line += [family.name, ','.join(fam_2_seq.get(family.ID)), len(family.organisms)]
+                line += [family.name, ','.join(fam_2_seq.get(family.ID)),
+                         len(family.organisms), family.namedPartition]
             lines.append(line)
     df = pd.DataFrame(lines,
-                      columns=["geneContext ID", "Gene family name", "sequence ID", "Nb Genomes"]
-                      ).set_index("geneContext ID").sort_index()
-    df.to_csv(path_or_buf=f"{output}/gene_contexts.tsv", sep="\t", na_rep='NA')
+                      columns=["GeneContext ID", "Gene family name", "Sequence ID", "Nb Genomes", "Partition"]
+                      ).set_index("GeneContext ID")
+    df.sort_values(["GeneContext ID", "Sequence ID"], na_position='last').to_csv(
+        path_or_buf=f"{output}/gene_contexts.tsv", sep="\t", na_rep='NA')
     logging.getLogger(f"detected gene context(s) are listed in: '{output}/gene_contexts.tsv'")
 
 
