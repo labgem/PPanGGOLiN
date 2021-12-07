@@ -32,11 +32,16 @@ def alignRep(faaFile, tmpdir, cpu, coverage, identity):
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    outfile = tmpdir.name + '/rep_families_tsv'
-    cmd = ["mmseqs", "convertalis", seqdb, seqdb, alndb, outfile, "--format-output", "query,target,qlen,tlen,bits"]
+    outdb = tmpdir.name + '/rep_families'
+    cmd = ["mmseqs", "convertalis", seqdb, seqdb, alndb, outdb, "--format-output", "target,qlen,tlen,bits", "--db-output","1"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    outfile = tmpdir.name + '/rep_families.tsv'
+    cmd = ["mmseqs","createtsv",seqdb, seqdb, outdb, outfile, "--full-header","1"]
+    logging.getLogger().debug(" ".join(cmd))
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+
     return outfile
 
 
@@ -63,11 +68,11 @@ def firstClustering(sequences, tmpdir, cpu, code, coverage, identity, mode):
     logging.getLogger().debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     reprfa = tmpdir.name + '/representative_sequences.fasta'
-    cmd = ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa]
+    cmd = ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]
     logging.getLogger().debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     outtsv = tmpdir.name + '/families_tsv'
-    cmd = ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv]
+    cmd = ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv, "--threads", str(cpu), "--full-header"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Writing gene to family informations")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -92,7 +97,7 @@ def read_tsv(tsvfileName):
     fam2genes = defaultdict(set)
     with open(tsvfileName, "r") as tsvfile:
         for line in tsvfile:
-            line = line.split()
+            line = line.replace('"','').split()#remove the '"' char which protects the fields.
             genes2fam[line[1]] = (line[0], False)  # fam id, and it's a gene (and not a fragment)
             fam2genes[line[0]].add(line[1])
     return genes2fam, fam2genes
@@ -108,7 +113,7 @@ def refineClustering(tsv, alnFile, fam2seq):
     # add the edges
     with open(alnFile, "r") as alnfile:
         for line in alnfile:
-            line = line.split()
+            line = line.replace('"','').split()
 
             if line[0] != line[1]:
                 simgraph.add_edge(line[0], line[1], score=float(line[4]))
