@@ -88,7 +88,7 @@ Furthermore, you can also predict genomic islands and cluster them into spots of
 
 It will run more analyses after the pangenome has been partitionned. Further details are available `here <https://github.com/labgem/PPanGGOLiN/wiki/Regions-of-Genome-Plasticity>`_ and in the panRPG publication (see below)
 
-To determine the conserved modules in your pangenome, you can use the panModule workflow, as such:
+To detect the conserved modules in your pangenome, you can use the panModule workflow, as such:
 
 .. code:: bash
 
