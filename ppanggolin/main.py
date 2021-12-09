@@ -125,7 +125,7 @@ def cmdLine():
     desc += "    module       Predicts functional modules in your pangenome\n"
     desc += "  \n"
     desc += "  Genomic context:\n"
-    desc += "    context      Genomic context analyse (inDev)\n"
+    desc += "    context      Local genomic context analysis\n"
     desc += "  \n"
 
     parser = argparse.ArgumentParser(
