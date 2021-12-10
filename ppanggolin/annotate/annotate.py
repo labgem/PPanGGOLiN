@@ -315,7 +315,6 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo=False
 
                 if gff_fields[GFF_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(org.name + "_CDS_" + str(geneCounter).zfill(4))
-
                     # here contig is filled in order, so position is the number of genes already stored in the contig.
                     gene.fill_annotations(start=int(gff_fields[GFF_start]),
                                           stop=int(gff_fields[GFF_end]),
@@ -374,6 +373,28 @@ def readAnnoFile(organism_name, filename, circular_contigs, getSeq, pseudo):
             "Wrong file type provided. This looks like a fasta file. You may be able to use --fasta instead.")
 
 
+def choseGeneIdentifiers(pangenome):
+    """
+        Parses the pangenome genes to decide whether to use local_identifiers or ppanggolin generated gene identifiers.
+        If the local identifiers are unique within the pangenome they are picked, otherwise ppanggolin ones are used.
+        :return: Boolean stating True if local identifiers are used, and False otherwise
+        :rtype: Bool
+    """
+    geneID2local = {}
+    local2geneID = {}
+    for gene in pangenome.genes:
+        geneID2local[gene.ID] = gene.local_identifier
+        local2geneID[gene.local_identifier] = gene.ID 
+        if len(local2geneID) != len(geneID2local):
+            #then, there are non unique local identifiers
+            return False
+    #if we reach this line, local identifiers are unique within the pangenome
+    for gene in pangenome.genes:
+        gene.ID = gene.local_identifier#we erase the ppanggolin generated gene ids and replace them with local_identifiers
+        gene.local_identifier = ""#this is now useless, setting it to default value
+    pangenome._mkgeneGetter()#re-build the gene getter
+    return True
+
 def readAnnotations(pangenome, organisms_file, cpu, getSeq=True, pseudo=False, disable_bar=False):
     logging.getLogger().info("Reading " + organisms_file + " the list of organism files ...")
 
@@ -395,8 +416,16 @@ def readAnnotations(pangenome, organisms_file, cpu, getSeq=True, pseudo=False, d
             bar.update()
     bar.close()
 
+    #decide whether or not we use local ids or ppanggolin ids.
+    used_local_identifiers = choseGeneIdentifiers(pangenome)
+    if used_local_identifiers:
+        logging.getLogger().info("gene identifiers used in the provided annotation files were unique, PPanGGOLiN will use them.")
+    else:
+        logging.getLogger().info("gene identifiers used in the provided annotation files were not unique, PPanGGOLiN will use self-generated identifiers.")
+
     pangenome.status["genomesAnnotated"] = "Computed"
     pangenome.parameters["annotation"] = {}
+    pangenome.parameters["annotation"]["used_local_identifiers"] = used_local_identifiers
     pangenome.parameters["annotation"]["read_pseudogenes"] = pseudo
     pangenome.parameters["annotation"]["read_annotations_from_file"] = True
 
