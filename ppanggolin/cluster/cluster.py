@@ -250,7 +250,7 @@ def mkLocal2Gene(pangenome):
         oldLen = len(localDict)
         localDict[gene.local_identifier] = gene
         if len(localDict) == oldLen:
-            if pangenome.parameters["annotation"]["read_annotations_from_file"] and pangenome.parameters["annotation"]["used_local_identifiers"] is False:
+            if pangenome.parameters["annotation"]["read_annotations_from_file"] and not pangenome.parameters["annotation"]["used_local_identifiers"]:
                 raise Exception(f"'{gene.local_identifier}' was found multiple times used as an identifier. "
                                 f"The identifier of the genes (locus_tag, protein_id in gbff, ID in gff) were not "
                                 f"unique throughout all of the files. It is thus impossible to differentiate the genes."
