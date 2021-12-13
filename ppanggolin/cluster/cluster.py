@@ -85,7 +85,7 @@ def read_faa(faFileName):
     with open(faFileName, "r") as faFile:
         for line in faFile:
             if line.startswith('>'):
-                head = line[1:].strip()
+                head = line[1:].strip().replace("ppanggolin_","")#remove the eventual addition
             else:
                 fam2seq[head] = line.strip()
     return fam2seq
@@ -97,7 +97,7 @@ def read_tsv(tsvfileName):
     fam2genes = defaultdict(set)
     with open(tsvfileName, "r") as tsvfile:
         for line in tsvfile:
-            line = line.replace('"','').split()#remove the '"' char which protects the fields.
+            line = line.replace('"','').replace("ppanggolin_","").split()#remove the '"' char which protects the fields, and the eventual addition
             genes2fam[line[1]] = (line[0], False)  # fam id, and it's a gene (and not a fragment)
             fam2genes[line[0]].add(line[1])
     return genes2fam, fam2genes
@@ -113,7 +113,7 @@ def refineClustering(tsv, alnFile, fam2seq):
     # add the edges
     with open(alnFile, "r") as alnfile:
         for line in alnfile:
-            line = line.replace('"','').split()
+            line = line.replace('"','').replace("ppanggolin_","").split()#remove the eventual addition
 
             if line[0] != line[1]:
                 simgraph.add_edge(line[0], line[1], score=float(line[4]))
@@ -187,9 +187,9 @@ def checkPangenomeForClustering(pangenome, tmpFile, force, disable_bar=False):
     """
     checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-        writeGeneSequencesFromAnnotations(pangenome, tmpFile, disable_bar=disable_bar)
+        writeGeneSequencesFromAnnotations(pangenome, tmpFile, add="ppanggolin_", disable_bar=disable_bar)#we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
     elif pangenome.status["geneSequences"] == "inFile":
-        getGeneSequencesFromFile(pangenome.file, tmpFile, disable_bar=disable_bar)  # write CDS sequences to the tmpFile
+        getGeneSequencesFromFile(pangenome.file, tmpFile,add="ppanggolin_", disable_bar=disable_bar)  # write CDS sequences to the tmpFile
     else:
         tmpFile.close()  # closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster "
