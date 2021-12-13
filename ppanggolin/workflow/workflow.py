@@ -27,10 +27,7 @@ def launch(args):
     pangenome = Pangenome()
     filename = mkFilename(args.basename, args.output, args.force)
     if args.anno:  # if the annotations are provided, we read from it
-        getSeq = True
-        if args.clusters is not None:
-            getSeq = False
-        readAnnotations(pangenome, args.anno, cpu=args.cpu, getSeq=getSeq, disable_bar=args.disable_prog_bar)
+        readAnnotations(pangenome, args.anno, cpu=args.cpu, disable_bar=args.disable_prog_bar)
         writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, "

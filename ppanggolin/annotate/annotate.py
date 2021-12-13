@@ -214,7 +214,7 @@ def read_org_gbff(organism, gbff_file_path, circular_contigs, pseudo=False):
     return org, True
 
 
-def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo=False):
+def read_org_gff(organism, gff_file_path, circular_contigs, pseudo=False):
     (GFF_seqname, _, GFF_type, GFF_start, GFF_end, _, GFF_strand, _, GFF_attribute) = range(0, 9)
     # missing values : source, score, frame. They are unused.
 
@@ -266,8 +266,6 @@ def read_org_gff(organism, gff_file_path, circular_contigs, getSeq, pseudo=False
                 continue
             elif line.startswith('##', 0, 2):
                 if line.startswith('FASTA', 2, 7):
-                    if not getSeq:  # if getting the sequences is useless...
-                        break
                     hasFasta = True
                 elif line.startswith('sequence-region', 2, 17):
                     fields = [el.strip() for el in line.split()]
@@ -356,11 +354,11 @@ def launchReadAnno(args):
     return readAnnoFile(*args)
 
 
-def readAnnoFile(organism_name, filename, circular_contigs, getSeq, pseudo):
+def readAnnoFile(organism_name, filename, circular_contigs, pseudo):
     filetype = detect_filetype(filename)
     if filetype == "gff":
         try:
-            return read_org_gff(organism_name, filename, circular_contigs, getSeq, pseudo)
+            return read_org_gff(organism_name, filename, circular_contigs, pseudo)
         except:
             raise Exception(f"Reading the gff3 file '{filename}' raised an error.")
     elif filetype == "gbff":
@@ -395,7 +393,7 @@ def choseGeneIdentifiers(pangenome):
     pangenome._mkgeneGetter()#re-build the gene getter
     return True
 
-def readAnnotations(pangenome, organisms_file, cpu, getSeq=True, pseudo=False, disable_bar=False):
+def readAnnotations(pangenome, organisms_file, cpu, pseudo=False, disable_bar=False):
     logging.getLogger().info("Reading " + organisms_file + " the list of organism files ...")
 
     pangenome.status["geneSequences"] = "Computed"
@@ -406,7 +404,7 @@ def readAnnotations(pangenome, organisms_file, cpu, getSeq=True, pseudo=False, d
         elements = [el.strip() for el in line.split("\t")]
         if len(elements) <= 1:
             raise Exception(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
-        args.append((elements[0], elements[1], elements[2:], getSeq, pseudo))
+        args.append((elements[0], elements[1], elements[2:], pseudo))
     bar = tqdm(range(len(args)), unit="file", disable=disable_bar)
     with get_context('fork').Pool(cpu) as p:
         for org, flag in p.imap_unordered(launchReadAnno, args):
