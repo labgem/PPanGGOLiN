@@ -307,7 +307,7 @@ def readInfo(h5f):
             if infoGroup._v_attrs['numberOfPartitions'] != 3:
                 for key, val in infoGroup._v_attrs['numberOfSubpartitions'].items():
                     print(f"Shell {key} : {val}")
-        if infoGroup._v_attrs['fluidity']:
+        if 'fluidity' in infoGroup._v_attrs._f_list():
             print(f"Genomes fluidity : {infoGroup._v_attrs['fluidity']}")
         if 'numberOfRGP' in infoGroup._v_attrs._f_list():
             print(f"RGPs : {infoGroup._v_attrs['numberOfRGP']}")
