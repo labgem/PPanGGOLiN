@@ -18,9 +18,9 @@ poss_values_log = "Possible values are 'all', 'persistent', 'shell', 'cloud', 'r
                   "'core', 'module_X' with X being a module id."
 
 
-def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, disable_bar=False):
+def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, add='', disable_bar=False):
     """
-    Writes the CDS sequences of the Pangenome object to a tmpFile object
+    Writes the CDS sequences given through list_CDS of the Pangenome object to a tmpFile object, and adds the str provided through add in front of it.
     Loads the sequences from previously computed or loaded annotations
     """
     if list_CDS is None:
@@ -28,7 +28,7 @@ def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, disable
     logging.getLogger().info("Writing all of the CDS sequences...")
     for gene in tqdm(list_CDS, unit="gene", disable=disable_bar):
         if gene.type == "CDS":
-            fileObj.write('>' + gene.ID + "\n")
+            fileObj.write('>' + add + gene.ID + "\n")
             fileObj.write(gene.dna + "\n")
     fileObj.flush()
 

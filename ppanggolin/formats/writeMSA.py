@@ -179,7 +179,7 @@ def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=Fa
 
 
 def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", source="protein", soft_core=0.95,
-                  phylo=False, use_gene_id=False, force=False, disable_bar=False):
+                  phylo=False, use_gene_id=False, translation_table="11",force=False, disable_bar=False):
     needPartitions = False
     if partition in ["persistent", "shell", "cloud"]:
         needPartitions = True
@@ -192,8 +192,11 @@ def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", sou
     logging.getLogger().info(f"Doing MSA for {partition} families...")
     families = getFamiliesToWrite(pangenome, partitionFilter=partition, soft_core=soft_core)
 
-    # this must exist since we loaded the pangenome and families are required
-    code = pangenome.parameters["cluster"]["translation_table"]
+    #check that the code is similar than the one used previously, if there is one
+    if 'translation_table' in pangenome.parameters["cluster"]:
+        if pangenome.parameters["cluster"]["translation_table"] != translation_table:
+            logging.getLogger().warning(f"The translation table used during clustering ('{pangenome.parameters['cluster']['translation_table']}') is different than the one provided now ('{translation_table}')")
+    code = translation_table
 
     computeMSA(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, use_gene_id=use_gene_id, code=code,
                disable_bar=disable_bar)
@@ -215,6 +218,7 @@ def launchMSA(args):
     pangenome.addFile(args.pangenome)
     writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
                   source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
+                  translation_table=args.translation_table,
                   force=args.force, disable_bar=args.disable_prog_bar)
 
 
@@ -242,4 +246,6 @@ def writeMSASubparser(subparser):
     optional.add_argument("--use_gene_id", required=False, action='store_true',
                           help="Use gene identifiers rather than organism names for sequences in the family MSA"
                                " (organism names are used by default)")
+    optional.add_argument("--translation_table", required=False, default="11",
+                          help="Translation table (genetic code) to use.")
     return parser
