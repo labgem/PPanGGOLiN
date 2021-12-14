@@ -80,7 +80,8 @@ def computeNeighborsGraph(pangenome, remove_copy_number=0, force=False, disable_
                         prev = gene
                 except AttributeError:
                     raise AttributeError("a Gene does not have a GeneFamily object associated")
-            if contig.is_circular and len(contig.genes) > 0:
+            if prev is not None and contig.is_circular and len(contig.genes) > 0:
+                #if prev is None, the contig is entirely made of duplicated genes, so no edges are added
                 pangenome.addEdge(contig.genes[0], prev)
     logging.getLogger().info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"

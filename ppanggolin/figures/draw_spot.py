@@ -344,7 +344,12 @@ def mkGenomes(geneLists, ordered_counts):
         genelist = GeneList[0]
         df["occurrences"].append(ordered_counts[index])
         df["y"].append(index * 10)
-        df["width"].append(abs(genelist[-1].stop - genelist[0].start))
+        if genelist[0].start < genelist[1].start:
+            # if the order has been inverted, positionning elements on the figure is different
+            df["width"].append(abs(genelist[-1].stop - genelist[0].start))
+        else:
+            #order has been inverted
+            df["width"].append(abs(genelist[0].stop - genelist[-1].start))
         df["x"].append((df["width"][-1]) / 2)
         df["x_label"].append(0)
         df["name"].append(genelist[0].organism.name)

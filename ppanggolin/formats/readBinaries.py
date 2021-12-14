@@ -75,9 +75,9 @@ def read_chunks(table, column=None, chunk=10000):
             yield row
 
 
-def getGeneSequencesFromFile(filename, fileObj, list_CDS=None, disable_bar=False):
+def getGeneSequencesFromFile(filename, fileObj, list_CDS=None, add='', disable_bar=False):
     """
-        Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS
+        Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS, and adds the eventual str 'add' in front of the identifiers
         Loads the sequences from a .h5 pangenome file
     """
     logging.getLogger().info("Extracting and writing CDS sequences from a .h5 pangenome file to a fasta file...")
@@ -89,7 +89,7 @@ def getGeneSequencesFromFile(filename, fileObj, list_CDS=None, disable_bar=False
                            chunk=20000):  # reading the table chunk per chunk otherwise RAM dies on big pangenomes
         nameCDS = row["gene"].decode()
         if row["type"] == b"CDS" and (list_CDS is None or nameCDS in list_CDS):
-            fileObj.write('>' + nameCDS + "\n")
+            fileObj.write('>' + add + nameCDS + "\n")
             fileObj.write(row["dna"].decode() + "\n")
         bar.update()
     fileObj.flush()

@@ -32,11 +32,16 @@ def alignRep(faaFile, tmpdir, cpu, coverage, identity):
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    outfile = tmpdir.name + '/rep_families_tsv'
-    cmd = ["mmseqs", "convertalis", seqdb, seqdb, alndb, outfile, "--format-output", "query,target,qlen,tlen,bits"]
+    outdb = tmpdir.name + '/rep_families'
+    cmd = ["mmseqs", "convertalis", seqdb, seqdb, alndb, outdb, "--format-output", "target,qlen,tlen,bits", "--db-output","1"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    outfile = tmpdir.name + '/rep_families.tsv'
+    cmd = ["mmseqs","createtsv",seqdb, seqdb, outdb, outfile, "--full-header","1"]
+    logging.getLogger().debug(" ".join(cmd))
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+
     return outfile
 
 
@@ -63,11 +68,11 @@ def firstClustering(sequences, tmpdir, cpu, code, coverage, identity, mode):
     logging.getLogger().debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     reprfa = tmpdir.name + '/representative_sequences.fasta'
-    cmd = ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa]
+    cmd = ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]
     logging.getLogger().debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     outtsv = tmpdir.name + '/families_tsv'
-    cmd = ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv]
+    cmd = ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv, "--threads", str(cpu), "--full-header"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Writing gene to family informations")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -80,7 +85,7 @@ def read_faa(faFileName):
     with open(faFileName, "r") as faFile:
         for line in faFile:
             if line.startswith('>'):
-                head = line[1:].strip()
+                head = line[1:].strip().replace("ppanggolin_","")#remove the eventual addition
             else:
                 fam2seq[head] = line.strip()
     return fam2seq
@@ -92,7 +97,7 @@ def read_tsv(tsvfileName):
     fam2genes = defaultdict(set)
     with open(tsvfileName, "r") as tsvfile:
         for line in tsvfile:
-            line = line.split()
+            line = line.replace('"','').replace("ppanggolin_","").split()#remove the '"' char which protects the fields, and the eventual addition
             genes2fam[line[1]] = (line[0], False)  # fam id, and it's a gene (and not a fragment)
             fam2genes[line[0]].add(line[1])
     return genes2fam, fam2genes
@@ -108,7 +113,7 @@ def refineClustering(tsv, alnFile, fam2seq):
     # add the edges
     with open(alnFile, "r") as alnfile:
         for line in alnfile:
-            line = line.split()
+            line = line.replace('"','').replace("ppanggolin_","").split()#remove the eventual addition
 
             if line[0] != line[1]:
                 simgraph.add_edge(line[0], line[1], score=float(line[4]))
@@ -182,9 +187,9 @@ def checkPangenomeForClustering(pangenome, tmpFile, force, disable_bar=False):
     """
     checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-        writeGeneSequencesFromAnnotations(pangenome, tmpFile, disable_bar=disable_bar)
+        writeGeneSequencesFromAnnotations(pangenome, tmpFile, add="ppanggolin_", disable_bar=disable_bar)#we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
     elif pangenome.status["geneSequences"] == "inFile":
-        getGeneSequencesFromFile(pangenome.file, tmpFile, disable_bar=disable_bar)  # write CDS sequences to the tmpFile
+        getGeneSequencesFromFile(pangenome.file, tmpFile,add="ppanggolin_", disable_bar=disable_bar)  # write CDS sequences to the tmpFile
     else:
         tmpFile.close()  # closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster "
@@ -245,7 +250,7 @@ def mkLocal2Gene(pangenome):
         oldLen = len(localDict)
         localDict[gene.local_identifier] = gene
         if len(localDict) == oldLen:
-            if pangenome.parameters["annotation"]["read_annotations_from_file"]:
+            if pangenome.parameters["annotation"]["read_annotations_from_file"] and not pangenome.parameters["annotation"]["used_local_identifiers"]:
                 raise Exception(f"'{gene.local_identifier}' was found multiple times used as an identifier. "
                                 f"The identifier of the genes (locus_tag, protein_id in gbff, ID in gff) were not "
                                 f"unique throughout all of the files. It is thus impossible to differentiate the genes."

@@ -31,11 +31,8 @@ def launch(args):
     filename = mkFilename(args.basename, args.output, args.force)
     writing_time, anno_time, clust_time, mod_time, desc_time = (None, None, None, None, None)
     if args.anno:  # if the annotations are provided, we read from it
-        getSeq = True
-        if args.clusters is not None:
-            getSeq = False
         start_anno = time.time()
-        readAnnotations(pangenome, args.anno, cpu=args.cpu, getSeq=getSeq, disable_bar=args.disable_prog_bar)
+        readAnnotations(pangenome, args.anno, cpu=args.cpu, disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
         start_writing = time.time()
         writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
