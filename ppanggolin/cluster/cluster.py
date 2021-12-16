@@ -32,16 +32,11 @@ def alignRep(faaFile, tmpdir, cpu, coverage, identity):
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    outdb = tmpdir.name + '/rep_families'
-    cmd = ["mmseqs", "convertalis", seqdb, seqdb, alndb, outdb, "--format-output", "target,qlen,tlen,bits", "--db-output","1"]
+    outfile = tmpdir.name + '/rep_families.tsv'
+    cmd = ["mmseqs", "convertalis", seqdb, seqdb, alndb, outfile, "--format-output", "query,target,qlen,tlen,bits"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    outfile = tmpdir.name + '/rep_families.tsv'
-    cmd = ["mmseqs","createtsv",seqdb, seqdb, outdb, outfile, "--full-header","1"]
-    logging.getLogger().debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-
     return outfile
 
 
