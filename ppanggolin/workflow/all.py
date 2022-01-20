@@ -119,7 +119,8 @@ def launch(args):
     logging.getLogger().info(f"Gathering RGP into spots took : {round(spot_time, 2)} seconds")
     logging.getLogger().info(f"Predicting modules took : {round(mod_time, 2)} seconds")
     logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
-    logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
+    if not args.only_pangenome:
+        logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
     printInfo(filename, content=True)
 
 
