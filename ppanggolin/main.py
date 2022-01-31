@@ -27,6 +27,7 @@ import ppanggolin.workflow.all
 import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
+import ppanggolin.metrics.metrics
 import ppanggolin.align
 import ppanggolin.RGP.genomicIsland
 import ppanggolin.RGP.spot
@@ -113,13 +114,14 @@ def cmdLine():
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
-    desc += "    write         Writes 'flat' files representing the pangenome that can be used with other softwares\n"
+    desc += "    write         Writes 'flat' files representing the pangenome that can be used with other software\n"
     desc += "    fasta         Writes fasta files for different elements of the pangenome\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
+    desc += "    metrics       Compute several metrics on a given pangenome\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
     desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and "\
-            "predict informations from it\n"
+            "predict information from it\n"
     desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
     desc += "    spot         predicts spots in your pangenome\n"
     desc += "    module       Predicts functional modules in your pangenome\n"
@@ -149,6 +151,7 @@ def cmdLine():
             ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers),
             ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers),
             ppanggolin.formats.writeMSA.writeMSASubparser(subparsers),
+            ppanggolin.metrics.metrics.metricsSubparser(subparsers),
             ppanggolin.align.alignSubparser(subparsers),
             ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers),
             ppanggolin.RGP.spot.spotSubparser(subparsers),
@@ -232,6 +235,8 @@ def main():
         ppanggolin.formats.launchMSA(args)
     elif args.subcommand == "info":
         ppanggolin.info.launch(args)
+    elif args.subcommand == "metrics":
+        ppanggolin.metrics.metrics.launch(args)
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
     elif args.subcommand == "rgp":

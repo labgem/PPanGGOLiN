@@ -317,6 +317,10 @@ def readInfo(h5f):
             if infoGroup._v_attrs['numberOfPartitions'] != 3:
                 for key, val in infoGroup._v_attrs['numberOfSubpartitions'].items():
                     print(f"Shell {key} : {val}")
+        if 'fluidity' in infoGroup._v_attrs._f_list():
+            out = "Genomes fluidity : " +\
+                  ", ".join(f"{subset}={round(value, 3)}" for subset, value in infoGroup._v_attrs['fluidity'].items())
+            print(out)
         if 'numberOfRGP' in infoGroup._v_attrs._f_list():
             print(f"RGPs : {infoGroup._v_attrs['numberOfRGP']}")
         if 'numberOfSpots' in infoGroup._v_attrs._f_list():
