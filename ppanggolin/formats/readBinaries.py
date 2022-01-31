@@ -333,6 +333,14 @@ def readInfo(h5f):
                   f"sd : {infoGroup._v_attrs['StatOfFamiliesInModules']['sd']}, "
                   f"mean : {infoGroup._v_attrs['StatOfFamiliesInModules']['mean']})"
                   )
+            print(f"\tSheel specific : {infoGroup._v_attrs['ShellSpecInModules']['percent']}  ("
+                  f"sd : {infoGroup._v_attrs['ShellSpecInModules']['sd']}, "
+                  f"mean : {infoGroup._v_attrs['ShellSpecInModules']['mean']})"
+                  )
+            print(f"\tCloud specific : {infoGroup._v_attrs['CloudSpecInModules']['percent']}  ("
+                  f"sd : {infoGroup._v_attrs['CloudSpecInModules']['sd']}, "
+                  f"mean : {infoGroup._v_attrs['CloudSpecInModules']['mean']})"
+                  )
 
 
 def readParameters(h5f):

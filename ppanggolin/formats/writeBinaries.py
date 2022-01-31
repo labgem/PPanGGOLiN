@@ -10,6 +10,7 @@ import pkg_resources
 # installed libraries
 from tqdm import tqdm
 import tables
+from gmpy2 import popcount
 
 
 def geneDesc(orgLen, contigLen, IDLen, typeLen, nameLen, productLen, maxLocalId):
@@ -475,16 +476,30 @@ def writeInfo(pangenome, h5f):
     if pangenome.status["spots"] in ["Computed", "Loaded"]:
         infoGroup._v_attrs.numberOfSpots = len(pangenome.spots)
     if pangenome.status["modules"] in ["Computed", "Loaded"]:
-        def fam_in_part(part):
-            return [fam for fam in pangenome.modules]
-        infoGroup._v_attrs.numberOfModules = len(pangenome.modules)
+        def part_spec(part):
+            pangenome.compute_mod_bitarrays(part)
+            return [popcount(module.bitarray) for module in pangenome.modules]
 
+        infoGroup._v_attrs.numberOfModules = len(pangenome.modules)
         mod_fam = [len(module.families) for module in pangenome.modules]
         infoGroup._v_attrs.numberOfFamiliesInModules = sum(mod_fam)
         infoGroup._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
                                                       "max": getmax(mod_fam),
                                                       "sd": getstdev(mod_fam),
                                                       "mean": getmean(mod_fam)}
+        spec_shell = part_spec(part='shell')
+        spec_cloud = part_spec(part='cloud')
+        infoGroup._v_attrs.ShellSpecInModules = {"percent": round((sum(spec_shell)/sum(mod_fam))*100, 2),
+                                                 "min": getmin(spec_shell),
+                                                 "max": getmax(spec_shell),
+                                                 "sd": getstdev(spec_shell),
+                                                 "mean": getmean(spec_shell)}
+        infoGroup._v_attrs.CloudSpecInModules = {"percent": round((sum(spec_cloud)/sum(mod_fam))*100, 2),
+                                                 "min": getmin(spec_cloud),
+                                                 "max": getmax(spec_cloud),
+                                                 "sd": getstdev(spec_cloud),
+                                                 "mean": getmean(spec_cloud)}
+
 
     infoGroup._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters
 
