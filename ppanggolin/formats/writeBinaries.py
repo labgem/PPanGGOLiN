@@ -408,6 +408,31 @@ def writeStatus(pangenome, h5f):
 
 def writeInfo(pangenome, h5f):
     """ writes information and numbers to be eventually called with the 'info' submodule """
+
+    def getmean(arg):
+        if len(arg) == 0:
+            return 0
+        else:
+            return round(statistics.mean(arg), 2)
+
+    def getstdev(arg):
+        if len(arg) <= 1:
+            return 0
+        else:
+            return round(statistics.stdev(arg), 2)
+
+    def getmax(arg):
+        if len(arg) == 0:
+            return 0
+        else:
+            return round(max(arg), 2)
+
+    def getmin(arg):
+        if len(arg) == 0:
+            return 0
+        else:
+            return round(min(arg), 2)
+
     if "/info" in h5f:
         infoGroup = h5f.root.info
     else:
@@ -432,30 +457,6 @@ def writeInfo(pangenome, h5f):
             if fam.partition != "S_":
                 partSet.add(fam.partition)
 
-        def getmean(arg):
-            if len(arg) == 0:
-                return 0
-            else:
-                return round(statistics.mean(arg), 2)
-
-        def getstdev(arg):
-            if len(arg) <= 1:
-                return 0
-            else:
-                return round(statistics.stdev(arg), 2)
-
-        def getmax(arg):
-            if len(arg) == 0:
-                return 0
-            else:
-                return round(max(arg), 2)
-
-        def getmin(arg):
-            if len(arg) == 0:
-                return 0
-            else:
-                return round(min(arg), 2)
-
         infoGroup._v_attrs.numberOfPersistent = namedPartCounter["persistent"]
         infoGroup._v_attrs.persistentStats = {"min": getmin(partDistribs["persistent"]),
                                               "max": getmax(partDistribs["persistent"]),
@@ -474,8 +475,16 @@ def writeInfo(pangenome, h5f):
     if pangenome.status["spots"] in ["Computed", "Loaded"]:
         infoGroup._v_attrs.numberOfSpots = len(pangenome.spots)
     if pangenome.status["modules"] in ["Computed", "Loaded"]:
+        def fam_in_part(part):
+            return [fam for fam in pangenome.modules]
         infoGroup._v_attrs.numberOfModules = len(pangenome.modules)
-        infoGroup._v_attrs.numberOfFamiliesInModules = sum([len(mod.families) for mod in pangenome.modules])
+
+        mod_fam = [len(module.families) for module in pangenome.modules]
+        infoGroup._v_attrs.numberOfFamiliesInModules = sum(mod_fam)
+        infoGroup._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
+                                                      "max": getmax(mod_fam),
+                                                      "sd": getstdev(mod_fam),
+                                                      "mean": getmean(mod_fam)}
 
     infoGroup._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters
 
@@ -572,8 +581,9 @@ def ErasePangenome(pangenome, graph=False, geneFamilies=False, partition=False, 
         statusGroup._v_attrs.modules = False
         h5f.remove_node("/", "modules")
 
-        h5f.del_node_attr(infoGroup,"numberOfModules")
-        h5f.del_node_attr(infoGroup,"numberOfFamiliesInModules")
+        h5f.del_node_attr(infoGroup, "numberOfModules")
+        h5f.del_node_attr(infoGroup, "numberOfFamiliesInModules")
+        h5f.del_node_attr(infoGroup, "StatOfFamiliesInModules")
 
     h5f.close()
 

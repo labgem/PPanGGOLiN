@@ -323,7 +323,12 @@ def readInfo(h5f):
             print(f"Spots : {infoGroup._v_attrs['numberOfSpots']}")
         if 'numberOfModules' in infoGroup._v_attrs._f_list():
             print(f"Modules : {infoGroup._v_attrs['numberOfModules']}")
-            print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}")
+            print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}  ("
+                  f"min : {infoGroup._v_attrs['StatOfFamiliesInModules']['min']}, "
+                  f"max : {infoGroup._v_attrs['StatOfFamiliesInModules']['max']}, "
+                  f"sd : {infoGroup._v_attrs['StatOfFamiliesInModules']['sd']}, "
+                  f"mean : {infoGroup._v_attrs['StatOfFamiliesInModules']['mean']})"
+                  )
 
 
 def readParameters(h5f):
