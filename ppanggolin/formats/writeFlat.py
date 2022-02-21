@@ -431,9 +431,9 @@ def writeStats(output, soft_core, dup_margin, compress=False):
 
 def writeOrgFile(org, output, compress=False):
     with write_compressed_or_not(output + "/" + org.name + ".tsv", compress) as outfile:
-        outfile.write("\t".join(["gene", "contig", "start", "stop", "strand", "ori", "family", "nb_copy_in_org",
+        outfile.write("\t".join(["gene", "contig", "start", "stop", "strand", "family", "nb_copy_in_org",
                                  "partition", "persistent_neighbors", "shell_neighbors", "cloud_neighbors",
-                                 "RGP", "modules"])
+                                 "RGPs", "spots", "modules"])
                       + "\n")
         for contig in org.contigs:
             for gene in contig.genes:
@@ -442,6 +442,7 @@ def writeOrgFile(org, output, compress=False):
                 nb_cloud = 0
                 modules = None
                 RGP = None
+                spot = None
                 for neighbor in gene.family.neighbors:
                     if neighbor.namedPartition == "persistent":
                         nb_pers += 1
@@ -451,6 +452,8 @@ def writeOrgFile(org, output, compress=False):
                         nb_cloud += 1
                 if len(gene.RGP) > 0:
                     RGP = ','.join([str(region.name) for region in gene.RGP])
+                if len(gene.family.spot) > 0:
+                    spot = ','.join([str(s.ID) for s in gene.family.spot])
                 if len(gene.family.modules) > 0:
                     modules = ','.join([str(module.ID) for module in gene.family.modules])
                 outfile.write("\t".join(map(str, [gene.ID if gene.local_identifier == "" else gene.local_identifier,
@@ -465,6 +468,7 @@ def writeOrgFile(org, output, compress=False):
                                                   nb_shell,
                                                   nb_cloud,
                                                   RGP,
+                                                  spot,
                                                   modules
                                                   ])) + "\n")
 

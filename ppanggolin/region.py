@@ -164,6 +164,10 @@ class Spot:
         if isinstance(region, Region):
             self.regions.add(region)
 
+    def spot_2_families(self):
+        for family in self.families:
+            family.spot.add(self)
+
     def borders(self, set_size, multigenics):
         """ extracts all the borders of all RGPs belonging to the spot"""
         all_borders = []

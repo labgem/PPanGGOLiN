@@ -229,6 +229,7 @@ def readSpots(pangenome, h5f, disable_bar=False):
             curr_spot = Spot(row["spot"])
             spots[row["spot"]] = curr_spot
         curr_spot.addRegion(pangenome.getOrAddRegion(row["RGP"].decode()))
+        curr_spot.spot_2_families()
         bar.update()
     bar.close()
     pangenome.addSpots(spots.values())

@@ -32,6 +32,7 @@ class GeneFamily:
         self.removed = False  # for the repeated family not added in the main graph
         self.sequence = ""
         self.partition = ""
+        self.spot = set()
         self.modules = set()
 
     def addSequence(self, seq):
