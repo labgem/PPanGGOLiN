@@ -43,6 +43,7 @@ class Gene(Feature):
         super().__init__(ID)
         self.position = None
         self.family = None
+        self.RGP = set()
 
     def __str__(self):
         return str(self.ID)

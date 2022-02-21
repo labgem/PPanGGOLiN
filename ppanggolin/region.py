@@ -33,6 +33,7 @@ class Region:
         # allowing only gene-class objects in a region.
         if isinstance(value, Gene):
             self.genes.append(value)
+            value.RGP.add(self)
         else:
             raise TypeError(
                 "Unexpected class / type for " + type(value) + " when adding it to a region of genomic plasticity")

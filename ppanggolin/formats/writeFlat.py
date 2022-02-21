@@ -432,7 +432,8 @@ def writeStats(output, soft_core, dup_margin, compress=False):
 def writeOrgFile(org, output, compress=False):
     with write_compressed_or_not(output + "/" + org.name + ".tsv", compress) as outfile:
         outfile.write("\t".join(["gene", "contig", "start", "stop", "strand", "ori", "family", "nb_copy_in_org",
-                                 "partition", "persistent_neighbors", "shell_neighbors", "cloud_neighbors", "modules"])
+                                 "partition", "persistent_neighbors", "shell_neighbors", "cloud_neighbors",
+                                 "RGP", "modules"])
                       + "\n")
         for contig in org.contigs:
             for gene in contig.genes:
@@ -440,6 +441,7 @@ def writeOrgFile(org, output, compress=False):
                 nb_shell = 0
                 nb_cloud = 0
                 modules = None
+                RGP = None
                 for neighbor in gene.family.neighbors:
                     if neighbor.namedPartition == "persistent":
                         nb_pers += 1
@@ -447,6 +449,8 @@ def writeOrgFile(org, output, compress=False):
                         nb_shell += 1
                     else:
                         nb_cloud += 1
+                if len(gene.RGP) > 0:
+                    RGP = ','.join([str(region.name) for region in gene.RGP])
                 if len(gene.family.modules) > 0:
                     modules = ','.join([str(module.ID) for module in gene.family.modules])
                 outfile.write("\t".join(map(str, [gene.ID if gene.local_identifier == "" else gene.local_identifier,
@@ -460,6 +464,7 @@ def writeOrgFile(org, output, compress=False):
                                                   nb_pers,
                                                   nb_shell,
                                                   nb_cloud,
+                                                  RGP,
                                                   modules
                                                   ])) + "\n")
 
@@ -732,7 +737,7 @@ def writeFlatFiles(pangenome, output, cpu=1, soft_core=0.95, dup_margin=0.05, cs
         needGraph = True
     if regions or spots or borders or spot_modules or projection:
         needRegions = True
-    if spots or borders or spot_modules or projection:
+    if spots or borders or spot_modules:  # or projection:
         needSpots = True
     if modules or spot_modules or projection:
         needModules = True
