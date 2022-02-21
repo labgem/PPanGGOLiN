@@ -32,6 +32,7 @@ class GeneFamily:
         self.removed = False  # for the repeated family not added in the main graph
         self.sequence = ""
         self.partition = ""
+        self.modules = set()
 
     def addSequence(self, seq):
         """Assigns a protein sequence to the gene family.

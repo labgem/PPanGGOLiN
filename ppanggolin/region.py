@@ -241,7 +241,9 @@ class Spot:
         return dict([(key, len(val)) for key, val in self._getContent().items()])
 
     def countUniqOrderedSet(self):
-        """ Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value"""
+        """
+        Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value
+        """
         return dict([(key, len(val)) for key, val in self._getOrderedSet().items()])
 
 
@@ -261,6 +263,13 @@ class Module:
             self.families |= set(families)
 
     def addFamily(self, family):
+        """
+        Add a family to the module
+
+        :param family: the family that will ba added to the module
+        :type family: GeneFamily
+        """
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
+        family.modules.add(self)
         self.families.add(family)
