@@ -33,8 +33,6 @@ class Pangenome:
         self.spots = set()
         self.modules = set()
 
-        self._orgIndex = None
-
         self.status = {
             'genomesAnnotated': "No",
             'geneSequences': "No",
