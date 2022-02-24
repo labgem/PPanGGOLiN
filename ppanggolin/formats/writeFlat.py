@@ -180,12 +180,12 @@ def writeGEXFnodes(gexf, light, soft_core=0.95):
         name = Counter()
         product = Counter()
         gtype = Counter()
-        list = []
+        lis = []
         for gene in fam.genes:
             name[gene.name] += 1
             product[gene.product.replace('&', 'and')] += 1
             gtype[gene.type] += 1
-            list.append(gene.stop - gene.start)
+            lis.append(gene.stop - gene.start)
 
         gexf.write(f'      <node id="{fam.ID}" label="{fam.name}">\n')
         gexf.write(f'        <viz:color {colors[fam.namedPartition]} />\n')
