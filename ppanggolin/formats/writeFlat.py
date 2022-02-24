@@ -17,6 +17,14 @@ from ppanggolin.formats import checkPangenomeInfo
 
 # global variable to store the pangenome
 pan = None  # TODO change to pan:Pangenome = Pangenome=() ?
+needAnnotations = False
+needFamilies = False
+needGraph = False
+needPartitions = False
+needSpots = False
+needRegions = False
+needModules = False
+ignore_err = False
 
 
 def writeJSONheader(json):
@@ -172,12 +180,12 @@ def writeGEXFnodes(gexf, light, soft_core=0.95):
         name = Counter()
         product = Counter()
         gtype = Counter()
-        l = []
+        list = []
         for gene in fam.genes:
             name[gene.name] += 1
             product[gene.product.replace('&', 'and')] += 1
             gtype[gene.type] += 1
-            l.append(gene.stop - gene.start)
+            list.append(gene.stop - gene.start)
 
         gexf.write(f'      <node id="{fam.ID}" label="{fam.name}">\n')
         gexf.write(f'        <viz:color {colors[fam.namedPartition]} />\n')
@@ -192,9 +200,10 @@ def writeGEXFnodes(gexf, light, soft_core=0.95):
         gexf.write(f'          <attvalue for="6" value="'
                    f'{"exact_accessory" if len(fam.organisms) != len(pan.organisms) else "exact_core"}" />\n')
         gexf.write(f'          <attvalue for="7" value="'
-                   f'{"soft_core" if len(fam.organisms) >= (len(pan.organisms) * soft_core) else "soft_accessory"}" />\n')
-        gexf.write(f'          <attvalue for="8" value="{round(sum(l) / len(l), 2)}" />\n')
-        gexf.write(f'          <attvalue for="9" value="{int(median(l))}" />\n')
+                   f'{"soft_core" if len(fam.organisms) >= (len(pan.organisms) * soft_core) else "soft_accessory"}"'
+                   f' />\n')
+        gexf.write(f'          <attvalue for="8" value="{round(sum(list) / len(list), 2)}" />\n')
+        gexf.write(f'          <attvalue for="9" value="{int(median(list))}" />\n')
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
         if not light:
             for org, genes in fam.getOrgDict().items():
@@ -277,14 +286,14 @@ def writeMatrix(sep, ext, output, compress=False, geneNames=False):
         org_index = pan.getIndex()  # should just return things
         for fam in pan.geneFamilies:
             genes = default_genes.copy()
-            l = []
+            lis = []
             genenames = Counter()
             product = Counter()
             for org, gene_list in fam.getOrgDict().items():
                 genes[org_index[org]] = " ".join(['"' + str(gene) + '"' for gene in gene_list]) if geneNames else str(
                     len(gene_list))
                 for gene in gene_list:
-                    l.append(gene.stop - gene.start)
+                    lis.append(gene.stop - gene.start)
                     product[gene.product] += 1
                     genenames[gene.name] += 1
 
@@ -293,7 +302,7 @@ def writeMatrix(sep, ext, output, compress=False, geneNames=False):
             else:
                 alt = str(product.most_common(1)[0][0])
 
-            l = [gene.stop - gene.start for gene in fam.genes]
+            lis = [gene.stop - gene.start for gene in fam.genes]
             matrix.write(sep.join(['"' + fam.name + '"',  # 1
                                    '"' + alt + '"',  # 2
                                    '"' + str(product.most_common(1)[0][0]) + '"',  # 3
@@ -305,9 +314,9 @@ def writeMatrix(sep, ext, output, compress=False, geneNames=False):
                                    '""',  # 9
                                    '""',  # 10
                                    '""',  # 11
-                                   '"' + str(min(l)) + '"',  # 12
-                                   '"' + str(max(l)) + '"',  # 13
-                                   '"' + str(round(sum(l) / len(l), 2)) + '"']  # 14
+                                   '"' + str(min(lis)) + '"',  # 12
+                                   '"' + str(max(lis)) + '"',  # 13
+                                   '"' + str(round(sum(lis) / len(lis), 2)) + '"']  # 14
                                   + genes) + "\n")  # 15
     logging.getLogger().info(f"Done writing the matrix : '{outname}'")
 
@@ -431,10 +440,15 @@ def writeStats(output, soft_core, dup_margin, compress=False):
 
 def writeOrgFile(org, output, compress=False):
     with write_compressed_or_not(output + "/" + org.name + ".tsv", compress) as outfile:
-        outfile.write("\t".join(["gene", "contig", "start", "stop", "strand", "family", "nb_copy_in_org",
-                                 "partition", "persistent_neighbors", "shell_neighbors", "cloud_neighbors",
-                                 "RGPs", "spots", "modules"])
-                      + "\n")
+        header = ["gene", "contig", "start", "stop", "strand", "family", "nb_copy_in_org",
+                  "partition", "persistent_neighbors", "shell_neighbors", "cloud_neighbors"]
+        if needRegions:
+            header.append("RGPs")
+        if needSpots:
+            header.append("Spots")
+        if needModules:
+            header.append("Modules")
+        outfile.write("\t".join(header) + "\n")
         for contig in org.contigs:
             for gene in contig.genes:
                 nb_pers = 0
@@ -450,27 +464,23 @@ def writeOrgFile(org, output, compress=False):
                         nb_shell += 1
                     else:
                         nb_cloud += 1
-                if len(gene.RGP) > 0:
-                    RGP = ','.join([str(region.name) for region in gene.RGP])
-                if len(gene.family.spot) > 0:
-                    spot = ','.join([str(s.ID) for s in gene.family.spot])
-                if len(gene.family.modules) > 0:
-                    modules = ','.join([str(module.ID) for module in gene.family.modules])
-                outfile.write("\t".join(map(str, [gene.ID if gene.local_identifier == "" else gene.local_identifier,
-                                                  contig.name,
-                                                  gene.start,
-                                                  gene.stop,
-                                                  gene.strand,
-                                                  gene.family.name,
-                                                  len(gene.family.getGenesPerOrg(org)),
-                                                  gene.family.namedPartition,
-                                                  nb_pers,
-                                                  nb_shell,
-                                                  nb_cloud,
-                                                  RGP,
-                                                  spot,
-                                                  modules
-                                                  ])) + "\n")
+                row = [gene.ID if gene.local_identifier == "" else gene.local_identifier,
+                       contig.name, gene.start, gene.stop, gene.strand, gene.family.name,
+                       len(gene.family.getGenesPerOrg(org)), gene.family.namedPartition,
+                       nb_pers, nb_shell, nb_cloud]
+                if needRegions:
+                    if len(gene.RGP) > 0:
+                        RGP = ','.join([str(region.name) for region in gene.RGP])
+                    row.append(RGP)
+                if needSpots:
+                    if len(gene.family.spot) > 0:
+                        spot = ','.join([str(s.ID) for s in gene.family.spot])
+                    row.append(spot)
+                if needModules:
+                    if len(gene.family.modules) > 0:
+                        modules = ','.join(["module_" + str(module.ID) for module in gene.family.modules])
+                    row.append(modules)
+                outfile.write("\t".join(map(str, row)) + "\n")
 
 
 def writeProjections(output, compress=False):
@@ -723,13 +733,14 @@ def writeFlatFiles(pangenome, output, cpu=1, soft_core=0.95, dup_margin=0.05, cs
     global pan
     pan = pangenome
     processes = []
-    needAnnotations = False
-    needFamilies = False
-    needGraph = False
-    needPartitions = False
-    needSpots = False
-    needRegions = False
-    needModules = False
+    global needAnnotations
+    global needFamilies
+    global needGraph
+    global needPartitions
+    global needSpots
+    global needRegions
+    global needModules
+    global ignore_err
 
     if csv or genePA or gexf or light_gexf or projection or stats or json or partitions or regions or spots or \
             families_tsv or borders or modules or spot_modules:
@@ -739,16 +750,21 @@ def writeFlatFiles(pangenome, output, cpu=1, soft_core=0.95, dup_margin=0.05, cs
         needPartitions = True
     if gexf or light_gexf or json:
         needGraph = True
-    if regions or spots or borders or spot_modules or projection:
+    if regions or spots or borders or spot_modules:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
         needSpots = True
-    if modules or spot_modules or projection:
+    if modules or spot_modules:  # or projection:
         needModules = True
+    if projection:
+        needRegions = True if pangenome.status["predictedRGP"] == "inFile" else False
+        needSpots = True if pangenome.status["spots"] == "inFile" else False
+        needModules = True if pangenome.status["modules"] == "inFile" else False
 
     checkPangenomeInfo(pan, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph,
                        needPartitions=needPartitions, needRGP=needRegions, needSpots=needSpots, needModules=needModules,
                        disable_bar=disable_bar)
+
     pan.getIndex()  # make the index because it will be used most likely
     with get_context('fork').Pool(processes=cpu) as p:
         if csv:
@@ -797,6 +813,7 @@ def launchFlat(args):
                    regions=args.regions, families_tsv=args.families_tsv, spots=args.spots, borders=args.borders,
                    modules=args.modules, spot_modules=args.spot_modules, compress=args.compress,
                    disable_bar=args.disable_prog_bar)
+
 
 def writeFlatSubparser(subparser):
     parser = subparser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
