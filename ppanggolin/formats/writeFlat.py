@@ -202,8 +202,8 @@ def writeGEXFnodes(gexf, light, soft_core=0.95):
         gexf.write(f'          <attvalue for="7" value="'
                    f'{"soft_core" if len(fam.organisms) >= (len(pan.organisms) * soft_core) else "soft_accessory"}"'
                    f' />\n')
-        gexf.write(f'          <attvalue for="8" value="{round(sum(list) / len(list), 2)}" />\n')
-        gexf.write(f'          <attvalue for="9" value="{int(median(list))}" />\n')
+        gexf.write(f'          <attvalue for="8" value="{round(sum(lis) / len(lis), 2)}" />\n')
+        gexf.write(f'          <attvalue for="9" value="{int(median(lis))}" />\n')
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
         if not light:
             for org, genes in fam.getOrgDict().items():
