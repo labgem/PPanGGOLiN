@@ -180,12 +180,12 @@ def writeGEXFnodes(gexf, light, soft_core=0.95):
         name = Counter()
         product = Counter()
         gtype = Counter()
-        list = []
+        lis = []
         for gene in fam.genes:
             name[gene.name] += 1
             product[gene.product.replace('&', 'and')] += 1
             gtype[gene.type] += 1
-            list.append(gene.stop - gene.start)
+            lis.append(gene.stop - gene.start)
 
         gexf.write(f'      <node id="{fam.ID}" label="{fam.name}">\n')
         gexf.write(f'        <viz:color {colors[fam.namedPartition]} />\n')
@@ -202,8 +202,8 @@ def writeGEXFnodes(gexf, light, soft_core=0.95):
         gexf.write(f'          <attvalue for="7" value="'
                    f'{"soft_core" if len(fam.organisms) >= (len(pan.organisms) * soft_core) else "soft_accessory"}"'
                    f' />\n')
-        gexf.write(f'          <attvalue for="8" value="{round(sum(list) / len(list), 2)}" />\n')
-        gexf.write(f'          <attvalue for="9" value="{int(median(list))}" />\n')
+        gexf.write(f'          <attvalue for="8" value="{round(sum(lis) / len(lis), 2)}" />\n')
+        gexf.write(f'          <attvalue for="9" value="{int(median(lis))}" />\n')
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
         if not light:
             for org, genes in fam.getOrgDict().items():

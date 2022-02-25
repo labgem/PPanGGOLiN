@@ -45,7 +45,7 @@ def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, id
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning sequences to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    outfile = output + "/input_to_pangenome_associations.blast-tab"
+    outfile = output + "/input_to_pangenome_associations.blast-tab_tmp"#write a tmp file of the results
     cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile, "--format-mode", "2"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
@@ -59,12 +59,16 @@ def alignSeqToPang(pangFile, seqFile, output, tmpdir, cpu=1, no_defrag=False, id
 
 def readAlignments(outfile, pangenome):
     seq2pang = {}
+    outname = open(outfile.replace("_tmp",""),"w")#write the actual result file
     with open(outfile, "r") as alnFile:
         for line in alnFile:
+            line = line.replace("ppanggolin_","")#remove the 'ppanggolin_' bit of the id
+            outname.write(line)
             line = line.split()
             if seq2pang.get(line[0]) is None:  # if no results were found yet
                 seq2pang[line[0]] = pangenome.getGeneFamily(line[1])  # then the best hit is the first one we see.
-    return seq2pang
+    outname.close()
+    return seq2pang, outname.name
 
 
 def getSeq(seqFile):
@@ -75,9 +79,9 @@ def getSeq(seqFile):
     return seqset
 
 
-def writeGeneFamSequences(pangenome, fileObj):
+def writeGeneFamSequences(pangenome, fileObj, add=""):
     for fam in pangenome.geneFamilies:
-        fileObj.write(">" + fam.name + "\n")
+        fileObj.write(">" + add + fam.name + "\n")
         fileObj.write(fam.sequence + "\n")
     fileObj.flush()
 
@@ -203,13 +207,13 @@ def get_seq2pang(pangenome, sequenceFile, output, tmpdir, cpu=1, no_defrag=False
     """
     tmpPangFile = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
 
-    writeGeneFamSequences(pangenome, tmpPangFile)
+    writeGeneFamSequences(pangenome, tmpPangFile, add="ppanggolin_")
 
     with read_compressed_or_not(sequenceFile) as seqFileObj:
         seqSet = getSeq(seqFileObj)
         alignFile = alignSeqToPang(tmpPangFile, seqFileObj, output, tmpdir, cpu, no_defrag, identity, coverage)
 
-    seq2pang = readAlignments(alignFile, pangenome)
+    seq2pang, alignFile = readAlignments(alignFile, pangenome)
 
     tmpPangFile.close()
 
