@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # coding: utf8
 
+# installed libraries
+import logging
+
+import gmpy2
+
+
 class Feature:
     def __init__(self, ID):
         self.ID = ID
@@ -133,3 +139,28 @@ class Organism:
         new_contig = Contig(key, is_circular)
         self._contigs_getter[key] = new_contig
         return new_contig
+
+    def mk_bitarray(self, index, partition='all'):
+        """Produces a bitarray representing the presence / absence of families in the organism using the provided index
+        The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
+        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
+        :type index: dict[:class:`ppanggolin.genome.Organism`, int]
+        """
+        self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
+        if partition == 'all':
+            logging.getLogger().debug(f"all")
+            for fam in self.families:
+                self.bitarray[index[fam]] = 1
+        elif partition in ['shell', 'cloud']:
+            logging.getLogger().debug(f"shell, cloud")
+            for fam in self.families:
+                if fam.namedPartition == partition:
+                    self.bitarray[index[fam]] = 1
+        elif partition == 'accessory':
+            logging.getLogger().debug(f"accessory")
+            for fam in self.families:
+                if fam.namedPartition in ['shell', 'cloud']:
+                    self.bitarray[index[fam]] = 1
+        else:
+            raise Exception("There is not any partition corresponding please report a github issue")
+
