@@ -8,17 +8,37 @@ import logging
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
+from ppanggolin.formats.readBinaries import readInfo
 
 # metrics libraries
-from ppanggolin.metrics.fluidity import genomes_fluidity
+from ppanggolin.metrics.fluidity import genomes_fluidity, fam_fluidity
 
 
-def compute_metrics(pangenome, fluidity, disable_bar=False):
+def check_metric(pangenome, all=False, genome_fluidity=False, family_fluidity=False, force=False):
+    with tables.open_file(pangenome.file, "a") as h5f:
+        info_group = h5f.root.info
+        if genome_fluidity or all:
+            if 'genome_fluidity' in info_group._v_attrs._f_list() and not force:
+                raise Exception("Genome fluidity was already compute. "
+                                "Please use -f option if you REALLY want to compute again")
+
+        if family_fluidity or all:
+            if 'family_fluidity' in info_group._v_attrs._f_list() and not force:
+                raise Exception("Family fluidity was already compute. "
+                                "Please use -f option if you REALLY want to compute again")
+
+
+
+def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity=False, disable_bar=False):
     """Compute the metrics
     :param pangenome: pangenome which will be used to compute the genomes fluidity
     :type pangenome: Pangenome
-    :param fluidity: Ask to compute fluidity
-    :type fluidity: bool
+    :param all: compute all the metrics
+    :type all: bool
+    :param genome_fluidity: Ask to compute genome fluidity
+    :type genome_fluidity: bool
+    :param family_fluidity: Ask to compute family fluidity
+    :type family_fluidity: bool
     :param disable_bar: Disable the progress bar
     :type disable_bar: bool
 
@@ -28,13 +48,15 @@ def compute_metrics(pangenome, fluidity, disable_bar=False):
     """
 
     metrics_dict = {}
-    if fluidity:
-        metrics_dict['fluidity'] = genomes_fluidity(pangenome, disable_bar)
+    if genome_fluidity or all:
+        metrics_dict['genome_fluidity'] = genomes_fluidity(pangenome, disable_bar)
+    if family_fluidity or all:
+        metrics_dict['family_fluidity'] = fam_fluidity(pangenome, disable_bar)
 
     return metrics_dict
 
 
-def write_metrics(pangenome, metrics_dict):
+def write_metrics(pangenome, metrics_dict, no_print_info=False):
     """Write the metrics computed in the pangenome
     :param pangenome: pangenome which will be used to compute the genomes fluidity
     :type pangenome: Pangenome
@@ -43,22 +65,35 @@ def write_metrics(pangenome, metrics_dict):
     """
     with tables.open_file(pangenome.file, "a") as h5f:
         info_group = h5f.root.info
-        logging.getLogger().debug("Fluidity computation")
-        if 'fluidity' in metrics_dict.keys():
-            info_group._v_attrs.fluidity = metrics_dict['fluidity']
+        logging.getLogger().debug("H5f open")
+        if 'genome_fluidity' in metrics_dict.keys():
+            logging.getLogger().info("Writing genome fluidity in pangenome")
+            info_group._v_attrs.genome_fluidity = metrics_dict['genome_fluidity']
+
+        if 'family_fluidity' in metrics_dict.keys():
+            logging.getLogger().info("Writing family fluidity in pangenome")
+            info_group._v_attrs.family_fluidity = metrics_dict['family_fluidity']
+
+        # After all metrics was written
+        if not no_print_info:
+            readInfo(h5f)
 
 
 def launch(args):
-    if not any(x for x in [args.fluidity]):
+    if not any(x for x in [args.genome_fluidity, args.family_fluidity, args.all]):
         raise Exception("You did not indicate which metric you want to compute.")
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
 
+    logging.getLogger().debug("Check if one of the metrics was already compute")
+    check_metric(pangenome, all=args.all, genome_fluidity=args.genome_fluidity, family_fluidity=args.family_fluidity,
+                 force=args.force)
     logging.getLogger().info("Metrics computation begin")
-    metrics_dictionary = compute_metrics(pangenome, fluidity=args.fluidity, disable_bar=args.disable_prog_bar)
+    metrics_dictionary = compute_metrics(pangenome, all=args.all, genome_fluidity=args.genome_fluidity,
+                                         family_fluidity=args.family_fluidity, disable_bar=args.disable_prog_bar)
     logging.getLogger().info("Metrics computation done")
 
-    write_metrics(pangenome, metrics_dictionary)
+    write_metrics(pangenome, metrics_dictionary, no_print_info=args.no_print_info)
 
 
 def metricsSubparser(sub_parser):
@@ -77,6 +112,22 @@ def metricsSubparser(sub_parser):
                                          description="All of the following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
-    onereq.add_argument('--fluidity', required=False, action="store_true",
-                        help="Compute the pangenome genomic fluidity")
+    onereq.add_argument('--genome_fluidity', required=False, action="store_true", default=False,
+                        help="Compute the pangenome genomic fluidity.")
+    # help="Compute the pangenome genomic and/or family fluidity.")
+    onereq.add_argument('--family_fluidity', required=False, action="store_true", default=False,
+                        help=argparse.SUPPRESS)
+    onereq.add_argument('--all', required=False, action="store_true", default=False,
+                        help=argparse.SUPPRESS)
+    optional = parser.add_argument_group(title="Optional arguments",
+                                         description="All of the following arguments are optional and"
+                                                     " with a default value")
+    optional.add_argument('--no_print_info', required=False, action="store_true", default=False,
+                          help="Don't show the metrics result. "
+                               "All the metric are saved in your pangenome and visible with ppanggolin info.")
+    # optional.add_argument('--genome_only', required=False, action="store_true", default=False,
+    #                       help="Compute the genome fluidity only")
+    # optional.add_argument('--family_only', required=False, action="store_true", default=False,
+    #                       help="Compute the genome fluidity only")
+
     return parser
