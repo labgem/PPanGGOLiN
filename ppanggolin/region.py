@@ -5,6 +5,9 @@
 import logging
 from collections.abc import Iterable
 
+# installed libraries
+import gmpy2
+
 # local libraries
 from ppanggolin.genome import Organism, Gene
 from ppanggolin.geneFamily import GeneFamily
@@ -33,6 +36,7 @@ class Region:
         # allowing only gene-class objects in a region.
         if isinstance(value, Gene):
             self.genes.append(value)
+            value.RGP.add(self)
         else:
             raise TypeError(
                 "Unexpected class / type for " + type(value) + " when adding it to a region of genomic plasticity")
@@ -163,6 +167,10 @@ class Spot:
         if isinstance(region, Region):
             self.regions.add(region)
 
+    def spot_2_families(self):
+        for family in self.families:
+            family.spot.add(self)
+
     def borders(self, set_size, multigenics):
         """ extracts all the borders of all RGPs belonging to the spot"""
         all_borders = []
@@ -241,7 +249,9 @@ class Spot:
         return dict([(key, len(val)) for key, val in self._getContent().items()])
 
     def countUniqOrderedSet(self):
-        """ Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value"""
+        """
+        Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value
+        """
         return dict([(key, len(val)) for key, val in self._getOrderedSet().items()])
 
 
@@ -261,6 +271,37 @@ class Module:
             self.families |= set(families)
 
     def addFamily(self, family):
+        """
+        Add a family to the module
+
+        :param family: the family that will ba added to the module
+        :type family: GeneFamily
+        """
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
+        family.modules.add(self)
         self.families.add(family)
+
+    def mk_bitarray(self, index, partition='all'):
+        """Produces a bitarray representing the presence / absence of families in the organism using the provided index
+        The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
+        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
+        :type index: dict[:class:`ppanggolin.genome.Organism`, int]
+        """
+        self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
+        if partition == 'all':
+            logging.getLogger().debug(f"all")
+            for fam in self.families:
+                self.bitarray[index[fam]] = 1
+        elif partition in ['shell', 'cloud']:
+            logging.getLogger().debug(f"shell, cloud")
+            for fam in self.families:
+                if fam.namedPartition == partition:
+                    self.bitarray[index[fam]] = 1
+        elif partition == 'accessory':
+            logging.getLogger().debug(f"accessory")
+            for fam in self.families:
+                if fam.namedPartition in ['shell', 'cloud']:
+                    self.bitarray[index[fam]] = 1
+        else:
+            raise Exception("There is not any partition corresponding please report a github issue")

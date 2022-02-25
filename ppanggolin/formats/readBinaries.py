@@ -193,6 +193,9 @@ def readGeneFamiliesInfo(pangenome, h5f, disable_bar=False):
 
 
 def readGeneSequences(pangenome, h5f, disable_bar=False):
+    if not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
+        raise Exception("It's not possible to read the pangenome gene dna sequences "
+                        "if the annotations have not been loaded.")
     table = h5f.root.geneSequences
 
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
@@ -205,6 +208,10 @@ def readGeneSequences(pangenome, h5f, disable_bar=False):
 
 
 def readRGP(pangenome, h5f, disable_bar=False):
+    if not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] or \
+            not pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
+        raise Exception("It's not possible to read the RGP "
+                        "if the annotations and the gene families have not been loaded.")
     table = h5f.root.RGP
 
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
@@ -229,6 +236,7 @@ def readSpots(pangenome, h5f, disable_bar=False):
             curr_spot = Spot(row["spot"])
             spots[row["spot"]] = curr_spot
         curr_spot.addRegion(pangenome.getOrAddRegion(row["RGP"].decode()))
+        curr_spot.spot_2_families()
         bar.update()
     bar.close()
     pangenome.addSpots(spots.values())
@@ -236,6 +244,8 @@ def readSpots(pangenome, h5f, disable_bar=False):
 
 
 def readModules(pangenome, h5f, disable_bar=False):
+    if not pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
+        raise Exception("It's not possible to read the modules if the gene families have not been loaded.")
     table = h5f.root.modules
     bar = tqdm(range(table.nrows), unit="module", disable=disable_bar)
     modules = {}  # id2mod
@@ -317,7 +327,20 @@ def readInfo(h5f):
             print(f"Spots : {infoGroup._v_attrs['numberOfSpots']}")
         if 'numberOfModules' in infoGroup._v_attrs._f_list():
             print(f"Modules : {infoGroup._v_attrs['numberOfModules']}")
-            print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}")
+            print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}  ("
+                  f"min : {infoGroup._v_attrs['StatOfFamiliesInModules']['min']}, "
+                  f"max : {infoGroup._v_attrs['StatOfFamiliesInModules']['max']}, "
+                  f"sd : {infoGroup._v_attrs['StatOfFamiliesInModules']['sd']}, "
+                  f"mean : {infoGroup._v_attrs['StatOfFamiliesInModules']['mean']})"
+                  )
+            print(f"\tSheel specific : {infoGroup._v_attrs['ShellSpecInModules']['percent']}  ("
+                  f"sd : {infoGroup._v_attrs['ShellSpecInModules']['sd']}, "
+                  f"mean : {infoGroup._v_attrs['ShellSpecInModules']['mean']})"
+                  )
+            print(f"\tCloud specific : {infoGroup._v_attrs['CloudSpecInModules']['percent']}  ("
+                  f"sd : {infoGroup._v_attrs['CloudSpecInModules']['sd']}, "
+                  f"mean : {infoGroup._v_attrs['CloudSpecInModules']['mean']})"
+                  )
 
 
 def readParameters(h5f):
@@ -408,6 +431,7 @@ def checkPangenomeInfo(pangenome, needAnnotations=False, needFamilies=False, nee
     geneSequences = False
     modules = False
 
+    # TODO Automate call if one need another
     if needAnnotations:
         if pangenome.status["genomesAnnotated"] == "inFile":
             annotation = True

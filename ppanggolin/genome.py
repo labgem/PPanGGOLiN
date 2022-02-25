@@ -43,6 +43,7 @@ class Gene(Feature):
         super().__init__(ID)
         self.position = None
         self.family = None
+        self.RGP = set()
 
     def __str__(self):
         return str(self.ID)
@@ -97,7 +98,8 @@ class Contig:
         if gene.position is None:
             raise TypeError(f"The gene object needs to have its position in the contig filled before adding it")
         while len(self._genes_position) <= gene.position:
-            # adding empty values. They should be filled by the end of the parsing. Doing this because genes are not always met in order.
+            # adding empty values. They should be filled by the end of the parsing.
+            # Doing this because genes are not always met in order.
             self._genes_position.append(None)
         self._genes_position[gene.position] = gene
         self._genes_start[gene.start] = gene
