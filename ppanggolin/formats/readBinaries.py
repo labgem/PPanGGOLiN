@@ -326,6 +326,20 @@ def readInfo(h5f):
         if 'numberOfSpots' in infoGroup._v_attrs._f_list():
             print(f"Spots : {infoGroup._v_attrs['numberOfSpots']}")
         if 'numberOfModules' in infoGroup._v_attrs._f_list():
+            if all(x in infoGroup._v_attrs._f_list() for x in ['CloudSpecInModules', 'ShellSpecInModules',
+                                                               'numberOfFamiliesInModules']):
+                readModulesInfo(h5f)
+            else:
+                print(f"Modules : {infoGroup._v_attrs['numberOfModules']}")
+                print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}")
+                # readModulesInfo(h5f)
+
+
+def readModulesInfo(h5f):
+    if "/info" in h5f:
+        infoGroup = h5f.root.info
+        if all(x in infoGroup._v_attrs._f_list() for x in ['CloudSpecInModules', 'ShellSpecInModules',
+                                                           'numberOfFamiliesInModules']):
             print(f"Modules : {infoGroup._v_attrs['numberOfModules']}")
             print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}  ("
                   f"min : {infoGroup._v_attrs['StatOfFamiliesInModules']['min']}, "
