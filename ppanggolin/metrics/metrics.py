@@ -140,6 +140,4 @@ def metricsSubparser(sub_parser):
     #                       help="Compute the genome fluidity only")
     # optional.add_argument('--family_only', required=False, action="store_true", default=False,
     #                       help="Compute the genome fluidity only")
-    onereq.add_argument('--info_modules', required=False, action='store_true', default=False,
-                        help='Compute more information about modules')
     return parser
