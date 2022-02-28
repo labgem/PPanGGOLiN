@@ -8,17 +8,20 @@ import logging
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-
+from ppanggolin.formats.readBinaries import checkPangenomeInfo, readInfo
+from ppanggolin.formats.writeBinaries import writeInfoModules
 # metrics libraries
 from ppanggolin.metrics.fluidity import genomes_fluidity
 
 
-def compute_metrics(pangenome, fluidity, disable_bar=False):
+def compute_metrics(pangenome, fluidity, info_modules=False, disable_bar=False):
     """Compute the metrics
     :param pangenome: pangenome which will be used to compute the genomes fluidity
     :type pangenome: Pangenome
     :param fluidity: Ask to compute fluidity
     :type fluidity: bool
+    :param info_modules: save that it's needed to write information about modules
+    :type info_modules: bool
     :param disable_bar: Disable the progress bar
     :type disable_bar: bool
 
@@ -30,7 +33,9 @@ def compute_metrics(pangenome, fluidity, disable_bar=False):
     metrics_dict = {}
     if fluidity:
         metrics_dict['fluidity'] = genomes_fluidity(pangenome, disable_bar)
-
+    if info_modules:
+        checkPangenomeInfo(pangenome, needFamilies=True, needModules=True)
+        metrics_dict['info_modules'] = True
     return metrics_dict
 
 
@@ -46,16 +51,22 @@ def write_metrics(pangenome, metrics_dict):
         logging.getLogger().debug("Fluidity computation")
         if 'fluidity' in metrics_dict.keys():
             info_group._v_attrs.fluidity = metrics_dict['fluidity']
+        if 'info_modules' in metrics_dict.keys():
+            writeInfoModules(pangenome, h5f)
+
+        readInfo(h5f)
+
 
 
 def launch(args):
-    if not any(x for x in [args.fluidity]):
+    if not any(x for x in [args.fluidity, args.info_modules]):
         raise Exception("You did not indicate which metric you want to compute.")
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
 
     logging.getLogger().info("Metrics computation begin")
-    metrics_dictionary = compute_metrics(pangenome, fluidity=args.fluidity, disable_bar=args.disable_prog_bar)
+    metrics_dictionary = compute_metrics(pangenome, fluidity=args.fluidity, info_modules=args.info_modules,
+                                         disable_bar=args.disable_prog_bar)
     logging.getLogger().info("Metrics computation done")
 
     write_metrics(pangenome, metrics_dictionary)
@@ -79,4 +90,6 @@ def metricsSubparser(sub_parser):
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
     onereq.add_argument('--fluidity', required=False, action="store_true",
                         help="Compute the pangenome genomic fluidity")
+    onereq.add_argument('--info_modules', required=False, action='store_true', default=False,
+                        help='Compute more information about modules')
     return parser
