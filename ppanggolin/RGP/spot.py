@@ -169,6 +169,9 @@ def launch(args):
 
 def spotSubparser(subparser):
     parser = subparser.add_parser("spot", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    required = parser.add_argument_group(title="Required arguments",
+                                         description="One of the following arguments is required :")
+    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
@@ -199,7 +202,4 @@ def spotSubparser(subparser):
     optional.add_argument("--priority", required=False, action="store_true",
                           help=argparse.SUPPRESS)  # This ensures compatibility with the old API
     # but does not use the option
-    required = parser.add_argument_group(title="Required arguments",
-                                         description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     return parser
