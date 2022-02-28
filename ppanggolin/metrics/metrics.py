@@ -29,8 +29,8 @@ def check_metric(pangenome, all=False, genome_fluidity=False, family_fluidity=Fa
                                 "Please use -f option if you REALLY want to compute again")
 
 
-
-def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity=False, disable_bar=False):
+def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity=False, info_modules=False,
+                    disable_bar=False):
     """Compute the metrics
     :param pangenome: pangenome which will be used to compute the genomes fluidity
     :type pangenome: Pangenome
@@ -40,6 +40,8 @@ def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity
     :type genome_fluidity: bool
     :param family_fluidity: Ask to compute family fluidity
     :type family_fluidity: bool
+    :param info_modules: Ask to compute more information about module
+    :type info_modules: bool
     :param disable_bar: Disable the progress bar
     :type disable_bar: bool
 
@@ -53,7 +55,7 @@ def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity
         metrics_dict['genome_fluidity'] = genomes_fluidity(pangenome, disable_bar)
     if family_fluidity or all:
         metrics_dict['family_fluidity'] = fam_fluidity(pangenome, disable_bar)
-    if info_modules:
+    if info_modules or all:
         checkPangenomeInfo(pangenome, needFamilies=True, needModules=True)
         metrics_dict['info_modules'] = True
     return metrics_dict
@@ -76,21 +78,20 @@ def write_metrics(pangenome, metrics_dict, no_print_info=False):
         if 'family_fluidity' in metrics_dict.keys():
             logging.getLogger().info("Writing family fluidity in pangenome")
             info_group._v_attrs.family_fluidity = metrics_dict['family_fluidity']
-           
+
         if 'info_modules' in metrics_dict.keys():
+            logging.getLogger().info("Writing modules information in pangenome")
             writeInfoModules(pangenome, h5f)
 
         # After all metrics was written
         if not no_print_info:
             readInfo(h5f)
 
-        readInfo(h5f)
-
 
 def launch(args):
     if not any(x for x in [args.genome_fluidity, args.family_fluidity, args.info_modules, args.all]):
         raise Exception("You did not indicate which metric you want to compute.")
-        
+
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
 
@@ -98,8 +99,9 @@ def launch(args):
     check_metric(pangenome, all=args.all, genome_fluidity=args.genome_fluidity, family_fluidity=args.family_fluidity,
                  force=args.force)
     logging.getLogger().info("Metrics computation begin")
-    metrics_dictionary = compute_metrics(pangenome, all=args.all, genome_fluidity=args.genome_fluidity, info_modules=args.info_modules,
-                                         family_fluidity=args.family_fluidity, disable_bar=args.disable_prog_bar)
+    metrics_dictionary = compute_metrics(pangenome, all=args.all, genome_fluidity=args.genome_fluidity,
+                                         family_fluidity=args.family_fluidity, info_modules=args.info_modules,
+                                         disable_bar=args.disable_prog_bar)
     logging.getLogger().info("Metrics computation done")
 
     write_metrics(pangenome, metrics_dictionary, no_print_info=args.no_print_info)
