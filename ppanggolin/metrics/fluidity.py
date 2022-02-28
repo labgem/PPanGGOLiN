@@ -37,7 +37,7 @@ def genomes_fluidity(pangenome, disable_bar=False):
         g_sum = 0
         logging.getLogger().debug("Get number of families in each organisms")
         org2_nb_fam = nb_fam_per_org(pangenome, disable_bar)
-        logging.getLogger().info("Compute rate of unique family for each genome combination")
+        logging.getLogger().info(f"Compute rate of unique family for each genome combination in {subset}")
         for c_organisms in tqdm(list(combinations(pangenome.organisms, 2)), unit="combination", disable=disable_bar):
             tot_fam = org2_nb_fam.get(c_organisms[0].name) + org2_nb_fam.get(c_organisms[1].name)
             common_fam = popcount(c_organisms[0].bitarray & c_organisms[1].bitarray) - 1
