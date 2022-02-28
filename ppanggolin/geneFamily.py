@@ -3,6 +3,7 @@
 
 # default libraries
 from collections import defaultdict
+import logging
 
 # installed libraries
 import gmpy2
@@ -84,16 +85,30 @@ class GeneFamily:
         if hasattr(gene, "organism"):
             self._genePerOrg[gene.organism].add(gene)
 
-    def mkBitarray(self, index):
+    def mkBitarray(self, index, partition='all'):
         """Produces a bitarray representing the presence / absence of the family in the pangenome using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
         :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
         :type index: dict[:class:`ppanggolin.genome.Organism`, int]
+        :param partition: partition used to compute bitarray
+        :type partition: str
         """
         self.bitarray = gmpy2.xmpz(0)  # pylint: disable=no-member
-        for org in self.organisms:
-            self.bitarray[index[org]] = 1
+        if partition == 'all':
+            logging.getLogger().debug(f"all")
+            for org in self.organisms:
+                self.bitarray[index[org]] = 1
+        elif partition in ['shell', 'cloud']:
+            logging.getLogger().debug(f"shell, cloud")
+            if self.namedPartition == partition:
+                for org in self.organisms:
+                    self.bitarray[index[org]] = 1
+        elif partition == 'accessory':
+            logging.getLogger().debug(f"accessory")
+            if self.namedPartition in ['shell', 'cloud']:
+                for org in self.organisms:
+                    self.bitarray[index[org]] = 1
 
     def getOrgDict(self):
         """Returns the organisms and the genes belonging to the gene family
