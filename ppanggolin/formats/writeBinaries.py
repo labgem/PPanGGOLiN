@@ -476,13 +476,47 @@ def writeInfo(pangenome, h5f):
     if pangenome.status["spots"] in ["Computed", "Loaded"]:
         infoGroup._v_attrs.numberOfSpots = len(pangenome.spots)
     if pangenome.status["modules"] in ["Computed", "Loaded"]:
+        infoGroup._v_attrs.numberOfModules = len(pangenome.modules)
+        infoGroup._v_attrs.numberOfFamiliesInModules = sum([len(mod.families) for mod in pangenome.modules])
+
+
+    infoGroup._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters
+
+
+def writeInfoModules(pangenome, h5f):
+    def getmean(arg):
+        if len(arg) == 0:
+            return 0
+        else:
+            return round(statistics.mean(arg), 2)
+
+    def getstdev(arg):
+        if len(arg) <= 1:
+            return 0
+        else:
+            return round(statistics.stdev(arg), 2)
+
+    def getmax(arg):
+        if len(arg) == 0:
+            return 0
+        else:
+            return round(max(arg), 2)
+
+    def getmin(arg):
+        if len(arg) == 0:
+            return 0
+        else:
+            return round(min(arg), 2)
+
+    if "/info" not in h5f:
+        writeInfo(pangenome, h5f)
+    infoGroup = h5f.root.info
+
+    if pangenome.status["modules"] in ["Computed", "Loaded"]:
         def part_spec(part):
             pangenome.compute_mod_bitarrays(part)
             return [popcount(module.bitarray) for module in pangenome.modules]
-
-        infoGroup._v_attrs.numberOfModules = len(pangenome.modules)
         mod_fam = [len(module.families) for module in pangenome.modules]
-        infoGroup._v_attrs.numberOfFamiliesInModules = sum(mod_fam)
         infoGroup._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
                                                       "max": getmax(mod_fam),
                                                       "sd": getstdev(mod_fam),
@@ -499,9 +533,8 @@ def writeInfo(pangenome, h5f):
                                                  "max": getmax(spec_cloud),
                                                  "sd": getstdev(spec_cloud),
                                                  "mean": getmean(spec_cloud)}
-
-
-    infoGroup._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters
+    else:
+        raise Exception("Modules were not computed in your pangenome. Please see the module subcommand.")
 
 
 def updateGeneFamPartition(pangenome, h5f, disable_bar=False):

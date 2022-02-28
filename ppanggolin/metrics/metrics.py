@@ -8,7 +8,8 @@ import logging
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.formats.readBinaries import readInfo
+from ppanggolin.formats.readBinaries import checkPangenomeInfo, readInfo
+from ppanggolin.formats.writeBinaries import writeInfoModules
 
 # metrics libraries
 from ppanggolin.metrics.fluidity import genomes_fluidity, fam_fluidity
@@ -52,7 +53,9 @@ def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity
         metrics_dict['genome_fluidity'] = genomes_fluidity(pangenome, disable_bar)
     if family_fluidity or all:
         metrics_dict['family_fluidity'] = fam_fluidity(pangenome, disable_bar)
-
+    if info_modules:
+        checkPangenomeInfo(pangenome, needFamilies=True, needModules=True)
+        metrics_dict['info_modules'] = True
     return metrics_dict
 
 
@@ -73,15 +76,21 @@ def write_metrics(pangenome, metrics_dict, no_print_info=False):
         if 'family_fluidity' in metrics_dict.keys():
             logging.getLogger().info("Writing family fluidity in pangenome")
             info_group._v_attrs.family_fluidity = metrics_dict['family_fluidity']
+           
+        if 'info_modules' in metrics_dict.keys():
+            writeInfoModules(pangenome, h5f)
 
         # After all metrics was written
         if not no_print_info:
             readInfo(h5f)
 
+        readInfo(h5f)
+
 
 def launch(args):
-    if not any(x for x in [args.genome_fluidity, args.family_fluidity, args.all]):
+    if not any(x for x in [args.genome_fluidity, args.family_fluidity, args.info_modules, args.all]):
         raise Exception("You did not indicate which metric you want to compute.")
+        
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
 
@@ -89,7 +98,7 @@ def launch(args):
     check_metric(pangenome, all=args.all, genome_fluidity=args.genome_fluidity, family_fluidity=args.family_fluidity,
                  force=args.force)
     logging.getLogger().info("Metrics computation begin")
-    metrics_dictionary = compute_metrics(pangenome, all=args.all, genome_fluidity=args.genome_fluidity,
+    metrics_dictionary = compute_metrics(pangenome, all=args.all, genome_fluidity=args.genome_fluidity, info_modules=args.info_modules,
                                          family_fluidity=args.family_fluidity, disable_bar=args.disable_prog_bar)
     logging.getLogger().info("Metrics computation done")
 
@@ -115,10 +124,12 @@ def metricsSubparser(sub_parser):
     onereq.add_argument('--genome_fluidity', required=False, action="store_true", default=False,
                         help="Compute the pangenome genomic fluidity.")
     # help="Compute the pangenome genomic and/or family fluidity.")
+    onereq.add_argument('--info_modules', required=False, action='store_true', default=False,
+                        help='Compute more information about modules')
     onereq.add_argument('--family_fluidity', required=False, action="store_true", default=False,
                         help=argparse.SUPPRESS)
     onereq.add_argument('--all', required=False, action="store_true", default=False,
-                        help=argparse.SUPPRESS)
+                        help="Compute all the metrics")
     optional = parser.add_argument_group(title="Optional arguments",
                                          description="All of the following arguments are optional and"
                                                      " with a default value")
@@ -129,5 +140,6 @@ def metricsSubparser(sub_parser):
     #                       help="Compute the genome fluidity only")
     # optional.add_argument('--family_only', required=False, action="store_true", default=False,
     #                       help="Compute the genome fluidity only")
-
+    onereq.add_argument('--info_modules', required=False, action='store_true', default=False,
+                        help='Compute more information about modules')
     return parser
