@@ -8,7 +8,7 @@ import argparse
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mkFilename, min_one, check_option_workflow
+from ppanggolin.utils import mkFilename, min_one, check_option_workflow, restricted_float
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
@@ -41,15 +41,15 @@ def launch(args):
             readClustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar)
 
         elif args.clusters is None:  # we should have the sequences here.
-            clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, defrag=not args.no_defrag,
-                       disable_bar=args.disable_prog_bar)
+            clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, identity=args.identity, coverage=args.coverage,
+                       mode=args.mode, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
     elif args.fasta is not None:
         pangenome = Pangenome()
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, contig_filter=args.contig_filter,
                           disable_bar=args.disable_prog_bar)
         writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
-        clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, defrag=not args.no_defrag,
-                   disable_bar=args.disable_prog_bar)
+        clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, identity=args.identity, coverage=args.coverage,
+                   mode=args.mode, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
 
     computeNeighborsGraph(pangenome, disable_bar=args.disable_prog_bar)
 
@@ -91,6 +91,13 @@ def workflowSubparser(subparser):
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
     optional.add_argument("--basename", required=False, default="pangenome", help="basename for the output file")
+    optional.add_argument("--mode", required=False, default="1", choices=["0", "1", "2", "3"],
+                          help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component),"
+                               " 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
+    optional.add_argument("--coverage", required=False, type=restricted_float, default=0.8,
+                          help="Minimal coverage of the alignment for two proteins to be in the same cluster")
+    optional.add_argument("--identity", required=False, type=restricted_float, default=0.8,
+                          help="Minimal identity percent for two proteins to be in the same cluster")
     optional.add_argument("--rarefaction", required=False, action="store_true",
                           help="Use to compute the rarefaction curves (WARNING: can be time consuming)")
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
