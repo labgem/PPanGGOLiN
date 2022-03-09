@@ -8,7 +8,7 @@ networkx>=2.7.1
 dataclasses==0.8
 scipy>=1.5.3
 plotly>=5.6.0
-gmpy2>=2.1
+gmpy2>=2.0
 pandas>=1.1.5
 colorlover>=0.3
 mafft>=7.490
