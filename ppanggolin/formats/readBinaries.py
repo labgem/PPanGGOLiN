@@ -299,13 +299,13 @@ def readInfo(h5f):
     if "/info" in h5f:
         infoGroup = h5f.root.info
 
-        print(f"Genes : {infoGroup._v_attrs['numberOfGenes']}")
+        print(f"Genes: {infoGroup._v_attrs['numberOfGenes']}")
         if "numberOfOrganisms" in infoGroup._v_attrs._f_list():
-            print(f"Organisms : {infoGroup._v_attrs['numberOfOrganisms']}")
+            print(f"Organisms: {infoGroup._v_attrs['numberOfOrganisms']}")
         if "numberOfClusters" in infoGroup._v_attrs._f_list():
-            print(f"Families : {infoGroup._v_attrs['numberOfClusters']}")
+            print(f"Families: {infoGroup._v_attrs['numberOfClusters']}")
         if "numberOfEdges" in infoGroup._v_attrs._f_list():
-            print(f"Edges : {infoGroup._v_attrs['numberOfEdges']}")
+            print(f"Edges: {infoGroup._v_attrs['numberOfEdges']}")
         if 'numberOfCloud' in infoGroup._v_attrs._f_list():  # then all the others are there
             print(
                 f"Persistent ( {', '.join([key + ':' + str(round(val, 2)) for key, val in infoGroup._v_attrs['persistentStats'].items()])} ): {infoGroup._v_attrs['numberOfPersistent']}")
@@ -313,54 +313,50 @@ def readInfo(h5f):
                 f"Shell ( {', '.join([key + ':' + str(round(val, 2)) for key, val in infoGroup._v_attrs['shellStats'].items()])} ): {infoGroup._v_attrs['numberOfShell']}")
             print(
                 f"Cloud ( {', '.join([key + ':' + str(round(val, 2)) for key, val in infoGroup._v_attrs['cloudStats'].items()])} ): {infoGroup._v_attrs['numberOfCloud']}")
-            print(f"Number of partitions : {infoGroup._v_attrs['numberOfPartitions']}")
+            print(f"Number of partitions: {infoGroup._v_attrs['numberOfPartitions']}")
             if infoGroup._v_attrs['numberOfPartitions'] != 3:
                 for key, val in infoGroup._v_attrs['numberOfSubpartitions'].items():
                     print(f"Shell {key} : {val}")
         if 'genome_fluidity' in infoGroup._v_attrs._f_list():
-            out = "Genomes fluidity : " + \
+            out = "Genomes fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
                             infoGroup._v_attrs['genome_fluidity'].items())
             print(out)
         if 'family_fluidity' in infoGroup._v_attrs._f_list():
-            out = "Family fluidity : " + \
+            out = "Family fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
                             infoGroup._v_attrs['family_fluidity'].items())
             print(out)
         if 'numberOfRGP' in infoGroup._v_attrs._f_list():
-            print(f"RGPs : {infoGroup._v_attrs['numberOfRGP']}")
+            print(f"RGPs: {infoGroup._v_attrs['numberOfRGP']}")
         if 'numberOfSpots' in infoGroup._v_attrs._f_list():
-            print(f"Spots : {infoGroup._v_attrs['numberOfSpots']}")
+            print(f"Spots: {infoGroup._v_attrs['numberOfSpots']}")
         if 'numberOfModules' in infoGroup._v_attrs._f_list():
             if all(x in infoGroup._v_attrs._f_list() for x in ['CloudSpecInModules', 'ShellSpecInModules',
                                                                'numberOfFamiliesInModules']):
                 readModulesInfo(h5f)
             else:
-                print(f"Modules : {infoGroup._v_attrs['numberOfModules']}")
-                print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}")
+                print(f"Modules: {infoGroup._v_attrs['numberOfModules']}")
+                print(f"Families in Modules: {infoGroup._v_attrs['numberOfFamiliesInModules']}")
                 # readModulesInfo(h5f)
 
 
 def readModulesInfo(h5f):
     if "/info" in h5f:
         infoGroup = h5f.root.info
-        if all(x in infoGroup._v_attrs._f_list() for x in ['CloudSpecInModules', 'ShellSpecInModules',
-                                                           'numberOfFamiliesInModules']):
-            print(f"Modules : {infoGroup._v_attrs['numberOfModules']}")
-            print(f"Families in Modules : {infoGroup._v_attrs['numberOfFamiliesInModules']}  ("
-                  f"min : {infoGroup._v_attrs['StatOfFamiliesInModules']['min']}, "
-                  f"max : {infoGroup._v_attrs['StatOfFamiliesInModules']['max']}, "
-                  f"sd : {infoGroup._v_attrs['StatOfFamiliesInModules']['sd']}, "
-                  f"mean : {infoGroup._v_attrs['StatOfFamiliesInModules']['mean']})"
-                  )
-            print(f"\tSheel specific : {infoGroup._v_attrs['ShellSpecInModules']['percent']}  ("
-                  f"sd : {infoGroup._v_attrs['ShellSpecInModules']['sd']}, "
-                  f"mean : {infoGroup._v_attrs['ShellSpecInModules']['mean']})"
-                  )
-            print(f"\tCloud specific : {infoGroup._v_attrs['CloudSpecInModules']['percent']}  ("
-                  f"sd : {infoGroup._v_attrs['CloudSpecInModules']['sd']}, "
-                  f"mean : {infoGroup._v_attrs['CloudSpecInModules']['mean']})"
-                  )
+        if all(x in infoGroup._v_attrs._f_list() for x in ['CloudSpecInModules', 'PersistentSpecInModules',
+                                                           'ShellSpecInModules', 'numberOfFamiliesInModules',
+                                                           'StatOfFamiliesInModules']):
+            print(f"Modules: {infoGroup._v_attrs['numberOfModules']}")
+            print(f"Number of Families in Modules: {infoGroup._v_attrs['numberOfFamiliesInModules']}")
+            print(f"\tPercent of Families: persistent {infoGroup._v_attrs['PersistentSpecInModules']['percent']},"
+                  f"shell {infoGroup._v_attrs['ShellSpecInModules']['percent']},"
+                  f"cloud {infoGroup._v_attrs['CloudSpecInModules']['percent']}")
+            print(f"Number of Families per Modules: "
+                  f"min: {infoGroup._v_attrs['StatOfFamiliesInModules']['min']}, "
+                  f"max: {infoGroup._v_attrs['StatOfFamiliesInModules']['max']}, "
+                  f"sd: {infoGroup._v_attrs['StatOfFamiliesInModules']['sd']}, "
+                  f"mean: {infoGroup._v_attrs['StatOfFamiliesInModules']['mean']}")
 
 
 def readParameters(h5f):

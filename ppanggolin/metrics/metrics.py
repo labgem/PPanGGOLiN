@@ -15,7 +15,7 @@ from ppanggolin.formats.writeBinaries import writeInfoModules
 from ppanggolin.metrics.fluidity import genomes_fluidity, fam_fluidity
 
 
-def check_metric(pangenome, all=False, genome_fluidity=False, family_fluidity=False, force=False):
+def check_metric(pangenome, all=False, genome_fluidity=False, family_fluidity=False, info_modules=False, force=False):
     with tables.open_file(pangenome.file, "a") as h5f:
         info_group = h5f.root.info
         if genome_fluidity or all:
@@ -26,6 +26,13 @@ def check_metric(pangenome, all=False, genome_fluidity=False, family_fluidity=Fa
         if family_fluidity or all:
             if 'family_fluidity' in info_group._v_attrs._f_list() and not force:
                 raise Exception("Family fluidity was already compute. "
+                                "Please use -f option if you REALLY want to compute again")
+
+        if info_modules or all:
+            if any(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'PersistentSpecInModules',
+                                                                'ShellSpecInModules', 'numberOfFamiliesInModules',
+                                                                'StatOfFamiliesInModules']) and not force:
+                raise Exception("Supplementary information on modules was already compute. "
                                 "Please use -f option if you REALLY want to compute again")
 
 
@@ -62,11 +69,14 @@ def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity
 
 
 def write_metrics(pangenome, metrics_dict, no_print_info=False):
-    """Write the metrics computed in the pangenome
+    """
+    Write the metrics computed in the pangenome
     :param pangenome: pangenome which will be used to compute the genomes fluidity
     :type pangenome: Pangenome
     :param metrics_dict: dictionary with all the metrics computed
     :type metrics_dict: dict
+    :param no_print_info: disable print of information
+    :type no_print_info: bool
     """
     with tables.open_file(pangenome.file, "a") as h5f:
         info_group = h5f.root.info
@@ -97,7 +107,7 @@ def launch(args):
 
     logging.getLogger().debug("Check if one of the metrics was already compute")
     check_metric(pangenome, all=args.all, genome_fluidity=args.genome_fluidity, family_fluidity=args.family_fluidity,
-                 force=args.force)
+                 info_modules=args.info_modules, force=args.force)
     logging.getLogger().info("Metrics computation begin")
     metrics_dictionary = compute_metrics(pangenome, all=args.all, genome_fluidity=args.genome_fluidity,
                                          family_fluidity=args.family_fluidity, info_modules=args.info_modules,

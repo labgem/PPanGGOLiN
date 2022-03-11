@@ -293,6 +293,11 @@ class Module:
             logging.getLogger().debug(f"all")
             for fam in self.families:
                 self.bitarray[index[fam]] = 1
+        elif partition == 'persistent':
+            logging.getLogger().debug(f"persistent")
+            for fam in self.families:
+                if fam.namedPartition in ['persistent']:
+                    self.bitarray[index[fam]] = 1
         elif partition in ['shell', 'cloud']:
             logging.getLogger().debug(f"shell, cloud")
             for fam in self.families:

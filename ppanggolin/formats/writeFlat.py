@@ -838,7 +838,7 @@ def writeFlatSubparser(subparser):
     optional.add_argument("--Rtab", required=False, action="store_true",
                           help="tabular file for the gene binary presence absence matrix")
     optional.add_argument("--projection", required=False, action="store_true",
-                          help="a csv file for each organism providing informations on the projection of the graph "
+                          help="a csv file for each organism providing information on the projection of the graph "
                                "on the organism")
     optional.add_argument("--stats", required=False, action="store_true",
                           help="tsv files with some statistics for each organism and for each gene family")
