@@ -479,7 +479,6 @@ def writeInfo(pangenome, h5f):
         infoGroup._v_attrs.numberOfModules = len(pangenome.modules)
         infoGroup._v_attrs.numberOfFamiliesInModules = sum([len(mod.families) for mod in pangenome.modules])
 
-
     infoGroup._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters
 
 
@@ -516,19 +515,26 @@ def writeInfoModules(pangenome, h5f):
         def part_spec(part):
             pangenome.compute_mod_bitarrays(part)
             return [popcount(module.bitarray) for module in pangenome.modules]
+
         mod_fam = [len(module.families) for module in pangenome.modules]
         infoGroup._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
                                                       "max": getmax(mod_fam),
                                                       "sd": getstdev(mod_fam),
                                                       "mean": getmean(mod_fam)}
+        spec_pers = part_spec(part='persistent')
         spec_shell = part_spec(part='shell')
         spec_cloud = part_spec(part='cloud')
-        infoGroup._v_attrs.ShellSpecInModules = {"percent": round((sum(spec_shell)/sum(mod_fam))*100, 2),
+        infoGroup._v_attrs.PersistentSpecInModules = {"percent": round((sum(spec_pers) / sum(mod_fam)) * 100, 2),
+                                                      "min": getmin(spec_pers),
+                                                      "max": getmax(spec_pers),
+                                                      "sd": getstdev(spec_pers),
+                                                      "mean": getmean(spec_pers)}
+        infoGroup._v_attrs.ShellSpecInModules = {"percent": round((sum(spec_shell) / sum(mod_fam)) * 100, 2),
                                                  "min": getmin(spec_shell),
                                                  "max": getmax(spec_shell),
                                                  "sd": getstdev(spec_shell),
                                                  "mean": getmean(spec_shell)}
-        infoGroup._v_attrs.CloudSpecInModules = {"percent": round((sum(spec_cloud)/sum(mod_fam))*100, 2),
+        infoGroup._v_attrs.CloudSpecInModules = {"percent": round((sum(spec_cloud) / sum(mod_fam)) * 100, 2),
                                                  "min": getmin(spec_cloud),
                                                  "max": getmax(spec_cloud),
                                                  "sd": getstdev(spec_cloud),
@@ -613,7 +619,7 @@ def ErasePangenome(pangenome, graph=False, geneFamilies=False, partition=False, 
         statusGroup._v_attrs.predictedRGP = False
         h5f.remove_node("/", "RGP")
 
-        h5f.del_node_attr(infoGroup,"numberOfRGP")
+        h5f.del_node_attr(infoGroup, "numberOfRGP")
 
     if '/spots' in h5f and (geneFamilies or partition or rgp or spots):
         logging.getLogger().info("Erasing the formerly computed spots...")
@@ -621,7 +627,7 @@ def ErasePangenome(pangenome, graph=False, geneFamilies=False, partition=False, 
         statusGroup._v_attrs.spots = False
         h5f.remove_node("/", "spots")
 
-        h5f.del_node_attr(infoGroup,"numberOfSpots")
+        h5f.del_node_attr(infoGroup, "numberOfSpots")
 
     if '/modules' in h5f and (geneFamilies or partition or modules):
         logging.getLogger().info("Erasing the formerly computed modules...")
