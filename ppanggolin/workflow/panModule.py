@@ -67,7 +67,7 @@ def launch(args):
     graph_time = time.time() - start_graph
 
     start_part = time.time()
-    partition(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, K=args.nb_of_partitions, disable_bar=args.disable_prog_bar)
+    partition(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, kval=args.nb_of_partitions, disable_bar=args.disable_prog_bar)
     part_time = time.time() - start_part
 
     start_writing = time.time()

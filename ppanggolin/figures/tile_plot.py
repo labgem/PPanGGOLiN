@@ -20,7 +20,7 @@ from ppanggolin.utils import jaccard_similarities
 
 def drawTilePlot(pangenome, output, nocloud=False, disable_bar=False):
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
-    if pangenome.status["partitionned"] == "No":
+    if pangenome.status["partitioned"] == "No":
         raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
     if len(pangenome.organisms) > 500 and nocloud is False:
         logging.getLogger().warning("You asked to draw a tile plot for a lot of organisms (>500). "

@@ -53,7 +53,8 @@ def launch(args):
 
     computeNeighborsGraph(pangenome, disable_bar=args.disable_prog_bar)
 
-    partition(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, K=args.nb_of_partitions, disable_bar=args.disable_prog_bar)
+    partition(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, kval=args.nb_of_partitions,
+              disable_bar=args.disable_prog_bar)
     writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
 
     if args.rarefaction:

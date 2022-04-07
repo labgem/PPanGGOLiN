@@ -40,9 +40,10 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, kr
                                        tmpdir + "/" + str(index) + "_eval", seed, None)
 
     if len(samp) <= chunk_size:  # all good, just write stuff.
-        edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir, organisms=set(samp), sm_degree=sm_degree)
+        edges_weight, nb_fam = ppp.write_nem_input_files(ppp.pan, tmpdir=currtmpdir, organisms=set(samp),
+                                                         sm_degree=sm_degree)
         cpt_partition = ppp.run_partitioning(currtmpdir, len(samp), beta * (nb_fam / edges_weight), free_dispersion,
-                                             K=K, seed=seed, init="param_file")[0]
+                                             kval=K, seed=seed, init="param_file")[0]
     else:  # going to need multiple partitioning for this sample...
         families = set()
         cpt_partition = {}
@@ -84,11 +85,11 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, kr
                     shuffled_orgs = shuffled_orgs[chunk_size:]
             # making arguments for all samples:
             for samp in org_samples:
-                edges_weight, nb_fam = ppp.write_nem_input_files(currtmpdir + "/" + str(cpt) + "/", samp,
+                edges_weight, nb_fam = ppp.write_nem_input_files(ppp.pan, currtmpdir + "/" + str(cpt) + "/", samp,
                                                                  sm_degree=sm_degree)
                 validate_family(
                     ppp.run_partitioning(currtmpdir + "/" + str(cpt) + "/", len(samp), beta * (nb_fam / edges_weight),
-                                         free_dispersion, K=K, seed=seed, init="param_file"))
+                                         free_dispersion, kval=K, seed=seed, init="param_file"))
                 cpt += 1
     if len(cpt_partition) == 0:
         counts = {"persistent": "NA", "shell": "NA", "cloud": "NA", "undefined": "NA", "K": K}
@@ -370,7 +371,7 @@ def makeRarefactionCurve(pangenome, output, tmpdir, beta=2.5, depth=30, minSampl
     with get_context('fork').Pool(processes=cpu) as p:
         # launch partitioning
         logging.getLogger().info(" Partitioning all samples...")
-        bar = tqdm(range(len(args)), unit="samples partitionned", disable=disable_bar)
+        bar = tqdm(range(len(args)), unit="samples partitioned", disable=disable_bar)
         random.shuffle(args)  # shuffling the processing so that the progress bar is closer to reality.
         for result in p.imap_unordered(launch_raref_nem, args):
             SampNbPerPart[result[1]] = {**result[0], **SampNbPerPart[result[1]]}
