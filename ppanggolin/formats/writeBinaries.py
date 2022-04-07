@@ -168,7 +168,7 @@ def geneFamDesc(maxNameLen, maxSequenceLength, maxPartLen):
 def getGeneFamLen(pangenome):
     maxGeneFamNameLen = 1
     maxGeneFamSeqLen = 1
-    maxPartLen = 1
+    maxPartLen = 2
     for genefam in pangenome.geneFamilies:
         if len(genefam.sequence) > maxGeneFamSeqLen:
             maxGeneFamSeqLen = len(genefam.sequence)
@@ -395,8 +395,8 @@ def writeStatus(pangenome, h5f):
                                                                                                    "inFile"] else False
     statusGroup._v_attrs.NeighborsGraph = True if pangenome.status["neighborsGraph"] in ["Computed", "Loaded",
                                                                                          "inFile"] else False
-    statusGroup._v_attrs.Partitionned = True if pangenome.status["partitionned"] in ["Computed", "Loaded",
-                                                                                     "inFile"] else False
+    statusGroup._v_attrs.Partitioned = True if pangenome.status["partitioned"] in ["Computed", "Loaded",
+                                                                                   "inFile"] else False
     statusGroup._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed", "Loaded",
                                                                                      "inFile"] else False
     statusGroup._v_attrs.predictedRGP = True if pangenome.status["predictedRGP"] in ["Computed", "Loaded",
@@ -445,7 +445,7 @@ def writeInfo(pangenome, h5f):
         infoGroup._v_attrs.numberOfClusters = len(pangenome.geneFamilies)
     if pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:
         infoGroup._v_attrs.numberOfEdges = len(pangenome.edges)
-    if pangenome.status["partitionned"] in ["Computed", "Loaded"]:
+    if pangenome.status["partitioned"] in ["Computed", "Loaded"]:
         namedPartCounter = Counter()
         subpartCounter = Counter()
         partDistribs = defaultdict(list)
@@ -600,9 +600,9 @@ def ErasePangenome(pangenome, graph=False, geneFamilies=False, partition=False, 
         statusGroup._v_attrs.geneFamilySequences = False
         if partition:
             logging.getLogger().info("Erasing former partitions...")
-            pangenome.status["partitionned"] = "No"
+            pangenome.status["partitioned"] = "No"
 
-            statusGroup._v_attrs.Partitionned = False
+            statusGroup._v_attrs.Partitioned = False
 
             h5f.del_node_attr(infoGroup, "numberOfPersistent")
             h5f.del_node_attr(infoGroup, "persistentStats")
@@ -689,11 +689,11 @@ def writePangenome(pangenome, filename, force, disable_bar=False):
         writeGraph(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["neighborsGraph"] = "Loaded"
 
-    if pangenome.status["partitionned"] == "Computed" and \
+    if pangenome.status["partitioned"] == "Computed" and \
             pangenome.status["genesClustered"] in ["Loaded", "inFile"]:  # otherwise, it's been written already.
 
         updateGeneFamPartition(pangenome, h5f, disable_bar=disable_bar)
-        pangenome.status["partitionned"] = "Loaded"
+        pangenome.status["partitioned"] = "Loaded"
 
     if pangenome.status['predictedRGP'] == "Computed":
         logging.getLogger().info("Writing Regions of Genomic Plasticity...")

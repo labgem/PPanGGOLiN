@@ -48,8 +48,8 @@ def getStatus(pangenome, pangenomeFile):
         pangenome.status["geneFamilySequences"] = "inFile"
     if statusGroup._v_attrs.NeighborsGraph:
         pangenome.status["neighborsGraph"] = "inFile"
-    if statusGroup._v_attrs.Partitionned:
-        pangenome.status["partitionned"] = "inFile"
+    if statusGroup._v_attrs.Partitioned:
+        pangenome.status["partitioned"] = "inFile"
 
     if hasattr(statusGroup._v_attrs, "predictedRGP") and statusGroup._v_attrs.predictedRGP:
         pangenome.status["predictedRGP"] = "inFile"
@@ -186,8 +186,9 @@ def readGeneFamiliesInfo(pangenome, h5f, disable_bar=False):
         fam.addSequence(row["protein"].decode())
         bar.update()
     bar.close()
-    if h5f.root.status._v_attrs.Partitionned:
-        pangenome.status["partitionned"] = "Loaded"
+
+    if h5f.root.status._v_attrs.Partitioned:
+        pangenome.status["partitioned"] = "Loaded"
     if h5f.root.status._v_attrs.geneFamilySequences:
         pangenome.status["geneFamilySequences"] = "Loaded"
 
@@ -463,7 +464,7 @@ def checkPangenomeInfo(pangenome, needAnnotations=False, needFamilies=False, nee
             graph = True
         elif not pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome does not have a graph (no edges). See the 'graph' subcommand.")
-    if needPartitions and pangenome.status["partitionned"] not in ["Computed", "Loaded", "inFile"]:
+    if needPartitions and pangenome.status["partitioned"] not in ["Computed", "Loaded", "inFile"]:
         raise Exception("Your pangenome has not been partitioned. See the 'partition' subcommand")
     if needRGP:
         if pangenome.status["predictedRGP"] == "inFile":

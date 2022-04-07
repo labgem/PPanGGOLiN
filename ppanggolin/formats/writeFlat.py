@@ -515,7 +515,6 @@ def writeParts(output, soft_core):
         else:
             partSets["soft_accessory"].add(fam.name)
             partSets["exact_accessory"].add(fam.name)
-
     for key, val in partSets.items():
         currKeyFile = open(output + "/partitions/" + key + ".txt", "w")
         if len(val) > 0:
