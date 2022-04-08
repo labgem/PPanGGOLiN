@@ -430,9 +430,13 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
     kmm = [3, 20] if krange is None else krange
     global samples
 
-    if draw_icl and outputdir is None:
-        raise Exception("Combination of option impossible: "
-                        "You asked to draw the ICL curves but did not provide an output directory!")
+    if draw_icl:
+        if outputdir is None:
+            raise Exception("Combination of option impossible: "
+                            "You asked to draw the ICL curves but did not provide an output directory!")
+        if kval >= 2:
+            raise Exception("You are trying to draw ICL, but you give the number of partition.")
+
     check_pangenome_former_partition(pangenome, force)
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
     organisms = set(pangenome.organisms)
