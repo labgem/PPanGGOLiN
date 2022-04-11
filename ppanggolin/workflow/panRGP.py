@@ -88,7 +88,7 @@ def launch(args):
 
     start_spot_drawing = time.time()
     mkOutdir(args.output, force=True)
-    drawSpots(pangenome=pangenome, output = args.output, spot_list='all', disable_bar=args.disable_prog_bar)
+    drawSpots(pangenome=pangenome, output=args.output, spot_list='all', disable_bar=args.disable_prog_bar)
     spot_time = spot_time + time.time() - start_spot_drawing
 
     if args.rarefaction:
@@ -113,8 +113,8 @@ def launch(args):
     printInfo(filename, content=True)
 
 
-def panRGPSubparser(subparser):
-    parser = subparser.add_parser("panrgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("panrgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
     required.add_argument('--fasta', required=False, type=str,

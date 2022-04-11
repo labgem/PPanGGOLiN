@@ -97,7 +97,7 @@ def launch(args):
     if not args.only_pangenome:
         start_spot_drawing = time.time()
         mkOutdir(args.output + '/spot_figures', force=True)
-        drawSpots(pangenome=pangenome, output = args.output + '/spot_figures', spot_list='all',
+        drawSpots(pangenome=pangenome, output=args.output + '/spot_figures', spot_list='all',
                   disable_bar=args.disable_prog_bar)
         spot_time = spot_time + time.time() - start_spot_drawing
 
@@ -126,8 +126,8 @@ def launch(args):
     printInfo(filename, content=True)
 
 
-def allSubparser(subparser):
-    parser = subparser.add_parser("all", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("all", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
     required.add_argument('--fasta', required=False, type=str,

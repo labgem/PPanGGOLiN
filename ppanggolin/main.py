@@ -21,10 +21,6 @@ import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
-import ppanggolin.workflow.workflow
-import ppanggolin.workflow.panRGP
-import ppanggolin.workflow.panModule
-import ppanggolin.workflow.all
 import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
@@ -34,6 +30,10 @@ import ppanggolin.RGP.genomicIsland
 import ppanggolin.RGP.spot
 import ppanggolin.mod
 import ppanggolin.context
+import ppanggolin.workflow.workflow
+import ppanggolin.workflow.panRGP
+import ppanggolin.workflow.panModule
+import ppanggolin.workflow.all
 
 
 def checkTsvSanity(tsv):
@@ -135,10 +135,10 @@ def cmdLine():
             ppanggolin.graph.graphSubparser(subparsers),
             ppanggolin.nem.partition.partitionSubparser(subparsers),
             ppanggolin.nem.rarefaction.rarefactionSubparser(subparsers),
-            ppanggolin.workflow.workflow.workflowSubparser(subparsers),
-            ppanggolin.workflow.panRGP.panRGPSubparser(subparsers),
-            ppanggolin.workflow.panModule.panModuleSubparser(subparsers),
-            ppanggolin.workflow.all.allSubparser(subparsers),
+            ppanggolin.workflow.workflow.subparser(subparsers),
+            ppanggolin.workflow.panRGP.subparser(subparsers),
+            ppanggolin.workflow.panModule.subparser(subparsers),
+            ppanggolin.workflow.all.subparser(subparsers),
             ppanggolin.figures.figureSubparser(subparsers),
             ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers),
             ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers),
@@ -150,7 +150,6 @@ def cmdLine():
             ppanggolin.mod.moduleSubparser(subparsers),
             ppanggolin.context.subparser(subparsers)]  # subparsers
     ppanggolin.info.infoSubparser(subparsers)  # not adding to subs because the 'common' options are not needed for this
-
     for sub in subs:  # add options common to all subcommands
         common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
         common.title = "Common arguments"

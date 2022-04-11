@@ -103,8 +103,8 @@ def launch(args):
     printInfo(filename, content=True)
 
 
-def panModuleSubparser(subparser):
-    parser = subparser.add_parser("panmodule", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("panmodule", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
     required.add_argument('--fasta', required=False, type=str,
