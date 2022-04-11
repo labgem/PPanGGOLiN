@@ -62,8 +62,9 @@ class GeneContext:
         self.families.add(family)
 
 
-def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, families=None, transitive=4,
-                                    identity=0.5, coverage=0.8, jaccard=0.85, no_defrag=False, cpu=1, disable_bar=True):
+def search_gene_context_in_pangenome(pangenome, output, tmpdir, sequences=None, families=None, transitive=4,
+                                     identity=0.5, coverage=0.8, jaccard=0.85, no_defrag=False, cpu=1,
+                                     disable_bar=True):
     """
     Main function to search common gene contexts between sequence set and pangenome families
 
@@ -126,7 +127,7 @@ def search_geneContext_in_pangenome(pangenome, output, tmpdir, sequences=None, f
     logging.getLogger().debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     # extract the modules from the graph
-    common_components = compute_geneContext(g, jaccard)
+    common_components = compute_gene_context(g, jaccard)
 
     families = set()
     for gene_context in common_components:
@@ -161,11 +162,11 @@ def compute_gene_context_graph(families, t, disable_bar=False):
             pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, families, t)
             if in_context_left or in_context_right:
                 for env_gene in contig[pos_left:pos_right + 1]:
-                    _compute_geneContext_graph(g, env_gene, contig, pos_right)
+                    _compute_gene_context_graph(g, env_gene, contig, pos_right)
     return g
 
 
-def _compute_geneContext_graph(g, env_gene, contig, pos_r):
+def _compute_gene_context_graph(g, env_gene, contig, pos_r):
     """
     Compute graph of gene contexts between one gene and the other part of the contig
 
@@ -224,7 +225,7 @@ def extract_gene_context(gene, contig, families, t=4):
     return pos_left, in_context_left, pos_right, in_context_right
 
 
-def compute_geneContext(g, jaccard=0.85):
+def compute_gene_context(g, jaccard=0.85):
     """
     Compute the gene contexts in the graph
 
@@ -302,15 +303,13 @@ def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    search_geneContext_in_pangenome(pangenome=pangenome, sequences=args.sequences, families=args.family,
-                                    output=args.output,
-                                    identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
-                                    transitive=args.transitive, cpu=args.cpu, tmpdir=args.tmpdir,
-                                    no_defrag=args.no_defrag,
-                                    disable_bar=args.disable_prog_bar)
+    search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
+                                     sequences=args.sequences, families=args.family, transitive=args.transitive,
+                                     identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
+                                     no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
 
 
-def contextSubparser(sub_parser):
+def subparser(sub_parser):
     """
     Parser arguments specific to context command
 
@@ -321,7 +320,10 @@ def contextSubparser(sub_parser):
     :rtype : argparse.ArgumentParser
     """
     parser = sub_parser.add_parser("context", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    return parser_context(parser)
 
+
+def parser_context(parser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
@@ -348,4 +350,26 @@ def contextSubparser(sub_parser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
-    return parser
+
+
+if __name__ == '__main__':
+    """To test local change and allow using debugger"""
+    from ppanggolin.utils import check_log
+
+    main_parser = argparse.ArgumentParser(
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser_context(main_parser)
+    common = main_parser.add_argument_group(title="Common argument")
+    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+                        help="directory for storing temporary files")
+    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
+    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                        help="disables the progress bars")
+    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    common.add_argument('-f', '--force', action="store_true",
+                        help="Force writing in output directory and in pangenome output file.")
+    launch(main_parser.parse_args())

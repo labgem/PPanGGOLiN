@@ -15,6 +15,7 @@ import os
 
 # local modules
 import ppanggolin.pangenome
+from ppanggolin.utils import check_log
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
@@ -79,15 +80,6 @@ def checkInputFiles(anno=None, pangenome=None, fasta=None):
         if not os.path.exists(fasta):
             raise FileNotFoundError(f"No such file or directory: '{fasta}'")
         checkTsvSanity(fasta)
-
-
-def checkLog(name):
-    if name == "stdout":
-        return sys.stdout
-    elif name == "stderr":
-        return sys.stderr
-    else:
-        return open(name, "w")
 
 
 def cmdLine():
@@ -156,7 +148,7 @@ def cmdLine():
             ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers),
             ppanggolin.RGP.spot.spotSubparser(subparsers),
             ppanggolin.mod.moduleSubparser(subparsers),
-            ppanggolin.context.contextSubparser(subparsers)]  # subparsers
+            ppanggolin.context.subparser(subparsers)]  # subparsers
     ppanggolin.info.infoSubparser(subparsers)  # not adding to subs because the 'common' options are not needed for this
 
     for sub in subs:  # add options common to all subcommands
@@ -166,7 +158,7 @@ def cmdLine():
                             help="directory for storing temporary files")
         common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
                             help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-        common.add_argument("--log", required=False, type=checkLog, default="stdout", help="log output file")
+        common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
         common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
                             help="disables the progress bars")
         common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")

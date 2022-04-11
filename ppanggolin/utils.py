@@ -2,13 +2,23 @@
 # coding:utf-8
 
 # default libraries
-import gzip
-from io import TextIOWrapper
-import mmap
-from pathlib import Path
+import sys
 import os
-from numpy import repeat
+import gzip
+import mmap
 import argparse
+from io import TextIOWrapper
+from pathlib import Path
+from numpy import repeat
+
+
+def check_log(name):
+    if name == "stdout":
+        return sys.stdout
+    elif name == "stderr":
+        return sys.stderr
+    else:
+        return open(name, "w")
 
 
 def jaccard_similarities(mat, jaccard_similarity_th):
