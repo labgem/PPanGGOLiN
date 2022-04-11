@@ -14,7 +14,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.formats import checkPangenomeInfo
 
 
-def genomes_fluidity(pangenome, disable_bar=False):
+def gen_fluidity(pangenome, disable_bar=False):
     """ Compute the genomes fluidity from the pangenome
 
     :param pangenome: pangenome which will be used to compute the genomes fluidity

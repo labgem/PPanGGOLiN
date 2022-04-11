@@ -320,12 +320,12 @@ def readInfo(h5f):
         if 'genome_fluidity' in infoGroup._v_attrs._f_list():
             out = "Genomes fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
-                            infoGroup._v_attrs['genome_fluidity'].items())
+                            infoGroup._v_attrs['genomes_fluidity'].items())
             print(out)
         if 'family_fluidity' in infoGroup._v_attrs._f_list():
-            out = "Family fluidity: " + \
+            out = "Families fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
-                            infoGroup._v_attrs['family_fluidity'].items())
+                            infoGroup._v_attrs['families_fluidity'].items())
             print(out)
         if 'numberOfRGP' in infoGroup._v_attrs._f_list():
             print(f"RGPs: {infoGroup._v_attrs['numberOfRGP']}")

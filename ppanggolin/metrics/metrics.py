@@ -12,23 +12,23 @@ from ppanggolin.formats.readBinaries import checkPangenomeInfo, readInfo
 from ppanggolin.formats.writeBinaries import writeInfoModules
 
 # metrics libraries
-from ppanggolin.metrics.fluidity import genomes_fluidity, fam_fluidity
+from ppanggolin.metrics.fluidity import gen_fluidity, fam_fluidity
 
 
-def check_metric(pangenome, all=False, genome_fluidity=False, family_fluidity=False, info_modules=False, force=False):
+def check_metric(pangenome, genomes_fluidity=False, families_fluidity=False, info_modules=False, force=False):
     with tables.open_file(pangenome.file, "a") as h5f:
         info_group = h5f.root.info
-        if genome_fluidity or all:
-            if 'genome_fluidity' in info_group._v_attrs._f_list() and not force:
+        if genomes_fluidity:
+            if 'genomes_fluidity' in info_group._v_attrs._f_list() and not force:
                 raise Exception("Genome fluidity was already compute. "
                                 "Please use -f option if you REALLY want to compute again")
 
-        if family_fluidity or all:
-            if 'family_fluidity' in info_group._v_attrs._f_list() and not force:
+        if families_fluidity:
+            if 'families_fluidity' in info_group._v_attrs._f_list() and not force:
                 raise Exception("Family fluidity was already compute. "
                                 "Please use -f option if you REALLY want to compute again")
 
-        if info_modules or all:
+        if info_modules:
             if any(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'PersistentSpecInModules',
                                                                 'ShellSpecInModules', 'numberOfFamiliesInModules',
                                                                 'StatOfFamiliesInModules']) and not force:
@@ -36,17 +36,15 @@ def check_metric(pangenome, all=False, genome_fluidity=False, family_fluidity=Fa
                                 "Please use -f option if you REALLY want to compute again")
 
 
-def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity=False, info_modules=False,
+def compute_metrics(pangenome, genomes_fluidity=False, families_fluidity=False, info_modules=False,
                     disable_bar=False):
     """Compute the metrics
-    :param pangenome: pangenome which will be used to compute the genomes fluidity
+    :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :type pangenome: Pangenome
-    :param all: compute all the metrics
-    :type all: bool
-    :param genome_fluidity: Ask to compute genome fluidity
-    :type genome_fluidity: bool
-    :param family_fluidity: Ask to compute family fluidity
-    :type family_fluidity: bool
+    :param genomes_fluidity: Ask to compute genome fluidity
+    :type genomes_fluidity: bool
+    :param families_fluidity: Ask to compute family fluidity
+    :type families_fluidity: bool
     :param info_modules: Ask to compute more information about module
     :type info_modules: bool
     :param disable_bar: Disable the progress bar
@@ -58,11 +56,11 @@ def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity
     """
 
     metrics_dict = {}
-    if genome_fluidity or all:
-        metrics_dict['genome_fluidity'] = genomes_fluidity(pangenome, disable_bar)
-    if family_fluidity or all:
-        metrics_dict['family_fluidity'] = fam_fluidity(pangenome, disable_bar)
-    if info_modules or all:
+    if genomes_fluidity:
+        metrics_dict['genomes_fluidity'] = gen_fluidity(pangenome, disable_bar)
+    if families_fluidity:
+        metrics_dict['families_fluidity'] = fam_fluidity(pangenome, disable_bar)
+    if info_modules:
         checkPangenomeInfo(pangenome, needFamilies=True, needModules=True)
         metrics_dict['info_modules'] = True
     return metrics_dict
@@ -71,7 +69,7 @@ def compute_metrics(pangenome, all=False, genome_fluidity=False, family_fluidity
 def write_metrics(pangenome, metrics_dict, no_print_info=False):
     """
     Write the metrics computed in the pangenome
-    :param pangenome: pangenome which will be used to compute the genomes fluidity
+    :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :type pangenome: Pangenome
     :param metrics_dict: dictionary with all the metrics computed
     :type metrics_dict: dict
@@ -81,13 +79,13 @@ def write_metrics(pangenome, metrics_dict, no_print_info=False):
     with tables.open_file(pangenome.file, "a") as h5f:
         info_group = h5f.root.info
         logging.getLogger().debug("H5f open")
-        if 'genome_fluidity' in metrics_dict.keys():
+        if 'genomes_fluidity' in metrics_dict.keys():
             logging.getLogger().info("Writing genome fluidity in pangenome")
-            info_group._v_attrs.genome_fluidity = metrics_dict['genome_fluidity']
+            info_group._v_attrs.genomes_fluidity = metrics_dict['genomes_fluidity']
 
-        if 'family_fluidity' in metrics_dict.keys():
+        if 'families_fluidity' in metrics_dict.keys():
             logging.getLogger().info("Writing family fluidity in pangenome")
-            info_group._v_attrs.family_fluidity = metrics_dict['family_fluidity']
+            info_group._v_attrs.families_fluidity = metrics_dict['families_fluidity']
 
         if 'info_modules' in metrics_dict.keys():
             logging.getLogger().info("Writing modules information in pangenome")
@@ -101,23 +99,26 @@ def write_metrics(pangenome, metrics_dict, no_print_info=False):
 def launch(args):
     if not any(x for x in [args.genome_fluidity, args.family_fluidity, args.info_modules, args.all]):
         raise Exception("You did not indicate which metric you want to compute.")
+    args_dict = {'genomes_fluidity': args.genome_fluidity,
+                 'families_fluidity': args.family_fluidity,
+                 'info_modules': args.info_modules}
+    if args.all:
+        for arg in args_dict.keys():
+            args_dict[arg] = True
 
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
 
     logging.getLogger().debug("Check if one of the metrics was already compute")
-    check_metric(pangenome, all=args.all, genome_fluidity=args.genome_fluidity, family_fluidity=args.family_fluidity,
-                 info_modules=args.info_modules, force=args.force)
+    check_metric(pangenome, force=args.force, **args_dict)
     logging.getLogger().info("Metrics computation begin")
-    metrics_dictionary = compute_metrics(pangenome, all=args.all, genome_fluidity=args.genome_fluidity,
-                                         family_fluidity=args.family_fluidity, info_modules=args.info_modules,
-                                         disable_bar=args.disable_prog_bar)
+    metrics_dictionary = compute_metrics(pangenome, disable_bar=args.disable_prog_bar, **args_dict)
     logging.getLogger().info("Metrics computation done")
 
     write_metrics(pangenome, metrics_dictionary, no_print_info=args.no_print_info)
 
 
-def metricsSubparser(sub_parser):
+def subparser(sub_parser):
     """
     Parser arguments specific to metrics command
 
@@ -128,7 +129,11 @@ def metricsSubparser(sub_parser):
     :rtype : argparse.ArgumentParser
     """
     parser = sub_parser.add_parser("metrics", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_metrics(parser)
+    return parser
 
+
+def parser_metrics(parser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
@@ -152,4 +157,24 @@ def metricsSubparser(sub_parser):
     #                       help="Compute the genome fluidity only")
     # optional.add_argument('--family_only', required=False, action="store_true", default=False,
     #                       help="Compute the genome fluidity only")
-    return parser
+
+
+if __name__ == '__main__':
+    """To test local change and allow using debugger"""
+    from ppanggolin.utils import check_log
+
+    main_parser = argparse.ArgumentParser(
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser_metrics(main_parser)
+    common = main_parser.add_argument_group(title="Common argument")
+    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
+    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                        help="disables the progress bars")
+    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    common.add_argument('-f', '--force', action="store_true",
+                        help="Force writing in output directory and in pangenome output file.")
+    launch(main_parser.parse_args())
