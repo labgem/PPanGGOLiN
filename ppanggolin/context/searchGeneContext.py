@@ -320,7 +320,8 @@ def subparser(sub_parser):
     :rtype : argparse.ArgumentParser
     """
     parser = sub_parser.add_parser("context", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    return parser_context(parser)
+    parser_context(parser)
+    return parser
 
 
 def parser_context(parser):
