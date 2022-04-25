@@ -723,8 +723,7 @@ def write_rgp_modules(output, compress):
     logging.getLogger().info(f"RGP and associated modules are listed in : {output + '/modules_RGP_lists.tsv'}")
 
 
-def write_flat_files(output, cpu=1, soft_core=0.95, dup_margin=0.05, csv=False, gene_pa=False,
-                     gexf=False,
+def write_flat_files(output, cpu=1, soft_core=0.95, dup_margin=0.05, csv=False, gene_pa=False, gexf=False,
                      light_gexf=False, projection=False, stats=False, json=False, partitions=False, regions=False,
                      families_tsv=False, spots=False, borders=False, modules=False, spot_modules=False, compress=False,
                      disable_bar=False):
@@ -817,6 +816,11 @@ def launch(args):
 
 def subparser(sub_parser):
     parser = sub_parser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_flat(parser)
+    return parser
+
+
+def parser_flat(parser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
@@ -858,4 +862,24 @@ def subparser(sub_parser):
                           help="Write a tsv file providing the association between genes and gene families")
     optional.add_argument("--spot_modules", required=False, action="store_true",
                           help="writes 3 files comparing the presence of modules within spots")
-    return parser
+
+
+if __name__ == '__main__':
+    """To test local change and allow using debugger"""
+    from ppanggolin.utils import check_log
+
+    main_parser = argparse.ArgumentParser(
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser_flat(main_parser)
+    common = main_parser.add_argument_group(title="Common argument")
+    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
+    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                        help="disables the progress bars")
+    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    common.add_argument('-f', '--force', action="store_true",
+                        help="Force writing in output directory and in pangenome output file.")
+    launch(main_parser.parse_args())
