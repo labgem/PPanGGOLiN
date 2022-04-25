@@ -8,17 +8,27 @@ import gmpy2
 
 
 class Feature:
-    def __init__(self, ID):
-        self.ID = ID
+    def __init__(self, identifier):
+        self.ID = identifier
         self.is_fragment = False
         self.type = ""
+        self.start = None
+        self.stop = None
+        self.type = None
+        self.strand = None
+        self.product = None
+        self.name = None
+        self.local_identifier = None
+        self.organism = None
+        self.contig = None
+        self.dna = None
 
-    def fill_annotations(self, start, stop, strand, geneType="", name="", product="", local_identifier="",
+    def fill_annotations(self, start, stop, strand, gene_type="", name="", product="", local_identifier="",
                          position=None, genetic_code=11):
         # genetic code, and position are not used in the default function.
         self.start = int(start)
         self.stop = int(stop)
-        self.type = geneType
+        self.type = gene_type
         self.strand = strand
         self.product = product
         self.name = name
@@ -39,18 +49,20 @@ class RNA(Feature):
 
 
 class Gene(Feature):
-    def __init__(self, ID):
-        super().__init__(ID)
+    def __init__(self, gene_id):
+        super().__init__(gene_id)
         self.position = None
         self.family = None
         self.RGP = set()
+        self.genetic_code = None
+        self.protein = None
 
     def __str__(self):
         return str(self.ID)
 
-    def fill_annotations(self, start, stop, strand, geneType="", name="", product="", local_identifier="",
+    def fill_annotations(self, start, stop, strand, gene_type="", name="", product="", local_identifier="",
                          position=None, genetic_code=11):
-        super().fill_annotations(start, stop, strand, geneType, name, product, local_identifier)
+        super().fill_annotations(start, stop, strand, gene_type, name, product, local_identifier)
         self.position = position
         self.genetic_code = genetic_code
 
@@ -87,12 +99,12 @@ class Contig:
             raise IndexError(f"No gene start at the given position {index}")
         return gene
 
-    def addRNA(self, gene):
+    def add_rna(self, gene):
         if not isinstance(gene, RNA):
             raise TypeError(f"'RNA' type was expected but you provided a '{type(gene)}' type object")
         self.RNAs.add(gene)
 
-    def addGene(self, gene):
+    def add_gene(self, gene):
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if gene.position is None:
@@ -109,6 +121,7 @@ class Organism:
     def __init__(self, name):
         self.name = name
         self._contigs_getter = {}
+        self.bitarray = None
 
     @property
     def families(self):
@@ -131,13 +144,13 @@ class Organism:
     def __str__(self):
         return self.name
 
-    def getOrAddContig(self, key, is_circular=False):
+    def get_or_add_contig(self, key, is_circular=False):
         contig = self._contigs_getter.get(key)
         if contig is None:
-            contig = self._createContig(key, is_circular)
+            contig = self._create_contig(key, is_circular)
         return contig
 
-    def _createContig(self, key, is_circular=False):
+    def _create_contig(self, key, is_circular=False):
         new_contig = Contig(key, is_circular)
         self._contigs_getter[key] = new_contig
         return new_contig
@@ -145,6 +158,8 @@ class Organism:
     def mk_bitarray(self, index, partition='all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
+        :param partition: Filter partition
+        type partition: str
         :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
         :type index: dict[:class:`ppanggolin.genome.Organism`, int]
         """
@@ -156,13 +171,12 @@ class Organism:
         elif partition in ['shell', 'cloud']:
             logging.getLogger().debug(f"shell, cloud")
             for fam in self.families:
-                if fam.namedPartition == partition:
+                if fam.named_partition == partition:
                     self.bitarray[index[fam]] = 1
         elif partition == 'accessory':
             logging.getLogger().debug(f"accessory")
             for fam in self.families:
-                if fam.namedPartition in ['shell', 'cloud']:
+                if fam.named_partition in ['shell', 'cloud']:
                     self.bitarray[index[fam]] = 1
         else:
             raise Exception("There is not any partition corresponding please report a github issue")
-

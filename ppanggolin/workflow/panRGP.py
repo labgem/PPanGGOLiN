@@ -9,13 +9,14 @@ import logging
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mkFilename, mkOutdir, check_option_workflow
+from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.nem.rarefaction import makeRarefactionCurve
 from ppanggolin.nem.partition import partition
-from ppanggolin.formats import write_pangenome, write_flat_files
+from ppanggolin.formats.writeBinaries import write_pangenome
+from ppanggolin.formats.writeFlat import write_flat_files
 from ppanggolin.figures import drawTilePlot, drawUCurve, drawSpots
 from ppanggolin.info import printInfo
 from ppanggolin.RGP.genomicIsland import predictRGP
@@ -27,7 +28,7 @@ from ppanggolin.RGP.spot import predictHotspots
 def launch(args):
     check_option_workflow(args)
     pangenome = Pangenome()
-    filename = mkFilename(args.basename, args.output, args.force)
+    filename = mk_file_name(args.basename, args.output, args.force)
     writing_time, anno_time, clust_time, desc_time = (None, None, None, None)
     if args.anno:  # if the annotations are provided, we read from it
         start_anno = time.time()
@@ -87,7 +88,7 @@ def launch(args):
     writing_time = writing_time + time.time() - start_writing
 
     start_spot_drawing = time.time()
-    mkOutdir(args.output, force=True)
+    mk_outdir(args.output, force=True)
     drawSpots(pangenome=pangenome, output=args.output, spot_list='all', disable_bar=args.disable_prog_bar)
     spot_time = spot_time + time.time() - start_spot_drawing
 

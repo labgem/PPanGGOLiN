@@ -9,13 +9,14 @@ import logging
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mkFilename, check_option_workflow
+from ppanggolin.utils import mk_file_name, check_option_workflow
 from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
 from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.nem.rarefaction import makeRarefactionCurve
 from ppanggolin.nem.partition import partition
-from ppanggolin.formats import write_pangenome, write_flat_files
+from ppanggolin.formats.writeBinaries import write_pangenome
+from ppanggolin.formats.writeFlat import write_flat_files
 from ppanggolin.figures import drawTilePlot, drawUCurve
 from ppanggolin.info import printInfo
 from ppanggolin.mod import predictModules
@@ -27,7 +28,7 @@ from ppanggolin.mod import predictModules
 def launch(args):
     check_option_workflow(args)
     pangenome = Pangenome()
-    filename = mkFilename(args.basename, args.output, args.force)
+    filename = mk_file_name(args.basename, args.output, args.force)
     writing_time, anno_time, clust_time, mod_time, desc_time = (None, None, None, None, None)
     if args.anno:  # if the annotations are provided, we read from it
         start_anno = time.time()

@@ -13,20 +13,20 @@ from ppanggolin.genome import Gene
 
 
 class GeneFamily:
-    """This represents a single gene family. It will be a node in the pangenome graph, and be aware of its genes and edges.
-
+    """
+    This represents a single gene family. It will be a node in the pangenome graph, and be aware of its genes and edges.
     """
 
-    def __init__(self, ID, name):
+    def __init__(self, family_id, name):
         """Constructor method
 
-        :param ID: The internal identifier to give to the gene family
-        :type ID: any
+        :param family_id: The internal identifier to give to the gene family
+        :type family_id: any
         :param name: The name of the gene family (to be printed in output files)
         :type name: str
         """
         self.name = str(name)
-        self.ID = ID
+        self.fam_id = family_id
         self._edges = {}
         self._genePerOrg = defaultdict(set)
         self.genes = set()
@@ -35,8 +35,9 @@ class GeneFamily:
         self.partition = ""
         self.spot = set()
         self.modules = set()
+        self.bitarray = None
 
-    def addSequence(self, seq):
+    def add_sequence(self, seq):
         """Assigns a protein sequence to the gene family.
 
         :param seq: the sequence to add to the gene family
@@ -44,7 +45,7 @@ class GeneFamily:
         """
         self.sequence = seq
 
-    def addPartition(self, partition):
+    def add_partition(self, partition):
         """Assigns a partition to the gene family. It should be the raw partition name provided by NEM.
 
         :param partition: The partition
@@ -53,7 +54,7 @@ class GeneFamily:
         self.partition = partition
 
     @property
-    def namedPartition(self):
+    def named_partition(self):
         """Reads the :attr:partition attribute and returns a meaningful name
 
         :raises Exception: If the gene family has no partition assigned
@@ -71,7 +72,7 @@ class GeneFamily:
         else:
             return "undefined"
 
-    def addGene(self, gene):
+    def add_gene(self, gene):
         """Add a gene to the gene family, and sets the gene's :attr:family accordingly.
 
         :param gene: the gene to add
@@ -85,8 +86,8 @@ class GeneFamily:
         if hasattr(gene, "organism"):
             self._genePerOrg[gene.organism].add(gene)
 
-    def mkBitarray(self, index, partition='all'):
-        """Produces a bitarray representing the presence / absence of the family in the pangenome using the provided index
+    def mk_bitarray(self, index, partition='all'):
+        """Produces a bitarray representing the presence/absence of the family in the pangenome using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
         :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
@@ -94,23 +95,23 @@ class GeneFamily:
         :param partition: partition used to compute bitarray
         :type partition: str
         """
-        self.bitarray = gmpy2.xmpz(0)  # pylint: disable=no-member
+        self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
             logging.getLogger().debug(f"all")
             for org in self.organisms:
                 self.bitarray[index[org]] = 1
         elif partition in ['shell', 'cloud']:
             logging.getLogger().debug(f"shell, cloud")
-            if self.namedPartition == partition:
+            if self.named_partition == partition:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
         elif partition == 'accessory':
             logging.getLogger().debug(f"accessory")
-            if self.namedPartition in ['shell', 'cloud']:
+            if self.named_partition in ['shell', 'cloud']:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
 
-    def getOrgDict(self):
+    def get_org_dict(self):
         """Returns the organisms and the genes belonging to the gene family
 
         :return: a dictionnary of organism as key and set of genes as values
@@ -123,7 +124,7 @@ class GeneFamily:
                 self._genePerOrg[gene.organism].add(gene)
             return self._genePerOrg
 
-    def getGenesPerOrg(self, org):
+    def get_genes_per_org(self, org):
         """Returns the genes belonging to the gene family in the given Organism
 
         :param org: Organism to look for
@@ -140,7 +141,7 @@ class GeneFamily:
 
     @property
     def neighbors(self):
-        """Returns all of the :class:`ppanggolin.geneFamily.GeneFamily` that are linked with an edge
+        """Returns all the :class:`ppanggolin.geneFamily.GeneFamily` that are linked with an edge
 
         :return: Neighbors
         :rtype: set[:class:`ppanggolin.geneFamily.GeneFamily`]
@@ -149,7 +150,7 @@ class GeneFamily:
 
     @property
     def edges(self):
-        """Returns all of the :class:`ppanggolin.pangenome.Edge` that are linked to this gene family
+        """Returns all the :class:`ppanggolin.pangenome.Edge` that are linked to this gene family
 
         :return: Edges of the gene family
         :rtype: list[:class:`ppanggolin.pangenome.Edge`]
@@ -158,7 +159,7 @@ class GeneFamily:
 
     @property
     def organisms(self):
-        """Returns all of the :class:`ppanggolin.genome.Organism` that have this gene family
+        """Returns all the :class:`ppanggolin.genome.Organism` that have this gene family
 
         :return: Organisms that have this gene family
         :rtype: set[:class:`ppanggolin.genome.Organism`]

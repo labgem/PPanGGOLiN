@@ -21,6 +21,52 @@ def check_log(name):
         return open(name, "w")
 
 
+def check_tsv_sanity(tsv):
+    f = open(tsv, "r")
+    name_set = set()
+    duplicated_names = set()
+    non_existing_files = set()
+    for line in f:
+        elements = [el.strip() for el in line.split("\t")]
+        if len(elements) <= 1:
+            raise Exception(f"No tabulation separator found in given file: {tsv}")
+        if " " in elements[0]:
+            raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string:"
+                            f" '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN "
+                            f"this is not allowed. Please remove spaces from your genome names.")
+        old_len = len(name_set)
+        name_set.add(elements[0])
+        if len(name_set) == old_len:
+            duplicated_names.add(elements[0])
+        if not os.path.exists(elements[1]):
+            non_existing_files.add(elements[1])
+    if len(non_existing_files) != 0:
+        raise Exception(f"Some of the given files do not exist. The non-existing files are the following : "
+                        f"'{' '.join(non_existing_files)}'")
+    if len(duplicated_names) != 0:
+        raise Exception(
+            f"Some of your genomes have identical names. The duplicated names are the following : "
+            f"'{' '.join(duplicated_names)}'")
+
+
+def check_input_files(anno=None, pangenome=None, fasta=None):
+    """
+        Checks if the provided input files exist and are of the proper format
+    """
+    if pangenome is not None and not os.path.exists(pangenome):
+        raise FileNotFoundError(f"No such file or directory: '{pangenome}'")
+
+    if anno is not None:
+        if not os.path.exists(anno):
+            raise FileNotFoundError(f"No such file or directory: '{anno}'")
+        check_tsv_sanity(anno)
+
+    if fasta is not None:
+        if not os.path.exists(fasta):
+            raise FileNotFoundError(f"No such file or directory: '{fasta}'")
+        check_tsv_sanity(fasta)
+
+
 def jaccard_similarities(mat, jaccard_similarity_th):
     cols_sum = mat.getnnz(axis=0)
     ab = mat.T * mat
@@ -37,7 +83,7 @@ def jaccard_similarities(mat, jaccard_similarity_th):
 
 def read_compressed_or_not(file_or_file_path):
     """
-        reads a file object or file path, uncompresses it if need be.
+        reads a file object or file path, uncompresses it, if need be.
         returns a TextIO object in read only.
     """
     file = file_or_file_path
@@ -47,14 +93,14 @@ def read_compressed_or_not(file_or_file_path):
         try:
             file = open(file.name, "rb")
         except AttributeError:
-            return (file)
+            return file
     if file.read(2).startswith(b'\x1f\x8b'):
         file.seek(0)
-        return (TextIOWrapper(gzip.open(filename=file, mode="r")))
+        return TextIOWrapper(gzip.open(filename=file, mode="r"))
     else:
         file.close()
         file = open(file.name, "r")
-        return (file)
+        return file
 
 
 def write_compressed_or_not(file_path, compress):
@@ -94,14 +140,14 @@ def get_num_lines(file):
     return lines
 
 
-def mkOutdir(output, force):
+def mk_outdir(output, force):
     if not os.path.exists(output):
         os.makedirs(output)
     elif not force:
         raise FileExistsError(f"{output} already exists. Use -f if you want to overwrite the files in the directory")
 
 
-def mkFilename(basename, output, force):
+def mk_file_name(basename, output, force):
     """
         Returns a usable filename for a ppanggolin output file, or crashes.
     """
@@ -109,7 +155,7 @@ def mkFilename(basename, output, force):
     if filename.suffix != ".h5":
         filename = filename.with_suffix(".h5")
 
-    mkOutdir(output, force)
+    mk_outdir(output, force)
 
     if filename.exists() and not force:
         raise FileExistsError(f"{filename.name} already exists. Use -f if you want to overwrite the file")
@@ -168,14 +214,14 @@ def add_gene(obj, gene, fam_split=True):
             obj["genes"][gene.family].add(gene)
         except KeyError:
             try:
-                obj["genes"][gene.family] = set([gene])
+                obj["genes"][gene.family] = {gene}
             except KeyError:
-                obj["genes"] = {gene.family: set([gene])}
+                obj["genes"] = {gene.family: {gene}}
     else:
         try:
             obj["genes"].add(gene)
         except KeyError:
-            obj["genes"] = set([gene])
+            obj["genes"] = {gene}
 
 
 def check_option_workflow(args):

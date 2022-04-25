@@ -11,11 +11,10 @@ import argparse
 import logging
 import pkg_resources
 import tempfile
-import os
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_log
+from ppanggolin.utils import check_log, check_input_files
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
@@ -36,53 +35,7 @@ import ppanggolin.workflow.panModule
 import ppanggolin.workflow.all
 
 
-def checkTsvSanity(tsv):
-    f = open(tsv, "r")
-    nameSet = set()
-    duplicatedNames = set()
-    nonExistingFiles = set()
-    for line in f:
-        elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
-            raise Exception(f"No tabulation separator found in given file: {tsv}")
-        if " " in elements[0]:
-            raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string:"
-                            f" '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN "
-                            f"this is not allowed. Please remove spaces from your genome names.")
-        oldLen = len(nameSet)
-        nameSet.add(elements[0])
-        if len(nameSet) == oldLen:
-            duplicatedNames.add(elements[0])
-        if not os.path.exists(elements[1]):
-            nonExistingFiles.add(elements[1])
-    if len(nonExistingFiles) != 0:
-        raise Exception(f"Some of the given files do not exist. The non-existing files are the following : "
-                        f"'{' '.join(nonExistingFiles)}'")
-    if len(duplicatedNames) != 0:
-        raise Exception(
-            f"Some of your genomes have identical names. The duplicated names are the following : "
-            f"'{' '.join(duplicatedNames)}'")
-
-
-def checkInputFiles(anno=None, pangenome=None, fasta=None):
-    """
-        Checks if the provided input files exist and are of the proper format
-    """
-    if pangenome is not None and not os.path.exists(pangenome):
-        raise FileNotFoundError(f"No such file or directory: '{pangenome}'")
-
-    if anno is not None:
-        if not os.path.exists(anno):
-            raise FileNotFoundError(f"No such file or directory: '{anno}'")
-        checkTsvSanity(anno)
-
-    if fasta is not None:
-        if not os.path.exists(fasta):
-            raise FileNotFoundError(f"No such file or directory: '{fasta}'")
-        checkTsvSanity(fasta)
-
-
-def cmdLine():
+def cmd_line():
     # need to manually write the description so that it's displayed into groups of subcommands ....
     desc = "\n"
     desc += "All of the following subcommands have their own set of options. To see them for a given subcommand," \
@@ -180,14 +133,14 @@ def cmdLine():
 
 
 def main():
-    args = cmdLine()
+    args = cmd_line()
 
     if hasattr(args, "pangenome"):
-        checkInputFiles(pangenome=args.pangenome)
+        check_input_files(pangenome=args.pangenome)
     if hasattr(args, "fasta"):
-        checkInputFiles(fasta=args.fasta)
+        check_input_files(fasta=args.fasta)
     if hasattr(args, "anno"):
-        checkInputFiles(anno=args.anno)
+        check_input_files(anno=args.anno)
 
     level = logging.INFO  # info, warnings and errors, default verbose == 1
     if hasattr(args, "verbose"):
