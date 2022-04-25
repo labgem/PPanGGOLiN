@@ -265,6 +265,8 @@ if __name__ == '__main__':
 
     parser_msa(main_parser)
     common = main_parser.add_argument_group(title="Common argument")
+    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+                        help="directory for storing temporary files")
     common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
                         help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
