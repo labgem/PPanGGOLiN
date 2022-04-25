@@ -56,8 +56,8 @@ class Pangenome:
         :type pangenomeFile: str
         """
         from ppanggolin.formats import \
-            getStatus  # importing on call instead of importing on top to avoid cross-reference problems.
-        getStatus(self, pangenomeFile)
+            get_status  # importing on call instead of importing on top to avoid cross-reference problems.
+        get_status(self, pangenomeFile)
         self.file = pangenomeFile
 
     """ Gene Methods"""

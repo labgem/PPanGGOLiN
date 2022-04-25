@@ -24,10 +24,10 @@ import scipy.optimize as optimization
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mkOutdir
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats import check_pangenome_info
 import ppanggolin.nem.partition as ppp
 
-# import this way to use the global variable pan defined in ppanggolin.nem.partition
+# import this way to use the global variable pangenome defined in ppanggolin.nem.partition
 
 samples = []
 
@@ -298,7 +298,7 @@ def makeRarefactionCurve(pangenome, output, tmpdir, beta=2.5, depth=30, minSampl
         krange[1] = ppp.pan.parameters["partition"]["K"] if krange[1] < 0 else krange[1]
     except KeyError:
         krange = [3, 20]
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
 
     tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
     tmpdir = tmpdirObj.name

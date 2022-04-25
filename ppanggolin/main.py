@@ -140,16 +140,16 @@ def cmdLine():
             ppanggolin.workflow.panModule.subparser(subparsers),
             ppanggolin.workflow.all.subparser(subparsers),
             ppanggolin.figures.figureSubparser(subparsers),
-            ppanggolin.formats.writeFlat.writeFlatSubparser(subparsers),
-            ppanggolin.formats.writeSequences.writeSequenceSubparser(subparsers),
-            ppanggolin.formats.writeMSA.writeMSASubparser(subparsers),
-            ppanggolin.metrics.metrics.metricsSubparser(subparsers),
+            ppanggolin.formats.writeFlat.subparser(subparsers),
+            ppanggolin.formats.writeSequences.subparser(subparsers),
+            ppanggolin.formats.writeMSA.subparser(subparsers),
+            ppanggolin.metrics.metrics.subparser(subparsers),
             ppanggolin.align.alignSubparser(subparsers),
             ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers),
             ppanggolin.RGP.spot.spotSubparser(subparsers),
             ppanggolin.mod.moduleSubparser(subparsers),
             ppanggolin.context.subparser(subparsers)]  # subparsers
-    ppanggolin.info.infoSubparser(subparsers)  # not adding to subs because the 'common' options are not needed for this
+    ppanggolin.info.infoSubparser(subparsers)  # not adding to sub because the 'common' options are not needed for this
     for sub in subs:  # add options common to all subcommands
         common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
         common.title = "Common arguments"
@@ -219,11 +219,11 @@ def main():
     elif args.subcommand == "draw":
         ppanggolin.figures.launch(args)
     elif args.subcommand == "write":
-        ppanggolin.formats.launchFlat(args)
+        ppanggolin.formats.launch(args)
     elif args.subcommand == "fasta":
-        ppanggolin.formats.launchSequences(args)
+        ppanggolin.formats.launch(args)
     elif args.subcommand == "msa":
-        ppanggolin.formats.launchMSA(args)
+        ppanggolin.formats.launch(args)
     elif args.subcommand == "info":
         ppanggolin.info.launch(args)
     elif args.subcommand == "metrics":

@@ -21,12 +21,12 @@ import plotly.graph_objs as go
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mkOutdir
-from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
+from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 
 # cython library (local)
 import nem_stats
 
-pan = None
+pangenome = None
 samples = []
 
 
@@ -225,7 +225,7 @@ def write_nem_input_files(tmpdir, organisms, sm_degree):
         for index, org in enumerate(organisms):
             default_dat.append('0')
             index_org[org] = index
-        for fam in pan.geneFamilies:
+        for fam in pangenome.geneFamilies:
             # could use bitarrays if this part is limiting?
             if not organisms.isdisjoint(fam.organisms):
                 currDat = list(default_dat)
@@ -350,13 +350,13 @@ def checkPangenomeFormerPartition(pangenome, force):
                         " If you REALLY want to do that, "
                         "use --force (it will erase partitions and every feature computed from them.")
     elif pangenome.status["partitionned"] == "inFile" and force:
-        ErasePangenome(pangenome, partition=True)
+        erase_pangenome(pangenome, partition=True)
 
 def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degree=10, free_dispersion=False,
               chunk_size=500, K=-1, Krange=None, ICL_margin=0.05, draw_ICL=False, cpu=1, seed=42, keep_tmp_files=False,
               disable_bar=False):
     Krange = Krange or [3, 20]
-    global pan
+    global pangenome
     global samples
     pan = pangenome
 
@@ -364,7 +364,7 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
         raise Exception("Combination of option impossible: "
                         "You asked to draw the ICL curves but did not provide an output directory!")
     checkPangenomeFormerPartition(pangenome, force)
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     organisms = set(pangenome.organisms)
 
     tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
@@ -499,7 +499,7 @@ def launch(args):
     partition(pangenome, args.tmpdir, args.output, args.force, args.beta, args.max_degree_smoothing,
               args.free_dispersion, args.chunk_size, args.nb_of_partitions, args.krange, args.ICL_margin, args.draw_ICL,
               args.cpu, args.seed, args.keep_tmp_files, disable_bar=args.disable_prog_bar)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def partitionSubparser(subparser):

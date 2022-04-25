@@ -10,7 +10,7 @@ from math import pi
 
 # local libraries
 from ppanggolin.utils import jaccard_similarities
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats import check_pangenome_info
 from ppanggolin.RGP.spot import compBorder
 
 # installed libraries
@@ -415,7 +415,7 @@ def drawCurrSpot(genelists, ordered_counts, fam2mod, famCol, filename):
     # generate the figure and add some tools to it
     wheel_zoom = WheelZoomTool()
     fig = figure(title="spot graphic", plot_width=1600, plot_height=600,
-                 tools=["pan", "box_zoom", "reset", "save", wheel_zoom, "ywheel_zoom", "xwheel_zoom"])
+                 tools=["pangenome", "box_zoom", "reset", "save", wheel_zoom, "ywheel_zoom", "xwheel_zoom"])
     fig.axis.visible = True
     fig.toolbar.active_scroll = wheel_zoom
 
@@ -516,8 +516,8 @@ def drawSpots(pangenome, output, spot_list, disable_bar):
         # modules are not required to be loaded, but if they have been computed we load them.
         needMod = True
 
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions=True,
-                       needRGP=True, needSpots=True, needModules=needMod, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
+                         need_rgp=True, need_spots=True, need_modules=needMod, disable_bar=disable_bar)
 
     selected_spots = set()
     curated_spot_list = ['spot_' + str(s) if 'spot' not in s else str(s) for s in spot_list.split(',')]

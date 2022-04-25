@@ -11,13 +11,13 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats import check_pangenome_info
 
 
 def gen_fluidity(pangenome, disable_bar=False):
-    """ Compute the genomes fluidity from the pangenome
+    """ Compute the genomes' fluidity from the pangenome
 
-    :param pangenome: pangenome which will be used to compute the genomes fluidity
+    :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :type pangenome: Pangenome
     :param disable_bar: Disable the progress bar
     :type disable_bar: bool
@@ -28,7 +28,7 @@ def gen_fluidity(pangenome, disable_bar=False):
 
     # check statuses and load info
     logging.getLogger().info("Check information in pangenome")
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     fluidity_dict = {'all': None, 'shell': None, 'cloud': None, 'accessory': None}
     for subset in fluidity_dict.keys():
         logging.getLogger().debug(f"Compute binaries for {subset} partition")
@@ -74,7 +74,7 @@ def nb_fam_per_org(pangenome, disable_bar=False):
 def fam_fluidity(pangenome, disable_bar=False):
     """ Compute the family fluidity from the pangenome
 
-    :param pangenome: pangenome which will be used to compute the genomes fluidity
+    :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :type pangenome: Pangenome
     :param disable_bar: Disable the progress bar
     :type disable_bar: bool
@@ -84,7 +84,7 @@ def fam_fluidity(pangenome, disable_bar=False):
     """
     # check statuses and load info
     logging.getLogger().info("Check information in pangenome")
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     fluidity_dict = {'all': None, 'shell': None, 'cloud': None, 'accessory': None}
     for subset in fluidity_dict.keys():
         logging.getLogger().debug(f"Compute binaries for {subset} partition")

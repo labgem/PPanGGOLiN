@@ -13,7 +13,7 @@ import networkx as nx
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
-from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
+from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.utils import mkOutdir
 
 
@@ -110,7 +110,7 @@ def checkPangenomeFormerSpots(pangenome, force):
         raise Exception("You are trying to detect spots on a pangenome which already has predicted spots. "
                         "If you REALLY want to do that, use --force (it will erase spots previously predicted).")
     elif pangenome.status["spots"] == "inFile" and force:
-        ErasePangenome(pangenome, spots=True)
+        erase_pangenome(pangenome, spots=True)
 
 
 def predictHotspots(pangenome, output, force=False, cpu=1, spot_graph=False, overlapping_match=2, set_size=3,
@@ -120,8 +120,8 @@ def predictHotspots(pangenome, output, force=False, cpu=1, spot_graph=False, ove
     # check for formerly computed stuff, and erase if allowed
     checkPangenomeFormerSpots(pangenome, force)
     # check statuses and load info
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions=True,
-                       needRGP=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
+                         need_rgp=True, disable_bar=disable_bar)
 
     # get multigenic gene families
     logging.getLogger().info("Detecting multigenic families...")
@@ -164,7 +164,7 @@ def launch(args):
     predictHotspots(pangenome, args.output, force=args.force, cpu=args.cpu, spot_graph=args.spot_graph,
                     overlapping_match=args.overlapping_match, set_size=args.set_size, exact_match=args.exact_match_size,
                     disable_bar=args.disable_prog_bar)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def spotSubparser(subparser):

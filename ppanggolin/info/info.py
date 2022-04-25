@@ -8,7 +8,7 @@ import argparse
 import tables
 
 # local libraries
-from ppanggolin.formats import readInfo, readParameters
+from ppanggolin.formats import read_info, read_parameters
 
 
 def printInfo(pangenome, status=False, content=False, parameters=False):
@@ -36,9 +36,9 @@ def printInfo(pangenome, status=False, content=False, parameters=False):
                 print(f"PPanGGOLiN version : {statusGroup._v_attrs.version}")
 
         if content:
-            readInfo(h5f)
+            read_info(h5f)
         if parameters:
-            readParameters(h5f)
+            read_parameters(h5f)
         h5f.close()
     else:
         print("Please select what information you want by using --parameters, --content or --status")

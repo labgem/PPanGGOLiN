@@ -9,7 +9,7 @@ import argparse
 from collections import defaultdict
 
 # local libraries
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats import check_pangenome_info
 from ppanggolin.utils import mkOutdir, read_compressed_or_not
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.figures.draw_spot import drawSelectedSpots, subgraph
@@ -233,10 +233,10 @@ def align(pangenome, sequenceFile, output, tmpdir, identity=0.8, coverage=0.8, n
         if pangenome.status["modules"] != "No":
             # modules are not required to be loaded, but if they have been computed we load them.
             need_mod = True
-        checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True, needRGP=True,
-                           needSpots=True, needModules=need_mod, disable_bar=disable_bar)
+        check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=True, need_rgp=True,
+                             need_spots=True, need_modules=need_mod, disable_bar=disable_bar)
     else:
-        checkPangenomeInfo(pangenome, needFamilies=True, disable_bar=disable_bar)
+        check_pangenome_info(pangenome, need_families=True, disable_bar=disable_bar)
 
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 

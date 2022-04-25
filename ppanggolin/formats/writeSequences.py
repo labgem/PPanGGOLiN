@@ -11,33 +11,34 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mkOutdir, read_compressed_or_not, restricted_float
-from ppanggolin.formats import checkPangenomeInfo, getGeneSequencesFromFile
+from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
 from ppanggolin.annotate import detect_filetype
 
 poss_values_log = "Possible values are 'all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', " \
                   "'core', 'module_X' with X being a module id."
 
 
-def writeGeneSequencesFromAnnotations(pangenome, fileObj, list_CDS=None, add='', disable_bar=False):
+def write_gene_sequences_from_annotations(pangenome, file_obj, list_cds=None, add='', disable_bar=False):
     """
-    Writes the CDS sequences given through list_CDS of the Pangenome object to a tmpFile object, and adds the str provided through add in front of it.
+    Writes the CDS sequences given through list_CDS of the Pangenome object to a tmpFile object,
+    and adds the str provided through add in front of it.
     Loads the sequences from previously computed or loaded annotations
     """
-    if list_CDS is None:
-        list_CDS = pangenome.genes
+    if list_cds is None:
+        list_cds = pangenome.genes
     logging.getLogger().info("Writing all of the CDS sequences...")
-    for gene in tqdm(list_CDS, unit="gene", disable=disable_bar):
+    for gene in tqdm(list_cds, unit="gene", disable=disable_bar):
         if gene.type == "CDS":
-            fileObj.write('>' + add + gene.ID + "\n")
-            fileObj.write(gene.dna + "\n")
-    fileObj.flush()
+            file_obj.write('>' + add + gene.ID + "\n")
+            file_obj.write(gene.dna + "\n")
+    file_obj.flush()
 
 
-def writeGeneSequences(pangenome, output, compress, genes, soft_core=0.95, disable_bar=False):
+def write_gene_sequences(pangenome, output, compress, genes, soft_core=0.95, disable_bar=False):
     logging.getLogger().info("Writing all the gene nucleotide sequences...")
     outname = output + f"/{genes}_genes.fna"
 
-    genefams = selectFamilies(pangenome, genes, "gene nucleotide sequences", soft_core)
+    genefams = select_families(pangenome, genes, "gene nucleotide sequences", soft_core)
     genes_to_write = []
 
     for fam in genefams:
@@ -46,17 +47,17 @@ def writeGeneSequences(pangenome, output, compress, genes, soft_core=0.95, disab
     logging.getLogger().info(f"There are {len(genes_to_write)} genes to write")
     with write_compressed_or_not(outname, compress) as fasta:
         if pangenome.status["geneSequences"] in ["inFile"]:
-            getGeneSequencesFromFile(pangenome.file, fasta, set([gene.ID for gene in genes_to_write]),
-                                     disable_bar=disable_bar)
+            get_gene_sequences_from_file(pangenome.file, fasta, set([gene.ID for gene in genes_to_write]),
+                                         disable_bar=disable_bar)
         elif pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-            writeGeneSequencesFromAnnotations(pangenome, fasta, genes_to_write, disable_bar=disable_bar)
+            write_gene_sequences_from_annotations(pangenome, fasta, genes_to_write, disable_bar=disable_bar)
         else:
             # this should never happen if the pangenome has been properly checked before launching this function.
             raise Exception("The pangenome does not include gene sequences")
     logging.getLogger().info(f"Done writing the gene sequences : '{outname}'")
 
 
-def selectFamilies(pangenome, partition, type_name, soft_core):
+def select_families(pangenome, partition, type_name, soft_core):
     """ function used to filter down families to the given partition
 
     """
@@ -87,32 +88,32 @@ def selectFamilies(pangenome, partition, type_name, soft_core):
                 genefams.add(fam)
     elif "module_" in partition:
         logging.getLogger().info(f"Writing the representation {type_name} of {partition} gene families...")
-        modID = int(partition.replace("module_", ""))
+        mod_id = int(partition.replace("module_", ""))
         for mod in pangenome.modules:
             # could be way more efficient with a dict structure instead of a set
-            if mod.ID == modID:
+            if mod.ID == mod_id:
                 genefams |= mod.families
                 break
     return genefams
 
 
-def writeFastaGeneFam(pangenome, output, compress, gene_families, soft_core=0.95, disable_bar=False):
+def write_fasta_gene_fam(pangenome, output, compress, gene_families, soft_core=0.95, disable_bar=False):
     outname = output + f"/{gene_families}_nucleotide_families.fasta"
 
-    genefams = selectFamilies(pangenome, gene_families, "representative nucleotide sequences of the gene families",
-                              soft_core)
+    genefams = select_families(pangenome, gene_families, "representative nucleotide sequences of the gene families",
+                               soft_core)
 
     with write_compressed_or_not(outname, compress) as fasta:
-        getGeneSequencesFromFile(pangenome.file, fasta, [fam.name for fam in genefams], disable_bar=disable_bar)
+        get_gene_sequences_from_file(pangenome.file, fasta, [fam.name for fam in genefams], disable_bar=disable_bar)
 
     logging.getLogger().info(f"Done writing the representative nucleotide sequences of the gene families : '{outname}'")
 
 
-def writeFastaProtFam(pangenome, output, compress, prot_families, soft_core=0.95, disable_bar=False):
+def write_fasta_prot_fam(pangenome, output, compress, prot_families, soft_core=0.95, disable_bar=False):
     outname = output + f"/{prot_families}_protein_families.faa"
 
-    genefams = selectFamilies(pangenome, prot_families, "representative amino acid sequences of the gene families",
-                              soft_core)
+    genefams = select_families(pangenome, prot_families, "representative amino acid sequences of the gene families",
+                               soft_core)
 
     with write_compressed_or_not(outname, compress) as fasta:
         bar = tqdm(genefams, unit="prot families", disable=disable_bar)
@@ -148,18 +149,20 @@ def read_fasta_gbk(filename):
     # line.startswith("ORIGIN"):
     sequence_dict = {}
     lines = read_compressed_or_not(filename).readlines()[::-1]
+    contig_id, contig_locus_id = ("", "")
     while len(lines) != 0:
         line = lines.pop()
         # beginning of contig
         if line.startswith('LOCUS'):
-            contigLocusID = line.split()[1]
-            # If contigID is not specified in VERSION afterwards like with Prokka, in that case we use the one in LOCUS.
+            contig_locus_id = line.split()[1]
+            # If contig_id is not specified in VERSION afterwards like with Prokka,
+            # in that case we use the one in LOCUS.
             while not line.startswith('FEATURES'):
                 if line.startswith('VERSION'):
-                    contigID = line[12:].strip()
+                    contig_id = line[12:].strip()
                 line = lines.pop()
-        if contigID == "":
-            contigID = contigLocusID
+        if contig_id == "":
+            contig_id = contig_locus_id
         while not line.startswith("ORIGIN"):
             line = lines.pop()  # stuff
         line = lines.pop()  # first sequence line.
@@ -168,7 +171,7 @@ def read_fasta_gbk(filename):
             sequence += line[10:].replace(" ", "").strip().upper()
             line = lines.pop()
         # get each gene's sequence.
-        sequence_dict[contigID] = sequence
+        sequence_dict[contig_id] = sequence
         # end of contig
     return sequence_dict
 
@@ -192,7 +195,7 @@ def write_spaced_fasta(sequence, space):
     return seq
 
 
-def writeRegionsSequences(pangenome, output, compress, regions, fasta, anno, disable_bar=False):
+def write_regions_sequences(pangenome, output, compress, regions, fasta, anno, disable_bar=False):
     organisms_file = fasta if fasta is not None else anno
     org_dict = {}
     for line in read_compressed_or_not(organisms_file):
@@ -229,31 +232,32 @@ def writeRegionsSequences(pangenome, output, compress, regions, fasta, anno, dis
     logging.getLogger().info(f"Done writing the regions nucleotide sequences: '{outname}'")
 
 
-def writeSequenceFiles(pangenome, output, fasta=None, anno=None, soft_core=0.95, regions=None, genes=None,
-                       gene_families=None, prot_families=None, compress=False, disable_bar=False):
+def write_sequence_files(pangenome, output, fasta=None, anno=None, soft_core=0.95, regions=None, genes=None,
+                         gene_families=None, prot_families=None, compress=False, disable_bar=False):
     if not any(x for x in [regions, genes, prot_families, gene_families]):
         raise Exception("You did not indicate what file you wanted to write.")
 
-    needAnnotations = False
-    needFamilies = False
-    needGraph = False
-    needPartitions = False
-    needSpots = False
-    needRegions = False
-    needModules = False
+    need_annotations = False
+    need_families = False
+    need_graph = False
+    need_partitions = False
+    need_spots = False
+    need_regions = False
+    need_modules = False
 
     if any(x is not None for x in [regions, genes, gene_families, prot_families]):
-        needAnnotations = True
-        needFamilies = True
+        need_annotations = True
+        need_families = True
     if regions is not None or any(x == "rgp" for x in (genes, gene_families, prot_families)):
-        needRegions = True
+        need_regions = True
     if any(x in ["persistent", "shell", "cloud"] for x in (genes, gene_families, prot_families)):
-        needPartitions = True
+        need_partitions = True
     for x in (genes, gene_families, prot_families):
         if x is not None and 'module_' in x:
-            needModules = True
+            need_modules = True
 
-    if not (needAnnotations or needFamilies or needGraph or needPartitions or needSpots or needRegions or needModules):
+    if not (need_annotations or need_families or need_graph or need_partitions or
+            need_spots or need_regions or need_modules):
         # then nothing is needed, then something is wrong.
         # find which filter was provided
         provided_filter = ''
@@ -267,48 +271,49 @@ def writeSequenceFiles(pangenome, output, fasta=None, anno=None, soft_core=0.95,
             provided_filter = regions
         raise Exception(
             f"The filter that you indicated '{provided_filter}' was not understood by PPanGGOLiN. {poss_values_log}")
-    ex_geneSequences = Exception("The provided pangenome has no gene sequences. "
-                                 "This is not compatible with any of the following options : --genes, --gene_families")
-    ex_geneFamilySequences = Exception("The provided pangenome has no gene families. "
-                                       "This is not compatible with any of the following options : "
-                                       "--prot_families, --gene_families")
+    ex_gene_sequences = Exception("The provided pangenome has no gene sequences. "
+                                  "This is not compatible with any of the following options : --genes, --gene_families")
+    ex_gene_family_sequences = Exception("The provided pangenome has no gene families. "
+                                         "This is not compatible with any of the following options : "
+                                         "--prot_families, --gene_families")
     if not pangenome.status["geneSequences"] in ["inFile"] and (genes or gene_families):
-        raise ex_geneSequences
+        raise ex_gene_sequences
     if not pangenome.status["geneFamilySequences"] in ["Loaded", "Computed", "inFile"] and prot_families:
-        raise ex_geneFamilySequences
+        raise ex_gene_family_sequences
 
-    checkPangenomeInfo(pangenome, needAnnotations=needAnnotations, needFamilies=needFamilies, needGraph=needGraph,
-                       needPartitions=needPartitions, needRGP=needRegions, needSpots=needSpots, needModules=needModules,
-                       disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=need_annotations, need_families=need_families,
+                         need_graph=need_graph,
+                         need_partitions=need_partitions, need_rgp=need_regions, need_spots=need_spots,
+                         need_modules=need_modules, disable_bar=disable_bar)
 
     if prot_families is not None:
-        writeFastaProtFam(pangenome, output, compress, prot_families, soft_core=soft_core, disable_bar=disable_bar)
+        write_fasta_prot_fam(pangenome, output, compress, prot_families, soft_core=soft_core, disable_bar=disable_bar)
     if gene_families is not None:
-        writeFastaGeneFam(pangenome, output, compress, gene_families, soft_core=soft_core, disable_bar=disable_bar)
+        write_fasta_gene_fam(pangenome, output, compress, gene_families, soft_core=soft_core, disable_bar=disable_bar)
     if genes is not None:
-        writeGeneSequences(pangenome, output, compress, genes, soft_core=soft_core, disable_bar=disable_bar)
+        write_gene_sequences(pangenome, output, compress, genes, soft_core=soft_core, disable_bar=disable_bar)
     if regions is not None:
-        writeRegionsSequences(pangenome, output, compress, regions, fasta, anno, disable_bar=disable_bar)
+        write_regions_sequences(pangenome, output, compress, regions, fasta, anno, disable_bar=disable_bar)
 
 
-def checkOptions(args):
+def check_options(args):
     if hasattr(args, "regions") and args.regions is not None and args.fasta is None and args.anno is None:
         raise Exception("The --regions options requires the use of --anno or --fasta "
                         "(You need to provide the same file used to compute the pangenome)")
 
 
-def launchSequences(args):
-    checkOptions(args)
+def launch(args):
+    check_options(args)
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeSequenceFiles(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
-                       regions=args.regions, genes=args.genes, gene_families=args.gene_families,
-                       prot_families=args.prot_families, compress=args.compress, disable_bar=args.disable_prog_bar)
+    write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
+                         regions=args.regions, genes=args.genes, gene_families=args.gene_families,
+                         prot_families=args.prot_families, compress=args.compress, disable_bar=args.disable_prog_bar)
 
 
-def writeSequenceSubparser(subparser):
-    parser = subparser.add_parser("fasta", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("fasta", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")

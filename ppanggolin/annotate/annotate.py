@@ -16,7 +16,7 @@ from ppanggolin.annotate import annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.utils import read_compressed_or_not, mkFilename, min_one
-from ppanggolin.formats import writePangenome
+from ppanggolin.formats import write_pangenome
 
 
 def detect_filetype(filename):
@@ -524,7 +524,7 @@ def launch(args):
                 logging.getLogger().warning("You will be able to proceed with your analysis ONLY if you provide "
                                             "the clustering results in the next step.")
 
-    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
 
 
 def syntaSubparser(subparser):

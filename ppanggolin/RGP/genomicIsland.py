@@ -11,7 +11,7 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region
-from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
+from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.utils import restricted_float
 
 
@@ -196,15 +196,15 @@ def checkPangenomeFormerRGP(pangenome, force):
                         "If you REALLY want to do that, use --force "
                         "(it will erase RGPs and every feature computed from them).")
     elif pangenome.status["predictedRGP"] == "inFile" and force:
-        ErasePangenome(pangenome, rgp=True)
+        erase_pangenome(pangenome, rgp=True)
 
 
 def predictRGP(pangenome, force=False, persistent_penalty=3, variable_gain=1, min_length=3000, min_score=4,
                dup_margin=0.05, disable_bar=False):
     # check statuses and load info
     checkPangenomeFormerRGP(pangenome, force)
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=False, needPartitions=True,
-                       disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
+                         disable_bar=disable_bar)
 
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
@@ -232,7 +232,7 @@ def launch(args):
     predictRGP(pangenome, force=args.force, persistent_penalty=args.persistent_penalty,
                variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score,
                dup_margin=args.dup_margin, disable_bar=args.disable_prog_bar)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def rgpSubparser(subparser):

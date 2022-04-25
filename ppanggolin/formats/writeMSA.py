@@ -15,29 +15,29 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mkOutdir, restricted_float
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
 
 
-def getFamiliesToWrite(pangenome, partitionFilter, soft_core=0.95):
+def get_families_to_write(pangenome, partition_filter, soft_core=0.95):
     fams = set()
-    if partitionFilter == "all":
+    if partition_filter == "all":
         return set(pangenome.geneFamilies)
-    if partitionFilter in ["persistent", "shell", "cloud"]:
+    if partition_filter in ["persistent", "shell", "cloud"]:
         for fam in pangenome.geneFamilies:
-            if fam.namedPartition == partitionFilter:
+            if fam.namedPartition == partition_filter:
                 fams.add(fam)
-    elif partitionFilter in ["core", "accessory", "softcore"]:
+    elif partition_filter in ["core", "accessory", "softcore"]:
         nb_org = pangenome.number_of_organisms()
-        if partitionFilter == "core":
+        if partition_filter == "core":
             for fam in pangenome.geneFamilies:
                 if len(fam.organisms) == nb_org:
                     fams.add(fam)
-        elif partitionFilter == "accessory":
+        elif partition_filter == "accessory":
             for fam in pangenome.geneFamilies:
                 if len(fam.organisms) < nb_org:
                     fams.add(fam)
-        elif partitionFilter == "softcore":
+        elif partition_filter == "softcore":
             for fam in pangenome.geneFamilies:
                 if len(fam.organisms) >= nb_org * soft_core:
                     fams.add(fam)
@@ -64,11 +64,11 @@ def translate(seq, code):
     return protein
 
 
-def writeFastaFamilies(family, tmpdir, source, use_gene_id, code_table):
+def write_fasta_families(family, tmpdir, source, use_gene_id, code_table):
     # have a directory for each gene family, to make deletion of tmp files simpler
 
-    fname = tmpdir.name + "/" + family.name + ".fasta"
-    fObj = open(fname, "w")
+    f_name = tmpdir.name + "/" + family.name + ".fasta"
+    f_obj = open(f_name, "w")
     # get genes that are present in only one copy for our family in each organism.
     single_copy_genes = []
     for _, genes in family.getOrgDict().items():
@@ -77,32 +77,32 @@ def writeFastaFamilies(family, tmpdir, source, use_gene_id, code_table):
 
     for gene in single_copy_genes:
         if use_gene_id:
-            fObj.write('>' + gene.ID + "\n")
+            f_obj.write('>' + gene.ID + "\n")
         else:
-            fObj.write('>' + gene.organism.name + "\n")
+            f_obj.write('>' + gene.organism.name + "\n")
         if source == "dna":
-            fObj.write(gene.dna + '\n')
+            f_obj.write(gene.dna + '\n')
         elif source == "protein":
-            fObj.write(translate(gene.dna, code_table) + "\n")
+            f_obj.write(translate(gene.dna, code_table) + "\n")
         else:
             raise Exception("Unknown sequence source given (expected 'dna' or 'protein')")
-    fObj.flush()
+    f_obj.flush()
 
-    return fname
+    return f_name
 
 
-def launchMafft(fname, output, fam_name):
+def launch_mafft(fname, output, fam_name):
     outname = output + "/" + fam_name + ".aln"
     cmd = ["mafft", "--thread", "1", fname]
     logging.getLogger().debug("command: " + " ".join(cmd))
     subprocess.run(cmd, stdout=open(outname, "w"), stderr=subprocess.DEVNULL, check=True)  #
 
 
-def launchMultiMafft(args):
-    launchMafft(*args)
+def launch_multi_mafft(args):
+    launch_mafft(*args)
 
 
-def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable_bar=False):
+def compute_msa(families, output, cpu, tmpdir, source, use_gene_id, code, disable_bar=False):
     newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 
     write_total = 0
@@ -113,7 +113,7 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable
 
     for family in bar:
         start_write = time.time()
-        fname = writeFastaFamilies(family, newtmpdir, source, use_gene_id, code_table)
+        fname = write_fasta_families(family, newtmpdir, source, use_gene_id, code_table)
         write_total = write_total + (time.time() - start_write)
         args.append((fname, output, family.name))
     bar.close()
@@ -121,23 +121,23 @@ def computeMSA(families, output, cpu, tmpdir, source, use_gene_id, code, disable
     logging.getLogger().info("Computing the MSA ...")
     bar = tqdm(range(len(families)), unit="family", disable=disable_bar)
     with get_context('fork').Pool(cpu) as p:
-        for _ in p.imap_unordered(launchMultiMafft, args):
+        for _ in p.imap_unordered(launch_multi_mafft, args):
             bar.update()
     bar.close()
 
 
-def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=False):
-    phyloDict = {}
+def write_whole_genome_msa(pangenome, families, phylo_name, outname, use_gene_id=False):
+    phylo_dict = {}
     for org in pangenome.organisms:
-        phyloDict[org.name] = ""
+        phylo_dict[org.name] = ""
     for fam in families:
-        missing_genomes = set(phyloDict.keys())
+        missing_genomes = set(phylo_dict.keys())
         fin = open(outname + "/" + fam.name + ".aln", "r")
         genome_id = ""
         seq = ""
         curr_len = 0
         dup_gene = 0
-        curr_phyloDict = {}
+        curr_phylo_dict = {}
 
         for line in fin:
             if line.startswith('>'):
@@ -145,9 +145,9 @@ def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=Fa
                     if genome_id not in missing_genomes:
                         dup_gene += 1
                         # duplicated genes. Replacing them with gaps.
-                        curr_phyloDict[genome_id] = "-" * curr_len
+                        curr_phylo_dict[genome_id] = "-" * curr_len
                     else:
-                        curr_phyloDict[genome_id] = seq
+                        curr_phylo_dict[genome_id] = seq
                         missing_genomes -= {genome_id}
                         curr_len = len(seq)
                 if use_gene_id:
@@ -160,46 +160,47 @@ def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=Fa
         if genome_id != "":
             if genome_id not in missing_genomes:
                 # duplicated genes. Replacing them with gaps.
-                curr_phyloDict[genome_id] = "-" * curr_len
+                curr_phylo_dict[genome_id] = "-" * curr_len
             else:
-                curr_phyloDict[genome_id] = seq
+                curr_phylo_dict[genome_id] = seq
                 curr_len = len(seq)
         fin.close()
         for genome in missing_genomes:
-            curr_phyloDict[genome] = "-" * curr_len
+            curr_phylo_dict[genome] = "-" * curr_len
 
-        for key, val in curr_phyloDict.items():
-            phyloDict[key] += val
+        for key, val in curr_phylo_dict.items():
+            phylo_dict[key] += val
 
     fout = open(phylo_name, "w")
-    for key, val in phyloDict.items():
+    for key, val in phylo_dict.items():
         fout.write(">" + key + "\n")
         fout.write(val + "\n")
     fout.close()
 
 
-def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", source="protein", soft_core=0.95,
-                  phylo=False, use_gene_id=False, translation_table="11",force=False, disable_bar=False):
-    needPartitions = False
+def write_msa_files(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", source="protein", soft_core=0.95,
+                    phylo=False, use_gene_id=False, translation_table="11", force=False, disable_bar=False):
+    need_partitions = False
     if partition in ["persistent", "shell", "cloud"]:
-        needPartitions = True
+        need_partitions = True
 
     outname = output + f"/msa_{partition}_{source}/"
     mkOutdir(outname, force=force)
 
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=needPartitions,
-                       needGeneSequences=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=need_partitions,
+                         need_gene_sequences=True, disable_bar=disable_bar)
     logging.getLogger().info(f"Doing MSA for {partition} families...")
-    families = getFamiliesToWrite(pangenome, partitionFilter=partition, soft_core=soft_core)
+    families = get_families_to_write(pangenome, partition_filter=partition, soft_core=soft_core)
 
-    #check that the code is similar than the one used previously, if there is one
+    # check that the code is similar than the one used previously, if there is one
     if 'translation_table' in pangenome.parameters["cluster"]:
         if pangenome.parameters["cluster"]["translation_table"] != translation_table:
-            logging.getLogger().warning(f"The translation table used during clustering ('{pangenome.parameters['cluster']['translation_table']}') is different than the one provided now ('{translation_table}')")
+            logging.getLogger().warning(
+                f"The translation table used during clustering ('{pangenome.parameters['cluster']['translation_table']}') is different than the one provided now ('{translation_table}')")
     code = translation_table
 
-    computeMSA(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, use_gene_id=use_gene_id, code=code,
-               disable_bar=disable_bar)
+    compute_msa(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, use_gene_id=use_gene_id, code=code,
+                disable_bar=disable_bar)
     logging.getLogger().info(f"Done writing all {partition} MSA in: {outname}")
 
     if phylo:
@@ -208,22 +209,21 @@ def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", sou
             phylo_name = output + f"/{partition}_{soft_core}_genome_alignment.aln"
         else:
             phylo_name = output + f"/{partition}_genome_alignment.aln"
-        writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=use_gene_id)
+        write_whole_genome_msa(pangenome, families, phylo_name, outname, use_gene_id=use_gene_id)
         logging.getLogger().info(f"Done writing the {partition} genome alignment in: '{phylo_name}'")
 
 
-def launchMSA(args):
+def launch(args):
     mkOutdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
-    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
-                  source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
-                  translation_table=args.translation_table,
-                  force=args.force, disable_bar=args.disable_prog_bar)
+    write_msa_files(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
+                    source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
+                    translation_table=args.translation_table, force=args.force, disable_bar=args.disable_prog_bar)
 
 
-def writeMSASubparser(subparser):
-    parser = subparser.add_parser("msa", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("msa", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")

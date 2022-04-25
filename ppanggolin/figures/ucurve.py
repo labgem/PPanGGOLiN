@@ -6,11 +6,11 @@ from collections import defaultdict
 import plotly.graph_objs as go
 import plotly.offline as out_plotly
 # local libraries
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats import check_pangenome_info
 
 
 def drawUCurve(pangenome, output, soft_core=0.95,  disable_bar=False):
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     logging.getLogger().info("Drawing the U-shaped curve...")
     max_bar = 0
     count = defaultdict(lambda: defaultdict(int))

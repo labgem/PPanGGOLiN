@@ -15,7 +15,7 @@ from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.nem.rarefaction import makeRarefactionCurve
 from ppanggolin.nem.partition import partition
-from ppanggolin.formats import writePangenome, writeFlatFiles
+from ppanggolin.formats import write_pangenome, write_flat_files
 from ppanggolin.figures import drawTilePlot, drawUCurve, drawSpots
 from ppanggolin.info import printInfo
 from ppanggolin.RGP.genomicIsland import predictRGP
@@ -34,7 +34,7 @@ def launch(args):
         readAnnotations(pangenome, args.anno, cpu=args.cpu, disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
         start_writing = time.time()
-        writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+        write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, "
@@ -55,13 +55,13 @@ def launch(args):
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
         start_writing = time.time()
-        writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+        write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
         start_clust = time.time()
         clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
         clust_time = time.time() - start_clust
 
-    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     start_graph = time.time()
     computeNeighborsGraph(pangenome, disable_bar=args.disable_prog_bar)
     graph_time = time.time() - start_graph
@@ -71,7 +71,7 @@ def launch(args):
     part_time = time.time() - start_part
 
     start_writing = time.time()
-    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     writing_time = writing_time + time.time() - start_writing
 
     start_regions = time.time()
@@ -83,7 +83,7 @@ def launch(args):
     spot_time = time.time() - start_spots
 
     start_writing = time.time()
-    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     writing_time = writing_time + time.time() - start_writing
 
     start_spot_drawing = time.time()
@@ -98,8 +98,8 @@ def launch(args):
     drawUCurve(pangenome, args.output)
 
     start_desc = time.time()
-    writeFlatFiles(pangenome, args.output, args.cpu, csv=True, genePA=True, gexf=True, light_gexf=True, projection=True,
-                   json=True, stats=True, partitions=True, regions=True, spots=True)
+    write_flat_files(args.output, args.cpu, csv=True, gene_pa=True, gexf=True, light_gexf=True, projection=True,
+                     stats=True, json=True, partitions=True, regions=True, spots=True)
     desc_time = time.time() - start_desc
 
     logging.getLogger().info(f"Annotation took : {round(anno_time, 2)} seconds")

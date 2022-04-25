@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.formats import readPangenome, writePangenome, ErasePangenome
+from ppanggolin.formats import read_pangenome, write_pangenome, erase_pangenome
 
 
 def checkPangenomeFormerGraph(pangenome, force):
@@ -20,7 +20,7 @@ def checkPangenomeFormerGraph(pangenome, force):
                         "If you REALLY want to do that, use --force (it will erase everything except annotation data !)"
                         )
     elif pangenome.status["neighborsGraph"] == "inFile" and force:
-        ErasePangenome(pangenome, graph=True)
+        erase_pangenome(pangenome, graph=True)
 
 
 def checkPangenomeForNeighborsGraph(pangenome, force, disable_bar=False):
@@ -32,7 +32,7 @@ def checkPangenomeForNeighborsGraph(pangenome, force, disable_bar=False):
             pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
         pass  # nothing to do, can just continue.
     elif pangenome.status["genomesAnnotated"] == "inFile" and pangenome.status["genesClustered"] == "inFile":
-        readPangenome(pangenome, annotation=True, geneFamilies=True, disable_bar=disable_bar)
+        read_pangenome(pangenome, annotation=True, gene_families=True, disable_bar=disable_bar)
     elif pangenome.status["genesClustered"] == "No" and \
             pangenome.status["genomesAnnotated"] in ['inFile', 'Computed', 'Loaded']:
         raise Exception("You did not cluster the genes. See the 'ppanggolin cluster' if you want to do that.")
@@ -97,7 +97,7 @@ def launch(args):
     pangenome = Pangenome()
     pangenome.addFile(args.pangenome)
     computeNeighborsGraph(pangenome, args.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bar)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def graphSubparser(subparser):

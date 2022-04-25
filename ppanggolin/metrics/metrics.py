@@ -8,8 +8,8 @@ import logging
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.formats.readBinaries import checkPangenomeInfo, readInfo
-from ppanggolin.formats.writeBinaries import writeInfoModules
+from ppanggolin.formats.readBinaries import check_pangenome_info, read_info
+from ppanggolin.formats.writeBinaries import write_info_modules
 
 # metrics libraries
 from ppanggolin.metrics.fluidity import gen_fluidity, fam_fluidity
@@ -61,7 +61,7 @@ def compute_metrics(pangenome, genomes_fluidity=False, families_fluidity=False, 
     if families_fluidity:
         metrics_dict['families_fluidity'] = fam_fluidity(pangenome, disable_bar)
     if info_modules:
-        checkPangenomeInfo(pangenome, needFamilies=True, needModules=True)
+        check_pangenome_info(pangenome, need_families=True, need_modules=True)
         metrics_dict['info_modules'] = True
     return metrics_dict
 
@@ -89,11 +89,11 @@ def write_metrics(pangenome, metrics_dict, no_print_info=False):
 
         if 'info_modules' in metrics_dict.keys():
             logging.getLogger().info("Writing modules information in pangenome")
-            writeInfoModules(pangenome, h5f)
+            write_info_modules(pangenome, h5f)
 
         # After all metrics was written
         if not no_print_info:
-            readInfo(h5f)
+            read_info(h5f)
 
 
 def launch(args):

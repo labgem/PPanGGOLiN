@@ -14,7 +14,7 @@ from ppanggolin.cluster import clustering, readClustering
 from ppanggolin.graph import computeNeighborsGraph
 from ppanggolin.nem.rarefaction import makeRarefactionCurve
 from ppanggolin.nem.partition import partition
-from ppanggolin.formats import writePangenome, writeFlatFiles
+from ppanggolin.formats import write_pangenome, write_flat_files
 from ppanggolin.figures import drawTilePlot, drawUCurve
 from ppanggolin.info import printInfo
 
@@ -28,7 +28,7 @@ def launch(args):
     filename = mkFilename(args.basename, args.output, args.force)
     if args.anno:  # if the annotations are provided, we read from it
         readAnnotations(pangenome, args.anno, cpu=args.cpu, disable_bar=args.disable_prog_bar)
-        writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+        write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
             raise Exception("The gff/gbff provided did not have any sequence informations, "
                             "you did not provide clusters and you did not provide fasta file. "
@@ -47,14 +47,14 @@ def launch(args):
         pangenome = Pangenome()
         annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, contig_filter=args.contig_filter,
                           disable_bar=args.disable_prog_bar)
-        writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+        write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, identity=args.identity, coverage=args.coverage,
                    mode=args.mode, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
 
     computeNeighborsGraph(pangenome, disable_bar=args.disable_prog_bar)
 
     partition(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, K=args.nb_of_partitions, disable_bar=args.disable_prog_bar)
-    writePangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
 
     if args.rarefaction:
         makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
@@ -62,8 +62,8 @@ def launch(args):
         drawTilePlot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
     drawUCurve(pangenome, args.output)
 
-    writeFlatFiles(pangenome, args.output, args.cpu, csv=True, genePA=True, gexf=True, light_gexf=True, projection=True,
-                   json=True, stats=True, partitions=True)
+    write_flat_files(args.output, args.cpu, csv=True, gene_pa=True, gexf=True, light_gexf=True, projection=True,
+                     stats=True, json=True, partitions=True)
 
     printInfo(filename, content=True)
 

@@ -17,8 +17,8 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.utils import read_compressed_or_not, restricted_float
-from ppanggolin.formats import writePangenome, checkPangenomeInfo, getGeneSequencesFromFile, \
-    writeGeneSequencesFromAnnotations, ErasePangenome
+from ppanggolin.formats import write_pangenome, check_pangenome_info, get_gene_sequences_from_file, \
+    write_gene_sequences_from_annotations, erase_pangenome
 
 
 def alignRep(faaFile, tmpdir, cpu, coverage, identity):
@@ -172,7 +172,7 @@ def checkPangenomeFormerClustering(pangenome, force):
         raise Exception("You are trying to cluster genes that are already clustered together. If you REALLY want to "
                         "do that, use --force (it will erase everything except annotation data in your HDF5 file!)")
     elif pangenome.status["genesClustered"] == "inFile" and force:
-        ErasePangenome(pangenome, geneFamilies=True)
+        erase_pangenome(pangenome, gene_families=True)
 
 
 def checkPangenomeForClustering(pangenome, tmpFile, force, disable_bar=False):
@@ -182,9 +182,11 @@ def checkPangenomeForClustering(pangenome, tmpFile, force, disable_bar=False):
     """
     checkPangenomeFormerClustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-        writeGeneSequencesFromAnnotations(pangenome, tmpFile, add="ppanggolin_", disable_bar=disable_bar)#we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
+        write_gene_sequences_from_annotations(pangenome, tmpFile, add="ppanggolin_",
+                                              disable_bar=disable_bar)  #we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
     elif pangenome.status["geneSequences"] == "inFile":
-        getGeneSequencesFromFile(pangenome.file, tmpFile,add="ppanggolin_", disable_bar=disable_bar)  # write CDS sequences to the tmpFile
+        get_gene_sequences_from_file(pangenome.file, tmpFile, add="ppanggolin_",
+                                     disable_bar=disable_bar)  # write CDS sequences to the tmpFile
     else:
         tmpFile.close()  # closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster "
@@ -261,7 +263,7 @@ def readClustering(pangenome, families_tsv_file, infer_singletons=False, force=F
         Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
     """
     checkPangenomeFormerClustering(pangenome, force)
-    checkPangenomeInfo(pangenome, needAnnotations=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, disable_bar=disable_bar)
 
     logging.getLogger().info("Reading " + families_tsv_file + " the gene families file ...")
     filesize = os.stat(families_tsv_file).st_size
@@ -328,7 +330,7 @@ def launch(args):
     else:
         readClustering(pangenome, args.clusters, args.infer_singletons, args.force, disable_bar=args.disable_prog_bar)
         logging.getLogger().info("Done reading the cluster file")
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def clusterSubparser(subparser):

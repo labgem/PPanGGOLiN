@@ -20,7 +20,7 @@ from gmpy2 import xmpz, popcount  # pylint: disable=no-name-in-module
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Module
-from ppanggolin.formats import checkPangenomeInfo, writePangenome, ErasePangenome
+from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
 
 
@@ -30,14 +30,15 @@ def checkPangenomeFormerModules(pangenome, force):
         raise Exception("You are trying to detect modules on a pangenome which already has predicted modules. "
                         "If you REALLY want to do that, use --force (it will erase modules previously predicted).")
     elif pangenome.status["modules"] == "inFile" and force:
-        ErasePangenome(pangenome, modules=True)
+        erase_pangenome(pangenome, modules=True)
 
 
 def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3, min_presence=2, transitive=4,
                    jaccard=0.85, disable_bar=False):
     # check statuses and load info
     checkPangenomeFormerModules(pangenome, force)
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=True,
+                         disable_bar=disable_bar)
 
     # compute the graph with transitive closure size provided as parameter
     start_time = time.time()
@@ -138,7 +139,7 @@ def launch(args):
     predictModules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, force=args.force, dup_margin=args.dup_margin,
                    size=args.size, min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard,
                    disable_bar=args.disable_prog_bar)
-    writePangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
 def moduleSubparser(subparser):

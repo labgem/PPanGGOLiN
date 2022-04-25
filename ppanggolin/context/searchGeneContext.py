@@ -13,7 +13,7 @@ import networkx as nx
 import pandas as pd
 
 # local libraries
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats import check_pangenome_info
 from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import get_seq2pang, projectPartition
@@ -99,7 +99,7 @@ def search_gene_context_in_pangenome(pangenome, output, tmpdir, sequences=None, 
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
                         "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
 
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     gene_families = {}
     fam_2_seq = None
     if sequences is not None:

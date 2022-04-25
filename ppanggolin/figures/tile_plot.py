@@ -14,12 +14,12 @@ import plotly.graph_objs as go
 import plotly.offline as out_plotly
 import colorlover as cl
 # local libraries
-from ppanggolin.formats import checkPangenomeInfo
+from ppanggolin.formats import check_pangenome_info
 from ppanggolin.utils import jaccard_similarities
 
 
 def drawTilePlot(pangenome, output, nocloud=False, disable_bar=False):
-    checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needGraph=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     if pangenome.status["partitionned"] == "No":
         raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
     if len(pangenome.organisms) > 500 and nocloud is False:

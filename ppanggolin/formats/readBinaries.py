@@ -14,7 +14,7 @@ from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.region import Spot, Module
 
 
-def getNumberOfOrganisms(pangenome):
+def get_number_of_organisms(pangenome):
     """ standalone function to get the number of organisms in a pangenome"""
     if hasattr(pangenome, "file"):
         filename = pangenome.file
@@ -24,45 +24,45 @@ def getNumberOfOrganisms(pangenome):
     annotations = h5f.root.annotations
 
     table = annotations.genes
-    orgSet = set()
+    org_set = set()
     for org in read_chunks(table, column="organism"):
-        orgSet.add(org)
+        org_set.add(org)
     h5f.close()
-    return len(orgSet)
+    return len(org_set)
 
 
-def getStatus(pangenome, pangenomeFile):
+def get_status(pangenome, pangenome_file):
     """
         Checks which elements are already present in the file.
     """
-    h5f = tables.open_file(pangenomeFile, "r")
+    h5f = tables.open_file(pangenome_file, "r")
     logging.getLogger().info("Getting the current pangenome's status")
-    statusGroup = h5f.root.status
-    if statusGroup._v_attrs.genomesAnnotated:
+    status_group = h5f.root.status
+    if status_group._v_attrs.genomesAnnotated:
         pangenome.status["genomesAnnotated"] = "inFile"
-    if statusGroup._v_attrs.genesClustered:
+    if status_group._v_attrs.genesClustered:
         pangenome.status["genesClustered"] = "inFile"
-    if statusGroup._v_attrs.geneSequences:
+    if status_group._v_attrs.geneSequences:
         pangenome.status["geneSequences"] = "inFile"
-    if statusGroup._v_attrs.geneFamilySequences:
+    if status_group._v_attrs.geneFamilySequences:
         pangenome.status["geneFamilySequences"] = "inFile"
-    if statusGroup._v_attrs.NeighborsGraph:
+    if status_group._v_attrs.NeighborsGraph:
         pangenome.status["neighborsGraph"] = "inFile"
-    if statusGroup._v_attrs.Partitionned:
+    if status_group._v_attrs.Partitionned:
         pangenome.status["partitionned"] = "inFile"
 
-    if hasattr(statusGroup._v_attrs, "predictedRGP") and statusGroup._v_attrs.predictedRGP:
+    if hasattr(status_group._v_attrs, "predictedRGP") and status_group._v_attrs.predictedRGP:
         pangenome.status["predictedRGP"] = "inFile"
 
-    if hasattr(statusGroup._v_attrs, "spots") and statusGroup._v_attrs.spots:
+    if hasattr(status_group._v_attrs, "spots") and status_group._v_attrs.spots:
         pangenome.status["spots"] = "inFile"
 
-    if hasattr(statusGroup._v_attrs, "modules") and statusGroup._v_attrs.modules:
+    if hasattr(status_group._v_attrs, "modules") and status_group._v_attrs.modules:
         pangenome.status["modules"] = "inFile"
 
     if "/info" in h5f:
-        infoGroup = h5f.root.info
-        pangenome.parameters = infoGroup._v_attrs.parameters
+        info_group = h5f.root.info
+        pangenome.parameters = info_group._v_attrs.parameters
     h5f.close()
 
 
@@ -75,37 +75,38 @@ def read_chunks(table, column=None, chunk=10000):
             yield row
 
 
-def getGeneSequencesFromFile(filename, fileObj, list_CDS=None, add='', disable_bar=False):
+def get_gene_sequences_from_file(filename, file_obj, list_cds=None, add='', disable_bar=False):
     """
-        Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS, and adds the eventual str 'add' in front of the identifiers
+        Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
+        and adds the eventual str 'add' in front of the identifiers
         Loads the sequences from a .h5 pangenome file
     """
     logging.getLogger().info("Extracting and writing CDS sequences from a .h5 pangenome file to a fasta file...")
     h5f = tables.open_file(filename, "r", driver_core_backing_store=0)
     table = h5f.root.geneSequences
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
-    list_CDS = set(list_CDS) if list_CDS is not None else None
+    list_cds = set(list_cds) if list_cds is not None else None
     for row in read_chunks(table,
                            chunk=20000):  # reading the table chunk per chunk otherwise RAM dies on big pangenomes
-        nameCDS = row["gene"].decode()
-        if row["type"] == b"CDS" and (list_CDS is None or nameCDS in list_CDS):
-            fileObj.write('>' + add + nameCDS + "\n")
-            fileObj.write(row["dna"].decode() + "\n")
+        name_cds = row["gene"].decode()
+        if row["type"] == b"CDS" and (list_cds is None or name_cds in list_cds):
+            file_obj.write('>' + add + name_cds + "\n")
+            file_obj.write(row["dna"].decode() + "\n")
         bar.update()
-    fileObj.flush()
+    file_obj.flush()
     bar.close()
     h5f.close()
 
 
-def launchReadOrganism(args):
-    return readOrganism(*args)
+def launch_read_organism(args):
+    return read_organism(*args)
 
 
-def readOrganism(pangenome, orgName, contigDict, circularContigs, link=False):
-    org = Organism(orgName)
+def read_organism(pangenome, org_name, contig_dict, circular_contigs, link=False):
+    org = Organism(org_name)
     gene, gene_type = (None, None)
-    for contigName, geneList in contigDict.items():
-        contig = org.getOrAddContig(contigName, is_circular=circularContigs[contigName])
+    for contigName, geneList in contig_dict.items():
+        contig = org.getOrAddContig(contigName, is_circular=circular_contigs[contigName])
         for row in geneList:
             if link:  # if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.getGene(row["ID"].decode())
@@ -140,7 +141,7 @@ def readOrganism(pangenome, orgName, contigDict, circularContigs, link=False):
     pangenome.addOrganism(org)
 
 
-def readGraph(pangenome, h5f, disable_bar=False):
+def read_graph(pangenome, h5f, disable_bar=False):
     table = h5f.root.edges
 
     if not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] or \
@@ -158,7 +159,7 @@ def readGraph(pangenome, h5f, disable_bar=False):
     pangenome.status["neighborsGraph"] = "Loaded"
 
 
-def readGeneFamilies(pangenome, h5f, disable_bar=False):
+def read_gene_families(pangenome, h5f, disable_bar=False):
     table = h5f.root.geneFamilies
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
@@ -167,16 +168,16 @@ def readGeneFamilies(pangenome, h5f, disable_bar=False):
     for row in read_chunks(table):
         fam = pangenome.addGeneFamily(row["geneFam"].decode())
         if link:  # linking if we have loaded the annotations
-            geneObj = pangenome.getGene(row["gene"].decode())
+            gene_obj = pangenome.getGene(row["gene"].decode())
         else:  # else, no
-            geneObj = Gene(row["gene"].decode())
-        fam.addGene(geneObj)
+            gene_obj = Gene(row["gene"].decode())
+        fam.addGene(gene_obj)
         bar.update()
     bar.close()
     pangenome.status["genesClustered"] = "Loaded"
 
 
-def readGeneFamiliesInfo(pangenome, h5f, disable_bar=False):
+def read_gene_families_info(pangenome, h5f, disable_bar=False):
     table = h5f.root.geneFamiliesInfo
 
     bar = tqdm(range(table.nrows), unit="gene family", disable=disable_bar)
@@ -192,7 +193,7 @@ def readGeneFamiliesInfo(pangenome, h5f, disable_bar=False):
         pangenome.status["geneFamilySequences"] = "Loaded"
 
 
-def readGeneSequences(pangenome, h5f, disable_bar=False):
+def read_gene_sequences(pangenome, h5f, disable_bar=False):
     if not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
         raise Exception("It's not possible to read the pangenome gene dna sequences "
                         "if the annotations have not been loaded.")
@@ -207,7 +208,7 @@ def readGeneSequences(pangenome, h5f, disable_bar=False):
     pangenome.status["geneSequences"] = "Loaded"
 
 
-def readRGP(pangenome, h5f, disable_bar=False):
+def read_rgp(pangenome, h5f, disable_bar=False):
     if not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] or \
             not pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
         raise Exception("It's not possible to read the RGP "
@@ -226,7 +227,7 @@ def readRGP(pangenome, h5f, disable_bar=False):
     pangenome.status["predictedRGP"] = "Loaded"
 
 
-def readSpots(pangenome, h5f, disable_bar=False):
+def read_spots(pangenome, h5f, disable_bar=False):
     table = h5f.root.spots
     bar = tqdm(range(table.nrows), unit="region", disable=disable_bar)
     spots = {}
@@ -243,7 +244,7 @@ def readSpots(pangenome, h5f, disable_bar=False):
     pangenome.status["spots"] = "Loaded"
 
 
-def readModules(pangenome, h5f, disable_bar=False):
+def read_modules(pangenome, h5f, disable_bar=False):
     if not pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
         raise Exception("It's not possible to read the modules if the gene families have not been loaded.")
     table = h5f.root.modules
@@ -261,116 +262,120 @@ def readModules(pangenome, h5f, disable_bar=False):
     pangenome.status["modules"] = "Loaded"
 
 
-def readAnnotation(pangenome, h5f, disable_bar=False):
+def read_annotation(pangenome, h5f, disable_bar=False):
     annotations = h5f.root.annotations
 
     table = annotations.genes
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
-    pangenomeDict = {}
-    circularContigs = {}
+    pangenome_dict = {}
+    circular_contigs = {}
     for row in read_chunks(table):
         try:
-            pangenomeDict[row["organism"].decode()][row["contig"]["name"].decode()].append(
+            pangenome_dict[row["organism"].decode()][row["contig"]["name"].decode()].append(
                 row["gene"])  # new gene, seen contig, seen org
         except KeyError:
             try:
-                pangenomeDict[row["organism"].decode()][row["contig"]["name"].decode()] = [
+                pangenome_dict[row["organism"].decode()][row["contig"]["name"].decode()] = [
                     row["gene"]]  # new contig, seen org
-                circularContigs[row["organism"].decode()][row["contig"]["name"].decode()] = row["contig"]["is_circular"]
+                circular_contigs[row["organism"].decode()][row["contig"]["name"].decode()] = \
+                    row["contig"]["is_circular"]
             except KeyError:
-                pangenomeDict[sys.intern(row["organism"].decode())] = {
+                pangenome_dict[sys.intern(row["organism"].decode())] = {
                     row["contig"]["name"].decode(): [row["gene"]]}  # new org
-                circularContigs[row["organism"].decode()] = {
+                circular_contigs[row["organism"].decode()] = {
                     row["contig"]["name"].decode(): row["contig"]["is_circular"]}
         bar.update()
     bar.close()
 
     link = True if pangenome.status["genesClustered"] in ["Computed", "Loaded"] else False
 
-    bar = tqdm(range(len(pangenomeDict)), unit="organism", disable=disable_bar)
-    for orgName, contigDict in pangenomeDict.items():
-        readOrganism(pangenome, orgName, contigDict, circularContigs[orgName], link)
+    bar = tqdm(range(len(pangenome_dict)), unit="organism", disable=disable_bar)
+    for orgName, contigDict in pangenome_dict.items():
+        read_organism(pangenome, orgName, contigDict, circular_contigs[orgName], link)
         bar.update()
     bar.close()
     pangenome.status["genomesAnnotated"] = "Loaded"
 
 
-def readInfo(h5f):
+def read_info(h5f):
     if "/info" in h5f:
-        infoGroup = h5f.root.info
+        info_group = h5f.root.info
 
-        print(f"Genes: {infoGroup._v_attrs['numberOfGenes']}")
-        if "numberOfOrganisms" in infoGroup._v_attrs._f_list():
-            print(f"Organisms: {infoGroup._v_attrs['numberOfOrganisms']}")
-        if "numberOfClusters" in infoGroup._v_attrs._f_list():
-            print(f"Families: {infoGroup._v_attrs['numberOfClusters']}")
-        if "numberOfEdges" in infoGroup._v_attrs._f_list():
-            print(f"Edges: {infoGroup._v_attrs['numberOfEdges']}")
-        if 'numberOfCloud' in infoGroup._v_attrs._f_list():  # then all the others are there
+        print(f"Genes: {info_group._v_attrs['numberOfGenes']}")
+        if "numberOfOrganisms" in info_group._v_attrs._f_list():
+            print(f"Organisms: {info_group._v_attrs['numberOfOrganisms']}")
+        if "numberOfClusters" in info_group._v_attrs._f_list():
+            print(f"Families: {info_group._v_attrs['numberOfClusters']}")
+        if "numberOfEdges" in info_group._v_attrs._f_list():
+            print(f"Edges: {info_group._v_attrs['numberOfEdges']}")
+        if 'numberOfCloud' in info_group._v_attrs._f_list():  # then all the others are there
             print(
-                f"Persistent ( {', '.join([key + ':' + str(round(val, 2)) for key, val in infoGroup._v_attrs['persistentStats'].items()])} ): {infoGroup._v_attrs['numberOfPersistent']}")
+                f"Persistent ({', '.join([key + ':' + str(round(val, 2)) for key, val in info_group._v_attrs['persistentStats'].items()])} ): "
+                f"{info_group._v_attrs['numberOfPersistent']}")
             print(
-                f"Shell ( {', '.join([key + ':' + str(round(val, 2)) for key, val in infoGroup._v_attrs['shellStats'].items()])} ): {infoGroup._v_attrs['numberOfShell']}")
+                f"Shell ( {', '.join([key + ':' + str(round(val, 2)) for key, val in info_group._v_attrs['shellStats'].items()])} ): "
+                f"{info_group._v_attrs['numberOfShell']}")
             print(
-                f"Cloud ( {', '.join([key + ':' + str(round(val, 2)) for key, val in infoGroup._v_attrs['cloudStats'].items()])} ): {infoGroup._v_attrs['numberOfCloud']}")
-            print(f"Number of partitions: {infoGroup._v_attrs['numberOfPartitions']}")
-            if infoGroup._v_attrs['numberOfPartitions'] != 3:
-                for key, val in infoGroup._v_attrs['numberOfSubpartitions'].items():
+                f"Cloud ( {', '.join([key + ':' + str(round(val, 2)) for key, val in info_group._v_attrs['cloudStats'].items()])} ): "
+                f"{info_group._v_attrs['numberOfCloud']}")
+            print(f"Number of partitions: {info_group._v_attrs['numberOfPartitions']}")
+            if info_group._v_attrs['numberOfPartitions'] != 3:
+                for key, val in info_group._v_attrs['numberOfSubpartitions'].items():
                     print(f"Shell {key} : {val}")
-        if 'genome_fluidity' in infoGroup._v_attrs._f_list():
+        if 'genome_fluidity' in info_group._v_attrs._f_list():
             out = "Genomes fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
-                            infoGroup._v_attrs['genomes_fluidity'].items())
+                            info_group._v_attrs['genomes_fluidity'].items())
             print(out)
-        if 'family_fluidity' in infoGroup._v_attrs._f_list():
+        if 'family_fluidity' in info_group._v_attrs._f_list():
             out = "Families fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
-                            infoGroup._v_attrs['families_fluidity'].items())
+                            info_group._v_attrs['families_fluidity'].items())
             print(out)
-        if 'numberOfRGP' in infoGroup._v_attrs._f_list():
-            print(f"RGPs: {infoGroup._v_attrs['numberOfRGP']}")
-        if 'numberOfSpots' in infoGroup._v_attrs._f_list():
-            print(f"Spots: {infoGroup._v_attrs['numberOfSpots']}")
-        if 'numberOfModules' in infoGroup._v_attrs._f_list():
-            if all(x in infoGroup._v_attrs._f_list() for x in ['CloudSpecInModules', 'ShellSpecInModules',
-                                                               'numberOfFamiliesInModules']):
-                readModulesInfo(h5f)
+        if 'numberOfRGP' in info_group._v_attrs._f_list():
+            print(f"RGPs: {info_group._v_attrs['numberOfRGP']}")
+        if 'numberOfSpots' in info_group._v_attrs._f_list():
+            print(f"Spots: {info_group._v_attrs['numberOfSpots']}")
+        if 'numberOfModules' in info_group._v_attrs._f_list():
+            if all(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'ShellSpecInModules',
+                                                                'numberOfFamiliesInModules']):
+                read_modules_info(h5f)
             else:
-                print(f"Modules: {infoGroup._v_attrs['numberOfModules']}")
-                print(f"Families in Modules: {infoGroup._v_attrs['numberOfFamiliesInModules']}")
+                print(f"Modules: {info_group._v_attrs['numberOfModules']}")
+                print(f"Families in Modules: {info_group._v_attrs['numberOfFamiliesInModules']}")
                 # readModulesInfo(h5f)
 
 
-def readModulesInfo(h5f):
+def read_modules_info(h5f):
     if "/info" in h5f:
-        infoGroup = h5f.root.info
-        if all(x in infoGroup._v_attrs._f_list() for x in ['CloudSpecInModules', 'PersistentSpecInModules',
-                                                           'ShellSpecInModules', 'numberOfFamiliesInModules',
-                                                           'StatOfFamiliesInModules']):
-            print(f"Modules: {infoGroup._v_attrs['numberOfModules']}")
-            print(f"Number of Families in Modules: {infoGroup._v_attrs['numberOfFamiliesInModules']}")
-            print(f"\tPercent of Families: persistent {infoGroup._v_attrs['PersistentSpecInModules']['percent']},"
-                  f"shell {infoGroup._v_attrs['ShellSpecInModules']['percent']},"
-                  f"cloud {infoGroup._v_attrs['CloudSpecInModules']['percent']}")
+        info_group = h5f.root.info
+        if all(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'PersistentSpecInModules',
+                                                            'ShellSpecInModules', 'numberOfFamiliesInModules',
+                                                            'StatOfFamiliesInModules']):
+            print(f"Modules: {info_group._v_attrs['numberOfModules']}")
+            print(f"Number of Families in Modules: {info_group._v_attrs['numberOfFamiliesInModules']}")
+            print(f"\tPercent of Families: persistent {info_group._v_attrs['PersistentSpecInModules']['percent']},"
+                  f"shell {info_group._v_attrs['ShellSpecInModules']['percent']},"
+                  f"cloud {info_group._v_attrs['CloudSpecInModules']['percent']}")
             print(f"Number of Families per Modules: "
-                  f"min: {infoGroup._v_attrs['StatOfFamiliesInModules']['min']}, "
-                  f"max: {infoGroup._v_attrs['StatOfFamiliesInModules']['max']}, "
-                  f"sd: {infoGroup._v_attrs['StatOfFamiliesInModules']['sd']}, "
-                  f"mean: {infoGroup._v_attrs['StatOfFamiliesInModules']['mean']}")
+                  f"min: {info_group._v_attrs['StatOfFamiliesInModules']['min']}, "
+                  f"max: {info_group._v_attrs['StatOfFamiliesInModules']['max']}, "
+                  f"sd: {info_group._v_attrs['StatOfFamiliesInModules']['sd']}, "
+                  f"mean: {info_group._v_attrs['StatOfFamiliesInModules']['mean']}")
 
 
-def readParameters(h5f):
+def read_parameters(h5f):
     if "/info" in h5f:
-        infoGroup = h5f.root.info
-        if "parameters" in infoGroup._v_attrs._f_list():
-            for key, dic in infoGroup._v_attrs["parameters"].items():
+        info_group = h5f.root.info
+        if "parameters" in info_group._v_attrs._f_list():
+            for key, dic in info_group._v_attrs["parameters"].items():
                 print(f"{key}")
                 for key2, val in dic.items():
                     print(f"    {key2} : {val}")
 
 
-def readPangenome(pangenome, annotation=False, geneFamilies=False, graph=False, rgp=False, spots=False,
-                  geneSequences=False, modules=False, disable_bar=False):
+def read_pangenome(pangenome, annotation=False, gene_families=False, graph=False, rgp=False, spots=False,
+                   gene_sequences=False, modules=False, disable_bar=False):
     """
         Reads a previously written pangenome, with all of its parts, depending on what is asked,
         with regard to what is filled in the 'status' field of the hdf5 file.
@@ -383,113 +388,114 @@ def readPangenome(pangenome, annotation=False, geneFamilies=False, graph=False, 
     if annotation:
         if h5f.root.status._v_attrs.genomesAnnotated:
             logging.getLogger().info("Reading pangenome annotations...")
-            readAnnotation(pangenome, h5f, disable_bar=disable_bar)
+            read_annotation(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' has not been annotated, or has been improperly filled")
-    if geneSequences:
+    if gene_sequences:
         if h5f.root.status._v_attrs.geneSequences:
             logging.getLogger().info("Reading pangenome gene dna sequences...")
-            readGeneSequences(pangenome, h5f, disable_bar=disable_bar)
+            read_gene_sequences(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have gene sequences, "
                             f"or has been improperly filled")
 
-    if geneFamilies:
+    if gene_families:
         if h5f.root.status._v_attrs.genesClustered:
             logging.getLogger().info("Reading pangenome gene families...")
-            readGeneFamilies(pangenome, h5f, disable_bar=disable_bar)
-            readGeneFamiliesInfo(pangenome, h5f, disable_bar=disable_bar)
+            read_gene_families(pangenome, h5f, disable_bar=disable_bar)
+            read_gene_families_info(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(
                 f"The pangenome in file '{filename}' does not have gene families, or has been improperly filled")
     if graph:
         if h5f.root.status._v_attrs.NeighborsGraph:
             logging.getLogger().info("Reading the neighbors graph edges...")
-            readGraph(pangenome, h5f, disable_bar=disable_bar)
+            read_graph(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(
                 f"The pangenome in file '{filename}' does not have graph information, or has been improperly filled")
     if rgp:
         if h5f.root.status._v_attrs.predictedRGP:
             logging.getLogger().info("Reading the RGP...")
-            readRGP(pangenome, h5f, disable_bar=disable_bar)
+            read_rgp(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(
                 f"The pangenome in file '{filename}' does not have RGP information, or has been improperly filled")
     if spots:
         if h5f.root.status._v_attrs.spots:
             logging.getLogger().info("Reading the spots...")
-            readSpots(pangenome, h5f, disable_bar=disable_bar)
+            read_spots(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(
                 f"The pangenome in file '{filename}' does not have spots information, or has been improperly filled")
     if modules:
         if h5f.root.status._v_attrs.modules:
             logging.getLogger().info("Reading the modules...")
-            readModules(pangenome, h5f, disable_bar=disable_bar)
+            read_modules(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(
                 f"The pangenome in file '{filename}' does not have modules information, or has been improperly filled")
     h5f.close()
 
 
-def checkPangenomeInfo(pangenome, needAnnotations=False, needFamilies=False, needGraph=False, needPartitions=False,
-                       needRGP=False, needSpots=False, needGeneSequences=False, needModules=False, disable_bar=False):
+def check_pangenome_info(pangenome, need_annotations=False, need_families=False, need_graph=False,
+                         need_partitions=False, need_rgp=False, need_spots=False, need_gene_sequences=False,
+                         need_modules=False, disable_bar=False):
     """
     defines what needs to be read depending on what is needed, and automatically checks if the required elements
     have been computed with regard to the pangenome.status
     """
     annotation = False
-    geneFamilies = False
+    gene_families = False
     graph = False
     rgp = False
     spots = False
-    geneSequences = False
+    gene_sequences = False
     modules = False
 
     # TODO Automate call if one need another
-    if needAnnotations:
+    if need_annotations:
         if pangenome.status["genomesAnnotated"] == "inFile":
             annotation = True
         elif not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome has no genes. See the 'annotate' subcommand.")
-    if needFamilies:
+    if need_families:
         if pangenome.status["genesClustered"] == "inFile":
-            geneFamilies = True
+            gene_families = True
         elif not pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome has no gene families. See the 'cluster' subcommand.")
-    if needGraph:
+    if need_graph:
         if pangenome.status["neighborsGraph"] == "inFile":
             graph = True
         elif not pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome does not have a graph (no edges). See the 'graph' subcommand.")
-    if needPartitions and pangenome.status["partitionned"] not in ["Computed", "Loaded", "inFile"]:
+    if need_partitions and pangenome.status["partitionned"] not in ["Computed", "Loaded", "inFile"]:
         raise Exception("Your pangenome has not been partitioned. See the 'partition' subcommand")
-    if needRGP:
+    if need_rgp:
         if pangenome.status["predictedRGP"] == "inFile":
             rgp = True
         elif not pangenome.status["predictedRGP"] in ["Computed", "Loaded"]:
             raise Exception(
                 "Your pangenome's regions of genomic plasticity have not been predicted. See the 'rgp' subcommand")
-    if needSpots:
+    if need_spots:
         if pangenome.status["spots"] == "inFile":
             spots = True
         elif not pangenome.status["spots"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome spots of insertion have not been predicted. See the 'spot' subcommand")
-    if needGeneSequences:
+    if need_gene_sequences:
         if pangenome.status["geneSequences"] == "inFile":
-            geneSequences = True
+            gene_sequences = True
         elif not pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome does not include gene sequences. "
                             "This is possible only if you provided your own cluster file with the 'cluster' subcommand")
 
-    if needModules:
+    if need_modules:
         if pangenome.status["modules"] == "inFile":
             modules = True
         elif not pangenome.status["modules"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome modules have not been predicted. See the 'module' subcommand")
 
-    if annotation or geneFamilies or graph or rgp or spots or geneSequences or modules:
+    if annotation or gene_families or graph or rgp or spots or gene_sequences or modules:
         # if anything is true, else we need nothing.
-        readPangenome(pangenome, annotation=annotation, geneFamilies=geneFamilies, graph=graph, rgp=rgp, spots=spots,
-                      geneSequences=geneSequences, modules=modules, disable_bar=disable_bar)
+        read_pangenome(pangenome, annotation=annotation, gene_families=gene_families, graph=graph, rgp=rgp, spots=spots,
+                       gene_sequences=gene_sequences, modules=modules, disable_bar=disable_bar)
