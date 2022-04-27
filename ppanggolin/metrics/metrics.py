@@ -68,7 +68,7 @@ def compute_metrics(pangenome, genomes_fluidity=False, families_fluidity=False, 
 
 def write_metrics(pangenome, metrics_dict, no_print_info=False):
     """
-    Write the metrics computed in the pangenome
+    Write the metrics computed in the pan
     :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :type pangenome: Pangenome
     :param metrics_dict: dictionary with all the metrics computed
@@ -80,15 +80,15 @@ def write_metrics(pangenome, metrics_dict, no_print_info=False):
         info_group = h5f.root.info
         logging.getLogger().debug("H5f open")
         if 'genomes_fluidity' in metrics_dict.keys():
-            logging.getLogger().info("Writing genome fluidity in pangenome")
+            logging.getLogger().info("Writing genome fluidity in pan")
             info_group._v_attrs.genomes_fluidity = metrics_dict['genomes_fluidity']
 
         if 'families_fluidity' in metrics_dict.keys():
-            logging.getLogger().info("Writing family fluidity in pangenome")
+            logging.getLogger().info("Writing family fluidity in pan")
             info_group._v_attrs.families_fluidity = metrics_dict['families_fluidity']
 
         if 'info_modules' in metrics_dict.keys():
-            logging.getLogger().info("Writing modules information in pangenome")
+            logging.getLogger().info("Writing modules information in pan")
             write_info_modules(pangenome, h5f)
 
         # After all metrics was written
@@ -107,7 +107,7 @@ def launch(args):
             args_dict[arg] = True
 
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
+    pangenome.add_file(args.pangenome)
 
     logging.getLogger().debug("Check if one of the metrics was already compute")
     check_metric(pangenome, force=args.force, **args_dict)
@@ -161,7 +161,7 @@ def parser_metrics(parser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log
+    from ppanggolin.utils import check_log, set_verbosity_level
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
@@ -177,4 +177,5 @@ if __name__ == '__main__':
     common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
+    set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

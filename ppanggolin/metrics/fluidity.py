@@ -15,19 +15,19 @@ from ppanggolin.formats import check_pangenome_info
 
 
 def gen_fluidity(pangenome, disable_bar=False):
-    """ Compute the genomes' fluidity from the pangenome
+    """ Compute the genomes' fluidity from the pan
 
     :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :type pangenome: Pangenome
     :param disable_bar: Disable the progress bar
     :type disable_bar: bool
 
-    :return: Genomes fluidity value from the pangenome
+    :return: Genomes fluidity value from the pan
     :rtype:float
     """
 
     # check statuses and load info
-    logging.getLogger().info("Check information in pangenome")
+    logging.getLogger().info("Check information in pan")
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     fluidity_dict = {'all': None, 'shell': None, 'cloud': None, 'accessory': None}
     for subset in fluidity_dict.keys():
@@ -72,35 +72,35 @@ def nb_fam_per_org(pangenome, disable_bar=False):
 # TODO Function to compute mash distance between genome for normalization
 
 def fam_fluidity(pangenome, disable_bar=False):
-    """ Compute the family fluidity from the pangenome
+    """ Compute the family fluidity from the pan
 
     :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :type pangenome: Pangenome
     :param disable_bar: Disable the progress bar
     :type disable_bar: bool
 
-    :return: family fluidity value from the pangenome
+    :return: family fluidity value from the pan
     :rtype:float
     """
     # check statuses and load info
-    logging.getLogger().info("Check information in pangenome")
+    logging.getLogger().info("Check information in pan")
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     fluidity_dict = {'all': None, 'shell': None, 'cloud': None, 'accessory': None}
     for subset in fluidity_dict.keys():
         logging.getLogger().debug(f"Compute binaries for {subset} partition")
-        pangenome.computeFamilyBitarrays(part=subset)
+        pangenome.compute_family_bitarrays(part=subset)
         # Compute binaries corresponding to presence / absence of families in organisms
         f_sum = 0
         logging.getLogger().debug("Get number of families in each organisms")
         fam_2_nb_org = nb_org_per_fam(pangenome, disable_bar)
         logging.getLogger().info("Compute rate of unique organism for each family combination")
-        for c_fam in tqdm(list(combinations(pangenome.geneFamilies, 2)), unit="combination", disable=disable_bar):
+        for c_fam in tqdm(list(combinations(pangenome.gene_families, 2)), unit="combination", disable=disable_bar):
             tot_org = fam_2_nb_org.get(c_fam[0].name) + fam_2_nb_org.get(c_fam[1].name)
             common_fam = popcount(c_fam[0].bitarray & c_fam[1].bitarray) - 1
             if tot_org > 0 and common_fam > 0:
                 f_sum += (tot_org - 2 * common_fam) / tot_org
-        fluidity_dict[subset] = (2 / (pangenome.number_of_geneFamilies() *
-                                      (pangenome.number_of_geneFamilies() - 1))) * f_sum
+        fluidity_dict[subset] = (2 / (pangenome.number_of_gene_families() *
+                                      (pangenome.number_of_gene_families() - 1))) * f_sum
     return fluidity_dict
 
 
@@ -117,6 +117,6 @@ def nb_org_per_fam(pangenome, disable_bar=False):
     :rtype: dict
     """
     fam_2_nb_org = dict()
-    for fam in tqdm(pangenome.geneFamilies, unit='gene families', disable=disable_bar):
+    for fam in tqdm(pangenome.gene_families, unit='gene families', disable=disable_bar):
         fam_2_nb_org[fam.name] = popcount(fam.bitarray)
     return fam_2_nb_org

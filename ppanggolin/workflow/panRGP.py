@@ -10,17 +10,19 @@ import logging
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow
-from ppanggolin.annotate import annotatePangenome, readAnnotations, getGeneSequencesFromFastas
-from ppanggolin.cluster import clustering, readClustering
-from ppanggolin.graph import computeNeighborsGraph
-from ppanggolin.nem.rarefaction import makeRarefactionCurve
+from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas
+from ppanggolin.cluster.cluster import clustering, read_clustering
+from ppanggolin.graph.makeGraph import compute_neighbors_graph
+from ppanggolin.nem.rarefaction import make_rarefaction_curve
 from ppanggolin.nem.partition import partition
 from ppanggolin.formats.writeBinaries import write_pangenome
 from ppanggolin.formats.writeFlat import write_flat_files
-from ppanggolin.figures import drawTilePlot, drawUCurve, drawSpots
-from ppanggolin.info import printInfo
-from ppanggolin.RGP.genomicIsland import predictRGP
-from ppanggolin.RGP.spot import predictHotspots
+from ppanggolin.figures.ucurve import draw_ucurve
+from ppanggolin.figures.tile_plot import draw_tile_plot
+from ppanggolin.figures.draw_spot import draw_spots
+from ppanggolin.info.info import print_info
+from ppanggolin.RGP.genomicIsland import predict_rgp
+from ppanggolin.RGP.spot import predict_hotspots
 
 """a global workflow that does everything in one go."""
 
@@ -32,7 +34,7 @@ def launch(args):
     writing_time, anno_time, clust_time, desc_time = (None, None, None, None)
     if args.anno:  # if the annotations are provided, we read from it
         start_anno = time.time()
-        readAnnotations(pangenome, args.anno, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+        read_annotations(pangenome, args.anno, cpu=args.cpu, disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
         start_writing = time.time()
         write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
@@ -43,17 +45,17 @@ def launch(args):
                             "Thus, we do not have the information we need to continue the analysis.")
 
         elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is not None:
-            getGeneSequencesFromFastas(pangenome, args.fasta)
+            get_gene_sequences_from_fastas(pangenome, args.fasta)
         start_clust = time.time()
         if args.clusters is not None:
-            readClustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar)
+            read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar)
 
         elif args.clusters is None:  # we should have the sequences here.
             clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
         clust_time = time.time() - start_clust
     elif args.fasta is not None:
         start_anno = time.time()
-        annotatePangenome(pangenome, args.fasta, args.tmpdir, args.cpu, disable_bar=args.disable_prog_bar)
+        annotate_pangenome(pangenome, args.fasta, args.tmpdir, args.cpu, disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
         start_writing = time.time()
         write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
@@ -64,11 +66,12 @@ def launch(args):
 
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     start_graph = time.time()
-    computeNeighborsGraph(pangenome, disable_bar=args.disable_prog_bar)
+    compute_neighbors_graph(pangenome, disable_bar=args.disable_prog_bar)
     graph_time = time.time() - start_graph
 
     start_part = time.time()
-    partition(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, K=args.nb_of_partitions, disable_bar=args.disable_prog_bar)
+    partition(pangenome, tmpdir=args.tmpdir, kval=args.nb_of_partitions, cpu=args.cpu,
+              disable_bar=args.disable_prog_bar)
     part_time = time.time() - start_part
 
     start_writing = time.time()
@@ -76,11 +79,11 @@ def launch(args):
     writing_time = writing_time + time.time() - start_writing
 
     start_regions = time.time()
-    predictRGP(pangenome, disable_bar=args.disable_prog_bar)
+    predict_rgp(pangenome, disable_bar=args.disable_prog_bar)
     regions_time = time.time() - start_regions
 
     start_spots = time.time()
-    predictHotspots(pangenome, args.output, disable_bar=args.disable_prog_bar)
+    predict_hotspots(pangenome, args.output, disable_bar=args.disable_prog_bar)
     spot_time = time.time() - start_spots
 
     start_writing = time.time()
@@ -89,18 +92,18 @@ def launch(args):
 
     start_spot_drawing = time.time()
     mk_outdir(args.output, force=True)
-    drawSpots(pangenome=pangenome, output=args.output, spot_list='all', disable_bar=args.disable_prog_bar)
+    draw_spots(pangenome=pangenome, output=args.output, spot_list='all', disable_bar=args.disable_prog_bar)
     spot_time = spot_time + time.time() - start_spot_drawing
 
     if args.rarefaction:
-        makeRarefactionCurve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+        make_rarefaction_curve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
     if 1 < len(pangenome.organisms) < 5000:
-        drawTilePlot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
-    drawUCurve(pangenome, args.output)
+        draw_tile_plot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
+    draw_ucurve(pangenome, args.output)
 
     start_desc = time.time()
-    write_flat_files(args.output, args.cpu, csv=True, gene_pa=True, gexf=True, light_gexf=True, projection=True,
-                     stats=True, json=True, partitions=True, regions=True, spots=True)
+    write_flat_files(pangenome, args.output, args.cpu, csv=True, gene_pa=True, gexf=True, light_gexf=True,
+                     projection=True, stats=True, json=True, partitions=True, regions=True, spots=True)
     desc_time = time.time() - start_desc
 
     logging.getLogger().info(f"Annotation took : {round(anno_time, 2)} seconds")
@@ -111,7 +114,7 @@ def launch(args):
     logging.getLogger().info(f"Gathering RGP into spots took : {round(spot_time, 2)} seconds")
     logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
     logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
-    printInfo(filename, content=True)
+    print_info(filename, content=True)
 
 
 def subparser(sub_parser):

@@ -25,49 +25,47 @@ def reverse_complement(seq):
     return rcseq
 
 
-def launch_aragorn(fnaFile, org):
+def launch_aragorn(fna_file, org):
     """
         launches Aragorn to annotate tRNAs. Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """
     locustag = org.name
-    cmd = ["aragorn", "-t", "-gcbact", "-l", "-w", fnaFile]
+    cmd = ["aragorn", "-t", "-gcbact", "-l", "-w", fna_file]
     p = Popen(cmd, stdout=PIPE)
     # loading the whole thing, reverting it to 'pop' in order.
-    fileData = p.communicate()[0].decode().split("\n")[:: -1]
-    geneObjs = defaultdict(set)
+    file_data = p.communicate()[0].decode().split("\n")[:: -1]
+    gene_objs = defaultdict(set)
     c = 0
-    while len(fileData) != 0:
-        line = fileData.pop()
+    header = ""
+    while len(file_data) != 0:
+        line = file_data.pop()
         if line.startswith(">"):
             header = line.replace(">", "").split()[0]
-            fileData.pop()  # then next line must be removed too.
+            file_data.pop()  # then next line must be removed too.
         elif len(line) > 0:  # if the line isn't empty, there's data to get.
-            lineData = line.split()
-            start, stop = ast.literal_eval(lineData[2].replace("c", ""))
+            line_data = line.split()
+            start, stop = ast.literal_eval(line_data[2].replace("c", ""))
             c += 1
-            gene = RNA(ID=locustag + '_tRNA_' + str(c).zfill(3))
-            gene.fill_annotations(start=start,
-                                  stop=stop,
-                                  strand="-" if lineData[2].startswith(
-                                      "c") else "+",
-                                  geneType="tRNA",
-                                  product=lineData[1] + lineData[4])
-            geneObjs[header].add(gene)
-    return geneObjs
+            gene = RNA(identifier=locustag + '_tRNA_' + str(c).zfill(3))
+            gene.fill_annotations(start=start, stop=stop, strand="-" if line_data[2].startswith(
+                "c") else "+", gene_type="tRNA", product=line_data[1] + line_data[4])
+            gene_objs[header].add(gene)
+    return gene_objs
 
 
-def launch_prodigal(fnaFile, org, code):
+def launch_prodigal(fna_file, org, code):
     """
         launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """
     locustag = org.name
-    cmd = ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fnaFile, "-p", "single", "-q"]
+    cmd = ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", "single", "-q"]
     p = Popen(cmd, stdout=PIPE)
 
-    geneObjs = defaultdict(set)
+    gene_objs = defaultdict(set)
     c = 0
+    header = ""
     for line in p.communicate()[0].decode().split("\n"):
         if line.startswith("# Sequence Data: "):
             for data in line.split(";"):
@@ -77,35 +75,33 @@ def launch_prodigal(fnaFile, org, code):
 
         elif line.startswith(">"):
             c += 1
-            lineData = line[1:].split("_")  # not considering the '>'
-            gene = Gene(ID=locustag + "_CDS_" + str(c).zfill(4))
-            gene.fill_annotations(start=lineData[1],
-                                  stop=lineData[2],
-                                  strand=lineData[3],
-                                  geneType="CDS",
-                                  genetic_code=code)
-            geneObjs[header].add(gene)
+            line_data = line[1:].split("_")  # not considering the '>'
+            gene = Gene(gene_id=locustag + "_CDS_" + str(c).zfill(4))
+            gene.fill_annotations(start=line_data[1], stop=line_data[2], strand=line_data[3],
+                                  gene_type="CDS", genetic_code=code)
+            gene_objs[header].add(gene)
 
-    return geneObjs
+    return gene_objs
 
 
-def launch_infernal(fnaFile, org, kingdom, tmpdir):
+def launch_infernal(fna_file, org, kingdom, tmpdir):
     """
         launches Infernal in hmmer-only mode to annotate rRNAs.
         Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """
     locustag = org.name
+    modelfile = ""
     if kingdom == "bacteria":
         modelfile = os.path.dirname(os.path.realpath(__file__)) + "/rRNA_DB/rRNA_bact.cm"
     elif kingdom == "archaea":
         modelfile = os.path.dirname(os.path.realpath(__file__)) + "/rRNA_DB/rRNA_arch.cm"
 
-    tmpFile = tempfile.NamedTemporaryFile(mode="r", dir=tmpdir)
-    cmd = ["cmscan", "--tblout", tmpFile.name, "--hmmonly", "--cpu", str(1), "--noali", modelfile, fnaFile]
+    tmp_file = tempfile.NamedTemporaryFile(mode="r", dir=tmpdir)
+    cmd = ["cmscan", "--tblout", tmp_file.name, "--hmmonly", "--cpu", str(1), "--noali", modelfile, fna_file]
     p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
-    if err != []:
+    if err:
         if err[0] == 'Error: ':
             raise Exception(f"Infernal (cmscan) failed with error:  '{' '.join(err)}'. If you never used this script,"
                             f" you should press the .cm file using cmpress executable from Infernal. "
@@ -114,31 +110,28 @@ def launch_infernal(fnaFile, org, kingdom, tmpdir):
     # never managed to test what happens if the .cm files are compressed with a 'bad' version of infernal,
     # so if that happens you are on your own.
 
-    geneObjs = defaultdict(set)
+    gene_objs = defaultdict(set)
     c = 0
-    for line in tmpFile:
+    for line in tmp_file:
         if not line.startswith("#"):
             c += 1
-            lineData = line.split()
-            strand = lineData[9]
+            line_data = line.split()
+            strand = line_data[9]
             if strand == "-":
-                start = lineData[8]
-                stop = lineData[7]
+                start = line_data[8]
+                stop = line_data[7]
             else:
-                start = lineData[7]
-                stop = lineData[8]
-            gene = RNA(ID=locustag + "_rRNA_" + str(c).zfill(3))
-            gene.fill_annotations(start=start,
-                                  stop=stop,
-                                  strand=strand,
-                                  geneType="rRNA",
-                                  product=" ".join(lineData[17:]))
-            geneObjs[lineData[2]].add(gene)
+                start = line_data[7]
+                stop = line_data[8]
+            gene = RNA(identifier=locustag + "_rRNA_" + str(c).zfill(3))
+            gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type="rRNA",
+                                  product=" ".join(line_data[17:]))
+            gene_objs[line_data[2]].add(gene)
 
-    return geneObjs
+    return gene_objs
 
 
-def read_fasta(org, fnaFile, contig_filter=1):
+def read_fasta(org, fna_file, contig_filter=1):
     """
         Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
     """
@@ -146,19 +139,20 @@ def read_fasta(org, fnaFile, contig_filter=1):
         contigs = {}
         contig_seq = ""
         contig = None
-        for line in fnaFile:
+        for line in fna_file:
             if line.startswith('>'):
                 if len(contig_seq) >= contig_filter:
                     contigs[contig.name] = contig_seq.upper()
+
                 contig_seq = ""
-                contig = org.getOrAddContig(line.split()[0][1:])
+                contig = org.get_or_add_contig(line.split()[0][1:])
             else:
                 contig_seq += line.strip()
         # processing the last contig
         if len(contig_seq) >= contig_filter:
             contigs[contig.name] = contig_seq.upper()
     except AttributeError as e:
-        raise AttributeError(f"{e}\nAn error was raised when reading file: '{fnaFile.name}'. "
+        raise AttributeError(f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
                              f"One possibility for this error is that the file did not start with a '>' "
                              f"as it would be expected from a fna file.")
     return contigs
@@ -171,20 +165,20 @@ def write_tmp_fasta(contigs, tmpdir):
         then we write a temporary file for the annotation tools to read from.
         The file will be deleted when close() is called.
     """
-    tmpFile = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir)
+    tmp_file = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir)
     for header in contigs.keys():
-        tmpFile.write(f">{header}\n")
+        tmp_file.write(f">{header}\n")
         j = 0
         while j < len(contigs[header]):
-            tmpFile.write(contigs[header][j: j + 60] + "\n")
+            tmp_file.write(contigs[header][j: j + 60] + "\n")
             j += 60
-    tmpFile.flush()  # force write what remains in the buffer.
-    return tmpFile
+    tmp_file.flush()  # force write what remains in the buffer.
+    return tmp_file
 
 
-def syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir):
+def syntaxic_annotation(org, fasta_file, norna, kingdom, code, tmpdir):
     """
-        Runs the different softwares for the syntaxic annotation.
+        Runs the different software for the syntaxic annotation.
 
         Takes in the file-like object containing the uncompressed fasta sequences to annotate
         the number of cpus that we can use.
@@ -193,75 +187,75 @@ def syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir):
     """
     # launching tools for syntaxic annotation
     genes = defaultdict(list)
-    for key, items in launch_prodigal(fastaFile.name, org, code).items():
+    for key, items in launch_prodigal(fasta_file.name, org, code).items():
         genes[key].extend(items)
     if not norna:
-        for key, items in launch_aragorn(fastaFile.name, org).items():
+        for key, items in launch_aragorn(fasta_file.name, org).items():
             genes[key].extend(items)
-        for key, items in launch_infernal(fastaFile.name, org, kingdom, tmpdir).items():
+        for key, items in launch_infernal(fasta_file.name, org, kingdom, tmpdir).items():
             genes[key].extend(items)
-    fastaFile.close()  # closing either tmp file or original fasta file.
+    fasta_file.close()  # closing either tmp file or original fasta file.
     return genes
 
 
-def overlap_filter(allGenes, overlap):
+def overlap_filter(all_genes, overlap):
     """
         Removes the CDS that overlap with RNA genes.
     """
-    sortedGenes = defaultdict(set)
-    for key, genes in allGenes.items():
-        tmpGenes = sorted(genes, key=lambda x: x.start)
-        rmGenes = set()
+    sorted_genes = defaultdict(list)
+    for key, genes in all_genes.items():
+        tmp_genes = sorted(genes, key=lambda x: x.start)
+        rm_genes = set()
         if overlap:
-            for i, gene_i in enumerate(tmpGenes):
-                if i + 1 < len(tmpGenes):
-                    gene_j = tmpGenes[i + 1]
+            for i, gene_i in enumerate(tmp_genes):
+                if i + 1 < len(tmp_genes):
+                    gene_j = tmp_genes[i + 1]
                     if gene_i.type != "CDS" and gene_j.type == "CDS" and gene_i.stop > gene_j.start:
-                        rmGenes.add(gene_j)
+                        rm_genes.add(gene_j)
                     elif gene_i.type == "CDS" and gene_j.type != "CDS" and gene_i.stop > gene_j.start:
-                        rmGenes.add(gene_i)
+                        rm_genes.add(gene_i)
 
-        for gene in rmGenes:
-            tmpGenes.remove(gene)
-        CDScounter = 0
-        for gene in tmpGenes:
+        for gene in rm_genes:
+            tmp_genes.remove(gene)
+        cds_counter = 0
+        for gene in tmp_genes:
             if gene.type == "CDS":
-                gene.position = CDScounter
-                CDScounter += 1
-        sortedGenes[key] = tmpGenes
-    return sortedGenes
+                gene.position = cds_counter
+                cds_counter += 1
+        sorted_genes[key] = tmp_genes
+    return sorted_genes
 
 
-def get_dna_sequence(contigSeq, gene):
+def get_dna_sequence(contig_seq, gene):
     if gene.strand == "+":
-        return contigSeq[gene.start - 1:gene.stop]
+        return contig_seq[gene.start - 1:gene.stop]
     elif gene.strand == "-":
-        return reverse_complement(contigSeq[gene.start - 1:gene.stop])
+        return reverse_complement(contig_seq[gene.start - 1:gene.stop])
 
 
-def annotate_organism(orgName, fileName, circular_contigs, code, kingdom, norna, tmpdir, overlap, contig_filter):
+def annotate_organism(org_name, file_name, circular_contigs, code, kingdom, norna, tmpdir, overlap, contig_filter):
     """
         Function to annotate a single organism
     """
-    org = Organism(orgName)
+    org = Organism(org_name)
 
-    fastaFile = read_compressed_or_not(fileName)
-    contigSequences = read_fasta(org, fastaFile, contig_filter)
-    if is_compressed(fileName):
-        fastaFile = write_tmp_fasta(contigSequences, tmpdir)
+    fasta_file = read_compressed_or_not(file_name)
+    contig_sequences = read_fasta(org, fasta_file, contig_filter)
+    if is_compressed(file_name):
+        fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
 
-    genes = syntaxic_annotation(org, fastaFile, norna, kingdom, code, tmpdir)
+    genes = syntaxic_annotation(org, fasta_file, norna, kingdom, code, tmpdir)
     genes = overlap_filter(genes, overlap)
 
     for contigName, genes in genes.items():
-        contig = org.getOrAddContig(contigName)
+        contig = org.get_or_add_contig(contigName)
         if contig.name in circular_contigs:
             contig.is_circular = True
         for gene in genes:
-            gene.add_dna(get_dna_sequence(contigSequences[contig.name], gene))
+            gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
             gene.fill_parents(org, contig)
             if isinstance(gene, Gene):
-                contig.addGene(gene)
+                contig.add_gene(gene)
             elif isinstance(gene, RNA):
-                contig.addRNA(gene)
+                contig.add_rna(gene)
     return org

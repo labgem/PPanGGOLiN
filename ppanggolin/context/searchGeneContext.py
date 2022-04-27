@@ -14,9 +14,9 @@ import pandas as pd
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
-from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
+from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.align.alignOnPang import get_seq2pang, projectPartition
+from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
 from ppanggolin.geneFamily import GeneFamily
 
 
@@ -105,9 +105,9 @@ def search_gene_context_in_pangenome(pangenome, output, tmpdir, sequences=None, 
     if sequences is not None:
         # Alignment of sequences on pangenome families
         new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag,
-                                           identity, coverage)
-        projectPartition(seq2pan, seq_set, output)
+        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag, identity,
+                                           coverage)
+        project_partition(seq2pan, seq_set, output)
         new_tmpdir.cleanup()
         for k, v in seq2pan.items():
             gene_families[v.name] = v
@@ -116,7 +116,7 @@ def search_gene_context_in_pangenome(pangenome, output, tmpdir, sequences=None, 
     if families is not None:
         with open(families, 'r') as f:
             for fam_name in f.read().splitlines():
-                gene_families[fam_name] = pangenome.getGeneFamily(fam_name)
+                gene_families[fam_name] = pangenome.get_gene_family(fam_name)
 
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
@@ -143,7 +143,7 @@ def search_gene_context_in_pangenome(pangenome, output, tmpdir, sequences=None, 
 
 def compute_gene_context_graph(families, t, disable_bar=False):
     """
-    Construct the graph of gene contexts between families of the pangenome
+    Construct the graph of gene contexts between families of the pan
 
     :param families: Gene families of interest
     :type families: dict
@@ -152,7 +152,7 @@ def compute_gene_context_graph(families, t, disable_bar=False):
     :param disable_bar: Prevents progress bar printing
     :type disable_bar: Boolean
 
-    :return: Graph of gene contexts between interesting gene families of the pangenome
+    :return: Graph of gene contexts between interesting gene families of the pan
     :rtype: nx.Graph
     """
     g = nx.Graph()
@@ -170,7 +170,7 @@ def _compute_gene_context_graph(g, env_gene, contig, pos_r):
     """
     Compute graph of gene contexts between one gene and the other part of the contig
 
-    :param: Graph of gene contexts between interesting gene families of the pangenome
+    :param: Graph of gene contexts between interesting gene families of the pan
     :type: nx.Graph
     :param env_gene: Gene of the current position
     :type env_gene: Gene
@@ -229,7 +229,7 @@ def compute_gene_context(g, jaccard=0.85):
     """
     Compute the gene contexts in the graph
 
-    :param g: Graph of gene contexts between interesting gene families of the pangenome
+    :param g: Graph of gene contexts between interesting gene families of the pan
     :type g: nx.Graph
     :param jaccard: Jaccard index
     :type jaccard: float
@@ -245,19 +245,17 @@ def compute_gene_context(g, jaccard=0.85):
     return gene_contexts
 
 
-def fam2seq(seq2pan):
+def fam2seq(seq_to_pan):
     """
     Create a dictionary with gene families as keys and list of sequences id as values
 
-    :param seq2pan: Dictionary storing the sequence ids as keys and the gene families
+    :param seq_to_pan: Dictionary storing the sequence ids as keys and the gene families
                     to which they are assigned as values
-    :param seq2pan: dict
-
     :return: Dictionary reversed
     :rtype: dict
     """
     fam_2_seq = {}
-    for sequence, family in seq2pan.items():
+    for sequence, family in seq_to_pan.items():
         if family.ID in fam_2_seq.keys():
             fam_2_seq[family.ID].append(sequence)
         else:
@@ -270,7 +268,7 @@ def export_to_dataframe(families, gene_contexts, fam_2_seq, output):
 
     :param families: Families related to the connected components
     :type families: set
-    :param gene_contexts: connected components found in the pangenome
+    :param gene_contexts: connected components found in the pan
     :type gene_contexts: set
     :param fam_2_seq: Dictionary with gene families as keys and list of sequence ids as values
     :type fam_2_seq: dict
@@ -284,10 +282,10 @@ def export_to_dataframe(families, gene_contexts, fam_2_seq, output):
         for family in gene_context.families:
             line = [gene_context.ID]
             if fam_2_seq is None or fam_2_seq.get(family.ID) is None:
-                line += [family.name, None, len(family.organisms), family.namedPartition]
+                line += [family.name, None, len(family.organisms), family.named_partition]
             else:
                 line += [family.name, ','.join(fam_2_seq.get(family.ID)),
-                         len(family.organisms), family.namedPartition]
+                         len(family.organisms), family.named_partition]
             lines.append(line)
     df = pd.DataFrame(lines,
                       columns=["GeneContext ID", "Gene family name", "Sequence ID", "Nb Genomes", "Partition"]
@@ -300,9 +298,9 @@ def export_to_dataframe(families, gene_contexts, fam_2_seq, output):
 def launch(args):
     if not any([args.sequences, args.family]):
         raise Exception("At least one of --sequences or --family must be given")
-    mkOutdir(args.output, args.force)
+    mk_outdir(args.output, args.force)
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
+    pangenome.add_file(args.pangenome)
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
                                      sequences=args.sequences, families=args.family, transitive=args.transitive,
                                      identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
@@ -327,14 +325,14 @@ def subparser(sub_parser):
 def parser_context(parser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome.h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
     onereq.add_argument('-S', '--sequences', required=False, type=str,
                         help="Fasta file with the sequences of interest")
     onereq.add_argument('-F', '--family', required=False, type=str,
-                        help="List of family IDs of interest from the pangenome")
+                        help="List of family IDs of interest from the pan")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--no_defrag', required=False, action="store_true",
@@ -355,7 +353,7 @@ def parser_context(parser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log
+    from ppanggolin.utils import check_log, set_verbosity_level
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
@@ -373,4 +371,5 @@ if __name__ == '__main__':
     common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
+    set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

@@ -78,9 +78,9 @@ def get_max_len_annotations(pangenome):
 
 def write_annotations(pangenome, h5f, disable_bar=False):
     """
-        Function writing all the pangenome's annotations
+        Function writing all the pangenome annotations
     """
-    annotation = h5f.create_group("/", "annotations", "Annotations of the pangenome's organisms")
+    annotation = h5f.create_group("/", "annotations", "Annotations of the pangenome organisms")
     gene_table = h5f.create_table(annotation, "genes", gene_desc(*get_max_len_annotations(pangenome)),
                                   expectedrows=len(pangenome.genes))
 
@@ -169,7 +169,7 @@ def get_gene_fam_len(pangenome):
     max_gene_fam_name_len = 1
     max_gene_fam_seq_len = 1
     max_part_len = 1
-    for genefam in pangenome.geneFamilies:
+    for genefam in pangenome.gene_families:
         if len(genefam.sequence) > max_gene_fam_seq_len:
             max_gene_fam_seq_len = len(genefam.sequence)
         if len(genefam.name) > max_gene_fam_name_len:
@@ -187,10 +187,10 @@ def write_gene_fam_info(pangenome, h5f, force, disable_bar=False):
         logging.getLogger().info("Erasing the formerly computed gene family representative sequences...")
         h5f.remove_node('/', 'geneFamiliesInfo')  # erasing the table, and rewriting a new one.
     gene_fam_seq = h5f.create_table("/", "geneFamiliesInfo", gene_fam_desc(*get_gene_fam_len(pangenome)),
-                                    expectedrows=len(pangenome.geneFamilies))
+                                    expectedrows=len(pangenome.gene_families))
 
     row = gene_fam_seq.row
-    bar = tqdm(pangenome.geneFamilies, unit="gene family", disable=disable_bar)
+    bar = tqdm(pangenome.gene_families, unit="gene family", disable=disable_bar)
     for fam in bar:
         row["name"] = fam.name
         row["protein"] = fam.sequence
@@ -210,7 +210,7 @@ def gene_to_fam_desc(gene_fam_name_len, gene_id_len):
 def get_gene_to_fam_len(pangenome):
     max_gene_fam_name = 1
     max_gene_id = 1
-    for geneFam in pangenome.geneFamilies:
+    for geneFam in pangenome.gene_families:
         if len(geneFam.name) > max_gene_fam_name:
             max_gene_fam_name = len(geneFam.name)
         for gene in geneFam.genes:
@@ -221,14 +221,14 @@ def get_gene_to_fam_len(pangenome):
 
 def write_gene_families(pangenome, h5f, force, disable_bar=False):
     """
-        Function writing all the pangenome's gene families
+        Function writing all the pangenome  gene families
     """
-    if '/geneFamilies' in h5f and force is True:
+    if '/gene_families' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
-        h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
-    gene_families = h5f.create_table("/", "geneFamilies", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
+        h5f.remove_node('/', 'gene_families')  # erasing the table, and rewriting a new one.
+    gene_families = h5f.create_table("/", "gene_families", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
     gene_row = gene_families.row
-    bar = tqdm(pangenome.geneFamilies, unit="gene family", disable=disable_bar)
+    bar = tqdm(pangenome.gene_families, unit="gene family", disable=disable_bar)
     for geneFam in bar:
         for gene in geneFam.genes:
             gene_row["gene"] = gene.ID
@@ -385,7 +385,7 @@ def write_status(pangenome, h5f):
     if "/status" in h5f:  # if statuses are already written
         status_group = h5f.root.status
     else:  # else create the status group.
-        status_group = h5f.create_group("/", "status", "Statuses of the pangenome's content")
+        status_group = h5f.create_group("/", "status", "Statuses of the pangenome  content")
     status_group._v_attrs.genomesAnnotated = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded",
                                                                                               "inFile"] else False
     status_group._v_attrs.geneSequences = True if pangenome.status["geneSequences"] in ["Computed", "Loaded",
@@ -439,12 +439,12 @@ def write_info(pangenome, h5f):
     if "/info" in h5f:
         info_group = h5f.root.info
     else:
-        info_group = h5f.create_group("/", "info", "Informations about the pangenome's content")
+        info_group = h5f.create_group("/", "info", "Informations about the pangenome content")
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfGenes = len(pangenome.genes)
         info_group._v_attrs.numberOfOrganisms = len(pangenome.organisms)
     if pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
-        info_group._v_attrs.numberOfClusters = len(pangenome.geneFamilies)
+        info_group._v_attrs.numberOfClusters = len(pangenome.gene_families)
     if pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfEdges = len(pangenome.edges)
     if pangenome.status["partitionned"] in ["Computed", "Loaded"]:
@@ -452,10 +452,10 @@ def write_info(pangenome, h5f):
         subpart_counter = Counter()
         part_distribs = defaultdict(list)
         part_set = set()
-        for fam in pangenome.geneFamilies:
-            named_part_counter[fam.namedPartition] += 1
-            part_distribs[fam.namedPartition].append(len(fam.organisms) / len(pangenome.organisms))
-            if fam.namedPartition == "shell":
+        for fam in pangenome.gene_families:
+            named_part_counter[fam.named_partition] += 1
+            part_distribs[fam.named_partition].append(len(fam.organisms) / len(pangenome.organisms))
+            if fam.named_partition == "shell":
                 subpart_counter[fam.partition] += 1
             if fam.partition != "S_":
                 part_set.add(fam.partition)
@@ -552,7 +552,7 @@ def update_gene_fam_partition(pangenome, h5f, disable_bar=False):
     table = h5f.root.geneFamiliesInfo
     bar = tqdm(range(table.nrows), unit="gene family", disable=disable_bar)
     for row in table:
-        row["partition"] = pangenome.getGeneFamily(row["name"].decode()).partition
+        row["partition"] = pangenome.get_gene_family(row["name"].decode()).partition
         row.update()
         bar.update()
     bar.close()
@@ -567,7 +567,7 @@ def update_gene_fragments(pangenome, h5f, disable_bar=False):
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
     for row in table:
         if row['gene/type'].decode() == 'CDS':
-            row['gene/is_fragment'] = pangenome.getGene(row['gene/ID'].decode()).is_fragment
+            row['gene/is_fragment'] = pangenome.get_gene(row['gene/ID'].decode()).is_fragment
             row.update()
         bar.update()
     bar.close()
@@ -588,9 +588,9 @@ def erase_pangenome(pangenome, graph=False, gene_families=False, partition=False
         status_group._v_attrs.NeighborsGraph = False
         pangenome.status["neighborsGraph"] = "No"
         h5f.del_node_attr(info_group, "numberOfEdges")
-    if '/geneFamilies' in h5f and gene_families:
+    if '/gene_families' in h5f and gene_families:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
-        h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
+        h5f.remove_node('/', 'gene_families')  # erasing the table, and rewriting a new one.
         pangenome.status["defragmented"] = "No"
         pangenome.status["genesClustered"] = "No"
         status_group._v_attrs.defragmented = False
@@ -642,7 +642,10 @@ def erase_pangenome(pangenome, graph=False, gene_families=False, partition=False
 
         h5f.del_node_attr(info_group, "numberOfModules")
         h5f.del_node_attr(info_group, "numberOfFamiliesInModules")
-        h5f.del_node_attr(info_group, "StatOfFamiliesInModules")
+        for info in ['CloudSpecInModules', 'PersistentSpecInModules', 'ShellSpecInModules', 'numberOfFamiliesInModules',
+                     'StatOfFamiliesInModules']:
+            if info in info_group._v_attrs._f_list():
+                h5f.del_node_attr(info_group, info)
 
     h5f.close()
 

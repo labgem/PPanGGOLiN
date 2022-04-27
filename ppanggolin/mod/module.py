@@ -21,10 +21,10 @@ from gmpy2 import xmpz, popcount  # pylint: disable=no-name-in-module
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Module
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
-from ppanggolin.utils import mkOutdir, restricted_float, add_gene, connected_components
+from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
 
 
-def checkPangenomeFormerModules(pangenome, force):
+def check_pangenome_former_modules(pangenome, force):
     """ checks pangenome status and .h5 files for former modules, delete them if allowed or raise an error """
     if pangenome.status["modules"] == "inFile" and not force:
         raise Exception("You are trying to detect modules on a pangenome which already has predicted modules. "
@@ -33,10 +33,10 @@ def checkPangenomeFormerModules(pangenome, force):
         erase_pangenome(pangenome, modules=True)
 
 
-def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3, min_presence=2, transitive=4,
-                   jaccard=0.85, disable_bar=False):
+def predict_modules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3, min_presence=2, transitive=4,
+                    jaccard=0.85, disable_bar=False):
     # check statuses and load info
-    checkPangenomeFormerModules(pangenome, force)
+    check_pangenome_former_modules(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=True,
                          disable_bar=disable_bar)
 
@@ -61,7 +61,7 @@ def predictModules(pangenome, cpu, tmpdir, force=False, dup_margin=0.05, size=3,
     logging.getLogger().info(f"There are {len(fams)} families among {len(modules)} modules")
     logging.getLogger().info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
 
-    pangenome.addModules(modules)
+    pangenome.add_modules(modules)
 
     pangenome.status["modules"] = "Computed"
     pangenome.parameters["modules"] = {}
@@ -77,7 +77,7 @@ def compute_mod_graph(organisms, t=1, disable_bar=False):
     Computes a graph using all provided genomes with a transitive closure of size t
     
     :param organisms: the list of organisms to compute the graph with
-    :type list: list[:class:`ppanggolin.genome.Organism`]
+    :type organisms: list[:class:`ppanggolin.genome.Organism`]
     :param t: the size of the transitive closure
     :type t: int
     :param disable_bar: whether to show a progress bar or not
@@ -124,26 +124,31 @@ def compute_modules(g, multi, weight, min_fam, size):
     modules = set()
     c = 0
     for comp in connected_components(g, removed, weight):
-        if len(comp) >= size and not any(fam.namedPartition == "persistent" and
+        if len(comp) >= size and not any(fam.named_partition == "persistent" and
                                          fam not in multi for fam in comp):
             # keep only the modules with at least 'size' non-multigenic genes and
             # remove 'persistent' and non-multigenic modules
-            modules.add(Module(ID=c, families=comp))
+            modules.add(Module(module_id=c, families=comp))
             c += 1
     return modules
 
 
 def launch(args):
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
-    predictModules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, force=args.force, dup_margin=args.dup_margin,
-                   size=args.size, min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard,
-                   disable_bar=args.disable_prog_bar)
+    pangenome.add_file(args.pangenome)
+    predict_modules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, force=args.force, dup_margin=args.dup_margin,
+                    size=args.size, min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard,
+                    disable_bar=args.disable_prog_bar)
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
-def moduleSubparser(subparser):
-    parser = subparser.add_parser("module", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("module", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_module(parser)
+    return parser
+
+
+def parser_module(parser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
@@ -164,4 +169,27 @@ def moduleSubparser(subparser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. "
                                "Increasing it will improve precision but lower sensitivity a lot.")
-    return parser
+
+
+if __name__ == '__main__':
+    """To test local change and allow using debugger"""
+    from ppanggolin.utils import check_log, set_verbosity_level
+
+    main_parser = argparse.ArgumentParser(
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser_module(main_parser)
+    common = main_parser.add_argument_group(title="Common argument")
+    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+                        help="directory for storing temporary files")
+    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
+    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                        help="disables the progress bars")
+    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    common.add_argument('-f', '--force', action="store_true",
+                        help="Force writing in output directory and in pangenome output file.")
+    set_verbosity_level(main_parser.parse_args())
+    launch(main_parser.parse_args())

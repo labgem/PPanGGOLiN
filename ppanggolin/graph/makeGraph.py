@@ -13,7 +13,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.formats import read_pangenome, write_pangenome, erase_pangenome
 
 
-def checkPangenomeFormerGraph(pangenome, force):
+def check_pangenome_former_graph(pangenome, force):
     """ checks pangenome status and .h5 files for former neighbors graph, delete it if allowed or raise an error """
     if pangenome.status["neighborsGraph"] == "inFile" and not force:
         raise Exception("You are trying to make a neighbors graph that is already built. "
@@ -23,11 +23,11 @@ def checkPangenomeFormerGraph(pangenome, force):
         erase_pangenome(pangenome, graph=True)
 
 
-def checkPangenomeForNeighborsGraph(pangenome, force, disable_bar=False):
+def check_pangenome_for_neighbors_graph(pangenome, force, disable_bar=False):
     """
         Checks the pangenome for neighbors graph computing.
     """
-    checkPangenomeFormerGraph(pangenome, force)
+    check_pangenome_former_graph(pangenome, force)
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] and \
             pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
         pass  # nothing to do, can just continue.
@@ -37,7 +37,7 @@ def checkPangenomeForNeighborsGraph(pangenome, force, disable_bar=False):
             pangenome.status["genomesAnnotated"] in ['inFile', 'Computed', 'Loaded']:
         raise Exception("You did not cluster the genes. See the 'ppanggolin cluster' if you want to do that.")
     else:
-        # You probably can use readPangenome anyways.
+        # You probably can use readPangenome anyway.
         msg = "Dev : You are probably writing a new workflow with a combination that I did not test." \
               " You can probably use readPangenome instead of raising this Error. " \
               "However please test it carefully.\n"
@@ -48,18 +48,18 @@ def checkPangenomeForNeighborsGraph(pangenome, force, disable_bar=False):
 
 def remove_high_copy_number(pangenome, number):
     """ removes families present more than 'number' times from the pangenome graph"""
-    for fam in pangenome.geneFamilies:
-        for gene_list in fam.getOrgDict().values():
+    for fam in pangenome.gene_families:
+        for gene_list in fam.get_org_dict().values():
             if len(gene_list) >= number:
                 fam.removed = True
 
 
-def computeNeighborsGraph(pangenome, remove_copy_number=0, force=False, disable_bar=False):
+def compute_neighbors_graph(pangenome, remove_copy_number=0, force=False, disable_bar=False):
     """
         Creates the Pangenome Graph. Will either load the information from the pangenome file if they are not loaded,
         or use the information loaded if they are.
     """
-    checkPangenomeForNeighborsGraph(pangenome, force, disable_bar=disable_bar)
+    check_pangenome_for_neighbors_graph(pangenome, force, disable_bar=disable_bar)
 
     if remove_copy_number > 0:
         remove_high_copy_number(pangenome, remove_copy_number)
@@ -76,13 +76,13 @@ def computeNeighborsGraph(pangenome, remove_copy_number=0, force=False, disable_
                     if not gene.family.removed:
                         if prev is not None and not (prev.family == gene.family and (prev.is_fragment or
                                                                                      gene.is_fragment)):
-                            pangenome.addEdge(gene, prev)
+                            pangenome.add_edge(gene, prev)
                         prev = gene
                 except AttributeError:
                     raise AttributeError("a Gene does not have a GeneFamily object associated")
             if prev is not None and contig.is_circular and len(contig.genes) > 0:
-                #if prev is None, the contig is entirely made of duplicated genes, so no edges are added
-                pangenome.addEdge(contig.genes[0], prev)
+                # if prev is None, the contig is entirely made of duplicated genes, so no edges are added
+                pangenome.add_edge(contig.genes[0], prev)
     logging.getLogger().info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"
 
@@ -95,16 +95,42 @@ def computeNeighborsGraph(pangenome, remove_copy_number=0, force=False, disable_
 
 def launch(args):
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
-    computeNeighborsGraph(pangenome, args.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bar)
+    pangenome.add_file(args.pangenome)
+    compute_neighbors_graph(pangenome, args.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bar)
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
-def graphSubparser(subparser):
-    parser = subparser.add_parser("graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_graph(parser)
+    return parser
+
+
+def parser_graph(parser):
     parser.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
                         help="Positive Number: Remove families having a number of copy of gene in a single organism "
                              "above or equal to this threshold in at least one organism "
                              "(0 or negative values are ignored).")
-    return parser
+
+
+if __name__ == '__main__':
+    """To test local change and allow using debugger"""
+    from ppanggolin.utils import check_log, set_verbosity_level
+
+    main_parser = argparse.ArgumentParser(
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser_graph(main_parser)
+    common = main_parser.add_argument_group(title="Common argument")
+    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
+    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                        help="disables the progress bars")
+    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    common.add_argument('-f', '--force', action="store_true",
+                        help="Force writing in output directory and in pangenome output file.")
+    set_verbosity_level(main_parser.parse_args())
+    launch(main_parser.parse_args())

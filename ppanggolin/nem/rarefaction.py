@@ -23,26 +23,26 @@ import scipy.optimize as optimization
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mkOutdir
+from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
 import ppanggolin.nem.partition as ppp
 
-# import this way to use the global variable pangenome defined in ppanggolin.nem.partition
+# import this way to use the global variable pan defined in ppanggolin.nem.partition
 
 samples = []
 
 
-def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, krange, seed):
+def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, k, krange, seed):
     samp = samples[index]
     currtmpdir = tmpdir + "/" + str(index) + "/"
-    if K < 3:
-        K = ppp.evaluate_nb_partitions(samp, sm_degree, free_dispersion, chunk_size, krange, 0.05, False, 1,
+    if k < 3:
+        k = ppp.evaluate_nb_partitions(samp, sm_degree, free_dispersion, chunk_size, krange, 0.05, False, 1,
                                        tmpdir + "/" + str(index) + "_eval", seed, None)
 
     if len(samp) <= chunk_size:  # all good, just write stuff.
         edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir, organisms=set(samp), sm_degree=sm_degree)
         cpt_partition = ppp.run_partitioning(currtmpdir, len(samp), beta * (nb_fam / edges_weight), free_dispersion,
-                                             K=K, seed=seed, init="param_file")[0]
+                                             kval=k, seed=seed, init="param_file")[0]
     else:  # going to need multiple partitioning for this sample...
         families = set()
         cpt_partition = {}
@@ -60,7 +60,7 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, kr
                             cpt_partition[node]["U"] = len(samp)
                         validated.add(node)
 
-        for fam in ppp.pan.geneFamilies:
+        for fam in ppp.pan.gene_families:
             if not samp.isdisjoint(fam.organisms):  # otherwise, useless to keep track of
                 families.add(fam)
                 cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
@@ -88,12 +88,12 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, kr
                                                                  sm_degree=sm_degree)
                 validate_family(
                     ppp.run_partitioning(currtmpdir + "/" + str(cpt) + "/", len(samp), beta * (nb_fam / edges_weight),
-                                         free_dispersion, K=K, seed=seed, init="param_file"))
+                                         free_dispersion, kval=k, seed=seed, init="param_file"))
                 cpt += 1
     if len(cpt_partition) == 0:
-        counts = {"persistent": "NA", "shell": "NA", "cloud": "NA", "undefined": "NA", "K": K}
+        counts = {"persistent": "NA", "shell": "NA", "cloud": "NA", "undefined": "NA", "K": k}
     else:
-        counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": K}
+        counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": k}
 
         for val in cpt_partition.values():
             if isinstance(val, str):
@@ -115,13 +115,13 @@ def launch_raref_nem(args):
     return raref_nem(*args)
 
 
-def drawCurve(output, maxSampling, data):
+def draw_curve(output, max_sampling, data):
     logging.getLogger().info("Drawing the rarefaction curve ...")
-    rarefName = output + "/rarefaction.csv"
-    raref = open(rarefName, "w")
+    raref_name = output + "/rarefaction.csv"
+    raref = open(raref_name, "w")
     raref.write(",".join(
         ["nb_org", "persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory", "soft_core",
-         "soft_accessory", "pangenome", "K"]) + "\n")
+         "soft_accessory", "pan", "K"]) + "\n")
     for part in data:
         raref.write(",".join(map(str,
                                  [part["nborgs"], part["persistent"], part["shell"], part["cloud"], part["undefined"],
@@ -130,37 +130,37 @@ def drawCurve(output, maxSampling, data):
                                   part["K"]])) + "\n")
     raref.close()
 
-    def heap_law(N, kappa, gamma):
-        return kappa * N ** (gamma)
+    def heap_law(n, p_kappa, p_gamma):
+        return p_kappa * n ** p_gamma
 
-    def PolyArea(x, y):
-        return 0.5 * numpy.abs(numpy.dot(x, numpy.roll(y, 1)) - numpy.dot(y, numpy.roll(x, 1)))
+    def poly_area(p_x, p_y):
+        return 0.5 * numpy.abs(numpy.dot(p_x, numpy.roll(p_y, 1)) - numpy.dot(p_y, numpy.roll(p_x, 1)))
 
     annotations = []
     traces = []
-    data_raref = read_csv(rarefName, index_col=False)
+    data_raref = read_csv(raref_name, index_col=False)
     params_file = open(output + "/rarefaction_parameters" + ".csv", "w")
     params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error,IQR_area\n")
     for partition in ["persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory", "soft_core",
-                      "soft_accessory", "pangenome"]:
+                      "soft_accessory", "pan"]:
         percentiles_75 = Series({i: numpy.nanpercentile(data_raref[data_raref["nb_org"] == i][partition], 75) for i in
-                                 range(1, maxSampling + 1)}).dropna()
+                                 range(1, max_sampling + 1)}).dropna()
         percentiles_25 = Series({i: numpy.nanpercentile(data_raref[data_raref["nb_org"] == i][partition], 25) for i in
-                                 range(1, maxSampling + 1)}).dropna()
+                                 range(1, max_sampling + 1)}).dropna()
         mins = Series({i: numpy.min(data_raref[data_raref["nb_org"] == i][partition]) for i in
-                       range(1, maxSampling + 1)}).dropna()
+                       range(1, max_sampling + 1)}).dropna()
         maxs = Series({i: numpy.max(data_raref[data_raref["nb_org"] == i][partition]) for i in
-                       range(1, maxSampling + 1)}).dropna()
+                       range(1, max_sampling + 1)}).dropna()
         medians = Series({i: numpy.median(data_raref[data_raref["nb_org"] == i][partition]) for i in
-                          range(1, maxSampling + 1)}).dropna()
+                          range(1, max_sampling + 1)}).dropna()
         means = Series({i: numpy.mean(data_raref[data_raref["nb_org"] == i][partition]) for i in
-                        range(1, maxSampling + 1)}).dropna()
+                        range(1, max_sampling + 1)}).dropna()
         initial_kappa_gamma = numpy.array([0.0, 0.0])
         x = percentiles_25.index.tolist()
         x += list(reversed(percentiles_25.index.tolist()))
-        area_IQR = PolyArea(x, percentiles_25.tolist() + percentiles_75.tolist())
+        area_iqr = poly_area(x, percentiles_25.tolist() + percentiles_75.tolist())
         nb_org_min_fitting = 15
-        COLORS = {"pangenome": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
+        colors = {"pan": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
                   "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
                   "undefined": "#828282"}
         try:
@@ -173,56 +173,56 @@ def drawCurve(output, maxSampling, data):
             # and the standard error is the square root of it. source :
             # https://stackoverflow.com/questions/25234996/getting-standard-error-associated-with-parameter-estimates-from-scipy-optimize-c
             if numpy.isinf(error_k) and numpy.isinf(error_g):
-                params_file.write(",".join([partition, "NA", "NA", "NA", "NA", str(area_IQR)]) + "\n")
+                params_file.write(",".join([partition, "NA", "NA", "NA", "NA", str(area_iqr)]) + "\n")
             else:
                 params_file.write(
-                    ",".join([partition, str(kappa), str(gamma), str(error_k), str(error_g), str(area_IQR)]) + "\n")
-                regression = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting + 1, maxSampling + 1), kappa,
+                    ",".join([partition, str(kappa), str(gamma), str(error_k), str(error_g), str(area_iqr)]) + "\n")
+                regression = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting + 1, max_sampling + 1), kappa,
                                                     gamma)
-                regression_sd_top = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting + 1, maxSampling + 1),
+                regression_sd_top = numpy.apply_along_axis(heap_law, 0, range(nb_org_min_fitting + 1, max_sampling + 1),
                                                            kappa - error_k, gamma + error_g)
                 regression_sd_bottom = numpy.apply_along_axis(heap_law, 0,
-                                                              range(nb_org_min_fitting + 1, maxSampling + 1),
+                                                              range(nb_org_min_fitting + 1, max_sampling + 1),
                                                               kappa + error_k, gamma - error_g)
-                traces.append(go.Scatter(x=list(range(nb_org_min_fitting + 1, maxSampling + 1)),
+                traces.append(go.Scatter(x=list(range(nb_org_min_fitting + 1, max_sampling + 1)),
                                          y=regression,
                                          name=partition + ": Heaps' law",
-                                         line=dict(color=COLORS[partition],
+                                         line=dict(color=colors[partition],
                                                    width=4,
                                                    dash='dash'),
                                          visible="legendonly" if partition == "undefined" else True))
-                traces.append(go.Scatter(x=list(range(nb_org_min_fitting + 1, maxSampling + 1)),
+                traces.append(go.Scatter(x=list(range(nb_org_min_fitting + 1, max_sampling + 1)),
                                          y=regression_sd_top,
                                          name=partition + ": Heaps' law error +",
-                                         line=dict(color=COLORS[partition],
+                                         line=dict(color=colors[partition],
                                                    width=1,
                                                    dash='dash'),
                                          visible="legendonly" if partition == "undefined" else True))
-                traces.append(go.Scatter(x=list(range(nb_org_min_fitting + 1, maxSampling + 1)),
+                traces.append(go.Scatter(x=list(range(nb_org_min_fitting + 1, max_sampling + 1)),
                                          y=regression_sd_bottom,
                                          name=partition + ": Heaps' law error -",
-                                         line=dict(color=COLORS[partition],
+                                         line=dict(color=colors[partition],
                                                    width=1,
                                                    dash='dash'),
                                          visible="legendonly" if partition == "undefined" else True))
-                annotations.append(dict(x=maxSampling,
-                                        y=heap_law(maxSampling, kappa, gamma),
+                annotations.append(dict(x=max_sampling,
+                                        y=heap_law(max_sampling, kappa, gamma),
                                         ay=0,
                                         ax=50,
                                         text="F=" + str(round(kappa, 0)) + "N" + "<sup>" + str(
-                                            round(gamma, 5)) + "</sup><br>IQRarea=" + str(round(area_IQR, 2)),
+                                            round(gamma, 5)) + "</sup><br>IQRarea=" + str(round(area_iqr, 2)),
                                         showarrow=True,
                                         arrowhead=7,
                                         font=dict(size=10, color='white'),
                                         align='center',
-                                        arrowcolor=COLORS[partition],
+                                        arrowcolor=colors[partition],
                                         bordercolor='#c7c7c7',
                                         borderwidth=2,
                                         borderpad=4,
-                                        bgcolor=COLORS[partition],
+                                        bgcolor=colors[partition],
                                         opacity=0.8))
         except (TypeError, RuntimeError, ValueError):  # if fitting doesn't work
-            params_file.write(",".join([partition, "NA", "NA", "NA", "NA", str(area_IQR)]) + "\n")
+            params_file.write(",".join([partition, "NA", "NA", "NA", "NA", str(area_iqr)]) + "\n")
 
         traces.append(go.Scatter(x=medians.index,
                                  y=medians,
@@ -233,17 +233,17 @@ def drawCurve(output, maxSampling, data):
                                               array=maxs.subtract(medians),
                                               arrayminus=medians.subtract(mins),
                                               visible=True,
-                                              color=COLORS[partition],
+                                              color=colors[partition],
                                               thickness=0.5),
-                                 line=dict(color=COLORS[partition],
+                                 line=dict(color=colors[partition],
                                            width=1),
-                                 marker=dict(color=COLORS[partition], symbol=3, size=8, opacity=0.5),
+                                 marker=dict(color=colors[partition], symbol=3, size=8, opacity=0.5),
                                  visible="legendonly" if partition == "undefined" else True))
         traces.append(go.Scatter(x=means.index,
                                  y=means,
                                  name=partition + " : means",
                                  mode="markers",
-                                 marker=dict(color=COLORS[partition], symbol=4, size=8, opacity=0.5),
+                                 marker=dict(color=colors[partition], symbol=4, size=8, opacity=0.5),
                                  visible="legendonly" if partition == "undefined" else True))
         # up = percentiles_75
         # down = percentiles_25
@@ -264,8 +264,8 @@ def drawCurve(output, maxSampling, data):
                                  mode="lines",
                                  hoveron="points",
                                  # hovertext=[str(round(e)) for e in half_stds.multiply(2)],
-                                 line=dict(color=COLORS[partition]),
-                                 marker=dict(color=COLORS[partition]),
+                                 line=dict(color=colors[partition]),
+                                 marker=dict(color=colors[partition]),
                                  visible="legendonly" if partition == "undefined" else True))
         traces.append(go.Scatter(x=percentiles_25.index,
                                  y=percentiles_25,
@@ -274,8 +274,8 @@ def drawCurve(output, maxSampling, data):
                                  mode="lines",
                                  hoveron="points",
                                  # hovertext=[str(round(e)) for e in half_stds.multiply(2)],
-                                 line=dict(color=COLORS[partition]),
-                                 marker=dict(color=COLORS[partition]),
+                                 line=dict(color=colors[partition]),
+                                 marker=dict(color=colors[partition]),
                                  visible="legendonly" if partition == "undefined" else True))
     layout = go.Layout(title="Rarefaction curve ",
                        titlefont=dict(size=20),
@@ -288,10 +288,12 @@ def drawCurve(output, maxSampling, data):
     params_file.close()
 
 
-def makeRarefactionCurve(pangenome, output, tmpdir, beta=2.5, depth=30, minSampling=1, maxSampling=100, sm_degree=10,
-                         free_dispersion=False, chunk_size=500, K=-1, cpu=1, seed=42, kestimate=False, krange=[3, -1],
-                         soft_core=0.95, disable_bar=False):
-    ppp.pan = pangenome  # use the global from partition to store the pangenome, so that it is usable
+def make_rarefaction_curve(pangenome, output, tmpdir, beta=2.5, depth=30, min_sampling=1, max_sampling=100,
+                           sm_degree=10, free_dispersion=False, chunk_size=500, k=-1, cpu=1, seed=42, kestimate=False,
+                           krange=None, soft_core=0.95, disable_bar=False):
+    if krange is None:
+        krange = [3, -1]
+    ppp.pan = pangenome  # use the global from partition to store the pan, so that it is usable
 
     try:
         krange[0] = ppp.pan.parameters["partition"]["K"] if krange[0] < 0 else krange[0]
@@ -300,72 +302,72 @@ def makeRarefactionCurve(pangenome, output, tmpdir, beta=2.5, depth=30, minSampl
         krange = [3, 20]
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
 
-    tmpdirObj = tempfile.TemporaryDirectory(dir=tmpdir)
-    tmpdir = tmpdirObj.name
+    tmpdir_obj = tempfile.TemporaryDirectory(dir=tmpdir)
+    tmpdir = tmpdir_obj.name
 
-    if float(len(pangenome.organisms)) < maxSampling:
-        maxSampling = len(pangenome.organisms)
+    if float(len(pangenome.organisms)) < max_sampling:
+        max_sampling = len(pangenome.organisms)
     else:
-        maxSampling = int(maxSampling)
+        max_sampling = int(max_sampling)
 
-    if K < 3 and kestimate is False:  # estimate K once and for all.
+    if k < 3 and kestimate is False:  # estimate K once and for all.
         try:
-            K = ppp.pan.parameters["partition"]["K"]
-            logging.getLogger().info(f"Reuse the number of partitions {K}")
+            k = ppp.pan.parameters["partition"]["K"]
+            logging.getLogger().info(f"Reuse the number of partitions {k}")
         except KeyError:
             logging.getLogger().info("Estimating the number of partitions...")
-            K = ppp.evaluate_nb_partitions(pangenome.organisms, sm_degree, free_dispersion, chunk_size, krange, 0.05,
+            k = ppp.evaluate_nb_partitions(pangenome.organisms, sm_degree, free_dispersion, chunk_size, krange, 0.05,
                                            False, cpu, tmpdir, seed, None)
-            logging.getLogger().info(f"The number of partitions has been evaluated at {K}")
+            logging.getLogger().info(f"The number of partitions has been evaluated at {k}")
 
     logging.getLogger().info("Extracting samples ...")
-    AllSamples = []
-    for i in range(minSampling, maxSampling):  # each point
+    all_samples = []
+    for i in range(min_sampling, max_sampling):  # each point
         for _ in range(depth):  # number of samples per points
-            AllSamples.append(set(random.sample(set(pangenome.organisms), i + 1)))
-    logging.getLogger().info(f"Done sampling organisms in the pangenome, there are {len(AllSamples)} samples")
-    SampNbPerPart = []
+            all_samples.append(set(random.sample(set(pangenome.organisms), i + 1)))
+    logging.getLogger().info(f"Done sampling organisms in the pan, there are {len(all_samples)} samples")
+    samp_nb_per_part = []
 
     logging.getLogger().info("Computing bitarrays for each family...")
-    index_org = pangenome.computeFamilyBitarrays()
+    index_org = pangenome.compute_family_bitarrays()
     logging.getLogger().info(
-        f"Done computing bitarrays. Comparing them to get exact and soft core stats for {len(AllSamples)} samples...")
-    bar = tqdm(range(len(AllSamples) * len(pangenome.geneFamilies)), unit="gene family", disable=disable_bar)
-    for samp in AllSamples:
+        f"Done computing bitarrays. Comparing them to get exact and soft core stats for {len(all_samples)} samples...")
+    bar = tqdm(range(len(all_samples) * len(pangenome.gene_families)), unit="gene family", disable=disable_bar)
+    for samp in all_samples:
         # make the sample's organism bitarray.
-        sampBitarray = gmpy2.xmpz(0)  # pylint: disable=no-member
+        samp_bitarray = gmpy2.xmpz(0)  # pylint: disable=no-member
         for org in samp:
-            sampBitarray[index_org[org]] = 1
+            samp_bitarray[index_org[org]] = 1
 
         part = Counter()
         part["soft_core"] = 0
         part["exact_core"] = 0
         part["exact_accessory"] = 0
         part["soft_accessory"] = 0
-        for fam in pangenome.geneFamilies:
-            nbCommonOrg = gmpy2.popcount(fam.bitarray & sampBitarray)  # pylint: disable=no-member
+        for fam in pangenome.gene_families:
+            nb_common_org = gmpy2.popcount(fam.bitarray & samp_bitarray)  # pylint: disable=no-member
             part["nborgs"] = len(samp)
-            if nbCommonOrg != 0:  # in that case the node 'does not exist'
-                if nbCommonOrg == len(samp):
+            if nb_common_org != 0:  # in that case the node 'does not exist'
+                if nb_common_org == len(samp):
                     part["exact_core"] += 1
                 else:
                     part["exact_accessory"] += 1
 
-                if float(nbCommonOrg) >= len(samp) * soft_core:
+                if float(nb_common_org) >= len(samp) * soft_core:
                     part["soft_core"] += 1
                 else:
                     part["soft_accessory"] += 1
             bar.update()
-        SampNbPerPart.append(part)
+        samp_nb_per_part.append(part)
     bar.close()
     # done with frequency of each family for each sample.
 
     global samples
-    samples = AllSamples
+    samples = all_samples
 
     args = []
     for index, samp in enumerate(samples):
-        args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, K, krange, seed))
+        args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, k, krange, seed))
 
     with get_context('fork').Pool(processes=cpu) as p:
         # launch partitioning
@@ -373,15 +375,15 @@ def makeRarefactionCurve(pangenome, output, tmpdir, beta=2.5, depth=30, minSampl
         bar = tqdm(range(len(args)), unit="samples partitionned", disable=disable_bar)
         random.shuffle(args)  # shuffling the processing so that the progress bar is closer to reality.
         for result in p.imap_unordered(launch_raref_nem, args):
-            SampNbPerPart[result[1]] = {**result[0], **SampNbPerPart[result[1]]}
+            samp_nb_per_part[result[1]] = {**result[0], **samp_nb_per_part[result[1]]}
             bar.update()
     bar.close()
 
     logging.getLogger().info("Done  partitioning everything")
     warnings.filterwarnings("ignore")
-    drawCurve(output, maxSampling, SampNbPerPart)
+    draw_curve(output, max_sampling, samp_nb_per_part)
     warnings.resetwarnings()
-    tmpdirObj.cleanup()
+    tmpdir_obj.cleanup()
     logging.getLogger().info("Done making the rarefaction curves")
 
 
@@ -389,22 +391,27 @@ def launch(args):
     """
         main code when launch partition from the command line.
     """
-    mkOutdir(args.output, args.force)
+    mk_outdir(args.output, args.force)
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
-    makeRarefactionCurve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, beta=args.beta, depth=args.depth,
-                         minSampling=args.min, maxSampling=args.max, sm_degree=args.max_degree_smoothing, cpu=args.cpu,
-                         free_dispersion=args.free_dispersion, chunk_size=args.chunk_size, K=args.nb_of_partitions,
-                         seed=args.seed, kestimate=args.reestimate_K, krange=args.krange, soft_core=args.soft_core,
-                         disable_bar=args.disable_prog_bar)
+    pangenome.add_file(args.pan)
+    make_rarefaction_curve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, beta=args.beta,
+                           depth=args.depth, min_sampling=args.min, max_sampling=args.max,
+                           sm_degree=args.max_degree_smoothing, free_dispersion=args.free_dispersion,
+                           chunk_size=args.chunk_size, k=args.nb_of_partitions, cpu=args.cpu, seed=args.seed,
+                           kestimate=args.reestimate_K, krange=args.krange, soft_core=args.soft_core,
+                           disable_bar=args.disable_prog_bar)
 
 
-def rarefactionSubparser(subparser):
-    parser = subparser.add_parser("rarefaction", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("rarefaction", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_rarefaction(parser)
+    return parser
 
+
+def parser_rarefaction(parser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pan', required=True, type=str, help="The pan .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("-b", "--beta", required=False, default=2.5, type=float,
@@ -443,4 +450,26 @@ def rarefactionSubparser(subparser):
     optional.add_argument("--soft_core", required=False, type=float, default=0.95, help="Soft core threshold")
     optional.add_argument("-se", "--seed", type=int, default=42, help="seed used to generate random numbers")
 
-    return parser
+
+if __name__ == '__main__':
+    """To test local change and allow using debugger"""
+    from ppanggolin.utils import check_log, set_verbosity_level
+
+    main_parser = argparse.ArgumentParser(
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser_rarefaction(main_parser)
+    common = main_parser.add_argument_group(title="Common argument")
+    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+                        help="directory for storing temporary files")
+    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
+    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                        help="disables the progress bars")
+    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    common.add_argument('-f', '--force', action="store_true",
+                        help="Force writing in output directory and in pangenome output file.")
+    set_verbosity_level(main_parser.parse_args())
+    launch(main_parser.parse_args())

@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mkOutdir, restricted_float
+from ppanggolin.utils import mk_outdir, restricted_float
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
 
@@ -22,23 +22,23 @@ from ppanggolin.genetic_codes import genetic_codes
 def get_families_to_write(pangenome, partition_filter, soft_core=0.95):
     fams = set()
     if partition_filter == "all":
-        return set(pangenome.geneFamilies)
+        return set(pangenome.gene_families)
     if partition_filter in ["persistent", "shell", "cloud"]:
-        for fam in pangenome.geneFamilies:
-            if fam.namedPartition == partition_filter:
+        for fam in pangenome.gene_families:
+            if fam.named_partition == partition_filter:
                 fams.add(fam)
     elif partition_filter in ["core", "accessory", "softcore"]:
         nb_org = pangenome.number_of_organisms()
         if partition_filter == "core":
-            for fam in pangenome.geneFamilies:
+            for fam in pangenome.gene_families:
                 if len(fam.organisms) == nb_org:
                     fams.add(fam)
         elif partition_filter == "accessory":
-            for fam in pangenome.geneFamilies:
+            for fam in pangenome.gene_families:
                 if len(fam.organisms) < nb_org:
                     fams.add(fam)
         elif partition_filter == "softcore":
-            for fam in pangenome.geneFamilies:
+            for fam in pangenome.gene_families:
                 if len(fam.organisms) >= nb_org * soft_core:
                     fams.add(fam)
     return fams
@@ -71,7 +71,7 @@ def write_fasta_families(family, tmpdir, source, use_gene_id, code_table):
     f_obj = open(f_name, "w")
     # get genes that are present in only one copy for our family in each organism.
     single_copy_genes = []
-    for _, genes in family.getOrgDict().items():
+    for _, genes in family.get_org_dict().items():
         if len(genes) == 1:
             single_copy_genes.extend(genes)
 
@@ -151,7 +151,7 @@ def write_whole_genome_msa(pangenome, families, phylo_name, outname, use_gene_id
                         missing_genomes -= {genome_id}
                         curr_len = len(seq)
                 if use_gene_id:
-                    genome_id = pangenome.getGene(line[1:].strip()).organism.name
+                    genome_id = pangenome.get_gene(line[1:].strip()).organism.name
                 else:
                     genome_id = line[1:].strip()
                 seq = ""
@@ -185,7 +185,7 @@ def write_msa_files(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", s
         need_partitions = True
 
     outname = output + f"/msa_{partition}_{source}/"
-    mkOutdir(outname, force=force)
+    mk_outdir(outname, force=force)
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=need_partitions,
                          need_gene_sequences=True, disable_bar=disable_bar)
@@ -214,9 +214,9 @@ def write_msa_files(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", s
 
 
 def launch(args):
-    mkOutdir(args.output, args.force)
+    mk_outdir(args.output, args.force)
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
+    pangenome.add_file(args.pangenome)
     write_msa_files(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
                     source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
                     translation_table=args.translation_table, force=args.force, disable_bar=args.disable_prog_bar)
@@ -257,7 +257,7 @@ def parser_msa(parser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log
+    from ppanggolin.utils import check_log, set_verbosity_level
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
@@ -275,4 +275,5 @@ if __name__ == '__main__':
     common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
+    set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

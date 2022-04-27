@@ -10,9 +10,9 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mkOutdir, read_compressed_or_not, restricted_float
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
-from ppanggolin.annotate import detect_filetype
+from ppanggolin.annotate.annotate import detect_filetype
 
 poss_values_log = "Possible values are 'all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', " \
                   "'core', 'module_X' with X being a module id."
@@ -24,11 +24,13 @@ def write_gene_sequences_from_annotations(pangenome, file_obj, list_cds=None, ad
     and adds the str provided through add in front of it.
     Loads the sequences from previously computed or loaded annotations
     """
+    counter = 0
     if list_cds is None:
         list_cds = pangenome.genes
     logging.getLogger().info("Writing all of the CDS sequences...")
     for gene in tqdm(list_cds, unit="gene", disable=disable_bar):
         if gene.type == "CDS":
+            counter += 1
             file_obj.write('>' + add + gene.ID + "\n")
             file_obj.write(gene.dna + "\n")
     file_obj.flush()
@@ -64,11 +66,11 @@ def select_families(pangenome, partition, type_name, soft_core):
     genefams = set()
     if partition == 'all':
         logging.getLogger().info(f"Writing all of the {type_name}...")
-        genefams = pangenome.geneFamilies
+        genefams = pangenome.gene_families
     elif partition in ['persistent', 'shell', 'cloud']:
         logging.getLogger().info(f"Writing the {type_name} of the {partition}...")
-        for fam in pangenome.geneFamilies:
-            if fam.namedPartition == partition:
+        for fam in pangenome.gene_families:
+            if fam.named_partition == partition:
                 genefams.add(fam)
     elif partition == "rgp":
         logging.getLogger().info(f"Writing the {type_name} in RGPs...")
@@ -78,12 +80,12 @@ def select_families(pangenome, partition, type_name, soft_core):
         logging.getLogger().info(
             f"Writing the {type_name} in {partition} genome, that are present in more than {soft_core} of genomes")
         threshold = pangenome.number_of_organisms() * soft_core
-        for fam in pangenome.geneFamilies:
+        for fam in pangenome.gene_families:
             if len(fam.organisms) >= threshold:
                 genefams.add(fam)
     elif partition == "core":
         logging.getLogger().info(f"Writing the representative {type_name} of the {partition} gene families...")
-        for fam in pangenome.geneFamilies:
+        for fam in pangenome.gene_families:
             if len(fam.organisms) == pangenome.number_of_organisms():
                 genefams.add(fam)
     elif "module_" in partition:
@@ -210,7 +212,7 @@ def write_regions_sequences(pangenome, output, compress, regions, fasta, anno, d
     regions_to_write = []
     if regions == "complete":
         for region in pangenome.regions:
-            if not region.isContigBorder:
+            if not region.is_contig_border:
                 regions_to_write.append(region)
     else:
         regions_to_write = pangenome.regions
@@ -299,14 +301,14 @@ def write_sequence_files(pangenome, output, fasta=None, anno=None, soft_core=0.9
 def check_options(args):
     if hasattr(args, "regions") and args.regions is not None and args.fasta is None and args.anno is None:
         raise Exception("The --regions options requires the use of --anno or --fasta "
-                        "(You need to provide the same file used to compute the pangenome)")
+                        "(You need to provide the same file used to compute the pan)")
 
 
 def launch(args):
     check_options(args)
-    mkOutdir(args.output, args.force)
+    mk_outdir(args.output, args.force)
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
+    pangenome.add_file(args.pangenome)
     write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
                          regions=args.regions, genes=args.genes, gene_families=args.gene_families,
                          prot_families=args.prot_families, compress=args.compress, disable_bar=args.disable_prog_bar)
@@ -355,7 +357,7 @@ def parser_seq(parser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log
+    from ppanggolin.utils import check_log, set_verbosity_level
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
@@ -371,4 +373,5 @@ if __name__ == '__main__':
     common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
+    set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

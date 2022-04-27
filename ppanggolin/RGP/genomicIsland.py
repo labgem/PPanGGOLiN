@@ -29,15 +29,15 @@ class MatriceNode:
         self.score = score if score >= 0 else 0
 
 
-def extractRGP(contig, node, ID, naming):
+def extract_rgp(contig, node, rgp_id, naming):
     """
         Extract the region from the given starting node
     """
     new_region = None
     if naming == "contig":
-        new_region = Region(contig.name + "_RGP_" + str(ID))
+        new_region = Region(contig.name + "_RGP_" + str(rgp_id))
     elif naming == "organism":
-        new_region = Region(node.gene.organism.name + "_" + contig.name + "_RGP_" + str(ID))
+        new_region = Region(node.gene.organism.name + "_" + contig.name + "_RGP_" + str(rgp_id))
     while node.state:
         new_region.append(node.gene)
         node.state = 0
@@ -48,7 +48,7 @@ def extractRGP(contig, node, ID, naming):
     return new_region
 
 
-def rewriteMatrix(contig, matrix, index, persistent, continuity, multi):
+def rewrite_matrix(contig, matrix, index, persistent, continuity, multi):
     """
         ReWrite the matrice from the given index of the node that started a region.
     """
@@ -58,15 +58,15 @@ def rewriteMatrix(contig, matrix, index, persistent, continuity, multi):
         index = 0
     # else the node was the last one of the contig, and there is nothing to do
     if index < len(matrix):
-        nextNode = matrix[index]
-        nbPerc = 0
-        while nextNode.state:  # while the old state is not 0, recompute the scores.
-            if nextNode.gene.family.namedPartition == "persistent" and nextNode.gene.family not in multi:
-                modif = -pow(persistent, nbPerc)
-                nbPerc += 1
+        next_node = matrix[index]
+        nb_perc = 0
+        while next_node.state:  # while the old state is not 0, recompute the scores.
+            if next_node.gene.family.named_partition == "persistent" and next_node.gene.family not in multi:
+                modif = -pow(persistent, nb_perc)
+                nb_perc += 1
             else:
                 modif = continuity
-                nbPerc = 0
+                nb_perc = 0
 
             curr_score = modif + prev.score
             # scores can't be negative. If they are, they'll be set to 0.
@@ -79,104 +79,104 @@ def rewriteMatrix(contig, matrix, index, persistent, continuity, multi):
                     # else we're at the end of the contig, so there are no more computations. Get out of the loop
                     break
 
-            prev = nextNode
-            nextNode = matrix[index]
+            prev = next_node
+            next_node = matrix[index]
 
 
-def initMatrices(contig, persistent_penalty, variable_gain, multi):
+def init_matrices(contig, persistent_penalty, variable_gain, multi):
     """initialize the vector of score/state nodes"""
     mat = []
     prev = None
-    nbPerc = 0
-    zeroInd = None
+    nb_perc = 0
+    zero_ind = None
     curr_state = None
     for gene in contig.genes:
-        if gene.family.namedPartition == "persistent" and gene.family not in multi:
-            modif = -pow(persistent_penalty, nbPerc)
-            nbPerc += 1
+        if gene.family.named_partition == "persistent" and gene.family not in multi:
+            modif = -pow(persistent_penalty, nb_perc)
+            nb_perc += 1
         else:
             modif = variable_gain
-            nbPerc = 0
+            nb_perc = 0
 
         curr_score = modif + prev.score if prev is not None else modif
         if curr_score >= 0:
             curr_state = 1
         else:
             curr_state = 0
-            zeroInd = True
+            zero_ind = True
         prev = MatriceNode(curr_state, curr_score, prev, gene)
         if prev.state == 0:
-            zeroInd = prev
+            zero_ind = prev
         mat.append(prev)
 
     # if the contig is circular, and we're in a rgp state,
     # we need to continue from the "starting" gene until we leave rgp state.
-    if contig.is_circular and curr_state and zeroInd is not None:
+    if contig.is_circular and curr_state and zero_ind is not None:
         # the previous node of the first processed gene is the last node.
         mat[0].prev = prev
         c = 0
-        nbPerc = 0
+        nb_perc = 0
         while curr_state:  # while state is rgp.
-            matNode = mat[c]
-            if matNode == zeroInd:
+            mat_node = mat[c]
+            if mat_node == zero_ind:
                 # then we've parsed the entire contig twice.
                 # The whole sequence is a rgp, so we're stopping the iteration now, otherwise we'll loop indefinitely
                 break
 
-            if matNode.gene.family.namedPartition == "persistent" and matNode.gene.family not in multi:
-                modif = -pow(persistent_penalty, nbPerc)
-                nbPerc += 1
+            if mat_node.gene.family.named_partition == "persistent" and mat_node.gene.family not in multi:
+                modif = -pow(persistent_penalty, nb_perc)
+                nb_perc += 1
             else:
                 modif = variable_gain
-                nbPerc = 0
+                nb_perc = 0
 
             curr_score = modif + prev.score
             curr_state = 1 if curr_score >= 0 else 0
-            matNode.changes(curr_score)
+            mat_node.changes(curr_score)
             c += 1
     return mat
 
 
-def mkRegions(contig, matrix, min_length, min_score, persistent, continuity, multi, naming="contig"):
+def mk_regions(contig, matrix, min_length, min_score, persistent, continuity, multi, naming="contig"):
     # processing matrix and 'emptying' it to get the regions.
-    def maxIndexNode(lst):
+    def max_index_node(lst):
         """gets the last node with the highest score from a list of matriceNode"""
         if isinstance(lst, list):
             # init with the first element of the list
-            maxScore = lst[0].score
-            maxIndex = 0
-            for index, node in enumerate(lst):
-                if node.score >= maxScore:
-                    maxScore = node.score
-                    maxIndex = index
-            return maxScore, maxIndex
+            max_score = lst[0].score
+            max_index = 0
+            for idx, node in enumerate(lst):
+                if node.score >= max_score:
+                    max_score = node.score
+                    max_index = idx
+            return max_score, max_index
         else:
             raise TypeError(f"List of matriceNode is expected. The detected type was {type(lst)}")
 
-    contigRegions = set()
-    val, index = maxIndexNode(matrix)
+    contig_regions = set()
+    val, index = max_index_node(matrix)
     while val >= min_score:
-        new_region = extractRGP(contig, matrix[index], len(contigRegions), naming)
+        new_region = extract_rgp(contig, matrix[index], len(contig_regions), naming)
         new_region.score = val
         if (new_region[0].stop - new_region[-1].start) > min_length:
-            contigRegions.add(new_region)
-        rewriteMatrix(contig, matrix, index, persistent, continuity, multi)
-        val, index = maxIndexNode(matrix)
-    return contigRegions
+            contig_regions.add(new_region)
+        rewrite_matrix(contig, matrix, index, persistent, continuity, multi)
+        val, index = max_index_node(matrix)
+    return contig_regions
 
 
 def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min_score, multigenics, naming="contig"):
-    orgRegions = set()
+    org_regions = set()
     for contig in organism.contigs:
         if len(contig.genes) != 0:  # some contigs have no coding genes...
             # can definitely multiprocess this part, as not THAT much information is needed...
-            matrix = initMatrices(contig, persistent_penalty, variable_gain, multigenics)
-            orgRegions |= mkRegions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain,
-                                    multigenics, naming=naming)
-    return orgRegions
+            matrix = init_matrices(contig, persistent_penalty, variable_gain, multigenics)
+            org_regions |= mk_regions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain,
+                                      multigenics, naming=naming)
+    return org_regions
 
 
-def testNamingScheme(pangenome):
+def test_naming_scheme(pangenome):
     contigsids = set()
     for org in pangenome.organisms:
         for contig in org.contigs:
@@ -189,31 +189,32 @@ def testNamingScheme(pangenome):
     return "contig"
 
 
-def checkPangenomeFormerRGP(pangenome, force):
-    """ checks pangenome status and .h5 files for former rgp, delete them if allowed or raise an error """
+def check_pangenome_former_rgp(pangenome, force):
+    """ checks pan status and .h5 files for former rgp, delete them if allowed or raise an error """
     if pangenome.status["predictedRGP"] == "inFile" and not force:
-        raise Exception("You are trying to predict RGPs in a pangenome that already have them predicted. "
+        raise Exception("You are trying to predict RGPs in a pan that already have them predicted. "
                         "If you REALLY want to do that, use --force "
                         "(it will erase RGPs and every feature computed from them).")
     elif pangenome.status["predictedRGP"] == "inFile" and force:
         erase_pangenome(pangenome, rgp=True)
 
 
-def predictRGP(pangenome, force=False, persistent_penalty=3, variable_gain=1, min_length=3000, min_score=4,
-               dup_margin=0.05, disable_bar=False):
+def predict_rgp(pangenome, force=False, persistent_penalty=3, variable_gain=1, min_length=3000, min_score=4,
+                dup_margin=0.05, disable_bar=False):
     # check statuses and load info
-    checkPangenomeFormerRGP(pangenome, force)
+    check_pangenome_former_rgp(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
                          disable_bar=disable_bar)
 
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
     logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
-    namingScheme = testNamingScheme(pangenome)
+    naming_scheme = test_naming_scheme(pangenome)
     bar = tqdm(pangenome.organisms, unit="genomes", disable=disable_bar)
     for org in bar:
-        pangenome.addRegions(compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics,
-                                             naming=namingScheme))
+        pangenome.add_regions(
+            compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics,
+                            naming=naming_scheme))
     logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")
 
     # save parameters and save status
@@ -228,18 +229,23 @@ def predictRGP(pangenome, force=False, persistent_penalty=3, variable_gain=1, mi
 
 def launch(args):
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
-    predictRGP(pangenome, force=args.force, persistent_penalty=args.persistent_penalty,
-               variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score,
-               dup_margin=args.dup_margin, disable_bar=args.disable_prog_bar)
+    pangenome.add_file(args.pan)
+    predict_rgp(pangenome, force=args.force, persistent_penalty=args.persistent_penalty,
+                variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score,
+                dup_margin=args.dup_margin, disable_bar=args.disable_prog_bar)
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
-def rgpSubparser(subparser):
-    parser = subparser.add_parser("rgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser):
+    parser = sub_parser.add_parser("rgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_rgp(parser)
+    return parser
+
+
+def parser_rgp(parser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pan', required=True, type=str, help="The pan .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--persistent_penalty', required=False, type=int, default=3,
@@ -253,4 +259,25 @@ def rgpSubparser(subparser):
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
                           help="Minimum ratio of organisms where the family is present in which the family must "
                                "have multiple genes for it to be considered 'duplicated'")
-    return parser
+
+
+if __name__ == '__main__':
+    """To test local change and allow using debugger"""
+    from ppanggolin.utils import check_log, set_verbosity_level
+
+    main_parser = argparse.ArgumentParser(
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    parser_rgp(main_parser)
+    common = main_parser.add_argument_group(title="Common argument")
+    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
+    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                        help="disables the progress bars")
+    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    common.add_argument('-f', '--force', action="store_true",
+                        help="Force writing in output directory and in pan output file.")
+    set_verbosity_level(main_parser.parse_args())
+    launch(main_parser.parse_args())

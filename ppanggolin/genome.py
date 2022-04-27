@@ -14,7 +14,6 @@ class Feature:
         self.type = ""
         self.start = None
         self.stop = None
-        self.type = None
         self.strand = None
         self.product = None
         self.name = None
@@ -160,7 +159,7 @@ class Organism:
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
         :param partition: Filter partition
         type partition: str
-        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
+        :param index: The index computed by :func:`ppanggolin.pan.Pangenome.getIndex`
         :type index: dict[:class:`ppanggolin.genome.Organism`, int]
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member

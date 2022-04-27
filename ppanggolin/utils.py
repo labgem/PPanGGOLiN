@@ -9,7 +9,10 @@ import mmap
 import argparse
 from io import TextIOWrapper
 from pathlib import Path
+
+import pkg_resources
 from numpy import repeat
+import logging
 
 
 def check_log(name):
@@ -65,6 +68,24 @@ def check_input_files(anno=None, pangenome=None, fasta=None):
         if not os.path.exists(fasta):
             raise FileNotFoundError(f"No such file or directory: '{fasta}'")
         check_tsv_sanity(fasta)
+
+
+def set_verbosity_level(args):
+    level = logging.INFO  # info, warnings and errors, default verbose == 1
+    if hasattr(args, "verbose"):
+        if args.verbose == 2:
+            level = logging.DEBUG  # info, debug, warnings and errors
+        elif args.verbose == 0:
+            level = logging.WARNING  # only warnings and errors
+
+        if args.log != sys.stdout and not args.disable_prog_bar:  # if output is not to stdout we remove progress bars.
+            args.disable_prog_bar = True
+
+        logging.basicConfig(stream=args.log, level=level,
+                            format='%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')
+        logging.getLogger().info("Command: " + " ".join([arg for arg in sys.argv]))
+        logging.getLogger().info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
 
 
 def jaccard_similarities(mat, jaccard_similarity_th):

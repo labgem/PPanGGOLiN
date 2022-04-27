@@ -14,7 +14,7 @@ from ppanggolin.genome import Gene
 
 class GeneFamily:
     """
-    This represents a single gene family. It will be a node in the pangenome graph, and be aware of its genes and edges.
+    This represents a single gene family. It will be a node in the pan graph, and be aware of its genes and edges.
     """
 
     def __init__(self, family_id, name):
@@ -26,7 +26,7 @@ class GeneFamily:
         :type name: str
         """
         self.name = str(name)
-        self.fam_id = family_id
+        self.ID = family_id
         self._edges = {}
         self._genePerOrg = defaultdict(set)
         self.genes = set()
@@ -87,10 +87,10 @@ class GeneFamily:
             self._genePerOrg[gene.organism].add(gene)
 
     def mk_bitarray(self, index, partition='all'):
-        """Produces a bitarray representing the presence/absence of the family in the pangenome using the provided index
+        """Produces a bitarray representing the presence/absence of the family in the pan using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
-        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
+        :param index: The index computed by :func:`ppanggolin.pan.Pangenome.getIndex`
         :type index: dict[:class:`ppanggolin.genome.Organism`, int]
         :param partition: partition used to compute bitarray
         :type partition: str
@@ -150,7 +150,7 @@ class GeneFamily:
 
     @property
     def edges(self):
-        """Returns all the :class:`ppanggolin.pangenome.Edge` that are linked to this gene family
+        """Returns all the :class:`ppanggolin.pan.Edge` that are linked to this gene family
 
         :return: Edges of the gene family
         :rtype: list[:class:`ppanggolin.pangenome.Edge`]

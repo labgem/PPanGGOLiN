@@ -15,7 +15,7 @@ from ppanggolin.region import Spot, Module
 
 
 def get_number_of_organisms(pangenome):
-    """ standalone function to get the number of organisms in a pangenome"""
+    """ standalone function to get the number of organisms in a pan"""
     if hasattr(pangenome, "file"):
         filename = pangenome.file
     else:
@@ -36,7 +36,7 @@ def get_status(pangenome, pangenome_file):
         Checks which elements are already present in the file.
     """
     h5f = tables.open_file(pangenome_file, "r")
-    logging.getLogger().info("Getting the current pangenome's status")
+    logging.getLogger().info("Getting the current pangenome status")
     status_group = h5f.root.status
     if status_group._v_attrs.genomesAnnotated:
         pangenome.status["genomesAnnotated"] = "inFile"
@@ -106,10 +106,10 @@ def read_organism(pangenome, org_name, contig_dict, circular_contigs, link=False
     org = Organism(org_name)
     gene, gene_type = (None, None)
     for contigName, geneList in contig_dict.items():
-        contig = org.getOrAddContig(contigName, is_circular=circular_contigs[contigName])
+        contig = org.get_or_add_contig(contigName, is_circular=circular_contigs[contigName])
         for row in geneList:
             if link:  # if the gene families are already computed/loaded the gene exists.
-                gene = pangenome.getGene(row["ID"].decode())
+                gene = pangenome.get_gene(row["ID"].decode())
             else:  # else creating the gene.
                 gene_type = row["type"].decode()
                 if gene_type == "CDS":
@@ -120,25 +120,19 @@ def read_organism(pangenome, org_name, contig_dict, circular_contigs, link=False
                 local = row["local"].decode()
             except ValueError:
                 local = ""
-            gene.fill_annotations(
-                start=row["start"],
-                stop=row["stop"],
-                strand=row["strand"].decode(),
-                geneType=row["type"].decode(),
-                position=row["position"],
-                genetic_code=row["genetic_code"],
-                name=row["name"].decode(),
-                product=row["product"].decode(),
-                local_identifier=local)
+            gene.fill_annotations(start=row["start"], stop=row["stop"], strand=row["strand"].decode(),
+                                  gene_type=row["type"].decode(), name=row["name"].decode(),
+                                  product=row["product"].decode(), local_identifier=local, position=row["position"],
+                                  genetic_code=row["genetic_code"])
             gene.is_fragment = row["is_fragment"]
             gene.fill_parents(org, contig)
             if gene_type == "CDS":
-                contig.addGene(gene)
+                contig.add_gene(gene)
             elif "RNA" in gene_type:
-                contig.addRNA(gene)
+                contig.add_rna(gene)
             else:
                 raise Exception(f"A strange type '{gene_type}', which we do not know what to do with, was met.")
-    pangenome.addOrganism(org)
+    pangenome.add_organism(org)
 
 
 def read_graph(pangenome, h5f, disable_bar=False):
@@ -151,27 +145,27 @@ def read_graph(pangenome, h5f, disable_bar=False):
 
     bar = tqdm(range(table.nrows), unit="contig adjacency", disable=disable_bar)
     for row in read_chunks(table):
-        source = pangenome.getGene(row["geneSource"].decode())
-        target = pangenome.getGene(row["geneTarget"].decode())
-        pangenome.addEdge(source, target)
+        source = pangenome.get_gene(row["geneSource"].decode())
+        target = pangenome.get_gene(row["geneTarget"].decode())
+        pangenome.add_edge(source, target)
         bar.update()
     bar.close()
     pangenome.status["neighborsGraph"] = "Loaded"
 
 
 def read_gene_families(pangenome, h5f, disable_bar=False):
-    table = h5f.root.geneFamilies
+    table = h5f.root.gene_families
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
 
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
     for row in read_chunks(table):
-        fam = pangenome.addGeneFamily(row["geneFam"].decode())
+        fam = pangenome.add_gene_family(row["geneFam"].decode())
         if link:  # linking if we have loaded the annotations
-            gene_obj = pangenome.getGene(row["gene"].decode())
+            gene_obj = pangenome.get_gene(row["gene"].decode())
         else:  # else, no
             gene_obj = Gene(row["gene"].decode())
-        fam.addGene(gene_obj)
+        fam.add_gene(gene_obj)
         bar.update()
     bar.close()
     pangenome.status["genesClustered"] = "Loaded"
@@ -182,9 +176,9 @@ def read_gene_families_info(pangenome, h5f, disable_bar=False):
 
     bar = tqdm(range(table.nrows), unit="gene family", disable=disable_bar)
     for row in read_chunks(table):
-        fam = pangenome.addGeneFamily(row["name"].decode())
-        fam.addPartition(row["partition"].decode())
-        fam.addSequence(row["protein"].decode())
+        fam = pangenome.add_gene_family(row["name"].decode())
+        fam.add_partition(row["partition"].decode())
+        fam.add_sequence(row["protein"].decode())
         bar.update()
     bar.close()
     if h5f.root.status._v_attrs.Partitionned:
@@ -201,7 +195,7 @@ def read_gene_sequences(pangenome, h5f, disable_bar=False):
 
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
     for row in read_chunks(table):
-        gene = pangenome.getGene(row['gene'].decode())
+        gene = pangenome.get_gene(row['gene'].decode())
         gene.add_dna(row['dna'].decode())
         bar.update()
     bar.close()
@@ -217,8 +211,8 @@ def read_rgp(pangenome, h5f, disable_bar=False):
 
     bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
     for row in read_chunks(table):
-        region = pangenome.getOrAddRegion(row["RGP"].decode())
-        region.append(pangenome.getGene(row["gene"].decode()))
+        region = pangenome.get_or_add_region(row["RGP"].decode())
+        region.append(pangenome.get_gene(row["gene"].decode()))
         bar.update()
     bar.close()
     # order the genes properly in the regions
@@ -236,11 +230,11 @@ def read_spots(pangenome, h5f, disable_bar=False):
         if curr_spot is None:
             curr_spot = Spot(row["spot"])
             spots[row["spot"]] = curr_spot
-        curr_spot.addRegion(pangenome.getOrAddRegion(row["RGP"].decode()))
+        curr_spot.add_region(pangenome.get_or_add_region(row["RGP"].decode()))
         curr_spot.spot_2_families()
         bar.update()
     bar.close()
-    pangenome.addSpots(spots.values())
+    pangenome.add_spots(spots.values())
     pangenome.status["spots"] = "Loaded"
 
 
@@ -255,10 +249,10 @@ def read_modules(pangenome, h5f, disable_bar=False):
         if curr_module is None:
             curr_module = Module(row['module'])
             modules[row["module"]] = curr_module
-        curr_module.addFamily(pangenome.getGeneFamily(row['geneFam'].decode()))
+        curr_module.add_family(pangenome.get_gene_family(row['geneFam'].decode()))
         bar.update()
     bar.close()
-    pangenome.addModules(modules.values())
+    pangenome.add_modules(modules.values())
     pangenome.status["modules"] = "Loaded"
 
 
@@ -377,7 +371,7 @@ def read_parameters(h5f):
 def read_pangenome(pangenome, annotation=False, gene_families=False, graph=False, rgp=False, spots=False,
                    gene_sequences=False, modules=False, disable_bar=False):
     """
-        Reads a previously written pangenome, with all of its parts, depending on what is asked,
+        Reads a previously written pan, with all of its parts, depending on what is asked,
         with regard to what is filled in the 'status' field of the hdf5 file.
     """
     if hasattr(pangenome, "file"):
@@ -443,7 +437,7 @@ def check_pangenome_info(pangenome, need_annotations=False, need_families=False,
                          need_modules=False, disable_bar=False):
     """
     defines what needs to be read depending on what is needed, and automatically checks if the required elements
-    have been computed with regard to the pangenome.status
+    have been computed with regard to the `pangenome.status`
     """
     annotation = False
     gene_families = False
@@ -476,7 +470,7 @@ def check_pangenome_info(pangenome, need_annotations=False, need_families=False,
             rgp = True
         elif not pangenome.status["predictedRGP"] in ["Computed", "Loaded"]:
             raise Exception(
-                "Your pangenome's regions of genomic plasticity have not been predicted. See the 'rgp' subcommand")
+                "Your pangenome  regions of genomic plasticity have not been predicted. See the 'rgp' subcommand")
     if need_spots:
         if pangenome.status["spots"] == "inFile":
             spots = True

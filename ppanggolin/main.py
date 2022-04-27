@@ -8,13 +8,12 @@ if sys.version_info < (3, 6):  # minimum is python3.6
     raise AssertionError("Minimum python version to run PPanGGOLiN is 3.6. Your current python version is " +
                          ".".join(map(str, sys.version_info)))
 import argparse
-import logging
 import pkg_resources
 import tempfile
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_log, check_input_files
+from ppanggolin.utils import check_log, check_input_files, set_verbosity_level
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
@@ -54,22 +53,22 @@ def cmd_line():
     desc += "    cluster       Cluster proteins in protein families\n"
     desc += "    graph         Create the pangenome graph\n"
     desc += "    partition     Partition the pangenome graph\n"
-    desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
+    desc += "    rarefaction   Compute the rarefaction curve of the pan\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
     desc += "    write         Writes 'flat' files representing the pangenome that can be used with other software\n"
-    desc += "    fasta         Writes fasta files for different elements of the pangenome\n"
+    desc += "    fasta         Writes fasta files for different elements of the pan\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
-    desc += "    metrics       Compute several metrics on a given pangenome\n"
+    desc += "    metrics       Compute several metrics on a given pan\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
     desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and "\
             "predict information from it\n"
-    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
-    desc += "    spot         predicts spots in your pangenome\n"
-    desc += "    module       Predicts functional modules in your pangenome\n"
+    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pan\n"
+    desc += "    spot         predicts spots in your pan\n"
+    desc += "    module       Predicts functional modules in your pan\n"
     desc += "  \n"
     desc += "  Genomic context:\n"
     desc += "    context      Local genomic context analysis\n"
@@ -83,26 +82,26 @@ def cmd_line():
     subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
     subparsers.required = True  # because python3 sent subcommands to hell apparently
 
-    subs = [ppanggolin.annotate.syntaSubparser(subparsers),
-            ppanggolin.cluster.clusterSubparser(subparsers),
-            ppanggolin.graph.graphSubparser(subparsers),
-            ppanggolin.nem.partition.partitionSubparser(subparsers),
-            ppanggolin.nem.rarefaction.rarefactionSubparser(subparsers),
+    subs = [ppanggolin.annotate.subparser(subparsers),
+            ppanggolin.cluster.subparser(subparsers),
+            ppanggolin.graph.subparser(subparsers),
+            ppanggolin.nem.partition.subparser(subparsers),
+            ppanggolin.nem.rarefaction.subparser(subparsers),
             ppanggolin.workflow.workflow.subparser(subparsers),
             ppanggolin.workflow.panRGP.subparser(subparsers),
             ppanggolin.workflow.panModule.subparser(subparsers),
             ppanggolin.workflow.all.subparser(subparsers),
-            ppanggolin.figures.figureSubparser(subparsers),
+            ppanggolin.figures.subparser(subparsers),
             ppanggolin.formats.writeFlat.subparser(subparsers),
             ppanggolin.formats.writeSequences.subparser(subparsers),
             ppanggolin.formats.writeMSA.subparser(subparsers),
             ppanggolin.metrics.metrics.subparser(subparsers),
-            ppanggolin.align.alignSubparser(subparsers),
-            ppanggolin.RGP.genomicIsland.rgpSubparser(subparsers),
-            ppanggolin.RGP.spot.spotSubparser(subparsers),
-            ppanggolin.mod.moduleSubparser(subparsers),
+            ppanggolin.align.subparser(subparsers),
+            ppanggolin.RGP.genomicIsland.subparser(subparsers),
+            ppanggolin.RGP.spot.subparser(subparsers),
+            ppanggolin.mod.subparser(subparsers),
             ppanggolin.context.subparser(subparsers)]  # subparsers
-    ppanggolin.info.infoSubparser(subparsers)  # not adding to sub because the 'common' options are not needed for this
+    ppanggolin.info.subparser(subparsers)  # not adding to sub because the 'common' options are not needed for this
     for sub in subs:  # add options common to all subcommands
         common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
         common.title = "Common arguments"
@@ -142,21 +141,8 @@ def main():
     if hasattr(args, "anno"):
         check_input_files(anno=args.anno)
 
-    level = logging.INFO  # info, warnings and errors, default verbose == 1
-    if hasattr(args, "verbose"):
-        if args.verbose == 2:
-            level = logging.DEBUG  # info, debug, warnings and errors
-        elif args.verbose == 0:
-            level = logging.WARNING  # only warnings and errors
+    set_verbosity_level(args)
 
-        if args.log != sys.stdout and not args.disable_prog_bar:  # if output is not to stdout we remove progress bars.
-            args.disable_prog_bar = True
-
-        logging.basicConfig(stream=args.log, level=level,
-                            format='%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s',
-                            datefmt='%Y-%m-%d %H:%M:%S')
-        logging.getLogger().info("Command: " + " ".join([arg for arg in sys.argv]))
-        logging.getLogger().info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
     elif args.subcommand == "cluster":
@@ -172,11 +158,11 @@ def main():
     elif args.subcommand == "draw":
         ppanggolin.figures.launch(args)
     elif args.subcommand == "write":
-        ppanggolin.formats.launch(args)
+        ppanggolin.formats.writeFlat.launch(args)
     elif args.subcommand == "fasta":
-        ppanggolin.formats.launch(args)
+        ppanggolin.formats.writeSequences.launch(args)
     elif args.subcommand == "msa":
-        ppanggolin.formats.launch(args)
+        ppanggolin.formats.writeMSA.launch(args)
     elif args.subcommand == "info":
         ppanggolin.info.launch(args)
     elif args.subcommand == "metrics":
