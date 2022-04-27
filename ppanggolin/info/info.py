@@ -22,7 +22,15 @@ def print_info(pangenome, status=False, content=False, parameters=False):
             print(f"gene families have their sequences : "
                   f"{'true' if status_group._v_attrs.geneFamilySequences else 'false'}")
             print(f"neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
-            print(f"pangenome partitioned : {'true' if status_group._v_attrs.Partitionned else 'false'}")
+            if 'Partitionned' in status_group._v_attrs._f_list():
+                # Partitionned keep working with older version
+                if status_group._v_attrs.Partitionned:
+                    status_group._v_attrs.Partitioned = True
+                del status_group._v_attrs.Partitionned
+            if status_group._v_attrs.Partitioned:
+                print("pangenome partitioned : true")
+            else:
+                print("pangenome partitioned : false")
             if hasattr(status_group._v_attrs, "predictedRGP"):
                 print(f"RGP predicted : {'true' if status_group._v_attrs.predictedRGP else 'false'}")
 

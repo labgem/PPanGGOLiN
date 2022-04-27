@@ -42,7 +42,7 @@ class Pangenome:
             'defragmented': "No",
             'geneFamilySequences': "No",
             'neighborsGraph': "No",
-            'partitionned': "No",
+            'partitioned': "No",
             'predictedRGP': "No",
             'spots': "No",
             'modules': 'No'

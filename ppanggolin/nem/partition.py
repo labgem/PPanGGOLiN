@@ -194,7 +194,9 @@ def nem_single(args):
 def partition_nem(index, tmpdir, beta, sm_degree, free_dispersion, kval, seed, init, keep_tmp_files):
     currtmpdir = tmpdir + "/" + str(index)  # unique directory name
     samp = samples[index]  # org_samples accessible because it is a global variable.
+
     edges_weight, nb_fam = write_nem_input_files(tmpdir=currtmpdir, organisms=samp, sm_degree=sm_degree)
+
     return run_partitioning(currtmpdir, len(samp), beta * (nb_fam / edges_weight), free_dispersion, kval=kval,
                             seed=seed, init=init, keep_files=keep_tmp_files)
 
@@ -225,6 +227,7 @@ def write_nem_input_files(tmpdir, organisms, sm_degree):
         for index, org in enumerate(organisms):
             default_dat.append('0')
             index_org[org] = index
+
         for fam in pan.gene_families:
             # could use bitarrays if this part is limiting?
             if not organisms.isdisjoint(fam.organisms):
@@ -283,6 +286,7 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, kr
     """
 
     newtmpdir = tmpdir + "/eval_partitions"
+
     if len(organisms) > chunk_size:
         select_organisms = set(random.sample(set(organisms), chunk_size))
     else:
@@ -324,11 +328,13 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, kr
 
     chosen_k = 3
     best_k = chosen_k
+
     if len(all_bics) > 3:
         max_icl_k = max(all_icls, key=all_icls.get)
         delta_icl = (all_icls[max_icl_k] - min(all_icls.values())) * icl_margin
         best_k = min({k for k, icl in all_icls.items() if icl >= all_icls[max_icl_k] - delta_icl and k <= max_icl_k})
         chosen_k = best_k if best_k >= 3 else chosen_k
+
     if len(all_bics) > 0 and draw_icl:
         traces = [go.Scatter(x=[key for key in sorted(all_bics.keys())],
                              y=[all_bics[key] for key in sorted(all_bics.keys())],
@@ -340,7 +346,17 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, kr
                   go.Scatter(x=[key for key in sorted(all_lls.keys())],
                              y=[all_lls[key] for key in sorted(all_lls.keys())],
                              name="log likelihood",
-                             mode="lines+markers")]
+                             mode="lines+markers"), go.Scatter(x=[key for key in sorted(all_bics.keys())],
+                                                               y=[all_bics[key] for key in sorted(all_bics.keys())],
+                                                               name="BIC",
+                                                               mode="lines+markers"),
+                  go.Scatter(x=[key for key in sorted(all_icls.keys())],
+                             y=[all_icls[key] for key in sorted(all_icls.keys())],
+                             name="ICL",
+                             mode="lines+markers"), go.Scatter(x=[key for key in sorted(all_lls.keys())],
+                                                               y=[all_lls[key] for key in sorted(all_lls.keys())],
+                                                               name="log likelihood",
+                                                               mode="lines+markers")]
         layout = go.Layout(title='ICL curve (best K is ' + str(best_k) + ', ICL_th= is ' + str(icl_margin) + ")",
                            titlefont=dict(size=20),
                            xaxis=dict(title='number of partitions'),
@@ -362,11 +378,11 @@ def evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, kr
 
 def check_pangenome_former_partition(pangenome, force):
     """ checks pangenome status and .h5 files for former partitions, delete them if allowed or raise an error """
-    if pangenome.status["partitionned"] == "inFile" and not force:
+    if pangenome.status["partitioned"] == "inFile" and not force:
         raise Exception("You are trying to partition a pangenome already partitioned."
                         " If you REALLY want to do that, "
                         "use --force (it will erase partitions and every feature computed from them.")
-    elif pangenome.status["partitionned"] == "inFile" and force:
+    elif pangenome.status["partitioned"] == "inFile" and force:
         erase_pangenome(pangenome, partition=True)
 
 
@@ -423,9 +439,7 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
     check_pangenome_former_partition(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     organisms = set(pangenome.organisms)
-
-    tmpdir_obj = tempfile.TemporaryDirectory(dir=tmpdir)
-    tmpdir = tmpdir_obj.name
+    tmp_dir = tempfile.TemporaryDirectory(dir=tmpdir)
 
     if len(organisms) <= 10:
         logging.getLogger().warning(f"The number of selected organisms is too low ({len(organisms)} "
@@ -443,7 +457,7 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
         pangenome.parameters["partition"]["computed_K"] = True
         logging.getLogger().info("Estimating the optimal number of partitions...")
         kval = evaluate_nb_partitions(organisms, sm_degree, free_dispersion, chunk_size, kmm, icl_margin,
-                                      draw_icl, cpu, tmpdir, seed, outputdir, disable_bar=disable_bar)
+                                      draw_icl, cpu, tmp_dir.name, seed, outputdir, disable_bar=disable_bar)
         logging.getLogger().info(f"The number of partitions has been evaluated at {kval}")
 
     pangenome.parameters["partition"]["K"] = kval
@@ -498,7 +512,7 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
             args = []
             # tmpdir, beta, sm_degree, free_dispersion, K, seed
             for i, _ in enumerate(samples[prev:], start=prev):
-                args.append((i, tmpdir, beta, sm_degree, free_dispersion, kval, seed, init,
+                args.append((i, tmp_dir.name, beta, sm_degree, free_dispersion, kval, seed, init,
                              keep_tmp_files))
 
             logging.getLogger().info("Launching NEM")
@@ -523,8 +537,9 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
         logging.getLogger().info(f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
                                  f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds.")
     else:
-        edges_weight, nb_fam = write_nem_input_files(tmpdir + "/" + str(cpt) + "/", organisms, sm_degree=sm_degree)
-        partitioning_results = run_partitioning(tmpdir + "/" + str(cpt) + "/", len(organisms),
+        edges_weight, nb_fam = write_nem_input_files(tmp_dir.name + "/" + str(cpt) + "/", organisms,
+                                                     sm_degree=sm_degree)
+        partitioning_results = run_partitioning(tmp_dir.name + "/" + str(cpt) + "/", len(organisms),
                                                 beta * (nb_fam / edges_weight), free_dispersion, kval=kval, seed=seed,
                                                 init=init, keep_files=keep_tmp_files)
         if partitioning_results == [{}, None, None]:
@@ -539,11 +554,11 @@ def partition(pangenome, tmpdir, outputdir=None, force=False, beta=2.5, sm_degre
     for famName, part in partitioning_results[0].items():
         pangenome.get_gene_family(famName).partition = part
 
-    pangenome.status["partitionned"] = "Computed"
+    pangenome.status["partitioned"] = "Computed"
     if not keep_tmp_files:
-        tmpdir_obj.cleanup()
+        tmp_dir.cleanup()
     else:
-        copytree(tmpdir, outputdir + "/NEM_files/")
+        copytree(tmp_dir.name, outputdir + "/NEM_files/")
 
 
 def launch(args):
@@ -557,7 +572,9 @@ def launch(args):
     partition(pan, args.tmpdir, args.output, args.force, args.beta, args.max_degree_smoothing, args.free_dispersion,
               args.chunk_size, args.nb_of_partitions, args.krange, args.ICL_margin, args.draw_ICL, args.cpu, args.seed,
               args.keep_tmp_files, disable_bar=args.disable_prog_bar)
+    logging.getLogger().debug("Write partition in pangenome")
     write_pangenome(pan, pan.file, args.force, disable_bar=args.disable_prog_bar)
+    logging.getLogger().debug("Partitioning is finished")
 
 
 def subparser(sub_parser):
@@ -592,7 +609,7 @@ def parser_partition(parser):
                           help="Number of partitions to use. Must be at least 2. "
                                "If under 2, it will be detected automatically.")
     optional.add_argument("-Kmm", "--krange", nargs=2, required=False, type=int, default=[3, 20],
-                          help="Range of K values to test when detecting K automatically. Default between 3 and 20.")
+                          help="Range of K values to test when detecting K automatically.")
     optional.add_argument("-im", "--ICL_margin", required=False, type=float, default=0.05,
                           help="K is detected automatically by maximizing ICL. However at some point the ICL "
                                "reaches a plateau. Therefore we are looking for the minimal value of K without "

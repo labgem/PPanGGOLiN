@@ -40,7 +40,8 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, k, kr
                                        tmpdir + "/" + str(index) + "_eval", seed, None)
 
     if len(samp) <= chunk_size:  # all good, just write stuff.
-        edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir, organisms=set(samp), sm_degree=sm_degree)
+        edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir, organisms=set(samp),
+                                                         sm_degree=sm_degree)
         cpt_partition = ppp.run_partitioning(currtmpdir, len(samp), beta * (nb_fam / edges_weight), free_dispersion,
                                              kval=k, seed=seed, init="param_file")[0]
     else:  # going to need multiple partitioning for this sample...
@@ -335,7 +336,7 @@ def make_rarefaction_curve(pangenome, output, tmpdir, beta=2.5, depth=30, min_sa
     bar = tqdm(range(len(all_samples) * len(pangenome.gene_families)), unit="gene family", disable=disable_bar)
     for samp in all_samples:
         # make the sample's organism bitarray.
-        samp_bitarray = gmpy2.xmpz(0)  # pylint: disable=no-member
+        samp_bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         for org in samp:
             samp_bitarray[index_org[org]] = 1
 
@@ -372,7 +373,7 @@ def make_rarefaction_curve(pangenome, output, tmpdir, beta=2.5, depth=30, min_sa
     with get_context('fork').Pool(processes=cpu) as p:
         # launch partitioning
         logging.getLogger().info(" Partitioning all samples...")
-        bar = tqdm(range(len(args)), unit="samples partitionned", disable=disable_bar)
+        bar = tqdm(range(len(args)), unit="samples partitioned", disable=disable_bar)
         random.shuffle(args)  # shuffling the processing so that the progress bar is closer to reality.
         for result in p.imap_unordered(launch_raref_nem, args):
             samp_nb_per_part[result[1]] = {**result[0], **samp_nb_per_part[result[1]]}

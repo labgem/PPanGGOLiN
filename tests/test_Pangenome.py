@@ -23,7 +23,7 @@ def test_cstr():
         'defragmented': "No",
         'geneFamilySequences': "No",
         'neighborsGraph': "No",
-        'partitionned': "No",
+        'partitioned': "No",
         'predictedRGP': "No",
         'spots': "No",
         'modules': "No"
@@ -38,7 +38,6 @@ def o_pang():
 # @pytest.mark.xfail(reason="not implemented !")
 # def test_add_file(o_pang):
 #     assert False  # need to generate a valid file several time
-
 
 @pytest.fixture
 def l_orgs():
@@ -117,7 +116,6 @@ def test_get_gene_family(o_pang):
 
     for i_fam in range(randint(5, 20)):
         o_pang.add_gene_family(str(i_fam))
-
     # still true after many insert
     assert o_pang.get_gene_family(name) == o_fam
 
@@ -167,9 +165,7 @@ def make_gene_pair():
 
             o_family = GeneFamily(k, k)
             o_family.add_gene(o_gene)
-
         return tuple(lo_genes)
-
     return _make_gene_pair
 
 
@@ -272,7 +268,6 @@ def test_edges_many_rand(o_pang, make_gene_pair):
         name2 = str(i) + "_gene"  # gene/fam name
         to_genes = make_gene_pair("org", name1, name2)
         lo_edges.append(o_pang.add_edge(*to_genes))
-
     # I use set because edges are uniques, it is not a supergraph.
     assert set(o_pang.edges) == set(lo_edges)
 
@@ -325,7 +320,6 @@ def test_family_have_bitarrays(o_pang, l_orgs):
     l_fams = []
     for i_fam in sample(range(20), k=n_fams):
         l_fams.append(o_pang.add_gene_family(str(i_fam)))
-
     o_pang.compute_family_bitarrays()
     for o_fam in l_fams:
         assert hasattr(o_fam, 'bitarray')

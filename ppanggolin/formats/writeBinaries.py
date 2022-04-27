@@ -385,7 +385,7 @@ def write_status(pangenome, h5f):
     if "/status" in h5f:  # if statuses are already written
         status_group = h5f.root.status
     else:  # else create the status group.
-        status_group = h5f.create_group("/", "status", "Statuses of the pangenome  content")
+        status_group = h5f.create_group("/", "status", "Statuses of the pangenome content")
     status_group._v_attrs.genomesAnnotated = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded",
                                                                                               "inFile"] else False
     status_group._v_attrs.geneSequences = True if pangenome.status["geneSequences"] in ["Computed", "Loaded",
@@ -397,7 +397,7 @@ def write_status(pangenome, h5f):
                                                                                                     "inFile"] else False
     status_group._v_attrs.NeighborsGraph = True if pangenome.status["neighborsGraph"] in ["Computed", "Loaded",
                                                                                           "inFile"] else False
-    status_group._v_attrs.Partitionned = True if pangenome.status["partitionned"] in ["Computed", "Loaded",
+    status_group._v_attrs.Partitioned = True if pangenome.status["partitioned"] in ["Computed", "Loaded",
                                                                                       "inFile"] else False
     status_group._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed", "Loaded",
                                                                                       "inFile"] else False
@@ -405,7 +405,6 @@ def write_status(pangenome, h5f):
                                                                                       "inFile"] else False
     status_group._v_attrs.spots = True if pangenome.status["spots"] in ["Computed", "Loaded", "inFile"] else False
     status_group._v_attrs.modules = True if pangenome.status["modules"] in ["Computed", "Loaded", "inFile"] else False
-
     status_group._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
 
 
@@ -447,7 +446,7 @@ def write_info(pangenome, h5f):
         info_group._v_attrs.numberOfClusters = len(pangenome.gene_families)
     if pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfEdges = len(pangenome.edges)
-    if pangenome.status["partitionned"] in ["Computed", "Loaded"]:
+    if pangenome.status["partitioned"] in ["Computed", "Loaded"]:
         named_part_counter = Counter()
         subpart_counter = Counter()
         part_distribs = defaultdict(list)
@@ -605,9 +604,10 @@ def erase_pangenome(pangenome, graph=False, gene_families=False, partition=False
         status_group._v_attrs.geneFamilySequences = False
         if partition:
             logging.getLogger().info("Erasing former partitions...")
-            pangenome.status["partitionned"] = "No"
-
-            status_group._v_attrs.Partitionned = False
+            pangenome.status["partitioned"] = "No"
+            status_group._v_attrs.Partitioned = False
+            if 'Partitionned' in status_group._v_attrs._f_list():
+                status_group._v_attrs.Partitionned = False
 
             h5f.del_node_attr(info_group, "numberOfPersistent")
             h5f.del_node_attr(info_group, "persistentStats")
@@ -696,12 +696,11 @@ def write_pangenome(pangenome, filename, force, disable_bar=False):
         logging.getLogger().info("Writing the edges...")
         write_graph(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["neighborsGraph"] = "Loaded"
-
-    if pangenome.status["partitionned"] == "Computed" and \
+    print(pangenome.status)
+    if pangenome.status["partitioned"] == "Computed" and \
             pangenome.status["genesClustered"] in ["Loaded", "inFile"]:  # otherwise, it's been written already.
-
         update_gene_fam_partition(pangenome, h5f, disable_bar=disable_bar)
-        pangenome.status["partitionned"] = "Loaded"
+        pangenome.status["partitioned"] = "Loaded"
 
     if pangenome.status['predictedRGP'] == "Computed":
         logging.getLogger().info("Writing Regions of Genomic Plasticity...")
