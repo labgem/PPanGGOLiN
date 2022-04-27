@@ -164,9 +164,10 @@ def subgraph(spot, outname, with_border=True, set_size=3, multigenics=None, fam2
 def mk_source_data(genelists, fam_col, fam_to_mod):
     partition_colors = {"shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF"}
 
-    df = {'name': [], 'ordered': [], 'strand': [], "start": [], "stop": [], 'module': [], 'module_color': [], 'x': [],
-          'y': [], 'width': [], 'family_color': [], 'partition_color': [], 'partition': [], "family": [], "product": [],
-          "x_label": [], "y_label": [], "label": [], "gene_type": [], 'gene_ID': [], "gene_local_ID": []}
+    df = {'name': [], 'ordered': [], 'strand': [], "start": [], "stop": [], "length": [], 'module': [],
+          'module_color': [], 'x': [], 'y': [], 'width': [], 'family_color': [], 'partition_color': [], 'partition': [],
+          "family": [], "product": [], "x_label": [], "y_label": [], "label": [], "gene_type": [], 'gene_ID': [],
+          "gene_local_ID": []}
 
     for index, GeneList in enumerate(genelists):
         genelist = GeneList[0]
@@ -184,6 +185,7 @@ def mk_source_data(genelists, fam_col, fam_to_mod):
             df["strand"].append(gene.strand)
             df["start"].append(gene.start)
             df["stop"].append(gene.stop)
+            df["length"].append(max([gene.stop, gene.start])-min([gene.stop, gene.start]))
             df["gene_type"].append(gene.type)
             df["product"].append(gene.product)
             df["gene_local_ID"].append(gene.local_identifier)
@@ -234,6 +236,7 @@ def mk_source_data(genelists, fam_col, fam_to_mod):
     tooltips = [
         ("start", "@start"),
         ("stop", "@stop"),
+        ("length", "@length"),
         ("name", "@name"),
         ("product", "@product"),
         ("family", "@family"),
