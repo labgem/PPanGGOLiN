@@ -696,7 +696,6 @@ def write_pangenome(pangenome, filename, force, disable_bar=False):
         logging.getLogger().info("Writing the edges...")
         write_graph(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["neighborsGraph"] = "Loaded"
-    print(pangenome.status)
     if pangenome.status["partitioned"] == "Computed" and \
             pangenome.status["genesClustered"] in ["Loaded", "inFile"]:  # otherwise, it's been written already.
         update_gene_fam_partition(pangenome, h5f, disable_bar=disable_bar)

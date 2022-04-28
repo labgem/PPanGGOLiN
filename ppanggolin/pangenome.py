@@ -312,7 +312,7 @@ class Pangenome:
         :return: A dictionary with :class:`ppanggolin.genome.Organism` as key and `int` as value.
         :rtype: dict[:class:`ppanggolin.genome.Organism`, int]
         """
-        if not hasattr(self, "_fam_index"):  # then the index does not exist yet
+        if self._fam_index is None:  # then the index does not exist yet
             self._fam_index = {}
             for index, fam in enumerate(self.gene_families):
                 self._fam_index[fam] = index
@@ -328,7 +328,7 @@ class Pangenome:
         :return: A dictionary with :class:`ppanggolin.genome.Organism` as key and `int` as value.
         :rtype: dict[:class:`ppanggolin.genome.Organism`, int]
         """
-        if not hasattr(self, "_fam_index"):
+        if self._fam_index is None:
             # then the bitarrays don't exist yet, since the org index does not exist either.
             self.get_fam_index()
         for org in self.organisms:
@@ -431,7 +431,7 @@ class Pangenome:
         :return: A dictionary with :class:`ppanggolin.genome.Organism` as key and `int` as value.
         :rtype: dict[:class:`ppanggolin.genome.Organism`, int]
         """
-        if not hasattr(self, "_fam_index"):
+        if self._fam_index is None:
             # then the bitarrays don't exist yet, since the org index does not exist either.
             self.get_fam_index()
         for module in self.modules:
