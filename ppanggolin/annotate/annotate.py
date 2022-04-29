@@ -343,7 +343,7 @@ def read_org_gff(organism, gff_file_path, circular_contigs, pseudo=False):
 
     # GET THE FASTA SEQUENCES OF THE GENES
     if has_fasta and fasta_string != "":
-        contig_sequences = read_fasta(org, fasta_string.split('\n'))
+        contig_sequences, _ = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
         for contig in org.contigs:
             for gene in contig.genes:
                 gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
@@ -447,7 +447,7 @@ def get_gene_sequences_from_fastas(pangenome, fasta_file):
                            f" This might mean that the genome names between your annotation file and "
                            f"your fasta file are different.")
         with read_compressed_or_not(elements[1]) as currFastaFile:
-            fasta_dict[org] = read_fasta(org, currFastaFile)
+            fasta_dict[org], _ = read_fasta(org, currFastaFile)
     if not set(pangenome.organisms) <= set(fasta_dict.keys()):
         missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome organisms are present within the provided fasta file. "
@@ -474,7 +474,7 @@ def launch_annotate_organism(pack):
 
 
 def annotate_pangenome(pangenome, fasta_list, tmpdir, cpu, translation_table="11", kingdom="bacteria", norna=False,
-                       overlap=True, contig_filter=1, disable_bar=False):
+                       overlap=True, contig_filter=1, procedure="single", disable_bar=False):
     logging.getLogger().info(f"Reading {fasta_list} the list of organism files")
 
     arguments = []
@@ -484,7 +484,7 @@ def annotate_pangenome(pangenome, fasta_list, tmpdir, cpu, translation_table="11
             logging.getLogger().error("No tabulation separator found in organisms file")
             exit(1)
         arguments.append((elements[0], elements[1], elements[2:], translation_table, kingdom, norna,
-                          tmpdir, overlap, contig_filter))
+                          tmpdir, overlap, contig_filter, procedure))
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
@@ -515,7 +515,7 @@ def launch(args):
     filename = mk_file_name(args.basename, args.output, args.force)
     pangenome = Pangenome()
     if args.fasta is not None and args.anno is None:
-        annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu,
+        annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, procedure=args.prodigal_procedure,
                            translation_table=args.translation_table, kingdom=args.kingdom, norna=args.norna,
                            overlap=args.overlap, contig_filter=args.contig_filter, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
@@ -568,6 +568,9 @@ def parser_annot(parser):
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
                                "(Default behavior is to ignore them)")
+    optional.add_argument("-p", "--prodigal_procedure", required=False, type=str.lower, choices=["single", "meta"],
+                          default=None, help="Allow to force the prodigal procedure. "
+                                             "If nothing given, PPanGGOLiN will decide in function of contig length")
     optional.add_argument("--contig_filter", required=False, default=1, type=min_one, help=argparse.SUPPRESS)
 
 

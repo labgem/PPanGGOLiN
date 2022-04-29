@@ -2,6 +2,7 @@
 # coding:utf-8
 
 # default libraries
+import logging
 import os
 import tempfile
 from subprocess import Popen, PIPE
@@ -54,13 +55,14 @@ def launch_aragorn(fna_file, org):
     return gene_objs
 
 
-def launch_prodigal(fna_file, org, code):
+def launch_prodigal(fna_file, org, code, procedure):
     """
         launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the found genes.
         returns the annotated genes in a list of gene objects.
     """
     locustag = org.name
-    cmd = ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", "single", "-q"]
+    cmd = list(map(str, ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", procedure, "-q"]))
+    logging.getLogger().debug(f"prodigal command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=PIPE)
 
     gene_objs = defaultdict(set)
@@ -138,12 +140,13 @@ def read_fasta(org, fna_file, contig_filter=1):
     try:
         contigs = {}
         contig_seq = ""
+        all_contig_len = 0
         contig = None
         for line in fna_file:
             if line.startswith('>'):
                 if len(contig_seq) >= contig_filter:
                     contigs[contig.name] = contig_seq.upper()
-
+                    all_contig_len += len(contig_seq)
                 contig_seq = ""
                 contig = org.get_or_add_contig(line.split()[0][1:])
             else:
@@ -155,7 +158,7 @@ def read_fasta(org, fna_file, contig_filter=1):
         raise AttributeError(f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
                              f"One possibility for this error is that the file did not start with a '>' "
                              f"as it would be expected from a fna file.")
-    return contigs
+    return contigs, all_contig_len
 
 
 def write_tmp_fasta(contigs, tmpdir):
@@ -176,7 +179,7 @@ def write_tmp_fasta(contigs, tmpdir):
     return tmp_file
 
 
-def syntaxic_annotation(org, fasta_file, norna, kingdom, code, tmpdir):
+def syntaxic_annotation(org, fasta_file, norna, kingdom, code, procedure, tmpdir):
     """
         Runs the different software for the syntaxic annotation.
 
@@ -187,7 +190,7 @@ def syntaxic_annotation(org, fasta_file, norna, kingdom, code, tmpdir):
     """
     # launching tools for syntaxic annotation
     genes = defaultdict(list)
-    for key, items in launch_prodigal(fasta_file.name, org, code).items():
+    for key, items in launch_prodigal(fasta_file.name, org, code, procedure).items():
         genes[key].extend(items)
     if not norna:
         for key, items in launch_aragorn(fasta_file.name, org).items():
@@ -233,18 +236,23 @@ def get_dna_sequence(contig_seq, gene):
         return reverse_complement(contig_seq[gene.start - 1:gene.stop])
 
 
-def annotate_organism(org_name, file_name, circular_contigs, code, kingdom, norna, tmpdir, overlap, contig_filter):
+def annotate_organism(org_name, file_name, circular_contigs, code, kingdom, norna, tmpdir, overlap, contig_filter,
+                      procedure):
     """
         Function to annotate a single organism
     """
     org = Organism(org_name)
 
     fasta_file = read_compressed_or_not(file_name)
-    contig_sequences = read_fasta(org, fasta_file, contig_filter)
+    contig_sequences, all_contig_len = read_fasta(org, fasta_file, contig_filter)
     if is_compressed(file_name):
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
-
-    genes = syntaxic_annotation(org, fasta_file, norna, kingdom, code, tmpdir)
+    if procedure is None:  # prodigal procedure is not force by user
+        if all_contig_len < 20000:  # case of short sequence
+            procedure = "meta"
+        else:
+            procedure = "single"
+    genes = syntaxic_annotation(org, fasta_file, norna, kingdom, code, procedure, tmpdir)
     genes = overlap_filter(genes, overlap)
 
     for contigName, genes in genes.items():
