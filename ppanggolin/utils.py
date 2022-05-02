@@ -9,6 +9,7 @@ import mmap
 import argparse
 from io import TextIOWrapper
 from pathlib import Path
+from typing import TextIO, Union, BinaryIO
 
 import pkg_resources
 from numpy import repeat
@@ -102,10 +103,14 @@ def jaccard_similarities(mat, jaccard_similarity_th):
     return similarities
 
 
-def read_compressed_or_not(file_or_file_path):
+def read_compressed_or_not(file_or_file_path: Union[str, BinaryIO, TextIOWrapper, TextIO]) -> Union[TextIOWrapper,
+                                                                                                    BinaryIO, TextIO]:
     """
-        reads a file object or file path, uncompresses it, if need be.
-        returns a TextIO object in read only.
+    Reads a file object or file path, uncompresses it, if need be.
+
+    :param file_or_file_path: Path to the input file
+
+    :return: TextIO object in read only
     """
     file = file_or_file_path
     if isinstance(file, str):
@@ -135,8 +140,11 @@ def write_compressed_or_not(file_path, compress):
 
 
 def is_compressed(file_or_file_path):
-    """
-        Checks is a file, or file path given is compressed or not
+    """ Checks is a file, or file path given is compressed or not
+
+    :param file_or_file_path:
+
+    :return:
     """
     file = file_or_file_path
     if isinstance(file, str):
