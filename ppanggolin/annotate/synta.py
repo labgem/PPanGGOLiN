@@ -66,18 +66,20 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
     return gene_objs
 
 
-def launch_prodigal(fna_file: str, org: Organism, code: int = 11) -> defaultdict:
+def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str = None) -> defaultdict:
     """
     Launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the found genes.
 
     :param fna_file: file-like object containing the uncompressed fasta sequences
     :param org: Organism which will be annotated
     :param code: Translation table (genetic code) to use.
+    :param procedure: prodigal procedure used
 
     :return: Annotated genes in a list of gene objects
     """
     locustag = org.name
-    cmd = list(map(str, ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", "single", "-q"]))
+    cmd = list(map(str, ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", procedure, "-q"]))
+    logging.getLogger().debug(f"prodigal command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=PIPE)
 
     gene_objs = defaultdict(set)
@@ -152,7 +154,7 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
     return gene_objs
 
 
-def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filter: int = 1) -> dict:
+def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filter: int = 1) -> (dict, int):
     """ Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
 
     :param org: Organism corresponding to fasta file
@@ -164,12 +166,13 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filte
     try:
         contigs = {}
         contig_seq = ""
+        all_contig_len = 0
         contig = None
         for line in fna_file:
             if line.startswith('>'):
                 if len(contig_seq) >= contig_filter:
                     contigs[contig.name] = contig_seq.upper()
-
+                    all_contig_len += len(contig_seq)
                 contig_seq = ""
                 contig = org.get_or_add_contig(line.split()[0][1:])
             else:
@@ -183,7 +186,7 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filte
     except Exception:  # To manage other exception which can occur
         raise Exception("Unexpected error. Please check your input file and if everything looks fine, "
                         "please post an issue on our github")
-    return contigs
+    return contigs, all_contig_len
 
 
 def write_tmp_fasta(contigs: dict, tmpdir: str) -> tempfile._TemporaryFileWrapper:
@@ -209,7 +212,7 @@ def write_tmp_fasta(contigs: dict, tmpdir: str) -> tempfile._TemporaryFileWrappe
 
 
 def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, tmpdir: str, norna: bool = False,
-                        kingdom: str = "bacteria", code: int = 11) -> defaultdict:
+                        kingdom: str = "bacteria", code: int = 11, procedure: str = None) -> defaultdict:
     """
     Runs the different software for the syntaxic annotation.
 
@@ -219,13 +222,14 @@ def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, tmpdir: str, n
     :param norna: Use to avoid annotating RNA features.
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param code: Translation table (genetic code) to use.
+    :param procedure: prodigal procedure used
 
     :return: list of genes in the organism
     """
 
     # launching tools for syntaxic annotation
     genes = defaultdict(list)
-    for key, items in launch_prodigal(fna_file=fasta_file.name, org=org, code=code).items():
+    for key, items in launch_prodigal(fna_file=fasta_file.name, org=org, code=code, procedure=procedure).items():
         genes[key].extend(items)
     if not norna:
         for key, items in launch_aragorn(fna_file=fasta_file.name, org=org).items():
@@ -241,7 +245,7 @@ def overlap_filter(all_genes: defaultdict, overlap: bool = True) -> defaultdict:
     Removes the CDS that overlap with RNA genes.
 
     :param all_genes: Dictionary with complete list of genes
-    :param overlap:
+    :param overlap: Allow to filter overlap
 
     :return: Dictionary with genes filtered
     """
@@ -285,31 +289,38 @@ def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
         return reverse_complement(contig_seq[gene.start - 1:gene.stop])
 
 
-def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: str, code: int = 11, norna: bool = False,
-                      kingdom: str = "bacteria",  overlap: bool = True, contig_filter: int = 1) -> Organism:
+def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: str,
+                      code: int = 11, norna: bool = False, kingdom: str = "bacteria",
+                      overlap: bool = True, contig_filter: int = 1, procedure: str = None) -> Organism:
     """
     Function to annotate a single organism
 
     :param org_name: Name of the organism / genome
     :param file_name: Path to the fasta file containing organism sequences
-    :param circular_contigs:
+    :param circular_contigs: list of contigs
     :param code: Translation table (genetic code) to use.
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param norna: Use to avoid annotating RNA features.
     :param tmpdir: Path to temporary directory
     :param overlap: Use to not remove genes overlapping with RNA features
-    :param contig_filter:
+    :param contig_filter: Filter the contig by size
+    :param procedure: prodigal procedure used
 
     :return: Complete organism object for pangenome
     """
     org = Organism(org_name)
 
     fasta_file = read_compressed_or_not(file_name)
-    contig_sequences = read_fasta(org, fasta_file, contig_filter)
+
+    contig_sequences, all_contig_len = read_fasta(org, fasta_file, contig_filter)
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
-
-    genes = syntaxic_annotation(org, fasta_file, tmpdir, norna, kingdom, code)
+    if procedure is None:  # prodigal procedure is not force by user
+        if all_contig_len < 20000:  # case of short sequence
+            procedure = "meta"
+        else:
+            procedure = "single"
+    genes = syntaxic_annotation(org, fasta_file, tmpdir, norna, kingdom, code, procedure)
     genes = overlap_filter(genes, overlap)
 
     for contigName, genes in genes.items():

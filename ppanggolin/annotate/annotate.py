@@ -382,7 +382,7 @@ def read_org_gff(organism: str, gff_file_path: str, circular_contigs, pseudo: bo
 
     # GET THE FASTA SEQUENCES OF THE GENES
     if has_fasta and fasta_string != "":
-        contig_sequences = read_fasta(org, fasta_string.split('\n'))
+        contig_sequences, _ = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
         for contig in org.contigs:
             for gene in contig.genes:
                 gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
@@ -427,12 +427,14 @@ def read_anno_file(organism_name: str, filename: str, circular_contigs: list, ps
                         "You may be able to use --fasta instead.")
 
 
-def chose_gene_identifiers(pangenome):
+def chose_gene_identifiers(pangenome) -> bool:
     """
-        Parses the pangenome genes to decide whether to use local_identifiers or ppanggolin generated gene identifiers.
-        If the local identifiers are unique within the pangenome they are picked, otherwise ppanggolin ones are used.
-        :return: Boolean stating True if local identifiers are used, and False otherwise
-        :rtype: Bool
+    Parses the pangenome genes to decide whether to use local_identifiers or ppanggolin generated gene identifiers.
+    If the local identifiers are unique within the pangenome they are picked, otherwise ppanggolin ones are used.
+
+    :param pangenome: input pangenome
+
+    :return: Boolean stating True if local identifiers are used, and False otherwise
     """
     gene_id_2_local = {}
     local_to_gene_id = {}
@@ -497,10 +499,10 @@ def read_annotations(pangenome: Pangenome, organisms_file: str, cpu: int = 1, ps
 
 def get_gene_sequences_from_fastas(pangenome, fasta_file):
     """
+    Get gene sequences from fastas
 
-    :param pangenome:
-    :param fasta_file:
-    :return:
+    :param pangenome: input pangenome
+    :param fasta_file: list of fasta file
     """
     fasta_dict = {}
     for line in read_compressed_or_not(fasta_file):
@@ -515,7 +517,7 @@ def get_gene_sequences_from_fastas(pangenome, fasta_file):
                            f" This might mean that the genome names between your annotation file and "
                            f"your fasta file are different.")
         with read_compressed_or_not(elements[1]) as currFastaFile:
-            fasta_dict[org] = read_fasta(org, currFastaFile)
+            fasta_dict[org], _ = read_fasta(org, currFastaFile)
     if not set(pangenome.organisms) <= set(fasta_dict.keys()):
         missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome organisms are present within the provided fasta file. "
@@ -549,7 +551,7 @@ def launch_annotate_organism(pack: tuple) -> Organism:
 
 def annotate_pangenome(pangenome: Pangenome, fasta_list: str, tmpdir: str, cpu: int = 1, translation_table: int = 11,
                        kingdom: str = "bacteria", norna: bool = False, overlap: bool = True, contig_filter: int = 1,
-                       disable_bar: bool = False):
+                       procedure: str = None, disable_bar: bool = False):
     """
     Main function to annotate a pangenome
 
@@ -562,9 +564,10 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: str, tmpdir: str, cpu: 
     :param norna: Use to avoid annotating RNA features.
     :param overlap: Use to not remove genes overlapping with RNA features
     :param contig_filter: Filter the contig size
+    :param procedure: prodigal procedure used
     :param disable_bar: Disable the progresse bar
-    :return:
     """
+
     logging.getLogger().info(f"Reading {fasta_list} the list of organism files")
 
     arguments = []  # Argument given to annotate organism in same order than prototype
@@ -573,7 +576,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: str, tmpdir: str, cpu: 
         if len(elements) <= 1:
             raise Exception("No tabulation separator found in organisms file")
         arguments.append((elements[0], elements[1], elements[2:], tmpdir, translation_table,
-                          norna, kingdom, overlap, contig_filter))
+                          norna, kingdom, overlap, contig_filter, procedure))
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
     logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
@@ -607,7 +610,7 @@ def launch(args: argparse.Namespace):
     filename = mk_file_name(args.basename, args.output, args.force)
     pangenome = Pangenome()
     if args.fasta is not None and args.anno is None:
-        annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu,
+        annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, procedure=args.prodigal_procedure,
                            translation_table=args.translation_table, kingdom=args.kingdom, norna=args.norna,
                            overlap=args.overlap, contig_filter=args.contig_filter, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
@@ -672,6 +675,9 @@ def parser_annot(parser: argparse.ArgumentParser):
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
                                "(Default behavior is to ignore them)")
+    optional.add_argument("-p", "--prodigal_procedure", required=False, type=str.lower, choices=["single", "meta"],
+                          default=None, help="Allow to force the prodigal procedure. "
+                                             "If nothing given, PPanGGOLiN will decide in function of contig length")
     optional.add_argument("--contig_filter", required=False, default=1, type=min_one, help=argparse.SUPPRESS)
 
 
