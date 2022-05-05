@@ -409,7 +409,8 @@ def read_anno_file(organism_name: str, filename: str, circular_contigs: list, ps
     :param filename: Path to the corresponding file
     :param circular_contigs: list of sequence in contig
     :param pseudo: allow to read pseudogène
-    :return:
+
+    :return: Annotated organism for pangenome
     """
     filetype = detect_filetype(filename)
     if filetype == "gff":
@@ -460,7 +461,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: str, cpu: int = 1, ps
     :param pangenome: pangenome object
     :param organisms_file: List of GBFF files for each organism
     :param cpu: number of CPU cores to use
-    :param pseudo:
+    :param pseudo: allow to read pseudogène
     :param disable_bar: Disable the progresse bar
     """
     logging.getLogger().info("Reading " + organisms_file + " the list of organism files ...")

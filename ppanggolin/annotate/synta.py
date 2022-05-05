@@ -179,6 +179,7 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filte
                 contig_seq += line.strip()
         if len(contig_seq) >= contig_filter:  # processing the last contig
             contigs[contig.name] = contig_seq.upper()
+            all_contig_len += len(contig_seq)
     except AttributeError as e:
         raise AttributeError(f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
                              f"One possibility for this error is that the file did not start with a '>' "
@@ -316,6 +317,7 @@ def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: s
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
     if procedure is None:  # prodigal procedure is not force by user
+        logging.getLogger().debug(all_contig_len)
         if all_contig_len < 20000:  # case of short sequence
             procedure = "meta"
         else:

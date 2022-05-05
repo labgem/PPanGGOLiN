@@ -314,3 +314,45 @@ class Module:
                     self.bitarray[index[fam]] = 1
         else:
             raise Exception("There is not any partition corresponding please report a github issue")
+
+
+class GeneContext:
+    """
+        A class used to represent a gene context
+
+        Attributes
+        ----------
+        gc_id : int
+            ID of the Gene context
+        families : set
+            Gene families related to the GeneContext
+
+        Methods
+        -------
+        """
+
+    def __init__(self, gc_id, families=None):
+        """ Initial methods
+
+        :param gc_id: ID of the GeneContext
+        :type gc_id: int
+        :param families: Gene families related to the GeneContext
+        :type families: set
+        """
+        self.ID = gc_id
+        self.families = set()
+        if families is not None:
+            if not all(isinstance(fam, GeneFamily) for fam in families):
+                raise Exception(f"You provided elements that were not GeneFamily object."
+                                f" GeneContext are only made of GeneFamily")
+            self.families |= set(families)
+
+    def add_family(self, family):
+        """
+        Allow to add one family in the GeneContext
+        :param family: family to add
+        :type family: GeneFamily
+        """
+        if not isinstance(family, GeneFamily):
+            raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
+        self.families.add(family)

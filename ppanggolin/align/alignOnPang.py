@@ -214,7 +214,7 @@ def draw_spot_gexf(spots: set, output: str, multigenics: set, fam_to_mod: dict, 
     """
     for spot in spots:
         fname = output + "/spot_" + str(spot.ID) + ".gexf"
-        subgraph(spot, fname, set_size=set_size, multigenics=multigenics, fam2mod=fam_to_mod)
+        subgraph(spot, fname, set_size=set_size, multigenics=multigenics, fam_to_mod=fam_to_mod)
 
 
 def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: str, draw_related: bool = False, disable_bar=False):
@@ -309,7 +309,7 @@ def align(pangenome: Pangenome, sequence_file: str, output: str, tmpdir: str, id
     :param output: Path of the output directory
     :param tmpdir: Temporary directory
     :param identity: minimal identity threshold for the alignment
-    :param coverage: minimal identity threshold for the alignment
+    :param coverage: minimal coverage threshold for the alignment
     :param no_defrag: do not use the defrag workflow if true
     :param cpu: number of CPU cores to use
     :param getinfo: Extract info related to the best hit of each query, such as the RGP it is in, or the spots.

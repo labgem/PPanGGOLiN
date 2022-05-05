@@ -52,8 +52,8 @@ def launch(args):
             read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar)
 
         elif args.clusters is None:  # we should have the sequences here.
-            clustering(pangenome, args.tmpdir, args.cpu, identity=args.identity, coverage=args.coverage, mode=args.mode,
-                       defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
+            clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, coverage=args.coverage,
+                       identity=args.identity, mode=args.mode, disable_bar=args.disable_prog_bar)
         clust_time = time.time() - start_clust
     elif args.fasta is not None:
         start_anno = time.time()
@@ -64,8 +64,8 @@ def launch(args):
         write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
         start_clust = time.time()
-        clustering(pangenome, args.tmpdir, args.cpu, identity=args.identity, coverage=args.coverage, mode=args.mode,
-                   defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
+        clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, coverage=args.coverage,
+                   identity=args.identity, mode=args.mode, disable_bar=args.disable_prog_bar)
         clust_time = time.time() - start_clust
 
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
