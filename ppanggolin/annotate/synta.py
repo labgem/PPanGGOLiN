@@ -154,6 +154,7 @@ def read_fasta(org, fna_file, contig_filter=1):
         # processing the last contig
         if len(contig_seq) >= contig_filter:
             contigs[contig.name] = contig_seq.upper()
+            all_contig_len += len(contig_seq)
     except AttributeError as e:
         raise AttributeError(f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
                              f"One possibility for this error is that the file did not start with a '>' "
