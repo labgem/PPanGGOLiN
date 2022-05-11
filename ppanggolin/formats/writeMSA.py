@@ -19,7 +19,19 @@ from ppanggolin.formats import checkPangenomeInfo
 from ppanggolin.genetic_codes import genetic_codes
 
 
-def getFamiliesToWrite(pangenome, partitionFilter, soft_core=0.95, dup_margin=0.95):
+
+def is_single_copy(fam, dup_margin):
+    nb_multi = 0
+    for gene_list in fam.getOrgDict().values():
+        if len(gene_list) > 1:
+            nb_multi += 1
+    dup_ratio = nb_multi / len(fam.organisms)
+    if dup_ratio < dup_margin:
+        return True
+    return False
+
+
+def getFamiliesToWrite(pangenome, partitionFilter, soft_core=0.95, dup_margin=0.95, single_copy=True):
     fams = set()
     nb_org = pangenome.number_of_organisms()
 
@@ -28,30 +40,32 @@ def getFamiliesToWrite(pangenome, partitionFilter, soft_core=0.95, dup_margin=0.
     if partitionFilter in ["persistent", "shell", "cloud"]:
         for fam in pangenome.geneFamilies:
             if fam.namedPartition == partitionFilter:
-                fams.add(fam)
-    elif partitionFilter in ["core", "accessory", "softcore", "singlecopycore"]:
+                if single_copy and is_single_copy(fam, dup_margin):
+                    fams.add(fam)
+                elif not single_copy:
+                    fams.add(fam)
+    elif partitionFilter in ["core", "accessory", "softcore"]:
         if partitionFilter == "core":
             for fam in pangenome.geneFamilies:
                 if len(fam.organisms) == nb_org:
-                    fams.add(fam)
-        elif partitionFilter == "singlecopycore":
-            for fam in pangenome.geneFamilies:
-                if len(fam.organisms) == nb_org:
-                    nb_multi = 0
-                    for gene_list in fam.getOrgDict().values():
-                        if len(gene_list) > 1:
-                            nb_multi += 1
-                    dup_ratio = nb_multi / nb_org
-                    if dup_ratio < dup_margin:
+                    if single_copy and is_single_copy(fam, dup_margin):
+                        fams.add(fam)
+                    elif not single_copy:
                         fams.add(fam)
         elif partitionFilter == "accessory":
             for fam in pangenome.geneFamilies:
                 if len(fam.organisms) < nb_org:
-                    fams.add(fam)
+                    if single_copy and is_single_copy(fam, dup_margin):
+                        fams.add(fam)
+                    elif not single_copy:
+                        fams.add(fam)
         elif partitionFilter == "softcore":
             for fam in pangenome.geneFamilies:
                 if len(fam.organisms) >= nb_org * soft_core:
-                    fams.add(fam)
+                    if single_copy and is_single_copy(fam, dup_margin):
+                        fams.add(fam)
+                    elif not single_copy:
+                        fams.add(fam)
     return fams
 
 
@@ -188,7 +202,7 @@ def writeWholeGenomeMSA(pangenome, families, phylo_name, outname, use_gene_id=Fa
 
 
 def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", source="protein", soft_core=0.95,
-                  phylo=False, use_gene_id=False, translation_table="11", dup_margin = 0.95, force=False, disable_bar=False):
+                  phylo=False, use_gene_id=False, translation_table="11", dup_margin = 0.95, single_copy=True, force=False, disable_bar=False):
     needPartitions = False
     if partition in ["persistent", "shell", "cloud"]:
         needPartitions = True
@@ -199,7 +213,7 @@ def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", sou
     checkPangenomeInfo(pangenome, needAnnotations=True, needFamilies=True, needPartitions=needPartitions,
                        needGeneSequences=True, disable_bar=disable_bar)
     logging.getLogger().info(f"Doing MSA for {partition} families...")
-    families = getFamiliesToWrite(pangenome, partitionFilter=partition, soft_core=soft_core, dup_margin=dup_margin)
+    families = getFamiliesToWrite(pangenome, partitionFilter=partition, soft_core=soft_core, dup_margin=dup_margin, single_copy=single_copy)
 
     #check that the code is similar than the one used previously, if there is one
     if 'translation_table' in pangenome.parameters["cluster"]:
@@ -228,7 +242,7 @@ def launchMSA(args):
     writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
                   source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
                   translation_table=args.translation_table, dup_margin=args.dup_margin,
-                  force=args.force, disable_bar=args.disable_prog_bar)
+                  single_copy=args.single_copy, force=args.force, disable_bar=args.disable_prog_bar)
 
 
 def writeMSASubparser(subparser):
@@ -248,8 +262,11 @@ def writeMSASubparser(subparser):
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
                           help="minimum ratio of organisms in which the family must have multiple genes "
                                "for it to be considered 'duplicated'")
-    optional.add_argument("--partition", required=False, default="singlecopycore",
-                          choices=["all", "persistent", "shell", "cloud", "core", "accessory", 'softcore', 'singlecopycore'],
+    optional.add_argument("--single_copy", required=False, action="store_true", default=False,
+                          help="Use report gene families that are considered 'single copy', for details see "
+                               "option --dup_margin")
+    optional.add_argument("--partition", required=False, default="core",
+                          choices=["all", "persistent", "shell", "cloud", "core", "accessory", 'softcore'],
                           help="compute Multiple Sequence Alignement of the gene families in the given partition")
     optional.add_argument("--source", required=False, default="protein", choices=["dna", "protein"],
                           help="indicates whether to use protein or dna sequences to compute the msa")
