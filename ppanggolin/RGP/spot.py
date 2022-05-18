@@ -12,12 +12,24 @@ import networkx as nx
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.region import Spot
+from ppanggolin.region import Region, Spot
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.utils import mk_outdir
 
 
-def comp_border(border1, border2, overlapping_match, exact_match, set_size):
+def comp_border(border1: list, border2: list, overlapping_match: int = 2,
+                set_size: int = 3, exact_match: int = 1) -> bool:
+    """
+    Compare two border
+
+    :param border1:
+    :param border2:
+    :param overlapping_match:
+    :param set_size:
+    :param exact_match:
+
+    :return:
+    """
     if border1[0:exact_match] == border2[0:exact_match]:
         return True
     elif len(border1) == set_size and len(border2) == set_size:
@@ -30,16 +42,25 @@ def comp_border(border1, border2, overlapping_match, exact_match, set_size):
     return False
 
 
-def check_sim(pair_border1, pair_border2, overlapping_match, exact_match, set_size):
+def check_sim(pair_border1: list, pair_border2: list, overlapping_match: int = 2,
+              set_size: int = 3, exact_match: int = 1) -> bool:
     """
-    Checks if the two pairs of 'exact_match' first gene families are identical,
+    Checks if the two pairs of exact_match first gene families are identical,
     or eventually if they overlap in an ordered way at least 'overlapping_match'
+
+    :param pair_border1: First flanking gene families pair
+    :param pair_border2: Second flanking gene families pair
+    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes
+    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
+
+    :return: Whether identical gene families or not
     """
     b1pair = [False, False]
     b2pair = [False, False]
     for countb1, b1 in enumerate(pair_border1):
         for countb2, b2 in enumerate(pair_border2):
-            if comp_border(b2, b1, overlapping_match, exact_match, set_size):
+            if comp_border(b2, b1, overlapping_match, set_size, exact_match):
                 b1pair[countb1] = True
                 b2pair[countb2] = True
 
@@ -48,8 +69,30 @@ def check_sim(pair_border1, pair_border2, overlapping_match, exact_match, set_si
     return False
 
 
-def make_spot_graph(rgps, multigenics, output, spot_graph=False, overlapping_match=2, set_size=3, exact_match=1):
-    def add_new_node(g, region, borders):
+def make_spot_graph(rgps: list, multigenics: set, output: str, spot_graph: bool = False, overlapping_match: int = 2,
+                    set_size: int = 3, exact_match: int = 1) -> list:
+    """
+    Create a spot graph from pangenome RGP
+
+    :param rgps: list of pangenome RGP
+    :param multigenics: pangenome graph multigenic persistent families
+    :param output: Output directory to save the spot graph
+    :param spot_graph: Writes gexf graph of pairs of blocks of single copy markers flanking RGPs from same hotspot
+    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes
+    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
+
+    :return: list of computed spot
+    """
+
+    def add_new_node(g: nx.Graph, region: Region, borders: list):
+        """
+        Add bordering region as node to graph
+
+        :param g: spot graph
+        :param region: region in spot
+        :param borders: bordering families in spot
+        """
         blocks = str(sorted([[gene.family.ID for gene in borders[0]], [gene.family.ID for gene in borders[1]]],
                             key=lambda x: x[0]))
         g.add_node(blocks)
@@ -82,7 +125,7 @@ def make_spot_graph(rgps, multigenics, output, spot_graph=False, overlapping_mat
             node_obj_i = graph_spot.nodes[nodei]
             node_obj_j = graph_spot.nodes[nodej]
             if check_sim([node_obj_i["border0"], node_obj_i["border1"]], [node_obj_j["border0"], node_obj_j["border1"]],
-                         overlapping_match, exact_match, set_size):
+                         overlapping_match, set_size, exact_match):
                 graph_spot.add_edge(nodei, nodej)
     spots = []
     spot_id = 0
@@ -103,23 +146,45 @@ def make_spot_graph(rgps, multigenics, output, spot_graph=False, overlapping_mat
     return spots
 
 
-def check_pangenome_former_spots(pangenome, force):
-    """ checks pan status and .h5 files for former spots, delete them if allowed or raise an error """
+def check_pangenome_former_spots(pangenome: Pangenome, force: bool = False):
+    """
+    checks pangenome status and .h5 files for former spots, delete them if allowed or raise an error
+
+    :param pangenome: Pangenome object
+    :param force: Allow to force write on Pangenome file
+    """
     if pangenome.status["spots"] == "inFile" and not force:
-        raise Exception("You are trying to detect spots on a pan which already has predicted spots. "
+        raise Exception("You are trying to detect spots on a pangenome which already has predicted spots. "
                         "If you REALLY want to do that, use --force (it will erase spots previously predicted).")
     elif pangenome.status["spots"] == "inFile" and force:
         erase_pangenome(pangenome, spots=True)
 
 
-def predict_hotspots(pangenome, output, force=False, spot_graph=False, overlapping_match=2, set_size=3,
-                     exact_match=1, disable_bar=False):
+def predict_hotspots(pangenome: Pangenome, output: str, spot_graph: bool = False, overlapping_match: int = 2,
+                     set_size: int = 3, exact_match: int = 1, force: bool = False, disable_bar: bool = False):
+    """
+    Main function to predict hotspot
+
+    :param pangenome: Blank pangenome object
+    :param output: Output directory to save the spot graph
+    :param spot_graph: Writes gexf graph of pairs of blocks of single copy markers flanking RGPs from same hotspot
+    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes
+    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
+    :param force: Allow to force write on Pangenome file
+    :param disable_bar: Disable progress bar
+    """
     # check that given parameters for hotspot computation make sense
-    check_parameter_logic(overlapping_match, set_size, exact_match)
+    if overlapping_match >= set_size:
+        raise Exception(f'--overlapping_match_hotspot ({overlapping_match}) cannot be bigger than (or equal to) '
+                        f'--set_size_hotspot ({set_size})')
+    if exact_match > set_size:
+        raise Exception(f'--exact_match_size_hotspot ({exact_match}) cannot be bigger than '
+                        f'--set_size_hotspot ({set_size})')
     # check for formerly computed stuff, and erase if allowed
     check_pangenome_former_spots(pangenome, force)
     # check statuses and load info
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=True,
                          need_rgp=True, disable_bar=disable_bar)
 
     # get multigenic gene families
@@ -145,16 +210,12 @@ def predict_hotspots(pangenome, output, force=False, spot_graph=False, overlappi
     pangenome.parameters["spots"]["exact_match"] = exact_match
 
 
-def check_parameter_logic(overlapping_match, set_size, exact_match):
-    if overlapping_match >= set_size:
-        raise Exception(f'--overlapping_match_hotspot ({overlapping_match}) cannot be bigger than (or equal to) '
-                        f'--set_size_hotspot ({set_size})')
-    if exact_match > set_size:
-        raise Exception(f'--exact_match_size_hotspot ({exact_match}) cannot be bigger than '
-                        f'--set_size_hotspot ({set_size})')
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
 
-
-def launch(args):
+    :param args: All arguments provide by user
+    """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     if args.spot_graph:
@@ -169,16 +230,28 @@ def launch(args):
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("spot", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_spot(parser)
     return parser
 
 
-def parser_spot(parser):
+def parser_spot(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of spot command
+
+    :param parser: parser for align argument
+    """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pan .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",

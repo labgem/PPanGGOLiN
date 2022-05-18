@@ -26,8 +26,7 @@ def o_org():
 
 
 def test_get_or_add_contig(o_org):
-    # FIXME: shouldn't the method be called getContig ?
-    o_ctg = o_org.get_or_add_contig('i')
+    o_ctg = o_org.get_contig('i')
     assert isinstance(o_ctg, Contig)
 
 
@@ -35,10 +34,10 @@ def test_get_or_add_contig(o_org):
 def t_filled_org(o_org):
     n = 0
     for k in "azerty'":
-        o_ctg = o_org.get_or_add_contig(k)
+        o_ctg = o_org.get_contig(k)
         for i in range(randint(0, 5)):
             o_gene = Gene(k + "-" + str(i))
-            o_gene.fill_annotations(6, 1, k, position=i)
+            o_gene.fill_annotations(6, 1, k)
             o_ctg.add_gene(o_gene)
             n += 1
 
@@ -63,14 +62,14 @@ def get_genes():
         o_gene = Gene(str(i))
         start = randint(0, 100)
         stop = randint(0, 100)
-        o_gene.fill_annotations(start, stop, 'x', position=i)
+        o_gene.fill_annotations(start, stop, 'x')
         yield o_gene
 
 
 def test_contigs(o_org):
     l_contigs = []
     for k in "azer'":
-        o_ctg = o_org.get_or_add_contig(k)
+        o_ctg = o_org.get_contig(k)
         for o_gene in get_genes():
             o_ctg.add_gene(o_gene)
         l_contigs.append(o_ctg)
@@ -79,7 +78,7 @@ def test_contigs(o_org):
 
 
 def test_genes(o_org):
-    o_ctg = o_org.get_or_add_contig("scrap")
+    o_ctg = o_org.get_contig("scrap")
     for o_gene in get_genes():
         o_ctg.add_gene(o_gene)
 

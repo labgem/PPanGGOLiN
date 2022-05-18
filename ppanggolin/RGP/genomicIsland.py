@@ -9,6 +9,7 @@ import argparse
 from tqdm import tqdm
 
 # local libraries
+from ppanggolin.genome import Organism, Contig
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
@@ -83,8 +84,17 @@ def rewrite_matrix(contig, matrix, index, persistent, continuity, multi):
             next_node = matrix[index]
 
 
-def init_matrices(contig, persistent_penalty, variable_gain, multi):
-    """initialize the vector of score/state nodes"""
+def init_matrices(contig: Contig, multi: set, persistent_penalty: int = 3, variable_gain: int = 1) -> list:
+    """
+    Initialize the vector of score/state nodes
+
+    :param contig: Current contig from one organism
+    :param persistent_penalty: Penalty score to apply to persistent genes
+    :param variable_gain: Gain score to apply to variable genes
+    :param multi: multigenic persistent families of the pangenome graph.
+
+    :return: Initialized matrice
+    """
     mat = []
     prev = None
     nb_perc = 0
@@ -137,8 +147,22 @@ def init_matrices(contig, persistent_penalty, variable_gain, multi):
     return mat
 
 
-def mk_regions(contig, matrix, min_length, min_score, persistent, continuity, multi, naming="contig"):
-    # processing matrix and 'emptying' it to get the regions.
+def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000, min_score: int = 4,
+               persistent: int = 3, continuity: int = 1, naming: str = "contig") -> set:
+    """
+    Processing matrix and 'emptying' it to get the regions.
+
+    :param contig: Current contig from one organism
+    :param matrix: Initialized matrix
+    :param multi: multigenic persistent families of the pangenome graph.
+    :param min_length: Minimum length (bp) of a region to be considered RGP
+    :param min_score: Minimal score wanted for considering a region as being RGP
+    :param persistent: Penalty score to apply to persistent genes
+    :param continuity: Gain score to apply to variable genes
+    :param naming:
+
+    :return:
+    """
     def max_index_node(lst):
         """gets the last node with the highest score from a list of matriceNode"""
         if isinstance(lst, list):
@@ -165,18 +189,19 @@ def mk_regions(contig, matrix, min_length, min_score, persistent, continuity, mu
     return contig_regions
 
 
-def compute_org_rgp(organism, persistent_penalty, variable_gain, min_length, min_score, multigenics, naming="contig"):
+def compute_org_rgp(organism: Organism, multigenics: set, persistent_penalty: int = 3, variable_gain: int = 1,
+                    min_length: int = 3000, min_score: int = 4, naming: str = "contig") -> set:
     org_regions = set()
     for contig in organism.contigs:
         if len(contig.genes) != 0:  # some contigs have no coding genes...
             # can definitely multiprocess this part, as not THAT much information is needed...
-            matrix = init_matrices(contig, persistent_penalty, variable_gain, multigenics)
-            org_regions |= mk_regions(contig, matrix, min_length, min_score, persistent_penalty, variable_gain,
-                                      multigenics, naming=naming)
+            matrix = init_matrices(contig, multigenics, persistent_penalty, variable_gain)
+            org_regions |= mk_regions(contig, matrix, multigenics, min_length, min_score, persistent_penalty,
+                                      variable_gain, naming=naming)
     return org_regions
 
 
-def test_naming_scheme(pangenome):
+def naming_scheme(pangenome: Pangenome):
     contigsids = set()
     for org in pangenome.organisms:
         for contig in org.contigs:
@@ -189,18 +214,34 @@ def test_naming_scheme(pangenome):
     return "contig"
 
 
-def check_pangenome_former_rgp(pangenome, force):
-    """ checks pan status and .h5 files for former rgp, delete them if allowed or raise an error """
+def check_pangenome_former_rgp(pangenome: Pangenome, force: bool = False):
+    """ checks pangenome status and .h5 files for former rgp, delete them if allowed or raise an error
+
+    :param pangenome: Pangenome object
+    :param force: Allow to force write on Pangenome file
+    """
     if pangenome.status["predictedRGP"] == "inFile" and not force:
-        raise Exception("You are trying to predict RGPs in a pan that already have them predicted. "
+        raise Exception("You are trying to predict RGPs in a pangenome that already have them predicted. "
                         "If you REALLY want to do that, use --force "
                         "(it will erase RGPs and every feature computed from them).")
     elif pangenome.status["predictedRGP"] == "inFile" and force:
         erase_pangenome(pangenome, rgp=True)
 
 
-def predict_rgp(pangenome, force=False, persistent_penalty=3, variable_gain=1, min_length=3000, min_score=4,
-                dup_margin=0.05, disable_bar=False):
+def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain: int = 1, min_length: int = 3000,
+                min_score: int = 4, dup_margin: float = 0.05, force: bool = False, disable_bar: bool = False):
+    """
+    Main function to predict region of genomic plasticity
+
+    :param pangenome: blank pangenome object
+    :param persistent_penalty: Penalty score to apply to persistent genes
+    :param variable_gain: Gain score to apply to variable genes
+    :param min_length: Minimum length (bp) of a region to be considered RGP
+    :param min_score: Minimal score wanted for considering a region as being RGP
+    :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
+    :param force: Allow to force write on Pangenome file
+    :param disable_bar: Disable progress bar
+    """
     # check statuses and load info
     check_pangenome_former_rgp(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
@@ -209,12 +250,10 @@ def predict_rgp(pangenome, force=False, persistent_penalty=3, variable_gain=1, m
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
     logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
-    naming_scheme = test_naming_scheme(pangenome)
-    bar = tqdm(pangenome.organisms, unit="genomes", disable=disable_bar)
-    for org in bar:
-        pangenome.add_regions(
-            compute_org_rgp(org, persistent_penalty, variable_gain, min_length, min_score, multigenics,
-                            naming=naming_scheme))
+    name_scheme = naming_scheme(pangenome)
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genomes", disable=disable_bar):
+        pangenome.add_regions(compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
+                                              min_score, naming=name_scheme))
     logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")
 
     # save parameters and save status
@@ -227,25 +266,42 @@ def predict_rgp(pangenome, force=False, persistent_penalty=3, variable_gain=1, m
     pangenome.status['predictedRGP'] = "Computed"
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     pangenome = Pangenome()
     pangenome.add_file(args.pan)
-    predict_rgp(pangenome, force=args.force, persistent_penalty=args.persistent_penalty,
-                variable_gain=args.variable_gain, min_length=args.min_length, min_score=args.min_score,
-                dup_margin=args.dup_margin, disable_bar=args.disable_prog_bar)
+    predict_rgp(pangenome, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain,
+                min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, force=args.force,
+                disable_bar=args.disable_prog_bar)
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("rgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_rgp(parser)
     return parser
 
 
-def parser_rgp(parser):
+def parser_rgp(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of rgp command
+
+    :param parser: parser for align argument
+    """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pan', required=True, type=str, help="The pan .h5 file")
+    required.add_argument('-p', '--pan', required=True, type=str, help="The pangenome .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--persistent_penalty', required=False, type=int, default=3,
@@ -278,6 +334,6 @@ if __name__ == '__main__':
                         help="disables the progress bars")
     common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pan output file.")
+                        help="Force writing in output directory and in pangenome output file.")
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

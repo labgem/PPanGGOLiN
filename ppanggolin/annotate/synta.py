@@ -57,11 +57,11 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
             file_data.pop()  # then next line must be removed too.
         elif len(line) > 0:  # if the line isn't empty, there's data to get.
             line_data = line.split()
-            start, stop = ast.literal_eval(line_data[2].replace("c", ""))
+            start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
             c += 1
-            gene = RNA(identifier=locustag + '_tRNA_' + str(c).zfill(3))
-            gene.fill_annotations(start=start, stop=stop, gene_type="tRNA", product=line_data[1] + line_data[4],
-                                  strand="-" if line_data[2].startswith("c") else "+",)
+            gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(3))
+            gene.fill_annotations(start=start, stop=stop, strand="-" if line_data[2].startswith("c") else "+",
+                                  gene_type="tRNA", product=line_data[1] + line_data[4])
             gene_objs[header].add(gene)
     return gene_objs
 
@@ -95,8 +95,8 @@ def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str
             c += 1
             line_data = line[1:].split("_")  # not considering the '>'
             gene = Gene(gene_id=locustag + "_CDS_" + str(c).zfill(4))
-            gene.fill_annotations(start=line_data[1], stop=line_data[2], strand=line_data[3],
-                                  gene_type="CDS", genetic_code=code)
+            gene.fill_annotations(start=int(line_data[1]), stop=int(line_data[2]), strand=line_data[3], gene_type="CDS",
+                                  genetic_code=code)
             gene_objs[header].add(gene)
 
     return gene_objs
@@ -144,9 +144,8 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
                 start = line_data[8]
                 stop = line_data[7]
             else:
-                start = line_data[7]
-                stop = line_data[8]
-            gene = RNA(identifier=locustag + "_rRNA_" + str(c).zfill(3))
+                start, stop = map(int, (line_data[7], line_data[8]))
+            gene = RNA(rna_id=locustag + "_rRNA_" + str(c).zfill(3))
             gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type="rRNA",
                                   product=" ".join(line_data[17:]))
             gene_objs[line_data[2]].add(gene)
@@ -174,7 +173,7 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filte
                     contigs[contig.name] = contig_seq.upper()
                     all_contig_len += len(contig_seq)
                 contig_seq = ""
-                contig = org.get_or_add_contig(line.split()[0][1:])
+                contig = org.get_contig(line.split()[0][1:])
             else:
                 contig_seq += line.strip()
         if len(contig_seq) >= contig_filter:  # processing the last contig
@@ -326,7 +325,7 @@ def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: s
     genes = overlap_filter(genes, overlap)
 
     for contigName, genes in genes.items():
-        contig = org.get_or_add_contig(contigName)
+        contig = org.get_contig(contigName)
         if contig.name in circular_contigs:
             contig.is_circular = True
         for gene in genes:

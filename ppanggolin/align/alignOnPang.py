@@ -8,10 +8,11 @@ import tempfile
 import subprocess
 import argparse
 from collections import defaultdict
-from typing import Tuple
+from typing import Tuple, Set, Dict
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.utils import mk_outdir, read_compressed_or_not
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
@@ -75,14 +76,14 @@ def align_seq_to_pang(pang_file: TextIOWrapper, seq_file: TextIOWrapper, output:
     return outfile
 
 
-def read_alignments(aln_res: str, pangenome: Pangenome) -> Tuple[dict, str]:
+def read_alignments(aln_res: str, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
     """
     Read alignment result to link input sequence to pangenome
 
     :param aln_res: Alignement result file
     :param pangenome: Input pangenome
 
-    :return: Dictionnary with sequence link to pangenome and actual name of resulting alignment file
+    :return: Dictionnary with sequence link to pangenome gene families and actual name of resulting alignment file
     """
     seq2pang = {}
     outname = open(aln_res.replace("_tmp", ""), "w")  # write the actual result file
@@ -97,12 +98,13 @@ def read_alignments(aln_res: str, pangenome: Pangenome) -> Tuple[dict, str]:
     return seq2pang, outname.name
 
 
-def get_seq(seq_file: TextIOWrapper) -> set:
+def get_seq(seq_file: TextIOWrapper) -> Set[str]:
     """
     get sequence from sequence input file
 
     :param seq_file: file containing sequences
-    :return:
+
+    :return: set of sequences
     """
     seqset = set()
     for line in seq_file:
@@ -125,7 +127,7 @@ def write_gene_fam_sequences(pangenome: Pangenome, file_obj: TextIOWrapper, add:
     file_obj.flush()
 
 
-def project_partition(seq_to_pang: dict, seq_set: set, output: str) -> str:
+def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], output: str) -> str:
     """
     Project the partition of each sequence from the input file
 
@@ -164,7 +166,7 @@ def get_fam_to_rgp(pangenome, multigenics: set) -> dict:
     return fam2rgp
 
 
-def get_fam_to_spot(pangenome: Pangenome, multigenics: set) -> Tuple[dict, dict]:
+def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) -> Tuple[dict, dict]:
     """
     Reads a pangenome object to link families and spots and indicate where each family is.
 

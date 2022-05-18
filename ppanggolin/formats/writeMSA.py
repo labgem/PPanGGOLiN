@@ -13,13 +13,23 @@ from multiprocessing import get_context
 from tqdm import tqdm
 
 # local libraries
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir, restricted_float
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
 
 
-def get_families_to_write(pangenome, partition_filter, soft_core=0.95):
+def get_families_to_write(pangenome: Pangenome, partition_filter: str = 'core', soft_core: float = 0.95):
+    """
+    Get families corresponding to the given partition
+
+    :param pangenome: Partitioned pangenome
+    :param partition_filter: choice of partition to compute Multiple Sequence Alignement of the gene families
+    :param soft_core: Soft core threshold to use
+
+    :return: set of families unique to one partition
+    """
     fams = set()
     if partition_filter == "all":
         return set(pangenome.gene_families)
@@ -44,8 +54,14 @@ def get_families_to_write(pangenome, partition_filter, soft_core=0.95):
     return fams
 
 
-def translate(seq, code):
-    """ translates the given dna sequence with the given translation table"""
+def translate(seq: str, code: dict):
+    """translates the given dna sequence with the given translation table
+
+    :param seq: given dna sequence
+    :param code: translation table corresponding to genetic code to use
+
+    :return: protein sequence
+    """
     # code:  https://www.bioinformatics.org/sms/iupac.html
     start_table = code["start_table"]
     table = code["trans_table"]
@@ -59,12 +75,22 @@ def translate(seq, code):
             except KeyError:  # codon was not planned for. Probably can't determine it.
                 protein += 'X'  # X is for unknown
     else:
-        raise IndexError(
-            "Given sequence length modulo 3 was different than 0, which is unexpected.")
+        raise IndexError("Given sequence length modulo 3 was different than 0, which is unexpected.")
     return protein
 
 
-def write_fasta_families(family, tmpdir, source, use_gene_id, code_table):
+def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory, code_table: dict,
+                         source: str = 'protein', use_gene_id: bool = False):
+    """Write fasta files for each gene family
+
+    :param family: gene family to write
+    :param tmpdir: path to temporary directory
+    :param source: indicates whether to use protein or dna sequences to compute the msa
+    :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
+    :param code_table: Genetic code to use
+
+    :return: path to fasta file
+    """
     # have a directory for each gene family, to make deletion of tmp files simpler
 
     f_name = tmpdir.name + "/" + family.name + ".fasta"
@@ -92,31 +118,55 @@ def write_fasta_families(family, tmpdir, source, use_gene_id, code_table):
 
 
 def launch_mafft(fname, output, fam_name):
+    """
+    Compute the MSA with mafft
+
+    :param fname: family gene sequence in fasta
+    :param output: directory to save alignment
+    :param fam_name: Name of the gene family
+    """
     outname = output + "/" + fam_name + ".aln"
     cmd = ["mafft", "--thread", "1", fname]
     logging.getLogger().debug("command: " + " ".join(cmd))
-    subprocess.run(cmd, stdout=open(outname, "w"), stderr=subprocess.DEVNULL, check=True)  #
+    subprocess.run(cmd, stdout=open(outname, "w"), stderr=subprocess.DEVNULL, check=True)
 
 
 def launch_multi_mafft(args):
+    """ Allow to launch mafft in multiprocessing
+
+    :param args: Pack of argument for launch_mafft
+
+    :return: Organism object for pangenome
+    """
     launch_mafft(*args)
 
 
-def compute_msa(families, output, cpu, tmpdir, source, use_gene_id, code, disable_bar=False):
+def compute_msa(families: set, output: str, tmpdir: str, cpu: int = 1, source: str = "protein",
+                use_gene_id: bool = False, code: int = 11, disable_bar: bool = False):
+    """
+    Compute MSA between pangenome gene families
+
+    :param families: Set of families specific to given partition
+    :param output: output directory name for families alignment
+    :param cpu: number of available core
+    :param tmpdir: path to temporary directory
+    :param source: indicates whether to use protein or dna sequences to compute the msa
+    :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
+    :param code: Genetic code to use
+    :param disable_bar: Disable progress bar
+    """
     newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 
     write_total = 0
     args = []
     logging.getLogger().info("Preparing input files for MSA...")
-    bar = tqdm(families, unit="family", disable=disable_bar)
-    code_table = genetic_codes(code)
+    code_table = genetic_codes(str(code))
 
-    for family in bar:
+    for family in tqdm(families, unit="family", disable=disable_bar):
         start_write = time.time()
-        fname = write_fasta_families(family, newtmpdir, source, use_gene_id, code_table)
+        fname = write_fasta_families(family, newtmpdir, code_table, source, use_gene_id)
         write_total = write_total + (time.time() - start_write)
         args.append((fname, output, family.name))
-    bar.close()
 
     logging.getLogger().info("Computing the MSA ...")
     bar = tqdm(range(len(families)), unit="family", disable=disable_bar)
@@ -126,7 +176,17 @@ def compute_msa(families, output, cpu, tmpdir, source, use_gene_id, code, disabl
     bar.close()
 
 
-def write_whole_genome_msa(pangenome, families, phylo_name, outname, use_gene_id=False):
+def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: str, outname: str,
+                           use_gene_id: bool = False):
+    """
+    Writes a whole genome msa file for additional phylogenetic analysis
+
+    :param pangenome: Pangenome object
+    :param families: Set of families specific to given partition
+    :param phylo_name: output file name for phylo alignment
+    :param outname: output directory name for families alignment
+    :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
+    """
     phylo_dict = {}
     for org in pangenome.organisms:
         phylo_dict[org.name] = ""
@@ -178,8 +238,25 @@ def write_whole_genome_msa(pangenome, families, phylo_name, outname, use_gene_id
     fout.close()
 
 
-def write_msa_files(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", source="protein", soft_core=0.95,
-                    phylo=False, use_gene_id=False, translation_table="11", force=False, disable_bar=False):
+def write_msa_files(pangenome: Pangenome, output: str, cpu: int = 1, partition: str = "core", tmpdir: str = "/tmp",
+                    source: str = "protein", soft_core=0.95, phylo: bool = False, use_gene_id: bool = False,
+                    translation_table: int = 11, force: bool = False, disable_bar: bool = False):
+    """
+    Main function to write MSA files
+
+    :param pangenome: Pangenome object with partition
+    :param output: Path to output directory
+    :param cpu: number of available core
+    :param partition: choice of partition to compute Multiple Sequence Alignement of the gene families
+    :param tmpdir: path to temporary directory
+    :param source: indicates whether to use protein or dna sequences to compute the msa
+    :param soft_core: Soft core threshold to use
+    :param phylo: Writes a whole genome msa file for additional phylogenetic analysis
+    :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
+    :param translation_table: Translation table (genetic code) to use.
+    :param force: force to write in the directory
+    :param disable_bar: Disable progress bar
+    """
     need_partitions = False
     if partition in ["persistent", "shell", "cloud"]:
         need_partitions = True
@@ -195,8 +272,9 @@ def write_msa_files(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", s
     # check that the code is similar than the one used previously, if there is one
     if 'translation_table' in pangenome.parameters["cluster"]:
         if pangenome.parameters["cluster"]["translation_table"] != translation_table:
-            logging.getLogger().warning(
-                f"The translation table used during clustering ('{pangenome.parameters['cluster']['translation_table']}') is different than the one provided now ('{translation_table}')")
+            logging.getLogger().warning("The translation table used during clustering "
+                                        f"('{pangenome.parameters['cluster']['translation_table']}') "
+                                        f"is different than the one provided now ('{translation_table}')")
     code = translation_table
 
     compute_msa(families, outname, cpu=cpu, tmpdir=tmpdir, source=source, use_gene_id=use_gene_id, code=code,
@@ -213,7 +291,12 @@ def write_msa_files(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", s
         logging.getLogger().info(f"Done writing the {partition} genome alignment in: '{phylo_name}'")
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
@@ -222,13 +305,25 @@ def launch(args):
                     translation_table=args.translation_table, force=args.force, disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("msa", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_msa(parser)
     return parser
 
 
-def parser_msa(parser):
+def parser_msa(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of msa command
+
+    :param parser: parser for align argument
+    """
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
@@ -251,7 +346,7 @@ def parser_msa(parser):
     optional.add_argument("--use_gene_id", required=False, action='store_true',
                           help="Use gene identifiers rather than organism names for sequences in the family MSA"
                                " (organism names are used by default)")
-    optional.add_argument("--translation_table", required=False, default="11",
+    optional.add_argument("--translation_table", required=False, default=11, type=int,
                           help="Translation table (genetic code) to use.")
 
 

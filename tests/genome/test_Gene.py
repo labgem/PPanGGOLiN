@@ -45,7 +45,7 @@ def test_fill_annotations(o_gene):
     strand = "plus"
     position = "44"
     genetic_code = "le code"
-    o_gene.fill_annotations(start, stop, strand, position=position, genetic_code=genetic_code)
+    o_gene.fill_annotations(start, stop, strand)
     assert o_gene.position == position
     assert o_gene.genetic_code == genetic_code
 

@@ -57,7 +57,7 @@ def l_genes(o_org, o_contig):
         "lolo", "lala", "lili", "lulu",
     ]):
         gene = Gene(gene_id)
-        gene.fill_annotations(c, c + 30, "+", position=i)
+        gene.fill_annotations(c, c + 30, "+")
         gene.fill_parents(o_org, o_contig)
         o_contig.add_gene(gene)
         gene.family = GeneFamily(i, gene_id)

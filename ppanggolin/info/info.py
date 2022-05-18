@@ -11,7 +11,15 @@ import tables
 from ppanggolin.formats import read_info, read_parameters
 
 
-def print_info(pangenome, status=False, content=False, parameters=False):
+def print_info(pangenome: str, status: bool = False, content: bool = False, parameters: bool = False):
+    """
+    Main function to return information about pangenome
+
+    :param pangenome: Pangenome file
+    :param status: Get pangenome status
+    :param content: Get pangenome content
+    :param parameters: Get pangenome parameters
+    """
     if status or content or parameters:
         h5f = tables.open_file(pangenome, "r")
         if status:
@@ -52,17 +60,34 @@ def print_info(pangenome, status=False, content=False, parameters=False):
         print("Please select what information you want by using --parameters, --content or --status")
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     print_info(args.pangenome, args.status, args.content, args.parameters)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("info", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_info(parser)
     return parser
 
 
-def parser_info(parser):
+def parser_info(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of graph command
+
+    :param parser: parser for align argument
+    """
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")

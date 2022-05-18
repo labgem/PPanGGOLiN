@@ -2,19 +2,28 @@
 # coding: utf8
 
 # default libraries
+from __future__ import annotations
 import logging
 from collections.abc import Iterable
 
 # installed libraries
+from typing import Dict
+
 import gmpy2
 
 # local libraries
-from ppanggolin.genome import Gene
+from ppanggolin.genome import Gene, Organism, Contig
 from ppanggolin.geneFamily import GeneFamily
 
 
 class Region:
-    def __init__(self, region_id):
+    """
+    This class represent a region of genomic plasticity.
+
+    :param region_id: identifier of the region
+    """
+
+    def __init__(self, region_id: str):
         self.genes = []
         self.name = region_id
         self.score = 0
@@ -22,8 +31,14 @@ class Region:
     def __hash__(self):
         return id(self)
 
-    def __eq__(self, other):
-        """ expects another Region type object. Will test whether two Region objects have the same gene families"""
+    def __eq__(self, other: Region) -> bool:
+        """
+        Expects another Region type object. Will test whether two Region objects have the same gene families
+
+        :param other: Other region to test equality of region
+
+        :return: equal or not
+        """
         if not isinstance(other, Region):
             raise TypeError(f"'Region' type object was expected, but '{type(other)}' type object was provided.")
         if [gene.family for gene in self.genes] == [gene.family for gene in other.genes]:
@@ -32,52 +47,93 @@ class Region:
             return True
         return False
 
+    def __len__(self):
+        return len(self.genes)
+
+    def __getitem__(self, index):
+        return self.genes[index]
+
     def append(self, value):
         # allowing only gene-class objects in a region.
         if isinstance(value, Gene):
             self.genes.append(value)
             value.RGP.add(self)
         else:
-            raise TypeError(
-                "Unexpected class / type for " + type(value) + " when adding it to a region of genomic plasticity")
+            raise TypeError("Unexpected class / type for " + type(value) +
+                            " when adding it to a region of genomic plasticity")
 
     @property
-    def families(self):
+    def families(self) -> set:
+        """Get the gene families in the RGP
+
+        :return: Set of gene families
+        """
         return {gene.family for gene in self.genes}
 
     @property
-    def start(self):
+    def start(self) -> int:
+        """ Get RGP starting position
+
+        :return: Start position
+        """
         return min(self.genes, key=lambda x: x.start).start
 
-    @property
-    def start_gene(self):
+    @property  # TODO try to change start with this method
+    def start_gene(self) -> Gene:
+        """ Get RGP starting gene
+
+        :return: Start gene
+        """
         return min(self.genes, key=lambda x: x.position)
 
     @property
-    def stop_gene(self):
+    def stop_gene(self) -> Gene:
+        """ Get RGP stoping position
+
+        :return: Stoping position
+        """
         return max(self.genes, key=lambda x: x.position)
 
     @property
     def stop(self):
+        """ Get RGP stoping position
+
+        :return: Stop position
+        """
         return max(self.genes, key=lambda x: x.stop).stop
 
     @property
-    def organism(self):
+    def organism(self) -> Organism:
+        """ Get the Organism link to RGP
+
+        :return: Organism
+        """
         return self.genes[0].organism
 
     @property
-    def contig(self):
+    def contig(self) -> Contig:
+        """ Get the Contig link to RGP
+
+        :return: Contig
+        """
         return self.genes[0].contig
 
     @property
-    def is_whole_contig(self):
-        """ Indicates if the region is an entire contig """
+    def is_whole_contig(self) -> bool:
+        """Indicates if the region is an entire contig
+
+        :return: True if whole contig
+        """
         if self.start_gene.position == 0 and self.stop_gene.position == len(self.contig.genes) - 1:
             return True
         return False
 
     @property
-    def is_contig_border(self):
+    def is_contig_border(self) -> bool:
+        """Indicates if the region is bordering a contig
+
+        :return: True if bordering
+        """
         if len(self.genes) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")
         if self.start_gene.position == 0 and not self.contig.is_circular:
@@ -86,20 +142,25 @@ class Region:
             return True
         return False
 
-    def get_rnas(self):
+    def get_rnas(self) -> set:
+        """ Get RNA in region
+
+        :return: Set of RNA
+        """
         rnas = set()
         for rna in self.contig.RNAs:
             if self.start < rna.start < self.stop:
                 rnas.add(rna)
         return rnas
 
-    def __len__(self):
-        return len(self.genes)
+    def get_bordering_genes(self, n: int, multigenics: set) -> list:
+        """ Get the bordered genes in the region
 
-    def __getitem__(self, index):
-        return self.genes[index]
+        :param n: number of genes to get
+        :param multigenics: pangenome graph multigenic persistent families
 
-    def get_bordering_genes(self, n, multigenics):
+        :return: A list of bordering gene in start and stop position List[List[Start Gene], [Stop Gene]]
+        """
         border = [[], []]
         pos = self.start_gene.position
         init = pos
@@ -138,6 +199,11 @@ class Region:
 
 
 class Spot:
+    """
+    This class represent a hotspot.
+
+    :param spot_id: identifier of the spot
+    """
     def __init__(self, spot_id):
         self.ID = spot_id
         self.regions = set()
@@ -147,7 +213,12 @@ class Spot:
         self._compContent = False
 
     @property
-    def families(self):
+    def families(self) -> set:
+        """Get the gene families in the RGP
+
+        :return: Set of gene families
+        """
+
         union = set()
         for region in self.regions:
             union |= region.families
@@ -157,6 +228,8 @@ class Spot:
         """
         Adds region(s) contained in an Iterable to the spot which all have the same bordering persistent genes
         provided with 'borders'
+
+        :param regions: Iterable list of RGP to add to spot
         """
         if isinstance(regions, Iterable):
             for region in regions:
@@ -165,15 +238,27 @@ class Spot:
             raise Exception("The provided 'regions' variable was not an Iterable")
 
     def add_region(self, region):
+        """
+        Add one RGP to the spot
+
+        :param region: RGP to add to spot
+        """
         if isinstance(region, Region):
             self.regions.add(region)
 
     def spot_2_families(self):
+        """Add to Gene Families a link to spot"""
         for family in self.families:
             family.spot.add(self)
 
-    def borders(self, set_size, multigenics):
-        """ extracts all the borders of all RGPs belonging to the spot"""
+    def borders(self, set_size: int, multigenics):
+        """ Extracts all the borders of all RGPs belonging to the spot
+
+        :param set_size: number of genes to get
+        :param multigenics: pangenome graph multigenic persistent families
+
+        :return: families that bordering spot
+        """
         all_borders = []
         for rgp in self.regions:
             all_borders.append(rgp.get_bordering_genes(set_size, multigenics))
@@ -217,47 +302,71 @@ class Spot:
                 self._uniqContent[rgp] = {rgp}
 
     def _get_content(self):
-        """Creates the _uniqContent object if it was never computed. Return it in any case"""
+        """Creates the _uniqContent object if it was never computed. Return it in any case
+
+        :return: RGP groups that have identical gene content
+        """
         if not self._compContent:
             self._mk_uniq_content()
             self._compContent = True
         return self._uniqContent
 
     def _get_ordered_set(self):
-        """Creates the _uniqSyn object if it was never computed. Return it in any case"""
+        """ Creates the _uniqSyn object if it was never computed. Return it in any case
+
+        :return: RGP groups that have an identical synteny
+        """
         if not self._compOrderedSet:
             self._mk_uniq_ordered_set_obj()
             self._compOrderedSet = True
         return self._uniqOrderedSet
 
-    def get_uniq_to_rgp(self):
-        """ returns the dictionnary with a representing RGP as key, and all identical RGPs as value"""
+    def get_uniq_to_rgp(self) -> dict:
+        """ Get dictionnary with a representing RGP as key, and all identical RGPs as value
+
+        :return: Dictionnary with a representing RGP as key, and all identical RGPs as value
+        """
         return self._get_ordered_set()
 
     def get_uniq_ordered_set(self):
-        """ returns an Iterable of all the unique syntenies in the spot"""
+        """Get an Iterable of all the unique syntenies in the spot
+
+        :return: Iterable of all the unique syntenies in the spot
+        """
         return set(self._get_ordered_set().keys())
 
     def get_uniq_content(self):
-        """ returns an Iterable of all the unique rgp (in terms of gene family content) in the spot"""
+        """ Get an Iterable of all the unique rgp (in terms of gene family content) in the spot
+
+        :return: Iterable of all the unique rgp (in terms of gene family content) in the spot
+        """
         return set(self._get_content().keys())
 
-    def count_uniq_content(self):
+    def count_uniq_content(self) -> dict:
         """
-        Returns a counter with a representative rgp as key and
-        the number of identical rgp in terms of gene family content as value
+        Get a counter of uniq RGP and number of identical RGP (in terms of gene family content)
+
+        :return: dictionary with a representative rgp as key and number of identical rgp as value
         """
         return dict([(key, len(val)) for key, val in self._get_content().items()])
 
     def count_uniq_ordered_set(self):
         """
-        Returns a counter with a representative rgp as key and the number of identical rgp in terms of synteny as value
+        Get a counter of uniq RGP and number of identical RGP (in terms of synteny content)
+
+        :return: dictionary with a representative rgp as key and number of identical rgp as value
         """
         return dict([(key, len(val)) for key, val in self._get_ordered_set().items()])
 
 
 class Module:
-    def __init__(self, module_id, families=None):
+    """
+    This class represent a hotspot.
+
+    :param module_id: identifier of the module
+    :param families: Set of families which define the module
+    """
+    def __init__(self, module_id: int, families: set = None):
         """
         'core' are gene families that define the module.
         'associated_families' are gene families that you believe are associated to the module in some way,
@@ -267,30 +376,28 @@ class Module:
         self.families = set()
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception(
-                    f"You provided elements that were not GeneFamily object. Modules are only made of GeneFamily")
+                raise Exception(f"You provided elements that were not GeneFamily object."
+                                f" Modules are only made of GeneFamily")
             self.families |= set(families)
         self.bitarray = None
 
-    def add_family(self, family):
+    def add_family(self, family: GeneFamily):
         """
         Add a family to the module
 
         :param family: the family that will ba added to the module
-        :type family: GeneFamily
         """
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
         family.modules.add(self)
         self.families.add(family)
 
-    def mk_bitarray(self, index, partition='all'):
+    def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
+
         :param partition: filter module by partition
-        :type partition: str
         :param index: The index computed by :func:`ppanggolin.pan.Pangenome.getIndex`
-        :type index: dict[:class:`ppanggolin.genome.Organism`, int]
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
@@ -318,27 +425,13 @@ class Module:
 
 class GeneContext:
     """
-        A class used to represent a gene context
+    A class used to represent a gene context
 
-        Attributes
-        ----------
-        gc_id : int
-            ID of the Gene context
-        families : set
-            Gene families related to the GeneContext
+    :param gc_id : identifier of the Gene context
+    :param families: Gene families related to the GeneContext
+    """
 
-        Methods
-        -------
-        """
-
-    def __init__(self, gc_id, families=None):
-        """ Initial methods
-
-        :param gc_id: ID of the GeneContext
-        :type gc_id: int
-        :param families: Gene families related to the GeneContext
-        :type families: set
-        """
+    def __init__(self, gc_id: int, families: set = None):
         self.ID = gc_id
         self.families = set()
         if families is not None:
@@ -347,11 +440,10 @@ class GeneContext:
                                 f" GeneContext are only made of GeneFamily")
             self.families |= set(families)
 
-    def add_family(self, family):
+    def add_family(self, family: GeneFamily):
         """
         Allow to add one family in the GeneContext
         :param family: family to add
-        :type family: GeneFamily
         """
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")

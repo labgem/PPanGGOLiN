@@ -12,8 +12,23 @@ from tqdm import tqdm
 import tables
 from gmpy2 import popcount
 
+from ppanggolin.pangenome import Pangenome
 
-def gene_desc(org_len, contig_len, id_len, type_len, name_len, product_len, max_local_id):
+
+def gene_desc(org_len, contig_len, id_len, type_len, name_len, product_len, max_local_id) -> dict:
+    """
+    Create a table to save gene description
+
+    :param org_len: Maximum size of organism
+    :param contig_len: Maximum size of contigs
+    :param id_len: Maximum size of gene ID
+    :param type_len: Maximum size of gene Type
+    :param name_len: Maximum size of gene name
+    :param product_len: Maximum size of gene product
+    :param max_local_id: Maximum size of gene local identifier
+
+    :return: Formatted table
+    """
     return {
         'organism': tables.StringCol(itemsize=org_len),
         "contig": {
@@ -36,7 +51,13 @@ def gene_desc(org_len, contig_len, id_len, type_len, name_len, product_len, max_
     }
 
 
-def get_max_len_annotations(pangenome):
+def get_max_len_annotations(pangenome: Pangenome) -> (int, int, int, int, int, int, int):
+    """
+    Get the maximum size of each annotation information to optimize saving
+
+    :param pangenome: Annotated pangenome
+    :return: maximum size of each annotation
+    """
     max_org_len = 1
     max_contig_len = 1
     max_gene_id_len = 1
@@ -76,17 +97,20 @@ def get_max_len_annotations(pangenome):
     return max_org_len, max_contig_len, max_gene_id_len, max_type_len, max_name_len, max_product_len, max_local_id
 
 
-def write_annotations(pangenome, h5f, disable_bar=False):
+def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
-        Function writing all the pangenome annotations
+    Function writing all the pangenome annotations
+
+    :param pangenome: Annotated pangenome
+    :param h5f: Pangenome HDF5 file
+    :param disable_bar: Alow to disable progress bar
     """
     annotation = h5f.create_group("/", "annotations", "Annotations of the pangenome organisms")
     gene_table = h5f.create_table(annotation, "genes", gene_desc(*get_max_len_annotations(pangenome)),
                                   expectedrows=len(pangenome.genes))
 
-    bar = tqdm(pangenome.organisms, unit="genome", disable=disable_bar)
     gene_row = gene_table.row
-    for org in bar:
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genome", disable=disable_bar):
         for contig in org.contigs:
             for gene in contig.genes:
                 gene_row["organism"] = org.name
@@ -118,10 +142,15 @@ def write_annotations(pangenome, h5f, disable_bar=False):
                 gene_row["gene/is_fragment"] = rna.is_fragment
                 gene_row.append()
     gene_table.flush()
-    bar.close()
 
 
-def get_gene_sequences_len(pangenome):
+def get_gene_sequences_len(pangenome: Pangenome) -> (int, int, int):
+    """
+    Get the maximum size of gene sequences to optimize saving
+
+    :param pangenome: Annotated pangenome
+    :return: maximum size of each annotation
+    """
     max_seq_len = 1
     max_gene_id_len = 1
     max_gene_type = 1
@@ -135,7 +164,16 @@ def get_gene_sequences_len(pangenome):
     return max_gene_id_len, max_seq_len, max_gene_type
 
 
-def gene_sequences_desc(gene_id_len, gene_seq_len, gene_type_len):
+def gene_sequences_desc(gene_id_len, gene_seq_len, gene_type_len) -> dict:
+    """
+    Create table to save gene sequences
+
+    :param gene_id_len: Maximum size of gene sequence identifier
+    :param gene_seq_len: Maximum size of gene sequences
+    :param gene_type_len: Maximum size of gene type
+
+    :return: Formated table
+    """
     return {
         "gene": tables.StringCol(itemsize=gene_id_len),
         "dna": tables.StringCol(itemsize=gene_seq_len),
@@ -143,21 +181,35 @@ def gene_sequences_desc(gene_id_len, gene_seq_len, gene_type_len):
     }
 
 
-def write_gene_sequences(pangenome, h5f, disable_bar=False):
+def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
+    """
+    Function writing all the pangenome gene sequences
+
+    :param pangenome: Pangenome with gene sequences
+    :param h5f: Pangenome HDF5 file without sequences
+    :param disable_bar: Disable progress bar
+    """
     gene_seq = h5f.create_table("/", "geneSequences", gene_sequences_desc(*get_gene_sequences_len(pangenome)),
                                 expectedrows=len(pangenome.genes))
     gene_row = gene_seq.row
-    bar = tqdm(pangenome.genes, unit="gene", disable=disable_bar)
-    for gene in bar:
+    for gene in tqdm(pangenome.genes, total=pangenome.number_of_gene(), unit="gene", disable=disable_bar):
         gene_row["gene"] = gene.ID
         gene_row["dna"] = gene.dna
         gene_row["type"] = gene.type
         gene_row.append()
     gene_seq.flush()
-    bar.close()
 
 
-def gene_fam_desc(max_name_len, max_sequence_length, max_part_len):
+def gene_fam_desc(max_name_len: int, max_sequence_length: int, max_part_len: int) -> dict:
+    """
+    Create a formated table for gene families description
+
+    :param max_name_len: Maximum size of gene family name
+    :param max_sequence_length: Maximum size of gene family representing gene sequences
+    :param max_part_len: Maximum size of gene family partition
+
+    :return: Formated table
+    """
     return {
         "name": tables.StringCol(itemsize=max_name_len),
         "protein": tables.StringCol(itemsize=max_sequence_length),
@@ -165,7 +217,14 @@ def gene_fam_desc(max_name_len, max_sequence_length, max_part_len):
     }
 
 
-def get_gene_fam_len(pangenome):
+def get_gene_fam_len(pangenome: Pangenome) -> (int, int, int):
+    """
+    Get maximum size of gene families information
+
+    :param pangenome: Pangenome with gene families computed
+
+    :return: Maximum size of each element
+    """
     max_gene_fam_name_len = 1
     max_gene_fam_seq_len = 1
     max_part_len = 1
@@ -179,9 +238,14 @@ def get_gene_fam_len(pangenome):
     return max_gene_fam_name_len, max_gene_fam_seq_len, max_part_len
 
 
-def write_gene_fam_info(pangenome, h5f, force, disable_bar=False):
+def write_gene_fam_info(pangenome: Pangenome, h5f: tables.File, force: bool = False, disable_bar: bool = False):
     """
-        Writing a table containing the protein sequences of each family
+    Writing a table containing the protein sequences of each family
+
+    :param pangenome: Pangenome with gene families computed
+    :param h5f: HDF5 file to write gene families
+    :param force: force to write information if precedent information exist
+    :param disable_bar: Disable progress bar
     """
     if '/geneFamiliesInfo' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed gene family representative sequences...")
@@ -190,24 +254,38 @@ def write_gene_fam_info(pangenome, h5f, force, disable_bar=False):
                                     expectedrows=len(pangenome.gene_families))
 
     row = gene_fam_seq.row
-    bar = tqdm(pangenome.gene_families, unit="gene family", disable=disable_bar)
-    for fam in bar:
+    for fam in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families(),
+                    unit="gene family", disable=disable_bar):
         row["name"] = fam.name
         row["protein"] = fam.sequence
         row["partition"] = fam.partition
         row.append()
     gene_fam_seq.flush()
-    bar.close()
 
 
-def gene_to_fam_desc(gene_fam_name_len, gene_id_len):
+def gene_to_fam_desc(gene_fam_name_len: int, gene_id_len: int) -> dict:
+    """
+    Create a formated table for gene in gene families information
+
+    :param gene_fam_name_len: Maximum size of gene family names
+    :param gene_id_len: Maximum sizez of gene identifier
+
+    :return: formated table
+    """
     return {
         "geneFam": tables.StringCol(itemsize=gene_fam_name_len),
         "gene": tables.StringCol(itemsize=gene_id_len)
     }
 
 
-def get_gene_to_fam_len(pangenome):
+def get_gene_to_fam_len(pangenome: Pangenome):
+    """
+    Get maximum size of gene in gene families information
+
+    :param pangenome: Pangenome with gene families computed
+
+    :return: Maximum size of each element
+    """
     max_gene_fam_name = 1
     max_gene_id = 1
     for geneFam in pangenome.gene_families:
@@ -219,33 +297,51 @@ def get_gene_to_fam_len(pangenome):
     return max_gene_fam_name, max_gene_id
 
 
-def write_gene_families(pangenome, h5f, force, disable_bar=False):
+def write_gene_families(pangenome: Pangenome, h5f: tables.File, force: bool = False, disable_bar: bool = False):
     """
-        Function writing all the pangenome  gene families
+    Function writing all the pangenome gene families
+
+    :param pangenome: pangenome with gene families computed
+    :param h5f: HDF5 file to save pangenome with gene families
+    :param force: Force to write gene families in hdf5 file if there is already gene families
+    :param disable_bar: Disable progress bar
     """
     if '/gene_families' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
         h5f.remove_node('/', 'gene_families')  # erasing the table, and rewriting a new one.
     gene_families = h5f.create_table("/", "gene_families", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
     gene_row = gene_families.row
-    bar = tqdm(pangenome.gene_families, unit="gene family", disable=disable_bar)
-    for geneFam in bar:
+    for geneFam in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families(), unit="gene family",
+                        disable=disable_bar):
         for gene in geneFam.genes:
             gene_row["gene"] = gene.ID
             gene_row["geneFam"] = geneFam.name
             gene_row.append()
     gene_families.flush()
-    bar.close()
 
 
 def graph_desc(max_gene_id_len):
+    """
+    Create a formated table for pangenome graph
+
+    :param max_gene_id_len: Maximum size of gene id
+
+    :return: formated table
+    """
     return {
         'geneTarget': tables.StringCol(itemsize=max_gene_id_len),
         'geneSource': tables.StringCol(itemsize=max_gene_id_len)
     }
 
 
-def get_gene_id_len(pangenome):
+def get_gene_id_len(pangenome: Pangenome):
+    """
+    Get maximum size of gene id in pangenome graph
+
+    :param pangenome: Pangenome with graph computed
+
+    :return: Maximum size of gene id
+    """
     max_gene_len = 1
     for gene in pangenome.genes:
         if len(gene.ID) > max_gene_len:
@@ -253,35 +349,56 @@ def get_gene_id_len(pangenome):
     return max_gene_len
 
 
-def write_graph(pangenome, h5f, force, disable_bar=False):
-    # if we want to be able to read the graph without reading the annotations
-    # (because it's one of the most time consumming parts to read),
-    # it might be good to add the organism name in the table here. for now, forcing the read of annotations.
+def write_graph(pangenome: Pangenome, h5f: tables.File, force: bool = False, disable_bar: bool = False):
+    """
+    Function writing the pangenome graph
+
+    :param pangenome: pangenome with graph computed
+    :param h5f: HDF5 file to save pangenome graph
+    :param force: Force to write graph in hdf5 file if there is already one
+    :param disable_bar: Disable progress bar
+    """
+    # TODO if we want to be able to read the graph without reading the annotations (because it's one of the most time
+    #  consumming parts to read), it might be good to add the organism name in the table here.
+    #  for now, forcing the read of annotations.
     if '/edges' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed edges")
         h5f.remove_node("/", "edges")
     edge_table = h5f.create_table("/", "edges", graph_desc(get_gene_id_len(pangenome)),
                                   expectedrows=len(pangenome.edges))
     edge_row = edge_table.row
-    bar = tqdm(pangenome.edges, unit="edge", disable=disable_bar)
-    for edge in bar:
+    for edge in tqdm(pangenome.edges, total=pangenome.number_of_edge(), unit="edge", disable=disable_bar):
         for genePairs in edge.organisms.values():
             for gene1, gene2 in genePairs:
                 edge_row["geneTarget"] = gene1.ID
                 edge_row["geneSource"] = gene2.ID
                 edge_row.append()
-    bar.close()
     edge_table.flush()
 
 
 def rgp_desc(max_rgp_len, max_gene_len):
+    """
+    Create a formated table for region of genomic plasticity
+
+    :param max_rgp_len: Maximum size of RGP
+    :param max_gene_len: Maximum sizez of gene
+
+    :return: formated table
+    """
     return {
         'RGP': tables.StringCol(itemsize=max_rgp_len),
         'gene': tables.StringCol(itemsize=max_gene_len)
     }
 
 
-def get_rgp_len(pangenome):
+def get_rgp_len(pangenome: Pangenome):
+    """
+    Get maximum size of region of genomic plasticity and gene
+
+    :param pangenome: Pangenome with gene families computed
+
+    :return: Maximum size of each element
+    """
     max_gene_len = 1
     max_rgp_len = 1
     for region in pangenome.regions:
@@ -293,7 +410,15 @@ def get_rgp_len(pangenome):
     return max_rgp_len, max_gene_len
 
 
-def write_rgp(pangenome, h5f, force, disable_bar=False):
+def write_rgp(pangenome: Pangenome, h5f: tables.File, force: bool = False, disable_bar: bool = False):
+    """
+    Function writing all the region of genomic plasticity in pangenome
+
+    :param pangenome: pangenome with RGP computed
+    :param h5f: HDF5 file to save pangenome with RGP
+    :param force: Force to write gene families in hdf5 file if there is already RGP
+    :param disable_bar: Disable progress bar
+    """
     if '/RGP' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computer RGP")
         h5f.remove_node('/', 'RGP')
@@ -301,24 +426,36 @@ def write_rgp(pangenome, h5f, force, disable_bar=False):
     rgp_table = h5f.create_table('/', 'RGP', rgp_desc(*get_rgp_len(pangenome)),
                                  expectedrows=sum([len(region.genes) for region in pangenome.regions]))
     rgp_row = rgp_table.row
-    bar = tqdm(pangenome.regions, unit="region", disable=disable_bar)
-    for region in bar:
+    for region in tqdm(pangenome.regions, total=pangenome.number_of_rgp(), unit="region", disable=disable_bar):
         for gene in region.genes:
             rgp_row["RGP"] = region.name
             rgp_row["gene"] = gene.ID
             rgp_row.append()
-    bar.close()
     rgp_table.flush()
 
 
 def spot_desc(max_rgp_len):
+    """
+    Create a formated table for hotspot
+
+    :param max_rgp_len: Maximum size of RGP
+
+    :return: formated table
+    """
     return {
         'spot': tables.UInt32Col(),
         'RGP': tables.StringCol(itemsize=max_rgp_len)
     }
 
 
-def get_spot_desc(pangenome):
+def get_spot_desc(pangenome: Pangenome):
+    """
+    Get maximum size of region of genomic plasticity in hotspot
+
+    :param pangenome: Pangenome with gene families computed
+
+    :return: Maximum size of each element
+    """
     max_rgp_len = 1
     for spot in pangenome.spots:
         for region in spot.regions:
@@ -327,7 +464,15 @@ def get_spot_desc(pangenome):
     return max_rgp_len
 
 
-def write_spots(pangenome, h5f, force, disable_bar=False):
+def write_spots(pangenome: Pangenome, h5f: tables.File, force: bool = False, disable_bar: bool = False):
+    """
+    Function writing all the pangenome hotspot
+
+    :param pangenome: pangenome with spot computed
+    :param h5f: HDF5 file to save pangenome with spot
+    :param force: Force to write gene families in hdf5 file if there is already spot
+    :param disable_bar: Disable progress bar
+    """
     if '/spots' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed spots")
         h5f.remove_node("/", "spots")
@@ -335,25 +480,36 @@ def write_spots(pangenome, h5f, force, disable_bar=False):
     spot_table = h5f.create_table("/", "spots", spot_desc(get_spot_desc(pangenome)),
                                   expectedrows=sum([len(spot.regions) for spot in pangenome.spots]))
     spot_row = spot_table.row
-    bar = tqdm(pangenome.spots, unit="spot", disable=disable_bar)
-    for spot in pangenome.spots:
+    for spot in tqdm(pangenome.spots, total=pangenome.number_of_spots(), unit="spot", disable=disable_bar):
         for region in spot.regions:
             spot_row["spot"] = spot.ID
             spot_row["RGP"] = region.name
             spot_row.append()
-        bar.update()
-    bar.close()
     spot_table.flush()
 
 
 def mod_desc(gene_fam_name_len):
+    """
+    Create a formated table for hotspot
+
+    :param gene_fam_name_len: Maximum size of gene families name
+
+    :return: formated table
+    """
     return {
         "geneFam": tables.StringCol(itemsize=gene_fam_name_len),
         "module": tables.UInt32Col(),
     }
 
 
-def get_mod_desc(pangenome):
+def get_mod_desc(pangenome: Pangenome):
+    """
+    Get maximum size of gene families name in modules
+
+    :param pangenome: Pangenome with modules computed
+
+    :return: Maximum size of each element
+    """
     max_fam_len = 1
     for mod in pangenome.modules:
         for fam in mod.families:
@@ -362,7 +518,15 @@ def get_mod_desc(pangenome):
     return max_fam_len
 
 
-def write_modules(pangenome, h5f, force, disable_bar=False):
+def write_modules(pangenome: Pangenome, h5f: tables.File, force: bool = False, disable_bar: bool = False):
+    """
+    Function writing all the pangenome modules
+
+    :param pangenome: pangenome with spot computed
+    :param h5f: HDF5 file to save pangenome with spot
+    :param force: Force to write gene families in hdf5 file if there is already spot
+    :param disable_bar: Disable progress bar
+    """
     if '/modules' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed modules")
         h5f.remove_node("/", "modules")
@@ -371,17 +535,21 @@ def write_modules(pangenome, h5f, force, disable_bar=False):
                                  expectedrows=sum([len(mod.families) for mod in pangenome.modules]))
     mod_row = mod_table.row
 
-    bar = tqdm(pangenome.modules, unit="modules", disable=disable_bar)
-    for mod in bar:
+    for mod in tqdm(pangenome.modules, total=pangenome.number_of_modules(), unit="modules", disable=disable_bar):
         for fam in mod.families:
             mod_row["geneFam"] = fam.name
             mod_row["module"] = mod.ID
             mod_row.append()
-    bar.close()
     mod_table.flush()
 
 
-def write_status(pangenome, h5f):
+def write_status(pangenome: Pangenome, h5f: tables.File):
+    """
+    Write pangenome status in HDF5 file
+
+    :param pangenome: Pangenome object
+    :param h5f: Pangenome file
+    """
     if "/status" in h5f:  # if statuses are already written
         status_group = h5f.root.status
     else:  # else create the status group.
@@ -398,7 +566,7 @@ def write_status(pangenome, h5f):
     status_group._v_attrs.NeighborsGraph = True if pangenome.status["neighborsGraph"] in ["Computed", "Loaded",
                                                                                           "inFile"] else False
     status_group._v_attrs.Partitioned = True if pangenome.status["partitioned"] in ["Computed", "Loaded",
-                                                                                      "inFile"] else False
+                                                                                    "inFile"] else False
     status_group._v_attrs.defragmented = True if pangenome.status["defragmented"] in ["Computed", "Loaded",
                                                                                       "inFile"] else False
     status_group._v_attrs.predictedRGP = True if pangenome.status["predictedRGP"] in ["Computed", "Loaded",
@@ -408,32 +576,49 @@ def write_status(pangenome, h5f):
     status_group._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
 
 
-def write_info(pangenome, h5f):
-    """ writes information and numbers to be eventually called with the 'info' submodule """
+def write_info(pangenome: Pangenome, h5f: tables.File):
+    """
+    Writes information and numbers to be eventually called with the 'info' submodule
 
-    def getmean(arg):
-        if len(arg) == 0:
-            return 0
-        else:
-            return round(statistics.mean(arg), 2)
+    :param pangenome: Pangenome object with some information computed
+    :param h5f: Pangenome file to save information
+    """
 
-    def getstdev(arg):
-        if len(arg) <= 1:
-            return 0
-        else:
-            return round(statistics.stdev(arg), 2)
+    def getmean(arg: iter) -> float:
+        """ Compute the mean of arguments if exist 0 else
 
-    def getmax(arg):
-        if len(arg) == 0:
-            return 0
-        else:
-            return round(max(arg), 2)
+        :param arg: list of values
 
-    def getmin(arg):
-        if len(arg) == 0:
-            return 0
-        else:
-            return round(min(arg), 2)
+        :return: return the mean
+        """
+        return 0 if len(arg) == 0 else round(statistics.mean(arg), 2)
+
+    def getstdev(arg: iter) -> float:
+        """ Compute the standard deviation of arguments if exist 0 else
+
+        :param arg: list of values
+
+        :return: return the sd
+        """
+        return 0 if len(arg) <= 1 else round(statistics.stdev(arg), 2)
+
+    def getmax(arg: iter) -> float:
+        """ Get the maximum of arguments if exist 0 else
+
+        :param arg: list of values
+
+        :return: return the maximum
+        """
+        return 0 if len(arg) == 0 else round(max(arg), 2)
+
+    def getmin(arg: iter) -> float:
+        """ Get the minimum of arguments if exist 0 else
+
+        :param arg: list of values
+
+        :return: return the minimum
+        """
+        return 0 if len(arg) == 0 else round(min(arg), 2)
 
     if "/info" in h5f:
         info_group = h5f.root.info
@@ -485,37 +670,63 @@ def write_info(pangenome, h5f):
     info_group._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters
 
 
-def write_info_modules(pangenome, h5f):
-    def getmean(arg):
-        if len(arg) == 0:
-            return 0
-        else:
-            return round(statistics.mean(arg), 2)
+def write_info_modules(pangenome: Pangenome, h5f: tables.File):
+    """
+    Writes more information about modules if computed by metrics subpackage
 
-    def getstdev(arg):
-        if len(arg) <= 1:
-            return 0
-        else:
-            return round(statistics.stdev(arg), 2)
+    :param pangenome: Pangenome object with some information computed
+    :param h5f: Pangenome file to save information
+    """
 
-    def getmax(arg):
-        if len(arg) == 0:
-            return 0
-        else:
-            return round(max(arg), 2)
+    def getmean(arg: iter) -> float:
+        """ Compute the mean of arguments if exist 0 else
 
-    def getmin(arg):
-        if len(arg) == 0:
-            return 0
-        else:
-            return round(min(arg), 2)
+        :param arg: list of values
+
+        :return: return the mean
+        """
+        return 0 if len(arg) == 0 else round(statistics.mean(arg), 2)
+
+    def getstdev(arg: iter) -> float:
+        """ Compute the standard deviation of arguments if exist 0 else
+
+        :param arg: list of values
+
+        :return: return the sd
+        """
+        return 0 if len(arg) <= 1 else round(statistics.stdev(arg), 2)
+
+    def getmax(arg: iter) -> float:
+        """ Get the maximum of arguments if exist 0 else
+
+        :param arg: list of values
+
+        :return: return the maximum
+        """
+        return 0 if len(arg) == 0 else round(max(arg), 2)
+
+    def getmin(arg: iter) -> float:
+        """ Get the minimum of arguments if exist 0 else
+
+        :param arg: list of values
+
+        :return: return the minimum
+        """
+        return 0 if len(arg) == 0 else round(min(arg), 2)
 
     if "/info" not in h5f:
         write_info(pangenome, h5f)
     info_group = h5f.root.info
 
     if pangenome.status["modules"] in ["Computed", "Loaded"]:
-        def part_spec(part):
+        def part_spec(part: str) -> list:
+            """
+            Get the list of module for a specific partition of pangenome
+
+            :param part: pangenome partition name
+
+            :return: list of module specific to partition
+            """
             pangenome.compute_mod_bitarrays(part)
             return [popcount(module.bitarray) for module in pangenome.modules]
 
@@ -546,36 +757,51 @@ def write_info_modules(pangenome, h5f):
         raise Exception("Modules were not computed in your pangenome. Please see the module subcommand.")
 
 
-def update_gene_fam_partition(pangenome, h5f, disable_bar=False):
+def update_gene_fam_partition(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
+    """
+    Update the gene families table with partition information
+
+    :param pangenome: Partitioned pangenome
+    :param h5f: HDF5 file with gene families
+    :param disable_bar: Allow to disable progress bar
+    """
     logging.getLogger().info("Updating gene families with partition information")
     table = h5f.root.geneFamiliesInfo
-    bar = tqdm(range(table.nrows), unit="gene family", disable=disable_bar)
-    for row in table:
+    for row in tqdm(table, total=table.nrows, unit="gene family", disable=disable_bar):
         row["partition"] = pangenome.get_gene_family(row["name"].decode()).partition
         row.update()
-        bar.update()
-    bar.close()
 
 
-def update_gene_fragments(pangenome, h5f, disable_bar=False):
+def update_gene_fragments(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
-        updates the annotation table with the fragmentation information from the defrag pipeline
+    Updates the annotation table with the fragmentation information from the defrag pipeline
+
+    :param pangenome: Annotated pangenome
+    :param h5f: HDF5 pangenome file
+    :param disable_bar: Allow to disable progress bar
     """
     logging.getLogger().info("Updating annotations with fragment information")
     table = h5f.root.annotations.genes
-    bar = tqdm(range(table.nrows), unit="gene", disable=disable_bar)
-    for row in table:
+    for row in tqdm(table, total=table.nrows, unit="gene", disable=disable_bar):
         if row['gene/type'].decode() == 'CDS':
             row['gene/is_fragment'] = pangenome.get_gene(row['gene/ID'].decode()).is_fragment
             row.update()
-        bar.update()
-    bar.close()
     table.flush()
 
 
-def erase_pangenome(pangenome, graph=False, gene_families=False, partition=False, rgp=False, spots=False,
-                    modules=False):
-    """ erases tables from a pangenome .h5 file """
+def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bool = False, partition: bool = False,
+                    rgp: bool = False, spots: bool = False, modules: bool = False):
+    """
+    Erases tables from a pangenome .h5 file
+
+    :param pangenome: Pangenome
+    :param graph: remove graph information
+    :param gene_families: remove gene families information
+    :param partition: remove partition information
+    :param rgp: remove rgp information
+    :param spots: remove spots information
+    :param modules: remove modules information
+    """
 
     h5f = tables.open_file(pangenome.file, "a")
     status_group = h5f.root.status
@@ -650,10 +876,14 @@ def erase_pangenome(pangenome, graph=False, gene_families=False, partition=False
     h5f.close()
 
 
-def write_pangenome(pangenome, filename, force, disable_bar=False):
+def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable_bar: bool = False):
     """
-        Writes or updates a pangenome file
-        pangenome is the corresponding pangenome object, filename the h5 file and status what has been modified.
+    Writes or updates a pangenome file
+
+    :param pangenome: pangenome object
+    :param filename: HDF5 file to save pangenome
+    :param force: force to write on pangenome if information already exist
+    :param disable_bar: Allow to disable progress bar
     """
 
     if pangenome.status["genomesAnnotated"] == "Computed":

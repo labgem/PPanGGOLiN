@@ -47,7 +47,7 @@ def l_genes():
     l_genes = []
     for i in range(6, 0, -1):
         o_gene = Gene(i)
-        o_gene.fill_annotations(i, i, i, position=i - 1)
+        o_gene.fill_annotations(i, i, i)
         l_genes.append(o_gene)
 
     return l_genes

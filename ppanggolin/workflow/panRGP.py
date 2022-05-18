@@ -27,7 +27,12 @@ from ppanggolin.RGP.spot import predict_hotspots
 """a global workflow that does everything in one go."""
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     check_option_workflow(args)
     pangenome = Pangenome()
     filename = mk_file_name(args.basename, args.output, args.force)
@@ -117,7 +122,14 @@ def launch(args):
     print_info(filename, content=True)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("panrgp", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")

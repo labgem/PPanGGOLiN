@@ -82,23 +82,13 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
             # but was when cases like this were encountered)
 
         new_gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
-        new_gene.fill_annotations(start=start,
-                                  stop=stop,
-                                  strand=strand,
-                                  gene_type=gene_type,
-                                  position=position,
-                                  name=gene_name,
-                                  product=product,
-                                  genetic_code=genetic_code,
-                                  local_identifier=gene_id)
+        new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
+                                  position=position, product=product, local_identifier=gene_id,
+                                  genetic_code=genetic_code)
         contig.add_gene(new_gene)
     else:  # if not CDS, it is RNA
         new_gene = RNA(org.name + "_RNA_" + str(rna_counter).zfill(4))
-        new_gene.fill_annotations(start=start,
-                                  stop=stop,
-                                  strand=strand,
-                                  gene_type=gene_type,
-                                  name=gene_name,
+        new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
                                   product=product)
         contig.add_rna(new_gene)
     new_gene.fill_parents(org, contig)
@@ -141,7 +131,7 @@ def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, ps
                     if contig_id != "":
                         if contig_id in circular_contigs:
                             is_circ = True
-                        contig = org.get_or_add_contig(contig_id, is_circ)
+                        contig = org.get_contig(contig_id, is_circ)
                         set_contig = True
                 line = lines.pop()
         if not set_contig:
@@ -150,7 +140,7 @@ def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, ps
             # might still be the same even though it should not(?)
             if contig_locus_id in circular_contigs:
                 is_circ = True
-            contig = org.get_or_add_contig(contig_locus_id, is_circ)
+            contig = org.get_contig(contig_locus_id, is_circ)
         # start of the feature object.
         dbxref = set()
         gene_name = ""
@@ -310,7 +300,7 @@ def read_org_gff(organism: str, gff_file_path: str, circular_contigs, pseudo: bo
                     has_fasta = True
                 elif line.startswith('sequence-region', 2, 17):
                     fields = [el.strip() for el in line.split()]
-                    contig = org.get_or_add_contig(fields[1], True if fields[1] in circular_contigs else False)
+                    contig = org.get_contig(fields[1], True if fields[1] in circular_contigs else False)
                 continue
             elif line.startswith('#'):  # comment lines to be ignores by parsers
                 continue
@@ -349,33 +339,24 @@ def read_org_gff(organism: str, gff_file_path: str, circular_contigs, pseudo: bo
                     genetic_code = 11
                 if contig is None or contig.name != fields_gff[GFF_seqname]:
                     # get the current contig
-                    contig = org.get_or_add_contig(fields_gff[GFF_seqname],
-                                                   True if fields_gff[GFF_seqname] in circular_contigs else False)
+                    contig = org.get_contig(fields_gff[GFF_seqname],
+                                            True if fields_gff[GFF_seqname] in circular_contigs else False)
 
                 if fields_gff[GFF_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
                     # here contig is filled in order, so position is the number of genes already stored in the contig.
-                    gene.fill_annotations(start=int(fields_gff[GFF_start]),
-                                          stop=int(fields_gff[GFF_end]),
-                                          strand=fields_gff[GFF_strand],
-                                          gene_type=fields_gff[GFF_type],
-                                          position=len(contig.genes),
-                                          name=name,
-                                          product=product,
-                                          genetic_code=genetic_code,
-                                          local_identifier=gene_id)
+                    gene.fill_annotations(start=int(fields_gff[GFF_start]), stop=int(fields_gff[GFF_end]),
+                                          strand=fields_gff[GFF_strand], gene_type=fields_gff[GFF_type], name=name,
+                                          position=len(contig.genes), product=product, local_identifier=gene_id,
+                                          genetic_code=genetic_code)
                     gene.fill_parents(org, contig)
                     contig.add_gene(gene)
                     gene_counter += 1
                 elif "RNA" in fields_gff[GFF_type]:
                     rna = RNA(org.name + "_CDS_" + str(rna_counter).zfill(4))
-                    rna.fill_annotations(start=int(fields_gff[GFF_start]),
-                                         stop=int(fields_gff[GFF_end]),
-                                         strand=fields_gff[GFF_strand],
-                                         gene_type=fields_gff[GFF_type],
-                                         name=name,
-                                         product=product,
-                                         local_identifier=gene_id)
+                    rna.fill_annotations(start=int(fields_gff[GFF_start]), stop=int(fields_gff[GFF_end]),
+                                         strand=fields_gff[GFF_strand], gene_type=fields_gff[GFF_type], name=name,
+                                         product=product, local_identifier=gene_id)
                     rna.fill_parents(org, contig)
                     contig.add_rna(rna)
                     rna_counter += 1

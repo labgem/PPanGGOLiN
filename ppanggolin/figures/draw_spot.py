@@ -8,13 +8,6 @@ from collections import defaultdict, Counter
 import random
 from math import pi
 
-# local libraries
-from ppanggolin.pangenome import Pangenome
-from ppanggolin.region import Spot
-from ppanggolin.utils import jaccard_similarities
-from ppanggolin.formats import check_pangenome_info
-from ppanggolin.RGP.spot import comp_border
-
 # installed libraries
 from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
@@ -26,6 +19,13 @@ from bokeh.plotting import ColumnDataSource, figure, save, Figure
 from bokeh.io import output_file
 from bokeh.layouts import column, row
 from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer
+
+# local libraries
+from ppanggolin.pangenome import Pangenome
+from ppanggolin.region import Spot
+from ppanggolin.utils import jaccard_similarities
+from ppanggolin.formats import check_pangenome_info
+from ppanggolin.RGP.spot import comp_border
 
 
 def check_predicted_spots(pangenome):
@@ -123,12 +123,12 @@ def line_order_gene_lists(gene_lists: list, overlapping_match: int, exact_match:
             for unclassIndex in list(to_classify):
                 border1 = [gene.family for gene in gene_lists[unclassIndex][1][0]]
                 border2 = [gene.family for gene in gene_lists[unclassIndex][1][1]]
-                if comp_border(base_border1, border1, overlapping_match, exact_match, set_size) and \
-                        comp_border(base_border2, border2, overlapping_match, exact_match, set_size):
+                if comp_border(base_border1, border1, overlapping_match, set_size, exact_match) and \
+                        comp_border(base_border2, border2, overlapping_match, set_size, exact_match):
                     to_classify.discard(unclassIndex)
                     new_classify.add(unclassIndex)
-                elif comp_border(base_border2, border1, overlapping_match, exact_match, set_size) and \
-                        comp_border(base_border1, border2, overlapping_match, exact_match, set_size):
+                elif comp_border(base_border2, border1, overlapping_match, set_size, exact_match) and \
+                        comp_border(base_border1, border2, overlapping_match, set_size, exact_match):
                     # reverse the order of the genes to match the 'reference'
                     gene_lists[unclassIndex][0] = gene_lists[unclassIndex][0][::-1]
                     # inverse the borders
