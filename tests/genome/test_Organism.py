@@ -37,7 +37,7 @@ def t_filled_org(o_org):
         o_ctg = o_org.get_contig(k)
         for i in range(randint(0, 5)):
             o_gene = Gene(k + "-" + str(i))
-            o_gene.fill_annotations(6, 1, k)
+            o_gene.fill_annotations(6, 1, k, position=i)
             o_ctg.add_gene(o_gene)
             n += 1
 
@@ -62,7 +62,7 @@ def get_genes():
         o_gene = Gene(str(i))
         start = randint(0, 100)
         stop = randint(0, 100)
-        o_gene.fill_annotations(start, stop, 'x')
+        o_gene.fill_annotations(start, stop, 'x', position=i)
         yield o_gene
 
 
