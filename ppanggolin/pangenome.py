@@ -54,8 +54,7 @@ class Pangenome:
         and anything that is computed will be saved to this file when
         :func:`ppanggolin.formats.writeBinaries.writePangenome` is called.
 
-        :param pangenome_file: A string representing the filepath to the hdf5 pangenome file
-        to be either used or created
+        :param pangenome_file: A string representing filepath to hdf5 pangenome file to be either used or created
         """
         from ppanggolin.formats.readBinaries import get_status
         # importing on call instead of importing on top to avoid cross-reference problems.

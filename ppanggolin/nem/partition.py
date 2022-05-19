@@ -227,10 +227,9 @@ def partition_nem(index: int, tmpdir: str, kval: int, beta: float = 2.5, sm_degr
 
 
 def nem_samples(pack: tuple) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
-    """
-    run partitioning
-    :param pack: {index: int, tmpdir: str, beta: float, sm_degree: int, free_dispersion: bool,
-                  kval: int, seed: int, init: str, keep_tmp_files: bool}
+    """ run partitioning
+    :param pack: {index: int, tmpdir: str, beta: float, sm_degree: int, free_dispersion: bool, kval: int, seed: int, init: str, keep_tmp_files: bool}
+
     :return:
     """
     return partition_nem(*pack)
