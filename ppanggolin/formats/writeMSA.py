@@ -28,7 +28,7 @@ def is_single_copy(fam, dup_margin):
     :param dup_margin: maximal number of genomes in which the gene family can have multiple members and still be considered a 'single copy' gene family
     """
     nb_multi = 0
-    for gene_list in fam.getOrgDict().values():
+    for gene_list in fam.get_org_dict().values():
         if len(gene_list) > 1:
             nb_multi += 1
     dup_ratio = nb_multi / len(fam.organisms)
@@ -37,7 +37,7 @@ def is_single_copy(fam, dup_margin):
     return False
 
 
-def getFamiliesToWrite(pangenome, partitionFilter, soft_core=0.95, dup_margin=0.95, single_copy=True):
+def getFamiliesToWrite(pangenome, partition_filter, soft_core=0.95, dup_margin=0.95, single_copy=True):
 
     """
     Get families corresponding to the given partition
@@ -53,32 +53,32 @@ def getFamiliesToWrite(pangenome, partitionFilter, soft_core=0.95, dup_margin=0.
     fams = set()
     nb_org = pangenome.number_of_organisms()
 
-    if partitionFilter == "all":
-        return set(pangenome.geneFamilies)
-    if partitionFilter in ["persistent", "shell", "cloud"]:
-        for fam in pangenome.geneFamilies:
-            if fam.namedPartition == partitionFilter:
+    if partition_filter == "all":
+        return set(pangenome.gene_families)
+    if partition_filter in ["persistent", "shell", "cloud"]:
+        for fam in pangenome.gene_families:
+            if fam.named_partition == partition_filter:
                 if single_copy and is_single_copy(fam, dup_margin):
                     fams.add(fam)
                 elif not single_copy:
                     fams.add(fam)
-    elif partitionFilter in ["core", "accessory", "softcore"]:
-        if partitionFilter == "core":
-            for fam in pangenome.geneFamilies:
+    elif partition_filter in ["core", "accessory", "softcore"]:
+        if partition_filter == "core":
+            for fam in pangenome.gene_families:
                 if len(fam.organisms) == nb_org:
                     if single_copy and is_single_copy(fam, dup_margin):
                         fams.add(fam)
                     elif not single_copy:
                         fams.add(fam)
-        elif partitionFilter == "accessory":
-            for fam in pangenome.geneFamilies:
+        elif partition_filter == "accessory":
+            for fam in pangenome.gene_families:
                 if len(fam.organisms) < nb_org:
                     if single_copy and is_single_copy(fam, dup_margin):
                         fams.add(fam)
                     elif not single_copy:
                         fams.add(fam)
-        elif partitionFilter == "softcore":
-            for fam in pangenome.geneFamilies:
+        elif partition_filter == "softcore":
+            for fam in pangenome.gene_families:
                 if len(fam.organisms) >= nb_org * soft_core:
                     if single_copy and is_single_copy(fam, dup_margin):
                         fams.add(fam)
@@ -302,7 +302,7 @@ def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", sou
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=need_partitions,
                          need_gene_sequences=True, disable_bar=disable_bar)
     logging.getLogger().info(f"Doing MSA for {partition} families...")
-    families = getFamiliesToWrite(pangenome, partitionFilter=partition, soft_core=soft_core, dup_margin=dup_margin, single_copy=single_copy)
+    families = getFamiliesToWrite(pangenome, partition_filter=partition, soft_core=soft_core, dup_margin=dup_margin, single_copy=single_copy)
 
     # check that the code is similar than the one used previously, if there is one
     if 'translation_table' in pangenome.parameters["cluster"]:
@@ -334,7 +334,7 @@ def launch(args: argparse.Namespace):
     """
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
-    pangenome.addFile(args.pangenome)
+    pangenome.add_file(args.pangenome)
     writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
                   source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
                   translation_table=args.translation_table, dup_margin=args.dup_margin,
