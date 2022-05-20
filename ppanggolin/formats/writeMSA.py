@@ -20,37 +20,70 @@ from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
 
 
-def get_families_to_write(pangenome: Pangenome, partition_filter: str = 'core', soft_core: float = 0.95):
+def is_single_copy(fam, dup_margin):
+    """
+    Check if a gene family can be considered 'single copy' or not
+    
+    :param fam: GeneFamily object
+    :param dup_margin: maximal number of genomes in which the gene family can have multiple members and still be considered a 'single copy' gene family
+    """
+    nb_multi = 0
+    for gene_list in fam.getOrgDict().values():
+        if len(gene_list) > 1:
+            nb_multi += 1
+    dup_ratio = nb_multi / len(fam.organisms)
+    if dup_ratio < dup_margin:
+        return True
+    return False
+
+
+def getFamiliesToWrite(pangenome, partitionFilter, soft_core=0.95, dup_margin=0.95, single_copy=True):
+
     """
     Get families corresponding to the given partition
 
     :param pangenome: Partitioned pangenome
     :param partition_filter: choice of partition to compute Multiple Sequence Alignement of the gene families
     :param soft_core: Soft core threshold to use
+    :param dup_margin: maximal number of genomes in which the gene family can have multiple members and still be considered a 'single copy' gene family
+    :param single_copy: Use "single copy" (defined by dup_margin) gene families only
 
     :return: set of families unique to one partition
     """
     fams = set()
-    if partition_filter == "all":
-        return set(pangenome.gene_families)
-    if partition_filter in ["persistent", "shell", "cloud"]:
-        for fam in pangenome.gene_families:
-            if fam.named_partition == partition_filter:
-                fams.add(fam)
-    elif partition_filter in ["core", "accessory", "softcore"]:
-        nb_org = pangenome.number_of_organisms()
-        if partition_filter == "core":
-            for fam in pangenome.gene_families:
+    nb_org = pangenome.number_of_organisms()
+
+    if partitionFilter == "all":
+        return set(pangenome.geneFamilies)
+    if partitionFilter in ["persistent", "shell", "cloud"]:
+        for fam in pangenome.geneFamilies:
+            if fam.namedPartition == partitionFilter:
+                if single_copy and is_single_copy(fam, dup_margin):
+                    fams.add(fam)
+                elif not single_copy:
+                    fams.add(fam)
+    elif partitionFilter in ["core", "accessory", "softcore"]:
+        if partitionFilter == "core":
+            for fam in pangenome.geneFamilies:
                 if len(fam.organisms) == nb_org:
-                    fams.add(fam)
-        elif partition_filter == "accessory":
-            for fam in pangenome.gene_families:
+                    if single_copy and is_single_copy(fam, dup_margin):
+                        fams.add(fam)
+                    elif not single_copy:
+                        fams.add(fam)
+        elif partitionFilter == "accessory":
+            for fam in pangenome.geneFamilies:
                 if len(fam.organisms) < nb_org:
-                    fams.add(fam)
-        elif partition_filter == "softcore":
-            for fam in pangenome.gene_families:
+                    if single_copy and is_single_copy(fam, dup_margin):
+                        fams.add(fam)
+                    elif not single_copy:
+                        fams.add(fam)
+        elif partitionFilter == "softcore":
+            for fam in pangenome.geneFamilies:
                 if len(fam.organisms) >= nb_org * soft_core:
-                    fams.add(fam)
+                    if single_copy and is_single_copy(fam, dup_margin):
+                        fams.add(fam)
+                    elif not single_copy:
+                        fams.add(fam)
     return fams
 
 
@@ -238,9 +271,9 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: str,
     fout.close()
 
 
-def write_msa_files(pangenome: Pangenome, output: str, cpu: int = 1, partition: str = "core", tmpdir: str = "/tmp",
-                    source: str = "protein", soft_core=0.95, phylo: bool = False, use_gene_id: bool = False,
-                    translation_table: int = 11, force: bool = False, disable_bar: bool = False):
+def writeMSAFiles(pangenome, output, cpu=1, partition="core", tmpdir="/tmp", source="protein", soft_core=0.95,
+                  phylo=False, use_gene_id=False, translation_table="11", dup_margin = 0.95, single_copy=True, force=False, disable_bar=False):
+
     """
     Main function to write MSA files
 
@@ -254,6 +287,8 @@ def write_msa_files(pangenome: Pangenome, output: str, cpu: int = 1, partition: 
     :param phylo: Writes a whole genome msa file for additional phylogenetic analysis
     :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
     :param translation_table: Translation table (genetic code) to use.
+    :param dup_margin: maximal number of genomes in which the gene family can have multiple members and still be considered a 'single copy' gene family
+    :param single_copy: Use "single copy" (defined by dup_margin) gene families only
     :param force: force to write in the directory
     :param disable_bar: Disable progress bar
     """
@@ -267,7 +302,7 @@ def write_msa_files(pangenome: Pangenome, output: str, cpu: int = 1, partition: 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=need_partitions,
                          need_gene_sequences=True, disable_bar=disable_bar)
     logging.getLogger().info(f"Doing MSA for {partition} families...")
-    families = get_families_to_write(pangenome, partition_filter=partition, soft_core=soft_core)
+    families = getFamiliesToWrite(pangenome, partitionFilter=partition, soft_core=soft_core, dup_margin=dup_margin, single_copy=single_copy)
 
     # check that the code is similar than the one used previously, if there is one
     if 'translation_table' in pangenome.parameters["cluster"]:
@@ -299,10 +334,11 @@ def launch(args: argparse.Namespace):
     """
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
-    pangenome.add_file(args.pangenome)
-    write_msa_files(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
-                    source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
-                    translation_table=args.translation_table, force=args.force, disable_bar=args.disable_prog_bar)
+    pangenome.addFile(args.pangenome)
+    writeMSAFiles(pangenome, args.output, cpu=args.cpu, partition=args.partition, tmpdir=args.tmpdir,
+                  source=args.source, soft_core=args.soft_core, phylo=args.phylo, use_gene_id=args.use_gene_id,
+                  translation_table=args.translation_table, dup_margin=args.dup_margin,
+                  single_copy=args.single_copy, force=args.force, disable_bar=args.disable_prog_bar)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -336,6 +372,12 @@ def parser_msa(parser: argparse.ArgumentParser):
     # could make choice to allow customization
     optional.add_argument("--soft_core", required=False, type=restricted_float, default=0.95,
                           help="Soft core threshold to use if 'softcore' partition is chosen")
+    optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
+                          help="minimum ratio of organisms in which the family must have multiple genes "
+                               "for it to be considered 'duplicated'")
+    optional.add_argument("--single_copy", required=False, action="store_true", default=False,
+                          help="Use report gene families that are considered 'single copy', for details see "
+                               "option --dup_margin")
     optional.add_argument("--partition", required=False, default="core",
                           choices=["all", "persistent", "shell", "cloud", "core", "accessory", 'softcore'],
                           help="compute Multiple Sequence Alignement of the gene families in the given partition")
