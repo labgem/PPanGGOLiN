@@ -78,7 +78,7 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin workflow --cpu 1 --anno organisms.gbff.list --output myannopang
-        ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo
+        ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo --single_copy
         cd -
     - name: clusters reading from external file
       shell: bash -l {0}
