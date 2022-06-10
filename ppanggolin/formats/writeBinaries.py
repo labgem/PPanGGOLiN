@@ -309,7 +309,7 @@ def write_gene_families(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
     if '/gene_families' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
         h5f.remove_node('/', 'gene_families')  # erasing the table, and rewriting a new one.
-    gene_families = h5f.create_table("/", "gene_families", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
+    gene_families = h5f.create_table("/", "geneFamilies", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
     gene_row = gene_families.row
     for geneFam in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families(), unit="gene family",
                         disable=disable_bar):

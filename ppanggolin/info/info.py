@@ -5,6 +5,8 @@
 import argparse
 
 # installed libraries
+import time
+
 import tables
 
 # local libraries
@@ -21,7 +23,7 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
     :param parameters: Get pangenome parameters
     """
     if status or content or parameters:
-        h5f = tables.open_file(pangenome, "r")
+        h5f = tables.open_file(pangenome, "r+")
         if status:
             status_group = h5f.root.status
             print(f"genomes annotated : {'true' if status_group._v_attrs.genomesAnnotated else 'false'}")
@@ -32,8 +34,13 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
             print(f"neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
             if 'Partitionned' in status_group._v_attrs._f_list():
                 # Partitionned keep working with older version
+                h5f.close()
+                h5f = tables.open_file(pangenome, "a")
+                status_group = h5f.root.status
                 if status_group._v_attrs.Partitionned:
                     status_group._v_attrs.Partitioned = True
+                else:
+                    status_group._v_attrs.Partitioned = False
                 del status_group._v_attrs.Partitionned
             if status_group._v_attrs.Partitioned:
                 print("pangenome partitioned : true")

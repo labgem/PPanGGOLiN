@@ -63,8 +63,13 @@ def get_status(pangenome: Pangenome, pangenome_file: str):
 
     if 'Partitionned' in status_group._v_attrs._f_list():
         # Partitionned keep working with older version
+        h5f.close()
+        h5f = tables.open_file(pangenome_file, "a")
+        status_group = h5f.root.status
         if status_group._v_attrs.Partitionned:
             status_group._v_attrs.Partitioned = True
+        else:
+            status_group._v_attrs.Partitioned = False
         del status_group._v_attrs.Partitionned
 
     if status_group._v_attrs.Partitioned:
@@ -211,7 +216,7 @@ def read_gene_families(pangenome: Pangenome, h5f: tables.File, disable_bar: bool
     :param h5f: Pangenome HDF5 file with gene families information
     :param disable_bar: Disable the progress bar
     """
-    table = h5f.root.gene_families
+    table = h5f.root.geneFamilies
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
 
