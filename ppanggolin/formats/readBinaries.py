@@ -112,7 +112,7 @@ def read_sequences(h5f: tables.File) -> dict:
     table = h5f.root.sequences
     seqid2seq = {}
     for row in read_chunks(table,chunk=20000):
-        seqid2seq[row["seqid"].decode()] = row['dna'].decode()
+        seqid2seq[row["seqid"]] = row['dna'].decode()
     return seqid2seq
 
 def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter = None, add: str = '',
@@ -137,7 +137,7 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
         name_cds = row["gene"].decode()
         if row["type"] == b"CDS" and (list_cds is None or name_cds in list_cds):
             file_obj.write('>' + add + name_cds + "\n")
-            file_obj.write(seqid2seq[row["seqid"].decode()] + "\n")
+            file_obj.write(seqid2seq[row["seqid"]] + "\n")
     file_obj.flush()
     h5f.close()
 
@@ -280,7 +280,7 @@ def read_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: boo
     seqid2seq = read_sequences(h5f)
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
         gene = pangenome.get_gene(row['gene'].decode())
-        gene.add_dna(seqid2seq[row['seqid'].decode()])
+        gene.add_dna(seqid2seq[row['seqid']])
     pangenome.status["geneSequences"] = "Loaded"
 
 
