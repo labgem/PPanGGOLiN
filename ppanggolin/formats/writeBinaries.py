@@ -5,6 +5,7 @@
 import logging
 from collections import Counter, defaultdict
 import statistics
+from typing import Tuple
 import pkg_resources
 
 # installed libraries
@@ -12,6 +13,7 @@ from tqdm import tqdm
 import tables
 from gmpy2 import popcount
 
+#local libraries
 from ppanggolin.pangenome import Pangenome
 
 
@@ -51,7 +53,7 @@ def gene_desc(org_len, contig_len, id_len, type_len, name_len, product_len, max_
     }
 
 
-def get_max_len_annotations(pangenome: Pangenome) -> (int, int, int, int, int, int, int):
+def get_max_len_annotations(pangenome: Pangenome) -> Tuple[int, int, int, int, int, int, int]:
     """
     Get the maximum size of each annotation information to optimize saving
 
@@ -144,42 +146,62 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
     gene_table.flush()
 
 
-def get_gene_sequences_len(pangenome: Pangenome) -> (int, int, int):
+def get_gene_sequences_len(pangenome: Pangenome) -> Tuple[int, int]:
     """
-    Get the maximum size of gene sequences to optimize saving
+    Get the maximum size of gene sequences to optimize disk space
 
     :param pangenome: Annotated pangenome
     :return: maximum size of each annotation
     """
-    max_seq_len = 1
     max_gene_id_len = 1
     max_gene_type = 1
     for gene in pangenome.genes:
-        if len(gene.dna) > max_seq_len:
-            max_seq_len = len(gene.dna)
         if len(gene.ID) > max_gene_id_len:
             max_gene_id_len = len(gene.ID)
         if len(gene.type) > max_gene_type:
             max_gene_type = len(gene.type)
-    return max_gene_id_len, max_seq_len, max_gene_type
+    return max_gene_id_len, max_gene_type
 
 
-def gene_sequences_desc(gene_id_len, gene_seq_len, gene_type_len) -> dict:
+def gene_sequences_desc(gene_id_len, gene_type_len) -> dict:
     """
     Create table to save gene sequences
 
     :param gene_id_len: Maximum size of gene sequence identifier
-    :param gene_seq_len: Maximum size of gene sequences
     :param gene_type_len: Maximum size of gene type
 
     :return: Formated table
     """
     return {
         "gene": tables.StringCol(itemsize=gene_id_len),
-        "dna": tables.StringCol(itemsize=gene_seq_len),
+        "seqid": tables.UInt32Col(),
         "type": tables.StringCol(itemsize=gene_type_len)
     }
 
+def get_sequence_len(pangenome: Pangenome) -> int:
+    """
+    Get the maximum size of gene sequences to optimize disk space
+
+    :param pangenome: Annotated pangenome
+    :return: maximum size of each annotation
+    """
+    max_seq_len = 1
+    for gene in pangenome.genes:
+        if len(gene.dna) > max_seq_len:
+            max_seq_len = len(gene.dna)
+    return max_seq_len
+
+def sequence_desc(max_seq_len: int) -> dict:
+    """
+    Table description to save sequences
+    :param max_seq_len: Maximum size of gene type
+
+    :return: Formated table
+    """
+    return {
+        "seqid": tables.UInt32Col(),
+        "dna": tables.StringCol(itemsize=max_seq_len)
+    }
 
 def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
@@ -191,13 +213,31 @@ def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bo
     """
     gene_seq = h5f.create_table("/", "geneSequences", gene_sequences_desc(*get_gene_sequences_len(pangenome)),
                                 expectedrows=len(pangenome.genes))
+    #process sequences to save them only once
+    seq2seqid = {}
+    id_counter = 0
     gene_row = gene_seq.row
     for gene in tqdm(pangenome.genes, total=pangenome.number_of_gene(), unit="gene", disable=disable_bar):
+        curr_seq_id = seq2seqid.get(gene.dna)
+        if curr_seq_id is None:
+            curr_seq_id = id_counter
+            seq2seqid[gene.dna] = id_counter
+            id_counter+=1
         gene_row["gene"] = gene.ID
-        gene_row["dna"] = gene.dna
+        gene_row["seqid"] = curr_seq_id
         gene_row["type"] = gene.type
         gene_row.append()
     gene_seq.flush()
+
+    seq_table = h5f.create_table("/","sequences", sequence_desc(get_sequence_len(pangenome)),
+                                 expectedrows=len(seq2seqid))
+
+    seq_row = seq_table.row
+    for seq, seqid in seq2seqid.items():
+        seq_row["dna"] = seq
+        seq_row["seqid"] = seqid
+        seq_row.append()
+    seq_table.flush()
 
 
 def gene_fam_desc(max_name_len: int, max_sequence_length: int, max_part_len: int) -> dict:
@@ -217,7 +257,7 @@ def gene_fam_desc(max_name_len: int, max_sequence_length: int, max_part_len: int
     }
 
 
-def get_gene_fam_len(pangenome: Pangenome) -> (int, int, int):
+def get_gene_fam_len(pangenome: Pangenome) -> Tuple[int, int, int]:
     """
     Get maximum size of gene families information
 
@@ -334,7 +374,7 @@ def graph_desc(max_gene_id_len):
     }
 
 
-def get_gene_id_len(pangenome: Pangenome):
+def get_gene_id_len(pangenome: Pangenome) -> int:
     """
     Get maximum size of gene id in pangenome graph
 
@@ -391,7 +431,7 @@ def rgp_desc(max_rgp_len, max_gene_len):
     }
 
 
-def get_rgp_len(pangenome: Pangenome):
+def get_rgp_len(pangenome: Pangenome) -> Tuple[int, int]:
     """
     Get maximum size of region of genomic plasticity and gene
 
@@ -448,7 +488,7 @@ def spot_desc(max_rgp_len):
     }
 
 
-def get_spot_desc(pangenome: Pangenome):
+def get_spot_desc(pangenome: Pangenome) -> int:
     """
     Get maximum size of region of genomic plasticity in hotspot
 
@@ -502,7 +542,7 @@ def mod_desc(gene_fam_name_len):
     }
 
 
-def get_mod_desc(pangenome: Pangenome):
+def get_mod_desc(pangenome: Pangenome) -> int:
     """
     Get maximum size of gene families name in modules
 
