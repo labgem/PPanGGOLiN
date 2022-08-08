@@ -507,7 +507,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         else:
             raise Exception(f"The pangenome in file '{filename}' has not been annotated, or has been improperly filled")
     if gene_sequences:
-        if h5f.root.status._v_attrs.geneSequences and h5f.root.status._v_attrs.sequences:
+        if h5f.root.status._v_attrs.geneSequences:
             logging.getLogger().info("Reading pangenome gene dna sequences...")
             read_gene_sequences(pangenome, h5f, disable_bar=disable_bar)
         else:
