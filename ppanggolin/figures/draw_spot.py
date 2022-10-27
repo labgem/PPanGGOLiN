@@ -7,6 +7,7 @@ import logging
 from collections import defaultdict, Counter
 import random
 from math import pi
+import sys
 
 # local libraries
 from ppanggolin.utils import jaccard_similarities
@@ -54,6 +55,9 @@ def row_order_gene_lists(gene_lists):
     #if there is only one, ordering is useless
     if len(gene_lists) == 1:
         return gene_lists
+
+    if len(gene_lists) > sys.getrecursionlimit():
+        sys.setrecursionlimit(len(gene_lists))#we need the recursion limit to be higher than the number of regions.
 
     fam_dict = defaultdict(set)
 
