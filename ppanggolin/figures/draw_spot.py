@@ -51,6 +51,10 @@ def order_gene_lists(gene_lists, overlapping_match, exact_match, set_size):
 
 
 def row_order_gene_lists(gene_lists):
+    #if there is only one, ordering is useless
+    if len(gene_lists) == 1:
+        return gene_lists
+
     fam_dict = defaultdict(set)
 
     for index, genelist in enumerate([genelist[0] for genelist in gene_lists]):
