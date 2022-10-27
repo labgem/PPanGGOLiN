@@ -219,16 +219,15 @@ def mk_source_data(genelists, fam_col, fam_to_mod):
             df["x_label"].append(str(int(df["x"][-1]) - int(int(df["width"][-1]) / 2)))
             if ordered:
                 if gene.strand == "+":
-                    df["y"].append(str((index * 10) + 1))
+                    df["y"].append((index * 10) + 1)
                 else:
-
-                    df["y"].append(str((index * 10) - 1))
+                    df["y"].append((index * 10) - 1)
             else:
                 if gene.strand == "+":
-                    df["y"].append(str((index * 10) - 1))
+                    df["y"].append((index * 10) - 1)
                 else:
-                    df["y"].append(str((index * 10) + 1))
-            df["y_label"].append(str(float(df["y"][-1]) + 1.5))
+                    df["y"].append((index * 10) + 1)
+            df["y_label"].append(float(df["y"][-1]) + 1.5)
     df["label"] = df["name"]
     df["line_color"] = df["partition_color"]
     df["fill_color"] = df["family_color"]
@@ -393,26 +392,26 @@ def add_genome_tools(fig, gene_recs, genome_recs, gene_source, genome_source, nb
         args=dict(gene_recs=gene_recs, gene_source=gene_source, genome_recs=genome_recs, genome_source=genome_source,
                   nb_elements=nb, genome_labels=genome_labels, gene_labels=gene_labels),
         code="""
-            var current_val = genomeSource.data['y'][genomeSource.data['y'].length - 1] / (nb_elements-1);
-            for (let i=0 ; i < genomeSource.data['y'].length ; i++){
-                genomeSource.data['y'][i] =  (genomeSource.data['y'][i] * this.value) / current_val;
+            var current_val = genome_source.data['y'][genome_source.data['y'].length - 1] / (nb_elements-1);
+            for (let i=0 ; i < genome_source.data['y'].length ; i++){
+                genome_source.data['y'][i] =  (genome_source.data['y'][i] * this.value) / current_val;
             }
-            for (let i=0 ; i < geneSource.data['y'].length ; i++){
-                if((geneSource.data['ordered'][i] == 'True' && geneSource.data['strand'][i] == '+') || (geneSource.data['ordered'][i] == 'False' && geneSource.data['strand'][i] == '-') ){
-                    geneSource.data['y'][i] = (((geneSource.data['y'][i]-1) * this.value) / current_val) +1;
-                    geneSource.data['y_label'][i] = (((geneSource.data['y_label'][i]-1-1.5) * this.value) / current_val) + 1 + 1.5;
+            for (let i=0 ; i < gene_source.data['y'].length ; i++){
+                if((gene_source.data['ordered'][i] == 'True' && gene_source.data['strand'][i] == '+') || (gene_source.data['ordered'][i] == 'False' && gene_source.data['strand'][i] == '-') ){
+                    gene_source.data['y'][i] = (((gene_source.data['y'][i]-1) * this.value) / current_val) +1;
+                    gene_source.data['y_label'][i] = (((gene_source.data['y_label'][i]-1-1.5) * this.value) / current_val) + 1 + 1.5;
                 }else{
-                    geneSource.data['y'][i] = (((geneSource.data['y'][i]+1) * this.value) / current_val) -1;
-                    geneSource.data['y_label'][i] = (((geneSource.data['y_label'][i]+1-1.5) * this.value) / current_val) -1 + 1.5;
+                    gene_source.data['y'][i] = (((gene_source.data['y'][i]+1) * this.value) / current_val) -1;
+                    gene_source.data['y_label'][i] = (((gene_source.data['y_label'][i]+1-1.5) * this.value) / current_val) -1 + 1.5;
 
                 }
             }
-            geneRecs.source = geneSource;
-            genomeRecs.source = genomeSource;
-            geneLabels.source = geneSource;
-            genome_labels.source = genomeSource;
-            geneSource.change.emit();
-            genomeSource.change.emit();
+            gene_recs.source = gene_source;
+            genome_recs.source = genome_source;
+            gene_labels.source = gene_source;
+            genome_labels.source = genome_source;
+            gene_source.change.emit();
+            genome_source.change.emit();
         """))
 
     genome_header = Div(text="<b>Genomes:</b>")
