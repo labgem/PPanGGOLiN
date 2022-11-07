@@ -403,7 +403,7 @@ def read_info(h5f: tables.File):
             if info_group._v_attrs['numberOfPartitions'] != 3:
                 for key, val in info_group._v_attrs['numberOfSubpartitions'].items():
                     print(f"Shell {key} : {val}")
-        if 'genome_fluidity' in info_group._v_attrs._f_list():
+        if 'genomes_fluidity' in info_group._v_attrs._f_list():
             out = "Genomes fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
                             info_group._v_attrs['genomes_fluidity'].items())
