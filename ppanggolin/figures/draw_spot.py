@@ -15,7 +15,7 @@ from scipy.cluster.hierarchy import linkage, dendrogram
 import networkx as nx
 
 from tqdm import tqdm
-from bokeh.plotting import ColumnDataSource, figure, save, Figure
+from bokeh.plotting import ColumnDataSource, figure, save
 from bokeh.io import output_file
 from bokeh.layouts import column, row
 from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer
@@ -355,7 +355,7 @@ def add_gene_tools(recs: GlyphRenderer, source_data: ColumnDataSource) -> Column
                   gene_outline_size)
 
 
-def add_gene_labels(fig: Figure, source_data: ColumnDataSource) -> (Column, LabelSet):
+def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
     """
 
     :param fig:
@@ -437,7 +437,7 @@ def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, lis
     return ColumnDataSource(data=df), tooltip
 
 
-def add_genome_tools(fig: Figure, gene_recs: GlyphRenderer, genome_recs: GlyphRenderer, gene_source: ColumnDataSource,
+def add_genome_tools(fig, gene_recs: GlyphRenderer, genome_recs: GlyphRenderer, gene_source: ColumnDataSource,
                      genome_source: ColumnDataSource, nb: int, gene_labels: LabelSet):
     """
 
