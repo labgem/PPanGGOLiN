@@ -505,7 +505,7 @@ def partition(pangenome: Pangenome, tmpdir: str, outputdir: str = None, beta: fl
     if chunk_size < len(organisms):
         validated = set()
 
-        def validate_family(res: Union[(dict, None, None), (int, float, float), (dict, dict, float)]):
+        def validate_family(res):
             """
             Validate partition assignation to families
 
