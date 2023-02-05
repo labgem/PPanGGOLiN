@@ -7,9 +7,18 @@ import plotly.graph_objs as go
 import plotly.offline as out_plotly
 # local libraries
 from ppanggolin.formats import check_pangenome_info
+from ppanggolin.pangenome import Pangenome
 
 
-def draw_ucurve(pangenome, output, soft_core=0.95,  disable_bar=False):
+def draw_ucurve(pangenome: Pangenome, output: str, soft_core: float = 0.95,  disable_bar: bool = False):
+    """
+
+    :param pangenome: Partitioned pangenome
+    :param output: Path to output directory
+    :param soft_core: Soft core threshold to use
+    :param disable_bar: Allow to disable progress bar
+    :return:
+    """
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     logging.getLogger().info("Drawing the U-shaped curve...")
     max_bar = 0

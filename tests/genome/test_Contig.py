@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+import random
 
 import pytest
 
@@ -45,9 +46,9 @@ def test_add_rna(o_ctg):
 @pytest.fixture()
 def l_genes():
     l_genes = []
-    for i in range(6, 0, -1):
+    for i in range(6, -1, -1):  # Create 7 Gene
         o_gene = Gene(i)
-        o_gene.fill_annotations(i, i, i, position=i - 1)
+        o_gene.fill_annotations(start=i*10, stop=i*10 - 1, strand='+', position=i)
         l_genes.append(o_gene)
 
     return l_genes

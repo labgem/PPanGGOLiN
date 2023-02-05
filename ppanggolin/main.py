@@ -22,19 +22,19 @@ import ppanggolin.cluster
 import ppanggolin.figures
 import ppanggolin.formats
 import ppanggolin.info
-import ppanggolin.metrics.metrics
+import ppanggolin.metrics
 import ppanggolin.align
-import ppanggolin.RGP.genomicIsland
-import ppanggolin.RGP.spot
+import ppanggolin.RGP
 import ppanggolin.mod
 import ppanggolin.context
-import ppanggolin.workflow.workflow
-import ppanggolin.workflow.panRGP
-import ppanggolin.workflow.panModule
-import ppanggolin.workflow.all
+import ppanggolin.workflow
 
 
-def cmd_line():
+def cmd_line() -> argparse.Namespace:
+    """ Manage the command line argument given by user
+
+    :return: arguments given and readable by PPanGGOLiN
+    """
     # need to manually write the description so that it's displayed into groups of subcommands ....
     desc = "\n"
     desc += "All of the following subcommands have their own set of options. To see them for a given subcommand," \
@@ -53,7 +53,7 @@ def cmd_line():
     desc += "    cluster       Cluster proteins in protein families\n"
     desc += "    graph         Create the pangenome graph\n"
     desc += "    partition     Partition the pangenome graph\n"
-    desc += "    rarefaction   Compute the rarefaction curve of the pan\n"
+    desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
     desc += "  \n"
     desc += "  Output:\n"
@@ -132,6 +132,10 @@ def cmd_line():
 
 
 def main():
+    """ Run the command given by user and set / check some things
+
+    :return:
+    """
     args = cmd_line()
 
     if hasattr(args, "pangenome"):

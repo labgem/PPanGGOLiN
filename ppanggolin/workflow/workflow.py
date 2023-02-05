@@ -24,7 +24,12 @@ from ppanggolin.info.info import print_info
 """ a global workflow that does everything in one go. """
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     check_option_workflow(args)
     pangenome = Pangenome()
     filename = mk_file_name(args.basename, args.output, args.force)
@@ -42,15 +47,15 @@ def launch(args):
             read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar)
 
         elif args.clusters is None:  # we should have the sequences here.
-            clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, identity=args.identity, coverage=args.coverage,
-                       mode=args.mode, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
+            clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, defrag=not args.no_defrag, coverage=args.coverage,
+                       identity=args.identity, mode=args.mode, disable_bar=args.disable_prog_bar)
     elif args.fasta is not None:
         pangenome = Pangenome()
         annotate_pangenome(pangenome, args.fasta, args.tmpdir, args.cpu, contig_filter=args.contig_filter,
                            disable_bar=args.disable_prog_bar)
         write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
-        clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, identity=args.identity, coverage=args.coverage,
-                   mode=args.mode, defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
+        clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, defrag=not args.no_defrag, coverage=args.coverage,
+                   identity=args.identity, mode=args.mode, disable_bar=args.disable_prog_bar)
 
     compute_neighbors_graph(pangenome, disable_bar=args.disable_prog_bar)
 
@@ -70,7 +75,14 @@ def launch(args):
     print_info(filename, content=True)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("workflow", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")

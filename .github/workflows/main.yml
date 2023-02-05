@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: ['ubuntu-latest', 'macos-latest']
-        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.7', '3.8', '3.9', '3.10']
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
@@ -78,7 +78,7 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin workflow --cpu 1 --anno organisms.gbff.list --output myannopang
-        ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo
+        ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo --single_copy
         cd -
     - name: clusters reading from external file
       shell: bash -l {0}

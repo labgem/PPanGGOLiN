@@ -6,11 +6,15 @@ import argparse
 from multiprocessing import get_context
 from collections import Counter, defaultdict
 import logging
+from typing import TextIO
 import pkg_resources
 from statistics import median, mean, stdev
 import os
 
 # local libraries
+from ppanggolin.edge import Edge
+from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.genome import Organism
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float
 from ppanggolin.formats.readBinaries import check_pangenome_info
@@ -27,7 +31,11 @@ needModules = False
 ignore_err = False
 
 
-def write_json_header(json):
+def write_json_header(json: TextIO):
+    """Write the header of json file to save graph
+
+    :param json: file-like object, compressed or not
+    """
     json.write('{"directed": false, "multigraph": false,')
     json.write(' "graph": {')
     json.write(' "organisms": {')
@@ -36,8 +44,8 @@ def write_json_header(json):
         orgstr.append('"' + org.name + '": {')
         contigstr = []
         for contig in org.contigs:
-            contigstr.append(
-                '"' + contig.name + '": {"is_circular": ' + ('true' if contig.is_circular else 'false') + '}')
+            contigstr.append(f'"{contig.name}": ' + '{"is_circular: ' +
+                             ('true' if contig.is_circular else 'false') + '}')
         orgstr[-1] += ', '.join(contigstr) + "}"
 
     json.write(', '.join(orgstr) + "}")
@@ -45,7 +53,12 @@ def write_json_header(json):
     json.write('},')
 
 
-def write_json_gene_fam(gene_fam, json):
+def write_json_gene_fam(gene_fam: GeneFamily, json: TextIO):
+    """Write the gene families corresponding to node graph in json file
+
+    :param gene_fam: file-like object, compressed or not
+    :param json: file-like object, compressed or not
+    """
     json.write('{' + f'"id": "{gene_fam.name}", "nb_genes": {len(gene_fam.genes)}, '
                      f'"partition": "{gene_fam.named_partition}", "subpartition": "{gene_fam.partition}"' + '}')
     org_dict = {}
@@ -86,7 +99,11 @@ def write_json_gene_fam(gene_fam, json):
     json.write(", ".join(orgstr) + "}}")
 
 
-def write_json_nodes(json):
+def write_json_nodes(json: TextIO):
+    """Write the node graph in json file
+
+    :param json: file-like object, compressed or not
+    """
     json.write('"nodes": [')
     fam_list = list(pan.gene_families)
     first_fam = fam_list[0]
@@ -97,7 +114,12 @@ def write_json_nodes(json):
     json.write(']')
 
 
-def write_json_edge(edge, json):
+def write_json_edge(edge: Edge, json: TextIO):
+    """Write the edge graph in json file
+
+    :param edge: file-like object, compressed or not
+    :param json: file-like object, compressed or not
+    """
     json.write("{")
     json.write(f'"weight": {len(edge.gene_pairs)}, "source": "{edge.source.name}", "target": "{edge.target.name}"')
     json.write(', "organisms": {')
@@ -113,8 +135,12 @@ def write_json_edge(edge, json):
 
 
 def write_json_edges(json):
+    """Write the edge graph in json file
+
+    :param json: file-like object, compressed or not
+    """
     json.write(', "links": [')
-    edgelist = list(pan.edges)
+    edgelist = pan.edges
     write_json_edge(edgelist[0], json)
     for edge in edgelist[1:]:
         json.write(", ")
@@ -122,7 +148,12 @@ def write_json_edges(json):
     json.write(']')
 
 
-def write_json(output, compress):
+def write_json(output: str, compress: bool = False):
+    """Writes the graph in a json file format
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Writing the json file for the pangenome graph...")
     outname = output + "/pangenomeGraph.json"
     with write_compressed_or_not(outname, compress) as json:
@@ -133,10 +164,15 @@ def write_json(output, compress):
     logging.getLogger().info(f"Done writing the json file : '{outname}'")
 
 
-def write_gexf_header(gexf, light):
+def write_gexf_header(gexf: TextIO, light: bool = True):
+    """Write the header of gexf file to save graph
+
+    :param gexf: file-like object, compressed or not
+    :param light: save the light version of the pangenome graph
+    """
     index = None
     if not light:
-        index = pan.get_index()  # has been computed already
+        index = pan.get_org_index()  # has been computed already
     gexf.write('<?xml version="1.1" encoding="UTF-8"?>\n<gexf xmlns:viz="https://www.gexf.net/1.2draft/viz"'
                ' xmlns="https://www.gexf.net/1.2draft" version="1.2">\n')  # TODO update link
     gexf.write('  <graph mode="static" defaultedgetype="undirected">\n')
@@ -168,13 +204,19 @@ def write_gexf_header(gexf, light):
     gexf.write('    </meta>\n')
 
 
-def write_gexf_nodes(gexf, light, soft_core=0.95):
+def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
+    """Write the node of pangenome graph in gexf file
+
+    :param gexf: file-like object, compressed or not
+    :param light: save the light version of the pangenome graph
+    :param soft_core: Soft core threshold to use
+    """
     index = None
     gexf.write('    <nodes>\n')
     colors = {"persistent": 'a="0" b="7" g="165" r="247"', 'shell': 'a="0" b="96" g="216" r="0"',
               'cloud': 'a="0" b="255" g="222" r="121"'}
     if not light:
-        index = pan.get_index()
+        index = pan.get_org_index()
 
     for fam in pan.gene_families:
         name = Counter()
@@ -216,10 +258,15 @@ def write_gexf_nodes(gexf, light, soft_core=0.95):
     gexf.write('    </nodes>\n')
 
 
-def write_gexf_edges(gexf, light):
+def write_gexf_edges(gexf: TextIO, light: bool = True):
+    """Write the edge of pangenome graph in gexf file
+
+    :param gexf: file-like object, compressed or not
+    :param light: save the light version of the pangenome graph
+    """
     gexf.write('    <edges>\n')
     edgeids = 0
-    index = pan.get_index()
+    index = pan.get_org_index()
 
     for edge in pan.edges:
         gexf.write(f'      <edge id="{edgeids}" source="'
@@ -236,15 +283,25 @@ def write_gexf_edges(gexf, light):
     gexf.write('    </edges>\n')
 
 
-def write_gexf_end(gexf):
+def write_gexf_end(gexf: TextIO):
+    """Write the end of gexf file to save pangenome
+
+    :param gexf: file-like object, compressed or not
+    """
     gexf.write("  </graph>")
     gexf.write("</gexf>")
 
 
-def write_gexf(output, light=True, compress=False):
-    txt = "Writing the gexf file for the pangenome graph..."
-    if light:
-        txt = "Writing the light gexf file for the pangenome graph..."
+def write_gexf(output: str, light: bool = True, compress: bool = False):
+    """Write the node of pangenome in gexf file
+
+    :param output: Path to output directory
+    :param light: save the light version of the pangenome graph
+    :param compress: Compress the file in .gz
+    """
+    txt = "Writing the "
+    txt += "light gexf file for the pangenome graph..." if light else "gexf file for the pangenome graph..."
+
     logging.getLogger().info(txt)
     outname = output + "/pangenomeGraph"
     outname += "_light" if light else ""
@@ -257,7 +314,17 @@ def write_gexf(output, light=True, compress=False):
     logging.getLogger().info(f"Done writing the gexf file : '{outname}'")
 
 
-def write_matrix(sep, ext, output, compress=False, gene_names=False):
+def write_matrix(output: str, sep: str = ',', ext: str = 'csv', compress: bool = False, gene_names: bool = False):
+    """
+    Write a csv file format as used by Roary, among others.
+    The alternative gene ID will be the partition, if there is one
+
+    :param sep: Column field separator
+    :param ext: file extension
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    :param gene_names: write the genes name if there are saved in  pangenome
+    """
     logging.getLogger().info(f"Writing the .{ext} file ...")
     outname = output + "/matrix." + ext
     with write_compressed_or_not(outname, compress) as matrix:
@@ -284,15 +351,15 @@ def write_matrix(sep, ext, output, compress=False, gene_names=False):
                                '"Avg group size nuc"']  # 14
                               + ['"' + str(org) + '"' for org in pan.organisms]) + "\n")  # 15
         default_genes = ['""'] * len(pan.organisms) if gene_names else ["0"] * len(pan.organisms)
-        org_index = pan.get_index()  # should just return things
+        org_index = pan.get_org_index()  # should just return things
         for fam in pan.gene_families:
             genes = default_genes.copy()
             lis = []
             genenames = Counter()
             product = Counter()
             for org, gene_list in fam.get_org_dict().items():
-                genes[org_index[org]] = " ".join(['"' + str(gene) + '"' for gene in gene_list]) if gene_names else str(
-                    len(gene_list))
+                genes[org_index[org]] = " ".join(['"' + str(gene) +
+                                                  '"' for gene in gene_list]) if gene_names else str(len(gene_list))
                 for gene in gene_list:
                     lis.append(gene.stop - gene.start)
                     product[gene.product] += 1
@@ -322,7 +389,13 @@ def write_matrix(sep, ext, output, compress=False, gene_names=False):
     logging.getLogger().info(f"Done writing the matrix : '{outname}'")
 
 
-def write_gene_presence_absence(output, compress=False):
+def write_gene_presence_absence(output: str, compress: bool = False):
+    """
+    Write the gene presence absence matrix
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info(f"Writing the gene presence absence file ...")
     outname = output + "/gene_presence_absence.Rtab"
     with write_compressed_or_not(outname, compress) as matrix:
@@ -332,10 +405,10 @@ def write_gene_presence_absence(output, compress=False):
             default_dat.append('0')
             index_org[org] = index
 
-        matrix.write('\t'.join(['Gene']  # 14
-                               + [str(org) for org in pan.organisms]) + "\n")  # 15
+        matrix.write('\t'.join(['Gene'] +  # 14
+                               [str(org) for org in pan.organisms]) + "\n")  # 15
         default_genes = ["0"] * len(pan.organisms)
-        org_index = pan.get_index()  # should just return things
+        org_index = pan.get_org_index()  # should just return things
         for fam in pan.gene_families:
             genes = default_genes.copy()
             for org in fam.organisms:
@@ -346,14 +419,22 @@ def write_gene_presence_absence(output, compress=False):
     logging.getLogger().info(f"Done writing the gene presence absence file : '{outname}'")
 
 
-def write_stats(output, soft_core, dup_margin, compress=False):
+def write_stats(output: str, soft_core: float = 0.95, dup_margin: float = 0.05, compress: bool = False):
+    """
+    Write pangenome statistics
+
+    :param output: Path to output directory
+    :param soft_core: Soft core threshold to use
+    :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Writing pangenome statistics...")
     logging.getLogger().info("Writing statistics on persistent duplication...")
     single_copy_markers = set()  # could use bitarrays if speed is needed
     with write_compressed_or_not(output + "/mean_persistent_duplication.tsv", compress) as outfile:
         outfile.write(f"#duplication_margin={round(dup_margin, 3)}\n")
-        outfile.write(
-            "\t".join(["persistent_family", "duplication_ratio", "mean_presence", "is_single_copy_marker"]) + "\n")
+        outfile.write("\t".join(["persistent_family", "duplication_ratio", "mean_presence", "is_single_copy_marker"]) +
+                      "\n")
         for fam in pan.gene_families:
             if fam.named_partition == "persistent":
                 mean_pres = len(fam.genes) / len(fam.organisms)
@@ -439,7 +520,14 @@ def write_stats(output, soft_core, dup_margin, compress=False):
     logging.getLogger().info("Done writing genome per genome statistics")
 
 
-def write_org_file(org, output, compress=False):
+def write_org_file(org: Organism, output: str, compress: bool = False):
+    """
+    Write the projection of pangenome for one organism
+
+    :param org: Projected organism
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     with write_compressed_or_not(output + "/" + org.name + ".tsv", compress) as outfile:
         header = ["gene", "contig", "start", "stop", "strand", "family", "nb_copy_in_org",
                   "partition", "persistent_neighbors", "shell_neighbors", "cloud_neighbors"]
@@ -484,7 +572,13 @@ def write_org_file(org, output, compress=False):
                 outfile.write("\t".join(map(str, row)) + "\n")
 
 
-def write_projections(output, compress=False):
+def write_projections(output: str, compress: bool = False):
+    """
+    Write the projection of pangenome for all organisms
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Writing the projection files...")
     outdir = output + "/projection"
     if not os.path.exists(outdir):
@@ -494,8 +588,14 @@ def write_projections(output, compress=False):
     logging.getLogger().info("Done writing the projection files")
 
 
-def write_parts(output, soft_core):
-    logging.getLogger().info("Writing the list of gene families for each partitions...")
+def write_parts(output: str, soft_core: float = 0.95):
+    """
+    Write the list of gene families for each partition
+
+    :param output: Path to output directory
+    :param soft_core: Soft core threshold to use
+    """
+    logging.getLogger().info("Writing the list of gene families for each partition ...")
     if not os.path.exists(output + "/partitions"):
         os.makedirs(output + "/partitions")
     part_sets = defaultdict(set)
@@ -525,7 +625,13 @@ def write_parts(output, soft_core):
     logging.getLogger().info("Done writing the list of gene families for each partition")
 
 
-def write_gene_families_tsv(output, compress=False):
+def write_gene_families_tsv(output: str, compress: bool = False):
+    """
+    Write the file providing the association between genes and gene families
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Writing the file providing the association between genes and gene families...")
     outname = output + "/gene_families.tsv"
     with write_compressed_or_not(outname, compress) as tsv:
@@ -533,11 +639,17 @@ def write_gene_families_tsv(output, compress=False):
             for gene in fam.genes:
                 tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier,
                                      "F" if gene.is_fragment else ""]) + "\n")
-    logging.getLogger().info(
-        f"Done writing the file providing the association between genes and gene families : '{outname}'")
+    logging.getLogger().info("Done writing the file providing the association between genes and "
+                             f"gene families : '{outname}'")
 
 
 def write_regions(output, compress=False):
+    """
+    Write the file providing information about RGP content
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     fname = output + "/plastic_regions.tsv"
     with write_compressed_or_not(fname, compress) as tab:
         tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
@@ -547,13 +659,17 @@ def write_regions(output, compress=False):
                                           len(region.genes), region.is_contig_border, region.is_whole_contig])) + "\n")
 
 
-def summarize_spots(spots, output, compress):
-    def r_and_s(value):
-        """ rounds to dp figures and returns a str of the provided value"""
-        if isinstance(value, float):
-            return str(round(value, 3))
-        else:
-            return str(value)
+def summarize_spots(spots: set, output: str, compress: bool = False):
+    """
+    Write a file providing summarize information about hotspots
+
+    :param spots: set of spots in pangenome
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
+    def r_and_s(value: float):
+        """rounds to dp figures and returns a str of the provided value"""
+        return str(round(value, 3)) if isinstance(value, float) else str(value)
 
     with write_compressed_or_not(output + "/summarize_spots.tsv", compress) as fout:
         fout.write("spot\tnb_rgp\tnb_families\tnb_unique_family_sets\tmean_nb_genes\t"
@@ -570,13 +686,18 @@ def summarize_spots(spots, output, compress):
             stdev_size = stdev(size_list) if len(size_list) > 1 else 0
             max_size = max(size_list)
             min_size = min(size_list)
-            fout.write("\t".join(map(r_and_s,
-                                     [f"spot_{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content, mean_size,
-                                      stdev_size, max_size, min_size])) + "\n")
+            fout.write("\t".join(map(r_and_s, [f"spot_{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content,
+                                               mean_size, stdev_size, max_size, min_size])) + "\n")
     logging.getLogger().info(f"Done writing spots in : '{output + '/summarize_spots.tsv'}'")
 
 
-def spot2rgp(spots, output, compress):
+def spot2rgp(spots: set, output: str, compress: bool = False):
+    """Write a tsv file providing association between spot and rgp
+
+    :param spots: set of spots in pangenome
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     with write_compressed_or_not(output + "/spots.tsv", compress) as fout:
         fout.write("spot_id\trgp_id\n")
         for spot in spots:
@@ -585,12 +706,23 @@ def spot2rgp(spots, output, compress):
 
 
 def write_spots(output, compress):
+    """ Write tsv files providing spots information and association with RGP
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     if len(pan.spots) > 0:
         spot2rgp(pan.spots, output, compress)
         summarize_spots(pan.spots, output, compress)
 
 
-def write_borders(output, dup_margin, compress):
+def write_borders(output: str, dup_margin: float = 0.05, compress: bool = False):
+    """Write all gene families bordering each spot
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
+    """
     multigenics = pan.get_multigenics(dup_margin=dup_margin)
     all_fams = set()
     with write_compressed_or_not(output + "/spot_borders.tsv", compress) as fout:
@@ -610,7 +742,13 @@ def write_borders(output, dup_margin, compress):
             fout.write(f"{fam.sequence}\n")
 
 
-def write_module_summary(output, compress):
+def write_module_summary(output: str, compress: bool = False):
+    """
+    Write a file providing summarize information about modules
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Writing functional modules summary...")
     with write_compressed_or_not(output + "/modules_summary.tsv", compress) as fout:
         fout.write("module_id\tnb_families\tnb_organisms\tpartition\tmean_number_of_occurrence\n")
@@ -629,7 +767,12 @@ def write_module_summary(output, compress):
     logging.getLogger().info(f"Done writing module summary: '{output + '/modules_summary.tsv'}'")
 
 
-def write_modules(output, compress):
+def write_modules(output: str, compress: bool = False):
+    """Write a tsv file providing association between modules and gene families
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Writing functional modules...")
     with write_compressed_or_not(output + "/functional_modules.tsv", compress) as fout:
         fout.write("module_id\tfamily_id\n")
@@ -642,6 +785,11 @@ def write_modules(output, compress):
 
 
 def write_org_modules(output, compress):
+    """Write a tsv file providing association between modules and organisms
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Writing modules to organisms associations...")
     with write_compressed_or_not(output + "/modules_in_organisms.tsv", compress) as fout:
         fout.write("module_id\torganism\tcompletion\n")
@@ -658,6 +806,11 @@ def write_org_modules(output, compress):
 
 
 def write_spot_modules(output, compress):
+    """Write a tsv file providing association between modules and spots
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Writing modules to spot associations...")
 
     fam2mod = {}
@@ -685,6 +838,11 @@ def write_spot_modules(output, compress):
 
 
 def write_rgp_modules(output, compress):
+    """Write a tsv file providing association between modules and RGP
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
     logging.getLogger().info("Clustering RGPs based on module content...")
 
     lists = write_compressed_or_not(output + "/modules_RGP_lists.tsv", compress)
@@ -723,10 +881,38 @@ def write_rgp_modules(output, compress):
     logging.getLogger().info(f"RGP and associated modules are listed in : {output + '/modules_RGP_lists.tsv'}")
 
 
-def write_flat_files(pangenome, output, cpu=1, soft_core=0.95, dup_margin=0.05, csv=False, gene_pa=False, gexf=False,
-                     light_gexf=False, projection=False, stats=False, json=False, partitions=False, regions=False,
-                     families_tsv=False, spots=False, borders=False, modules=False, spot_modules=False, compress=False,
-                     disable_bar=False):
+def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core: float = 0.95, dup_margin: float = 0.05,
+                     csv: bool = False, gene_pa: bool = False, gexf: bool = False, light_gexf: bool = False,
+                     projection: bool = False, stats: bool = False, json: bool = False, partitions: bool = False,
+                     regions: bool = False, families_tsv: bool = False, spots: bool = False, borders: bool = False,
+                     modules: bool = False, spot_modules: bool = False, compress: bool = False,
+                     disable_bar: bool = False):
+    """
+    Main function to write flat files from pangenome
+
+    :param pangenome: Pangenome object
+    :param output: Path to output directory
+    :param cpu: Number of available core
+    :param soft_core: Soft core threshold to use
+    :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
+    :param csv: write csv file format as used by Roary
+    :param gene_pa: write gene presence abscence matrix
+    :param gexf: write pangenome graph in gexf format
+    :param light_gexf: write pangenome graph with only gene families
+    :param projection: write projection of pangenome for organisms
+    :param stats: write statistics about pangenome
+    :param json: write pangenome graph in json file
+    :param partitions: write the gene families for each partition
+    :param regions: write information on RGP
+    :param families_tsv: write gene families information
+    :param spots: write information on spots
+    :param borders: write gene families bordering spots
+    :param modules: write information about modules
+    :param spot_modules: write association between modules and RGP and modules and spots
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
+    # TODO Add force parameter to check if output already exist
     if not any(x for x in [csv, gene_pa, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders,
                            families_tsv, modules, spot_modules]):
         raise Exception("You did not indicate what file you wanted to write.")
@@ -767,10 +953,10 @@ def write_flat_files(pangenome, output, cpu=1, soft_core=0.95, dup_margin=0.05, 
                          need_partitions=needPartitions, need_rgp=needRegions, need_spots=needSpots,
                          need_modules=needModules, disable_bar=disable_bar)
 
-    pan.get_index()  # make the index because it will be used most likely
+    pan.get_org_index()  # make the index because it will be used most likely
     with get_context('fork').Pool(processes=cpu) as p:
         if csv:
-            processes.append(p.apply_async(func=write_matrix, args=(',', "csv", output, compress, True)))
+            processes.append(p.apply_async(func=write_matrix, args=(output, ',', "csv", compress, True)))
         if gene_pa:
             processes.append(p.apply_async(func=write_gene_presence_absence, args=(output, compress)))
         if gexf:
@@ -805,7 +991,12 @@ def write_flat_files(pangenome, output, cpu=1, soft_core=0.95, dup_margin=0.05, 
             process.get()  # get all the results
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     mk_outdir(args.output, args.force)
     global pan
     pan.add_file(args.pangenome)
@@ -816,13 +1007,25 @@ def launch(args):
                      spot_modules=args.spot_modules, compress=args.compress, disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("write", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_flat(parser)
     return parser
 
 
-def parser_flat(parser):
+def parser_flat(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of write command
+
+    :param parser: parser for align argument
+    """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")

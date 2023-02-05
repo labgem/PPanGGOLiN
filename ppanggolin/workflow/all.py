@@ -28,7 +28,12 @@ from ppanggolin.mod.module import predict_modules
 """a global workflow that does everything in one go."""
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     check_option_workflow(args)
     pangenome = Pangenome()
     filename = mk_file_name(args.basename, args.output, args.force)
@@ -52,8 +57,8 @@ def launch(args):
             read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar)
 
         elif args.clusters is None:  # we should have the sequences here.
-            clustering(pangenome, args.tmpdir, args.cpu, identity=args.identity, coverage=args.coverage, mode=args.mode,
-                       defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
+            clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, coverage=args.coverage,
+                       identity=args.identity, mode=args.mode, disable_bar=args.disable_prog_bar)
         clust_time = time.time() - start_clust
     elif args.fasta is not None:
         start_anno = time.time()
@@ -64,8 +69,8 @@ def launch(args):
         write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
         start_clust = time.time()
-        clustering(pangenome, args.tmpdir, args.cpu, identity=args.identity, coverage=args.coverage, mode=args.mode,
-                   defrag=not args.no_defrag, disable_bar=args.disable_prog_bar)
+        clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, coverage=args.coverage,
+                   identity=args.identity, mode=args.mode, disable_bar=args.disable_prog_bar)
         clust_time = time.time() - start_clust
 
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
@@ -91,7 +96,7 @@ def launch(args):
     spot_time = time.time() - start_spots
 
     start_mods = time.time()
-    predict_modules(pangenome=pangenome, cpu=args.cpu, tmpdir=args.tmpdir, disable_bar=args.disable_prog_bar)
+    predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
     mod_time = time.time() - start_mods
 
     start_writing = time.time()
@@ -130,7 +135,14 @@ def launch(args):
     print_info(filename, content=True)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("all", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")

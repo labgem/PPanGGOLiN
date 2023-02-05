@@ -177,7 +177,7 @@ def make_org_with_genes():
         l_genes = []
         o_org = Organism(org)
         for i in range(randint(2, 10)):
-            o_ctg = o_org.get_or_add_contig("k_{}".format(i))
+            o_ctg = o_org.get_contig("k_{}".format(i))
             for j in range(randint(2, 10)):
                 name = "{}.{}.{}".format(org, o_ctg.name, j)
                 o_gene = Gene(name)
@@ -295,10 +295,10 @@ def test_edges_several(o_pang, make_gene_pair):
 def test_get_index(o_pang, l_orgs):
     for o_org in l_orgs:
         o_pang.add_organism(o_org)
-    idx = o_pang.get_index()
+    idx = o_pang.get_org_index()
 
     # after the method, the index exist
-    assert o_pang.get_index() is idx
+    assert o_pang.get_org_index() is idx
 
     # all orgs are in the index
     l_observed = sorted(idx.keys(), key=lambda x: x.name)
@@ -309,7 +309,7 @@ def test_get_index(o_pang, l_orgs):
 def test_compute_family_bitarrays(o_pang, l_orgs):
     for o_org in l_orgs:
         o_pang.add_organism(o_org)
-    idx = o_pang.get_index()
+    idx = o_pang.get_org_index()
     assert o_pang.compute_family_bitarrays() is idx
 
 

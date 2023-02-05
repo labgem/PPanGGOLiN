@@ -13,8 +13,13 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.formats import read_pangenome, write_pangenome, erase_pangenome
 
 
-def check_pangenome_former_graph(pangenome, force):
-    """ checks pangenome status and .h5 files for former neighbors graph, delete it if allowed or raise an error """
+def check_pangenome_former_graph(pangenome: Pangenome, force: bool = False):
+    """
+    Checks pangenome status and .h5 files for former neighbors graph, delete it if allowed or raise an error
+
+    :param pangenome: Pangenome object
+    :param force: Allow to force write on Pangenome file
+    """
     if pangenome.status["neighborsGraph"] == "inFile" and not force:
         raise Exception("You are trying to make a neighbors graph that is already built. "
                         "If you REALLY want to do that, use --force (it will erase everything except annotation data !)"
@@ -25,9 +30,14 @@ def check_pangenome_former_graph(pangenome, force):
 
 def check_pangenome_for_neighbors_graph(pangenome, force, disable_bar=False):
     """
-        Checks the pangenome for neighbors graph computing.
+    Checks and read the pangenome for neighbors graph computing.
+
+    :param pangenome: Pangenome object
+    :param force: Allow to force write on Pangenome file
+    :param disable_bar: Disable progress bar
     """
     check_pangenome_former_graph(pangenome, force)
+    # TODO Check if possible to change for check_pangenome_info
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] and \
             pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
         pass  # nothing to do, can just continue.
@@ -47,17 +57,27 @@ def check_pangenome_for_neighbors_graph(pangenome, force, disable_bar=False):
 
 
 def remove_high_copy_number(pangenome, number):
-    """ removes families present more than 'number' times from the pangenome graph"""
+    """Removes families present more than 'number' times from the pangenome graph
+
+    :param pangenome: Pangenome object
+    :param number: Maximum authorized repeat presence
+    """
     for fam in pangenome.gene_families:
         for gene_list in fam.get_org_dict().values():
             if len(gene_list) >= number:
                 fam.removed = True
 
 
-def compute_neighbors_graph(pangenome, remove_copy_number=0, force=False, disable_bar=False):
+def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
+                            force: bool = False, disable_bar: bool = False):
     """
-        Creates the Pangenome Graph. Will either load the information from the pangenome file if they are not loaded,
-        or use the information loaded if they are.
+    Creates the Pangenome Graph. Will either load the information from the pangenome file if they are not loaded,
+    or use the information loaded if they are.
+
+    :param pangenome: Pangenome object
+    :param remove_copy_number: Maximum authorized repeat presence of gene families. if zero no remove
+    :param force: Allow to force write on Pangenome file
+    :param disable_bar: Disable progress bar
     """
     check_pangenome_for_neighbors_graph(pangenome, force, disable_bar=disable_bar)
 
@@ -80,6 +100,8 @@ def compute_neighbors_graph(pangenome, remove_copy_number=0, force=False, disabl
                         prev = gene
                 except AttributeError:
                     raise AttributeError("a Gene does not have a GeneFamily object associated")
+                except Exception:
+                    raise Exception("Unexpected error. Please report on our github.")
             if prev is not None and contig.is_circular and len(contig.genes) > 0:
                 # if prev is None, the contig is entirely made of duplicated genes, so no edges are added
                 pangenome.add_edge(contig.genes[0], prev)
@@ -93,20 +115,37 @@ def compute_neighbors_graph(pangenome, remove_copy_number=0, force=False, disabl
         pangenome.parameters["graph"]["removed_high_copy_number_of_families_above"] = remove_copy_number
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     compute_neighbors_graph(pangenome, args.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bar)
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_graph(parser)
     return parser
 
 
-def parser_graph(parser):
+def parser_graph(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of graph command
+
+    :param parser: parser for align argument
+    """
     parser.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
                         help="Positive Number: Remove families having a number of copy of gene in a single organism "

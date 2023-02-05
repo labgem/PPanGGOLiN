@@ -14,84 +14,32 @@ import pandas as pd
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
+from ppanggolin.genome import Gene, Contig
 from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
-from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.region import GeneContext
 
 
-class GeneContext:
-    """
-        A class used to represent a gene context
-
-        Attributes
-        ----------
-        gc_id : int
-            ID of the Gene context
-        families : set
-            Gene families related to the GeneContext
-
-        Methods
-        -------
-        """
-
-    def __init__(self, gc_id, families=None):
-        """ Initial methods
-
-        :param gc_id: ID of the GeneContext
-        :type gc_id: int
-        :param families: Gene families related to the GeneContext
-        :type families: set
-        """
-        self.ID = gc_id
-        self.families = set()
-        if families is not None:
-            if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception(f"You provided elements that were not GeneFamily object."
-                                f" GeneContext are only made of GeneFamily")
-            self.families |= set(families)
-
-    def add_family(self, family):
-        """
-        Allow to add one family in the GeneContext
-        :param family: family to add
-        :type family: GeneFamily
-        """
-        if not isinstance(family, GeneFamily):
-            raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
-        self.families.add(family)
-
-
-def search_gene_context_in_pangenome(pangenome, output, tmpdir, sequences=None, families=None, transitive=4,
-                                     identity=0.5, coverage=0.8, jaccard=0.85, no_defrag=False, cpu=1,
-                                     disable_bar=True):
+def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
+                                     families: str = None, transitive: int = 4, identity: float = 0.5,
+                                     coverage: float = 0.8, jaccard: float = 0.85, no_defrag: bool = False,
+                                     cpu: int = 1, disable_bar=True):
     """
     Main function to search common gene contexts between sequence set and pangenome families
 
     :param pangenome: Pangenome containing GeneFamilies to align with sequence set
-    :type pangenome: Pangenome
     :param sequences: Path to file containing the sequences
-    :type sequences: str
     :param families: Path to file containing families name
-    :type families: str
     :param output: Path to output directory
-    :type output: str
     :param tmpdir: Path to temporary directory
-    :type tmpdir: str
     :param transitive: number of genes to check on both sides of a family aligned with an input sequence
-    :type transitive: int
     :param identity: minimum identity threshold between sequences and gene families for the alignment
-    :type identity: float
     :param coverage: minimum coverage threshold between sequences and gene families for the alignment
-    :type coverage: float
     :param jaccard: Jaccard index to filter edges in graph
-    :type jaccard: float
     :param no_defrag: do not use the defrag workflow if true
-    :type no_defrag: Boolean
     :param cpu: Number of core used to process
-    :type cpu: int
     :param disable_bar: Allow preventing bar progress print
-    :type disable_bar: Boolean
     """
 
     # check statuses and load info
@@ -141,20 +89,17 @@ def search_gene_context_in_pangenome(pangenome, output, tmpdir, sequences=None, 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
 
-def compute_gene_context_graph(families, t, disable_bar=False):
+def compute_gene_context_graph(families: dict, t: int = 4, disable_bar: bool = False) -> nx.Graph:
     """
     Construct the graph of gene contexts between families of the pan
 
     :param families: Gene families of interest
-    :type families: dict
     :param t: transitive value
-    :type t: int
     :param disable_bar: Prevents progress bar printing
-    :type disable_bar: Boolean
 
     :return: Graph of gene contexts between interesting gene families of the pan
-    :rtype: nx.Graph
     """
+
     g = nx.Graph()
     for family in tqdm(families.values(), unit="families", disable=disable_bar):
         for gene in family.genes:
@@ -166,19 +111,16 @@ def compute_gene_context_graph(families, t, disable_bar=False):
     return g
 
 
-def _compute_gene_context_graph(g, env_gene, contig, pos_r):
+def _compute_gene_context_graph(g: nx.Graph, env_gene: Gene, contig: Contig, pos_r: int):
     """
     Compute graph of gene contexts between one gene and the other part of the contig
 
     :param: Graph of gene contexts between interesting gene families of the pan
-    :type: nx.Graph
     :param env_gene: Gene of the current position
-    :type env_gene: Gene
     :param contig: Current contig to search a gene context
-    :type contig: Contig
     :param pos_r: Gene to search a gene context
-    :type pos_r: Gene
     """
+
     g.add_node(env_gene.family)
     add_gene(g.nodes[env_gene.family], env_gene, fam_split=False)
     pos = env_gene.position + 1
@@ -191,22 +133,18 @@ def _compute_gene_context_graph(g, env_gene, contig, pos_r):
         pos += 1
 
 
-def extract_gene_context(gene, contig, families, t=4):
+def extract_gene_context(gene: Gene, contig: list, families: dict, t: int = 4) -> (int, bool, int, bool):
     """
     Extract gene context and whether said gene context exists
 
     :param gene: Gene of interest
-    :type gene: Gene
-    :param contig: Gene's contig
-    :type contig: Contig
+    :param contig: list of genes in contig
     :param families: Alignment results
-    :param families: dict
     :param t: transitive value
-    :type t: int
 
     :return: Position of the context and if it exists for each side ('left' and 'right')
-    :rtype: (int, Bool, int, Bool)
     """
+
     pos_left, pos_right = (max(0, gene.position - t),
                            min(gene.position + t, len(contig) - 1))  # Gene positions to compare family
     in_context_left, in_context_right = (False, False)
@@ -225,18 +163,16 @@ def extract_gene_context(gene, contig, families, t=4):
     return pos_left, in_context_left, pos_right, in_context_right
 
 
-def compute_gene_context(g, jaccard=0.85):
+def compute_gene_context(g: nx.Graph, jaccard: float = 0.85) -> set:
     """
     Compute the gene contexts in the graph
 
     :param g: Graph of gene contexts between interesting gene families of the pan
-    :type g: nx.Graph
     :param jaccard: Jaccard index
-    :type jaccard: float
 
     :return: Set of gene contexts find in graph
-    :rtype: Set
     """
+
     gene_contexts = set()
     c = 1
     for comp in connected_components(g, removed=set(), weight=jaccard):
@@ -245,15 +181,16 @@ def compute_gene_context(g, jaccard=0.85):
     return gene_contexts
 
 
-def fam2seq(seq_to_pan):
+def fam2seq(seq_to_pan: dict) -> dict:
     """
     Create a dictionary with gene families as keys and list of sequences id as values
 
     :param seq_to_pan: Dictionary storing the sequence ids as keys and the gene families
-                    to which they are assigned as values
+                       to which they are assigned as values
+
     :return: Dictionary reversed
-    :rtype: dict
     """
+
     fam_2_seq = {}
     for sequence, family in seq_to_pan.items():
         if family.ID in fam_2_seq.keys():
@@ -263,28 +200,25 @@ def fam2seq(seq_to_pan):
     return fam_2_seq
 
 
-def export_to_dataframe(families, gene_contexts, fam_2_seq, output):
+def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, output: str):
     """ Export the results into dataFrame
 
     :param families: Families related to the connected components
-    :type families: set
     :param gene_contexts: connected components found in the pan
-    :type gene_contexts: set
-    :param fam_2_seq: Dictionary with gene families as keys and list of sequence ids as values
-    :type fam_2_seq: dict
+    :param fam_to_seq: Dictionary with gene families as keys and list of sequence ids as values
     :param output: output path
-    :type output: str
     """
+
     logging.getLogger().debug(f"There are {len(families)} families among {len(gene_contexts)} gene contexts")
 
     lines = []
     for gene_context in gene_contexts:
         for family in gene_context.families:
             line = [gene_context.ID]
-            if fam_2_seq is None or fam_2_seq.get(family.ID) is None:
+            if fam_to_seq is None or fam_to_seq.get(family.ID) is None:
                 line += [family.name, None, len(family.organisms), family.named_partition]
             else:
-                line += [family.name, ','.join(fam_2_seq.get(family.ID)),
+                line += [family.name, ','.join(fam_to_seq.get(family.ID)),
                          len(family.organisms), family.named_partition]
             lines.append(line)
     df = pd.DataFrame(lines,
@@ -295,9 +229,15 @@ def export_to_dataframe(families, gene_contexts, fam_2_seq, output):
     logging.getLogger(f"detected gene context(s) are listed in: '{output}/gene_contexts.tsv'")
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
+
     if not any([args.sequences, args.family]):
-        raise Exception("At least one of --sequences or --family must be given")
+        raise Exception("At least one of --sequences or --family option must be given")
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
@@ -307,22 +247,27 @@ def launch(args):
                                      no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
-    Parser arguments specific to context command
+    Subparser to launch PPanGGOLiN in Command line
 
     :param sub_parser : sub_parser for align command
-    :type sub_parser : argparse._SubParsersAction
 
     :return : parser arguments for align command
-    :rtype : argparse.ArgumentParser
     """
+
     parser = sub_parser.add_parser("context", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_context(parser)
     return parser
 
 
-def parser_context(parser):
+def parser_context(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of context command
+
+    :param parser: parser for align argument
+    """
+
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome.h5 file")
