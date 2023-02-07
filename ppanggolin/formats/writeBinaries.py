@@ -230,7 +230,7 @@ def get_gene_fam_len(pangenome: Pangenome) -> Tuple[int, int, int]:
     """
     max_gene_fam_name_len = 1
     max_gene_fam_seq_len = 1
-    max_part_len = 1
+    max_part_len = 3
     for genefam in pangenome.gene_families:
         if len(genefam.sequence) > max_gene_fam_seq_len:
             max_gene_fam_seq_len = len(genefam.sequence)
