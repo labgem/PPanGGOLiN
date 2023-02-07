@@ -6,6 +6,8 @@ import argparse
 import logging
 
 # installed libraries
+from typing import TextIO
+
 from tqdm import tqdm
 
 # local libraries
@@ -18,11 +20,18 @@ poss_values_log = "Possible values are 'all', 'persistent', 'shell', 'cloud', 'r
                   "'core', 'module_X' with X being a module id."
 
 
-def write_gene_sequences_from_annotations(pangenome, file_obj, list_cds=None, add='', disable_bar=False):
+def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO, list_cds: list = None, add: str = '',
+                                          disable_bar: bool = False):
     """
     Writes the CDS sequences given through list_CDS of the Pangenome object to a tmpFile object,
     and adds the str provided through add in front of it.
     Loads the sequences from previously computed or loaded annotations
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param file_obj: Output file to write sequences
+    :param list_cds: Selected genes
+    :param add: Add prefix to gene ID
+    :param disable_bar: Disable progress bar
     """
     counter = 0
     if list_cds is None:
@@ -36,7 +45,18 @@ def write_gene_sequences_from_annotations(pangenome, file_obj, list_cds=None, ad
     file_obj.flush()
 
 
-def write_gene_sequences(pangenome, output, compress, genes, soft_core=0.95, disable_bar=False):
+def write_gene_sequences(pangenome: Pangenome, output: str, genes: str, soft_core: float = 0.95,
+                         compress: bool = False, disable_bar: bool = False):
+    """
+    Write all nucleotide CDS sequences
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param output: Path to output directory
+    :param genes: Selected partition of gene
+    :param soft_core: Soft core threshold to use
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
     logging.getLogger().info("Writing all the gene nucleotide sequences...")
     outname = output + f"/{genes}_genes.fna"
 
@@ -59,9 +79,16 @@ def write_gene_sequences(pangenome, output, compress, genes, soft_core=0.95, dis
     logging.getLogger().info(f"Done writing the gene sequences : '{outname}'")
 
 
-def select_families(pangenome, partition, type_name, soft_core):
-    """ function used to filter down families to the given partition
+def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_core: float = 0.95) -> set:
+    """
+    function used to filter down families to the given partition
 
+    :param pangenome: Pangenome object
+    :param partition: Selected partition
+    :param type_name: Which type of sequence we want. Gene families, protein, gene
+    :param soft_core: Soft core threshold to use
+
+    :return: Selected gene families
     """
     genefams = set()
     if partition == 'all':
@@ -99,7 +126,18 @@ def select_families(pangenome, partition, type_name, soft_core):
     return genefams
 
 
-def write_fasta_gene_fam(pangenome, output, compress, gene_families, soft_core=0.95, disable_bar=False):
+def write_fasta_gene_fam(pangenome: Pangenome, output: str, gene_families: str, soft_core: float = 0.95,
+                         compress: bool = False, disable_bar=False):
+    """
+    Write representative nucleotide sequences of gene families
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param output: Path to output directory
+    :param gene_families: Selected partition of gene families
+    :param soft_core: Soft core threshold to use
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
     outname = output + f"/{gene_families}_nucleotide_families.fasta"
 
     genefams = select_families(pangenome, gene_families, "representative nucleotide sequences of the gene families",
@@ -111,22 +149,38 @@ def write_fasta_gene_fam(pangenome, output, compress, gene_families, soft_core=0
     logging.getLogger().info(f"Done writing the representative nucleotide sequences of the gene families : '{outname}'")
 
 
-def write_fasta_prot_fam(pangenome, output, compress, prot_families, soft_core=0.95, disable_bar=False):
+def write_fasta_prot_fam(pangenome: Pangenome, output: str, prot_families: str, soft_core: float = 0.95,
+                         compress: bool = False, disable_bar: bool = False):
+    """
+    Write representative amino acid sequences of gene families.
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param output: Path to output directory
+    :param prot_families: Selected partition of protein families
+    :param soft_core: Soft core threshold to use
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
     outname = output + f"/{prot_families}_protein_families.faa"
 
     genefams = select_families(pangenome, prot_families, "representative amino acid sequences of the gene families",
                                soft_core)
 
     with write_compressed_or_not(outname, compress) as fasta:
-        bar = tqdm(genefams, unit="prot families", disable=disable_bar)
-        for fam in bar:
+        for fam in tqdm(genefams, unit="prot families", disable=disable_bar):
             fasta.write('>' + fam.name + "\n")
             fasta.write(fam.sequence + "\n")
-        bar.close()
     logging.getLogger().info(f"Done writing the representative amino acid sequences of the gene families : '{outname}'")
 
 
-def read_fasta_or_gff(filename):
+def read_fasta_or_gff(filename: str) -> dict:
+    """
+    Read the genome file in fasta or gbff format
+
+    :param filename: Path to genome file
+
+    :return: Dictionary with all sequences associated to contig
+    """
     sequence_dict = {}
     seqname = ""
     seq = ""
@@ -148,6 +202,13 @@ def read_fasta_or_gff(filename):
 
 
 def read_fasta_gbk(filename):
+    """
+    Read the genome file in gbk format
+
+    :param filename: Path to genome file
+
+    :return: Dictionary with all sequences associated to contig
+    """
     # line.startswith("ORIGIN"):
     sequence_dict = {}
     lines = read_compressed_or_not(filename).readlines()[::-1]
@@ -178,7 +239,15 @@ def read_fasta_gbk(filename):
     return sequence_dict
 
 
-def read_genome_file(file_dict, genome_name):
+def read_genome_file(file_dict: dict, genome_name: str) -> dict:
+    """
+    Read the genome file associated to organism
+
+    :param file_dict: Dictionary given association between organism and fasta file
+    :param genome_name: organism name
+
+    :return: Dictionary with all sequences associated to contig
+    """
     filetype = detect_filetype(file_dict[genome_name])
     if filetype in ["fasta", "gff"]:
         return read_fasta_or_gff(file_dict[genome_name])
@@ -188,7 +257,14 @@ def read_genome_file(file_dict, genome_name):
         raise Exception(f"Unknown filetype detected: '{file_dict[genome_name]}'")
 
 
-def write_spaced_fasta(sequence, space):
+def write_spaced_fasta(sequence: str, space: int = 60):
+    """Write a maximum of element per line
+
+    :param sequence: sequence to write
+    :param space: maximum of size for one line
+
+    :return: a sequence of maximum space caracter
+    """
     seq = ""
     j = 0
     while j < len(sequence):
@@ -197,15 +273,25 @@ def write_spaced_fasta(sequence, space):
     return seq
 
 
-def write_regions_sequences(pangenome, output, compress, regions, fasta, anno, disable_bar=False):
+def write_regions_sequences(pangenome: Pangenome, output: str, regions: str, fasta: str, anno: str,
+                            compress: bool = False, disable_bar: bool = False):
+    """
+    Write representative amino acid sequences of gene families.
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param output: Path to output directory
+    :param regions: Write the RGP nucleotide sequences
+    :param fasta: A tab-separated file listing the organism names, fasta filepath of its genomic sequences
+    :param anno: A tab-separated file listing the organism names, and the gff/gbff filepath of its annotations
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
     organisms_file = fasta if fasta is not None else anno
     org_dict = {}
     for line in read_compressed_or_not(organisms_file):
         elements = [el.strip() for el in line.split("\t")]
         if len(elements) <= 1:
-            logging.getLogger().error(
-                f"No tabulation separator found in given --fasta or --anno file: '{organisms_file}'")
-            exit(1)
+            raise Exception(f"No tabulation separator found in given --fasta or --anno file: '{organisms_file}'")
         org_dict[elements[0]] = elements[1]
 
     logging.getLogger().info(f"Writing {regions} rgp genomic sequences...")
@@ -223,19 +309,33 @@ def write_regions_sequences(pangenome, output, compress, regions, fasta, anno, d
     outname = output + f"/{regions}_rgp_genomic_sequences.fasta"
     with write_compressed_or_not(outname, compress) as fasta:
         loaded_genome = ""
-        bar = tqdm(regions_to_write, unit="rgp", disable=disable_bar)
-        for region in bar:
+        for region in tqdm(regions_to_write, unit="rgp", disable=disable_bar):
             if region.organism.name != loaded_genome:
                 loaded_genome = region.organism.name
                 genome_sequence = read_genome_file(org_dict, loaded_genome)
             fasta.write(f">{region.name}\n")
             fasta.write(write_spaced_fasta(genome_sequence[region.contig.name][region.start:region.stop], 60))
-        bar.close()
     logging.getLogger().info(f"Done writing the regions nucleotide sequences: '{outname}'")
 
 
-def write_sequence_files(pangenome, output, fasta=None, anno=None, soft_core=0.95, regions=None, genes=None,
-                         gene_families=None, prot_families=None, compress=False, disable_bar=False):
+def write_sequence_files(pangenome: Pangenome, output: str, fasta: str = None, anno: str = None,
+                         soft_core: float = 0.95, regions: str = None, genes: str = None, gene_families: str = None,
+                         prot_families: str = None, compress: bool = False, disable_bar: bool = False):
+    """
+    Main function to write sequence file from pangenome
+
+    :param pangenome: Pangenome object containing sequences
+    :param output: Path to output directory
+    :param fasta: A tab-separated file listing the organism names, fasta filepath of its genomic sequences
+    :param anno: A tab-separated file listing the organism names, and the gff/gbff filepath of its annotations
+    :param soft_core: Soft core threshold to use
+    :param regions: Write the RGP nucleotide sequences
+    :param genes: Write all nucleotide CDS sequences
+    :param gene_families: Write representative nucleotide sequences of gene families.
+    :param prot_families: Write representative amino acid sequences of gene families.
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
     if not any(x for x in [regions, genes, prot_families, gene_families]):
         raise Exception("You did not indicate what file you wanted to write.")
 
@@ -271,8 +371,8 @@ def write_sequence_files(pangenome, output, fasta=None, anno=None, soft_core=0.9
             provided_filter = prot_families
         if regions is not None:
             provided_filter = regions
-        raise Exception(
-            f"The filter that you indicated '{provided_filter}' was not understood by PPanGGOLiN. {poss_values_log}")
+        raise Exception(f"The filter that you indicated '{provided_filter}' was not understood by PPanGGOLiN. "
+                        f"{poss_values_log}")
     ex_gene_sequences = Exception("The provided pangenome has no gene sequences. "
                                   "This is not compatible with any of the following options : --genes, --gene_families")
     ex_gene_family_sequences = Exception("The provided pangenome has no gene families. "
@@ -284,28 +384,28 @@ def write_sequence_files(pangenome, output, fasta=None, anno=None, soft_core=0.9
         raise ex_gene_family_sequences
 
     check_pangenome_info(pangenome, need_annotations=need_annotations, need_families=need_families,
-                         need_graph=need_graph,
-                         need_partitions=need_partitions, need_rgp=need_regions, need_spots=need_spots,
-                         need_modules=need_modules, disable_bar=disable_bar)
+                         need_graph=need_graph, need_partitions=need_partitions, need_rgp=need_regions,
+                         need_spots=need_spots, need_modules=need_modules, disable_bar=disable_bar)
 
     if prot_families is not None:
-        write_fasta_prot_fam(pangenome, output, compress, prot_families, soft_core=soft_core, disable_bar=disable_bar)
+        write_fasta_prot_fam(pangenome, output, prot_families, soft_core, compress, disable_bar)
     if gene_families is not None:
-        write_fasta_gene_fam(pangenome, output, compress, gene_families, soft_core=soft_core, disable_bar=disable_bar)
+        write_fasta_gene_fam(pangenome, output, gene_families, soft_core, compress, disable_bar)
     if genes is not None:
-        write_gene_sequences(pangenome, output, compress, genes, soft_core=soft_core, disable_bar=disable_bar)
+        write_gene_sequences(pangenome, output, genes, soft_core, compress, disable_bar)
     if regions is not None:
-        write_regions_sequences(pangenome, output, compress, regions, fasta, anno, disable_bar=disable_bar)
+        write_regions_sequences(pangenome, output, regions, fasta, anno, compress, disable_bar)
 
 
-def check_options(args):
-    if hasattr(args, "regions") and args.regions is not None and args.fasta is None and args.anno is None:
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
+    if args.regions is not None and args.fasta is None and args.anno is None:
         raise Exception("The --regions options requires the use of --anno or --fasta "
                         "(You need to provide the same file used to compute the pan)")
-
-
-def launch(args):
-    check_options(args)
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
@@ -314,13 +414,25 @@ def launch(args):
                          prot_families=args.prot_families, compress=args.compress, disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
     parser = sub_parser.add_parser("fasta", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_seq(parser)
     return parser
 
 
-def parser_seq(parser):
+def parser_seq(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of fasta command
+
+    :param parser: parser for align argument
+    """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
@@ -336,20 +448,23 @@ def parser_seq(parser):
                          help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
                               "annotations (the files can be compressed with gzip). One line per organism. "
                               "If this is provided, those annotations will be used.")
-
-    optional = parser.add_argument_group(
-        title="Optional arguments. Indicating 'all' writes all elements. Writing a partition "
-              "('persistent', 'shell' or 'cloud') write the elements associated to said partition. "
-              "Writing 'rgp' writes elements associated to RGPs.")
+    onereq = parser.add_argument_group(title="Output file",
+                                       description="At least one of the following argument is required. "
+                                                   "Indicating 'all' writes all elements. Writing a partition "
+                                                   "('persistent', 'shell' or 'cloud') write the elements associated "
+                                                   "to said partition. Writing 'rgp' writes elements associated to RGPs"
+                                       )
+    onereq.add_argument("--genes", required=False, type=str,
+                        help=f"Write all nucleotide CDS sequences. {poss_values_log}")
+    onereq.add_argument("--prot_families", required=False, type=str,
+                        help=f"Write representative amino acid sequences of gene families. {poss_values_log}")
+    onereq.add_argument("--gene_families", required=False, type=str,
+                        help=f"Write representative nucleotide sequences of gene families. {poss_values_log}")
+    optional = parser.add_argument_group(title="Optional arguments")
     # could make choice to allow customization
-    optional.add_argument("--regions", required=False, choices=["all", "complete"],
+    optional.add_argument("--regions", required=False, type=str, choices=["all", "complete"],
                           help="Write the RGP nucleotide sequences (requires --anno or --fasta used to compute "
                                "the pangenome to be given)")
-    optional.add_argument("--genes", required=False, help=f"Write all nucleotide CDS sequences. {poss_values_log}")
-    optional.add_argument("--prot_families", required=False,
-                          help=f"Write representative amino acid sequences of gene families. {poss_values_log}")
-    optional.add_argument("--gene_families", required=False,
-                          help=f"Write representative nucleotide sequences of gene families. {poss_values_log}")
     optional.add_argument("--soft_core", required=False, type=restricted_float, default=0.95,
                           help="Soft core threshold to use if 'softcore' partition is chosen")
     optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")

@@ -1,16 +1,16 @@
-tqdm>=4.7.0
-pytables>=3.6.1
+tqdm>=4.64
+pytables>=3.7
 prodigal>=2.6.3
-aragorn>=1.2.38
+aragorn>=1.2.41
 infernal>=1.1.4
 mmseqs2>=13.45111
 networkx>=2.3
-dataclasses==0.8
-scipy>=1.5.3
+dataclasses>=0.8
+scipy>=1.7.3
 plotly>=4.14.3
-gmpy2>=2.1.0b5
+gmpy2>=2.1.2
 pandas>=0.25.3
-colorlover>=0.3
-mafft>=7.490
-numpy>=1.19.5, <=1.20
-bokeh>=2.3.3
+colorlover>=0.3.0
+mafft>=7.505
+numpy>=1.21.6
+bokeh>=2.4.2,<3

@@ -30,9 +30,7 @@ def o_gene():
 
 
 def test_fill_annotations_defaults(o_gene):
-    start, stop = 1, 9
-    strand = "plus"
-    o_gene.fill_annotations(start, stop, strand)
+    o_gene.fill_annotations(start=1, stop=9, strand='+')
     for attr in "position", "genetic_code":
         assert hasattr(o_gene, attr)
 
@@ -41,11 +39,9 @@ def test_fill_annotations_defaults(o_gene):
 
 
 def test_fill_annotations(o_gene):
-    start, stop = 1, 9
-    strand = "plus"
-    position = "44"
-    genetic_code = "le code"
-    o_gene.fill_annotations(start, stop, strand, position=position, genetic_code=genetic_code)
+    position = 44
+    genetic_code = 11
+    o_gene.fill_annotations(start=1, stop=9, strand='+', position=44, genetic_code=11)
     assert o_gene.position == position
     assert o_gene.genetic_code == genetic_code
 

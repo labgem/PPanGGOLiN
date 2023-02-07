@@ -15,44 +15,47 @@ from ppanggolin.formats.writeBinaries import write_info_modules
 from ppanggolin.metrics.fluidity import gen_fluidity, fam_fluidity
 
 
-def check_metric(pangenome, genomes_fluidity=False, families_fluidity=False, info_modules=False, force=False):
+def check_metric(pangenome: Pangenome, genomes_fluidity: bool = False, families_fluidity: bool = False,
+                 info_modules: bool = False):
+    """
+    Check if one of the asked metrics is not already computed
+
+    :param pangenome: pangenome object
+    :param genomes_fluidity: Ask to compute genome fluidity
+    :param families_fluidity: Ask to compute family fluidity
+    :param info_modules: Ask to compute more information about module
+    """
     with tables.open_file(pangenome.file, "a") as h5f:
         info_group = h5f.root.info
         if genomes_fluidity:
-            if 'genomes_fluidity' in info_group._v_attrs._f_list() and not force:
+            if 'genomes_fluidity' in info_group._v_attrs._f_list():
                 raise Exception("Genome fluidity was already compute. "
                                 "Please use -f option if you REALLY want to compute again")
 
         if families_fluidity:
-            if 'families_fluidity' in info_group._v_attrs._f_list() and not force:
+            if 'families_fluidity' in info_group._v_attrs._f_list():
                 raise Exception("Family fluidity was already compute. "
                                 "Please use -f option if you REALLY want to compute again")
 
         if info_modules:
             if any(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'PersistentSpecInModules',
                                                                 'ShellSpecInModules', 'numberOfFamiliesInModules',
-                                                                'StatOfFamiliesInModules']) and not force:
+                                                                'StatOfFamiliesInModules']):
                 raise Exception("Supplementary information on modules was already compute. "
                                 "Please use -f option if you REALLY want to compute again")
 
 
-def compute_metrics(pangenome, genomes_fluidity=False, families_fluidity=False, info_modules=False,
-                    disable_bar=False):
+def compute_metrics(pangenome: Pangenome, genomes_fluidity: bool = False, families_fluidity: bool = False,
+                    info_modules: bool = False, disable_bar: bool = False) -> dict:
     """Compute the metrics
-    :param pangenome: pangenome which will be used to compute the genomes' fluidity
-    :type pangenome: Pangenome
-    :param genomes_fluidity: Ask to compute genome fluidity
-    :type genomes_fluidity: bool
-    :param families_fluidity: Ask to compute family fluidity
-    :type families_fluidity: bool
-    :param info_modules: Ask to compute more information about module
-    :type info_modules: bool
-    :param disable_bar: Disable the progress bar
-    :type disable_bar: bool
 
+    :param pangenome: pangenome which will be used to compute the genomes' fluidity
+    :param genomes_fluidity: Ask to compute genome fluidity
+    :param families_fluidity: Ask to compute family fluidity
+    :param info_modules: Ask to compute more information about module
+    :param disable_bar: Disable the progress bar
 
     :return: dictionary with all the metrics computed
-    :rtype: dict
     """
 
     metrics_dict = {}
@@ -66,15 +69,13 @@ def compute_metrics(pangenome, genomes_fluidity=False, families_fluidity=False, 
     return metrics_dict
 
 
-def write_metrics(pangenome, metrics_dict, no_print_info=False):
+def write_metrics(pangenome: Pangenome, metrics_dict: dict, no_print_info: bool = False):
     """
-    Write the metrics computed in the pan
+    Write the metrics computed in the pangenome
+
     :param pangenome: pangenome which will be used to compute the genomes' fluidity
-    :type pangenome: Pangenome
     :param metrics_dict: dictionary with all the metrics computed
-    :type metrics_dict: dict
     :param no_print_info: disable print of information
-    :type no_print_info: bool
     """
     with tables.open_file(pangenome.file, "a") as h5f:
         info_group = h5f.root.info
@@ -96,7 +97,12 @@ def write_metrics(pangenome, metrics_dict, no_print_info=False):
             read_info(h5f)
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
     if not any(x for x in [args.genome_fluidity, args.family_fluidity, args.info_modules, args.all]):
         raise Exception("You did not indicate which metric you want to compute.")
     args_dict = {'genomes_fluidity': args.genome_fluidity,
@@ -110,7 +116,8 @@ def launch(args):
     pangenome.add_file(args.pangenome)
 
     logging.getLogger().debug("Check if one of the metrics was already compute")
-    check_metric(pangenome, force=args.force, **args_dict)
+    if not args.force:
+        check_metric(pangenome, **args_dict)
     logging.getLogger().info("Metrics computation begin")
     metrics_dictionary = compute_metrics(pangenome, disable_bar=args.disable_prog_bar, **args_dict)
     logging.getLogger().info("Metrics computation done")
@@ -118,22 +125,25 @@ def launch(args):
     write_metrics(pangenome, metrics_dictionary, no_print_info=args.no_print_info)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
-    Parser arguments specific to metrics command
+    Subparser to launch PPanGGOLiN in Command line
 
     :param sub_parser : sub_parser for align command
-    :type sub_parser : argparse._SubParsersAction
 
     :return : parser arguments for align command
-    :rtype : argparse.ArgumentParser
     """
     parser = sub_parser.add_parser("metrics", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_metrics(parser)
     return parser
 
 
-def parser_metrics(parser):
+def parser_metrics(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of metrics command
+
+    :param parser: parser for align argument
+    """
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")

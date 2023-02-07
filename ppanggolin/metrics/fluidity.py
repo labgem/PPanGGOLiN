@@ -14,16 +14,13 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.formats import check_pangenome_info
 
 
-def gen_fluidity(pangenome, disable_bar=False):
+def gen_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
     """ Compute the genomes' fluidity from the pan
 
     :param pangenome: pangenome which will be used to compute the genomes' fluidity
-    :type pangenome: Pangenome
     :param disable_bar: Disable the progress bar
-    :type disable_bar: bool
 
-    :return: Genomes fluidity value from the pan
-    :rtype:float
+    :return: Genomes fluidity value from the pangenome for each partition
     """
 
     # check statuses and load info
@@ -47,17 +44,14 @@ def gen_fluidity(pangenome, disable_bar=False):
     return fluidity_dict
 
 
-def nb_fam_per_org(pangenome, disable_bar=False):
+def nb_fam_per_org(pangenome: Pangenome, disable_bar: bool = False) -> dict:
     """
     Create a dictionary with for each organism the number of gene families
 
     :param pangenome: Pangenome which contain the organisms and gene families
-    :type pangenome: Pangenome
     :param disable_bar: Disable the progress bar
-    :type disable_bar: bool
 
     :return: Dictionary with organisms as key and number of families as value
-    :rtype: dict
     """
     org2_nb_fam = dict()
     for org in tqdm(pangenome.organisms, unit='organism', disable=disable_bar):
@@ -71,16 +65,13 @@ def nb_fam_per_org(pangenome, disable_bar=False):
 
 # TODO Function to compute mash distance between genome for normalization
 
-def fam_fluidity(pangenome, disable_bar=False):
+def fam_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
     """ Compute the family fluidity from the pan
 
     :param pangenome: pangenome which will be used to compute the genomes' fluidity
-    :type pangenome: Pangenome
     :param disable_bar: Disable the progress bar
-    :type disable_bar: bool
 
-    :return: family fluidity value from the pan
-    :rtype:float
+    :return: family fluidity value from the pangenome for each partition
     """
     # check statuses and load info
     logging.getLogger().info("Check information in pan")
@@ -104,17 +95,14 @@ def fam_fluidity(pangenome, disable_bar=False):
     return fluidity_dict
 
 
-def nb_org_per_fam(pangenome, disable_bar=False):
+def nb_org_per_fam(pangenome: Pangenome, disable_bar: bool = False) -> dict:
     """
     Create a dictionary with for each gene families the number of organism
 
     :param pangenome: Pangenome which contain the organisms and gene families
-    :type pangenome: Pangenome
     :param disable_bar: Disable the progress bar
-    :type disable_bar: bool
 
     :return: Dictionary with organisms as key and number of families as value
-    :rtype: dict
     """
     fam_2_nb_org = dict()
     for fam in tqdm(pangenome.gene_families, unit='gene families', disable=disable_bar):

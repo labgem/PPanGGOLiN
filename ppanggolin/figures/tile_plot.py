@@ -15,10 +15,20 @@ import plotly.offline as out_plotly
 import colorlover as cl
 # local libraries
 from ppanggolin.formats import check_pangenome_info
+from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import jaccard_similarities
 
 
-def draw_tile_plot(pangenome, output, nocloud=False, disable_bar=False):
+def draw_tile_plot(pangenome: Pangenome, output: str, nocloud: bool = False, disable_bar: bool = False):
+    """
+    Draw a tile plot from a partitioned pangenome
+
+    :param pangenome: Partitioned pangenome
+    :param output: Path to output directory
+    :param nocloud: Do not draw the cloud partition
+    :param disable_bar: Allow to disable progress bar
+    """
+
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     if pangenome.status["partitioned"] == "No":
         raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
@@ -35,7 +45,7 @@ def draw_tile_plot(pangenome, output, nocloud=False, disable_bar=False):
         families = {fam for fam in pangenome.gene_families if not fam.partition.startswith("C")}
     else:
         families = set(pangenome.gene_families)
-    org_index = pangenome.get_index()
+    org_index = pangenome.get_org_index()
     index2org = {}
     for org, index in org_index.items():
         index2org[index] = org

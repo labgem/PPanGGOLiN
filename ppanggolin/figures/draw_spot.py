@@ -9,11 +9,6 @@ import random
 from math import pi
 import sys
 
-# local libraries
-from ppanggolin.utils import jaccard_similarities
-from ppanggolin.formats import check_pangenome_info
-from ppanggolin.RGP.spot import comp_border
-
 # installed libraries
 from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
@@ -24,7 +19,14 @@ from tqdm import tqdm
 from bokeh.plotting import ColumnDataSource, figure, save
 from bokeh.io import output_file
 from bokeh.layouts import column, row
-from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div
+from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer
+
+# local libraries
+from ppanggolin.pangenome import Pangenome
+from ppanggolin.region import Spot
+from ppanggolin.utils import jaccard_similarities
+from ppanggolin.formats import check_pangenome_info
+from ppanggolin.RGP.spot import comp_border
 
 
 def check_predicted_spots(pangenome):
@@ -34,8 +36,15 @@ def check_predicted_spots(pangenome):
                         "Please see the 'spot' subcommand.")
 
 
-def make_colors_for_iterable(it):
-    """randomly picks a color for all elements of a given iterable"""
+def make_colors_for_iterable(it: set) -> dict:
+    """
+    Randomly picks a color for all elements of a given iterable
+
+    :param it: Iterable families or modules
+
+    :return: Dictionary with for each element a random color associate
+    """
+
     famcol = {}
     for element in it:
         col = list(random.choices(range(256), k=3))
@@ -46,20 +55,36 @@ def make_colors_for_iterable(it):
     return famcol
 
 
-def order_gene_lists(gene_lists, overlapping_match, exact_match, set_size):
-    gene_lists = line_order_gene_lists(gene_lists, overlapping_match, exact_match, set_size)
+def order_gene_lists(gene_lists: list, overlapping_match: int, exact_match: int, set_size: int):
+    """
+    Order all rgps the same way, and order them by similarity in gene content.
+
+    :param gene_lists: List of genes in rgps
+    :param overlapping_match: Allowed number of missing persistent genes when comparing flanking genes
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
+    :param set_size: Number of single copy markers to use as flanking genes for RGP
+
+    :return: List of ordered genes
+    """
+    line_order_gene_lists(gene_lists, overlapping_match, exact_match, set_size)
     return row_order_gene_lists(gene_lists)
 
 
-def row_order_gene_lists(gene_lists):
+def row_order_gene_lists(gene_lists: list) -> list:
+    """
+    Row ordering of all rgps
+
+    :param gene_lists:
+
+    :return : An ordered genes list
+    """
+    fam_dict = defaultdict(set)
     #if there is only one, ordering is useless
     if len(gene_lists) == 1:
         return gene_lists
 
     if len(gene_lists) > sys.getrecursionlimit():
         sys.setrecursionlimit(len(gene_lists))#we need the recursion limit to be higher than the number of regions.
-
-    fam_dict = defaultdict(set)
 
     for index, genelist in enumerate([genelist[0] for genelist in gene_lists]):
         for gene in genelist:
@@ -84,7 +109,15 @@ def row_order_gene_lists(gene_lists):
     return new_gene_lists
 
 
-def line_order_gene_lists(gene_lists, overlapping_match, exact_match, set_size):
+def line_order_gene_lists(gene_lists: list, overlapping_match: int, exact_match: int, set_size: int):
+    """
+    Line ordering of all rgps
+
+    :param gene_lists: list
+    :param overlapping_match: Allowed number of missing persistent genes when comparing flanking genes
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
+    :param set_size: Number of single copy markers to use as flanking genes for RGP
+    """
     classified = {0}  # first gene list has the right order
     new_classify = set()
 
@@ -97,12 +130,12 @@ def line_order_gene_lists(gene_lists, overlapping_match, exact_match, set_size):
             for unclassIndex in list(to_classify):
                 border1 = [gene.family for gene in gene_lists[unclassIndex][1][0]]
                 border2 = [gene.family for gene in gene_lists[unclassIndex][1][1]]
-                if comp_border(base_border1, border1, overlapping_match, exact_match, set_size) and \
-                        comp_border(base_border2, border2, overlapping_match, exact_match, set_size):
+                if comp_border(base_border1, border1, overlapping_match, set_size, exact_match) and \
+                        comp_border(base_border2, border2, overlapping_match, set_size, exact_match):
                     to_classify.discard(unclassIndex)
                     new_classify.add(unclassIndex)
-                elif comp_border(base_border2, border1, overlapping_match, exact_match, set_size) and \
-                        comp_border(base_border1, border2, overlapping_match, exact_match, set_size):
+                elif comp_border(base_border2, border1, overlapping_match, set_size, exact_match) and \
+                        comp_border(base_border1, border2, overlapping_match, set_size, exact_match):
                     # reverse the order of the genes to match the 'reference'
                     gene_lists[unclassIndex][0] = gene_lists[unclassIndex][0][::-1]
                     # inverse the borders
@@ -117,11 +150,20 @@ def line_order_gene_lists(gene_lists, overlapping_match, exact_match, set_size):
         classified |= new_classify  # the newly classified will help to check the unclassified,
         # the formerly classified are not useful for what remains (if something remains)
         new_classify = set()
-    return gene_lists
 
 
-def subgraph(spot, outname, with_border=True, set_size=3, multigenics=None, fam2mod=None):
-    """ write a pangeome subgraph of the gene families of a spot in gexf format"""
+def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int = 3,
+             multigenics: set = None, fam_to_mod: dict = None):
+    """
+    Write a pangeome subgraph of the gene families of a spot in gexf format
+
+    :param spot:
+    :param outname:
+    :param with_border:
+    :param set_size:
+    :param multigenics:
+    :param fam_to_mod:
+    """
     g = nx.Graph()
 
     for rgp in spot.regions:
@@ -136,8 +178,8 @@ def subgraph(spot, outname, with_border=True, set_size=3, multigenics=None, fam2
         prev = None
         for gene in gene_list:
             g.add_node(gene.family.name, partition=gene.family.named_partition)
-            if fam2mod is not None:
-                curr_mod = fam2mod.get(gene.family)
+            if fam_to_mod is not None:
+                curr_mod = fam_to_mod.get(gene.family)
                 if curr_mod is not None:
                     g.nodes[gene.family.name]["module"] = curr_mod
             try:
@@ -169,7 +211,14 @@ def subgraph(spot, outname, with_border=True, set_size=3, multigenics=None, fam2
     nx.write_gexf(g, outname)
 
 
-def mk_source_data(genelists, fam_col, fam_to_mod):
+def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnDataSource, list):
+    """
+
+    :param genelists:
+    :param fam_col: Dictionary with for each family the corresponding color
+    :param fam_to_mod: Dictionary with the correspondance modules families
+    :return:
+    """
     partition_colors = {"shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF"}
 
     df = {'name': [], 'ordered': [], 'strand': [], "start": [], "stop": [], "length": [], 'module': [],
@@ -258,11 +307,22 @@ def mk_source_data(genelists, fam_col, fam_to_mod):
     return ColumnDataSource(data=df), tooltips
 
 
-def add_gene_tools(recs, source_data):
-    """ define tools to change the outline and fill colors of genes"""
+def add_gene_tools(recs: GlyphRenderer, source_data: ColumnDataSource) -> Column:
+    """
+    Define tools to change the outline and fill colors of genes
 
-    def color_str(color_element):
-        """javascript code to switch between partition, family and module color for the given 'color_element'"""
+    :param recs:
+    :param source_data:
+    :return:
+    """
+
+    def color_str(color_element: str) -> str:
+        """ Javascript code to switch between partition, family and module color for the given 'color_element'
+
+        :param color_element:
+
+        :return: Javascript code
+        """
         return f"""
             if(this.active == 0){{
                 source.data['{color_element}'] = source.data['partition_color'];
@@ -301,7 +361,13 @@ def add_gene_tools(recs, source_data):
                   gene_outline_size)
 
 
-def add_gene_labels(fig, source_data):
+def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
+    """
+
+    :param fig:
+    :param source_data:
+    :return:
+    """
     labels = LabelSet(x='x_label', y='y_label', text='label', source=source_data, render_mode='canvas',
                       text_font_size="18px")
     slider_font = Slider(start=0, end=64, value=16, step=1, title="Gene label font size in px")
@@ -348,7 +414,13 @@ def add_gene_labels(fig, source_data):
     return labels_block, labels
 
 
-def mk_genomes(gene_lists, ordered_counts):
+def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, list):
+    """
+
+    :param gene_lists:
+    :param ordered_counts:
+    :return:
+    """
     df = {"name": [], "width": [], "occurrences": [], 'x': [], 'y': [], "x_label": []}
 
     for index, GeneList in enumerate(gene_lists):
@@ -371,7 +443,19 @@ def mk_genomes(gene_lists, ordered_counts):
     return ColumnDataSource(data=df), tooltip
 
 
-def add_genome_tools(fig, gene_recs, genome_recs, gene_source, genome_source, nb, gene_labels):
+def add_genome_tools(fig, gene_recs: GlyphRenderer, genome_recs: GlyphRenderer, gene_source: ColumnDataSource,
+                     genome_source: ColumnDataSource, nb: int, gene_labels: LabelSet):
+    """
+
+    :param fig:
+    :param gene_recs:
+    :param genome_recs:
+    :param gene_source:
+    :param genome_source:
+    :param nb:
+    :param gene_labels:
+    :return:
+    """
     # add genome labels
     genome_labels = LabelSet(x='x_label', y='y', x_offset=-20, text='name', text_align="right", source=genome_source,
                              render_mode='canvas', text_font_size="16px")
@@ -418,9 +502,18 @@ def add_genome_tools(fig, gene_recs, genome_recs, gene_source, genome_source, nb
     return column(genome_header, slider_spacing, slider_font, slider_offset)
 
 
-def draw_curr_spot(gene_lists, ordered_counts, fam_to_mod, fam_col, file_name):
-    # prepare the source data
+def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam_col: dict, file_name: str):
+    """
 
+    :param gene_lists:
+    :param ordered_counts:
+    :param fam_to_mod:
+    :param fam_col: Dictionnary with for each family the corresponding color
+    :param file_name:
+    :return:
+    """
+
+    # Prepare the source data
     output_file(file_name + ".html")
 
     # generate the figure and add some tools to it
@@ -455,18 +548,30 @@ def draw_curr_spot(gene_lists, ordered_counts, fam_to_mod, fam_col, file_name):
     save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
 
 
-def draw_selected_spots(selected_spots, pangenome, output, overlapping_match, exact_match, set_size, disable_bar):
+def draw_selected_spots(selected_spots: list, pangenome: Pangenome, output: str, overlapping_match: int,
+                        exact_match: int, set_size: int, disable_bar: bool = False):
+    """
+    Draw only the selected spot and give parameters
+
+    :param selected_spots: List of the selected spot by user
+    :param pangenome: Pangenome containing spot
+    :param output: Path to output directory
+    :param overlapping_match: Allowed number of missing persistent genes when comparing flanking genes
+    :param exact_match:
+    :param set_size:
+    :param disable_bar: Allow preventing bar progress print
+    """
+
     logging.getLogger().info("Ordering genes among regions, and drawing spots...")
 
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
-    # bar = tqdm(range(len(selected_spots)), unit = "spot", disable = disable_bar)
 
     fam2mod = {}
     for mod in pangenome.modules:
         for fam in mod.families:
             fam2mod[fam] = f"module_{mod.ID}"
 
-    for spot in tqdm(selected_spots, unit="spot", disable=disable_bar):
+    for spot in tqdm(selected_spots, total=len(selected_spots), unit="spot", disable=disable_bar):
 
         fname = output + '/spot_' + str(spot.ID)
 
@@ -514,11 +619,19 @@ def draw_selected_spots(selected_spots, pangenome, output, overlapping_match, ex
                 ordered_counts.append(curr_genelist_count)
 
         draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname)
-        subgraph(spot, fname + ".gexf", set_size=set_size, multigenics=multigenics, fam2mod=fam2mod)
+        subgraph(spot, fname + ".gexf", set_size=set_size, multigenics=multigenics, fam_to_mod=fam2mod)
     logging.getLogger().info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 
-def draw_spots(pangenome, output, spot_list, disable_bar):
+def draw_spots(pangenome: Pangenome, output: str, spot_list: str, disable_bar: bool = False):
+    """
+    Main function to draw spot
+
+    :param pangenome: Pangenome with spot predicted
+    :param output: Path to output directory
+    :param spot_list: List of spot to draw separate by ','
+    :param disable_bar: Allow to disable progress bar
+    """
     # check that the pangenome has spots
     check_predicted_spots(pangenome)
 
@@ -537,8 +650,8 @@ def draw_spots(pangenome, output, spot_list, disable_bar):
     else:
         selected_spots = [s for s in pangenome.spots if "spot_" + str(s.ID) in curated_spot_list]
     if len(selected_spots) < 10:
-        logging.getLogger().info(
-            f"Drawing the following spots: {','.join(['spot_' + str(s.ID) for s in selected_spots])}")
+        logging.getLogger().info(f"Drawing the following spots: "
+                                 f"{','.join(['spot_' + str(s.ID) for s in selected_spots])}")
     else:
         logging.getLogger().info(f"Drawing {len(selected_spots)} spots")
 

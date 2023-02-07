@@ -6,6 +6,8 @@ import argparse
 import time
 import os
 
+# Installed libraries
+
 # local libraries
 from ppanggolin.utils import mk_outdir
 from ppanggolin.pangenome import Pangenome
@@ -14,7 +16,13 @@ from ppanggolin.figures.tile_plot import draw_tile_plot
 from ppanggolin.figures.ucurve import draw_ucurve
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
+    """
+    Command launcher
+
+    :param args: All arguments provide by user
+    """
+
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
@@ -26,13 +34,27 @@ def launch(args):
         draw_spots(pangenome=pangenome, output=args.output, spot_list=args.spots, disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
+
     parser = sub_parser.add_parser("draw", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_draw(parser)
     return parser
 
 
-def parser_draw(parser):
+def parser_draw(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of draw command
+
+    :param parser: parser for align argument
+    """
+
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome.h5 file")

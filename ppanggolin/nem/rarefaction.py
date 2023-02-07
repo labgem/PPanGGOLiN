@@ -13,6 +13,8 @@ import os
 import warnings
 
 # installed libraries
+from typing import Union, Tuple
+
 from tqdm import tqdm
 import gmpy2
 import numpy
@@ -32,25 +34,47 @@ import ppanggolin.nem.partition as ppp
 samples = []
 
 
-def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, k, krange, seed):
+def raref_nem(index: int, tmpdir: str, beta: float = 2.5, sm_degree: int = 10, free_dispersion: bool = False,
+              chunk_size: int = 500, kval: int = -1, krange: list = None, seed: int = 42) -> (dict, int):
+    """
+
+    :param index: Index of the sample group organisms
+    :param tmpdir: temporary directory path
+    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
+    :param sm_degree:  Maximum degree of the nodes to be included in the smoothing process.
+    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
+    :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
+    :param kval: Number of partitions to use
+    :param krange: Range of K values to test when detecting K automatically.
+    :param seed: seed used to generate random numbers
+
+    :return: Count of each partition and paremeters for the given sample index
+    """
     samp = samples[index]
     currtmpdir = tmpdir + "/" + str(index) + "/"
-    if k < 3:
-        k = ppp.evaluate_nb_partitions(samp, sm_degree, free_dispersion, chunk_size, krange, 0.05, False, 1,
-                                       tmpdir + "/" + str(index) + "_eval", seed, None)
+    kmm = [3, 20] if krange is None else krange
+
+    if kval < 3:
+        kval = ppp.evaluate_nb_partitions(samp, tmpdir + "/" + str(index) + "_eval", None, sm_degree, free_dispersion,
+                                          chunk_size, kmm, 0.05, False, 1, seed)
 
     if len(samp) <= chunk_size:  # all good, just write stuff.
         edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir, organisms=set(samp),
                                                          sm_degree=sm_degree)
         cpt_partition = ppp.run_partitioning(currtmpdir, len(samp), beta * (nb_fam / edges_weight), free_dispersion,
-                                             kval=k, seed=seed, init="param_file")[0]
+                                             kval=kval, seed=seed, init="param_file")[0]
     else:  # going to need multiple partitioning for this sample...
         families = set()
         cpt_partition = {}
         validated = set()
         cpt = 0
 
-        def validate_family(result):
+        def validate_family(result: Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]):
+            """
+            Validate partition assignation to families
+
+            :param result: Partitioning results
+            """
             for node, nem_class in result[0].items():
                 cpt_partition[node][nem_class[0]] += 1
                 sum_partitioning = sum(cpt_partition[node].values())
@@ -87,14 +111,14 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, k, kr
             for samp in org_samples:
                 edges_weight, nb_fam = ppp.write_nem_input_files(currtmpdir + "/" + str(cpt) + "/", samp,
                                                                  sm_degree=sm_degree)
-                validate_family(
-                    ppp.run_partitioning(currtmpdir + "/" + str(cpt) + "/", len(samp), beta * (nb_fam / edges_weight),
-                                         free_dispersion, kval=k, seed=seed, init="param_file"))
+                validate_family(ppp.run_partitioning(currtmpdir + "/" + str(cpt) + "/", len(samp),
+                                                     beta * (nb_fam / edges_weight), free_dispersion, kval=kval,
+                                                     seed=seed, init="param_file"))
                 cpt += 1
     if len(cpt_partition) == 0:
-        counts = {"persistent": "NA", "shell": "NA", "cloud": "NA", "undefined": "NA", "K": k}
+        counts = {"persistent": "NA", "shell": "NA", "cloud": "NA", "undefined": "NA", "K": kval}
     else:
-        counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": k}
+        counts = {"persistent": 0, "shell": 0, "cloud": 0, "undefined": 0, "K": kval}
 
         for val in cpt_partition.values():
             if isinstance(val, str):
@@ -112,29 +136,41 @@ def raref_nem(index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, k, kr
     return counts, index
 
 
-def launch_raref_nem(args):
+def launch_raref_nem(args: tuple) -> (dict, int):
+    """
+    Launch raref_nem in multiprocessing
+
+    :param args: {index: int, tmpdir: str, beta: float, sm_degree: int, free_dispersion: bool,
+                  chunk_size: int, kval: int, krange: list, seed: int}
+    :return: Count of each partition and paremeters for the given sample index
+    """
     return raref_nem(*args)
 
 
-def draw_curve(output, max_sampling, data):
+def draw_curve(output: str, data: list, max_sampling: int = 10):
+    """
+    Draw the rarefaction curve and associated data
+
+    :param output: output directory path to draw the rarefaction curve and associated data
+    :param max_sampling: Maximum number of organisms in a sample
+    :param data:
+    """
     logging.getLogger().info("Drawing the rarefaction curve ...")
     raref_name = output + "/rarefaction.csv"
     raref = open(raref_name, "w")
-    raref.write(",".join(
-        ["nb_org", "persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory", "soft_core",
-         "soft_accessory", "pan", "K"]) + "\n")
+    raref.write(",".join(["nb_org", "persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory",
+                          "soft_core", "soft_accessory", "pangenome", "K"]) + "\n")
     for part in data:
-        raref.write(",".join(map(str,
-                                 [part["nborgs"], part["persistent"], part["shell"], part["cloud"], part["undefined"],
-                                  part["exact_core"], part["exact_accessory"], part["soft_core"],
-                                  part["soft_accessory"], part["exact_core"] + part["exact_accessory"],
-                                  part["K"]])) + "\n")
+        raref.write(",".join(map(str, [part["nborgs"], part["persistent"], part["shell"], part["cloud"],
+                                       part["undefined"], part["exact_core"], part["exact_accessory"],
+                                       part["soft_core"], part["soft_accessory"], part["exact_core"] +
+                                       part["exact_accessory"], part["K"]])) + "\n")
     raref.close()
 
-    def heap_law(n, p_kappa, p_gamma):
+    def heap_law(n, p_kappa, p_gamma) -> float:
         return p_kappa * n ** p_gamma
 
-    def poly_area(p_x, p_y):
+    def poly_area(p_x: list, p_y: list) -> float:
         return 0.5 * numpy.abs(numpy.dot(p_x, numpy.roll(p_y, 1)) - numpy.dot(p_y, numpy.roll(p_x, 1)))
 
     annotations = []
@@ -143,7 +179,7 @@ def draw_curve(output, max_sampling, data):
     params_file = open(output + "/rarefaction_parameters" + ".csv", "w")
     params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error,IQR_area\n")
     for partition in ["persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory", "soft_core",
-                      "soft_accessory", "pan"]:
+                      "soft_accessory", "pangenome"]:
         percentiles_75 = Series({i: numpy.nanpercentile(data_raref[data_raref["nb_org"] == i][partition], 75) for i in
                                  range(1, max_sampling + 1)}).dropna()
         percentiles_25 = Series({i: numpy.nanpercentile(data_raref[data_raref["nb_org"] == i][partition], 25) for i in
@@ -161,7 +197,7 @@ def draw_curve(output, max_sampling, data):
         x += list(reversed(percentiles_25.index.tolist()))
         area_iqr = poly_area(x, percentiles_25.tolist() + percentiles_75.tolist())
         nb_org_min_fitting = 15
-        colors = {"pan": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
+        colors = {"pangenome": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
                   "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
                   "undefined": "#828282"}
         try:
@@ -289,9 +325,32 @@ def draw_curve(output, max_sampling, data):
     params_file.close()
 
 
-def make_rarefaction_curve(pangenome, output, tmpdir, beta=2.5, depth=30, min_sampling=1, max_sampling=100,
-                           sm_degree=10, free_dispersion=False, chunk_size=500, k=-1, cpu=1, seed=42, kestimate=False,
-                           krange=None, soft_core=0.95, disable_bar=False):
+def make_rarefaction_curve(pangenome: Pangenome, output: str, tmpdir: str, beta: float = 2.5, depth: int = 30,
+                           min_sampling: int = 1, max_sampling: int = 100, sm_degree: int = 10,
+                           free_dispersion: bool = False, chunk_size: int = 500, kval: int = -1, krange: list = None,
+                           cpu: int = 1, seed: int = 42, kestimate: bool = False, soft_core: float = 0.95,
+                           disable_bar: bool = False):
+    """
+    Main function to make the rarefaction curve
+
+    :param pangenome: Pangenome containing GeneFamilies to align with sequence set
+    :param output: output directory path to draw the rarefaction curve and associated data
+    :param tmpdir: temporary directory path
+    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
+    :param depth: Number of samplings at each sampling point
+    :param min_sampling: Minimum number of organisms in a sample
+    :param max_sampling: Maximum number of organisms in a sample
+    :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
+    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
+    :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
+    :param kval: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
+    :param krange: Range of K values to test when detecting K automatically.
+    :param cpu: Number of available core
+    :param seed: seed used to generate random numbers
+    :param kestimate: recompute the number of partitions for each sample between the values provided by krange
+    :param soft_core: Soft core threshold
+    :param disable_bar: Disable progress bar
+    """
     if krange is None:
         krange = [3, -1]
     ppp.pan = pangenome  # use the global from partition to store the pan, so that it is usable
@@ -311,15 +370,15 @@ def make_rarefaction_curve(pangenome, output, tmpdir, beta=2.5, depth=30, min_sa
     else:
         max_sampling = int(max_sampling)
 
-    if k < 3 and kestimate is False:  # estimate K once and for all.
+    if kval < 3 and kestimate is False:  # estimate K once and for all.
         try:
-            k = ppp.pan.parameters["partition"]["K"]
-            logging.getLogger().info(f"Reuse the number of partitions {k}")
+            kval = ppp.pan.parameters["partition"]["K"]
+            logging.getLogger().info(f"Reuse the number of partitions {kval}")
         except KeyError:
             logging.getLogger().info("Estimating the number of partitions...")
-            k = ppp.evaluate_nb_partitions(pangenome.organisms, sm_degree, free_dispersion, chunk_size, krange, 0.05,
-                                           False, cpu, tmpdir, seed, None)
-            logging.getLogger().info(f"The number of partitions has been evaluated at {k}")
+            kval = ppp.evaluate_nb_partitions(set(pangenome.organisms), tmpdir, None, sm_degree, free_dispersion,
+                                              chunk_size, krange, 0.05, False, cpu, seed)
+            logging.getLogger().info(f"The number of partitions has been evaluated at {kval}")
 
     logging.getLogger().info("Extracting samples ...")
     all_samples = []
@@ -331,8 +390,8 @@ def make_rarefaction_curve(pangenome, output, tmpdir, beta=2.5, depth=30, min_sa
 
     logging.getLogger().info("Computing bitarrays for each family...")
     index_org = pangenome.compute_family_bitarrays()
-    logging.getLogger().info(
-        f"Done computing bitarrays. Comparing them to get exact and soft core stats for {len(all_samples)} samples...")
+    logging.getLogger().info("Done computing bitarrays. Comparing them to get exact and soft core stats for "
+                             f"{len(all_samples)} samples...")
     bar = tqdm(range(len(all_samples) * len(pangenome.gene_families)), unit="gene family", disable=disable_bar)
     for samp in all_samples:
         # make the sample's organism bitarray.
@@ -368,7 +427,7 @@ def make_rarefaction_curve(pangenome, output, tmpdir, beta=2.5, depth=30, min_sa
 
     args = []
     for index, samp in enumerate(samples):
-        args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, k, krange, seed))
+        args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, kval, krange, seed))
 
     with get_context('fork').Pool(processes=cpu) as p:
         # launch partitioning
@@ -382,37 +441,52 @@ def make_rarefaction_curve(pangenome, output, tmpdir, beta=2.5, depth=30, min_sa
 
     logging.getLogger().info("Done  partitioning everything")
     warnings.filterwarnings("ignore")
-    draw_curve(output, max_sampling, samp_nb_per_part)
+    draw_curve(output, samp_nb_per_part, max_sampling)
     warnings.resetwarnings()
     tmpdir_obj.cleanup()
     logging.getLogger().info("Done making the rarefaction curves")
 
 
-def launch(args):
+def launch(args: argparse.Namespace):
     """
-        main code when launch partition from the command line.
+    Command launcher
+
+    :param args: All arguments provide by user
     """
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
-    pangenome.add_file(args.pan)
+    pangenome.add_file(args.pangenome)
     make_rarefaction_curve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, beta=args.beta,
                            depth=args.depth, min_sampling=args.min, max_sampling=args.max,
                            sm_degree=args.max_degree_smoothing, free_dispersion=args.free_dispersion,
-                           chunk_size=args.chunk_size, k=args.nb_of_partitions, cpu=args.cpu, seed=args.seed,
-                           kestimate=args.reestimate_K, krange=args.krange, soft_core=args.soft_core,
+                           chunk_size=args.chunk_size, kval=args.nb_of_partitions, krange=args.krange, cpu=args.cpu,
+                           seed=args.seed, kestimate=args.reestimate_K, soft_core=args.soft_core,
                            disable_bar=args.disable_prog_bar)
 
 
-def subparser(sub_parser):
-    parser = sub_parser.add_parser("rarefaction", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    """
+    Subparser to launch PPanGGOLiN in Command line
+
+    :param sub_parser : sub_parser for align command
+
+    :return : parser arguments for align command
+    """
+    parser = sub_parser.add_parser("rarefaction", description='Compute the rarefaction curve of the pangenome',
+                                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_rarefaction(parser)
     return parser
 
 
-def parser_rarefaction(parser):
+def parser_rarefaction(parser: argparse.ArgumentParser):
+    """
+    Parser for specific argument of graph command
+
+    :param parser: parser for align argument
+    """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pan', required=True, type=str, help="The pan .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("-b", "--beta", required=False, default=2.5, type=float,
