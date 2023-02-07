@@ -434,7 +434,7 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     if args.clusters is None:
-        if args.infer_singletons is not None:
+        if args.infer_singletons is True:
             logging.getLogger().warning("--infer_singletons option is not compatible with clustering creation. "
                                         "To infer singleton you should give a clustering")
         clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, code=args.translation_table,
