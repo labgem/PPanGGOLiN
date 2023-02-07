@@ -309,9 +309,9 @@ def write_gene_families(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
     :param force: Force to write gene families in hdf5 file if there is already gene families
     :param disable_bar: Disable progress bar
     """
-    if '/gene_families' in h5f and force is True:
+    if '/geneFamilies' in h5f and force is True:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
-        h5f.remove_node('/', 'gene_families')  # erasing the table, and rewriting a new one.
+        h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
     gene_families = h5f.create_table("/", "geneFamilies", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
     gene_row = gene_families.row
     for geneFam in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families(), unit="gene family",
@@ -816,9 +816,9 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
         status_group._v_attrs.NeighborsGraph = False
         pangenome.status["neighborsGraph"] = "No"
         h5f.del_node_attr(info_group, "numberOfEdges")
-    if '/gene_families' in h5f and gene_families:
+    if '/geneFamilies' in h5f and gene_families:
         logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
-        h5f.remove_node('/', 'gene_families')  # erasing the table, and rewriting a new one.
+        h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
         pangenome.status["defragmented"] = "No"
         pangenome.status["genesClustered"] = "No"
         status_group._v_attrs.defragmented = False
