@@ -5,85 +5,25 @@
 import os
 import time
 import argparse
-import yaml
 from collections import defaultdict
 import logging
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_file_name, min_one, check_option_workflow, restricted_float
+from ppanggolin.utils import mk_file_name, check_option_workflow, get_cmd_args_from_config, parse_config_file
 from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas, parser_annot
 from ppanggolin.cluster.cluster import clustering, read_clustering, parser_clust
 from ppanggolin.graph.makeGraph import compute_neighbors_graph, parser_graph
 from ppanggolin.nem.rarefaction import make_rarefaction_curve, parser_rarefaction
 from ppanggolin.nem.partition import partition, parser_partition
 from ppanggolin.formats.writeBinaries import write_pangenome
-from ppanggolin.formats.writeFlat import write_flat_files
+from ppanggolin.formats.writeFlat import write_flat_files, parser_flat
 from ppanggolin.figures.ucurve import draw_ucurve
 from ppanggolin.figures.tile_plot import draw_tile_plot
 from ppanggolin.info.info import print_info
 
 
 """ a global workflow that does everything in one go. """
-
-def parse_config_file(yaml_config_file):
-
-    with yaml_config_file as yaml_fh:
-        config = yaml.safe_load(yaml_fh)
-
-    # convert config dict to defaultdict 
-    config = defaultdict(dict, config)
-
-    return config
-
-
-def get_cmd_args_from_config(step_name: str, parser_fct: callable, config_param_val: dict, 
-                            general_params: list = ['help', 'fasta', 'clusters', 'anno', 'cpu', "output"]):
-    """
-    Parse arguments from config file of a specific command using argument parser of this command.
-
-    :param step_name: name of the step (ie annotate, cluster.. )
-    :param parser_fct: parser function of the command
-    :param config_param_val: dict parsed from config file with key value for the command
-    :param general_params: General parameters to remove from the expected arguments. These parameters are managed by cmd line arguments directly.
-    
-    """
-
-    # Abbreviations are not allowed in config file
-    parser = argparse.ArgumentParser(prog=f"{step_name} args from config file", 
-                                    allow_abbrev=False, add_help=False)  
-
-    parser_fct(parser)
-
-    # remove required arguments. Config file ca only contained optional arguments
-    parser._actions = [p_action for p_action in parser._actions if p_action.required == False]
-
-    # remove general arguments to only expect arguments specific to the step.
-    parser._actions = [p_action for p_action in parser._actions if p_action.dest not in general_params]
-    
-    parser.usage = "Yaml expected structure"
-    
-    arguments_to_parse = []
-    for param, val in config_param_val.items():
-        if type(val) == bool:
-            # param is a flag
-            if val is True:
-                arguments_to_parse.append(f"--{param}")
-            # if val is false, the param is not added to the list
-
-        else:
-            # argument is a "--param val" type
-            arguments_to_parse.append(f"--{param}")
-            arguments_to_parse.append(str(val))
-
-    
-    args = parser.parse_args(arguments_to_parse)
-
-    logging.info(f'Config file: {step_name}: {len(config_param_val)} arguments parsed: {" ".join(arguments_to_parse)} ')
-
-    return args
-
-
 
 def launch(args: argparse.Namespace):
     """
@@ -96,6 +36,10 @@ def launch(args: argparse.Namespace):
 
     if args.config:
         config = parse_config_file(args.config)
+
+        # convert config dict to defaultdict 
+        config = defaultdict(dict, config)
+
     else:
         config = defaultdict(dict)
 
@@ -110,6 +54,8 @@ def launch(args: argparse.Namespace):
     partition_args = get_cmd_args_from_config("partition", parser_partition, config['partition'], general_params)
 
     rarefaction_args = get_cmd_args_from_config("rarefaction", parser_rarefaction, config['rarefaction'], general_params)
+
+    write_args = get_cmd_args_from_config("write", parser_flat, config['write'], general_params)
 
     pangenome = Pangenome()
 
@@ -202,8 +148,22 @@ def launch(args: argparse.Namespace):
 
     draw_ucurve(pangenome, args.output)
 
-    write_flat_files(pangenome, args.output, args.cpu, csv=True, gene_pa=True, gexf=True, light_gexf=True,
-                     projection=True, stats=True, json=True, partitions=True)
+    # check that at least one output file is requested. if not write is not call.
+    write_out_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json', "partitions"]
+    print([getattr(write_args,arg) for arg in  write_out_arguments])
+
+    if any(( getattr(write_args,arg) for arg in  write_out_arguments)):
+        # some parameters are set to false because they have not been computed in this workflow
+        write_flat_files(pangenome, args.output, cpu=args.cpu,  disable_bar=args.disable_prog_bar, 
+                        soft_core=write_args.soft_core, dup_margin=write_args.dup_margin,
+                        csv=write_args.csv, gene_pa=write_args.Rtab, gexf=write_args.gexf, light_gexf=write_args.light_gexf, projection=write_args.projection,
+                        stats=write_args.stats, json=write_args.json, partitions=write_args.partitions, 
+                        families_tsv=write_args.families_tsv, 
+                        compress=write_args.compress, 
+                        spot_modules=False, regions=False, modules=False, spots=False, borders=False)
+    else:
+        logging.getLogger().info(f'No flat file has been requested in config file. Writing output flat file is skipped.')
+
 
     print_info(filename, content=True)
 

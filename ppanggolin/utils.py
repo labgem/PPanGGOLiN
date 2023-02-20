@@ -17,6 +17,10 @@ import logging
 
 from scipy.sparse import csc_matrix
 
+import yaml
+from collections import defaultdict
+
+
 from ppanggolin.geneFamily import GeneFamily
 
 
@@ -341,3 +345,60 @@ def check_option_workflow(args):
 
     if not any([args.fasta, args.anno]):
         raise Exception("At least one of --fasta or --anno must be given")
+
+
+def parse_config_file(yaml_config_file):
+    """
+    Parse yaml config file.
+
+    :param yaml_config_file: config file in yaml
+    """
+
+    with yaml_config_file as yaml_fh:
+        config = yaml.safe_load(yaml_fh)
+        
+    return config
+
+
+def get_cmd_args_from_config(step_name: str, parser_fct: callable, config_param_val: dict, 
+                            general_params: list = ['help', 'fasta', 'clusters', 'anno', 'cpu', "output"]):
+    """
+    Parse arguments from config file of a specific command using argument parser of this command.
+
+    :param step_name: name of the step (ie annotate, cluster.. )
+    :param parser_fct: parser function of the command
+    :param config_param_val: dict parsed from config file with key value for the command
+    :param general_params: General parameters to remove from the expected arguments. These parameters are managed by cmd line arguments directly.
+    """
+
+    # Abbreviations are not allowed in config file
+    parser = argparse.ArgumentParser(prog=f"{step_name} args from config file", 
+                                    allow_abbrev=False, add_help=False)  
+
+    parser_fct(parser)
+
+    # remove required arguments. Config file ca only contained optional arguments
+    parser._actions = [p_action for p_action in parser._actions if p_action.required == False]
+
+    # remove general arguments to only expect arguments specific to the step.
+    parser._actions = [p_action for p_action in parser._actions if p_action.dest not in general_params]
+    
+    parser.usage = "Yaml expected structure"
+    
+    arguments_to_parse = []
+    for param, val in config_param_val.items():
+        if type(val) == bool:
+            # param is a flag
+            if val is True:
+                arguments_to_parse.append(f"--{param}")
+            # if val is false, the param is not added to the list
+        else:
+            # argument is a "--param val" type
+            arguments_to_parse.append(f"--{param}")
+            arguments_to_parse.append(str(val))
+
+    args = parser.parse_args(arguments_to_parse)
+
+    logging.getLogger().info(f'Config file: {step_name}: {len(config_param_val)} arguments parsed: {" ".join(arguments_to_parse)} ')
+
+    return args
