@@ -150,7 +150,6 @@ def launch(args: argparse.Namespace):
 
     # check that at least one output file is requested. if not write is not call.
     write_out_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json', "partitions"]
-    print([getattr(write_args,arg) for arg in  write_out_arguments])
 
     if any(( getattr(write_args,arg) for arg in  write_out_arguments)):
         # some parameters are set to false because they have not been computed in this workflow
