@@ -352,6 +352,8 @@ def parse_config_file(yaml_config_file: str) -> dict:
     Parse yaml config file.
 
     :param yaml_config_file: config file in yaml
+
+    :return: dict of config with key the command and as value another dict with param as key and value as value. 
     """
 
     with yaml_config_file as yaml_fh:
@@ -360,7 +362,7 @@ def parse_config_file(yaml_config_file: str) -> dict:
     return config
 
 
-def get_cmd_args_from_config(step_name: str, parser_fct: callable, config_param_val: dict, 
+def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict, 
                             general_params: list = ['help', 'fasta', 'clusters', 'anno', 'cpu', "output"]) -> argparse.Namespace: 
     """
     Parse arguments from config file of a specific command using argument parser of this command.
@@ -389,6 +391,7 @@ def get_cmd_args_from_config(step_name: str, parser_fct: callable, config_param_
     
     arguments_to_parse = []
     for param, val in config_param_val.items():
+
         if type(val) == bool:
             # param is a flag
             if val is True:
@@ -397,7 +400,12 @@ def get_cmd_args_from_config(step_name: str, parser_fct: callable, config_param_
         else:
             # argument is a "--param val" type
             arguments_to_parse.append(f"--{param}")
-            arguments_to_parse.append(str(val))
+
+            if type(val) == list:
+                # range of values need to be added one by one
+                arguments_to_parse += [str(v) for v in val]
+            else:
+                arguments_to_parse.append(str(val))
 
     args = parser.parse_args(arguments_to_parse)
 
