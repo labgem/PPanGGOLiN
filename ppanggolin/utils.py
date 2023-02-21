@@ -347,7 +347,7 @@ def check_option_workflow(args):
         raise Exception("At least one of --fasta or --anno must be given")
 
 
-def parse_config_file(yaml_config_file):
+def parse_config_file(yaml_config_file: str) -> dict:
     """
     Parse yaml config file.
 
@@ -361,7 +361,7 @@ def parse_config_file(yaml_config_file):
 
 
 def get_cmd_args_from_config(step_name: str, parser_fct: callable, config_param_val: dict, 
-                            general_params: list = ['help', 'fasta', 'clusters', 'anno', 'cpu', "output"]):
+                            general_params: list = ['help', 'fasta', 'clusters', 'anno', 'cpu', "output"]) -> argparse.Namespace: 
     """
     Parse arguments from config file of a specific command using argument parser of this command.
 
@@ -369,6 +369,8 @@ def get_cmd_args_from_config(step_name: str, parser_fct: callable, config_param_
     :param parser_fct: parser function of the command
     :param config_param_val: dict parsed from config file with key value for the command
     :param general_params: General parameters to remove from the expected arguments. These parameters are managed by cmd line arguments directly.
+
+    :return: object with arguments for the given command 
     """
 
     # Abbreviations are not allowed in config file
