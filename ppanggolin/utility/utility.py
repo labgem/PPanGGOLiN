@@ -8,6 +8,11 @@ from ppanggolin.graph.makeGraph import parser_graph
 from ppanggolin.nem.rarefaction import parser_rarefaction
 from ppanggolin.nem.partition import parser_partition
 from ppanggolin.formats.writeFlat import  parser_flat
+from ppanggolin.RGP.genomicIsland import parser_rgp
+from ppanggolin.RGP.spot import parser_spot
+from ppanggolin.mod.module import parser_module
+
+
 
 """ Utility scripts to help formating input files of PPanggolin."""
 
@@ -40,13 +45,15 @@ def get_default_argument_lines(parser_fct,
 
     arg_default_lines = []
     for action in parser._actions:
-        if comment:
-            # Add the help as comment
-            if action.help != "==SUPPRESS==":
-                arg_default_lines.append(f"{indentation}# {action.help}")
+        if action.help == "==SUPPRESS==":
+            # arg with suppressed help are ignored.
+            continue
 
-            if action.choices:
-                arg_default_lines.append(f"{indentation}# Choices: {', '.join(action.choices)}")
+        # Add the help as comment
+        arg_default_lines.append(f"{indentation}# {action.help}")
+
+        if action.choices:
+            arg_default_lines.append(f"{indentation}# Choices: {', '.join(action.choices)}")
 
         # When default is None, it is replaced by False to omit the arg and get the None value as expected.
         default = action.default if action.default is not None else False
@@ -93,6 +100,9 @@ def launch(args: argparse.Namespace):
             "partition": parser_partition,
             "rarefaction": parser_rarefaction,
             "write": parser_flat,
+            "rgp":parser_rgp,
+            "spot":parser_spot, 
+            "module":parser_module
         }
 
         add_comment = not args.no_comment
