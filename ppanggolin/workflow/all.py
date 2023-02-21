@@ -158,7 +158,7 @@ def launch(args: argparse.Namespace):
     start_spots = time.time()
     predict_hotspots(pangenome, args.output, force=args.force, spot_graph=spots_args.spot_graph,
                     overlapping_match=spots_args.overlapping_match, set_size=spots_args.set_size,
-                    exact_match=spots_args.exact_match_size, disable_bar=spots_args.disable_prog_bar)
+                    exact_match=spots_args.exact_match_size, disable_bar=args.disable_prog_bar)
     spot_time = time.time() - start_spots
 
     start_mods = time.time()
@@ -274,7 +274,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
                           help="Use to compute the rarefaction curves (WARNING: can be time consuming)")
     optional.add_argument("--only_pangenome", required=False, action="store_true",
                           help="Only generate the HDF5 pangenome file")
-    optional.add_argument("--config", required=False, type=open, help="Config file.")
+    optional.add_argument("--config", required=False, type=open, 
+                        help="Config file in yaml format to launch the different step of "
+                             "the workflow with specific arguments.")
    
 
     return parser

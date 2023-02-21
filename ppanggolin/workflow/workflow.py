@@ -198,7 +198,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     optional.add_argument("--only_pangenome", required=False, action="store_true",
                           help="Only generate the HDF5 pangenome file")
     
-    optional.add_argument("--config", required=False, type=open, help="Config file.")
+    optional.add_argument("--config", required=False, type=open, 
+                        help="Config file in yaml format to launch the different step of "
+                             "the workflow with specific arguments.")
    
     
     return parser
