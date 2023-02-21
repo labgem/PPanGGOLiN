@@ -158,14 +158,43 @@ def launch(args: argparse.Namespace):
         spot_time = spot_time + time.time() - start_spot_drawing
 
         if args.rarefaction:
-            make_rarefaction_curve(pangenome, args.output, args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+            make_rarefaction_curve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, 
+                                    beta=rarefaction_args.beta,
+                                    depth=rarefaction_args.depth, 
+                                    min_sampling=rarefaction_args.min,
+                                    max_sampling=rarefaction_args.max,
+                                    sm_degree=rarefaction_args.max_degree_smoothing, 
+                                    free_dispersion=rarefaction_args.free_dispersion,
+                                    chunk_size=rarefaction_args.chunk_size,
+                                    kval=rarefaction_args.nb_of_partitions,
+                                    krange=rarefaction_args.krange,
+                                    seed=rarefaction_args.seed,
+                                    kestimate=rarefaction_args.reestimate_K,
+                                    soft_core=rarefaction_args.soft_core, 
+                                    cpu=args.cpu, disable_bar=args.disable_prog_bar)
+
         if 1 < len(pangenome.organisms) < 5000:
             draw_tile_plot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
         draw_ucurve(pangenome, args.output)
 
         start_desc = time.time()
-        write_flat_files(pangenome, args.output, args.cpu, csv=True, gene_pa=True, gexf=True, light_gexf=True,
-                        projection=True, stats=True, json=True, partitions=True, regions=True, spots=True)
+        # write_flat_files(pangenome, args.output, args.cpu, csv=True, gene_pa=True, gexf=True, light_gexf=True,
+        #                 projection=True, stats=True, json=True, partitions=True, regions=True, spots=True)
+        # check that at least one output file is requested. if not write is not call.
+        write_out_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json', "partitions"]
+
+        if any(( getattr(write_args,arg) for arg in  write_out_arguments)):
+            # some parameters are set to false because they have not been computed in this workflow
+            write_flat_files(pangenome, args.output, cpu=args.cpu,  disable_bar=args.disable_prog_bar, 
+                            soft_core=write_args.soft_core, dup_margin=write_args.dup_margin,
+                            csv=write_args.csv, gene_pa=write_args.Rtab, gexf=write_args.gexf, light_gexf=write_args.light_gexf, projection=write_args.projection,
+                            stats=write_args.stats, json=write_args.json, partitions=write_args.partitions, 
+                            families_tsv=write_args.families_tsv, 
+                            compress=write_args.compress, 
+                            spot_modules=False, regions=False, modules=False, spots=False, borders=False)
+        else:
+            logging.getLogger().info(f'No flat file has been requested in config file. Writing output flat file is skipped.')
+
         desc_time = time.time() - start_desc
 
     logging.getLogger().info(f"Annotation took : {round(anno_time, 2)} seconds")
