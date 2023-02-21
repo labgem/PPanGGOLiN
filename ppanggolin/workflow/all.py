@@ -164,7 +164,8 @@ def launch(args: argparse.Namespace):
     start_mods = time.time()
     # predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
     predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=args.cpu, dup_margin=module_args.dup_margin, size=module_args.size,
-                min_presence=module_args.min_presence, transitive=module_args.transitive, jaccard=module_args.jaccard, force=module_args.force,
+                min_presence=module_args.min_presence, transitive=module_args.transitive, jaccard=module_args.jaccard,
+                force=args.force,
                 disable_bar=args.disable_prog_bar)
 
     mod_time = time.time() - start_mods
