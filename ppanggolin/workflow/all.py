@@ -87,7 +87,7 @@ def launch(args: argparse.Namespace):
         start_clust = time.time()
         if args.clusters is not None:
             read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar, 
-                            infer_singleton=cluster_args.infer_singleton)
+                            infer_singleton=cluster_args.infer_singletons)
 
         elif args.clusters is None:  # we should have the sequences here.
 
