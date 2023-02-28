@@ -294,7 +294,7 @@ def parser_context(parser: argparse.ArgumentParser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
-
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
@@ -313,7 +313,6 @@ if __name__ == '__main__':
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
     common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
                         help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
     set_verbosity_level(main_parser.parse_args())

@@ -44,7 +44,7 @@ def launch(args: argparse.Namespace):
     else:
         config = defaultdict(dict)
 
-    general_params = ['help', 'fasta', 'clusters', 'anno', 'cpu', "output"]
+    general_params = ['help', 'fasta', 'clusters', 'anno', "output"]
     
     # important params that are given in CLI as well on top of config file
     cli_params = ["translation_table", "mode", "coverage", "identity", "nb_of_partitions", "no_defrag"]
@@ -321,6 +321,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     optional.add_argument("--only_pangenome", required=False, action="store_true",
                           help="Only generate the HDF5 pangenome file")
+                          
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
 
     parser_specific_args(optional)
