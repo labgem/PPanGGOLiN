@@ -45,12 +45,8 @@ def launch(args: argparse.Namespace):
         config = defaultdict(dict)
 
     general_params = ['help', 'fasta', 'clusters', 'anno', "output"]
-    
-    # important params that are given in CLI as well on top of config file
-    cli_params = ["translation_table", "mode", "coverage", "identity", "nb_of_partitions", "no_defrag"]
 
     cli_args = get_non_default_cli_args()
-
 
     # Get args from config file for each steps. if config is not set for any step, default is used.
     annotate_args = get_cmd_args_from_config("annotate", parser_annot, config['annotate'], cli_args, general_params)
@@ -77,7 +73,7 @@ def launch(args: argparse.Namespace):
 
         start_anno = time.time()
         read_annotations(pangenome, args.anno, pseudo=annotate_args.use_pseudo,
-                        cpu=args.cpu, disable_bar=args.disable_prog_bar)
+                        cpu=annotate_args.cpu, disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()
@@ -99,7 +95,7 @@ def launch(args: argparse.Namespace):
 
         elif args.clusters is None:  # we should have the sequences here.
 
-            clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, force=args.force, disable_bar=args.disable_prog_bar, 
+            clustering(pangenome, tmpdir=args.tmpdir, cpu=cluster_args.cpu, force=args.force, disable_bar=args.disable_prog_bar, 
                         defrag=not cluster_args.no_defrag, code=cluster_args.translation_table,
                         coverage=cluster_args.coverage, identity=cluster_args.identity, mode=cluster_args.mode) 
         clust_time = time.time() - start_clust
@@ -107,7 +103,7 @@ def launch(args: argparse.Namespace):
     elif args.fasta is not None:
 
         start_anno = time.time()
-        annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar,
+        annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=annotate_args.cpu, disable_bar=args.disable_prog_bar,
                         procedure=annotate_args.prodigal_procedure,
                         translation_table=annotate_args.translation_table, kingdom=annotate_args.kingdom, norna=annotate_args.norna,
                         overlap=annotate_args.overlap, contig_filter=annotate_args.contig_filter)
@@ -118,7 +114,7 @@ def launch(args: argparse.Namespace):
         writing_time = time.time() - start_writing
 
         start_clust = time.time()
-        clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cpu, force=args.force, disable_bar=args.disable_prog_bar, 
+        clustering(pangenome, tmpdir=args.tmpdir, cpu=cluster_args.cpu, force=args.force, disable_bar=args.disable_prog_bar, 
                     defrag=not cluster_args.no_defrag, code=cluster_args.translation_table,
                     coverage=cluster_args.coverage, identity=cluster_args.identity, mode=cluster_args.mode) 
         clust_time = time.time() - start_clust
@@ -144,7 +140,7 @@ def launch(args: argparse.Namespace):
                 draw_icl = partition_args.draw_ICL,
                 seed = partition_args.seed,
                 keep_tmp_files = partition_args.keep_tmp_files,
-                cpu = args.cpu,
+                cpu = partition_args.cpu,
                 force = args.force,
                 disable_bar=args.disable_prog_bar)
     part_time = time.time() - start_part
@@ -171,7 +167,7 @@ def launch(args: argparse.Namespace):
 
     start_mods = time.time()
     # predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=args.cpu, disable_bar=args.disable_prog_bar)
-    predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=args.cpu, dup_margin=module_args.dup_margin, size=module_args.size,
+    predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=module_args.cpu, dup_margin=module_args.dup_margin, size=module_args.size,
                 min_presence=module_args.min_presence, transitive=module_args.transitive, jaccard=module_args.jaccard,
                 force=args.force,
                 disable_bar=args.disable_prog_bar)
@@ -204,7 +200,7 @@ def launch(args: argparse.Namespace):
                                     seed=rarefaction_args.seed,
                                     kestimate=rarefaction_args.reestimate_K,
                                     soft_core=rarefaction_args.soft_core, 
-                                    cpu=args.cpu, disable_bar=args.disable_prog_bar)
+                                    cpu=rarefaction_args.cpu, disable_bar=args.disable_prog_bar)
 
         if 1 < len(pangenome.organisms) < 5000:
             draw_tile_plot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
@@ -220,7 +216,7 @@ def launch(args: argparse.Namespace):
 
         if any(( getattr(write_args,arg) for arg in  write_out_arguments)):
             # some parameters are set to false because they have not been computed in this workflow
-            write_flat_files(pangenome, args.output, cpu=args.cpu,  disable_bar=args.disable_prog_bar, 
+            write_flat_files(pangenome, args.output, cpu=write_args.cpu,  disable_bar=args.disable_prog_bar, 
                             soft_core=write_args.soft_core, dup_margin=write_args.dup_margin,
                             csv=write_args.csv, gene_pa=write_args.Rtab, gexf=write_args.gexf, light_gexf=write_args.light_gexf, projection=write_args.projection,
                             stats=write_args.stats, json=write_args.json, partitions=write_args.partitions, 
@@ -321,7 +317,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     optional.add_argument("--only_pangenome", required=False, action="store_true",
                           help="Only generate the HDF5 pangenome file")
-                          
+
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
 

@@ -18,7 +18,7 @@ from ppanggolin.mod.module import parser_module
 
 
 def get_default_argument_lines(parser_fct, 
-                        general_params: list = ['help', 'fasta', 'clusters', 'anno', 'cpu', "output"],
+                        general_params: list,
                         comment: bool = True, 
                         indentation: str ='    ') -> dict:
     """
@@ -71,12 +71,12 @@ def write_yaml_default_config(output: str, step_to_arg_parser: dict, comment:boo
     :param step_to_arg_parser: key = name of the step and value = specific parser function for the step.
     :param comment: if true, help comments describing the arguments are not added to the yaml file.
     """
-    
+    general_params = ['help', 'fasta', 'clusters', 'anno', "output"]
     step_arg_lines = []
     for step_name, parser_fct in step_to_arg_parser.items():
 
         arg_lines = [f"{step_name}:"]
-        arg_lines += get_default_argument_lines(parser_fct, comment = comment)
+        arg_lines += get_default_argument_lines(parser_fct, general_params= general_params, comment = comment)
 
         step_arg_lines.append('\n'.join(arg_lines) +'\n')        
 
