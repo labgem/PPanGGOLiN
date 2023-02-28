@@ -10,7 +10,7 @@ from collections import defaultdict
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, get_cmd_args_from_config, parse_config_file, restricted_float
+from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, get_cmd_args_from_config, parse_config_file, restricted_float, add_common_arguments, check_log
 from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas, parser_annot
 from ppanggolin.cluster.cluster import clustering, read_clustering, parser_clust
 from ppanggolin.graph.makeGraph import compute_neighbors_graph, parser_graph
@@ -27,7 +27,6 @@ from ppanggolin.RGP.spot import predict_hotspots, parser_spot
 from ppanggolin.mod.module import predict_modules, parser_module
 
 """a global workflow that does everything in one go."""
-
 
 def launch(args: argparse.Namespace):
     """
@@ -50,21 +49,8 @@ def launch(args: argparse.Namespace):
     # important params that are given in CLI as well on top of config file
     cli_params = ["translation_table", "mode", "coverage", "identity", "nb_of_partitions", "no_defrag"]
 
-    # exit on error is false because args have already been processed in main. 
-    # Here we just want to parse import arguments that are made avalaible in CLI. Other arguments would procuded an exit.
+    cli_args = get_non_default_cli_args()
 
-    parser = argparse.ArgumentParser(prog="", allow_abbrev=True, add_help=False, exit_on_error=False ) 
-    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description="")
-
-    parser_ = subparser(subparsers)
-
-    # set default to None
-    for p_action in parser_._actions:
-        p_action.default = None
-    
-    
-    # parse
-    cli_args = parser.parse_args()
 
     # Get args from config file for each steps. if config is not set for any step, default is used.
     annotate_args = get_cmd_args_from_config("annotate", parser_annot, config['annotate'], cli_args, general_params)
@@ -81,7 +67,6 @@ def launch(args: argparse.Namespace):
     spots_args = get_cmd_args_from_config("spot", parser_spot, config['spot'], cli_args, general_params)
     module_args = get_cmd_args_from_config("module", parser_module, config['module'], cli_args, general_params)
     
-
     pangenome = Pangenome()
 
     filename = mk_file_name(args.basename, args.output, args.force)
@@ -261,9 +246,35 @@ def launch(args: argparse.Namespace):
     
     print_info(filename, content=True)
 
-class Default_str(str):
-    pass
 
+def get_non_default_cli_args() ->  argparse.Namespace:
+    """
+    Get args value that have been specified in cmd line.
+    """
+
+    parser = argparse.ArgumentParser(prog="", allow_abbrev=True, add_help=False) 
+    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description="")
+
+    sub = subparser(subparsers)
+
+    add_common_arguments(sub)
+
+    # set default to None
+    for p_action in sub._actions:
+        p_action.default = None
+        # some args have special type calling a function to trigger something
+        # like --log. We need to prevent calling this function a second time.
+        if p_action.type in [check_log]:
+            p_action.type = None
+
+    cli_args = parser.parse_args()
+
+    # delete args not specified in CLI (so the one with None value) 
+    for arg_name, arg_val in cli_args._get_kwargs():
+        if arg_val is None:
+            delattr(cli_args, arg_name)
+
+    return cli_args
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -292,7 +303,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     optional = parser.add_argument_group(title="Optional arguments")
     
-    optional.add_argument("--config", required=False, type=open, 
+    optional.add_argument("--config", required=False, type=argparse.FileType(), 
                     help="Config file in yaml format to launch the different step of "
                             "the workflow with specific arguments.")
 
