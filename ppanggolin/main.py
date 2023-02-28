@@ -9,11 +9,10 @@ if sys.version_info < (3, 6):  # minimum is python3.6
                          ".".join(map(str, sys.version_info)))
 import argparse
 import pkg_resources
-import tempfile
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_log, check_input_files, set_verbosity_level
+from ppanggolin.utils import check_log, check_input_files, set_verbosity_level, add_common_arguments
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
@@ -106,19 +105,7 @@ def cmd_line() -> argparse.Namespace:
     ppanggolin.utility.subparser(subparsers)
 
     for sub in subs:  # add options common to all subcommands
-        common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
-        common.title = "Common arguments"
-        common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
-                            help="directory for storing temporary files")
-        common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                            help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-        common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-        common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                            help="disables the progress bars")
-        common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-        common.add_argument('-f', '--force', action="store_true",
-                            help="Force writing in output directory and in pangenome output file.")
-        sub._action_groups.append(common)
+        add_common_arguments(sub)
         if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
             sub.print_help()
             exit(1)

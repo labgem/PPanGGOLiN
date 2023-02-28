@@ -14,6 +14,7 @@ import networkx as nx
 import pkg_resources
 from numpy import repeat
 import logging
+import tempfile
 
 from scipy.sparse import csc_matrix
 
@@ -440,3 +441,26 @@ def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict,
     overwrite_params_with_cli_args(args, cli_args)
 
     return args
+
+
+def add_common_arguments(subparser: argparse.ArgumentParser):
+    """
+    Add common argument to the input subparser.
+
+    :param subparser: A subparser object from any subcommand.
+    """
+
+    common = subparser._action_groups.pop(1)  # get the 'optional arguments' action group.
+    common.title = "Common arguments"
+    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+                        help="directory for storing temporary files")
+    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
+    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
+                        help="disables the progress bars")
+    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    common.add_argument('-f', '--force', action="store_true",
+                        help="Force writing in output directory and in pangenome output file.")
+
+    subparser._action_groups.append(common)
