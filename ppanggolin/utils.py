@@ -382,8 +382,6 @@ def overwrite_params_with_cli_args(config_args: argparse.Namespace, cli_args: ar
         if non_default_arg in config_args and arg_val:
             logging.getLogger().info(f'Parameter "--{non_default_arg} {arg_val}" has been specified in command line. Its value overwrite putative config value.')
             setattr(config_args, non_default_arg, arg_val)
-            logging.info("---->")
-            logging.getLogger().info('---->')
     
 
 def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict,
@@ -416,12 +414,15 @@ def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict,
     parser.usage = "Yaml expected structure"
     
     arguments_to_parse = []
+    off_flags = []
     for param, val in config_param_val.items():
 
         if type(val) == bool:
             # param is a flag
             if val is True:
                 arguments_to_parse.append(f"--{param}")
+            else:
+                off_flags.append(param)
             # if val is false, the param is not added to the list
         else:
             # argument is a "--param val" type
@@ -435,8 +436,11 @@ def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict,
 
     args = parser.parse_args(arguments_to_parse)
 
+    logging.getLogger().info(f'Config file: {step_name}: {len(config_param_val)} arguments parsed from config.')
 
-    logging.getLogger().info(f'Config file: {step_name}: {len(config_param_val)} arguments parsed: {" ".join(arguments_to_parse)} ')
+    if config_param_val:
+        logging.getLogger().debug(f'Arguments to parse: {" ".join(arguments_to_parse)}')
+        logging.getLogger().debug(f'Flag arguments set to False: {off_flags}')
 
     overwrite_params_with_cli_args(args, cli_args)
 
