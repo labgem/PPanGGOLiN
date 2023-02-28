@@ -10,7 +10,7 @@ from collections import defaultdict
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, get_cmd_args_from_config, parse_config_file
+from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, get_cmd_args_from_config, parse_config_file, restricted_float
 from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas, parser_annot
 from ppanggolin.cluster.cluster import clustering, read_clustering, parser_clust
 from ppanggolin.graph.makeGraph import compute_neighbors_graph, parser_graph
@@ -46,17 +46,40 @@ def launch(args: argparse.Namespace):
         config = defaultdict(dict)
 
     general_params = ['help', 'fasta', 'clusters', 'anno', 'cpu', "output"]
+    
+    # important params that are given in CLI as well on top of config file
+    cli_params = ["translation_table", "mode", "coverage", "identity", "nb_of_partitions", "no_defrag"]
 
-    annotate_args = get_cmd_args_from_config("annotate", parser_annot, config['annotate'], general_params)
-    cluster_args = get_cmd_args_from_config("cluster", parser_clust, config['cluster'], general_params)
-    graph_args = get_cmd_args_from_config("graph", parser_graph, config['graph'], general_params)
-    partition_args = get_cmd_args_from_config("partition", parser_partition, config['partition'], general_params)
-    rarefaction_args = get_cmd_args_from_config("rarefaction", parser_rarefaction, config['rarefaction'], general_params)
-    write_args = get_cmd_args_from_config("write", parser_flat, config['write'], general_params)
+    # exit on error is false because args have already been processed in main. 
+    # Here we just want to parse import arguments that are made avalaible in CLI. Other arguments would procuded an exit.
 
-    rgp_args = get_cmd_args_from_config("rgp", parser_rgp, config['rgp'], general_params)
-    spots_args = get_cmd_args_from_config("spot", parser_spot, config['spot'], general_params)
-    module_args = get_cmd_args_from_config("module", parser_module, config['module'], general_params)
+    parser = argparse.ArgumentParser(prog="", allow_abbrev=True, add_help=False, exit_on_error=False ) 
+    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description="")
+
+    parser_ = subparser(subparsers)
+
+    # set default to None
+    for p_action in parser_._actions:
+        p_action.default = None
+    
+    
+    # parse
+    cli_args = parser.parse_args()
+
+    # Get args from config file for each steps. if config is not set for any step, default is used.
+    annotate_args = get_cmd_args_from_config("annotate", parser_annot, config['annotate'], cli_args, general_params)
+
+    cluster_args = get_cmd_args_from_config("cluster", parser_clust, config['cluster'], cli_args, general_params)
+
+
+    graph_args = get_cmd_args_from_config("graph", parser_graph, config['graph'], cli_args, general_params)
+    partition_args = get_cmd_args_from_config("partition", parser_partition, config['partition'], cli_args,  general_params)
+    rarefaction_args = get_cmd_args_from_config("rarefaction", parser_rarefaction, config['rarefaction'], cli_args,  general_params)
+    write_args = get_cmd_args_from_config("write", parser_flat, config['write'], cli_args, general_params)
+
+    rgp_args = get_cmd_args_from_config("rgp", parser_rgp, config['rgp'], cli_args, general_params)
+    spots_args = get_cmd_args_from_config("spot", parser_spot, config['spot'], cli_args, general_params)
+    module_args = get_cmd_args_from_config("module", parser_module, config['module'], cli_args, general_params)
     
 
     pangenome = Pangenome()
@@ -238,6 +261,10 @@ def launch(args: argparse.Namespace):
     
     print_info(filename, content=True)
 
+class Default_str(str):
+    pass
+
+
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
@@ -265,19 +292,58 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     optional = parser.add_argument_group(title="Optional arguments")
     
+    optional.add_argument("--config", required=False, type=open, 
+                    help="Config file in yaml format to launch the different step of "
+                            "the workflow with specific arguments.")
+
+
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                         time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
+
     optional.add_argument("--basename", required=False, default="pangenome",
                             help="basename for the output file")
+                            
     optional.add_argument("--rarefaction", required=False, action="store_true",
                           help="Use to compute the rarefaction curves (WARNING: can be time consuming)")
+
     optional.add_argument("--only_pangenome", required=False, action="store_true",
                           help="Only generate the HDF5 pangenome file")
-    optional.add_argument("--config", required=False, type=open, 
-                        help="Config file in yaml format to launch the different step of "
-                             "the workflow with specific arguments.")
-   
+
+
+    parser_specific_args(optional)
+
 
     return parser
+
+
+def parser_specific_args(parser: argparse.ArgumentParser):
+    """
+    Parser for important arguments that can be changed in CLI. 
+    Other (less important) arguments that are step specific can be changed in the config file.
+
+    :param parser: parser for workflow argument
+    """
+
+    parser.add_argument("--translation_table", required=False, type=int, default=11,
+                          help="Translation table (genetic code) to use.")
+
+    parser.add_argument("--mode", required=False, default="1", choices=["0", "1", "2", "3"],
+                          help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component),"
+                               " 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
+
+    parser.add_argument("--coverage", required=False, type=restricted_float, default=0.8,
+                          help="Minimal coverage of the alignment for two proteins to be in the same cluster")
+
+    parser.add_argument("--identity", required=False, type=restricted_float, default=0.8,
+                          help="Minimal identity percent for two proteins to be in the same cluster")
+
+    parser.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
+                          help="Number of partitions to use. Must be at least 2. If under 2, "
+                               "it will be detected automatically.")
+                               
+    # This ensures compatibility with workflows built with the old option "defrag" when it was not the default
+    parser.add_argument("--no_defrag", required=False, action="store_true",
+                          help="DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
+                          
