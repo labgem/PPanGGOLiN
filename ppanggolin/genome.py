@@ -21,11 +21,11 @@ class Feature:
     _all_dna = bidict()
     """Feature._all_dna stores all non redondant dna sequences"""
 
-    _geneID2non_redondant_ID = {}
-    """Feature._geneID2non_redondant_ID gives the non redondant ID from a gene ID"""
+    _featureID2non_redondant_ID = {}
+    """Feature._featureID2non_redondant_ID gives the non redondant ID from a feature ID"""
 
-    _non_redondant_ID2geneID_set = defaultdict(set)
-    """Feature._non_redondant_ID2geneID_set gives all gene IDs from non a redondant ID"""
+    _non_redondant_ID2featureID_set = defaultdict(set)
+    """Feature._non_redondant_ID2featureID_set gives all feature IDs from non a non redondant ID"""
 
     def __init__(self, identifier: str):
         self.ID = identifier
@@ -80,14 +80,18 @@ class Feature:
         if dna in type(self)._all_dna.inverse:
             non_redondant_id = type(self)._all_dna.inverse[dna]
         else:
-            non_redondant_id = len(type(self)._geneID2non_redondant_ID)
+            non_redondant_id = len(type(self)._featureID2non_redondant_ID)
         type(self)._all_dna[non_redondant_id] = dna
-        type(self)._geneID2non_redondant_ID[self.ID] = non_redondant_id
-        type(self)._non_redondant_ID2geneID_set[non_redondant_id].add(self.ID)
+        type(self)._featureID2non_redondant_ID[self.ID] = non_redondant_id
+        type(self)._non_redondant_ID2featureID_set[non_redondant_id].add(self.ID)
 
     @property
     def dna(self):
-       return(type(self)._all_dna[type(self)._geneID2non_redondant_ID[self.ID]])
+        """ Get dna of a feature
+
+        :return: dna as a str
+        """
+        return(type(self)._all_dna[type(self)._featureID2non_redondant_ID[self.ID]])
 
 class RNA(Feature):
     """Save RNA from genome as an Object with some information for Pangenome
@@ -104,6 +108,15 @@ class Gene(Feature):
 
     :param gene_id: Identifier of the gene
     """
+    _all_prot = bidict()
+    """Feature._all_dna stores all non redondant dna sequences"""
+
+    _protID2non_redondant_ID = {}
+    """Feature._geneID2non_redondant_ID gives the non redondant ID from a prot ID"""
+
+    _non_redondant_ID2protID_set = defaultdict(set)
+    """Feature._non_redondant_ID2geneID_set gives all prot IDs from non a non redondant ID"""
+
 
     def __init__(self, gene_id: str):
         super().__init__(gene_id)
@@ -111,7 +124,6 @@ class Gene(Feature):
         self.family = None
         self.RGP = set()
         self.genetic_code = None
-        self.protein = None
 
     def __str__(self):
         return str(self.ID)
@@ -142,8 +154,21 @@ class Gene(Feature):
         """
         if not isinstance(protein, str):
             raise TypeError(f"'str' type was expected but you provided a '{type(protein)}' type object")
-        self.protein = protein
+        if protein in type(self)._all_prot.inverse:
+            non_redondant_id = type(self)._all_prot.inverse[protein]
+        else:
+            non_redondant_id = len(type(self)._protID2non_redondant_ID)
+        type(self)._all_prot[non_redondant_id] = protein
+        type(self)._protID2non_redondant_ID[self.ID] = non_redondant_id
+        type(self)._non_redondant_ID2protID_set[non_redondant_id].add(self.ID)
 
+    @property
+    def protein(self):
+        """ Get amino acid sequence of a prot
+
+        :return: protein as a str
+        """
+        return(type(self)._all_prot[type(self)._protID2non_redondant_ID[self.ID]])
 
 class Contig:
     """
