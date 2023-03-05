@@ -6,6 +6,8 @@ from __future__ import annotations
 # installed libraries
 import logging
 from typing import Iterator, Dict
+from bidict import bidict
+from collections import defaultdict
 
 import gmpy2
 
@@ -15,6 +17,15 @@ class Feature:
 
     :param identifier: Identifier of the feature given by PPanGGOLiN
     """
+
+    _all_dna = bidict()
+    """Feature._all_dna stores all non redondant dna sequences"""
+
+    _geneID2non_redondant_ID = {}
+    """Feature._geneID2non_redondant_ID gives the non redondant ID from a gene ID"""
+
+    _non_redondant_ID2geneID_set = defaultdict(set)
+    """Feature._non_redondant_ID2geneID_set gives all gene IDs from non a redondant ID"""
 
     def __init__(self, identifier: str):
         self.ID = identifier
@@ -28,7 +39,6 @@ class Feature:
         self.local_identifier = None
         self.organism = None
         self.contig = None
-        self.dna = None
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
                          product: str = "", local_identifier: str = ""):
@@ -67,8 +77,17 @@ class Feature:
         """
         if not isinstance(dna, str):
             raise TypeError(f"'str' type was expected but you provided a '{type(dna)}' type object")
-        self.dna = dna
+        if dna in type(self)._all_dna.inverse:
+            non_redondant_id = type(self)._all_dna.inverse[dna]
+        else:
+            non_redondant_id = len(type(self)._geneID2non_redondant_ID)
+        type(self)._all_dna[non_redondant_id] = dna
+        type(self)._geneID2non_redondant_ID[self.ID] = non_redondant_id
+        type(self)._non_redondant_ID2geneID_set[non_redondant_id].add(self.ID)
 
+    @property
+    def dna(self):
+       return(type(self)._all_dna[type(self)._geneID2non_redondant_ID[self.ID]])
 
 class RNA(Feature):
     """Save RNA from genome as an Object with some information for Pangenome
