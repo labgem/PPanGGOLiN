@@ -131,9 +131,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     """
     Subparser to launch PPanGGOLiN in Command line
 
-    :param sub_parser : sub_parser for align command
+    :param sub_parser : sub_parser for graph command
 
-    :return : parser arguments for align command
+    :return : parser arguments for graph command
     """
     parser = sub_parser.add_parser("graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_graph(parser)
@@ -144,7 +144,7 @@ def parser_graph(parser: argparse.ArgumentParser):
     """
     Parser for specific argument of graph command
 
-    :param parser: parser for align argument
+    :param parser: parser for graph argument
     """
     parser.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
