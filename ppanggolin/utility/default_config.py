@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
+import os
+
+from ppanggolin.utils import get_subcommand_parser, check_log
 
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
@@ -21,72 +25,36 @@ import ppanggolin.utility
 """ Utility scripts to help formating input files of PPanggolin."""
 
 
-def get_default_argument_lines(parser_fct, 
-                        general_params: list,
-                        comment: bool = True, 
-                        indentation: str ='    ') -> dict:
+def get_default_argument_lines(argument_actions:list([argparse._SubParsersAction])) -> dict:
     """
-    Get default arguments for a specific command using the argument parser of this command and format them for the yaml output.
+    Get default arguments for a specific list of parser actions and format them for the yaml output.
 
     Help and possible values of the argument is added as comment line. 
 
-    :param parser_fct: parser function of the command.
-    :param general_params: General parameters to remove from the expected arguments.
-    :param indentation: Indentation to use for starting a line.
+    :param argument_actions: list of parser action arguments. 
 
     :return: default arguments for the given command 
     """
-
-    parser = argparse.ArgumentParser()  
-
-    parser_fct(parser)
-
-    # remove required arguments. Config file ca only contained optional arguments
-    parser._actions = [p_action for p_action in parser._actions if p_action.required == False]
-
-    # remove general arguments to only expect arguments specific to the step.
-    parser._actions = [p_action for p_action in parser._actions if p_action.dest not in general_params]
+    
+    indentation = '    '
 
     arg_default_lines = []
-    for action in parser._actions:
+    for action in argument_actions:
         if action.help == "==SUPPRESS==":
             # arg with suppressed help are ignored.
             continue
 
         # Add the help as comment
-        if comment:
-            arg_default_lines.append(f"{indentation}# {action.help}")
+        arg_default_lines.append(f"{indentation}# {action.help}")
 
         if action.choices:
-            arg_default_lines.append(f"{indentation}# Choices: {', '.join(action.choices)}")
-
+            arg_default_lines.append(f"{indentation}# Choices: {', '.join([str(choice) for choice in action.choices])}")
+        
         # When default is None, it is replaced by False to omit the arg and get the None value as expected.
         default = action.default if action.default is not None else False
         arg_default_lines.append(f"{indentation}{action.dest}: {default}")
 
     return arg_default_lines
-
-
-def write_yaml_default_config(output: str, step_to_arg_parser: dict, comment:bool):
-    """
-    Write default config in yaml format.
-
-    :param output: output file name. 
-    :param step_to_arg_parser: key = name of the step and value = specific parser function for the step.
-    :param comment: if true, help comments describing the arguments are not added to the yaml file.
-    """
-    general_params = ['help', 'fasta', 'clusters', 'anno', "output", 'basename']
-    step_arg_lines = []
-    for step_name, parser_fct in step_to_arg_parser.items():
-
-        arg_lines = [f"{step_name}:"]
-        arg_lines += get_default_argument_lines(parser_fct, general_params= general_params, comment = comment)
-
-        step_arg_lines.append('\n'.join(arg_lines) +'\n')        
-
-    with open(output, 'w') as fl:
-        fl.write('\n'.join(step_arg_lines))
-
 
 def launch(args: argparse.Namespace):
     """
@@ -94,7 +62,10 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
+    if os.path.exists(args.output) and not args.force: 
+        raise FileExistsError(f"{args.output} already exists. Use -f if you want to overwrite it.")
 
+    
     subcommand_to_subparser = {
             "annotate":ppanggolin.annotate.subparser,
             "cluster":ppanggolin.cluster.subparser,
@@ -114,13 +85,76 @@ def launch(args: argparse.Namespace):
             "rgp":ppanggolin.RGP.genomicIsland.subparser,
             "spot":ppanggolin.RGP.spot.subparser,
             "module":ppanggolin.mod.subparser,
-            "context":ppanggolin.context.subparser,
-            "info":ppanggolin.info.subparser,
-            "utility":ppanggolin.utility.subparser}
+            "context":ppanggolin.context.subparser}
+    
+    input_params = ['fasta', 'anno', 'clusters', 'pangenome']
+    general_params = ['output', 'basename', 'rarefaction', 'only_pangenome', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
+    ignored_params = ['config', 'help']
+    unspecific_params = input_params + general_params + ignored_params
 
-    add_comment = not args.no_comment
+    workflow_subcommands = ['all', 'workflow', 'panrgp', 'panmodule']
+    workflow_dependencies = ["annotate", "cluster", "graph", "partition", "write"] #, "rgp", "spot", "module" ]
 
-    write_yaml_default_config(args.output, subcommand_to_subparser, add_comment)
+    write_flag_default_in_wf = ["csv", "Rtab", "gexf", "light_gexf",
+                        'projection', 'stats', 'json', 'partitions']
+    
+    if args.command in ['panrgp', 'all']:
+        workflow_dependencies += ["rgp", "spot"]
+        write_flag_default_in_wf += ['regions', 'spots', 'borders']
+
+    if args.command in ['panmodule', 'all']:
+        workflow_dependencies.append('module')
+        write_flag_default_in_wf.append('modules')
+
+    if args.command == 'all':
+        write_flag_default_in_wf.append('spot_modules')
+
+    parser_fct = subcommand_to_subparser[args.command]
+
+    _, sub = get_subcommand_parser(parser_fct, args.command)
+    
+    inputs_actions = []
+    general_actions = []
+    specific_actions = []
+
+    for parser_action in sub._actions:
+        if parser_action.dest in ignored_params:
+            continue
+
+        if parser_action.dest in input_params:
+            inputs_actions.append(parser_action)
+
+        elif parser_action.dest in general_params:
+            general_actions.append(parser_action)
+
+        else:
+            specific_actions.append(parser_action)
+
+
+    arg_lines = ['general_parameters:']
+    arg_lines += get_default_argument_lines(general_actions)
+
+    if args.command not in workflow_subcommands:
+        arg_lines.append(f"\n{args.command}:")
+        arg_lines += get_default_argument_lines(specific_actions)
+    else:
+        for wf_subcmd in workflow_dependencies:
+            _, sub = get_subcommand_parser(subcommand_to_subparser[wf_subcmd], wf_subcmd )
+            specific_subcmd_actions = [sub_action for sub_action in sub._actions if sub_action.dest not in unspecific_params]
+
+            # overwrite some default value for write cmd in a workflow context
+            if wf_subcmd == 'write':
+                for sub_action in specific_subcmd_actions:
+                    if sub_action.dest in write_flag_default_in_wf:
+                        sub_action.default = True
+
+            arg_lines.append(f"\n{wf_subcmd}:")
+            arg_lines += get_default_argument_lines(specific_subcmd_actions)
+
+    logging.info(f'Writting default config in {args.output}')
+    with open(args.output, 'w') as fl:
+        fl.write('\n'.join(arg_lines) + '\n')
+        
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -149,16 +183,19 @@ def parser_default_config(parser: argparse.ArgumentParser):
                                          description="All of the following arguments are required :")
     # create the parser for the "default_config" command
 
-    required.add_argument('--subcommand', required=True, type=str, help="The subcommand forwhich to generate a config file with default values", choices=subcommands)
+    required.add_argument('-c', '--command', required=True, type=str, help="The subcommand forwhich to generate a config file with default values", choices=subcommands)
     
     optional = parser.add_argument_group(title="Optional arguments")
 
     optional.add_argument('-o','--output', type=str, default='default_config.yaml',
         help='output config file with default parameters written in yaml.')
-    
-    optional.add_argument("--no_comment", action="store_true",
-        help="Does not add help for each argument as a comment in the yaml file."), 
+    optional.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
+                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+    optional.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
 
+    optional.add_argument('-f', '--force', action="store_true",
+                        help="Overwrite the given output file if it exists.")
+        
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
     main_parser = argparse.ArgumentParser(
