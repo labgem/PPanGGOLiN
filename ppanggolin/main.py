@@ -9,12 +9,10 @@ if sys.version_info < (3, 6):  # minimum is python3.6
                          ".".join(map(str, sys.version_info)))
 import argparse
 import pkg_resources
-from collections import defaultdict
-import logging
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, parse_config_file, manage_cli_and_config_args
+from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
@@ -96,9 +94,9 @@ def cmd_line() -> argparse.Namespace:
                         "module":ppanggolin.mod.subparser,
                         "context":ppanggolin.context.subparser,
                         "info":ppanggolin.info.subparser,
-                        "utility":ppanggolin.utility.subparser}
+                        "default_config":ppanggolin.utility.default_config.subparser}
     
-    cmd_with_no_common_args = ['info', 'utility']
+    cmd_with_no_common_args = ['info', 'default_config']
 
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
@@ -194,7 +192,7 @@ def main():
         ppanggolin.workflow.all.launch(args)
     elif args.subcommand == "context":
         ppanggolin.context.launch(args)
-    elif args.subcommand == "utility":
+    elif args.subcommand == "default_config":
         ppanggolin.utility.launch(args)
 
 

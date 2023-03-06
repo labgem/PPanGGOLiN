@@ -2,16 +2,20 @@
 
 import argparse
 
-from ppanggolin.annotate.annotate import parser_annot
-from ppanggolin.cluster.cluster import parser_clust
-from ppanggolin.graph.makeGraph import parser_graph
-from ppanggolin.nem.rarefaction import parser_rarefaction
-from ppanggolin.nem.partition import parser_partition
-from ppanggolin.formats.writeFlat import  parser_flat
-from ppanggolin.RGP.genomicIsland import parser_rgp
-from ppanggolin.RGP.spot import parser_spot
-from ppanggolin.mod.module import parser_module
-
+import ppanggolin.nem.rarefaction
+import ppanggolin.graph
+import ppanggolin.annotate
+import ppanggolin.cluster
+import ppanggolin.figures
+import ppanggolin.formats
+import ppanggolin.info
+import ppanggolin.metrics
+import ppanggolin.align
+import ppanggolin.RGP
+import ppanggolin.mod
+import ppanggolin.context
+import ppanggolin.workflow
+import ppanggolin.utility
 
 
 """ Utility scripts to help formating input files of PPanggolin."""
@@ -50,7 +54,8 @@ def get_default_argument_lines(parser_fct,
             continue
 
         # Add the help as comment
-        arg_default_lines.append(f"{indentation}# {action.help}")
+        if comment:
+            arg_default_lines.append(f"{indentation}# {action.help}")
 
         if action.choices:
             arg_default_lines.append(f"{indentation}# Choices: {', '.join(action.choices)}")
@@ -66,12 +71,11 @@ def write_yaml_default_config(output: str, step_to_arg_parser: dict, comment:boo
     """
     Write default config in yaml format.
 
-
     :param output: output file name. 
     :param step_to_arg_parser: key = name of the step and value = specific parser function for the step.
     :param comment: if true, help comments describing the arguments are not added to the yaml file.
     """
-    general_params = ['help', 'fasta', 'clusters', 'anno', "output"]
+    general_params = ['help', 'fasta', 'clusters', 'anno', "output", 'basename']
     step_arg_lines = []
     for step_name, parser_fct in step_to_arg_parser.items():
 
@@ -90,24 +94,33 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
-    if args.utility == "default_config":
-        print(args.output)
 
-        step_to_arg_parser = {
-            "annotate":parser_annot, 
-            "cluster": parser_clust,
-            "graph": parser_graph,
-            "partition": parser_partition,
-            "rarefaction": parser_rarefaction,
-            "write": parser_flat,
-            "rgp":parser_rgp,
-            "spot":parser_spot, 
-            "module":parser_module
-        }
+    subcommand_to_subparser = {
+            "annotate":ppanggolin.annotate.subparser,
+            "cluster":ppanggolin.cluster.subparser,
+            "graph":ppanggolin.graph.subparser,
+            "partition":ppanggolin.nem.partition.subparser,
+            "rarefaction":ppanggolin.nem.rarefaction.subparser,
+            "workflow":ppanggolin.workflow.workflow.subparser,
+            "panrgp":ppanggolin.workflow.panRGP.subparser,
+            "panModule":ppanggolin.workflow.panModule.subparser,
+            "all":ppanggolin.workflow.all.subparser,
+            "draw":ppanggolin.figures.subparser,
+            "write":ppanggolin.formats.writeFlat.subparser,
+            "fasta":ppanggolin.formats.writeSequences.subparser,
+            "msa":ppanggolin.formats.writeMSA.subparser,
+            "metrics":ppanggolin.metrics.metrics.subparser,
+            "align":ppanggolin.align.subparser,
+            "rgp":ppanggolin.RGP.genomicIsland.subparser,
+            "spot":ppanggolin.RGP.spot.subparser,
+            "module":ppanggolin.mod.subparser,
+            "context":ppanggolin.context.subparser,
+            "info":ppanggolin.info.subparser,
+            "utility":ppanggolin.utility.subparser}
 
-        add_comment = not args.no_comment
+    add_comment = not args.no_comment
 
-        write_yaml_default_config(args.output, step_to_arg_parser, add_comment)
+    write_yaml_default_config(args.output, subcommand_to_subparser, add_comment)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -118,38 +131,39 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     :return : parser arguments for info command
     """
-    parser = sub_parser.add_parser("utility", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser_utility(parser)
+    parser = sub_parser.add_parser("default_config", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_default_config(parser)
     return parser
 
 
-def parser_utility(parser: argparse.ArgumentParser):
+def parser_default_config(parser: argparse.ArgumentParser):
     """
     Parser for specific argument of info command
 
     :param parser: parser for info argument
     """
+    subcommands = ['annotate', 'cluster', 'graph', 'partition', 'rarefaction', 'workflow', 'panrgp', 'panModule',
+                  'all', 'draw', 'write', 'fasta', 'msa', 'metrics', 'align', 'rgp', 'spot', 'module', 'context']
 
-    subparsers = parser.add_subparsers(help='help for subcommand', dest="utility")
-
+    required = parser.add_argument_group(title="Required arguments",
+                                         description="All of the following arguments are required :")
     # create the parser for the "default_config" command
-    parser_config = subparsers.add_parser('default_config', help='Generate default config file to use as a template in workflow commands.')
-    parser_config.add_argument('-o','--output', type=str, default='default_config.yaml',
-                         help='output config file with default parameters written in yaml.')
-    parser_config.add_argument("--no_comment", required=False, action="store_true",
-                                help="Does not add help for each argument as a comment in the yaml file.")
 
-    # create the parser for the "command_2" command
-    # parser_b = subparsers.add_parser('command_2', help='help for command_2')
-    # parser_b.add_argument('-b', type=str, help='help for b')
-    # parser_b.add_argument('-c', type=str, action='store', default='', help='test')
+    required.add_argument('--subcommand', required=True, type=str, help="The subcommand forwhich to generate a config file with default values", choices=subcommands)
+    
+    optional = parser.add_argument_group(title="Optional arguments")
 
+    optional.add_argument('-o','--output', type=str, default='default_config.yaml',
+        help='output config file with default parameters written in yaml.')
+    
+    optional.add_argument("--no_comment", action="store_true",
+        help="Does not add help for each argument as a comment in the yaml file."), 
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
     main_parser = argparse.ArgumentParser(
-        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-        formatter_class=argparse.RawTextHelpFormatter)
+                        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+                        formatter_class=argparse.RawTextHelpFormatter)
 
-    parser_utility(main_parser)
+    parser_default_config(main_parser)
     launch(main_parser.parse_args())
