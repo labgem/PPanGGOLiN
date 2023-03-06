@@ -167,7 +167,7 @@ class Gene(Feature):
         self.position = position
         self.genetic_code = genetic_code
 
-    def add_prot(self, prot):
+    def add_protein(self, prot):
         """ Add animo acid sequence to feature
 
         :param prot: prot sequence
