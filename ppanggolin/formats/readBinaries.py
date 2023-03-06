@@ -81,8 +81,6 @@ def get_status(pangenome: Pangenome, pangenome_file: str):
     if status_group._v_attrs.NeighborsGraph:
         pangenome.status["neighborsGraph"] = "inFile"
 
-   
-
     if status_group._v_attrs.Partitioned:
         pangenome.status["partitioned"] = "inFile"
 
@@ -94,6 +92,14 @@ def get_status(pangenome: Pangenome, pangenome_file: str):
 
     if hasattr(status_group._v_attrs, "modules") and status_group._v_attrs.modules:
         pangenome.status["modules"] = "inFile"
+
+    if hasattr(status_group._v_attrs, "metadata_on_families"):
+        if status_group._v_attrs.metadata_on_families:
+            pangenome.status["metadata_on_families"] = "inFile"
+
+    if hasattr(status_group._v_attrs, "metadata_on_organisms"):
+        if status_group._v_attrs.metadata_on_organisms:
+            pangenome.status["metadata_on_organisms"] = "inFile"
 
     if "/info" in h5f:
         info_group = h5f.root.info
@@ -460,6 +466,39 @@ def read_modules_info(h5f: tables.File):
                   f"mean: {info_group._v_attrs['StatOfFamiliesInModules']['mean']}")
 
 
+def read_metadata_on_families(pangenome, h5f: tables.File):
+    """
+    Read metadate on families in pangenome hdf5 file
+
+    :param pangenome: Pangenome object without annotation
+    :param h5f: Pangenome HDF5 file with metadata on families
+    """
+
+    table_metadata_on_families = h5f.root.metadata_on_families
+
+    if "/metadata_on_families" in h5f:
+        for row in read_chunks(table_metadata_on_families):
+            pangenome.get_gene_family(row["gene_family"].decode()).metadata[row["metadata_name"].decode()] = row[
+                "metadata_value"].decode()
+        pangenome.status["metadata_on_families"] = "Loaded"
+
+
+def read_metadata_on_organisms(pangenome, h5f: tables.File):
+    """
+    Read metadate on families in pangenome hdf5 file
+
+    :param pangenome: Pangenome object without annotation
+    :param h5f: Pangenome HDF5 file with metadata on organisms
+    """
+
+    table_metadata_on_organisms = h5f.root.metadata_on_organisms
+
+    if "/metadata_on_organisms" in h5f:
+        for row in read_chunks(table_metadata_on_organisms):
+            pangenome.get_gene_family(row["organism"].decode()).metadata[row["metadata_name"].decode()] = row[
+                "metadata_value"].decode()
+        pangenome.status["metadata_on_organisms"] = "Loaded"
+
 def read_parameters(h5f: tables.File):
     """
     Read pangenome parameters
@@ -476,7 +515,7 @@ def read_parameters(h5f: tables.File):
 
 
 def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = False, graph: bool = False,
-                   rgp: bool = False, spots: bool = False, gene_sequences: bool = False, modules: bool = False,
+                   rgp: bool = False, spots: bool = False, gene_sequences: bool = False, modules: bool = False, metadata: bool = False,
                    disable_bar: bool = False):
     """
     Reads a previously written pan, with all of its parts, depending on what is asked,
@@ -490,6 +529,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
     :param spots: get hotspot
     :param gene_sequences: get gene sequences
     :param modules: get modules
+    :param metadata: get metadata
     :param disable_bar: Allow to disable the progress bar
     """
     if hasattr(pangenome, "file"):
@@ -550,12 +590,22 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have modules information, "
                             f"or has been improperly filled")
+    if metadata:
+        print("h5f.root.status._v_attrs.metadata_on_families:" + str(h5f.root.status._v_attrs.metadata_on_families))
+        print("h5f.root.status._v_attrs.metadata_on_organisms:" + str(h5f.root.status._v_attrs.metadata_on_organisms))
+        if h5f.root.status._v_attrs.metadata_on_families or h5f.root.status._v_attrs.metadata_on_families:
+            logging.getLogger().info("Reading the metadata...")
+            read_metadata_on_families(pangenome, h5f)
+            read_metadata_on_organisms(pangenome, h5f)
+        else:
+            raise Exception(f"The pangenome in file '{filename}' does not have metadata information, "
+                            f"or has been improperly filled")
     h5f.close()
 
 
 def check_pangenome_info(pangenome, need_annotations: bool = False, need_families: bool = False,
                          need_graph: bool = False, need_partitions: bool = False, need_rgp: bool = False,
-                         need_spots: bool = False, need_gene_sequences: bool = False, need_modules: bool = False,
+                         need_spots: bool = False, need_gene_sequences: bool = False, need_modules: bool = False, need_metadata: bool = False,
                          disable_bar: bool = False):
     """
     Defines what needs to be read depending on what is needed, and automatically checks if the required elements
@@ -570,6 +620,7 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
     :param need_spots: get hotspot
     :param need_gene_sequences: get gene sequences
     :param need_modules: get modules
+    :param need_metadata: get metadata
     :param disable_bar: Allow to disable the progress bar
     """
     annotation = False
@@ -579,6 +630,7 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
     spots = False
     gene_sequences = False
     modules = False
+    metadata = False
 
     # TODO Automate call if one need another
     if need_annotations:
@@ -615,14 +667,20 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
         elif not pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome does not include gene sequences. "
                             "This is possible only if you provided your own cluster file with the 'cluster' subcommand")
-
     if need_modules:
         if pangenome.status["modules"] == "inFile":
             modules = True
         elif not pangenome.status["modules"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome modules have not been predicted. See the 'module' subcommand")
-
+    if need_metadata:
+        print("pangenome.status[\"metadata_on_families\"] :" + str(pangenome.status["metadata_on_families"]))
+        print("pangenome.status[\"metadata_on_organisms\"] :" + str(pangenome.status["metadata_on_organisms"]))
+        if pangenome.status["metadata_on_families"] == "inFile" or pangenome.status[
+            "metadata_on_organisms"] == "inFile":
+            metadata = True
+        # elif not pangenome.status["metadata_on_families"] in ["Computed","Loaded"] or pangenome.status["metadata_on_organisms"] in ["Computed","Loaded"]:
+        #    raise Exception("Your pangenome metadata on gene families or organisms have not been computed. See the 'metadata' subcommand")
     if annotation or gene_families or graph or rgp or spots or gene_sequences or modules:
         # if anything is true, else we need nothing.
         read_pangenome(pangenome, annotation=annotation, gene_families=gene_families, graph=graph, rgp=rgp, spots=spots,
-                       gene_sequences=gene_sequences, modules=modules, disable_bar=disable_bar)
+                       gene_sequences=gene_sequences, modules=modules, metadata=metadata, disable_bar=disable_bar)
