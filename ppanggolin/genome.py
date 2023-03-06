@@ -5,9 +5,10 @@ from __future__ import annotations
 
 # installed libraries
 import logging
+import pdb
 from typing import Iterator, Dict
-from bidict import bidict
 from collections import defaultdict
+from bidict import bidict
 
 import gmpy2
 
@@ -39,6 +40,7 @@ class Feature:
         self.local_identifier = None
         self.organism = None
         self.contig = None
+        self._dna = None
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
                          product: str = "", local_identifier: str = ""):
@@ -77,13 +79,7 @@ class Feature:
         """
         if not isinstance(dna, str):
             raise TypeError(f"'str' type was expected but you provided a '{type(dna)}' type object")
-        if dna in type(self)._all_dna.inverse:
-            non_redondant_id = type(self)._all_dna.inverse[dna]
-        else:
-            non_redondant_id = len(type(self)._featureID2non_redondant_ID)
-        type(self)._all_dna[non_redondant_id] = dna
-        type(self)._featureID2non_redondant_ID[self.ID] = non_redondant_id
-        type(self)._non_redondant_ID2featureID_set[non_redondant_id].add(self.ID)
+        self._dna = dna
 
     @property
     def dna(self):
@@ -91,7 +87,30 @@ class Feature:
 
         :return: dna as a str
         """
-        return(type(self)._all_dna[type(self)._featureID2non_redondant_ID[self.ID]])
+        if self._dna is not None:
+            return (self._dna)
+        else:
+            return (type(self)._all_dna[type(self)._featureID2non_redondant_ID[self.ID]])
+
+    def add_dna_not_redondant(self, dna):
+        """ direclty store dna as not redondant (not thread safe function)
+
+        :param dna: DNA sequence
+        """
+        self.add_dna(dna)
+        self.to_non_redondant_dna()
+
+    def to_non_redondant_dna(self):
+        """ compress redondant dna to non redondant dna (not thread safe function)"""
+        if self._dna is not None:
+            if self._dna in type(self)._all_dna.inverse:
+                non_redondant_id = type(self)._all_dna.inverse[self._dna]
+            else:
+                non_redondant_id = len(type(self)._featureID2non_redondant_ID)
+            print(non_redondant_id)
+            type(self)._all_dna[non_redondant_id] = self._dna
+            type(self)._featureID2non_redondant_ID[self.ID] = non_redondant_id
+            type(self)._non_redondant_ID2featureID_set[non_redondant_id].add(self.ID)
 
 class RNA(Feature):
     """Save RNA from genome as an Object with some information for Pangenome
@@ -124,6 +143,7 @@ class Gene(Feature):
         self.family = None
         self.RGP = set()
         self.genetic_code = None
+        self._prot = None
 
     def __str__(self):
         return str(self.ID)
@@ -147,28 +167,45 @@ class Gene(Feature):
         self.position = position
         self.genetic_code = genetic_code
 
-    def add_protein(self, protein: str):
-        """ Add protein sequence corresponding to translated gene
+    def add_prot(self, prot):
+        """ Add animo acid sequence to feature
 
-        :param protein: Protein sequence
+        :param prot: prot sequence
         """
-        if not isinstance(protein, str):
-            raise TypeError(f"'str' type was expected but you provided a '{type(protein)}' type object")
-        if protein in type(self)._all_prot.inverse:
-            non_redondant_id = type(self)._all_prot.inverse[protein]
-        else:
-            non_redondant_id = len(type(self)._protID2non_redondant_ID)
-        type(self)._all_prot[non_redondant_id] = protein
-        type(self)._protID2non_redondant_ID[self.ID] = non_redondant_id
-        type(self)._non_redondant_ID2protID_set[non_redondant_id].add(self.ID)
+        if not isinstance(prot, str):
+            raise TypeError(f"'str' type was expected but you provided a '{type(prot)}' type object")
+        self._prot = prot
 
     @property
-    def protein(self):
-        """ Get amino acid sequence of a prot
+    def prot(self):
+        """ Get prot of a gene
 
-        :return: protein as a str
+        :return: prot as a str
         """
-        return(type(self)._all_prot[type(self)._protID2non_redondant_ID[self.ID]])
+        if self._prot is not None:
+            return (self._prot)
+        else:
+            return (type(self)._all_prot[type(self)._protID2non_redondant_ID[self.ID]])
+
+    def add_prot_not_redondant(self, prot):
+        """ direclty store prot as not redondant (not thread safe function)
+
+        :param prot: amino acid sequence
+        """
+        self.add_prot(prot)
+        self.to_non_redondant_prot()
+
+    def to_non_redondant_prot(self):
+        """ compress redondant prot to non redondant prot (not thread safe function)"""
+        if self._prot is not None:
+            if self._prot in type(self)._all_prot.inverse:
+                non_redondant_id = type(self)._all_prot.inverse[self._prot]
+            else:
+                non_redondant_id = len(type(self)._protID2non_redondant_ID)
+            print(non_redondant_id)
+            type(self)._all_prot[non_redondant_id] = self._prot
+            type(self)._protID2non_redondant_ID[self.ID] = non_redondant_id
+            type(self)._non_redondant_ID2protID_set[non_redondant_id].add(self.ID)
 
 class Contig:
     """
