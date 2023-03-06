@@ -101,3 +101,10 @@ jobs:
         cd testingDataset
         ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context
         ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f
+    - name: testing config file
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        ppanggolin default_config -c panrgp -o panrgp_default_config.yaml
+        ppanggolin panrgp  --anno organisms.gbff.list --cluster clusters.tsv -o test_config
+
