@@ -377,90 +377,6 @@ def parse_config_file(yaml_config_file: str) -> dict:
         
     return config
 
-def overwrite_params_with_cli_args(config_args: argparse.Namespace, cli_args: argparse.Namespace):
-    """
-    Overwrite arguments from config/default with cli arguments.
-    When arguments are given in CLI, their value is used instead of the one found in config or the default one.
-    CLI argument that have not been given in CLI have a None value. 
-
-    :param config_args: Arguments with config values or default values.
-    :param cli_args: Arguments parsed from the cmd line.
-
-    :return: object with arguments
-    """
-
-    non_default_args = [arg for arg in dir(cli_args) if not arg.startswith('_')]
-
-    for non_default_arg in non_default_args:
-        arg_val = getattr(cli_args, non_default_arg)
-        
-        if non_default_arg in config_args and arg_val:
-            logging.getLogger().debug(f'Parameter "--{non_default_arg} {arg_val}" has been specified in command line. Its value overwrite putative config value.')
-            setattr(config_args, non_default_arg, arg_val)
-    
-
-def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict,
-                            cli_args: argparse.Namespace,
-                            general_params: list) -> argparse.Namespace: 
-    """
-    Parse arguments from config file of a specific command using argument parser of this command. 
-
-    :param step_name: name of the step (ie annotate, cluster.. )
-    :param parser_fct: parser function of the command
-    :param config_param_val: dict parsed from config file with key value for the command
-    :param cli_args: Arguments parsed from the cmd line which overwrite config or default values when they are specified in cmd line.
-    :param general_params: General parameters to remove from the expected arguments. These parameters are managed by cmd line arguments directly.
-
-    :return: object with arguments for the given command 
-    """
-
-    # Abbreviations are not allowed in config file
-    parser = argparse.ArgumentParser(prog=f"{step_name} args from config file", 
-                                    allow_abbrev=False, add_help=False)  
-
-    parser_fct(parser)
-
-    # remove required arguments. Config file can only contained optional arguments
-    parser._actions = [p_action for p_action in parser._actions if p_action.required == False]
-
-    # remove general arguments to only expect arguments specific to the step.
-    parser._actions = [p_action for p_action in parser._actions if p_action.dest not in general_params]
-    
-    parser.usage = "Yaml expected structure"
-    
-    arguments_to_parse = []
-    off_flags = []
-    for param, val in config_param_val.items():
-
-        if type(val) == bool:
-            # param is a flag
-            if val is True:
-                arguments_to_parse.append(f"--{param}")
-            else:
-                # when val is false, the param is not added to the list
-                off_flags.append(param)
-        else:
-            # argument is a "--param val" type
-            arguments_to_parse.append(f"--{param}")
-
-            if type(val) == list:
-                # range of values need to be added one by one
-                arguments_to_parse += [str(v) for v in val]
-            else:
-                arguments_to_parse.append(str(val))
-
-    args = parser.parse_args(arguments_to_parse)
-
-    logging.getLogger().debug(f'Config file: {step_name}: {len(config_param_val)} arguments parsed from config.')
-
-    if config_param_val:
-        logging.getLogger().debug(f'Arguments to parse: {" ".join(arguments_to_parse)}')
-        logging.getLogger().debug(f'Flag arguments set to False: {off_flags}')
-
-    overwrite_params_with_cli_args(args, cli_args)
-
-    return args
-
 def add_common_arguments(subparser: argparse.ArgumentParser):
     """
     Add common argument to the input subparser.
@@ -596,7 +512,7 @@ def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
     return args
 
 
-def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_subparser:dict(str, Callable)) -> argparse.Namespace:
+def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_subparser:dict) -> argparse.Namespace:
     """
     Manage command line and config arguments for the given subcommand.
 
@@ -865,6 +781,3 @@ def get_cmd_args_from_cli_config_and_default(step_name: str, subparser_fct, conf
     :return: object with arguments for the given command 
     """
     pass
-
-
-# argparse._SubParsersAction) -> argparse.ArgumentParser:
