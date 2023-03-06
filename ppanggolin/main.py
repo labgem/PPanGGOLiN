@@ -71,6 +71,9 @@ def cmd_line() -> argparse.Namespace:
     desc += "  Genomic context:\n"
     desc += "    context      Local genomic context analysis\n"
     desc += "  \n"
+    desc += "  Utility command:\n"
+    desc += "    default_config      Generate a yaml config file with default values.\n"
+    desc += "  \n"
 
 
     subcommand_to_subparser = {
