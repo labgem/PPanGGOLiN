@@ -617,7 +617,7 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
                 arguments_to_parse.append(str(val))
     return arguments_to_parse
 
-def get_subcommand_parser(subparser_fct: Callable, name:str='') -> tuple(argparse._SubParsersAction, argparse.ArgumentParser):
+def get_subcommand_parser(subparser_fct: Callable, name:str='') -> tuple([argparse._SubParsersAction, argparse.ArgumentParser]):
     """
     Get subcommand parser object using the given subparser function.
 
