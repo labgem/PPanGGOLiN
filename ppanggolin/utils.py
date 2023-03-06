@@ -573,9 +573,9 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     # manage workflow command
     if subcommand in workflow_subcommands:
         for workflow_step in workflow_dependencies:
-            if workflow_step in ["rgp", "spot"] and args.command in ["workflow", "panmodule"]:
+            if workflow_step in ["rgp", "spot"] and subcommand in ["workflow", "panmodule"]:
                 continue
-            elif  workflow_step == "module" and args.command in ["workflow", "panmodule"]:
+            elif  workflow_step == "module" and subcommand in ["workflow", "panmodule"]:
                 continue
 
             step_subparser = subcommand_to_subparser[workflow_step]
