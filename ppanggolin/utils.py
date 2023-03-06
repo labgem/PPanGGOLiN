@@ -25,58 +25,71 @@ from collections import defaultdict
 from ppanggolin.geneFamily import GeneFamily
 
 
-def check_log(name: str) -> TextIO:
-    """Check if the output log is writable
+def check_log(log_file: str) -> TextIO:
+    """
+    Check if the output log is writable
 
     :param name: Path to the log output
 
     :return: output for log
     """
-    if name == "stdout":
+    
+    if log_file == "stdout":
         return sys.stdout
-    elif name == "stderr":
+    elif log_file == "stderr":
         return sys.stderr
-    else:
-        try:
-            log_file = open(name, "w")
-        except IOError:
-            raise IOError("The given log file does not appear.")
-        except Exception:
-            raise Exception("An unexpected error happened with your logfile. Please check if he is accessible."
-                            "If everything looks good, please report an issue on our GitHub.")
+    
+    elif os.path.exists(log_file):
+        # path exists
+        if os.path.isfile(log_file): # is it a file or a dir?
+            # also works when file is a link and the target is writable
+            if os.access(log_file, os.W_OK):
+                return log_file
+            else:
+                raise IOError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
         else:
-            return log_file
-
+            raise IOError(f"The given log file: {log_file} is a directory. Please provide a valid log file.")
+        
+    # target does not exist, check perms on parent dir
+    parent_dir = os.path.dirname(log_file)
+    if not parent_dir: 
+        parent_dir = '.'
+    # target is creatable if parent dir is writable
+    if os.access(parent_dir, os.W_OK):
+        return log_file
+    else:
+        raise IOError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
 
 def check_tsv_sanity(tsv):
-    """ Check if the given tsv is readable for the next PPanGGOLiN step
+    """ 
+    Check if the given tsv is readable for the next PPanGGOLiN step.
 
     :param tsv: Path to the input tsv
     """
-    f = open(tsv, "r")
-    name_set = set()
-    duplicated_names = set()
-    non_existing_files = set()
-    for line in f:
-        elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
-            raise Exception(f"No tabulation separator found in given file: {tsv}")
-        if " " in elements[0]:
-            raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string:"
-                            f" '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN "
-                            f"this is not allowed. Please remove spaces from your genome names.")
-        old_len = len(name_set)
-        name_set.add(elements[0])
-        if len(name_set) == old_len:
-            duplicated_names.add(elements[0])
-        if not os.path.exists(elements[1]):
-            non_existing_files.add(elements[1])
-    if len(non_existing_files) != 0:
-        raise Exception(f"Some of the given files do not exist. The non-existing files are the following : "
-                        f"'{' '.join(non_existing_files)}'")
-    if len(duplicated_names) != 0:
-        raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : "
-                        f"'{' '.join(duplicated_names)}'")
+    with open(tsv, "r") as f:
+        name_set = set()
+        duplicated_names = set()
+        non_existing_files = set()
+        for line in f:
+            elements = [el.strip() for el in line.split("\t")]
+            if len(elements) <= 1:
+                raise Exception(f"No tabulation separator found in given file: {tsv}")
+            if " " in elements[0]:
+                raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string:"
+                                f" '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN "
+                                f"this is not allowed. Please remove spaces from your genome names.")
+            old_len = len(name_set)
+            name_set.add(elements[0])
+            if len(name_set) == old_len:
+                duplicated_names.add(elements[0])
+            if not os.path.exists(elements[1]):
+                non_existing_files.add(elements[1])
+        if len(non_existing_files) != 0:
+            raise Exception(f"Some of the given files do not exist. The non-existing files are the following : "
+                            f"'{' '.join(non_existing_files)}'")
+        if len(duplicated_names) != 0:
+            raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : "
+                            f"'{' '.join(duplicated_names)}'")
 
 
 def check_input_files(anno: str = None, pangenome: str = None, fasta: str = None):
