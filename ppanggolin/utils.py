@@ -590,9 +590,9 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
             # overwrite write default when not specified in config 
             if workflow_step == 'write':
                 for out_flag in write_flag_default_in_wf:
-                    if not hasattr(config_step_args, out_flag):
+                    if out_flag not in  config['write']:
                         setattr(default_step_args, out_flag, True)
-                        
+
             step_args = overwrite_args(default_step_args, config_step_args)
             
             step_args = overwrite_args(step_args, cli_args)
