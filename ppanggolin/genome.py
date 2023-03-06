@@ -127,15 +127,14 @@ class Gene(Feature):
 
     :param gene_id: Identifier of the gene
     """
-    _all_prot = bidict()
-    """Feature._all_dna stores all non redondant dna sequences"""
+    _all_proteins = bidict()
+    """Feature._all_proteins stores all non redondant protein sequences"""
 
-    _protID2non_redondant_ID = {}
-    """Feature._geneID2non_redondant_ID gives the non redondant ID from a prot ID"""
+    _proteinIDs2non_redondant_ID = {}
+    """Feature._proteinIDs2non_redondant_ID gives the non redondant ID from a protein ID"""
 
-    _non_redondant_ID2protID_set = defaultdict(set)
-    """Feature._non_redondant_ID2geneID_set gives all prot IDs from non a non redondant ID"""
-
+    _non_redondant_ID2proteinIDs_set = defaultdict(set)
+    """Feature._non_redondant_ID2proteinIDs_set gives all protein IDs from non a non redondant ID"""
 
     def __init__(self, gene_id: str):
         super().__init__(gene_id)
@@ -143,7 +142,7 @@ class Gene(Feature):
         self.family = None
         self.RGP = set()
         self.genetic_code = None
-        self._prot = None
+        self._protein = None
 
     def __str__(self):
         return str(self.ID)
@@ -167,45 +166,45 @@ class Gene(Feature):
         self.position = position
         self.genetic_code = genetic_code
 
-    def add_protein(self, prot):
-        """ Add animo acid sequence to feature
+    def add_protein(self, protein):
+        """ Add animo acid sequence to Gene
 
-        :param prot: prot sequence
+        :param protein: protein sequence
         """
-        if not isinstance(prot, str):
-            raise TypeError(f"'str' type was expected but you provided a '{type(prot)}' type object")
-        self._prot = prot
+        if not isinstance(protein, str):
+            raise TypeError(f"'str' type was expected but you provided a '{type(protein)}' type object")
+        self._protein = protein
 
     @property
-    def prot(self):
-        """ Get prot of a gene
+    def protein(self):
+        """ Get protein of a gene
 
-        :return: prot as a str
+        :return: protein as a str
         """
-        if self._prot is not None:
-            return (self._prot)
+        if self._protein is not None:
+            return (self._protein)
         else:
-            return (type(self)._all_prot[type(self)._protID2non_redondant_ID[self.ID]])
+            return (type(self)._all_proteins[type(self)._proteinIDs2non_redondant_ID[self.ID]])
 
-    def add_prot_not_redondant(self, prot):
-        """ direclty store prot as not redondant (not thread safe function)
+    def add_protein_not_redondant(self, protein):
+        """ direclty store protein as not redondant (not thread safe function)
 
-        :param prot: amino acid sequence
+        :param protein: amino acid sequence
         """
-        self.add_prot(prot)
-        self.to_non_redondant_prot()
+        self.add_protein(protein)
+        self.to_non_redondant_protein()
 
-    def to_non_redondant_prot(self):
-        """ compress redondant prot to non redondant prot (not thread safe function)"""
-        if self._prot is not None:
-            if self._prot in type(self)._all_prot.inverse:
-                non_redondant_id = type(self)._all_prot.inverse[self._prot]
+    def to_non_redondant_protein(self):
+        """ compress redondant prot to non redondant protein (not thread safe function)"""
+        if self._protein is not None:
+            if self._protein in type(self)._all_proteins.inverse:
+                non_redondant_id = type(self)._all_proteins.inverse[self._protein]
             else:
-                non_redondant_id = len(type(self)._protID2non_redondant_ID)
+                non_redondant_id = len(type(self)._proteinIDs2non_redondant_ID)
             print(non_redondant_id)
-            type(self)._all_prot[non_redondant_id] = self._prot
-            type(self)._protID2non_redondant_ID[self.ID] = non_redondant_id
-            type(self)._non_redondant_ID2protID_set[non_redondant_id].add(self.ID)
+            type(self)._all_proteins[non_redondant_id] = self._protein
+            type(self)._proteinIDs2non_redondant_ID[self.ID] = non_redondant_id
+            type(self)._non_redondant_ID2proteinIDs_set[non_redondant_id].add(self.ID)
 
 class Contig:
     """
