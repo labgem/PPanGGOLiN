@@ -48,10 +48,6 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     optional = parser.add_argument_group(title="Optional arguments")
 
-    optional.add_argument("--config", required=False, type=open, 
-                    help="Config file in yaml format to launch the different step of "
-                            "the workflow with specific arguments.")
-
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),

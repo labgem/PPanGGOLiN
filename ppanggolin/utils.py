@@ -15,6 +15,8 @@ import pkg_resources
 from numpy import repeat
 import logging
 import tempfile
+from collections.abc import Callable
+
 
 from scipy.sparse import csc_matrix
 
@@ -393,7 +395,7 @@ def overwrite_params_with_cli_args(config_args: argparse.Namespace, cli_args: ar
         arg_val = getattr(cli_args, non_default_arg)
         
         if non_default_arg in config_args and arg_val:
-            logging.getLogger().info(f'Parameter "--{non_default_arg} {arg_val}" has been specified in command line. Its value overwrite putative config value.')
+            logging.getLogger().debug(f'Parameter "--{non_default_arg} {arg_val}" has been specified in command line. Its value overwrite putative config value.')
             setattr(config_args, non_default_arg, arg_val)
     
 
@@ -435,8 +437,8 @@ def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict,
             if val is True:
                 arguments_to_parse.append(f"--{param}")
             else:
+                # when val is false, the param is not added to the list
                 off_flags.append(param)
-            # if val is false, the param is not added to the list
         else:
             # argument is a "--param val" type
             arguments_to_parse.append(f"--{param}")
@@ -449,7 +451,7 @@ def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict,
 
     args = parser.parse_args(arguments_to_parse)
 
-    logging.getLogger().info(f'Config file: {step_name}: {len(config_param_val)} arguments parsed from config.')
+    logging.getLogger().debug(f'Config file: {step_name}: {len(config_param_val)} arguments parsed from config.')
 
     if config_param_val:
         logging.getLogger().debug(f'Arguments to parse: {" ".join(arguments_to_parse)}')
@@ -458,7 +460,6 @@ def get_cmd_args_from_config(step_name: str, parser_fct, config_param_val: dict,
     overwrite_params_with_cli_args(args, cli_args)
 
     return args
-
 
 def add_common_arguments(subparser: argparse.ArgumentParser):
     """
@@ -476,9 +477,12 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
     common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
                         help="disables the progress bars")
-    # common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
+        
+    common.add_argument("--config", required=False, type=argparse.FileType(), 
+                    help="Config file in yaml format to launch the different step of "
+                            "the workflow with specific arguments.")
 
     subparser._action_groups.append(common)
 
@@ -511,4 +515,356 @@ def add_step_specific_args(parser: argparse.ArgumentParser):
     # This ensures compatibility with workflows built with the old option "defrag" when it was not the default
     parser.add_argument("--no_defrag", required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
-                          
+
+
+def get_non_default_cli_args(subcomamand_parser: Callable) ->  argparse.Namespace:
+    """
+    Get args value that have been specified in cmd line.
+
+    This function recreate the same parser than in main but change default value to None 
+    in order to distinguish specified and default value
+
+    :param: subparser function used to add subcommand specific arguments 
+    """
+
+    parser = argparse.ArgumentParser(prog="", allow_abbrev=True, add_help=False) 
+    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description="")
+
+    sub = subcomamand_parser(subparsers)
+
+    add_common_arguments(sub)
+
+    # set default to None
+    for p_action in sub._actions:
+        p_action.default = None
+        # some args have special type calling a function to trigger something
+        # like --log. We need to prevent calling this function a second time.
+        if p_action.type in [check_log]:
+            p_action.type = None
+
+    cli_args = parser.parse_args()
+
+    # delete args not specified in CLI (so the one with None value) 
+    for arg_name, arg_val in cli_args._get_kwargs():
+        if arg_val is None:
+            delattr(cli_args, arg_name)
+
+    return cli_args
+
+
+def overwrite_args(args: argparse.Namespace, priority_args: argparse.Namespace):
+    """
+    Overwrite args object with another args object.
+    When arguments are given in CLI, their value is used instead of the one found in config. 
+    When arguments are specified in config they overwrite default values.
+
+    :param args: initial arguments.
+    :param priority_args: arguments that overwrite the initial args
+
+    :return: object with arguments
+    """
+
+    non_default_args = [arg for arg in dir(priority_args) if not arg.startswith('_')]
+
+    for non_default_arg in non_default_args:
+        
+        arg_val = getattr(priority_args, non_default_arg)
+
+        if non_default_arg in args and arg_val:
+            logging.getLogger().debug(f'Parameter "--{non_default_arg} {arg_val}" has been specified in command line. Its value overwrite putative config value.')
+            setattr(args, non_default_arg, arg_val)
+    return args
+
+
+def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
+    """
+    Combine two args object.
+
+    :param args: initial arguments.
+    :param another_args: another args
+
+    :return: object with combined arguments
+    """
+
+    other_arg_names = [arg for arg in dir(another_args) if not arg.startswith('_')]
+
+    for arg_name in other_arg_names:
+        
+        arg_val = getattr(another_args, arg_name)
+        setattr(args, arg_name, arg_val)
+
+    return args
+
+
+def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_subparser:dict(str, Callable)) -> argparse.Namespace:
+    """
+    Manage command line and config arguments for the given subcommand.
+
+    This function parse arguments from the cmd line and config file and set up the following priority: cli > config > default
+    When the subcommand is a workflow, the subcommand used in worflows are also parsed in the config.  
+
+
+    :params subcommand: Name of the subcommand.
+    :params config_file: Path to the config file given in argument. If None, only default and cli arguments value are used.
+    :params subcommand_to_subparser: Dict with subcommand name as key and the corresponding subparser function as value. 
+    """
+
+
+    input_params = ['fasta', 'anno', 'clusters', 'pangenome']
+    general_params = ['output', 'basename', 'rarefaction', 'only_pangenome', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
+    workflow_subcommands = ['all', 'workflow', 'panrgp', 'panmodule']
+    workflow_dependencies = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module" ]
+
+    if config_file:
+        config = parse_config_file(config_file)
+    else:
+        config = {}
+
+    # convert config dict to defaultdict 
+    config = defaultdict(dict, config)
+
+    cmd_subparser = subcommand_to_subparser[subcommand]
+
+    default_args = get_default_args(subcommand, cmd_subparser)
+
+    all_param_names = {arg_name for arg_name in dir(default_args) if not arg_name.startswith('_')}
+    
+    specific_params = {param_name for param_name in all_param_names if param_name not in general_params + input_params}
+    general_params = all_param_names - specific_params
+
+    config_general_args = get_config_args(subcommand, cmd_subparser, config, "general_parameters", general_params, strict_config_check=False)
+    # config_input_args = get_config_args(subcommand, cmd_subparser, config, "input_parameters", input_params, strict_config_check=False)
+
+    if subcommand not in workflow_subcommands:
+        config_specific_args = get_config_args(subcommand, cmd_subparser, config, subcommand, specific_params, strict_config_check=True)
+        config_args = combine_args(config_general_args, config_specific_args)
+    else:
+        config_args = config_general_args
+
+    cli_args = get_cli_args(cmd_subparser)
+
+    # manage priority between source of args 
+    # cli > config > default
+
+    args = overwrite_args(default_args, config_args)
+    args = overwrite_args(args, cli_args)
+
+    # manage workflow command
+    if subcommand in workflow_subcommands:
+        for workflow_step in workflow_dependencies:
+            step_subparser = subcommand_to_subparser[workflow_step]
+
+            default_step_args = get_default_args(workflow_step, step_subparser, unwanted_args=general_params)
+
+            # remove general args
+            all_param_names = {arg_name for arg_name in dir(default_step_args) if not arg_name.startswith('_')}
+            specific_step_params = {param_name for param_name in all_param_names if param_name not in general_params}
+            config_step_args = get_config_args(workflow_step, step_subparser, config, workflow_step, specific_step_params, strict_config_check=True)
+
+            step_args = overwrite_args(default_step_args, config_step_args)
+            
+            step_args = overwrite_args(step_args, cli_args)
+            
+            # Add args namespace of the step to the inital args namespace
+            setattr(args, workflow_step, step_args)
+
+    return args
+
+
+def set_up_config_param_to_parser(config_param_val: dict) -> list:
+    """
+    Take dict pairing parameters and values and format the corresponding list of arguments to feed a parser.
+
+    When the parameter value is False, the parameter is a flag and thus is not added to the list.
+
+    :params config_param_val: Dict with parameter name as key and parameter value as value.
+
+    :return: list of argument strings formated for an argparse.ArgumentParser object.
+    """
+
+
+
+    arguments_to_parse = []
+    for param, val in config_param_val.items():
+
+        if type(val) == bool:
+            # param is a flag
+            if val is True:
+                arguments_to_parse.append(f"--{param}")
+        else:
+            arguments_to_parse.append(f"--{param}")
+
+            if type(val) == list:
+                # range of values need to be added one by one
+                arguments_to_parse += [str(v) for v in val]
+            else:
+                arguments_to_parse.append(str(val))
+    return arguments_to_parse
+
+def get_subcommand_parser(subparser_fct: Callable, name:str='') -> tuple(argparse._SubParsersAction, argparse.ArgumentParser):
+    """
+    Get subcommand parser object using the given subparser function.
+
+    Common arguments are also added to the parser object.
+
+    :params subparser_fct:
+    :name: Name of section to add more info in the parser in case of error.
+
+    :return: The parser and subparser objects
+    """
+    prog = ""
+    usage = ""
+
+    if name:
+        prog = f"Parsing section {name} in config file"
+        usage = "Yaml config file"
+
+    parser = argparse.ArgumentParser(prog=prog, 
+                                    allow_abbrev=False, add_help=False) 
+    
+    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description="")
+
+    sub = subparser_fct(subparsers)
+    sub.usage  = usage
+    add_common_arguments(sub)
+
+    # set off required flag in required arguments
+    for arg_action in sub._actions:
+        if arg_action.required:
+            arg_action.required = False
+    return parser, sub
+
+def get_default_args(subcommand:str, subparser_fct: Callable, unwanted_args:list =[]) -> argparse.Namespace:
+    """
+    Get default value for the arguments for the given subparser function.
+
+    :params subcommand: Name of the ppanggolin subcommand.
+    :params subparser_fct: Subparser function to use. This subparser give the expected argument for the subcommand.
+    :params unwanted_args: List of arguments to filter out.
+
+    :return args: arguments with default values. 
+    """
+
+    parser, sub = get_subcommand_parser(subparser_fct, subcommand)
+    
+    # remove unwanted argumnents
+    sub._actions = [p_action for p_action in sub._actions if p_action.dest not in unwanted_args]
+
+    args = parser.parse_args([subcommand])
+
+    return args
+
+def get_config_args(subcommand: str, subparser_fct: Callable, config_dict: dict, config_section:str, 
+                    expected_params:list, strict_config_check:bool) -> argparse.Namespace:
+    """
+    Parsing parameters of a specific section of the config file.
+
+    If some parameter are not specified in the config they are not added to the args object.
+
+    :params subcommand: Name of the ppanggolin subcommand.
+    :params subparser_fct: Subparser function to use. This subparser give the expected argument for the subcommand.
+    :params config_dict: config dict with as key the section of the config file and as value another dict pairing name and value of parameters.
+    :params config_section: Which section to parse in config file.
+    :params expected_params: List of argument to expect in the parser. If the parser has other arguments, these arguments are filtered out.
+
+    :return args: Arguments parse from the config
+    """
+    config = config_dict[config_section]
+
+    parser, sub = get_subcommand_parser(subparser_fct, subcommand)
+
+    # for all args set default to None to be able to distinguish params that have been specified in config
+    erase_default_value(sub)
+
+    # Manage args
+    sub._actions = [p_action for p_action in sub._actions if p_action.dest in expected_params]
+            
+    if not strict_config_check:
+        # remove param found in config that are not expected by parser. useful for general_parameters.
+        expected_args_names = [p_action.dest for p_action in sub._actions]
+        unexpected_config = [f'{name}:{value}' for name,value in config.items() if name not in expected_args_names]
+        config = {name:value for name,value in config.items() if name in expected_args_names}
+
+        if unexpected_config:
+            logging.warning(f'While parsing {config_section} section in config file, {len(unexpected_config)} unexpected parameters '
+                            f'were ignored : {" ".join(unexpected_config)}')
+    else:
+        for param_name in config:
+            if param_name not in expected_params:
+                sub.error(f"unrecognized arguments: {param_name}")
+
+
+    config_args_to_parse = set_up_config_param_to_parser(config)
+
+    args = parser.parse_args([subcommand] + config_args_to_parse)
+
+    # remove argument that have not been specified in config file
+    # unspecified argument have None as value
+    delete_unspecified_args(args)
+
+    return args
+
+def get_cli_args(subparser_fct: Callable) -> argparse.Namespace:
+    """
+    Parse command line arguments using the specified parsing function. 
+
+    :params subparser_fct: Subparser function to use. This subparser give the expected argument for the subcommand.
+    """
+    
+    parser, sub = get_subcommand_parser(subparser_fct)
+
+    # for all args set default to None to be able to distinguish params that have been specified in config
+    erase_default_value(sub)
+
+    cli_args = parser.parse_args() # parse cli
+    
+    # remove argument that have not been specified
+    delete_unspecified_args(cli_args)
+    delattr(cli_args, 'subcommand')
+
+    return cli_args
+
+
+def erase_default_value(parser : argparse.ArgumentParser):
+    """
+    Remove default action in the given list of argument parser actions. 
+
+    This is dnoe to distinguish specified arguments.
+
+    :params parser: An argparse.ArgumentParser object with default values to erase.
+    """
+
+    # for all args set default to None
+    for p_action in parser._actions:
+        p_action.default = None
+
+def delete_unspecified_args(args:  argparse.Namespace):
+    """
+    Delete argument from the given argparse.Namespace with None values.
+
+    :param args: arguments to filter.
+    """
+
+    for arg_name, arg_val in args._get_kwargs():
+        if arg_val is None:
+            delattr(args, arg_name)
+
+
+
+def get_cmd_args_from_cli_config_and_default(step_name: str, subparser_fct, config_param_val: dict, cli_args,
+                            general_params: list) -> argparse.Namespace: 
+    """
+    Parse arguments from config file of a specific command using argument parser of this command. 
+
+    :param step_name: name of the step (ie annotate, cluster.. )
+    :param parser_fct: parser function of the command
+    :param config_param_val: dict parsed from config file with param name as key and pram value as value
+    :param cli_args: Arguments parsed from the cmd line which overwrite config or default values when they are specified in cmd line.
+    :param general_params: General parameters to remove from the expected arguments. These parameters are managed by cmd line arguments directly.
+
+    :return: object with arguments for the given command 
+    """
+    pass
+
+
+# argparse._SubParsersAction) -> argparse.ArgumentParser:

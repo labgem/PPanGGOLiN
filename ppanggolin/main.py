@@ -9,11 +9,12 @@ if sys.version_info < (3, 6):  # minimum is python3.6
                          ".".join(map(str, sys.version_info)))
 import argparse
 import pkg_resources
+from collections import defaultdict
+import logging
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_log, check_input_files, set_verbosity_level, add_common_arguments
-import ppanggolin.nem.partition
+from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, parse_config_file, manage_cli_and_config_args
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
@@ -73,48 +74,63 @@ def cmd_line() -> argparse.Namespace:
     desc += "    context      Local genomic context analysis\n"
     desc += "  \n"
 
+
+    subcommand_to_subparser = {
+                        "annotate":ppanggolin.annotate.subparser,
+                        "cluster":ppanggolin.cluster.subparser,
+                        "graph":ppanggolin.graph.subparser,
+                        "partition":ppanggolin.nem.partition.subparser,
+                        "rarefaction":ppanggolin.nem.rarefaction.subparser,
+                        "workflow":ppanggolin.workflow.workflow.subparser,
+                        "panrgp":ppanggolin.workflow.panRGP.subparser,
+                        "panModule":ppanggolin.workflow.panModule.subparser,
+                        "all":ppanggolin.workflow.all.subparser,
+                        "draw":ppanggolin.figures.subparser,
+                        "write":ppanggolin.formats.writeFlat.subparser,
+                        "fasta":ppanggolin.formats.writeSequences.subparser,
+                        "msa":ppanggolin.formats.writeMSA.subparser,
+                        "metrics":ppanggolin.metrics.metrics.subparser,
+                        "align":ppanggolin.align.subparser,
+                        "rgp":ppanggolin.RGP.genomicIsland.subparser,
+                        "spot":ppanggolin.RGP.spot.subparser,
+                        "module":ppanggolin.mod.subparser,
+                        "context":ppanggolin.context.subparser,
+                        "info":ppanggolin.info.subparser,
+                        "utility":ppanggolin.utility.subparser}
+    
+    cmd_with_no_common_args = ['info', 'utility']
+
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
+    
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
+    
     subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
     subparsers.required = True  # because python3 sent subcommands to hell apparently
-
-    subs = [ppanggolin.annotate.subparser(subparsers),
-            ppanggolin.cluster.subparser(subparsers),
-            ppanggolin.graph.subparser(subparsers),
-            ppanggolin.nem.partition.subparser(subparsers),
-            ppanggolin.nem.rarefaction.subparser(subparsers),
-            ppanggolin.workflow.workflow.subparser(subparsers),
-            ppanggolin.workflow.panRGP.subparser(subparsers),
-            ppanggolin.workflow.panModule.subparser(subparsers),
-            ppanggolin.workflow.all.subparser(subparsers),
-            ppanggolin.figures.subparser(subparsers),
-            ppanggolin.formats.writeFlat.subparser(subparsers),
-            ppanggolin.formats.writeSequences.subparser(subparsers),
-            ppanggolin.formats.writeMSA.subparser(subparsers),
-            ppanggolin.metrics.metrics.subparser(subparsers),
-            ppanggolin.align.subparser(subparsers),
-            ppanggolin.RGP.genomicIsland.subparser(subparsers),
-            ppanggolin.RGP.spot.subparser(subparsers),
-            ppanggolin.mod.subparser(subparsers),
-            ppanggolin.context.subparser(subparsers)]  # subparsers
-
-    ppanggolin.info.subparser(subparsers)  # not adding to sub because the 'common' options are not needed for this
-    ppanggolin.utility.subparser(subparsers)
-
-    for sub in subs:  # add options common to all subcommands
-        add_common_arguments(sub)
+    
+    for cmd, sub_fct in subcommand_to_subparser.items():  
+        sub = sub_fct(subparsers)
+        if cmd not in cmd_with_no_common_args:
+            # add options common to all subcommands except for the one that does need it
+            add_common_arguments(sub)
+    
         if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
             sub.print_help()
-            exit(1)
+            exit(0)
 
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(0)
 
+    # First parse args to check that nothing is missing or not expected in cli and throw help when requested
     args = parser.parse_args()
+
+    if hasattr(args, "config"): # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
+        args = manage_cli_and_config_args(args.subcommand, args.config, subcommand_to_subparser)
+
+
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
         raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
                         "or a file with the --gff option to load annotations from.")
@@ -122,11 +138,14 @@ def cmd_line() -> argparse.Namespace:
 
 
 def main():
-    """ Run the command given by user and set / check some things
+    """
+    Run the command given by user and set / check some things.
 
     :return:
     """
     args = cmd_line()
+
+    set_verbosity_level(args)
 
     if hasattr(args, "pangenome"):
         check_input_files(pangenome=args.pangenome)
@@ -134,8 +153,6 @@ def main():
         check_input_files(fasta=args.fasta)
     if hasattr(args, "anno"):
         check_input_files(anno=args.anno)
-
-    set_verbosity_level(args)
 
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)

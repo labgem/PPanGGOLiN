@@ -11,21 +11,21 @@ from collections.abc import Callable
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, get_cmd_args_from_config, parse_config_file, add_step_specific_args, add_common_arguments, check_log
-from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas, parser_annot
-from ppanggolin.cluster.cluster import clustering, read_clustering, parser_clust
-from ppanggolin.graph.makeGraph import compute_neighbors_graph, parser_graph
-from ppanggolin.nem.rarefaction import make_rarefaction_curve, parser_rarefaction
-from ppanggolin.nem.partition import partition, parser_partition
+from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, add_step_specific_args
+from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas
+from ppanggolin.cluster.cluster import clustering, read_clustering
+from ppanggolin.graph.makeGraph import compute_neighbors_graph
+from ppanggolin.nem.rarefaction import make_rarefaction_curve
+from ppanggolin.nem.partition import partition
 from ppanggolin.formats.writeBinaries import write_pangenome
-from ppanggolin.formats.writeFlat import write_flat_files, parser_flat
+from ppanggolin.formats.writeFlat import write_flat_files
 from ppanggolin.figures.ucurve import draw_ucurve
 from ppanggolin.figures.tile_plot import draw_tile_plot
 from ppanggolin.figures.draw_spot import draw_spots
 from ppanggolin.info.info import print_info
-from ppanggolin.RGP.genomicIsland import predict_rgp, parser_rgp
-from ppanggolin.RGP.spot import predict_hotspots, parser_spot
-from ppanggolin.mod.module import predict_modules, parser_module
+from ppanggolin.RGP.genomicIsland import predict_rgp
+from ppanggolin.RGP.spot import predict_hotspots
+from ppanggolin.mod.module import predict_modules
 
 """a global workflow that does everything in one go."""
 
@@ -40,37 +40,6 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     """
 
     check_option_workflow(args)
-
-    if args.config:
-        config = parse_config_file(args.config)
-
-        # convert config dict to defaultdict 
-        config = defaultdict(dict, config)
-    else:
-        config = defaultdict(dict)
-
-    general_params = ['help', 'fasta', 'clusters', 'anno', "output"]
-
-    cli_args = get_non_default_cli_args(subcomamand_parser)
-
-    # Get args from config file for each steps. if config is not set for any step, default is used.
-    annotate_args = get_cmd_args_from_config("annotate", parser_annot, config['annotate'], cli_args, general_params)
-
-    cluster_args = get_cmd_args_from_config("cluster", parser_clust, config['cluster'], cli_args, general_params)
-
-
-    graph_args = get_cmd_args_from_config("graph", parser_graph, config['graph'], cli_args, general_params)
-    partition_args = get_cmd_args_from_config("partition", parser_partition, config['partition'], cli_args,  general_params)
-    rarefaction_args = get_cmd_args_from_config("rarefaction", parser_rarefaction, config['rarefaction'], cli_args,  general_params)
-    write_args = get_cmd_args_from_config("write", parser_flat, config['write'], cli_args, general_params)
-
-    if panrgp:
-        rgp_args = get_cmd_args_from_config("rgp", parser_rgp, config['rgp'], cli_args, general_params)
-        spots_args = get_cmd_args_from_config("spot", parser_spot, config['spot'], cli_args, general_params)
-
-    if panmodule:
-        module_args = get_cmd_args_from_config("module", parser_module, config['module'], cli_args, general_params)
-    
     
     pangenome = Pangenome()
 
@@ -81,8 +50,8 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     if args.anno:  # if the annotations are provided, we read from it
 
         start_anno = time.time()
-        read_annotations(pangenome, args.anno, pseudo=annotate_args.use_pseudo,
-                        cpu=annotate_args.cpu, disable_bar=args.disable_prog_bar)
+        read_annotations(pangenome, args.anno, pseudo=args.annotate.use_pseudo,
+                        cpu=args.annotate.cpu, disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()
@@ -100,22 +69,22 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
         start_clust = time.time()
         if args.clusters is not None:
             read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar, 
-                            infer_singleton=cluster_args.infer_singletons)
+                            infer_singleton=args.cluster.infer_singletons)
 
         elif args.clusters is None:  # we should have the sequences here.
 
-            clustering(pangenome, tmpdir=args.tmpdir, cpu=cluster_args.cpu, force=args.force, disable_bar=args.disable_prog_bar, 
-                        defrag=not cluster_args.no_defrag, code=cluster_args.translation_table,
-                        coverage=cluster_args.coverage, identity=cluster_args.identity, mode=cluster_args.mode) 
+            clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cluster.cpu, force=args.force, disable_bar=args.disable_prog_bar, 
+                        defrag=not args.cluster.no_defrag, code=args.cluster.translation_table,
+                        coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode) 
         clust_time = time.time() - start_clust
 
     elif args.fasta is not None:
 
         start_anno = time.time()
-        annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=annotate_args.cpu, disable_bar=args.disable_prog_bar,
-                        procedure=annotate_args.prodigal_procedure,
-                        translation_table=annotate_args.translation_table, kingdom=annotate_args.kingdom, norna=annotate_args.norna,
-                        overlap=annotate_args.overlap, contig_filter=annotate_args.contig_filter)
+        annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.annotate.cpu, disable_bar=args.disable_prog_bar,
+                        procedure=args.annotate.prodigal_procedure,
+                        translation_table=args.annotate.translation_table, kingdom=args.annotate.kingdom, norna=args.annotate.norna,
+                        overlap=args.annotate.overlap, contig_filter=args.annotate.contig_filter)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()
@@ -123,15 +92,15 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
         writing_time = time.time() - start_writing
 
         start_clust = time.time()
-        clustering(pangenome, tmpdir=args.tmpdir, cpu=cluster_args.cpu, force=args.force, disable_bar=args.disable_prog_bar, 
-                    defrag=not cluster_args.no_defrag, code=cluster_args.translation_table,
-                    coverage=cluster_args.coverage, identity=cluster_args.identity, mode=cluster_args.mode) 
+        clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cluster.cpu, force=args.force, disable_bar=args.disable_prog_bar, 
+                    defrag=not args.cluster.no_defrag, code=args.cluster.translation_table,
+                    coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode) 
         clust_time = time.time() - start_clust
 
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
 
     start_graph = time.time()
-    compute_neighbors_graph(pangenome, graph_args.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bar)
+    compute_neighbors_graph(pangenome, args.graph.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bar)
 
     graph_time = time.time() - start_graph
 
@@ -139,44 +108,44 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     partition(pangenome,  
                 tmpdir=args.tmpdir,
                 outputdir = args.output,
-                beta = partition_args.beta,
-                sm_degree = partition_args.max_degree_smoothing,
-                free_dispersion = partition_args.free_dispersion,
-                chunk_size = partition_args.chunk_size,
-                kval = partition_args.nb_of_partitions,
-                krange = partition_args.krange,
-                icl_margin = partition_args.ICL_margin,
-                draw_icl = partition_args.draw_ICL,
-                seed = partition_args.seed,
-                keep_tmp_files = partition_args.keep_tmp_files,
-                cpu = partition_args.cpu,
+                beta = args.partition.beta,
+                sm_degree = args.partition.max_degree_smoothing,
+                free_dispersion = args.partition.free_dispersion,
+                chunk_size = args.partition.chunk_size,
+                kval = args.partition.nb_of_partitions,
+                krange = args.partition.krange,
+                icl_margin = args.partition.ICL_margin,
+                draw_icl = args.partition.draw_ICL,
+                seed = args.partition.seed,
+                keep_tmp_files = args.partition.keep_tmp_files,
+                cpu = args.partition.cpu,
                 force = args.force,
                 disable_bar=args.disable_prog_bar)
     part_time = time.time() - start_part
 
-    # start_writing = time.time()
-    # write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
-    # writing_time = writing_time + time.time() - start_writing
+    start_writing = time.time()
+    write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
+    writing_time = writing_time + time.time() - start_writing
 
     if panrgp:
         start_regions = time.time()
-        predict_rgp(pangenome, persistent_penalty=rgp_args.persistent_penalty, variable_gain=rgp_args.variable_gain,
-                    min_length=rgp_args.min_length, min_score=rgp_args.min_score, dup_margin=rgp_args.dup_margin,
+        predict_rgp(pangenome, persistent_penalty=args.rgp.persistent_penalty, variable_gain=args.rgp.variable_gain,
+                    min_length=args.rgp.min_length, min_score=args.rgp.min_score, dup_margin=args.rgp.dup_margin,
                     force=args.force, disable_bar=args.disable_prog_bar)
 
         regions_time = time.time() - start_regions
 
     
         start_spots = time.time()
-        predict_hotspots(pangenome, args.output, force=args.force, spot_graph=spots_args.spot_graph,
-                        overlapping_match=spots_args.overlapping_match, set_size=spots_args.set_size,
-                        exact_match=spots_args.exact_match_size, disable_bar=args.disable_prog_bar)
+        predict_hotspots(pangenome, args.output, force=args.force, spot_graph=args.spot.spot_graph,
+                        overlapping_match=args.spot.overlapping_match, set_size=args.spot.set_size,
+                        exact_match=args.spot.exact_match_size, disable_bar=args.disable_prog_bar)
         spot_time = time.time() - start_spots
 
     if panmodule:
         start_mods = time.time()
-        predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=module_args.cpu, dup_margin=module_args.dup_margin, size=module_args.size,
-                    min_presence=module_args.min_presence, transitive=module_args.transitive, jaccard=module_args.jaccard,
+        predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=args.module.cpu, dup_margin=args.module.dup_margin, size=args.module.size,
+                    min_presence=args.module.min_presence, transitive=args.module.transitive, jaccard=args.module.jaccard,
                     force=args.force,
                     disable_bar=args.disable_prog_bar)
 
@@ -197,19 +166,19 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
 
         if args.rarefaction:
             make_rarefaction_curve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, 
-                                    beta=rarefaction_args.beta,
-                                    depth=rarefaction_args.depth, 
-                                    min_sampling=rarefaction_args.min,
-                                    max_sampling=rarefaction_args.max,
-                                    sm_degree=rarefaction_args.max_degree_smoothing, 
-                                    free_dispersion=rarefaction_args.free_dispersion,
-                                    chunk_size=rarefaction_args.chunk_size,
-                                    kval=rarefaction_args.nb_of_partitions,
-                                    krange=rarefaction_args.krange,
-                                    seed=rarefaction_args.seed,
-                                    kestimate=rarefaction_args.reestimate_K,
-                                    soft_core=rarefaction_args.soft_core, 
-                                    cpu=rarefaction_args.cpu, disable_bar=args.disable_prog_bar)
+                                    beta=args.rarefaction.beta,
+                                    depth=args.rarefaction.depth,
+                                    min_sampling=args.rarefaction.min,
+                                    max_sampling=args.rarefaction.max,
+                                    sm_degree=args.rarefaction.max_degree_smoothing, 
+                                    free_dispersion=args.rarefaction.free_dispersion,
+                                    chunk_size=args.rarefaction.chunk_size,
+                                    kval=args.rarefaction.nb_of_partitions,
+                                    krange=args.rarefaction.krange,
+                                    seed=args.rarefaction.seed,
+                                    kestimate=args.rarefaction.reestimate_K,
+                                    soft_core=args.rarefaction.soft_core, 
+                                    cpu=args.rarefaction.cpu, disable_bar=args.disable_prog_bar)
 
         if 1 < len(pangenome.organisms) < 5000:
             draw_tile_plot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
@@ -223,26 +192,26 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
         borders, spots, regions, spot_modules, modules = (False, False, False, False, False)
 
         if panmodule:
-            modules = write_args.modules
+            modules = args.write.modules
             write_out_arguments.append('modules')
 
         if panrgp:
-            borders, spots, regions = (write_args.borders, write_args.spots, write_args.regions)
+            borders, spots, regions = (args.write.borders, args.write.spots, args.write.regions)
             write_out_arguments +=  ["borders", "spots", 'regions']
         
         if panmodule and panrgp:
-            spot_modules = write_args.spot_modules
+            spot_modules = args.write.spot_modules
             write_out_arguments.append('spot_modules')
 
         # check that at least one output file is requested. if not write is not call.
-        if any(( getattr(write_args,arg) is True for arg in  write_out_arguments)):
+        if any(( getattr(args.write,arg) is True for arg in  write_out_arguments)):
             # some parameters are set to false because they have not been computed in this workflow
-            write_flat_files(pangenome, args.output, cpu=write_args.cpu,  disable_bar=args.disable_prog_bar, 
-                            soft_core=write_args.soft_core, dup_margin=write_args.dup_margin,
-                            csv=write_args.csv, gene_pa=write_args.Rtab, gexf=write_args.gexf, light_gexf=write_args.light_gexf, projection=write_args.projection,
-                            stats=write_args.stats, json=write_args.json, partitions=write_args.partitions, 
-                            families_tsv=write_args.families_tsv, 
-                            compress=write_args.compress, 
+            write_flat_files(pangenome, args.output, cpu=args.write.cpu,  disable_bar=args.disable_prog_bar, 
+                            soft_core=args.write.soft_core, dup_margin=args.write.dup_margin,
+                            csv=args.write.csv, gene_pa=args.write.Rtab, gexf=args.write.gexf, light_gexf=args.write.light_gexf, projection=args.write.projection,
+                            stats=args.write.stats, json=args.write.json, partitions=args.write.partitions, 
+                            families_tsv=args.write.families_tsv, 
+                            compress=args.write.compress, 
                             spot_modules=spot_modules, regions=regions, modules=modules, spots=spots, borders=borders)
         else:
             logging.getLogger().info(f'No flat file has been requested in config file. Writing output flat file is skipped.')
@@ -278,41 +247,6 @@ def launch(args: argparse.Namespace):
     launch_workflow(args, subparser,  panrgp=True, panmodule=True)
 
 
-def get_non_default_cli_args(subcomamand_parser: Callable) ->  argparse.Namespace:
-    """
-    Get args value that have been specified in cmd line.
-
-    This function recreate the same parser than in main but change default value to None 
-    in order to distinguish specified and default value
-
-    :param: subparser function used to add subcommand specific arguments 
-    """
-
-    parser = argparse.ArgumentParser(prog="", allow_abbrev=True, add_help=False) 
-    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description="")
-
-    sub = subcomamand_parser(subparsers)
-
-    add_common_arguments(sub)
-
-    # set default to None
-    for p_action in sub._actions:
-        p_action.default = None
-        # some args have special type calling a function to trigger something
-        # like --log. We need to prevent calling this function a second time.
-        if p_action.type in [check_log]:
-            p_action.type = None
-
-    cli_args = parser.parse_args()
-
-    # delete args not specified in CLI (so the one with None value) 
-    for arg_name, arg_val in cli_args._get_kwargs():
-        if arg_val is None:
-            delattr(cli_args, arg_name)
-
-    return cli_args
-
-
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
     Subparser to launch PPanGGOLiN in Command line
@@ -338,11 +272,6 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
                                "and optionally whether they are a fragment or not.")
 
     optional = parser.add_argument_group(title="Optional arguments")
-    
-    optional.add_argument("--config", required=False, type=argparse.FileType(), 
-                    help="Config file in yaml format to launch the different step of "
-                            "the workflow with specific arguments.")
-
 
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
