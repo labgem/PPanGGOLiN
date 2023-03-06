@@ -531,6 +531,11 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     workflow_subcommands = ['all', 'workflow', 'panrgp', 'panmodule']
     workflow_dependencies = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module" ]
 
+    write_flag_default_in_wf = ["csv", "Rtab", "gexf", "light_gexf",
+                         'projection', 'stats', 'json', 'partitions', 'regions', 'spots',
+                         'borders', 'modules', 'spot_modules']
+
+
     if config_file:
         config = parse_config_file(config_file)
     else:
@@ -568,6 +573,11 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     # manage workflow command
     if subcommand in workflow_subcommands:
         for workflow_step in workflow_dependencies:
+            if workflow_step in ["rgp", "spot"] and args.command in ["workflow", "panmodule"]:
+                continue
+            elif  workflow_step == "module" and args.command in ["workflow", "panmodule"]:
+                continue
+
             step_subparser = subcommand_to_subparser[workflow_step]
 
             default_step_args = get_default_args(workflow_step, step_subparser, unwanted_args=general_params)
@@ -577,6 +587,12 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
             specific_step_params = {param_name for param_name in all_param_names if param_name not in general_params}
             config_step_args = get_config_args(workflow_step, step_subparser, config, workflow_step, specific_step_params, strict_config_check=True)
 
+            # overwrite write default when not specified in config 
+            if workflow_step == 'write':
+                for out_flag in write_flag_default_in_wf:
+                    if not hasattr(config_step_args, out_flag):
+                        setattr(default_step_args, out_flag, True)
+                        
             step_args = overwrite_args(default_step_args, config_step_args)
             
             step_args = overwrite_args(step_args, cli_args)
