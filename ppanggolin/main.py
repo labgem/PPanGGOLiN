@@ -130,7 +130,8 @@ def cmd_line() -> argparse.Namespace:
 
     if hasattr(args, "config"): # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
         args = manage_cli_and_config_args(args.subcommand, args.config, subcommand_to_subparser)
-
+    else:
+        set_verbosity_level(args)
 
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
         raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
@@ -145,8 +146,6 @@ def main():
     :return:
     """
     args = cmd_line()
-
-    set_verbosity_level(args)
 
     if hasattr(args, "pangenome"):
         check_input_files(pangenome=args.pangenome)
