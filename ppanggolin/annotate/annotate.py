@@ -594,7 +594,7 @@ def launch(args: argparse.Namespace):
     if args.fasta is not None and args.anno is None:
         annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, procedure=args.prodigal_procedure,
                            translation_table=args.translation_table, kingdom=args.kingdom, norna=args.norna,
-                           overlap=args.overlap, contig_filter=args.contig_filter, disable_bar=args.disable_prog_bar)
+                           overlap=args.allow_overlap, contig_filter=args.contig_filter, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
         read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":
@@ -643,7 +643,7 @@ def parser_annot(parser: argparse.ArgumentParser):
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
-    optional.add_argument('--overlap', required=False, action='store_false', default=True,
+    optional.add_argument('--allow_overlap', required=False, action='store_true', default=False,
                           help="Use to not remove genes overlapping with RNA features.")
     optional.add_argument("--norna", required=False, action="store_true", default=False,
                           help="Use to avoid annotating RNA features.")

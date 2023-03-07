@@ -84,7 +84,7 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
         annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.annotate.cpu, disable_bar=args.disable_prog_bar,
                         procedure=args.annotate.prodigal_procedure,
                         translation_table=args.annotate.translation_table, kingdom=args.annotate.kingdom, norna=args.annotate.norna,
-                        overlap=args.annotate.overlap, contig_filter=args.annotate.contig_filter)
+                        overlap=args.annotate.allow_overlap, contig_filter=args.annotate.contig_filter)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()
