@@ -501,15 +501,15 @@ def overwrite_args(default_args:argparse.Namespace, config_args:argparse.Namespa
             setattr(args, param, cli_val)
 
             if default_val != cli_val:
-                logging.getLogger().debug(f'Parameter "--{param} {get_arg_name(cli_val)}" has been specified in command line with non default value.' 
-                                        f' Its value overwrites putative config values')
+                logging.getLogger().debug(f'Parameter "--{param} {get_arg_name(cli_val)}" has been specified in command line.' 
+                                        f' Its value overwrites putative config values.')
 
         elif param in config_args:
             #parma is defined only in config. config val is used
             setattr(args, param, config_val)
             
             if default_val != config_val:
-                logging.getLogger().debug(f'Parameter "{param}: {get_arg_name(config_val)}" has been specified in config file with non default value' 
+                logging.getLogger().debug(f'Parameter "{param}: {get_arg_name(config_val)}" has been specified in config file with non default value.' 
                                           f' Its value overwrites default value ({get_arg_name(default_val)}).')
         else:
             # param is not defined in cli and in config. default value is applied
@@ -536,6 +536,23 @@ def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
         setattr(args, arg_name, arg_val)
 
     return args
+
+def get_args_that_differe_from_default(default_args: argparse.Namespace, final_args: argparse.Namespace, param_to_ignore:list=[]) -> dict:
+    """
+    Get the parameters that have different value than default values.
+
+    :params default_args: default arguments
+    :params final_args: final arguments to compare with default
+    :params param_to_ignore: list of params to ignore.
+
+    :return: A dict with param that differ from default as key and the final value of the param as value
+    """
+
+    all_params = [arg for arg in dir(final_args) if not arg.startswith('_') if arg not in param_to_ignore]
+
+    params_that_differ = {param:getattr(final_args, param) for param in all_params if getattr(default_args, param) != getattr(final_args, param)}
+    
+    return params_that_differ
 
 
 def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_subparser:dict) -> argparse.Namespace:
@@ -588,11 +605,9 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
 
     set_verbosity_level(general_args)
 
-    # redo parsing of config args for general parameters to catch potential log
-    get_config_args(subcommand, cmd_subparser, config, "general_parameters", general_params, strict_config_check=False)
-
     
     # config_input_args = get_config_args(subcommand, cmd_subparser, config, "input_parameters", input_params, strict_config_check=False)
+
 
     if subcommand not in workflow_subcommands:
         config_specific_args = get_config_args(subcommand, cmd_subparser, config, subcommand, specific_params, strict_config_check=True)
@@ -604,6 +619,11 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     # cli > config > default
 
     args = overwrite_args(default_args, config_args, cli_args)
+    params_that_differ = get_args_that_differe_from_default(default_args, args, input_params)
+    
+    if params_that_differ:
+        params_that_differ_str = ', '.join([f'{p}={v}' for p,v in params_that_differ.items()])
+        logging.getLogger().debug(f"{len(params_that_differ)} {subcommand} parameters have non-default value: {params_that_differ_str}")
 
     # manage workflow command
     if subcommand in workflow_subcommands:
@@ -612,7 +632,8 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
                 continue
             elif  workflow_step == "module" and subcommand in ["workflow", "panmodule"]:
                 continue
-            logging.getLogger().info(f'Parsing {workflow_step} arguments in config file.')
+
+            logging.getLogger().debug(f'Parsing {workflow_step} arguments in config file.')
             step_subparser = subcommand_to_subparser[workflow_step]
 
             default_step_args = get_default_args(workflow_step, step_subparser, unwanted_args=general_params)
@@ -625,17 +646,30 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
             # overwrite write default when not specified in config 
             if workflow_step == 'write':
                 for out_flag in write_flag_default_in_wf:
-                    if out_flag not in config['write']:
-                        setattr(default_step_args, out_flag, True)
+                    setattr(default_step_args, out_flag, True)
 
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
             
+            step_params_that_differ = get_args_that_differe_from_default(default_step_args, step_args)
+            
+            if step_params_that_differ:
+                step_params_that_differ_str = ', '.join([f'{p}={v}' for p,v in step_params_that_differ.items()])
+                logging.getLogger().debug(f"{len(step_params_that_differ)} {workflow_step} parameters have a non-default value: {step_params_that_differ_str}")
+
+            # add step name to differentiate the params
+            step_params_that_differ = {f'{workflow_step}:{param}':value for param, value in step_params_that_differ.items()}
+
+            params_that_differ.update(step_params_that_differ)
+
+            
             # Add args namespace of the step to the inital args namespace
             setattr(args, workflow_step, step_args)
+    
+    if params_that_differ:
+        logging.getLogger().info(f'{len(params_that_differ)} parameters have a non-default value.')
 
     check_config_consistency(config, workflow_dependencies)
     
-
     return args
 
 def check_config_consistency(config: dict, workflow_steps:list):
@@ -806,7 +840,8 @@ def get_cli_args(subparser_fct: Callable) -> argparse.Namespace:
     # remove argument that have not been specified
     delete_unspecified_args(cli_args)
     delattr(cli_args, 'subcommand')
-    delattr(cli_args, 'config')
+    if 'config' in cli_args:
+        delattr(cli_args, 'config')
 
     return cli_args
 
