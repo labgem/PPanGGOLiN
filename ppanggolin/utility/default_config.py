@@ -24,9 +24,18 @@ import ppanggolin.utility
 
 """ Utility scripts to help formating input files of PPanggolin."""
 
-def split(a, n):
-    k, m = divmod(len(a), n)
-    return (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
+def split(list_object:list, chunk_count:int) -> list([list]):
+    """
+    Split list into n chunk. 
+
+    :params list_object: list to split
+    :params chunk_count: number of final chunk
+
+    :return : list of chunk of the initial list. 
+    """
+    quotient, remainder = divmod(len(list_object), chunk_count)
+
+    return [list_object[index*quotient+min(index, remainder):(index+1)*quotient+min(index+1, remainder)] for index in range(chunk_count)]
 
 
 def split_comment_string(comment_string:str, max_word_count:int=20, prefix="\n    # "):
