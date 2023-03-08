@@ -99,6 +99,7 @@ def cmd_line() -> argparse.Namespace:
             ppanggolin.align.subparser(subparsers),
             ppanggolin.RGP.genomicIsland.subparser(subparsers),
             ppanggolin.RGP.spot.subparser(subparsers),
+            ppanggolin.RGP.rgp_cluster.subparser(subparsers),
             ppanggolin.mod.subparser(subparsers),
             ppanggolin.context.subparser(subparsers)]  # subparsers
     ppanggolin.info.subparser(subparsers)  # not adding to sub because the 'common' options are not needed for this
@@ -177,6 +178,8 @@ def main():
         ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "spot":
         ppanggolin.RGP.spot.launch(args)
+    elif args.subcommand == "rgp_cluster":
+        ppanggolin.RGP.rgp_cluster.launch(args)
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
     elif args.subcommand == "module":
