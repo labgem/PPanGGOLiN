@@ -374,7 +374,9 @@ def parse_config_file(yaml_config_file: str) -> dict:
 
     with yaml_config_file as yaml_fh:
         config = yaml.safe_load(yaml_fh)
-        
+    
+    # remove empty section that have no parameter specified in it. In this case they have a None value
+    config = {section:param_val_dict for section, param_val_dict in config.items() if param_val_dict is not None}
     return config
 
 def add_common_arguments(subparser: argparse.ArgumentParser):
@@ -568,12 +570,18 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     :params subcommand_to_subparser: Dict with subcommand name as key and the corresponding subparser function as value. 
     """
 
+    # all input params that exists in ppanggolin
+    all_input_params = {'fasta', 'anno', 'clusters', 'pangenome'}
 
-    input_params = ['fasta', 'anno', 'clusters', 'pangenome']
+    # all params that should be in the general_parameters section of the config file
     general_params = ['output', 'basename', 'rarefaction', 'only_pangenome', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
+
     workflow_subcommands = ['all', 'workflow', 'panrgp', 'panmodule']
+    
+    # command that can be launched inside a workflow subcommand
     workflow_dependencies = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module" ]
 
+    # Inside a workflow command, write output default is overwrite to output some of the flat files
     write_flag_default_in_wf = ["csv", "Rtab", "gexf", "light_gexf",
                          'projection', 'stats', 'json', 'partitions', 'regions', 'spots',
                          'borders', 'modules', 'spot_modules']
@@ -594,10 +602,13 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     
     cli_args = get_cli_args(cmd_subparser)
     
-    all_param_names = {arg_name for arg_name in dir(default_args) if not arg_name.startswith('_')}
+    all_cmd_param_names = {arg_name for arg_name in dir(default_args) if not arg_name.startswith('_')}
+
+    input_params = {param for param in all_cmd_param_names if param in all_input_params}
+
+    general_params = {param for param in all_cmd_param_names if param in general_params}
     
-    specific_params = {param_name for param_name in all_param_names if param_name not in general_params + input_params}
-    general_params = all_param_names - specific_params
+    specific_params  = all_cmd_param_names - (input_params | general_params)
 
     # manage logging first to correctly set it up and to be able to log any issue when using config file later on
     config_general_args = get_config_args(subcommand, cmd_subparser, config, "general_parameters", general_params, strict_config_check=False)
@@ -606,14 +617,18 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     set_verbosity_level(general_args)
 
     
-    # config_input_args = get_config_args(subcommand, cmd_subparser, config, "input_parameters", input_params, strict_config_check=False)
+    config_input_args = get_config_args(subcommand, cmd_subparser, config, "input_parameters", input_params, strict_config_check=True)
 
 
-    if subcommand not in workflow_subcommands:
+
+    if subcommand in workflow_subcommands:
+        # for workflow commands there is no section dedicated in the config: so no specific_args 
+        # only general_parameters and  sections of commands launched in the worklow commands are used
+        config_args = combine_args(config_general_args, config_input_args)
+    else:
         config_specific_args = get_config_args(subcommand, cmd_subparser, config, subcommand, specific_params, strict_config_check=True)
         config_args = combine_args(config_general_args, config_specific_args)
-    else:
-        config_args = config_general_args
+        config_args = combine_args(config_args, config_input_args)
 
     # manage priority between source of args 
     # cli > config > default
@@ -785,6 +800,7 @@ def get_config_args(subcommand: str, subparser_fct: Callable, config_dict: dict,
     :params config_dict: config dict with as key the section of the config file and as value another dict pairing name and value of parameters.
     :params config_section: Which section to parse in config file.
     :params expected_params: List of argument to expect in the parser. If the parser has other arguments, these arguments are filtered out.
+    :params strict_config_check: if set to true, an error is raised when a parameter is found in the config and it is not in the expected_params list.
 
     :return args: Arguments parse from the config
     """

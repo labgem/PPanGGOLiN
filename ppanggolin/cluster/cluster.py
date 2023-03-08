@@ -471,7 +471,7 @@ def parser_clust(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
     clust = parser.add_argument_group(title="Clustering arguments")
     clust.add_argument("--identity", required=False, type=restricted_float, default=0.8,
                        help="Minimal identity percent for two proteins to be in the same cluster")

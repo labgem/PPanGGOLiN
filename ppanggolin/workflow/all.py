@@ -214,7 +214,7 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
                             compress=args.write.compress, 
                             spot_modules=spot_modules, regions=regions, modules=modules, spots=spots, borders=borders)
         else:
-            logging.getLogger().info(f'No flat file has been requested in config file. Writing output flat file is skipped.')
+            logging.getLogger().info(f'No flat file output has been requested in config file. Writing output flat file is skipped.')
 
         desc_time = time.time() - start_desc
 

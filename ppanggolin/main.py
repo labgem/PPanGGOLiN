@@ -134,8 +134,20 @@ def cmd_line() -> argparse.Namespace:
         set_verbosity_level(args)
 
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
-                        "or a file with the --gff option to load annotations from.")
+        parser.error("You must provide at least a file with the --fasta option to annotate from sequences, "
+                        "or a file with the --gff option to load annotations through the command line or the config file.")
+    
+    cmds_pangenome_required = ["cluster", "info", "module", "graph","align", 
+                               "context", "write", "msa", "draw", "partition",
+                               "rarefaction", "spot", "fasta", "metrics", "rgp"]
+    if args.subcommand in  cmds_pangenome_required and args.pangenome is None:
+        parser.error("You must provide a pangenome file with the --pangenome "
+                        "argument through the command line or the config file.")
+    
+    if args.subcommand == "align" and args.sequences is None:
+        parser.error("You must provide sequences (nucleotides or amino acids) to align on the pangenome gene families "
+                            "with the --sequences argument through the command line or the config file.")
+        
     return args
 
 

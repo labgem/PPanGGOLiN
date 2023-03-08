@@ -362,7 +362,7 @@ def parser_msa(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
 

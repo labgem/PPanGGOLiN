@@ -270,7 +270,7 @@ def parser_context(parser: argparse.ArgumentParser):
 
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome.h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome.h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")

@@ -389,10 +389,10 @@ def parser_align(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-S', '--sequences', required=True, type=str,
+    required.add_argument('-S', '--sequences', required=False, type=str,
                           help="sequences (nucleotides or amino acids) to align on the pangenome gene families")
 
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
 

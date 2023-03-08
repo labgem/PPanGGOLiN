@@ -24,6 +24,43 @@ import ppanggolin.utility
 
 """ Utility scripts to help formating input files of PPanggolin."""
 
+def split(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
+
+
+def split_comment_string(comment_string:str, max_word_count:int=20, prefix="\n    # "):
+    """
+    """
+    splitted_comment = comment_string.split()
+    word_count = len(splitted_comment)
+    line_count = round(word_count/max_word_count) + 1
+
+    comment_lines = [' '.join(words) for words in split(splitted_comment, line_count)]
+    
+    return prefix.join(comment_lines)
+
+def get_input_argument_lines(argument_actions:list([argparse._SubParsersAction])) -> dict:
+    """
+    Manage input argument from a specific list of parser actions and format them for the yaml output.
+
+    Input arguments are commented in the config file: as no default is valid.
+    Help and possible values of the argument is added as comment line. 
+
+    :param argument_actions: list of parser action for input arguments. 
+
+    :return: default arguments for the given command 
+    """
+
+    arg_default_lines = []
+    for action in argument_actions:
+
+        # Add the help as comment
+        arg_default_lines.append(f"    # {split_comment_string(action.help)}")
+
+        arg_default_lines.append(f"  # {action.dest}: <{action.dest} file>")
+
+    return arg_default_lines
 
 def get_default_argument_lines(argument_actions:list([argparse._SubParsersAction])) -> dict:
     """
@@ -35,8 +72,6 @@ def get_default_argument_lines(argument_actions:list([argparse._SubParsersAction
 
     :return: default arguments for the given command 
     """
-    
-    indentation = '    '
 
     arg_default_lines = []
     for action in argument_actions:
@@ -45,14 +80,14 @@ def get_default_argument_lines(argument_actions:list([argparse._SubParsersAction
             continue
 
         # Add the help as comment
-        arg_default_lines.append(f"{indentation}# {action.help}")
+        arg_default_lines.append(f"    # {action.help}")
 
         if action.choices:
-            arg_default_lines.append(f"{indentation}# Choices: {', '.join([str(choice) for choice in action.choices])}")
+            arg_default_lines.append(f"    # Choices: {', '.join([str(choice) for choice in action.choices])}")
         
         # When default is None, it is replaced by False to omit the arg and get the None value as expected.
         default = action.default if action.default is not None else False
-        arg_default_lines.append(f"{indentation}{action.dest}: {default}")
+        arg_default_lines.append(f"    {action.dest}: {default}")
 
     return arg_default_lines
 
@@ -130,8 +165,10 @@ def launch(args: argparse.Namespace):
         else:
             specific_actions.append(parser_action)
 
+    arg_lines = ['input_parameters:']
+    arg_lines += get_input_argument_lines(inputs_actions)
 
-    arg_lines = ['general_parameters:']
+    arg_lines.append('\ngeneral_parameters:')
     arg_lines += get_default_argument_lines(general_actions)
 
     if args.command not in workflow_subcommands:
