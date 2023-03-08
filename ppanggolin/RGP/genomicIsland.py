@@ -273,7 +273,7 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
     pangenome = Pangenome()
-    pangenome.add_file(args.pan)
+    pangenome.add_file(args.pangenome)
     predict_rgp(pangenome, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain,
                 min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, force=args.force,
                 disable_bar=args.disable_prog_bar)
