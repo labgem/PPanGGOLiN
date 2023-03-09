@@ -90,8 +90,8 @@ class Feature:
         else:
             return (type(self)._all_dna[type(self)._featureID2non_redondant_ID[self.ID]])
 
-    def add_dna_not_redondant(self, dna):
-        """ direclty store dna as not redondant (not thread safe function)
+    def add_dna_non_redondant(self, dna):
+        """ direclty store dna as non redondant (not thread safe function)
 
         :param dna: DNA sequence
         """
@@ -105,7 +105,6 @@ class Feature:
                 non_redondant_id = type(self)._all_dna.inverse[self._dna]
             else:
                 non_redondant_id = len(type(self)._featureID2non_redondant_ID)
-            print(non_redondant_id)
             type(self)._all_dna[non_redondant_id] = self._dna
             type(self)._featureID2non_redondant_ID[self.ID] = non_redondant_id
             type(self)._non_redondant_ID2featureID_set[non_redondant_id].add(self.ID)
