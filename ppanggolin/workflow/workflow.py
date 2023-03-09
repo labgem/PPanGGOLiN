@@ -7,8 +7,7 @@ import time
 import argparse
 
 # local libraries
-from ppanggolin.utils import add_step_specific_args
-from ppanggolin.workflow.all import launch_workflow
+from ppanggolin.workflow.all import launch_workflow, add_step_specific_args
 
 """ a global workflow that does everything in one go. """
 

@@ -405,36 +405,6 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
     subparser._action_groups.append(common)
 
 
-def add_step_specific_args(parser: argparse.ArgumentParser):
-    """
-    Parser for important arguments that can be changed in CLI. 
-    Other (less important) arguments that are step specific can be changed in the config file.
-
-    :param parser: parser for workflow argument
-    """
-
-    parser.add_argument("--translation_table", required=False, type=int, default=11,
-                          help="Translation table (genetic code) to use.")
-
-    parser.add_argument("--mode", required=False, default="1", choices=["0", "1", "2", "3"],
-                          help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component),"
-                               " 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
-
-    parser.add_argument("--coverage", required=False, type=restricted_float, default=0.8,
-                          help="Minimal coverage of the alignment for two proteins to be in the same cluster")
-
-    parser.add_argument("--identity", required=False, type=restricted_float, default=0.8,
-                          help="Minimal identity percent for two proteins to be in the same cluster")
-
-    parser.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
-                          help="Number of partitions to use. Must be at least 2. If under 2, "
-                               "it will be detected automatically.")
-                               
-    # This ensures compatibility with workflows built with the old option "defrag" when it was not the default
-    parser.add_argument("--no_defrag", required=False, action="store_true",
-                          help="DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
-
-
 def get_non_default_cli_args(subcomamand_parser: Callable) ->  argparse.Namespace:
     """
     Get args value that have been specified in cmd line.
@@ -886,19 +856,3 @@ def delete_unspecified_args(args:  argparse.Namespace):
         if arg_val is None:
             delattr(args, arg_name)
 
-
-
-def get_cmd_args_from_cli_config_and_default(step_name: str, subparser_fct, config_param_val: dict, cli_args,
-                            general_params: list) -> argparse.Namespace: 
-    """
-    Parse arguments from config file of a specific command using argument parser of this command. 
-
-    :param step_name: name of the step (ie annotate, cluster.. )
-    :param parser_fct: parser function of the command
-    :param config_param_val: dict parsed from config file with param name as key and pram value as value
-    :param cli_args: Arguments parsed from the cmd line which overwrite config or default values when they are specified in cmd line.
-    :param general_params: General parameters to remove from the expected arguments. These parameters are managed by cmd line arguments directly.
-
-    :return: object with arguments for the given command 
-    """
-    pass
