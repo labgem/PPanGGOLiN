@@ -2,16 +2,14 @@
 # coding: utf8
 
 from __future__ import annotations
-
-# installed libraries
+# default libraries
 import logging
-import pdb
 from typing import Iterator, Dict
 from collections import defaultdict
+
+# installed libraries
 from bidict import bidict
-
 import gmpy2
-
 
 class Feature:
     """This is a general class representation of Gene, RNA
@@ -279,6 +277,7 @@ class Organism:
         self.name = name
         self._contigs_getter = {}
         self.bitarray = None
+        self.metadata = defaultdict(list)
 
     @property
     def families(self) -> set:

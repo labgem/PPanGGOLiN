@@ -561,10 +561,10 @@ def get_metadata_on_families_desc(pangenome: Pangenome) -> Tuple[int, int]:
         for metadata_name_on_families, metadata_value_on_families in fam.metadata.items():
             if len(metadata_name_on_families) > max_metadata_name_len:
                 max_metadata_name_len = len(metadata_name_on_families)
-            if len(metadata_value_on_families) > max_metadata_value_len:
-                max_metadata_value_len = len(metadata_value_on_families)
+            for value in metadata_value_on_families:
+                if len(value) > max_metadata_value_len:
+                    max_metadata_value_len = len(value)
     return (max_metadata_name_len, max_metadata_value_len)
-
 
 def metadata_on_families_desc(gene_fam_name_len, max_metadata_name_len, max_metadata_value_len):
     """
@@ -582,14 +582,16 @@ def metadata_on_families_desc(gene_fam_name_len, max_metadata_name_len, max_meta
         "metadata_value": tables.StringCol(itemsize=max_metadata_value_len)
     }
 
-
 def write_metadata_on_families(pangenome, h5f, disable_bar: bool = False):
+    """
+    Write pangenome metadata on families in HDF5 file
+
+    :param pangenome: Pangenome object
+    :param h5f: Pangenome file
+    """
     if '/metadata_on_families' in h5f:
         logging.getLogger().info("Updating the formerly computed metadata on families")
         h5f.remove_node("/", "metadata_on_families")
-    (max_metadata_name_len, max_metadata_value_len) = get_metadata_on_families_desc(pangenome)
-    # import pdb;
-    # pdb.set_trace()
     metadata_on_families_table = h5f.create_table("/", "metadata_on_families",
                                                   metadata_on_families_desc(get_gene_fam_len(pangenome)[0],
                                                                             *get_metadata_on_families_desc(pangenome)),
@@ -597,13 +599,13 @@ def write_metadata_on_families(pangenome, h5f, disable_bar: bool = False):
                                                       next(iter(pangenome.gene_families)).metadata))
     metadata_on_families_row = metadata_on_families_table.row
     for fam in tqdm(pangenome.gene_families, unit="families", disable=disable_bar):
-        for metadata_name_on_families, metadata_value_on_families in fam.metadata.items():
-            metadata_on_families_row["gene_family"] = fam.name
-            metadata_on_families_row["metadata_name"] = metadata_name_on_families
-            metadata_on_families_row["metadata_value"] = metadata_value_on_families
-            metadata_on_families_row.append()
+        for metadata_name_on_families, metadata_values_on_families in fam.metadata.items():
+            for value in metadata_values_on_families:
+                metadata_on_families_row["gene_family"] = fam.name
+                metadata_on_families_row["metadata_name"] = metadata_name_on_families
+                metadata_on_families_row["metadata_value"] = value
+                metadata_on_families_row.append()
     metadata_on_families_table.flush()
-
 
 def get_metadata_on_organisms_desc(pangenome: Pangenome) -> Tuple[int, int, int]:
     """
@@ -627,8 +629,9 @@ def get_metadata_on_organisms_desc(pangenome: Pangenome) -> Tuple[int, int, int]
         for metadata_name_on_organisms, metadata_value_on_organisms in organism.metadata.items():
             if len(metadata_name_on_organisms) > max_metadata_name_len:
                 max_metadata_name_len = len(metadata_name_on_organisms)
-            if len(metadata_value_on_organisms) > max_metadata_value_len:
-                max_metadata_value_len = len(metadata_value_on_organisms)
+            for value in metadata_value_on_organisms:
+                if len(value) > max_metadata_value_len:
+                    max_metadata_value_len = len(value)
     return (max_org_len, max_metadata_name_len, max_metadata_value_len)
 
 
@@ -650,20 +653,26 @@ def metadata_on_organisms_desc(org_name_len, max_metadata_name_len, max_metadata
 
 
 def write_metadata_on_organisms(pangenome, h5f, disable_bar: bool = False):
+    """
+    Write pangenome metadata on organisms in HDF5 file
+
+    :param pangenome: Pangenome object
+    :param h5f: Pangenome file
+    """
     if '/metadata_on_organisms' in h5f:
         logging.getLogger().info("Updating the formerly computed metadata on organisms")
         h5f.remove_node("/", "metadata_on_organisms")
-    (max_metadata_name_len, max_metadata_value_len) = get_metadata_on_organisms_desc(pangenome)
     metadata_on_organisms_table = h5f.create_table("/", "metadata_on_organisms", metadata_on_organisms_desc(
         *get_metadata_on_organisms_desc(pangenome)), expectedrows=pangenome.number_of_organisms() * len(
         next(iter(pangenome.organisms)).metadata))
     metadata_on_organisms_row = metadata_on_organisms_table.row
     for organism in tqdm(pangenome.organisms, unit="organisms", disable=disable_bar):
         for metadata_name_on_organisms, metadata_value_on_organisms in organism.metadata.items():
-            metadata_on_organisms_row["organism"] = organism.name
-            metadata_on_organisms_row["metadata_name"] = metadata_name_on_organisms
-            metadata_on_organisms_row["metadata_value"] = metadata_value_on_organisms
-            metadata_on_organisms_row.append()
+            for value in metadata_value_on_organisms:
+                metadata_on_organisms_row["organism"] = organism.name
+                metadata_on_organisms_row["metadata_name"] = metadata_name_on_organisms
+                metadata_on_organisms_row["metadata_value"] = value
+                metadata_on_organisms_row.append()
     metadata_on_organisms_table.flush()
 
 
@@ -706,7 +715,6 @@ def write_status(pangenome: Pangenome, h5f: tables.File):
     except:
         pass
     status_group._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
-
 
 def write_info(pangenome: Pangenome, h5f: tables.File):
     """
@@ -1077,12 +1085,10 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
         logging.getLogger().info("Writing Modules...")
         write_modules(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["modules"] = "Loaded"
-
     if pangenome.status["metadata_on_families"] == "Computed":
         logging.getLogger().info("Writing Metadata on families...")
         write_metadata_on_families(pangenome, h5f)
         pangenome.status["metadata_on_families"] = "Loaded"
-
     if pangenome.status["metadata_on_organisms"] == "Computed":
         logging.getLogger().info("Writing Metadata on organisms...")
         write_metadata_on_organisms(pangenome, h5f)

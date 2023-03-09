@@ -462,7 +462,6 @@ def read_annotations(pangenome: Pangenome, organisms_file: str, cpu: int = 1, ps
             pangenome.add_organism(org)
             if not flag:
                 pangenome.status["geneSequences"] = "No"
-
     # decide whether we use local ids or ppanggolin ids.
     used_local_identifiers = chose_gene_identifiers(pangenome)
     if used_local_identifiers:
@@ -568,6 +567,9 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: str, tmpdir: str, cpu: 
             pangenome.add_organism(organism)
         p.close()
         p.join()
+    for gene in pangenome.genes:
+        gene.to_non_redondant_dna()
+        gene.to_non_redondant_protein()
 
     logging.getLogger().info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"  # the pangenome is now annotated.
