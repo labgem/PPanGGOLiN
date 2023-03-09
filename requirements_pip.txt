@@ -9,4 +9,3 @@ pandas>=0.25.3
 colorlover>=0.3
 numpy>=1.19.5
 bokeh>=2.3.3
-bidict==0.22.1

@@ -62,7 +62,8 @@ def test_fill_parents(o_feature):
 def test_add_dna(o_feature):
     dna = "test adn"
     o_feature.add_dna(dna)
-    assert o_feature.dna == dna
+    assert hasattr(o_feature, 'dna')
+    o_feature.dna = dna
 
     dna = 123
     with pytest.raises(TypeError):

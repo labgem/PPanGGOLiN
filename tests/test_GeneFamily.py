@@ -25,7 +25,6 @@ def test_cstr():
     assert o_family.removed is False
     assert o_family.sequence == ""
     assert o_family.partition == ""
-    assert o_family.metadata == {}
 
 
 @pytest.fixture()

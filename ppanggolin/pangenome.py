@@ -45,9 +45,7 @@ class Pangenome:
             'partitioned': "No",
             'predictedRGP': "No",
             'spots': "No",
-            'modules': 'No',
-            'metadata_on_families': 'No',
-            'metadata_on_organisms': 'No'
+            'modules': 'No'
         }
         self.parameters = {}
 

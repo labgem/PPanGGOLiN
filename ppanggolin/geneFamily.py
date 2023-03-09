@@ -38,7 +38,6 @@ class GeneFamily:
         self.spot = set()
         self.modules = set()
         self.bitarray = None
-        self.metadata = defaultdict(list)
 
     def add_sequence(self, seq: str):
         """Assigns a protein sequence to the gene family.

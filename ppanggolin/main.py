@@ -27,8 +27,8 @@ import ppanggolin.align
 import ppanggolin.RGP
 import ppanggolin.mod
 import ppanggolin.context
-import ppanggolin.metadata
 import ppanggolin.workflow
+
 
 def cmd_line() -> argparse.Namespace:
     """ Manage the command line argument given by user
@@ -73,9 +73,6 @@ def cmd_line() -> argparse.Namespace:
     desc += "  Genomic context:\n"
     desc += "    context      Local genomic context analysis\n"
     desc += "  \n"
-    desc += "  Metadata:\n"
-    desc += "    metadata     Add metadata to families or organisms\n"
-    desc += "  \n"
 
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
@@ -103,8 +100,7 @@ def cmd_line() -> argparse.Namespace:
             ppanggolin.RGP.genomicIsland.subparser(subparsers),
             ppanggolin.RGP.spot.subparser(subparsers),
             ppanggolin.mod.subparser(subparsers),
-            ppanggolin.context.subparser(subparsers),
-            ppanggolin.metadata.metadataSubparser(subparsers)]  # subparsers
+            ppanggolin.context.subparser(subparsers)]  # subparsers
     ppanggolin.info.subparser(subparsers)  # not adding to sub because the 'common' options are not needed for this
     for sub in subs:  # add options common to all subcommands
         common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
@@ -191,8 +187,7 @@ def main():
         ppanggolin.workflow.all.launch(args)
     elif args.subcommand == "context":
         ppanggolin.context.launch(args)
-    elif args.subcommand == "metadata":
-        ppanggolin.metadata.launch(args)
+
 
 if __name__ == "__main__":
     main()
