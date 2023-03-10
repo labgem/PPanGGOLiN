@@ -30,6 +30,10 @@ class Feature:
         self.contig = None
         self.dna = None
 
+    @property
+    def length(self):
+        return self.stop - self.start
+
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
                          product: str = "", local_identifier: str = ""):
         """
@@ -147,6 +151,10 @@ class Contig:
         :return: list of gene in contig
         """
         return self._genes_position
+
+    @property
+    def length(self):
+        return sum([gene.length for gene in self.genes])
 
     def __str__(self):
         return self.name
