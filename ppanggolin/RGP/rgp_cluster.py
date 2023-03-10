@@ -20,7 +20,7 @@ from ppanggolin.region import Region
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.utils import restricted_float, mk_outdir
 
-def compute_grr(rgp_a:Region, rgp_b:Region, mode:Callable):
+def compute_grr(rgp_a:Region, rgp_b:Region, mode:Callable) -> float:
     """
     Compute gene repertoire relatedness (GRR) between two rgp.
     mode can be the function min to compute min GRR or max to compute max_grr
@@ -29,13 +29,56 @@ def compute_grr(rgp_a:Region, rgp_b:Region, mode:Callable):
     :param rgp_b: rgp B
     :param mode: min or max function
 
+    :return : grr value between 0 and 1
     """
     
     max_grr = len((rgp_a.families & rgp_b.families))/mode(len(rgp_a.families), len(rgp_b.families))
 
     return max_grr
 
+def compute_jaccard_index(rgp_a:Region, rgp_b:Region) -> float:
+    """
+    Compute jaccard index between two rgp based on their famillies.
 
+    :param rgp_a: rgp A
+    :param rgp_b: rgp B
+
+    :return : jaccard index
+    """
+    
+    jaccard_index = len((rgp_a.families & rgp_b.families))/len(rgp_a.families | rgp_b.families)
+
+    return jaccard_index
+
+
+def get_rgp_info_dict(regions:list, spots:set) -> nx.Graph :
+    """
+
+    """
+
+    region_attributes = {}
+    for region in regions:
+
+        region_info = {"contig":region.contig.name,
+                       'organism':region.organism.name,
+                        "name":region.name,
+                        "genes_count":len(region.genes), # "length":region.stop_gene - region.start_gene +1, 
+                        "is_contig_border":region.is_contig_border, 
+                        "is_whole_contig":region.is_whole_contig}
+        
+        region_info['famillies'] =';'.join([str(f.ID)  for f in region.families])
+        region_info['families_count'] = len(region.families)
+
+        region_attributes[region] = region_info
+
+    # add spot info to rgp info
+    for spot in spots:
+        for rgp in spot.regions:
+            region_attributes[rgp]['spot_id'] = spot.ID
+
+    # for region, info in region_attributes.items():
+    #     region_attributes[region] = {key:str(val) for key, val in info.items() }
+    return region_attributes
 
 def cluster_rgp(pangenome, output, disable_bar):
     """
@@ -48,58 +91,59 @@ def cluster_rgp(pangenome, output, disable_bar):
 
     # check statuses and load info
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
-                        disable_bar=disable_bar, need_rgp=True)
+                        disable_bar=disable_bar, need_rgp=True, need_spots=True)
 
     grr_graph = nx.Graph()
 
     # add all rgp as node
     grr_graph.add_nodes_from(pangenome.regions)
 
-    # add some attribute to the graph. not really important..
-    region_attributes = {}
-    for region in pangenome.regions:
-        
-        
-        region_info = {"contig":region.contig.name,
-                       'organism':region.organism.name}
-        
-        region_info['famillies'] =';'.join([str(f.ID)  for f in region.families])
-
-        region_attributes[region] = region_info
-
-
-    nx.set_node_attributes(grr_graph, region_attributes)
-
-    # get all possible pair of rgp
-    rgp_pairs = combinations(pangenome.regions, 2)
+    # add some attribute to the graph.
+    region_infos = get_rgp_info_dict(pangenome.regions, pangenome.spots)
+    nx.set_node_attributes(grr_graph, region_infos)
     
-    for rgp_a, rgp_b in rgp_pairs:
-        min_grr = compute_grr(rgp_a, rgp_b, min)
-        max_grr = compute_grr(rgp_a, rgp_b, max)
+    # compute grr for all possible pair of rgp
+    rgp_count = len(pangenome.regions)
+    pairs_count = int((rgp_count**2 - rgp_count)/2)
+    logging.info(f'Computing GRR metric for {pairs_count:,} pairs of RGP')
+    for rgp_a, rgp_b in tqdm(combinations(pangenome.regions, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
+        # compute metrics between 2 rgp if they share at least one familly
+        if rgp_a.families & rgp_b.families:
+            min_grr = compute_grr(rgp_a, rgp_b, min)
+            max_grr = compute_grr(rgp_a, rgp_b, max)
+            jaccard_index = compute_jaccard_index(rgp_a, rgp_b)
 
-        # add edge if at least one of grr is > 0
-        if min_grr or max_grr:
-            grr_graph.add_edge(rgp_a, rgp_b, max_grr=max_grr, min_grr=min_grr)
+            assert min_grr >= max_grr
+
+            grr_graph.add_edge(rgp_a, rgp_b, max_grr=max_grr, min_grr=min_grr, jaccard_index=jaccard_index)
     
     # cluster rgp based on grr
+    logging.info(f"Couvain_communities clustering of RGP.")
     min_grr_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='min_grr')
     max_grr_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='max_grr')
+    jaccard_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='jaccard_index')
     
     # Add partition index in node attributes
     for i, part in enumerate(min_grr_partitions):
         for node in part:
-            grr_graph.add_node(node, min_grr_cluster=i)
+            grr_graph.add_node(node, min_grr_cluster=f'cluster_{i}')
 
     for i, part in enumerate(max_grr_partitions):
         for node in part:
-            grr_graph.add_node(node, max_grr_cluster=i)
+            grr_graph.add_node(node, max_grr_cluster=f'cluster_{i}')
+            
+    for i, part in enumerate(jaccard_partitions):
+        for node in part:
+            grr_graph.add_node(node, jaccard_index_cluster=f'cluster_{i}')
         
-    logging.info(f"GRR graph has {len(min_grr_partitions)} partitions using min_grr")
-    logging.info(f"GRR graph has {len(max_grr_partitions)} partitions using max_grr")
+    logging.info(f"Graph has {len(min_grr_partitions)} clusters using min_grr")
+    logging.info(f"Graph has {len(max_grr_partitions)} clusters using max_grr")
+    logging.info(f"Graph has {len(max_grr_partitions)} clusters using jaccard index")
 
-    # writting graph in gexf format 
+    # writting graph in gexf format
+    logging.info(f"Writting graph in gexf and graphml format.")
     nx.readwrite.gexf.write_gexf(grr_graph, output + "/grrGraph.gexf")
-
+    nx.readwrite.graphml.write_graphml(grr_graph, output + "/grrGraph.graphml")
 
 def launch(args: argparse.Namespace):
     """
