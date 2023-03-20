@@ -8,6 +8,7 @@ import time
 import os
 from itertools import combinations
 from collections.abc import Callable
+from collections import defaultdict 
 
 # installed libraries
 from tqdm import tqdm
@@ -69,16 +70,71 @@ def get_rgp_info_dict(regions:list, spots:set) -> nx.Graph :
         region_info['famillies'] =';'.join([str(f.ID)  for f in region.families])
         region_info['families_count'] = len(region.families)
 
-        region_attributes[region] = region_info
+        region_attributes[region.name] = region_info
 
     # add spot info to rgp info
     for spot in spots:
-        for rgp in spot.regions:
-            region_attributes[rgp]['spot_id'] = spot.ID
+        for region in spot.regions:
+            region_attributes[region.name]['spot_id'] = spot.ID
 
-    # for region, info in region_attributes.items():
-    #     region_attributes[region] = {key:str(val) for key, val in info.items() }
     return region_attributes
+
+
+# def dereplicate_rgp(rgps: list, disable_bar=False) -> dict: 
+#     """
+#     Dereplicate RGPs.
+
+#     :params rgps:
+#     :return : dict with uniq RGP as key and set of identical rgps as value  
+#     """
+#     logging.debug(f'Dereplicating {len(rgps)} RGPs')
+#     uniq_rgps = {}
+
+#     for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
+#         new_rgp = True
+#         for uniq_rgp in uniq_rgps:
+#             if rgp.families == uniq_rgp.families:
+#                 uniq_rgps[uniq_rgp].add(rgp)
+#                 new_rgp = False
+#                 break
+            
+#         if new_rgp:
+#             uniq_rgps[rgp] = {rgp}
+
+#     logging.debug(f'{len(uniq_rgps)} uniq RGPs')
+#     return uniq_rgps
+
+def add_identical_rgps(rgp_graph, uniq_rgps):
+    """
+    """
+    
+    for rgp, identical_rgps in uniq_rgps.items():
+        # rgp_graph.add_edges_from(list((rgp, identical_rgp, edge_data) for identical_rgp in identical_rgps),  label="identical_rgp")
+        for identical_rgp in identical_rgps:
+            rgp_graph.add_edge(rgp.name, identical_rgp.name, max_grr=1.0, min_grr=1.0, jaccard_index=1.0, identical=True)
+
+    
+
+def dereplicate_rgp(rgps: list, disable_bar=False) -> dict: 
+    """
+    Dereplicate RGPs.
+
+    :params rgps:
+    :return : dict with uniq RGP as key and set of identical rgps as value  
+    """
+    logging.debug(f'Dereplicating {len(rgps)} RGPs')
+    families_to_rgps = defaultdict(set)
+
+    for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
+        families_to_rgps[tuple(rgp.families)].add(rgp)
+
+    uniq_rgps = {}
+    for _, rgps in families_to_rgps.items():
+
+        uniq_rgps[rgps.pop()] = rgps
+
+    logging.debug(f'{len(uniq_rgps)} uniq RGPs')
+    return uniq_rgps
 
 def cluster_rgp(pangenome, output, disable_bar):
     """
@@ -90,35 +146,31 @@ def cluster_rgp(pangenome, output, disable_bar):
     """
 
     # check statuses and load info
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
+    check_pangenome_info(pangenome,  need_families=True, need_annotations=True,
                         disable_bar=disable_bar, need_rgp=True, need_spots=True)
 
     grr_graph = nx.Graph()
 
     # add all rgp as node
-    grr_graph.add_nodes_from(pangenome.regions)
+    uniq_rgps = dereplicate_rgp(pangenome.regions)
 
-    # add some attribute to the graph.
-    region_infos = get_rgp_info_dict(pangenome.regions, pangenome.spots)
-    nx.set_node_attributes(grr_graph, region_infos)
-    
+    grr_graph.add_nodes_from((rgp.name for rgp in uniq_rgps))
+
     # compute grr for all possible pair of rgp
-    rgp_count = len(pangenome.regions)
+    rgp_count = len(uniq_rgps)
     pairs_count = int((rgp_count**2 - rgp_count)/2)
     logging.info(f'Computing GRR metric for {pairs_count:,} pairs of RGP')
-    for rgp_a, rgp_b in tqdm(combinations(pangenome.regions, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
+    for rgp_a, rgp_b in tqdm(combinations(uniq_rgps, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
         # compute metrics between 2 rgp if they share at least one familly
         if rgp_a.families & rgp_b.families:
             min_grr = compute_grr(rgp_a, rgp_b, min)
             max_grr = compute_grr(rgp_a, rgp_b, max)
             jaccard_index = compute_jaccard_index(rgp_a, rgp_b)
 
-            assert min_grr >= max_grr
-
-            grr_graph.add_edge(rgp_a, rgp_b, max_grr=max_grr, min_grr=min_grr, jaccard_index=jaccard_index)
+            grr_graph.add_edge(rgp_a.name, rgp_b.name, max_grr=max_grr, min_grr=min_grr, jaccard_index=jaccard_index, identical=False)
     
     # cluster rgp based on grr
-    logging.info(f"Couvain_communities clustering of RGP.")
+    logging.info(f"Louvain_communities clustering of RGP.")
     min_grr_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='min_grr')
     max_grr_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='max_grr')
     jaccard_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='jaccard_index')
@@ -135,11 +187,19 @@ def cluster_rgp(pangenome, output, disable_bar):
     for i, part in enumerate(jaccard_partitions):
         for node in part:
             grr_graph.add_node(node, jaccard_index_cluster=f'cluster_{i}')
+
+
         
     logging.info(f"Graph has {len(min_grr_partitions)} clusters using min_grr")
     logging.info(f"Graph has {len(max_grr_partitions)} clusters using max_grr")
     logging.info(f"Graph has {len(max_grr_partitions)} clusters using jaccard index")
 
+    add_identical_rgps(grr_graph, uniq_rgps)
+    
+    # add some attribute to the graph nodes.
+    region_infos = get_rgp_info_dict(pangenome.regions, pangenome.spots)
+    nx.set_node_attributes(grr_graph, region_infos)
+    
     # writting graph in gexf format
     logging.info(f"Writting graph in gexf and graphml format.")
     nx.readwrite.gexf.write_gexf(grr_graph, output + "/grrGraph.gexf")
