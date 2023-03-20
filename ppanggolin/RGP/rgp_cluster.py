@@ -9,6 +9,9 @@ import os
 from itertools import combinations
 from collections.abc import Callable
 from collections import defaultdict 
+from multiprocessing import get_context
+from itertools import islice
+
 
 # installed libraries
 from tqdm import tqdm
@@ -21,7 +24,7 @@ from ppanggolin.region import Region
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
 from ppanggolin.utils import restricted_float, mk_outdir
 
-def compute_grr(rgp_a:Region, rgp_b:Region, mode:Callable) -> float:
+def compute_grr(rgp_a_families:set, rgp_b_families:set, mode:Callable) -> float:
     """
     Compute gene repertoire relatedness (GRR) between two rgp.
     mode can be the function min to compute min GRR or max to compute max_grr
@@ -33,11 +36,11 @@ def compute_grr(rgp_a:Region, rgp_b:Region, mode:Callable) -> float:
     :return : grr value between 0 and 1
     """
     
-    max_grr = len((rgp_a.families & rgp_b.families))/mode(len(rgp_a.families), len(rgp_b.families))
+    max_grr = len((rgp_a_families & rgp_b_families))/mode(len(rgp_a_families), len(rgp_b_families))
 
     return max_grr
 
-def compute_jaccard_index(rgp_a:Region, rgp_b:Region) -> float:
+def compute_jaccard_index(rgp_a_families:set, rgp_b_families:set) -> float:
     """
     Compute jaccard index between two rgp based on their famillies.
 
@@ -47,7 +50,7 @@ def compute_jaccard_index(rgp_a:Region, rgp_b:Region) -> float:
     :return : jaccard index
     """
     
-    jaccard_index = len((rgp_a.families & rgp_b.families))/len(rgp_a.families | rgp_b.families)
+    jaccard_index = len((rgp_a_families & rgp_b_families))/len(rgp_a_families | rgp_b_families)
 
     return jaccard_index
 
@@ -80,30 +83,6 @@ def get_rgp_info_dict(regions:list, spots:set) -> nx.Graph :
     return region_attributes
 
 
-# def dereplicate_rgp(rgps: list, disable_bar=False) -> dict: 
-#     """
-#     Dereplicate RGPs.
-
-#     :params rgps:
-#     :return : dict with uniq RGP as key and set of identical rgps as value  
-#     """
-#     logging.debug(f'Dereplicating {len(rgps)} RGPs')
-#     uniq_rgps = {}
-
-#     for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
-#         new_rgp = True
-#         for uniq_rgp in uniq_rgps:
-#             if rgp.families == uniq_rgp.families:
-#                 uniq_rgps[uniq_rgp].add(rgp)
-#                 new_rgp = False
-#                 break
-            
-#         if new_rgp:
-#             uniq_rgps[rgp] = {rgp}
-
-#     logging.debug(f'{len(uniq_rgps)} uniq RGPs')
-#     return uniq_rgps
-
 def add_identical_rgps(rgp_graph, uniq_rgps):
     """
     """
@@ -112,6 +91,8 @@ def add_identical_rgps(rgp_graph, uniq_rgps):
         # rgp_graph.add_edges_from(list((rgp, identical_rgp, edge_data) for identical_rgp in identical_rgps),  label="identical_rgp")
         for identical_rgp in identical_rgps:
             rgp_graph.add_edge(rgp.name, identical_rgp.name, max_grr=1.0, min_grr=1.0, jaccard_index=1.0, identical=True)
+            rgp_graph.add_node(identical_rgp.name, identical=True)
+
 
     
 
@@ -122,7 +103,7 @@ def dereplicate_rgp(rgps: list, disable_bar=False) -> dict:
     :params rgps:
     :return : dict with uniq RGP as key and set of identical rgps as value  
     """
-    logging.debug(f'Dereplicating {len(rgps)} RGPs')
+    logging.info(f'Dereplicating {len(rgps)} RGPs')
     families_to_rgps = defaultdict(set)
 
     for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
@@ -133,10 +114,40 @@ def dereplicate_rgp(rgps: list, disable_bar=False) -> dict:
 
         uniq_rgps[rgps.pop()] = rgps
 
-    logging.debug(f'{len(uniq_rgps)} uniq RGPs')
+    logging.info(f'{len(uniq_rgps)} uniq RGPs')
     return uniq_rgps
 
-def cluster_rgp(pangenome, output, disable_bar):
+def compute_rgp_metric(pairs_of_rgps):
+    """
+    """
+    pairs_of_rgps_metrics = []
+    for (rgp_a, rgp_a_fam), (rgp_b, rgp_b_fam) in pairs_of_rgps:
+        # compute metrics between 2 rgp if they share at least one familly
+        if rgp_a_fam & rgp_b_fam:
+            edge_metrics = {}
+            edge_metrics['min_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, min)
+            edge_metrics['max_grr']  = compute_grr(rgp_a_fam, rgp_b_fam, max)
+            edge_metrics['jaccard_index']  = compute_jaccard_index(rgp_a_fam, rgp_b_fam)
+
+            pairs_of_rgps_metrics.append((rgp_a, rgp_b, edge_metrics))
+
+    return pairs_of_rgps_metrics
+
+def simplify_rgp_object(rgp):
+    return rgp.name, {f.ID for f in rgp.families}
+
+
+def make_chunks(iterable, size):
+    """
+    """
+
+    i = iter(iterable)
+    piece = [(simplify_rgp_object(rgp1),simplify_rgp_object(rgp2)) for rgp1, rgp2 in islice(i, size)]
+    while piece:
+        yield piece
+        piece =  [(simplify_rgp_object(rgp1),simplify_rgp_object(rgp2)) for rgp1, rgp2 in islice(i, size)]
+
+def cluster_rgp(pangenome, output, grr_cutoff, cpu, disable_bar):
     """
     Main function to cluster regions of genomic plasticity based on their GRR
 
@@ -146,7 +157,7 @@ def cluster_rgp(pangenome, output, disable_bar):
     """
 
     # check statuses and load info
-    check_pangenome_info(pangenome,  need_families=True, need_annotations=True,
+    check_pangenome_info(pangenome, need_families=True, need_annotations=True,
                         disable_bar=disable_bar, need_rgp=True, need_spots=True)
 
     grr_graph = nx.Graph()
@@ -159,16 +170,23 @@ def cluster_rgp(pangenome, output, disable_bar):
     # compute grr for all possible pair of rgp
     rgp_count = len(uniq_rgps)
     pairs_count = int((rgp_count**2 - rgp_count)/2)
-    logging.info(f'Computing GRR metric for {pairs_count:,} pairs of RGP')
-    for rgp_a, rgp_b in tqdm(combinations(uniq_rgps, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
-        # compute metrics between 2 rgp if they share at least one familly
-        if rgp_a.families & rgp_b.families:
-            min_grr = compute_grr(rgp_a, rgp_b, min)
-            max_grr = compute_grr(rgp_a, rgp_b, max)
-            jaccard_index = compute_jaccard_index(rgp_a, rgp_b)
-
-            grr_graph.add_edge(rgp_a.name, rgp_b.name, max_grr=max_grr, min_grr=min_grr, jaccard_index=jaccard_index, identical=False)
+    logging.info(f'Computing GRR metric for {pairs_count:,} pairs of RGP using {cpu} cpus...')
     
+    rgp_pairs = combinations(uniq_rgps, 2)
+    chunk_size = int(pairs_count/(cpu*10)) +1
+    print('CHUNKS ', cpu*10, "of ", chunk_size) 
+    chunks_of_rgp_pairs = make_chunks(rgp_pairs, chunk_size)
+
+    # for rgp_a, rgp_b in tqdm(combinations(uniq_rgps, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
+    with get_context('fork').Pool(processes=cpu) as p:
+        for pairs_of_rgps_metrics in tqdm(p.imap_unordered(compute_rgp_metric, chunks_of_rgp_pairs), unit=f"pairs of rgps", unit_scale=round(pairs_count/(cpu*10)),
+                             total=cpu*10, disable=disable_bar):
+            grr_graph.add_edges_from(pairs_of_rgps_metrics)
+
+        p.close()
+        p.join()
+    
+
     # cluster rgp based on grr
     logging.info(f"Louvain_communities clustering of RGP.")
     min_grr_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='min_grr')
@@ -188,8 +206,6 @@ def cluster_rgp(pangenome, output, disable_bar):
         for node in part:
             grr_graph.add_node(node, jaccard_index_cluster=f'cluster_{i}')
 
-
-        
     logging.info(f"Graph has {len(min_grr_partitions)} clusters using min_grr")
     logging.info(f"Graph has {len(max_grr_partitions)} clusters using max_grr")
     logging.info(f"Graph has {len(max_grr_partitions)} clusters using jaccard index")
@@ -217,7 +233,7 @@ def launch(args: argparse.Namespace):
 
     pangenome.add_file(args.pangenome)
 
-    cluster_rgp(pangenome, args.output, args.disable_prog_bar)
+    cluster_rgp(pangenome, args.output, args.grr_cutoff, args.cpu, args.disable_prog_bar)
 
 
 
@@ -248,6 +264,8 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
 
     optional.add_argument('--grr_cutoff', required=False, type=restricted_float, default=0.8,
                           help="Gene repertoire relatedness score cutoff used in the rgp clustering")
+    
+    # optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
