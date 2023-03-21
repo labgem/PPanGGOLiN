@@ -6,7 +6,7 @@ import logging
 import argparse
 import time
 import os
-from itertools import combinations
+from itertools import combinations, product
 from collections.abc import Callable
 from collections import defaultdict 
 from multiprocessing import get_context
@@ -55,7 +55,7 @@ def compute_jaccard_index(rgp_a_families:set, rgp_b_families:set) -> float:
     return jaccard_index
 
 
-def get_rgp_info_dict(regions:list, spots:set) -> nx.Graph :
+def get_rgp_info_dict(regions:list, region_to_spot:set) -> nx.Graph :
     """
 
     """
@@ -66,36 +66,42 @@ def get_rgp_info_dict(regions:list, spots:set) -> nx.Graph :
         region_info = {"contig":region.contig.name,
                        'organism':region.organism.name,
                         "name":region.name,
-                        "genes_count":len(region.genes), # "length":region.stop_gene - region.start_gene +1, 
+                        "genes_count":len(region.genes),
                         "is_contig_border":region.is_contig_border, 
-                        "is_whole_contig":region.is_whole_contig}
+                        "is_whole_contig":region.is_whole_contig,
+                        "spot_id":region_to_spot.get(region, "No spot")}
         
         region_info['famillies'] =';'.join([str(f.ID)  for f in region.families])
         region_info['families_count'] = len(region.families)
 
         region_attributes[region.name] = region_info
 
-    # add spot info to rgp info
-    for spot in spots:
-        for region in spot.regions:
-            region_attributes[region.name]['spot_id'] = spot.ID
-
     return region_attributes
 
 
-def add_identical_rgps(rgp_graph, uniq_rgps):
+
+
+def manage_identical_rgps(rgp_graph, uniq_rgps, rgp_to_spot):
     """
     """
     
+
     for rgp, identical_rgps in uniq_rgps.items():
-        # rgp_graph.add_edges_from(list((rgp, identical_rgp, edge_data) for identical_rgp in identical_rgps),  label="identical_rgp")
+
+        spot_to_rgps = defaultdict(set)
         for identical_rgp in identical_rgps:
-            rgp_graph.add_edge(rgp.name, identical_rgp.name, max_grr=1.0, min_grr=1.0, jaccard_index=1.0, identical=True)
-            rgp_graph.add_node(identical_rgp.name, identical=True)
+            spot = rgp_to_spot.get(identical_rgp, None)
+            spot_to_rgps[spot].add(identical_rgp)
 
+        for spot, strictly_identical_rgps in spot_to_rgps.items():
 
-    
-
+            if spot == rgp_to_spot.get(rgp, None): # is spot same as the main rgp that have been used to compute grr?
+                rgp_graph.add_node(rgp.name, identical_rgps=len(strictly_identical_rgps))
+            else:
+                strictly_identical_rgp = strictly_identical_rgps.pop()
+                rgp_graph.add_node(strictly_identical_rgp.name, strict_identical_rgp=len(strictly_identical_rgps), identical_rgp=True)
+                rgp_graph.add_edge(rgp.name, identical_rgp.name, max_grr=1.0, min_grr=1.0, jaccard_index=1.0, identical_famillies=True)
+                
 def dereplicate_rgp(rgps: list, disable_bar=False) -> dict: 
     """
     Dereplicate RGPs.
@@ -110,7 +116,7 @@ def dereplicate_rgp(rgps: list, disable_bar=False) -> dict:
         families_to_rgps[tuple(rgp.families)].add(rgp)
 
     uniq_rgps = {}
-    for _, rgps in families_to_rgps.items():
+    for rgps in families_to_rgps.values():
 
         uniq_rgps[rgps.pop()] = rgps
 
@@ -128,6 +134,7 @@ def compute_rgp_metric(pairs_of_rgps):
             edge_metrics['min_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, min)
             edge_metrics['max_grr']  = compute_grr(rgp_a_fam, rgp_b_fam, max)
             edge_metrics['jaccard_index']  = compute_jaccard_index(rgp_a_fam, rgp_b_fam)
+            edge_metrics['shared_family']  = len(rgp_a_fam & rgp_b_fam)
 
             pairs_of_rgps_metrics.append((rgp_a, rgp_b, edge_metrics))
 
@@ -147,7 +154,18 @@ def make_chunks(iterable, size):
         yield piece
         piece =  [(simplify_rgp_object(rgp1),simplify_rgp_object(rgp2)) for rgp1, rgp2 in islice(i, size)]
 
-def cluster_rgp(pangenome, output, grr_cutoff, cpu, disable_bar):
+def cluster_nodes(G, clustering_attributes = ["min_grr", "max_grr", "jaccard_index"], prefix=""):
+            
+        for weight in clustering_attributes:
+            partitions = nx.algorithms.community.louvain_communities(G, weight=weight)
+        
+            # Add partition index in node attributes
+            for i, cluster_nodes in enumerate(partitions):
+                nx.set_node_attributes(G, {node:f"cluster_{i}" for node in cluster_nodes}, name=f"{prefix}_{weight}_cluster")
+
+            logging.info(f"{prefix}: Graph has {len(partitions)} clusters using {weight}")
+
+def cluster_rgp(pangenome, output, basename, cpu, disable_bar):
     """
     Main function to cluster regions of genomic plasticity based on their GRR
 
@@ -163,9 +181,10 @@ def cluster_rgp(pangenome, output, grr_cutoff, cpu, disable_bar):
     grr_graph = nx.Graph()
 
     # add all rgp as node
+
     uniq_rgps = dereplicate_rgp(pangenome.regions)
 
-    grr_graph.add_nodes_from((rgp.name for rgp in uniq_rgps))
+    grr_graph.add_nodes_from((rgp.name for rgp in uniq_rgps), identical_rgp=False)
 
     # compute grr for all possible pair of rgp
     rgp_count = len(uniq_rgps)
@@ -174,7 +193,6 @@ def cluster_rgp(pangenome, output, grr_cutoff, cpu, disable_bar):
     
     rgp_pairs = combinations(uniq_rgps, 2)
     chunk_size = int(pairs_count/(cpu*10)) +1
-    print('CHUNKS ', cpu*10, "of ", chunk_size) 
     chunks_of_rgp_pairs = make_chunks(rgp_pairs, chunk_size)
 
     # for rgp_a, rgp_b in tqdm(combinations(uniq_rgps, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
@@ -189,37 +207,44 @@ def cluster_rgp(pangenome, output, grr_cutoff, cpu, disable_bar):
 
     # cluster rgp based on grr
     logging.info(f"Louvain_communities clustering of RGP.")
-    min_grr_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='min_grr')
-    max_grr_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='max_grr')
-    jaccard_partitions = nx.algorithms.community.louvain_communities(grr_graph, weight='jaccard_index')
-    
-    # Add partition index in node attributes
-    for i, part in enumerate(min_grr_partitions):
-        for node in part:
-            grr_graph.add_node(node, min_grr_cluster=f'cluster_{i}')
+    clustering_attributes = ["min_grr", "max_grr", "jaccard_index"]
+    cluster_nodes(grr_graph, clustering_attributes, prefix="unfiltered") 
 
-    for i, part in enumerate(max_grr_partitions):
-        for node in part:
-            grr_graph.add_node(node, max_grr_cluster=f'cluster_{i}')
-            
-    for i, part in enumerate(jaccard_partitions):
-        for node in part:
-            grr_graph.add_node(node, jaccard_index_cluster=f'cluster_{i}')
 
-    logging.info(f"Graph has {len(min_grr_partitions)} clusters using min_grr")
-    logging.info(f"Graph has {len(max_grr_partitions)} clusters using max_grr")
-    logging.info(f"Graph has {len(max_grr_partitions)} clusters using jaccard index")
+    logging.info(f"Clustering RGPs on filtered graph")
+    thresolds = [0.1, 0.2, 0.5, 0.8]
+    for edge_metric, threshold in product(clustering_attributes, thresolds):
+        edges_to_rm = [(u,v) for u,v,e in grr_graph.edges(data=True) if e[edge_metric] < threshold]
+        grr_graph_filtered = nx.restricted_view(grr_graph, nodes=[], edges=edges_to_rm )
+        logging.info(f"Filtering graph edges with {edge_metric}<{threshold}: {grr_graph_filtered}")
 
-    add_identical_rgps(grr_graph, uniq_rgps)
+        # cluster filtered graph
+        cluster_nodes(grr_graph_filtered, [edge_metric], prefix=f"{edge_metric}>{threshold}")
+
+
+    logging.info(f"Manage identical RGP in the graph")
+    rgp_to_spot =  {region:spot.ID  for spot in pangenome.spots  for region in spot.regions}
+    manage_identical_rgps(grr_graph, uniq_rgps, rgp_to_spot)
     
     # add some attribute to the graph nodes.
-    region_infos = get_rgp_info_dict(pangenome.regions, pangenome.spots)
+    logging.info(f"Add RGP information to the graph")
+    region_infos = get_rgp_info_dict(pangenome.regions, rgp_to_spot)
     nx.set_node_attributes(grr_graph, region_infos)
     
+    logging.info(f"Writting graph in graphml format with multiple thresholds.")
+    thresolds = [0.1, 0.2, 0.5, 0.8]
+    for edge_metric, threshold in product(clustering_attributes, thresolds):
+        edges_to_rm = [(u,v) for u,v,e in grr_graph.edges(data=True) if e[edge_metric] < threshold]
+        grr_graph_filtered = nx.restricted_view(grr_graph, nodes=[], edges=edges_to_rm )
+
+        nx.readwrite.graphml.write_graphml(grr_graph_filtered, os.path.join(output + f"{basename}_{edge_metric}-{threshold}.graphml"))
+
+
     # writting graph in gexf format
     logging.info(f"Writting graph in gexf and graphml format.")
-    nx.readwrite.gexf.write_gexf(grr_graph, output + "/grrGraph.gexf")
-    nx.readwrite.graphml.write_graphml(grr_graph, output + "/grrGraph.graphml")
+    nx.readwrite.gexf.write_gexf(grr_graph, os.path.join(output + f"{basename}.gexf"))
+    nx.readwrite.graphml.write_graphml(grr_graph, os.path.join(output + f"{basename}.graphml"))
+
 
 def launch(args: argparse.Namespace):
     """
@@ -233,7 +258,7 @@ def launch(args: argparse.Namespace):
 
     pangenome.add_file(args.pangenome)
 
-    cluster_rgp(pangenome, args.output, args.grr_cutoff, args.cpu, args.disable_prog_bar)
+    cluster_rgp(pangenome, args.output, args.basename, args.cpu, args.disable_prog_bar)
 
 
 
@@ -260,12 +285,15 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
 
+
     optional = parser.add_argument_group(title="Optional arguments")
 
     optional.add_argument('--grr_cutoff', required=False, type=restricted_float, default=0.8,
                           help="Gene repertoire relatedness score cutoff used in the rgp clustering")
     
     # optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+
+    optional.add_argument("--basename", required=False, default="rgp_cluster", help="basename for the output file")
 
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
