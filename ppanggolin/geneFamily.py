@@ -7,13 +7,14 @@ from collections import defaultdict
 import logging
 
 # installed libraries
-from typing import Dict, Set, List
+from typing import Dict, Generator, List, Set, Tuple, Union
 
 import gmpy2
 
 # local libraries
 from ppanggolin.edge import Edge
 from ppanggolin.genome import Gene, Organism
+from ppanggolin.metadata import Metadata
 
 
 class GeneFamily:
@@ -38,6 +39,7 @@ class GeneFamily:
         self.spot = set()
         self.modules = set()
         self.bitarray = None
+        self._metadataGetter = {}  # Key = source, Value = ordered list of the best annotation for one source
 
     def add_sequence(self, seq: str):
         """Assigns a protein sequence to the gene family.
@@ -95,16 +97,16 @@ class GeneFamily:
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger().debug(f"all")
+            logging.getLogger().debug("all")
             for org in self.organisms:
                 self.bitarray[index[org]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger().debug(f"shell, cloud")
+            logging.getLogger().debug("shell, cloud")
             if self.named_partition == partition:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
         elif partition == 'accessory':
-            logging.getLogger().debug(f"accessory")
+            logging.getLogger().debug("accessory")
             if self.named_partition in ['shell', 'cloud']:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
@@ -169,3 +171,104 @@ class GeneFamily:
             return set(self._genePerOrg.keys())
         except Exception:
             raise Exception("An unexpected error occurs. Please report in our GitHub")
+
+    @property
+    def metadata(self) -> Generator[Metadata, None, None]:
+        """Generate annotations in gene families
+
+        :return: Gene family annotation"""
+        for annot_list in self._metadataGetter.values():
+            for annotation in annot_list:
+                yield annotation
+
+    @property
+    def sources(self) -> List[str]:
+        """ Get all metadata source in gene family
+
+        :return: List of annotation source
+        """
+        return list(self._metadataGetter.keys())
+
+    def max_metadata_by_source(self) -> Tuple[str, int]:
+        """Get the maximum number of annotation for one source
+
+        :return: Name of the source with the maximum annotation and the number of annotation corresponding
+        """
+        max_annot = 0
+        max_source = None
+        for source, annotations in self._metadataGetter.items():
+            if len(annotations) > max_annot:
+                max_annot = len(annotations)
+                max_source = source
+        return max_source, max_annot
+
+    def get_source(self, name: str) -> Union[List[Metadata], None]:
+        """ Get the annotation for a specific source in gene family
+
+        :param name: Name of the source
+
+        :return: All the annotation from the source if exist else None
+        """
+        return self._metadataGetter[name] if name in self.sources else None
+
+    def get_metadata(self, value: Union[List[str], str], accession: Union[List[str], str]) -> Generator[Metadata, None, None]:
+        """Get annotation by name or accession in gene family
+
+        :param value: Names of annotation searched
+        :param accession: Accession number of annotation searched
+
+        :return: annotation searched
+        """
+        assert value is not None and accession is not None
+        value = value if isinstance(value, list) else [value]
+        accession = accession if isinstance(accession, list) else [accession]
+
+        for annotation in self.metadata:
+            if annotation.value in value or annotation.accession in accession:
+                yield annotation
+
+    def add_metadata(self, source: str, metadata: Metadata):
+        """ Add annotation to gene family
+
+        :param source: Name of database source
+        :param metadata: Identifier of the annotation
+        """
+        source_annot = self.get_source(source)
+        same_value = False
+        if source_annot is not None:
+            index_annot = 0
+            insert_bool = False
+            while index_annot < len(source_annot):
+                current_annot = source_annot[index_annot]
+                if current_annot.value == metadata.value:
+                    same_value = True
+                if current_annot.score is not None and metadata.score is not None:
+                    if current_annot.score < metadata.score:
+                        if same_value:
+                            source_annot[index_annot] = metadata
+                        else:
+                            source_annot.insert(index_annot, metadata)
+                            insert_bool = True
+                    elif current_annot.score == metadata.score:
+                        if current_annot.e_val is not None and metadata.e_val is not None:
+                            if current_annot.e_val > metadata.e_val:
+                                if same_value:
+                                    source_annot[index_annot] = metadata
+                                else:
+                                    source_annot.insert(index_annot, metadata)
+                                    insert_bool = True
+                elif current_annot.e_val is not None and metadata.e_val is not None:
+                    if current_annot.e_val > metadata.e_val:
+                        if same_value:
+                            source_annot[index_annot] = metadata
+                        else:
+                            source_annot.insert(index_annot, metadata)
+                            insert_bool = True
+                if not insert_bool and not same_value:
+                    index_annot += 1
+                else:
+                    break
+            if not insert_bool and not same_value:
+                source_annot.append(metadata)
+        else:
+            self._metadataGetter[source] = [metadata]
