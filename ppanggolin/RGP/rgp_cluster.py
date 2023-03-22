@@ -96,7 +96,7 @@ def manage_identical_rgps(rgp_graph, uniq_rgps, rgp_to_spot):
         for spot, strictly_identical_rgps in spot_to_rgps.items():
 
             if spot == rgp_to_spot.get(rgp, None): # is spot same as the main rgp that have been used to compute grr?
-                rgp_graph.add_node(rgp.name, identical_rgps=len(strictly_identical_rgps))
+                rgp_graph.add_node(rgp.name, strict_identical_rgp=len(strictly_identical_rgps))
             else:
                 strictly_identical_rgp = strictly_identical_rgps.pop()
                 rgp_graph.add_node(strictly_identical_rgp.name, strict_identical_rgp=len(strictly_identical_rgps), identical_rgp=True)
@@ -113,7 +113,7 @@ def dereplicate_rgp(rgps: list, disable_bar=False) -> dict:
     families_to_rgps = defaultdict(set)
 
     for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
-        families_to_rgps[tuple(rgp.families)].add(rgp)
+        families_to_rgps[tuple(sorted((f.ID for f in rgp.families)))].add(rgp)
 
     uniq_rgps = {}
     for rgps in families_to_rgps.values():
@@ -182,7 +182,7 @@ def cluster_rgp(pangenome, output, basename, cpu, disable_bar):
 
     # add all rgp as node
 
-    uniq_rgps = dereplicate_rgp(pangenome.regions)
+    uniq_rgps = dereplicate_rgp(pangenome.regions, disable_bar=disable_bar )
 
     grr_graph.add_nodes_from((rgp.name for rgp in uniq_rgps), identical_rgp=False)
 
@@ -197,7 +197,7 @@ def cluster_rgp(pangenome, output, basename, cpu, disable_bar):
 
     # for rgp_a, rgp_b in tqdm(combinations(uniq_rgps, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
     with get_context('fork').Pool(processes=cpu) as p:
-        for pairs_of_rgps_metrics in tqdm(p.imap_unordered(compute_rgp_metric, chunks_of_rgp_pairs), unit=f"pairs of rgps", unit_scale=round(pairs_count/(cpu*10)),
+        for pairs_of_rgps_metrics in tqdm(p.imap_unordered(compute_rgp_metric, chunks_of_rgp_pairs), unit=f"pairs of RGPs", unit_scale=round(pairs_count/(cpu*10)),
                              total=cpu*10, disable=disable_bar):
             grr_graph.add_edges_from(pairs_of_rgps_metrics)
 
