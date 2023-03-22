@@ -194,6 +194,7 @@ def cluster_rgp(pangenome, output, basename, cpu, disable_bar):
     
     rgp_pairs = combinations(uniq_rgps, 2)
     chunk_size = int(pairs_count/(cpu*200)) +1
+    logging.debug(f'Spliting RGP pairs in {pairs_count/(cpu*200)} chunks of {chunk_size} pairs')
     chunks_of_rgp_pairs = make_chunks(rgp_pairs, chunk_size)
 
     # for rgp_a, rgp_b in tqdm(combinations(uniq_rgps, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
