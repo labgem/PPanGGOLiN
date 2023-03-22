@@ -126,6 +126,7 @@ def dereplicate_rgp(rgps: list, disable_bar=False) -> dict:
 def compute_rgp_metric(pairs_of_rgps):
     """
     """
+    logging.debug(f'in compute_rgp_metric: computing metrics for {len(pairs_of_rgps)=}')
     pairs_of_rgps_metrics = []
     for (rgp_a, rgp_a_fam), (rgp_b, rgp_b_fam) in pairs_of_rgps:
         # compute metrics between 2 rgp if they share at least one familly
@@ -192,13 +193,14 @@ def cluster_rgp(pangenome, output, basename, cpu, disable_bar):
     logging.info(f'Computing GRR metric for {pairs_count:,} pairs of RGP using {cpu} cpus...')
     
     rgp_pairs = combinations(uniq_rgps, 2)
-    chunk_size = int(pairs_count/(cpu*10)) +1
+    chunk_size = int(pairs_count/(cpu*200)) +1
     chunks_of_rgp_pairs = make_chunks(rgp_pairs, chunk_size)
 
     # for rgp_a, rgp_b in tqdm(combinations(uniq_rgps, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
     with get_context('fork').Pool(processes=cpu) as p:
         for pairs_of_rgps_metrics in tqdm(p.imap_unordered(compute_rgp_metric, chunks_of_rgp_pairs), unit=f"pairs of RGPs", unit_scale=round(pairs_count/(cpu*10)),
                              total=cpu*10, disable=disable_bar):
+            logging.debug(f'adding {len(pairs_of_rgps_metrics)} edges to the graph...')
             grr_graph.add_edges_from(pairs_of_rgps_metrics)
 
         p.close()
