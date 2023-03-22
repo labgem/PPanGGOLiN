@@ -2,13 +2,14 @@
 # coding: utf8
 
 # default libraries
-from typing import Iterator, List, Union, Dict, Set, Iterable
+from typing import Iterator, List, Union, Dict, Set, Iterable, Generator
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.edge import Edge
+from ppanggolin.metadata import Metadata
 
 
 class Pangenome:
@@ -45,7 +46,19 @@ class Pangenome:
             'partitioned': "No",
             'predictedRGP': "No",
             'spots': "No",
-            'modules': 'No'
+            'modules': 'No',
+            "metadata": {"families": 'No',
+                         "genes": 'No',
+                         "genomes": 'No',
+                         "RGPs": 'No',
+                         "spots": 'No',
+                         "modules": 'No'},
+            "metasources": {"families": [],
+                            "genes": [],
+                            "genomes": [],
+                            "RGPs": [],
+                            "spots": [],
+                            "modules": []}
         }
         self.parameters = {}
 
@@ -62,6 +75,7 @@ class Pangenome:
         self.file = pangenome_file
 
     """ Gene Methods"""
+
     @property
     def genes(self) -> list:
         """Creates the geneGetter if it does not exist, and returns all the genes of all organisms in the pangenome.
@@ -86,8 +100,8 @@ class Pangenome:
                         yield gene
         elif self.number_of_gene_families() > 0:
             # we might have no organism loaded, in that case there are gene families.
-            for geneFam in self.gene_families:
-                for gene in geneFam.genes:
+            for gene_fam in self.gene_families:
+                for gene in gene_fam.genes:
                     yield gene
 
     def _mk_gene_getter(self):
@@ -133,6 +147,7 @@ class Pangenome:
             return len(self._geneGetter)
 
     """Gene families methods"""
+
     @property
     def gene_families(self) -> List[GeneFamily]:
         """returns all the gene families in the pangenome
@@ -184,6 +199,7 @@ class Pangenome:
         return fam
 
     """Graph methods"""
+
     @property
     def edges(self) -> list:
         """returns all the edges in the pangenome graph
@@ -219,6 +235,7 @@ class Pangenome:
         return len(self._edgeGetter)
 
     """Organism methods"""
+
     @property
     def organisms(self) -> List[Organism]:
         """returns all the organisms in the pangenome
@@ -340,6 +357,7 @@ class Pangenome:
         return self._fam_index
 
     """RGP methods"""
+
     @property
     def regions(self) -> list:
         """returns all the regions (RGP) in the pangenome
@@ -410,6 +428,7 @@ class Pangenome:
         return len(self._regionGetter)
 
     """Spot methods"""
+
     def add_spots(self, spots: Iterable[Spot]):
         """Adds the given iterable of spots to the pangenome.
 
@@ -425,6 +444,7 @@ class Pangenome:
         return len(self.spots)
 
     """Modules methods"""
+
     def add_modules(self, modules: Iterable[Module]):
         """Adds the given iterable of modules to the pangenome
 
@@ -457,3 +477,51 @@ class Pangenome:
         :return: the number of modules
         """
         return len(self.modules)
+
+    """Metadata"""
+
+    @property
+    def metadata_sources(self) -> Set[str]:
+        """returns all the annotation source in the pangenomes
+
+        :return: set of annotation source
+        """
+        source_set = set()
+        for gf in self.gene_families:
+            for source_annotation in gf.sources:
+                source_set.add(source_annotation)
+        return source_set
+
+    @property
+    def metadata(self) -> Generator[Metadata, None, None]:
+        """Create a generator with all annotations in the pangenome
+
+        :return: set of annotation source
+        """
+        for gf in self.gene_families:
+            yield gf.metadata
+
+    def get_gf_by_metadata(self, value: str = None, accession: str = None) -> Generator[GeneFamily, None, None]:
+        """ Get gene famlies with a specific annotation or source in pangenome
+
+        :param value: Name of the annotation
+        :param accession: Accesion identifier of the annotation
+
+        :return: Gene families with the annotation or source
+        """
+        assert value is not None and accession is not None
+
+        for fam in self.gene_families:
+            if len(list(fam.get_metadata(value=value, accession=accession))) > 0:
+                yield fam
+
+    def get_gf_by_sources(self, source: List[str]):
+        """ Get gene famlies with a specific source in pangenome
+
+        :param source: Name of the source
+
+        :return: Gene families with the source
+        """
+        for fam in self.gene_families:
+            if fam.get_source(source) is not None:
+                yield fam

@@ -13,50 +13,7 @@ import pandas as pd
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.metadata import Metadata
-from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
-
-res_col_names = ['Gene_family', 'Accession', 'protein_name', 'e_value',
-                 'score', 'bias', 'secondary_name', 'Description']
-
-
-def check_pangenome_annotation(pangenome: Pangenome, source: str, force: bool = False, disable_bar: bool = False):
-    """ Check and load pangenome information before adding annotation
-
-    :param pangenome: Pangenome object
-    :param source: source of the annotation
-    :param force: erase if an annotation for the provide source already exist
-    :param disable_bar: Disable bar
-    """
-    if "annotations_sources" in pangenome.status and source in pangenome.status["annotations_sources"]:
-        if force:
-            erase_pangenome(pangenome, annotations=True, source=source)
-        else:
-            raise Exception(f"An annotation corresponding to the source : '{source}' already exist in pangenome."
-                            f"Add the option --force to erase")
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
-
-
-def annotation_to_families(annotation_df: pd.DataFrame, pangenome: Pangenome, source: str = None) -> dict:
-    """ Add to gene families an annotation and create a dictionary with for each annotation a set of gene family
-
-    :param annotation_df: Dataframe with for each family an annotation
-    :param pangenome: Pangenome with gene families
-    :param source: source of the annotation
-
-    :return: Dictionary with for each annotation a set of gene family
-    """
-    for row in annotation_df.itertuples(index=False):
-        gene_fam = pangenome.get_gene_family(name=row.Gene_family)
-        if gene_fam is not None:
-            annotation = Metadata(source=source, accession=row.Accession, value=row.protein_name,
-                                  secondary_names=row.secondary_name, description=row.Description,
-                                  score=row.score, e_val=row.e_value, bias=row.bias)
-            gene_fam.add_metadata(source=source, metadata=annotation)
-        else:
-            logging.getLogger().warning(f"Family {row.Gene_family} does not exist in pangenome. "
-                                        "Check name in your file")
-        pangenome.status["annotations"] = "Computed"
+from ppanggolin.meta.metafamilies import metadata_to_families
 
 
 def launch(args: argparse.Namespace):
@@ -67,12 +24,20 @@ def launch(args: argparse.Namespace):
     """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    check_pangenome_annotation(pangenome, source=args.source, force=args.force, disable_bar=args.disable_prog_bar)
-    annotation_df = pd.read_csv(args.data, sep="\t", header=None, quoting=csv.QUOTE_NONE, names=res_col_names)
-    annotation_to_families(annotation_df, pangenome, args.source)
-    logging.getLogger().info("Annotation Done")
-    logging.getLogger().info("Write Annotation in pangenome")
-    # write_pangenome(pangenome, pangenome_info["path"], source=args.source, disable_bar=args.disable_prog_bar)
+    if args.assign == "families":
+        logging.getLogger().debug("Begin gene families metadata assignment...")
+        metadata_to_families(pangenome, args.metadata, args.source, args.force)
+    elif args.assign == "genes":
+        raise NotImplementedError("Option not implemented yet !")
+    elif args.assign == "genomes":
+        raise NotImplementedError("Option not implemented yet !")
+    elif args.assign == "RGPs":
+        raise NotImplementedError("Option not implemented yet !")
+    elif args.assign == "spots":
+        raise NotImplementedError("Option not implemented yet !")
+    elif args.assign == "modules":
+        raise NotImplementedError("Option not implemented yet !")
+
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -97,10 +62,13 @@ def parser_meta(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
-    required.add_argument('-d', '--data', type=Path, nargs='?',
+    required.add_argument('-m', '--metadata', type=Path, nargs='?',
                           help='Gene families annotation in TSV file. See our github for more detail about format')
     required.add_argument("-s", "--source", required=True, type=str, nargs="?",
                           help='Name of the annotation source. Default use name of annnotation file or directory.')
+    required.add_argument("-a", "--assign", required=True, type=str, nargs="?",
+                          choices=["families", "genomes", "genes", "RGPs", "spots", "modules"],
+                          help="Select to which pangenome element metadata will be assigned.")
     # optional = parser.add_argument_group(title="Optional arguments")
 
 

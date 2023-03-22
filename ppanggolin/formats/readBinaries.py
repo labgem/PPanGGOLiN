@@ -40,6 +40,7 @@ def get_number_of_organisms(pangenome: Pangenome) -> int:
     return len(org_set)
 
 
+# TODO Remove this function
 def fix_partitioned(pangenome: Pangenome, pangenome_file: str):
     """
         Fixes pangenomes with the 'partitionned' typo.
@@ -58,6 +59,7 @@ def fix_partitioned(pangenome: Pangenome, pangenome_file: str):
             status_group._v_attrs.Partitioned = False
         del status_group._v_attrs.Partitionned
     h5f.close()
+
 
 def get_status(pangenome: Pangenome, pangenome_file: str):
     """
@@ -81,8 +83,6 @@ def get_status(pangenome: Pangenome, pangenome_file: str):
     if status_group._v_attrs.NeighborsGraph:
         pangenome.status["neighborsGraph"] = "inFile"
 
-   
-
     if status_group._v_attrs.Partitioned:
         pangenome.status["partitioned"] = "inFile"
 
@@ -94,6 +94,15 @@ def get_status(pangenome: Pangenome, pangenome_file: str):
 
     if hasattr(status_group._v_attrs, "modules") and status_group._v_attrs.modules:
         pangenome.status["modules"] = "inFile"
+        # pangenome.status["annotations_sources"] = status_group._v_attrs.annotations_sources
+
+    if hasattr(status_group._v_attrs, "metadata") and status_group._v_attrs.metadata:
+        metastatus = status_group.metastatus
+        metasources = status_group.metasources
+        for attr in metastatus._v_attrs._f_list():
+            pangenome.status["metadata"][attr] = "inFile"
+            pangenome.status["metasources"][attr] = metasources._v_attrs[attr]
+
 
     if "/info" in h5f:
         info_group = h5f.root.info
@@ -180,7 +189,8 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
                 local = ""
             if isinstance(gene, Gene):
                 gene.fill_annotations(start=row["start"], stop=row["stop"], strand=row["strand"].decode(),
-                                      gene_type=row["type"].decode(), name=row["name"].decode(), position=row['position'],
+                                      gene_type=row["type"].decode(), name=row["name"].decode(),
+                                      position=row['position'],
                                       genetic_code=row["genetic_code"], product=row["product"].decode(),
                                       local_identifier=local)
             else:

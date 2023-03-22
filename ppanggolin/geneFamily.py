@@ -211,7 +211,8 @@ class GeneFamily:
         """
         return self._metadataGetter[name] if name in self.sources else None
 
-    def get_metadata(self, value: Union[List[str], str], accession: Union[List[str], str]) -> Generator[Metadata, None, None]:
+    def get_metadata(self, value: Union[str, int, float, List[str], List[int], List[float]],
+                     accession: Union[List[str], str]) -> Generator[Metadata, None, None]:
         """Get annotation by name or accession in gene family
 
         :param value: Names of annotation searched

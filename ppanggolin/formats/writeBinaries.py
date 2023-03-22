@@ -5,7 +5,7 @@
 import logging
 from collections import Counter, defaultdict
 import statistics
-from typing import Tuple
+from typing import List, Tuple
 import pkg_resources
 
 # installed libraries
@@ -13,8 +13,9 @@ from tqdm import tqdm
 import tables
 from gmpy2 import popcount
 
-#local libraries
+# local libraries
 from ppanggolin.pangenome import Pangenome
+from ppanggolin.geneFamily import GeneFamily
 
 
 def gene_desc(org_len, contig_len, id_len, type_len, name_len, product_len, max_local_id) -> dict:
@@ -576,7 +577,40 @@ def write_status(pangenome: Pangenome, h5f: tables.File):
                                                                                       "inFile"] else False
     status_group._v_attrs.spots = True if pangenome.status["spots"] in ["Computed", "Loaded", "inFile"] else False
     status_group._v_attrs.modules = True if pangenome.status["modules"] in ["Computed", "Loaded", "inFile"] else False
+    status_group._v_attrs.metadata = write_metadata_status(pangenome, h5f, status_group)
     status_group._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
+
+
+def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: tables.Group):
+    metastatus = pangenome.status["metadata"]
+    metasources = pangenome.status["metasources"]
+    if 'metastatus' in status_group:
+        metadata_group = status_group.metastatus
+    else:
+        metadata_group = h5f.create_group(status_group, "metastatus", "Statuses of the pangenome metadata")
+    if 'metasources' in status_group:
+        metasources_group = status_group.metasources
+    else:
+        metasources_group = h5f.create_group(status_group, "metasources", "Sources of the pangenome metadata")
+    if metastatus["families"] in ["Computed", "Loaded", "inFile"]:
+        metadata_group._v_attrs.families = True
+        metasources_group._v_attrs.families = metasources["families"]
+    if metastatus["genes"] in ["Computed", "Loaded", "inFile"]:
+        metadata_group._v_attrs.genes = True
+        metasources_group._v_attrs.genes = metasources["genes"]
+    if metastatus["genomes"] in ["Computed", "Loaded", "inFile"]:
+        metadata_group._v_attrs.genomes = True
+        metasources_group._v_attrs.genomes = metasources["genes"]
+    if metastatus["RGPs"] in ["Computed", "Loaded", "inFile"]:
+        metadata_group._v_attrs.RGPs = True
+        metasources_group._v_attrs.RGPs = metasources["genes"]
+    if metastatus["spots"] in ["Computed", "Loaded", "inFile"]:
+        metadata_group._v_attrs.spots = True
+        metasources_group._v_attrs.spots = metasources["genes"]
+    if metastatus["modules"] in ["Computed", "Loaded", "inFile"]:
+        metadata_group._v_attrs.modules = True
+        metasources_group._v_attrs.modules = metasources["genes"]
+    return True if any(metadata_group._v_attrs._f_list()) else False
 
 
 def write_info(pangenome: Pangenome, h5f: tables.File):
@@ -760,6 +794,98 @@ def write_info_modules(pangenome: Pangenome, h5f: tables.File):
         raise Exception("Modules were not computed in your pangenome. Please see the module subcommand.")
 
 
+def write_metadata_group(h5f: tables.File):
+    if '/metadata' not in h5f:
+        metadata_group = h5f.create_group("/", "metadata", "Pangenome metadata")
+    else:
+        metadata_group = h5f.root.metadata
+    return metadata_group
+
+
+def metadata_desc(max_name_len: int = 1, max_accession_len: int = 1,
+                  max_secondary_names_len: int = 1, max_description_len: int = 1,
+                  max_gf_name_len: int = 1) -> dict:
+    """
+    Create a formated table for gene families annotation description
+    :param max_name_len:
+    :param max_accession_len:
+    :param max_secondary_names_len:
+    :param max_description_len:
+    :param max_gf_name_len:
+
+    :return: Formated table
+    """
+    return {
+        "accession": tables.StringCol(itemsize=max_accession_len),
+        "name": tables.StringCol(itemsize=max_name_len),
+        "secondary_names": tables.StringCol(itemsize=max_secondary_names_len),
+        "description": tables.StringCol(itemsize=max_description_len),
+        "score": tables.Float64Col(),
+        "e_val": tables.Float64Col(),
+        "bias": tables.Float64Col(),
+        "geneFam": tables.StringCol(itemsize=max_gf_name_len)
+    }
+
+
+def get_metadata_len(select_gf: List[GeneFamily], source: str) -> (int, int):
+    """
+    Get maximum size of gene families information
+    :param select_gf: selected gene families from source
+    :param source: Name of the annotation source
+    :return: Maximum size of each element
+    """
+    max_name_len, max_accession_len, max_secondary_names_len, max_description_len = (1, 1, 1, 1)
+    max_gf_name_len, expected_rows = (1, 0)
+
+    for gf in select_gf:
+        if len(gf.name) > max_gf_name_len:
+            max_gf_name_len = len(gf.name)
+        for metadata in gf.get_source(name=source):
+            if len(metadata.value) > max_name_len:
+                max_name_len = len(metadata.value)
+            if len(metadata.accession) > max_accession_len:
+                max_accession_len = len(metadata.accession)
+            if len(metadata.secondary_names) > max_secondary_names_len:
+                max_secondary_names_len = len(metadata.secondary_names)
+            if len(metadata.description) > max_description_len:
+                max_description_len = len(metadata.description)
+            expected_rows += 1
+
+    return max_name_len, max_accession_len, max_secondary_names_len, max_description_len, max_gf_name_len, expected_rows
+
+
+def write_metadata_families(pangenome: Pangenome, h5f: tables.File, source: str, disable_bar: bool = False):
+    """
+    Writing a table containing the protein sequences of each family
+    :param pangenome: Pangenome with gene families computed
+    :param h5f: HDF5 file to write gene families
+    :param source: name of the annotation source
+    :param disable_bar: Disable progress bar
+    """
+    metadata_group = write_metadata_group(h5f)
+    if '/families' not in metadata_group:
+        families_group = h5f.create_group(metadata_group, "families", "Gene families metadata")
+    else:
+        families_group = metadata_group.famillies
+    select_gf = list(pangenome.get_gf_by_sources(source=source))
+    annot_len = get_metadata_len(select_gf, source)
+    source_table = h5f.create_table(families_group, source, metadata_desc(*annot_len[:-1]),
+                                    expectedrows=annot_len[-1])
+    annot_row = source_table.row
+    for gf in tqdm(select_gf, unit='Gene family', desc=f'Source = {source}', disable=disable_bar):
+        for metadata in gf.get_source(name=source):
+            annot_row["name"] = metadata.value
+            annot_row["accession"] = metadata.accession
+            annot_row["secondary_names"] = metadata.secondary_names
+            annot_row["description"] = metadata.description
+            annot_row["score"] = metadata.score
+            annot_row["e_val"] = metadata.e_val
+            annot_row["bias"] = metadata.bias
+            annot_row["geneFam"] = gf.name
+            annot_row.append()
+    source_table.flush()
+
+
 def update_gene_fam_partition(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
     Update the gene families table with partition information
@@ -793,7 +919,8 @@ def update_gene_fragments(pangenome: Pangenome, h5f: tables.File, disable_bar: b
 
 
 def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bool = False, partition: bool = False,
-                    rgp: bool = False, spots: bool = False, modules: bool = False):
+                    rgp: bool = False, spots: bool = False, modules: bool = False,
+                    metadata: bool = False, metatype: str = None, source: str = None):
     """
     Erases tables from a pangenome .h5 file
 
@@ -805,7 +932,7 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
     :param spots: remove spots information
     :param modules: remove modules information
     """
-    
+
     h5f = tables.open_file(pangenome.file, "a")
     status_group = h5f.root.status
     info_group = h5f.root.info
@@ -876,6 +1003,31 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
             if info in info_group._v_attrs._f_list():
                 h5f.del_node_attr(info_group, info)
 
+    if '/metadata/' in h5f and metadata:
+        metadata_group = h5f.root.metadata
+
+        metastatus = pangenome.status["metadata"]
+        metasources = pangenome.status["metasources"]
+        if metatype in metadata_group:
+            metatype_group = metadata_group._f_get_child(metatype)
+            if source in metatype_group:
+                logging.getLogger().info(f"Erasing metadata assign to {metatype} from source {source}...")
+                metasources[metatype].remove(source)
+                status_group.metasources._v_attrs[metatype].remove(source)
+                h5f.remove_node(metatype_group, source)
+            if metatype_group._v_nchildren == 0:
+                logging.getLogger().debug(f"No more source of metadata in {metatype}."
+                                          f"Erasing node {metatype} in metadata")
+                metastatus[metatype] = 'No'
+                status_group.metastatus.families = False
+                h5f.remove_node(metadata_group, metatype)
+        if metadata_group._v_nchildren == 0:
+            logging.getLogger().debug("No more metadata in pangenome. Erasing node metadata")
+            status_group._v_attrs.metadata = False
+            h5f.remove_node("/", "metadata")
+            h5f.remove_node(status_group, "metasources")
+            h5f.remove_node(status_group, "metastatus")
+
     h5f.close()
 
 
@@ -888,25 +1040,36 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
     :param force: force to write on pangenome if information already exist
     :param disable_bar: Allow to disable progress bar
     """
-
-    if pangenome.status["genomesAnnotated"] == "Computed":
-        compression_filter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
-        h5f = tables.open_file(filename, "w", filters=compression_filter)
-        logging.getLogger().info("Writing genome annotations...")
-
-        write_annotations(pangenome, h5f, disable_bar=disable_bar)
-
-        pangenome.status["genomesAnnotated"] = "Loaded"
-        h5f.close()
-    elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
-        pass
+    try:
+        assert pangenome.status["genomesAnnotated"] in ["Computed", "Loaded", "inFile"]
+    except AssertionError:
+        raise AssertionError("Something REALLY unexpected and unplanned for happened here. "
+                             "Please post an issue on github with what you did to reach this error.")
     else:
-        # if the pangenome is not Computed or not Loaded, it's probably not really in a good state
-        # (or something new was coded).
-        raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. "
-                                  "Please post an issue on github with what you did to reach this error.")
+        if pangenome.status["genomesAnnotated"] == "Computed":
+            compression_filter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
+            h5f = tables.open_file(filename, "w", filters=compression_filter)
+            logging.getLogger().info("Writing genome annotations...")
 
-    # from there, appending to existing file.
+            write_annotations(pangenome, h5f, disable_bar=disable_bar)
+
+            pangenome.status["genomesAnnotated"] = "Loaded"
+            h5f.close()
+
+    try:
+        assert all([pangenome.status[step] in ["Computed", "Loaded", "inFile", 'No'] for step in pangenome.status
+                    if step not in ["metadata", "metasources"]])
+        assert all([pangenome.status["metadata"][meta] in ["Computed", "Loaded", "inFile", 'No'] for meta in
+                    pangenome.status["metadata"]])
+    except AssertionError:
+        debug = [f"{step}: {pangenome.status[step] in ['Computed', 'Loaded', 'inFile', 'No']}" for step in
+                 pangenome.status
+                 if step not in ["metadata", "metasources"]]
+        logging.getLogger().debug(debug)
+        raise AssertionError("Something unexcpected happened. "
+                             "Please post an issue on github with what you did to reach this error.")
+
+    # from there, appending to existing file
     h5f = tables.open_file(filename, "a")
 
     if pangenome.status["geneSequences"] == "Computed":
@@ -948,6 +1111,11 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
         logging.getLogger().info("Writing Modules...")
         write_modules(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["modules"] = "Loaded"
+
+    if pangenome.status["metadata"]["families"] == "Computed":
+        logging.getLogger().info("Writing gene families metadata in pangenome")
+        write_metadata_families(pangenome, h5f, pangenome.status["metasources"]["families"][-1], disable_bar)
+        pangenome.status["metadata"]["families"] = "Loaded"
 
     write_status(pangenome, h5f)
     write_info(pangenome, h5f)
