@@ -12,7 +12,7 @@ import pkg_resources
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args
+from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args #, SUBCOMMAND_TO_SUBPARSER
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
@@ -27,6 +27,8 @@ import ppanggolin.mod
 import ppanggolin.context
 import ppanggolin.workflow
 import ppanggolin.utility
+
+from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
 def cmd_line() -> argparse.Namespace:
     """ Manage the command line argument given by user
@@ -72,33 +74,9 @@ def cmd_line() -> argparse.Namespace:
     desc += "    context      Local genomic context analysis\n"
     desc += "  \n"
     desc += "  Utility command:\n"
-    desc += "    default_config      Generate a yaml config file with default values.\n"
+    desc += "    utils      Helper side commands.\n"
     desc += "  \n"
 
-
-    subcommand_to_subparser = {
-                        "annotate":ppanggolin.annotate.subparser,
-                        "cluster":ppanggolin.cluster.subparser,
-                        "graph":ppanggolin.graph.subparser,
-                        "partition":ppanggolin.nem.partition.subparser,
-                        "rarefaction":ppanggolin.nem.rarefaction.subparser,
-                        "workflow":ppanggolin.workflow.workflow.subparser,
-                        "panrgp":ppanggolin.workflow.panRGP.subparser,
-                        "panModule":ppanggolin.workflow.panModule.subparser,
-                        "all":ppanggolin.workflow.all.subparser,
-                        "draw":ppanggolin.figures.subparser,
-                        "write":ppanggolin.formats.writeFlat.subparser,
-                        "fasta":ppanggolin.formats.writeSequences.subparser,
-                        "msa":ppanggolin.formats.writeMSA.subparser,
-                        "metrics":ppanggolin.metrics.metrics.subparser,
-                        "align":ppanggolin.align.subparser,
-                        "rgp":ppanggolin.RGP.genomicIsland.subparser,
-                        "spot":ppanggolin.RGP.spot.subparser,
-                        "module":ppanggolin.mod.subparser,
-                        "context":ppanggolin.context.subparser,
-                        "info":ppanggolin.info.subparser,
-                        "default_config":ppanggolin.utility.default_config.subparser}
-    
     cmd_with_no_common_args = ['info', 'default_config']
 
     parser = argparse.ArgumentParser(
@@ -110,26 +88,38 @@ def cmd_line() -> argparse.Namespace:
     
     subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
     subparsers.required = True  # because python3 sent subcommands to hell apparently
-    
-    for cmd, sub_fct in subcommand_to_subparser.items():  
+
+
+    # print help if no subcommand is specified
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
+    # manage command parser to use command arguments
+    subs = []
+    for sub_fct in SUBCOMMAND_TO_SUBPARSER.values():  
         sub = sub_fct(subparsers)
-        if cmd not in cmd_with_no_common_args:
-            # add options common to all subcommands except for the one that does need it
-            add_common_arguments(sub)
-    
+        # add options common to all subcommands
+        add_common_arguments(sub)
+        subs.append(sub)
+        
+    # manage command without common arguments
+    sub_info = ppanggolin.info.subparser(subparsers)
+    sub_utils = ppanggolin.utility.utils.subparser(subparsers)
+    subs += [sub_info, sub_utils]
+
+    # print help if only the command is given
+    for sub in subs:
         if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
             sub.print_help()
             exit(0)
 
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(0)
 
     # First parse args to check that nothing is missing or not expected in cli and throw help when requested
     args = parser.parse_args()
 
     if hasattr(args, "config"): # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
-        args = manage_cli_and_config_args(args.subcommand, args.config, subcommand_to_subparser)
+        args = manage_cli_and_config_args(args.subcommand, args.config, SUBCOMMAND_TO_SUBPARSER)
     else:
         set_verbosity_level(args)
 
@@ -137,6 +127,7 @@ def cmd_line() -> argparse.Namespace:
         parser.error("You must provide at least a file with the --fasta option to annotate from sequences, "
                         "or a file with the --gff option to load annotations through the command line or the config file.")
     
+
     cmds_pangenome_required = ["cluster", "info", "module", "graph","align", 
                                "context", "write", "msa", "draw", "partition",
                                "rarefaction", "spot", "fasta", "metrics", "rgp"]
@@ -206,7 +197,7 @@ def main():
         ppanggolin.workflow.all.launch(args)
     elif args.subcommand == "context":
         ppanggolin.context.launch(args)
-    elif args.subcommand == "default_config":
+    elif args.subcommand == "utils":
         ppanggolin.utility.launch(args)
 
 

@@ -25,6 +25,62 @@ from collections import defaultdict
 
 
 from ppanggolin.geneFamily import GeneFamily
+# import ppanggolin.nem.rarefaction
+# import ppanggolin.graph
+# import ppanggolin.annotate
+# import ppanggolin.cluster
+# import ppanggolin.figures
+# import ppanggolin.formats
+# import ppanggolin.info
+# import ppanggolin.metrics
+# import ppanggolin.align
+# import ppanggolin.RGP
+# import ppanggolin.mod
+# import ppanggolin.context
+# import ppanggolin.workflow
+# import ppanggolin.utility
+
+# from ppanggolin import subcommand_to_subparser
+
+
+# all input params that exists in ppanggolin
+ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome']
+
+# all params that should be in the general_parameters section of the config file
+ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'only_pangenome', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
+
+WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panmodule'}
+
+# command that can be launched inside a workflow subcommand
+ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module" ]
+
+# Inside a workflow command, write output default is overwrite to output some of the flat files
+WRITE_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
+                        'projection', 'stats', 'json', 'partitions', 'regions', 'spots',
+                        'borders', 'modules', 'spot_modules']
+
+# SUBCOMMAND_TO_SUBPARSER = {
+#         "annotate":ppanggolin.annotate.subparser,
+#         "cluster":ppanggolin.cluster.subparser,
+#         "graph":ppanggolin.graph.subparser,
+#         "partition":ppanggolin.nem.partition.subparser,
+#         "rarefaction":ppanggolin.nem.rarefaction.subparser,
+#         "workflow":ppanggolin.workflow.workflow.subparser,
+#         "panrgp":ppanggolin.workflow.panRGP.subparser,
+#         "panModule":ppanggolin.workflow.panModule.subparser,
+#         "all":ppanggolin.workflow.all.subparser,
+#         "draw":ppanggolin.figures.subparser,
+#         "write":ppanggolin.formats.writeFlat.subparser,
+#         "fasta":ppanggolin.formats.writeSequences.subparser,
+#         "msa":ppanggolin.formats.writeMSA.subparser,
+#         "metrics":ppanggolin.metrics.metrics.subparser,
+#         "align":ppanggolin.align.subparser,
+#         "rgp":ppanggolin.RGP.genomicIsland.subparser,
+#         "spot":ppanggolin.RGP.spot.subparser,
+#         "module":ppanggolin.mod.subparser,
+#         "context":ppanggolin.context.subparser,
+#         "info":ppanggolin.info.subparser,
+#         "default_config":ppanggolin.utility.default_config.subparser }
 
 
 def check_log(log_file: str) -> TextIO:
@@ -540,22 +596,6 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     :params subcommand_to_subparser: Dict with subcommand name as key and the corresponding subparser function as value. 
     """
 
-    # all input params that exists in ppanggolin
-    all_input_params = {'fasta', 'anno', 'clusters', 'pangenome'}
-
-    # all params that should be in the general_parameters section of the config file
-    general_params = ['output', 'basename', 'rarefaction', 'only_pangenome', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
-
-    workflow_subcommands = ['all', 'workflow', 'panrgp', 'panmodule']
-    
-    # command that can be launched inside a workflow subcommand
-    workflow_dependencies = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module" ]
-
-    # Inside a workflow command, write output default is overwrite to output some of the flat files
-    write_flag_default_in_wf = ["csv", "Rtab", "gexf", "light_gexf",
-                         'projection', 'stats', 'json', 'partitions', 'regions', 'spots',
-                         'borders', 'modules', 'spot_modules']
-
 
     if config_file:
         config = parse_config_file(config_file)
@@ -574,12 +614,13 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     
     all_cmd_param_names = {arg_name for arg_name in dir(default_args) if not arg_name.startswith('_')}
 
-    input_params = {param for param in all_cmd_param_names if param in all_input_params}
+    input_params = {param for param in all_cmd_param_names if param in ALL_INPUT_PARAMS}
 
-    general_params = {param for param in all_cmd_param_names if param in general_params}
+    general_params = {param for param in all_cmd_param_names if param in ALL_GENERAL_PARAMS}
     
     specific_params  = all_cmd_param_names - (input_params | general_params)
 
+    all_unspecific_params = ALL_INPUT_PARAMS + ALL_GENERAL_PARAMS
     # manage logging first to correctly set it up and to be able to log any issue when using config file later on
     config_general_args = get_config_args(subcommand, cmd_subparser, config, "general_parameters", general_params, strict_config_check=False)
     general_args = overwrite_args(default_args, config_general_args, cli_args)
@@ -591,7 +632,7 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
 
 
 
-    if subcommand in workflow_subcommands:
+    if subcommand in WORKFLOW_SUBCOMMANDS:
         # for workflow commands there is no section dedicated in the config: so no specific_args 
         # only general_parameters and  sections of commands launched in the worklow commands are used
         config_args = combine_args(config_general_args, config_input_args)
@@ -611,8 +652,8 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
         logging.getLogger().debug(f"{len(params_that_differ)} {subcommand} parameters have non-default value: {params_that_differ_str}")
 
     # manage workflow command
-    if subcommand in workflow_subcommands:
-        for workflow_step in workflow_dependencies:
+    if subcommand in WORKFLOW_SUBCOMMANDS:
+        for workflow_step in ALL_WORKFLOW_DEPENDENCIES:
             if workflow_step in ["rgp", "spot"] and subcommand in ["workflow", "panmodule"]:
                 continue
             elif  workflow_step == "module" and subcommand in ["workflow", "panmodule"]:
@@ -621,18 +662,18 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
             logging.getLogger().debug(f'Parsing {workflow_step} arguments in config file.')
             step_subparser = subcommand_to_subparser[workflow_step]
 
-            default_step_args = get_default_args(workflow_step, step_subparser, unwanted_args=general_params)
+            default_step_args = get_default_args(workflow_step, step_subparser, unwanted_args=all_unspecific_params)
 
             # remove general args
             all_param_names = {arg_name for arg_name in dir(default_step_args) if not arg_name.startswith('_')}
-            specific_step_params = {param_name for param_name in all_param_names if param_name not in general_params}
+            specific_step_params = {param_name for param_name in all_param_names if param_name not in all_unspecific_params}
             config_step_args = get_config_args(workflow_step, step_subparser, config, workflow_step, specific_step_params, strict_config_check=True)
 
             # overwrite write default when not specified in config 
             if workflow_step == 'write':
-                for out_flag in write_flag_default_in_wf:
+                for out_flag in WRITE_FLAG_DEFAULT_IN_WF:
                     setattr(default_step_args, out_flag, True)
-
+            
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
             
             step_params_that_differ = get_args_that_differe_from_default(default_step_args, step_args)
@@ -653,7 +694,7 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
     if params_that_differ:
         logging.getLogger().info(f'{len(params_that_differ)} parameters have a non-default value.')
 
-    check_config_consistency(config, workflow_dependencies)
+    check_config_consistency(config, ALL_WORKFLOW_DEPENDENCIES)
     
     return args
 
@@ -666,14 +707,21 @@ def check_config_consistency(config: dict, workflow_steps:list):
     :params config_dict: config dict with as key the section of the config file and as value another dict pairing name and value of parameters.
     :params workflow_steps: list of subcommand names used in the workflow execution.
     """
-
+    def count_different_values(values):
+        hashable_values = set()
+        for value in values:
+            hashable_value = tuple(value) if type(value) == list else value
+            hashable_values.add(hashable_value)
+        return len(hashable_values)
+    
     # params used in multiple subcommands
-    all_params = [param for param_to_value_dict in config.values() for param in param_to_value_dict]
+    all_params = [param for subcmd, param_to_value_dict in config.items() for param in param_to_value_dict if subcmd in workflow_steps]
     duplicate_params = [param for param in all_params if all_params.count(param) > 1]
 
     for duplicate_param in set(duplicate_params):
         step_to_value = {step:param_to_value[duplicate_param] for step, param_to_value in config.items() if duplicate_param in param_to_value}
-        if len(set(step_to_value.values())) > 1:
+
+        if count_different_values(step_to_value.values()) > 1:
             logging.warning(f'The parameter {duplicate_param} used in multiple subcommands of the workflow is specified with different values in config file: {step_to_value}.')
 
 

@@ -155,6 +155,22 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     writing_time = writing_time + time.time() - start_writing
 
+    if args.rarefaction:
+        make_rarefaction_curve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, 
+                                beta=args.rarefaction.beta,
+                                depth=args.rarefaction.depth,
+                                min_sampling=args.rarefaction.min,
+                                max_sampling=args.rarefaction.max,
+                                sm_degree=args.rarefaction.max_degree_smoothing, 
+                                free_dispersion=args.rarefaction.free_dispersion,
+                                chunk_size=args.rarefaction.chunk_size,
+                                kval=args.rarefaction.nb_of_partitions,
+                                krange=args.rarefaction.krange,
+                                seed=args.rarefaction.seed,
+                                kestimate=args.rarefaction.reestimate_K,
+                                soft_core=args.rarefaction.soft_core, 
+                                cpu=args.rarefaction.cpu, disable_bar=args.disable_prog_bar)
+        
     if not args.only_pangenome:
 
         if panrgp:
@@ -164,21 +180,6 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
                     disable_bar=args.disable_prog_bar)
             spot_time = spot_time + time.time() - start_spot_drawing
 
-        if args.rarefaction:
-            make_rarefaction_curve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, 
-                                    beta=args.rarefaction.beta,
-                                    depth=args.rarefaction.depth,
-                                    min_sampling=args.rarefaction.min,
-                                    max_sampling=args.rarefaction.max,
-                                    sm_degree=args.rarefaction.max_degree_smoothing, 
-                                    free_dispersion=args.rarefaction.free_dispersion,
-                                    chunk_size=args.rarefaction.chunk_size,
-                                    kval=args.rarefaction.nb_of_partitions,
-                                    krange=args.rarefaction.krange,
-                                    seed=args.rarefaction.seed,
-                                    kestimate=args.rarefaction.reestimate_K,
-                                    soft_core=args.rarefaction.soft_core, 
-                                    cpu=args.rarefaction.cpu, disable_bar=args.disable_prog_bar)
 
         if 1 < len(pangenome.organisms) < 5000:
             draw_tile_plot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
@@ -226,6 +227,7 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     if panrgp:
         logging.getLogger().info(f"Predicting RGP took : {round(regions_time, 2)} seconds")
         logging.getLogger().info(f"Gathering RGP into spots took : {round(spot_time, 2)} seconds")
+
     if panmodule:
         logging.getLogger().info(f"Predicting modules took : {round(mod_time, 2)} seconds")
     
