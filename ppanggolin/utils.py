@@ -47,7 +47,7 @@ from ppanggolin.geneFamily import GeneFamily
 ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome']
 
 # all params that should be in the general_parameters section of the config file
-ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'only_pangenome', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
+ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'write_flat_output', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
 
 WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panmodule'}
 
@@ -55,9 +55,9 @@ WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panmodule'}
 ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module" ]
 
 # Inside a workflow command, write output default is overwrite to output some of the flat files
-WRITE_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
-                        'projection', 'stats', 'json', 'partitions', 'regions', 'spots',
-                        'borders', 'modules', 'spot_modules']
+WRITE_FLAGS = ["csv", "Rtab", "gexf", "light_gexf",
+                'projection', 'stats', 'json', 'partitions', 'regions', 'spots',
+                'borders', 'modules', 'spot_modules']
 
 # SUBCOMMAND_TO_SUBPARSER = {
 #         "annotate":ppanggolin.annotate.subparser,
@@ -670,14 +670,14 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
             config_step_args = get_config_args(workflow_step, step_subparser, config, workflow_step, specific_step_params, strict_config_check=True)
 
             # overwrite write default when not specified in config 
-            if workflow_step == 'write':
-                for out_flag in WRITE_FLAG_DEFAULT_IN_WF:
-                    setattr(default_step_args, out_flag, True)
+            # if workflow_step == 'write':
+            #     for out_flag in WRITE_FLAG_DEFAULT_IN_WF:
+            #         setattr(default_step_args, out_flag, True)
             
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
             
             step_params_that_differ = get_args_that_differe_from_default(default_step_args, step_args)
-            
+
             if step_params_that_differ:
                 step_params_that_differ_str = ', '.join([f'{p}={v}' for p,v in step_params_that_differ.items()])
                 logging.getLogger().debug(f"{len(step_params_that_differ)} {workflow_step} parameters have a non-default value: {step_params_that_differ_str}")

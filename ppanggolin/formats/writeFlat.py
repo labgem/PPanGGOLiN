@@ -1024,7 +1024,7 @@ def parser_flat(parser: argparse.ArgumentParser):
     """
     Parser for specific argument of write command
 
-    :param parser: parser for align argument
+    :param parser: parser for write argument
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
@@ -1038,38 +1038,50 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
                           help="minimum ratio of organisms in which the family must have multiple genes "
                                "for it to be considered 'duplicated'")
-    optional.add_argument("--gexf", required=False, action="store_true",
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+
+    optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
+
+    out_flags_parser = parser.add_argument_group(title="Flat file output arguments")
+
+    flat_file_flags_parser(out_flags_parser)
+
+def flat_file_flags_parser(parser: argparse.ArgumentParser):
+    """
+    Parser for flat file output argument of the write command
+
+    :param parser: parser for write argument
+    """
+
+    parser.add_argument("--gexf", required=False, action="store_true",
                           help="write a gexf file with all the annotations and all the genes of each gene family")
-    optional.add_argument("--light_gexf", required=False, action="store_true",
+    parser.add_argument("--light_gexf", required=False, action="store_true",
                           help="write a gexf file with the gene families and basic informations about them")
-    optional.add_argument("--csv", required=False, action="store_true",
+    parser.add_argument("--csv", required=False, action="store_true",
                           help="csv file format as used by Roary, among others. "
                                "The alternative gene ID will be the partition, if there is one")
-    optional.add_argument("--Rtab", required=False, action="store_true",
+    parser.add_argument("--Rtab", required=False, action="store_true",
                           help="tabular file for the gene binary presence absence matrix")
-    optional.add_argument("--projection", required=False, action="store_true",
+    parser.add_argument("--projection", required=False, action="store_true",
                           help="a csv file for each organism providing information on the projection of the graph "
                                "on the organism")
-    optional.add_argument("--stats", required=False, action="store_true",
+    parser.add_argument("--stats", required=False, action="store_true",
                           help="tsv files with some statistics for each organism and for each gene family")
-    optional.add_argument("--partitions", required=False, action="store_true",
+    parser.add_argument("--partitions", required=False, action="store_true",
                           help="list of families belonging to each partition, with one file per partitions and "
                                "one family per line")
-    optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
-    optional.add_argument("--json", required=False, action="store_true", help="Writes the graph in a json file format")
-    optional.add_argument("--regions", required=False, action="store_true",
+    parser.add_argument("--json", required=False, action="store_true", help="Writes the graph in a json file format")
+    parser.add_argument("--regions", required=False, action="store_true",
                           help="Write the RGP in a tab format, one file per genome")
-    optional.add_argument("--spots", required=False, action="store_true",
+    parser.add_argument("--spots", required=False, action="store_true",
                           help="Write spot summary and a list of all RGP in each spot")
-    optional.add_argument("--borders", required=False, action="store_true", help="List all borders of each spot")
-    optional.add_argument("--modules", required=False, action="store_true",
+    parser.add_argument("--borders", required=False, action="store_true", help="List all borders of each spot")
+    parser.add_argument("--modules", required=False, action="store_true",
                           help="Write a tsv file listing functional modules and the families that belong to them")
-    optional.add_argument("--families_tsv", required=False, action="store_true",
+    parser.add_argument("--families_tsv", required=False, action="store_true",
                           help="Write a tsv file providing the association between genes and gene families")
-    optional.add_argument("--spot_modules", required=False, action="store_true",
+    parser.add_argument("--spot_modules", required=False, action="store_true",
                           help="writes 3 files comparing the presence of modules within spots")
-    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-   
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
