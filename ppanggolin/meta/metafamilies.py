@@ -45,7 +45,7 @@ def check_pangenome_metadata(pangenome: Pangenome, source: str, force: bool = Fa
 
 
 def assign_metadata_to_families(annotation_df: pd.DataFrame, pangenome: Pangenome, source: str = None,
-                                disable_bar: bool = False) -> dict:
+                                omit: bool = False, disable_bar: bool = False) -> dict:
     """ Add to gene families an annotation and create a dictionary with for each annotation a set of gene family
 
     :param annotation_df: Dataframe with for each family an annotation
@@ -59,8 +59,10 @@ def assign_metadata_to_families(annotation_df: pd.DataFrame, pangenome: Pangenom
         try:
             gene_fam = pangenome.get_gene_family(name=row.Gene_family)
         except KeyError:
-            # raise KeyError(f"Family {row.Gene_family} does not exist in pangenome. Check name in your file")
-            pass
+            if omit:
+                pass
+            else:
+                raise KeyError(f"Family {row.Gene_family} does not exist in pangenome. Check name in your file")
         else:
             annotation = Metadata(source=source, accession=row.Accession, value=row.protein_name,
                                   secondary_names=row.secondary_name, description=row.Description,
@@ -71,7 +73,8 @@ def assign_metadata_to_families(annotation_df: pd.DataFrame, pangenome: Pangenom
     pangenome.status["metasources"]["families"].append(source)
 
 
-def metadata_to_families(pangenome: Pangenome, data: Path, source: str, force: bool = False, disable_bar: bool = False):
+def metadata_to_families(pangenome: Pangenome, data: Path, source: str, omit: bool = False,
+                         force: bool = False, disable_bar: bool = False):
     try:
         assert "metadata" in pangenome.status and "metasources" in pangenome.status
         assert "families" in pangenome.status["metadata"] and "families" in pangenome.status["metasources"]
@@ -81,6 +84,6 @@ def metadata_to_families(pangenome: Pangenome, data: Path, source: str, force: b
     check_pangenome_metadata(pangenome, source=source, force=force, disable_bar=disable_bar)
     annotation_df = pd.read_csv(data, sep="\t", header=None, quoting=csv.QUOTE_NONE,
                                 names=gf_meta_col_names, dtype=gf_meta_col_type)
-    assign_metadata_to_families(annotation_df, pangenome, source)
+    assign_metadata_to_families(annotation_df, pangenome, source, omit, disable_bar)
     logging.getLogger().info("Metadata assignment Done")
     write_pangenome(pangenome, pangenome.file, disable_bar=disable_bar)

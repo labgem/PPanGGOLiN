@@ -26,7 +26,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     if args.assign == "families":
         logging.getLogger().debug("Begin gene families metadata assignment...")
-        metadata_to_families(pangenome, args.metadata, args.source, args.force)
+        metadata_to_families(pangenome, args.metadata, args.source, args.omit, args.force, args.disable_bar)
     elif args.assign == "genes":
         raise NotImplementedError("Option not implemented yet !")
     elif args.assign == "genomes":
@@ -69,7 +69,9 @@ def parser_meta(parser: argparse.ArgumentParser):
     required.add_argument("-a", "--assign", required=True, type=str, nargs="?",
                           choices=["families", "genomes", "genes", "RGPs", "spots", "modules"],
                           help="Select to which pangenome element metadata will be assigned.")
-    # optional = parser.add_argument_group(title="Optional arguments")
+    optional = parser.add_argument_group(title="Optional arguments")
+    optional.add_argument("--omit", required=False, action="store_true",
+                          help="Allow to pass if a key in metadata is not find in pangenome")
 
 
 if __name__ == '__main__':
