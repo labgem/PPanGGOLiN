@@ -5,18 +5,22 @@ from __future__ import annotations
 
 # installed libraries
 import logging
-from typing import Iterator, Dict
+from typing import Dict, Iterator
 
 import gmpy2
 
+# local libraries
+from ppanggolin.metadata import MetaFeatures
 
-class Feature:
+
+class Feature(MetaFeatures):
     """This is a general class representation of Gene, RNA
 
     :param identifier: Identifier of the feature given by PPanGGOLiN
     """
 
     def __init__(self, identifier: str):
+        super().__init__()
         self.ID = identifier
         self.is_fragment = False
         self.type = ""
@@ -197,13 +201,14 @@ class Contig:
         self._genes_start[gene.start] = gene
 
 
-class Organism:
+class Organism(MetaFeatures):
     """
     Describe the Genome content and some information
 
     :param name: Name of the genome
     """
     def __init__(self, name: str):
+        super().__init__()
         self.name = name
         self._contigs_getter = {}
         self.bitarray = None

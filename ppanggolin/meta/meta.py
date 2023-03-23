@@ -6,6 +6,7 @@ import logging
 import argparse
 from pathlib import Path
 import csv
+from typing import Union
 
 # installed libraries
 from tqdm import tqdm
@@ -13,7 +14,155 @@ import pandas as pd
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.meta.metafamilies import metadata_to_families
+from ppanggolin.metadata import Metadata
+from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
+
+
+def check_pangenome_metadata(pangenome: Pangenome, source: str, metatype: str, force: bool = False,
+                             disable_bar: bool = False):
+    """ Check and load pangenome information before adding annotation
+
+    :param pangenome: Pangenome object
+    :param source: source of the annotation
+    :param force: erase if an annotation for the provide source already exist
+    :param disable_bar: Disable bar
+    """
+    need_annotations = False
+    need_families = False
+    if metatype in ["genomes", "genes", "families"]:
+        need_annotations = True
+    if metatype == "families":
+        need_families = True
+
+    if pangenome.status["metadata"][metatype] == "inFile" and source in pangenome.status["metasources"][metatype]:
+        if force:
+            erase_pangenome(pangenome, metadata=True, source=source, metatype=metatype)
+        else:
+            raise Exception(
+                f"An annotation corresponding to the source : '{source}' already exist in pangenome organims."
+                "Add the option --force to erase")
+    check_pangenome_info(pangenome, need_annotations=need_annotations, need_families=need_families,
+                         disable_bar=disable_bar)
+
+
+def assign_metadata_to_families(metadata: Path, pangenome: Pangenome, source: str,
+                                omit: bool = False, disable_bar: bool = False):
+    meta_col_names = ['gene_family', 'protein_name', 'accession', 'e_value',
+                      'score', 'bias', 'secondary_name', 'description']
+    meta_col_type = {'gene_family': str,
+                     'protein_name': str,
+                     'accession': str,
+                     'e_value': float,
+                     'score': float,
+                     'bias': float,
+                     'secondary_name': str,
+                     'description': str}
+    metadata_df = pd.read_csv(metadata, sep="\t", header=None, quoting=csv.QUOTE_NONE,
+                              names=meta_col_names, dtype=meta_col_type)
+    for row in tqdm(metadata_df.itertuples(index=False), unit='row',
+                    total=metadata_df.shape[0], disable=disable_bar):
+        try:
+            gene_families = pangenome.get_gene_family(name=row.gene_families)
+        except KeyError:
+            if not omit:
+                raise KeyError(f"Family {row.Gene_family} does not exist in pangenome. Check name in your file")
+        else:
+            annotation = Metadata(source=source, accession=row.accession, value=row.value,
+                                  description=row.description, score=row.score, e_val=row.e_value, bias=row.bias)
+            gene_families.add_metadata(source=source, metadata=annotation)
+
+    pangenome.status["metadata"]["families"] = "Computed"
+    pangenome.status["metasources"]["families"].append(source)
+
+
+def assign_metadata_to_genomes(metadata: Path, pangenome: Pangenome, source: str,
+                               omit: bool = False, disable_bar: bool = False):
+    meta_col_type = {'genome': str,
+                     'value': str,
+                     'accession': str,
+                     'e_value': float,
+                     'score': float,
+                     'bias': float,
+                     'Description': str}
+    metadata_df = pd.read_csv(metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE, dtype=meta_col_type)
+    if not {"genome", "value"}.issubset(set(metadata_df.columns)):
+        raise KeyError("You should at least provide in columns names : genome and value."
+                       "Look at documentation for more information")
+    elif not set(metadata_df.columns).issubset(set(meta_col_type.keys())):
+        raise KeyError("There are one or more column name not acceptable."
+                       f"Acceptable names are : {list(meta_col_type.keys())}")
+    pd.to_numeric(metadata_df["value"], downcast='integer', errors='ignore')
+    for row in tqdm(metadata_df.itertuples(index=False), unit='row',
+                    total=metadata_df.shape[0], disable=disable_bar):
+        try:
+            genome = pangenome.get_organism(row.genome)
+        except KeyError:
+            if not omit:
+                raise KeyError(f"Genome {row.genome} does not exist in pangenome. Check name in your file")
+        else:
+            meta = Metadata(source=source, value=row.value,
+                                  accession=row.accession if "accession" in metadata_df.columns else None,
+                                  description=row.description if "description" in metadata_df.columns else None,
+                                  score=row.score if "score" in metadata_df.columns else None,
+                                  e_val=row.score if "e_val" in metadata_df.columns else None,
+                                  bias=row.bias if "bias" in metadata_df.columns else None)
+            genome.add_metadata(source=source, metadata=meta)
+
+    pangenome.status["metadata"]["genomes"] = "Computed"
+    pangenome.status["metasources"]["genomes"].append(source)
+
+
+def assign_metadata_to_genes(metadata: Path, pangenome: Pangenome, source: str,
+                             omit: bool = False, disable_bar: bool = False):
+    meta_col_names = ['genes', 'value', 'accession', 'e_value',
+                      'score', 'bias', 'description']
+    meta_col_type = {'genes': str,
+                     'value': Union[str, int, float],
+                     'accession': str,
+                     'e_value': float,
+                     'score': float,
+                     'bias': float,
+                     'Description': str}
+    metadata_df = pd.read_csv(metadata, sep="\t", header=None, quoting=csv.QUOTE_NONE,
+                              names=meta_col_names, dtype=meta_col_type)
+    for row in tqdm(metadata_df.itertuples(index=False), unit='row',
+                    total=metadata_df.shape[0], disable=disable_bar):
+        try:
+            gene = pangenome.get_gene(row.genes)
+        except KeyError:
+            if not omit:
+                raise KeyError(f"Gene {row.gene} does not exist in pangenome. Check name in your file")
+        else:
+            annotation = Metadata(source=source, accession=row.accession, value=row.value,
+                                  description=row.description, score=row.score, e_val=row.e_value, bias=row.bias)
+            gene.add_metadata(source=source, metadata=annotation)
+
+    pangenome.status["metadata"]["genomes"] = "Computed"
+    pangenome.status["metasources"]["genomes"].append(source)
+
+
+def assign_metadata(metadata: Path, pangenome: Pangenome, source: str, metatype: str,
+                    omit: bool = False, disable_bar: bool = False) -> dict:
+    """ Add to gene families an annotation and create a dictionary with for each annotation a set of gene family
+
+    :param metadata: Dataframe with for each family an annotation
+    :param pangenome: Pangenome with gene families
+    :param source: source of the annotation
+    :param disable_bar:
+    :return: Dictionary with for each annotation a set of gene family
+    """
+    if metatype == "families":
+        assign_metadata_to_families(metadata, pangenome, source, omit, disable_bar)
+    elif metatype == "genomes":
+        assign_metadata_to_genomes(metadata, pangenome, source, omit, disable_bar)
+    elif metatype == "genes":
+        assign_metadata_to_genes(metadata, pangenome, source, omit, disable_bar)
+    elif metatype == "RGPs":
+        raise NotImplementedError("Option not implemented yet !")
+    elif metatype == "spots":
+        raise NotImplementedError("Option not implemented yet !")
+    elif metatype == "modules":
+        raise NotImplementedError("Option not implemented yet !")
 
 
 def launch(args: argparse.Namespace):
@@ -24,20 +173,12 @@ def launch(args: argparse.Namespace):
     """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    if args.assign == "families":
-        logging.getLogger().debug("Begin gene families metadata assignment...")
-        metadata_to_families(pangenome, args.metadata, args.source, args.omit, args.force, args.disable_bar)
-    elif args.assign == "genes":
-        raise NotImplementedError("Option not implemented yet !")
-    elif args.assign == "genomes":
-        raise NotImplementedError("Option not implemented yet !")
-    elif args.assign == "RGPs":
-        raise NotImplementedError("Option not implemented yet !")
-    elif args.assign == "spots":
-        raise NotImplementedError("Option not implemented yet !")
-    elif args.assign == "modules":
-        raise NotImplementedError("Option not implemented yet !")
-
+    check_pangenome_metadata(pangenome, source=args.source, metatype=args.assign,
+                             force=args.force, disable_bar=args.disable_prog_bar)
+    assign_metadata(metadata=args.metadata, pangenome=pangenome, source=args.source, metatype=args.assign,
+                    omit=args.omit, disable_bar=args.disable_prog_bar)
+    logging.getLogger().info("Metadata assignment Done")
+    write_pangenome(pangenome, pangenome.file, disable_bar=args.disable_prog_bar)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:

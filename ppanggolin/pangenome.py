@@ -515,7 +515,7 @@ class Pangenome:
             if len(list(fam.get_metadata(value=value, accession=accession))) > 0:
                 yield fam
 
-    def get_gf_by_sources(self, source: List[str]):
+    def get_gf_by_sources(self, source: List[str]) -> Generator[GeneFamily, None, None]:
         """ Get gene famlies with a specific source in pangenome
 
         :param source: Name of the source
@@ -525,3 +525,29 @@ class Pangenome:
         for fam in self.gene_families:
             if fam.get_source(source) is not None:
                 yield fam
+
+    def get_org_by_metadata(self, value: str = None, accession: str = None) -> Generator[Organism, None, None]:
+        """ Get gene famlies with a specific annotation or source in pangenome
+
+        :param value: Name of the annotation
+        :param accession: Accesion identifier of the annotation
+
+        :return: Gene families with the annotation or source
+        """
+        assert value is not None and accession is not None
+
+        for org in self.organisms:
+            if len(list(org.get_metadata(value=value, accession=accession))) > 0:
+                yield org
+
+    def get_org_by_sources(self, source: List[str]) -> Generator[Organism, None, None]:
+        """ Get gene famlies with a specific source in pangenome
+
+        :param source: Name of the source
+
+        :return: Gene families with the source
+        """
+        for org in self.organisms:
+            if org.get_source(source) is not None:
+                yield org
+
