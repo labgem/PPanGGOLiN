@@ -16,7 +16,7 @@ import tables
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot, Module
-
+from ppanggolin.formats.writeBinaries import Genedata
 
 def get_number_of_organisms(pangenome: Pangenome) -> int:
     """ Standalone function to get the number of organisms in a pangenome
@@ -114,6 +114,29 @@ def read_chunks(table: Table, column: str = None, chunk: int = 10000):
             yield row
 
 
+def read_genedata(h5f: tables.File) -> dict:
+    """
+    Reads the genedata table and returns a genedata_id2genedata dictionnary
+    :param h5f: the hdf5 file handler
+    :return: dictionnary linking genedata to the genedata identifier
+    """
+    table = h5f.root.annotations.genedata
+    genedata_id2genedata = {}
+    for row in read_chunks(table,chunk=20000):
+        genedata = Genedata(start=row["start"].decode(),
+                            stop=row["stop"].decode(),
+                            strand=row["strand"].decode(),
+                            gene_type=row["gene_type"].decode(),
+                            position=row["position"].decode(),
+                            name=row["name"].decode(),
+                            product=row["product"].decode(),
+                            genetic_code=row["genetic_code"].decode(),
+                            is_fragment=row["is_fragment"].decode())
+        genedata_id = row["genedata_id"].decode()
+        genedata_id2genedata[genedata_id] = genedata
+    return genedata_id2genedata
+
+
 def read_sequences(h5f: tables.File) -> dict:
     """
     Reads the sequences table and returns a seqid2seq dictionnary
@@ -153,7 +176,7 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
     h5f.close()
 
 
-def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, link: bool = False):
+def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, genedata_dict:dict, link: bool = False):
     """
     Read information from pangenome to assign to organism object
 
@@ -171,7 +194,8 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
             if link:  # if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.get_gene(row["ID"].decode())
             else:  # else creating the gene.
-                gene_type = row["type"].decode()
+                curr_genedata = genedata_dict[row["genedata_id"].decode()]
+                gene_type = curr_genedata.gene_type
                 if gene_type == "CDS":
                     gene = Gene(row["ID"].decode())
                 elif "RNA" in gene_type:
@@ -181,15 +205,15 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
             except ValueError:
                 local = ""
             if isinstance(gene, Gene):
-                gene.fill_annotations(start=row["start"], stop=row["stop"], strand=row["strand"].decode(),
-                                      gene_type=row["type"].decode(), name=row["name"].decode(), position=row['position'],
-                                      genetic_code=row["genetic_code"], product=row["product"].decode(),
+                gene.fill_annotations(start=curr_genedata.start, stop=curr_genedata.stop, strand=curr_genedata.strand,
+                                      gene_type=gene_type, name=curr_genedata.name, position=curr_genedata.position,
+                                      genetic_code=curr_genedata.genetic_code, product=curr_genedata.product,
                                       local_identifier=local)
             else:
-                gene.fill_annotations(start=row["start"], stop=row["stop"], strand=row["strand"].decode(),
-                                      gene_type=row["type"].decode(), name=row["name"].decode(),
-                                      product=row["product"].decode(), local_identifier=local)
-            gene.is_fragment = row["is_fragment"]
+                gene.fill_annotations(start=curr_genedata.start, stop=curr_genedata.stop, strand=curr_genedata.strand,
+                                      gene_type=gene_type, name=curr_genedata.name,
+                                      product=curr_genedata.product, local_identifier=local)
+            gene.is_fragment = curr_genedata.is_fragment
             gene.fill_parents(org, contig)
             if gene_type == "CDS":
                 contig.add_gene(gene)
@@ -267,7 +291,6 @@ def read_gene_families_info(pangenome: Pangenome, h5f: tables.File, disable_bar:
 def read_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
     Read gene sequences in pangenome hdf5 file to add in pangenome object
-
     :param pangenome: Pangenome object without gene sequence associate to gene
     :param h5f: Pangenome HDF5 file with gene sequence associate to gene
     :param disable_bar: Disable the progress bar
@@ -363,6 +386,9 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = 
     table = annotations.genes
     pangenome_dict = {}
     circular_contigs = {}
+
+    genedata_dict = read_genedata(h5f)
+
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
         decode_org = row["organism"].decode()
         try:
@@ -382,7 +408,7 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = 
 
     for orgName, contigDict in tqdm(pangenome_dict.items(), total=len(pangenome_dict),
                                     unit="organism", disable=disable_bar):
-        read_organism(pangenome, orgName, contigDict, circular_contigs[orgName], link)
+        read_organism(pangenome, orgName, contigDict, circular_contigs[orgName], genedata_dict, link)
     pangenome.status["genomesAnnotated"] = "Loaded"
 
 
