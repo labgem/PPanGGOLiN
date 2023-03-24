@@ -153,17 +153,6 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
     h5f.close()
 
 
-def launch_read_organism(args) -> None:
-    """
-    Allow to launch read organism in multiprocessing
-
-    :param args: (pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, link: bool)
-
-    :return: Nothing function not called yet
-    """
-    return read_organism(*args)
-
-
 def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, link: bool = False):
     """
     Read information from pangenome to assign to organism object
@@ -288,9 +277,10 @@ def read_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: boo
                         "if the annotations have not been loaded.")
     table = h5f.root.geneSequences
 
+    seqid2seq = read_sequences(h5f)
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
         gene = pangenome.get_gene(row['gene'].decode())
-        gene.add_dna(row['dna'].decode())
+        gene.add_dna(seqid2seq[row['seqid']])
     pangenome.status["geneSequences"] = "Loaded"
 
 
@@ -392,7 +382,6 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = 
 
     for orgName, contigDict in tqdm(pangenome_dict.items(), total=len(pangenome_dict),
                                     unit="organism", disable=disable_bar):
-        # TODO read organism in multiprocessing
         read_organism(pangenome, orgName, contigDict, circular_contigs[orgName], link)
     pangenome.status["genomesAnnotated"] = "Loaded"
 
