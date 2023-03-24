@@ -6,7 +6,6 @@ import logging
 import argparse
 from pathlib import Path
 import csv
-from typing import Union
 
 # installed libraries
 from tqdm import tqdm
@@ -105,11 +104,11 @@ def assign_metadata_to_genomes(metadata: Path, pangenome: Pangenome, source: str
                 raise KeyError(f"Genome {row.genome} does not exist in pangenome. Check name in your file")
         else:
             meta = Metadata(source=source, value=row.value,
-                                  accession=row.accession if "accession" in metadata_df.columns else None,
-                                  description=row.description if "description" in metadata_df.columns else None,
-                                  score=row.score if "score" in metadata_df.columns else None,
-                                  e_val=row.score if "e_val" in metadata_df.columns else None,
-                                  bias=row.bias if "bias" in metadata_df.columns else None)
+                            accession=row.accession if "accession" in metadata_df.columns else None,
+                            description=row.description if "description" in metadata_df.columns else None,
+                            score=row.score if "score" in metadata_df.columns else None,
+                            e_val=row.score if "e_val" in metadata_df.columns else None,
+                            bias=row.bias if "bias" in metadata_df.columns else None)
             genome.add_metadata(source=source, metadata=meta)
 
     pangenome.status["metadata"]["genomes"] = "Computed"
@@ -118,17 +117,21 @@ def assign_metadata_to_genomes(metadata: Path, pangenome: Pangenome, source: str
 
 def assign_metadata_to_genes(metadata: Path, pangenome: Pangenome, source: str,
                              omit: bool = False, disable_bar: bool = False):
-    meta_col_names = ['gene', 'value', 'accession', 'e_value',
-                      'score', 'bias', 'description']
     meta_col_type = {'gene': str,
-                     'value': Union[str, int, float],
+                     'value': str,
                      'accession': str,
                      'e_value': float,
                      'score': float,
                      'bias': float,
                      'Description': str}
-    metadata_df = pd.read_csv(metadata, sep="\t", header=None, quoting=csv.QUOTE_NONE,
-                              names=meta_col_names, dtype=meta_col_type)
+    metadata_df = pd.read_csv(metadata, sep="\t", header=None, quoting=csv.QUOTE_NONE, dtype=meta_col_type)
+    if not {"gene", "value"}.issubset(set(metadata_df.columns)):
+        raise KeyError("You should at least provide in columns names : gene and value."
+                       "Look at documentation for more information")
+    elif not set(metadata_df.columns).issubset(set(meta_col_type.keys())):
+        raise KeyError("There are one or more column name not acceptable."
+                       f"Acceptable names are : {list(meta_col_type.keys())}")
+    pd.to_numeric(metadata_df["value"], downcast='integer', errors='ignore')
     for row in tqdm(metadata_df.itertuples(index=False), unit='row',
                     total=metadata_df.shape[0], disable=disable_bar):
         try:
@@ -143,6 +146,105 @@ def assign_metadata_to_genes(metadata: Path, pangenome: Pangenome, source: str,
 
     pangenome.status["metadata"]["genes"] = "Computed"
     pangenome.status["metasources"]["genes"].append(source)
+
+
+def assign_metadata_to_rgps(metadata: Path, pangenome: Pangenome, source: str,
+                            omit: bool = False, disable_bar: bool = False):
+    meta_col_type = {'RGP': str,
+                     'value': str,
+                     'accession': str,
+                     'e_value': float,
+                     'score': float,
+                     'bias': float,
+                     'Description': str}
+    metadata_df = pd.read_csv(metadata, sep="\t", header=None, quoting=csv.QUOTE_NONE, dtype=meta_col_type)
+    if not {"RGP", "value"}.issubset(set(metadata_df.columns)):
+        raise KeyError("You should at least provide in columns names : RGP and value."
+                       "Look at documentation for more information")
+    elif not set(metadata_df.columns).issubset(set(meta_col_type.keys())):
+        raise KeyError("There are one or more column name not acceptable."
+                       f"Acceptable names are : {list(meta_col_type.keys())}")
+    pd.to_numeric(metadata_df["value"], downcast='integer', errors='ignore')
+    for row in tqdm(metadata_df.itertuples(index=False), unit='row',
+                    total=metadata_df.shape[0], disable=disable_bar):
+        try:
+            region = pangenome.get_region(row.RGP)
+        except KeyError:
+            if not omit:
+                raise KeyError(f"RGP {row.RGP} does not exist in pangenome. Check name in your file")
+        else:
+            annotation = Metadata(source=source, accession=row.accession, value=row.value,
+                                  description=row.description, score=row.score, e_val=row.e_value, bias=row.bias)
+            region.add_metadata(source=source, metadata=annotation)
+
+    pangenome.status["metadata"]["RGPs"] = "Computed"
+    pangenome.status["metasources"]["RGPs"].append(source)
+
+
+def assign_metadata_to_spots(metadata: Path, pangenome: Pangenome, source: str,
+                             omit: bool = False, disable_bar: bool = False):
+    meta_col_type = {'spot': str,
+                     'value': str,
+                     'accession': str,
+                     'e_value': float,
+                     'score': float,
+                     'bias': float,
+                     'Description': str}
+    metadata_df = pd.read_csv(metadata, sep="\t", header=None, quoting=csv.QUOTE_NONE, dtype=meta_col_type)
+    if not {"spot", "value"}.issubset(set(metadata_df.columns)):
+        raise KeyError("You should at least provide in columns names : spot and value."
+                       "Look at documentation for more information")
+    elif not set(metadata_df.columns).issubset(set(meta_col_type.keys())):
+        raise KeyError("There are one or more column name not acceptable."
+                       f"Acceptable names are : {list(meta_col_type.keys())}")
+    pd.to_numeric(metadata_df["value"], downcast='integer', errors='ignore')
+    for row in tqdm(metadata_df.itertuples(index=False), unit='row',
+                    total=metadata_df.shape[0], disable=disable_bar):
+        try:
+            spot = pangenome.get_spot(row.spot)
+        except KeyError:
+            if not omit:
+                raise KeyError(f"Spot {row.spot} does not exist in pangenome. Check name in your file")
+        else:
+            annotation = Metadata(source=source, accession=row.accession, value=row.value,
+                                  description=row.description, score=row.score, e_val=row.e_value, bias=row.bias)
+            spot.add_metadata(source=source, metadata=annotation)
+
+    pangenome.status["metadata"]["spots"] = "Computed"
+    pangenome.status["metasources"]["spots"].append(source)
+
+
+def assign_metadata_to_modules(metadata: Path, pangenome: Pangenome, source: str,
+                               omit: bool = False, disable_bar: bool = False):
+    meta_col_type = {'module': str,
+                     'value': str,
+                     'accession': str,
+                     'e_value': float,
+                     'score': float,
+                     'bias': float,
+                     'Description': str}
+    metadata_df = pd.read_csv(metadata, sep="\t", header=None, quoting=csv.QUOTE_NONE, dtype=meta_col_type)
+    if not {"module", "value"}.issubset(set(metadata_df.columns)):
+        raise KeyError("You should at least provide in columns names : module and value."
+                       "Look at documentation for more information")
+    elif not set(metadata_df.columns).issubset(set(meta_col_type.keys())):
+        raise KeyError("There are one or more column name not acceptable."
+                       f"Acceptable names are : {list(meta_col_type.keys())}")
+    pd.to_numeric(metadata_df["value"], downcast='integer', errors='ignore')
+    for row in tqdm(metadata_df.itertuples(index=False), unit='row',
+                    total=metadata_df.shape[0], disable=disable_bar):
+        try:
+            module = pangenome.get_module(row.module)
+        except KeyError:
+            if not omit:
+                raise KeyError(f"Module {row.module} does not exist in pangenome. Check name in your file")
+        else:
+            annotation = Metadata(source=source, accession=row.accession, value=row.value,
+                                  description=row.description, score=row.score, e_val=row.e_value, bias=row.bias)
+            module.add_metadata(source=source, metadata=annotation)
+
+    pangenome.status["metadata"]["modules"] = "Computed"
+    pangenome.status["metasources"]["modules"].append(source)
 
 
 def assign_metadata(metadata: Path, pangenome: Pangenome, source: str, metatype: str,
@@ -162,11 +264,11 @@ def assign_metadata(metadata: Path, pangenome: Pangenome, source: str, metatype:
     elif metatype == "genes":
         assign_metadata_to_genes(metadata, pangenome, source, omit, disable_bar)
     elif metatype == "RGPs":
-        raise NotImplementedError("Option not implemented yet !")
+        assign_metadata_to_rgps(metadata, pangenome, source, omit, disable_bar)
     elif metatype == "spots":
-        raise NotImplementedError("Option not implemented yet !")
+        assign_metadata_to_spots(metadata, pangenome, source, omit, disable_bar)
     elif metatype == "modules":
-        raise NotImplementedError("Option not implemented yet !")
+        assign_metadata_to_modules(metadata, pangenome, source, omit, disable_bar)
 
 
 def launch(args: argparse.Namespace):
