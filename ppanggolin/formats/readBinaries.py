@@ -114,12 +114,24 @@ def read_chunks(table: Table, column: str = None, chunk: int = 10000):
             yield row
 
 
+def read_sequences(h5f: tables.File) -> dict:
+    """
+    Reads the sequences table and returns a seqid2seq dictionnary
+    :param h5f: the hdf5 file handler
+    :return: dictionnary linking sequences to the seq identifier
+    """
+    table = h5f.root.sequences
+    seqid2seq = {}
+    for row in read_chunks(table,chunk=20000):
+        seqid2seq[row["seqid"]] = row['dna'].decode()
+    return seqid2seq
+
+
 def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter = None, add: str = '',
                                  disable_bar: bool = False):
     """
     Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
     and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
-
     :param filename: Name of the pangenome file
     :param file_obj: Name of the output file
     :param list_cds: An iterable object of CDS
@@ -130,12 +142,13 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
     h5f = tables.open_file(filename, "r", driver_core_backing_store=0)
     table = h5f.root.geneSequences
     list_cds = set(list_cds) if list_cds is not None else None
+    seqid2seq = read_sequences(h5f)
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
         # Read the table chunk per chunk otherwise RAM dies on big pangenomes
         name_cds = row["gene"].decode()
         if row["type"] == b"CDS" and (list_cds is None or name_cds in list_cds):
             file_obj.write('>' + add + name_cds + "\n")
-            file_obj.write(row["dna"].decode() + "\n")
+            file_obj.write(seqid2seq[row["seqid"]] + "\n")
     file_obj.flush()
     h5f.close()
 

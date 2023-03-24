@@ -149,58 +149,89 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
 def get_gene_sequences_len(pangenome: Pangenome) -> Tuple[int, int]:
     """
     Get the maximum size of gene sequences to optimize disk space
-
     :param pangenome: Annotated pangenome
     :return: maximum size of each annotation
     """
     max_gene_id_len = 1
-    max_gene_seq_len = 1
     max_gene_type = 1
     for gene in pangenome.genes:
         if len(gene.ID) > max_gene_id_len:
             max_gene_id_len = len(gene.ID)
         if len(gene.type) > max_gene_type:
             max_gene_type = len(gene.type)
-        if len(gene.dna) > max_gene_seq_len:
-            max_gene_seq_len = len(gene.dna)
-    return max_gene_id_len, max_gene_seq_len, max_gene_type
+    return max_gene_id_len, max_gene_type
 
 
-def gene_sequences_desc(gene_id_len, gene_seq_len, gene_type_len) -> dict:
+def gene_sequences_desc(gene_id_len, gene_type_len) -> dict:
     """
     Create table to save gene sequences
-
     :param gene_id_len: Maximum size of gene sequence identifier
-    :param gene_seq_len: Maximum size of gene dna sequence
     :param gene_type_len: Maximum size of gene type
-
     :return: Formated table
     """
     return {
         "gene": tables.StringCol(itemsize=gene_id_len),
-        "dna": tables.StringCol(itemsize=gene_seq_len),
+        "seqid": tables.UInt32Col(),
         "type": tables.StringCol(itemsize=gene_type_len)
     }
 
+def get_sequence_len(pangenome: Pangenome) -> int:
+    """
+    Get the maximum size of gene sequences to optimize disk space
+    :param pangenome: Annotated pangenome
+    :return: maximum size of each annotation
+    """
+    max_seq_len = 1
+    for gene in pangenome.genes:
+        if len(gene.dna) > max_seq_len:
+            max_seq_len = len(gene.dna)
+    return max_seq_len
+
+def sequence_desc(max_seq_len: int) -> dict:
+    """
+    Table description to save sequences
+    :param max_seq_len: Maximum size of gene type
+    :return: Formated table
+    """
+    return {
+        "seqid": tables.UInt32Col(),
+        "dna": tables.StringCol(itemsize=max_seq_len)
+    }
 
 def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
     Function writing all the pangenome gene sequences
-
     :param pangenome: Pangenome with gene sequences
     :param h5f: Pangenome HDF5 file without sequences
     :param disable_bar: Disable progress bar
     """
     gene_seq = h5f.create_table("/", "geneSequences", gene_sequences_desc(*get_gene_sequences_len(pangenome)),
                                 expectedrows=len(pangenome.genes))
-
+    #process sequences to save them only once
+    seq2seqid = {}
+    id_counter = 0
     gene_row = gene_seq.row
     for gene in tqdm(pangenome.genes, total=pangenome.number_of_gene(), unit="gene", disable=disable_bar):
+        curr_seq_id = seq2seqid.get(gene.dna)
+        if curr_seq_id is None:
+            curr_seq_id = id_counter
+            seq2seqid[gene.dna] = id_counter
+            id_counter+=1
         gene_row["gene"] = gene.ID
-        gene_row["dna"] = gene.dna
+        gene_row["seqid"] = curr_seq_id
         gene_row["type"] = gene.type
         gene_row.append()
     gene_seq.flush()
+
+    seq_table = h5f.create_table("/","sequences", sequence_desc(get_sequence_len(pangenome)),
+                                 expectedrows=len(seq2seqid))
+
+    seq_row = seq_table.row
+    for seq, seqid in seq2seqid.items():
+        seq_row["dna"] = seq
+        seq_row["seqid"] = seqid
+        seq_row.append()
+    seq_table.flush()
 
 
 def gene_fam_desc(max_name_len: int, max_sequence_length: int, max_part_len: int) -> dict:
