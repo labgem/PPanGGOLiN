@@ -551,3 +551,29 @@ class Pangenome:
             if org.get_source(source) is not None:
                 yield org
 
+
+    def get_gene_by_metadata(self, value: str = None, accession: str = None) -> Generator[Gene, None, None]:
+        """ Get gene famlies with a specific annotation or source in pangenome
+
+        :param value: Name of the annotation
+        :param accession: Accesion identifier of the annotation
+
+        :return: Gene families with the annotation or source
+        """
+        assert value is not None and accession is not None
+
+        for gene in self.genes:
+            if len(list(gene.get_metadata(value=value, accession=accession))) > 0:
+                yield gene
+
+    def get_gene_by_sources(self, source: List[str]) -> Generator[Gene, None, None]:
+        """ Get gene famlies with a specific source in pangenome
+
+        :param source: Name of the source
+
+        :return: Gene families with the source
+        """
+        for gene in self.genes:
+            if gene.get_source(source) is not None:
+                yield gene
+

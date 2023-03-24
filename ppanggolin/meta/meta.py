@@ -47,25 +47,29 @@ def check_pangenome_metadata(pangenome: Pangenome, source: str, metatype: str, f
 
 def assign_metadata_to_families(metadata: Path, pangenome: Pangenome, source: str,
                                 omit: bool = False, disable_bar: bool = False):
-    meta_col_names = ['gene_family', 'protein_name', 'accession', 'e_value',
-                      'score', 'bias', 'secondary_name', 'description']
-    meta_col_type = {'gene_family': str,
-                     'protein_name': str,
+    meta_col_type = {'family': str,
+                     'value': str,
                      'accession': str,
                      'e_value': float,
                      'score': float,
                      'bias': float,
                      'secondary_name': str,
                      'description': str}
-    metadata_df = pd.read_csv(metadata, sep="\t", header=None, quoting=csv.QUOTE_NONE,
-                              names=meta_col_names, dtype=meta_col_type)
+    metadata_df = pd.read_csv(metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE, dtype=meta_col_type)
+    if not {"family", "value"}.issubset(set(metadata_df.columns)):
+        raise KeyError("You should at least provide in columns names : gene_family and value."
+                       "Look at documentation for more information")
+    elif not set(metadata_df.columns).issubset(set(meta_col_type.keys())):
+        raise KeyError("There are one or more column name not acceptable."
+                       f"Acceptable names are : {list(meta_col_type.keys())}")
+    pd.to_numeric(metadata_df["value"], downcast='integer', errors='ignore')
     for row in tqdm(metadata_df.itertuples(index=False), unit='row',
                     total=metadata_df.shape[0], disable=disable_bar):
         try:
-            gene_families = pangenome.get_gene_family(name=row.gene_families)
+            gene_families = pangenome.get_gene_family(name=row.family)
         except KeyError:
             if not omit:
-                raise KeyError(f"Family {row.Gene_family} does not exist in pangenome. Check name in your file")
+                raise KeyError(f"Family {row.family} does not exist in pangenome. Check name in your file")
         else:
             annotation = Metadata(source=source, accession=row.accession, value=row.value,
                                   description=row.description, score=row.score, e_val=row.e_value, bias=row.bias)
@@ -114,9 +118,9 @@ def assign_metadata_to_genomes(metadata: Path, pangenome: Pangenome, source: str
 
 def assign_metadata_to_genes(metadata: Path, pangenome: Pangenome, source: str,
                              omit: bool = False, disable_bar: bool = False):
-    meta_col_names = ['genes', 'value', 'accession', 'e_value',
+    meta_col_names = ['gene', 'value', 'accession', 'e_value',
                       'score', 'bias', 'description']
-    meta_col_type = {'genes': str,
+    meta_col_type = {'gene': str,
                      'value': Union[str, int, float],
                      'accession': str,
                      'e_value': float,
@@ -128,7 +132,7 @@ def assign_metadata_to_genes(metadata: Path, pangenome: Pangenome, source: str,
     for row in tqdm(metadata_df.itertuples(index=False), unit='row',
                     total=metadata_df.shape[0], disable=disable_bar):
         try:
-            gene = pangenome.get_gene(row.genes)
+            gene = pangenome.get_gene(row.gene)
         except KeyError:
             if not omit:
                 raise KeyError(f"Gene {row.gene} does not exist in pangenome. Check name in your file")
@@ -137,8 +141,8 @@ def assign_metadata_to_genes(metadata: Path, pangenome: Pangenome, source: str,
                                   description=row.description, score=row.score, e_val=row.e_value, bias=row.bias)
             gene.add_metadata(source=source, metadata=annotation)
 
-    pangenome.status["metadata"]["genomes"] = "Computed"
-    pangenome.status["metasources"]["genomes"].append(source)
+    pangenome.status["metadata"]["genes"] = "Computed"
+    pangenome.status["metasources"]["genes"].append(source)
 
 
 def assign_metadata(metadata: Path, pangenome: Pangenome, source: str, metatype: str,

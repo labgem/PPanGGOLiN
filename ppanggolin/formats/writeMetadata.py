@@ -11,7 +11,7 @@ import tables
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.genome import Organism
+from ppanggolin.genome import Organism, Gene
 from ppanggolin.geneFamily import GeneFamily
 
 
@@ -88,8 +88,8 @@ def metadata_desc(max_name_len: int = 1, max_accession_len: int = 1, max_descrip
 
 
 def metadata_families_desc(max_name_len: int = 1, max_accession_len: int = 1,
-                  max_secondary_names_len: int = 1, max_description_len: int = 1,
-                  max_gf_name_len: int = 1) -> dict:
+                           max_secondary_names_len: int = 1, max_description_len: int = 1,
+                           max_gf_name_len: int = 1) -> dict:
     meta_desc = metadata_desc(max_name_len, max_accession_len, max_description_len)
     meta_desc.update({"secondary_names": tables.StringCol(itemsize=max_secondary_names_len),
                       "geneFam": tables.StringCol(itemsize=max_gf_name_len)})
@@ -112,12 +112,12 @@ def get_metadata_families_len(select_gf: List[GeneFamily], source: str) -> (int,
         for metadata in gf.get_source(name=source):
             if len(metadata.value) > max_value_len:
                 max_value_len = len(metadata.value)
-            if len(metadata.accession) > max_accession_len:
+            if metadata.accession is not None and len(metadata.accession) > max_accession_len:
                 max_accession_len = len(metadata.accession)
-            if len(metadata.secondary_names) > max_secondary_names_len:
-                max_secondary_names_len = len(metadata.secondary_names)
-            if len(metadata.description) > max_description_len:
+            if metadata.description is not None and len(metadata.description) > max_description_len:
                 max_description_len = len(metadata.description)
+            if metadata.secondary_names is not None and len(metadata.secondary_names) > max_secondary_names_len:
+                max_secondary_names_len = len(metadata.secondary_names)
             expected_rows += 1
 
     return max_value_len, max_accession_len, max_secondary_names_len, max_description_len, max_gf_name_len, expected_rows
@@ -178,6 +178,38 @@ def get_metadata_org_len(select_org: List[Organism], source: str) -> (int, int):
     return max_value_len, max_accession_len, max_description_len, max_org_name_len, expected_rows
 
 
+def metadata_gene_desc(max_name_len: int = 1, max_accession_len: int = 1, max_description_len: int = 1,
+                      max_gene_name_len: int = 1) -> dict:
+    meta_desc = metadata_desc(max_name_len, max_accession_len, max_description_len)
+    meta_desc.update({"gene": tables.StringCol(itemsize=max_gene_name_len)})
+    return meta_desc
+
+
+def get_metadata_org_len(select_gene: List[Gene], source: str) -> (int, int):
+    """
+    Get maximum size of gene families information
+    :param select_gf: selected gene families from source
+    :param source: Name of the metadata source
+    :return: Maximum size of each element
+    """
+    max_value_len, max_accession_len, max_description_len = (1, 1, 1)
+    max_gene_name_len, expected_rows = (1, 0)
+
+    for gene in select_gene:
+        if len(gene.name) > max_gene_name_len:
+            max_gene_name_len = len(gene.name)
+        for metadata in gene.get_source(name=source):
+            if len(metadata.value) > max_value_len:
+                max_value_len = len(metadata.value)
+            if metadata.accession is not None and len(metadata.accession) > max_accession_len:
+                max_accession_len = len(metadata.accession)
+            if metadata.description is not None and len(metadata.description) > max_description_len:
+                max_description_len = len(metadata.description)
+            expected_rows += 1
+
+    return max_value_len, max_accession_len, max_description_len, max_gene_name_len, expected_rows
+
+
 def write_metadata_genomes(pangenome: Pangenome, h5f: tables.File, source: str, disable_bar: bool = False):
     """
     Writing a table containing the protein sequences of each family
@@ -186,16 +218,16 @@ def write_metadata_genomes(pangenome: Pangenome, h5f: tables.File, source: str, 
     :param source: name of the metadata source
     :param disable_bar: Disable progress bar
     """
-    metatype_group = write_metadata_group(h5f, "genomes")
-    select_org = list(pangenome.get_org_by_sources(source=source))
-    meta_len = get_metadata_org_len(select_org, source)
+    metatype_group = write_metadata_group(h5f, "gene")
+    select_gene = list(pangenome.get_gene_by_sources(source=source))
+    meta_len = get_metadata_org_len(select_gene, source)
     source_table = h5f.create_table(metatype_group, source, metadata_org_desc(*meta_len[:-1]),
                                     expectedrows=meta_len[-1])
     meta_row = source_table.row
-    for org in tqdm(select_org, unit='Genome', desc=f'Source = {source}', disable=disable_bar):
-        for metadata in org.get_source(name=source):
+    for gene in tqdm(select_gene, unit='Gene', desc=f'Source = {source}', disable=disable_bar):
+        for metadata in gene.get_source(name=source):
             write_row(meta_row, metadata)
-            meta_row["genome"] = org.name
+            meta_row["genome"] = gene.name
             meta_row.append()
     source_table.flush()
 
@@ -237,3 +269,8 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
         logging.getLogger().info("Writing genomes metadata in pangenome")
         write_metadata_genomes(pangenome, h5f, pangenome.status["metasources"]["genomes"][-1], disable_bar)
         pangenome.status["metadata"]["genomes"] = "Loaded"
+
+    if pangenome.status["metadata"]["genes"] == "Computed":
+        logging.getLogger().info("Writing genes metadata in pangenome")
+        write_metadata_genomes(pangenome, h5f, pangenome.status["metasources"]["genes"][-1], disable_bar)
+        pangenome.status["metadata"]["genes"] = "Loaded"
