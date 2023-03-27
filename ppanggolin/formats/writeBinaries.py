@@ -16,47 +16,8 @@ from gmpy2 import popcount
 #local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Feature
+from ppanggolin.formats.readBinaries import read_genedata, Genedata
 
-class Genedata:
-    """
-    This is a general class storing unique gene-related data to be written in a specific
-    genedata table
-
-    :param start: Start position of a gene
-    :param stop: Stop position of a gene
-    :param strand: associated strand
-    :param gene_type: Type of gene
-    :param position: Position of the gene on its contig
-    :param name: Name of the feature
-    :param product: Associated product
-    :param genetic_code: associated genetic code, if any
-    :param is_fragment: Is it considered a gene fragment?
-    """
-    def __init__(self, start: int, stop: int, strand: str, gene_type: str, position: int, name: str, product: str, genetic_code: int, is_fragment: bool):
-        self.start= start
-        self.stop = stop
-        self.strand = strand
-        self.gene_type= gene_type
-        self.position = position
-        self.name = name
-        self.product = product
-        self.genetic_code = genetic_code
-        self.is_fragment = is_fragment
-    
-    def __eq__(self, other):
-        return  self.start == other.start \
-                and self.stop == other.stop \
-                and self.strand == other.strand \
-                and self.gene_type == other.gene_type \
-                and self.position == other.position \
-                and self.name == other.name \
-                and self.product == other.product \
-                and self.genetic_code == other.genetic_code \
-                and self.is_fragment == other.is_fragment
-    
-    def __hash__(self):
-        return hash((self.start, self.stop, self.strand, self.gene_type, self.position,
-                    self.name, self.product, self.genetic_code, self.is_fragment))
 
 def gene_desc(org_len, contig_len, id_len, max_local_id) -> dict:
     """
@@ -79,7 +40,8 @@ def gene_desc(org_len, contig_len, id_len, max_local_id) -> dict:
         "gene": {
             'ID': tables.StringCol(itemsize=id_len),
             'genedata_id': tables.UInt32Col(),
-            'local': tables.StringCol(itemsize=max_local_id)
+            'local': tables.StringCol(itemsize=max_local_id),
+            'is_fragment': tables.BoolCol(dflt=False)
         }
     }
 
@@ -102,7 +64,6 @@ def genedata_desc(type_len, name_len, product_len):
             'name': tables.StringCol(itemsize=name_len),
             'product': tables.StringCol(itemsize=product_len),
             'genetic_code': tables.UInt32Col(dflt=11),
-            'is_fragment': tables.BoolCol(dflt=False),
     }
 
 
@@ -167,7 +128,7 @@ def get_max_len_genedata(pangenome: Pangenome) -> Tuple[int, int, int]:
     return max_type_len, max_name_len, max_product_len
 
 
-def get_genedata(gene:Feature) -> Tuple[int, str, str, int, str, str, int, bool]:
+def get_genedata(gene:Feature) -> Tuple[int, str, str, int, str, str, int]:
     """
     Gets the genedata type of a Feature
 
@@ -180,7 +141,7 @@ def get_genedata(gene:Feature) -> Tuple[int, str, str, int, str, str, int, bool]
         position = gene.position
         genetic_code = gene.genetic_code
     return Genedata(gene.start, gene.stop, gene.strand, gene.type, position, gene.name,
-                    gene.product, genetic_code, gene.is_fragment)
+                    gene.product, genetic_code)
 
 
 def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
@@ -208,6 +169,7 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
                 gene_row["contig/name"] = contig.name
                 gene_row["contig/is_circular"] = contig.is_circular
                 gene_row["gene/ID"] = gene.ID
+                gene_row["gene/is_fragment"] = gene.is_fragment
                 if gene.type == "CDS":
                     gene_row["gene/local"] = gene.local_identifier
                 genedata = get_genedata(gene)
@@ -235,7 +197,6 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
             genedata_row["genetic_code"] = genedata.genetic_code
         genedata_row["name"] = genedata.name
         genedata_row["product"] = genedata.product
-        genedata_row["is_fragment"] = genedata.is_fragment
         genedata_row.append()
     genedata_table.flush()
 
@@ -909,9 +870,12 @@ def update_gene_fragments(pangenome: Pangenome, h5f: tables.File, disable_bar: b
     :param disable_bar: Allow to disable progress bar
     """
     logging.getLogger().info("Updating annotations with fragment information")
+    genedataid2genedata = read_genedata(h5f)
+
     table = h5f.root.annotations.genes
     for row in tqdm(table, total=table.nrows, unit="gene", disable=disable_bar):
-        if row['gene/type'].decode() == 'CDS':
+        genedata_id = row['gene/genedata_id'].decode()
+        if genedataid2genedata[genedata_id].gene_type == 'CDS':
             row['gene/is_fragment'] = pangenome.get_gene(row['gene/ID'].decode()).is_fragment
             row.update()
     table.flush()

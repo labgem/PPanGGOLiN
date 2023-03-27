@@ -16,7 +16,45 @@ import tables
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot, Module
-from ppanggolin.formats.writeBinaries import Genedata
+
+class Genedata:
+    """
+    This is a general class storing unique gene-related data to be written in a specific
+    genedata table
+
+    :param start: Start position of a gene
+    :param stop: Stop position of a gene
+    :param strand: associated strand
+    :param gene_type: Type of gene
+    :param position: Position of the gene on its contig
+    :param name: Name of the feature
+    :param product: Associated product
+    :param genetic_code: associated genetic code, if any
+    """
+    def __init__(self, start: int, stop: int, strand: str, gene_type: str, position: int, name: str, product: str, genetic_code: int):
+        self.start= start
+        self.stop = stop
+        self.strand = strand
+        self.gene_type= gene_type
+        self.position = position
+        self.name = name
+        self.product = product
+        self.genetic_code = genetic_code
+    
+    def __eq__(self, other):
+        return  self.start == other.start \
+                and self.stop == other.stop \
+                and self.strand == other.strand \
+                and self.gene_type == other.gene_type \
+                and self.position == other.position \
+                and self.name == other.name \
+                and self.product == other.product \
+                and self.genetic_code == other.genetic_code
+    
+    def __hash__(self):
+        return hash((self.start, self.stop, self.strand, self.gene_type, self.position,
+                    self.name, self.product, self.genetic_code))
+
 
 def get_number_of_organisms(pangenome: Pangenome) -> int:
     """ Standalone function to get the number of organisms in a pangenome
@@ -130,8 +168,7 @@ def read_genedata(h5f: tables.File) -> dict:
                             position=row["position"].decode(),
                             name=row["name"].decode(),
                             product=row["product"].decode(),
-                            genetic_code=row["genetic_code"].decode(),
-                            is_fragment=row["is_fragment"].decode())
+                            genetic_code=row["genetic_code"].decode())
         genedata_id = row["genedata_id"].decode()
         genedata_id2genedata[genedata_id] = genedata
     return genedata_id2genedata
@@ -213,7 +250,7 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
                 gene.fill_annotations(start=curr_genedata.start, stop=curr_genedata.stop, strand=curr_genedata.strand,
                                       gene_type=gene_type, name=curr_genedata.name,
                                       product=curr_genedata.product, local_identifier=local)
-            gene.is_fragment = curr_genedata.is_fragment
+            gene.is_fragment = row["is_fragment"]
             gene.fill_parents(org, contig)
             if gene_type == "CDS":
                 contig.add_gene(gene)
