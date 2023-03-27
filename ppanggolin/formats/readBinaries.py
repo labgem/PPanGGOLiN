@@ -161,15 +161,15 @@ def read_genedata(h5f: tables.File) -> dict:
     table = h5f.root.annotations.genedata
     genedata_id2genedata = {}
     for row in read_chunks(table,chunk=20000):
-        genedata = Genedata(start=row["start"].decode(),
-                            stop=row["stop"].decode(),
+        genedata = Genedata(start=row["start"],
+                            stop=row["stop"],
                             strand=row["strand"].decode(),
                             gene_type=row["gene_type"].decode(),
-                            position=row["position"].decode(),
+                            position=row["position"],
                             name=row["name"].decode(),
                             product=row["product"].decode(),
-                            genetic_code=row["genetic_code"].decode())
-        genedata_id = row["genedata_id"].decode()
+                            genetic_code=row["genetic_code"])
+        genedata_id = row["genedata_id"]
         genedata_id2genedata[genedata_id] = genedata
     return genedata_id2genedata
 
@@ -231,7 +231,7 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
             if link:  # if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.get_gene(row["ID"].decode())
             else:  # else creating the gene.
-                curr_genedata = genedata_dict[row["genedata_id"].decode()]
+                curr_genedata = genedata_dict[row["genedata_id"]]
                 gene_type = curr_genedata.gene_type
                 if gene_type == "CDS":
                     gene = Gene(row["ID"].decode())

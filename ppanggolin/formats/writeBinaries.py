@@ -874,7 +874,7 @@ def update_gene_fragments(pangenome: Pangenome, h5f: tables.File, disable_bar: b
 
     table = h5f.root.annotations.genes
     for row in tqdm(table, total=table.nrows, unit="gene", disable=disable_bar):
-        genedata_id = row['gene/genedata_id'].decode()
+        genedata_id = row['gene/genedata_id']
         if genedataid2genedata[genedata_id].gene_type == 'CDS':
             row['gene/is_fragment'] = pangenome.get_gene(row['gene/ID'].decode()).is_fragment
             row.update()
