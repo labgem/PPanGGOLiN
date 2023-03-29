@@ -3,7 +3,7 @@
 
 # default libraries
 import logging
-from typing import List, Tuple
+from typing import Dict, List, Tuple, Union
 
 # installed libraries
 from tqdm import tqdm
@@ -60,71 +60,74 @@ def write_metadata_group(h5f: tables.File, metatype: str):
     return metatype_group
 
 
-def write_row(meta_row, metadata):
-    meta_row["value"] = metadata.value
-    meta_row["accession"] = metadata.accession
-    meta_row["description"] = metadata.description
-    meta_row["score"] = metadata.score
-    meta_row["e_val"] = metadata.e_val
-    meta_row["bias"] = metadata.bias
-
-
-def metadata_desc(max_name_len: int = 1, max_accession_len: int = 1, max_description_len: int = 1) -> dict:
+def desc_metadata(max_len_dict: Dict[str, int], type_dict: Dict[str, tables.Col]) -> dict:
     """
     Create a formated table for gene families metadata description
-    :param max_name_len:
-    :param max_accession_len:
-    :param max_description_len:
 
     :return: Formated table
     """
-    return {
-        "accession": tables.StringCol(itemsize=max_accession_len),
-        "value": tables.StringCol(itemsize=max_name_len),
-        "description": tables.StringCol(itemsize=max_description_len),
-        "score": tables.Float64Col(),
-        "e_val": tables.Float64Col(),
-        "bias": tables.Float64Col(),
-    }
+    desc_dict = {attr: tables.StringCol(itemsize=max_value) for attr, max_value in max_len_dict.items()}
+    desc_dict.update({attr: col_type for attr, col_type in type_dict.items()})
+    return desc_dict
 
 
-def desc_metadata_families(max_name_len: int = 1, max_accession_len: int = 1,
-                           max_secondary_names_len: int = 1, max_description_len: int = 1,
-                           max_gf_name_len: int = 1) -> dict:
-    meta_desc = metadata_desc(max_name_len, max_accession_len, max_description_len)
-    meta_desc.update({"secondary_names": tables.StringCol(itemsize=max_secondary_names_len),
-                      "geneFam": tables.StringCol(itemsize=max_gf_name_len)})
-    return meta_desc
-
-
-def get_metadata_families_len(select_gf: List[GeneFamily], source: str) -> (int, int):
+def get_metadata_len(select_elem: List[Module], source: str) -> (int, int):
     """
     Get maximum size of gene families information
-    :param select_gf: selected gene families from source
+    :param select_elem: selected gene families from source
     :param source: Name of the metadata source
     :return: Maximum size of each element
     """
-    max_value_len, max_accession_len, max_secondary_names_len, max_description_len = (1, 1, 1, 1)
-    max_gf_name_len, expected_rows = (1, 0)
+    type_dict = {}
+    max_len_dict = {}
+    expected_rows = 0
 
-    for gf in select_gf:
-        if len(gf.name) > max_gf_name_len:
-            max_gf_name_len = len(gf.name)
-        for metadata in gf.get_source(name=source):
-            if len(metadata.value) > max_value_len:
-                max_value_len = len(metadata.value)
-            if metadata.accession is not None and len(metadata.accession) > max_accession_len:
-                max_accession_len = len(metadata.accession)
-            if metadata.description is not None and len(metadata.description) > max_description_len:
-                max_description_len = len(metadata.description)
-            if metadata.secondary_names is not None and len(metadata.secondary_names) > max_secondary_names_len:
-                max_secondary_names_len = len(metadata.secondary_names)
+    for element in select_elem:
+        if hasattr(element, 'name'):
+            if 'ID' in max_len_dict:
+                if len(element.name) > max_len_dict['ID']:
+                    max_len_dict['ID'] = len(element.name)
+            else:
+                if "name" not in max_len_dict or len(element.name) > max_len_dict['name']:
+                    max_len_dict['name'] = len(element.name)
+        elif hasattr(element, 'ID'):
+            if 'name' in max_len_dict:
+                if len(element.ID) > max_len_dict['name']:
+                    max_len_dict['name'] = len(element.ID)
+        else:
+            raise Exception("Unexpected attribute. A recent change could create this error."
+                            " Please report the error on our github.")
+        for metadata in element.get_source(name=source):
+            for attr, value in ((k, v) for k, v in metadata.__dict__.items() if k != "source"):
+                if isinstance(value, bytes):
+                    value = value.decode('UTF-8')
+                if isinstance(value, float) or isinstance(value, int):
+                    if attr in type_dict:
+                        if type_dict[attr] != type(value):
+                            if type(value) == float and type_dict[attr] == int:
+                                type_dict[attr] = tables.Float64Col()
+                    else:
+                        if isinstance(value, float):
+                            type_dict[attr] = tables.Float64Col()
+                        else:
+                            type_dict[attr] = tables.Int64Col()
+                elif isinstance(value, str):
+                    if attr in max_len_dict:
+                        if len(value) > max_len_dict[attr]:
+                            max_len_dict[attr] = len(value)
+                    else:
+                        max_len_dict[attr] = len(value)
+                else:
+                    raise TypeError(f"{type(value)} is not acceptable")
             expected_rows += 1
 
-    return max_value_len, max_accession_len, max_secondary_names_len, max_description_len, max_gf_name_len, expected_rows
+    return max_len_dict, type_dict, expected_rows
 
 
-def write_metadata_families(pangenome: Pangenome, h5f: tables.File, source: str, disable_bar: bool = False):
+def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
+                            select_elements: Union[List[Gene], List[Organism], List[GeneFamily], List[Region],
+                                             List[Spot], List[Module]],
+                            disable_bar: bool = False):
     """
     Writing a table containing the protein sequences of each family
     :param pangenome: Pangenome with gene families computed
@@ -132,287 +135,20 @@ def write_metadata_families(pangenome: Pangenome, h5f: tables.File, source: str,
     :param source: name of the metadata source
     :param disable_bar: Disable progress bar
     """
-    metatype_group = write_metadata_group(h5f, "families")
-    select_gf = list(pangenome.get_gf_by_sources(source=source))
-    meta_len = get_metadata_families_len(select_gf, source)
-    source_table = h5f.create_table(metatype_group, source, desc_metadata_families(*meta_len[:-1]),
-                                    expectedrows=meta_len[-1])
+    metatype_group = write_metadata_group(h5f, metatype)
+    meta_len = get_metadata_len(select_elements, source)
+    source_table = h5f.create_table(metatype_group, source, desc_metadata(*meta_len[:-1]), expectedrows=meta_len[-1])
     meta_row = source_table.row
-    for gf in tqdm(select_gf, unit='Gene family', desc=f'Source = {source}', disable=disable_bar):
-        for metadata in gf.get_source(name=source):
-            write_row(meta_row, metadata)
-            meta_row["secondary_names"] = metadata.secondary_names
-            meta_row["geneFam"] = gf.name
-            meta_row.append()
-    source_table.flush()
-
-
-def desc_metadata_org(max_name_len: int = 1, max_accession_len: int = 1, max_description_len: int = 1,
-                      max_org_name_len: int = 1) -> dict:
-    meta_desc = metadata_desc(max_name_len, max_accession_len, max_description_len)
-    meta_desc.update({"genome": tables.StringCol(itemsize=max_org_name_len)})
-    return meta_desc
-
-
-def get_metadata_org_len(select_org: List[Organism], source: str) -> (int, int):
-    """
-    Get maximum size of gene families information
-    :param select_org: selected gene families from source
-    :param source: Name of the metadata source
-    :return: Maximum size of each element
-    """
-    max_value_len, max_accession_len, max_description_len = (1, 1, 1)
-    max_org_name_len, expected_rows = (1, 0)
-
-    for org in select_org:
-        if len(org.name) > max_org_name_len:
-            max_org_name_len = len(org.name)
-        for metadata in org.get_source(name=source):
-            if len(metadata.value) > max_value_len:
-                max_value_len = len(metadata.value)
-            if metadata.accession is not None and len(metadata.accession) > max_accession_len:
-                max_accession_len = len(metadata.accession)
-            if metadata.description is not None and len(metadata.description) > max_description_len:
-                max_description_len = len(metadata.description)
-            expected_rows += 1
-
-    return max_value_len, max_accession_len, max_description_len, max_org_name_len, expected_rows
-
-
-def write_metadata_genomes(pangenome: Pangenome, h5f: tables.File, source: str, disable_bar: bool = False):
-    """
-    Writing a table containing the protein sequences of each family
-    :param pangenome: Pangenome with gene families computed
-    :param h5f: HDF5 file to write gene families
-    :param source: name of the metadata source
-    :param disable_bar: Disable progress bar
-    """
-    metatype_group = write_metadata_group(h5f, "genomes")
-    select_genomes = list(pangenome.get_org_by_sources(source=source))
-    meta_len = get_metadata_org_len(select_genomes, source)
-    source_table = h5f.create_table(metatype_group, source, desc_metadata_org(*meta_len[:-1]),
-                                    expectedrows=meta_len[-1])
-    meta_row = source_table.row
-    for genome in tqdm(select_genomes, unit='Genome', desc=f'Source = {source}', disable=disable_bar):
-        for metadata in genome.get_source(name=source):
-            write_row(meta_row, metadata)
-            meta_row["genome"] = genome.name
-            meta_row.append()
-    source_table.flush()
-
-
-def desc_metadata_gene(max_name_len: int = 1, max_accession_len: int = 1, max_description_len: int = 1,
-                       max_gene_name_len: int = 1) -> dict:
-    meta_desc = metadata_desc(max_name_len, max_accession_len, max_description_len)
-    meta_desc.update({"gene": tables.StringCol(itemsize=max_gene_name_len)})
-    return meta_desc
-
-
-def get_metadata_gene_len(select_gene: List[Gene], source: str) -> (int, int):
-    """
-    Get maximum size of gene families information
-    :param select_gene: selected gene families from source
-    :param source: Name of the metadata source
-    :return: Maximum size of each element
-    """
-    max_value_len, max_accession_len, max_description_len = (1, 1, 1)
-    max_gene_name_len, expected_rows = (1, 0)
-
-    for gene in select_gene:
-        if len(gene.name) > max_gene_name_len:
-            max_gene_name_len = len(gene.name)
-        for metadata in gene.get_source(name=source):
-            if len(metadata.value) > max_value_len:
-                max_value_len = len(metadata.value)
-            if metadata.accession is not None and len(metadata.accession) > max_accession_len:
-                max_accession_len = len(metadata.accession)
-            if metadata.description is not None and len(metadata.description) > max_description_len:
-                max_description_len = len(metadata.description)
-            expected_rows += 1
-
-    return max_value_len, max_accession_len, max_description_len, max_gene_name_len, expected_rows
-
-
-def write_metadata_genes(pangenome: Pangenome, h5f: tables.File, source: str, disable_bar: bool = False):
-    """
-    Writing a table containing the protein sequences of each family
-    :param pangenome: Pangenome with gene families computed
-    :param h5f: HDF5 file to write gene families
-    :param source: name of the metadata source
-    :param disable_bar: Disable progress bar
-    """
-    metatype_group = write_metadata_group(h5f, "gene")
-    select_gene = list(pangenome.get_gene_by_sources(source=source))
-    meta_len = get_metadata_gene_len(select_gene, source)
-    source_table = h5f.create_table(metatype_group, source, desc_metadata_gene(*meta_len[:-1]),
-                                    expectedrows=meta_len[-1])
-    meta_row = source_table.row
-    for gene in tqdm(select_gene, unit='Gene', desc=f'Source = {source}', disable=disable_bar):
-        for metadata in gene.get_source(name=source):
-            write_row(meta_row, metadata)
-            meta_row["gene"] = gene.name
-            meta_row.append()
-    source_table.flush()
-
-
-def desc_metadata_rgp(max_name_len: int = 1, max_accession_len: int = 1, max_description_len: int = 1,
-                      max_gene_name_len: int = 1) -> dict:
-    meta_desc = metadata_desc(max_name_len, max_accession_len, max_description_len)
-    meta_desc.update({"rgp": tables.StringCol(itemsize=max_gene_name_len)})
-    return meta_desc
-
-
-def get_metadata_rgp_len(select_rgps: List[Region], source: str) -> (int, int):
-    """
-    Get maximum size of gene families information
-    :param select_rgps: selected gene families from source
-    :param source: Name of the metadata source
-    :return: Maximum size of each element
-    """
-    max_value_len, max_accession_len, max_description_len = (1, 1, 1)
-    max_rgp_name_len, expected_rows = (1, 0)
-
-    for rgp in select_rgps:
-        if len(rgp.name) > max_rgp_name_len:
-            max_rgp_name_len = len(rgp.name)
-        for metadata in rgp.get_source(name=source):
-            if len(metadata.value) > max_value_len:
-                max_value_len = len(metadata.value)
-            if metadata.accession is not None and len(metadata.accession) > max_accession_len:
-                max_accession_len = len(metadata.accession)
-            if metadata.description is not None and len(metadata.description) > max_description_len:
-                max_description_len = len(metadata.description)
-            expected_rows += 1
-
-    return max_value_len, max_accession_len, max_description_len, max_rgp_name_len, expected_rows
-
-
-def write_metadata_rgps(pangenome: Pangenome, h5f: tables.File, source: str, disable_bar: bool = False):
-    """
-    Writing a table containing the protein sequences of each family
-    :param pangenome: Pangenome with gene families computed
-    :param h5f: HDF5 file to write gene families
-    :param source: name of the metadata source
-    :param disable_bar: Disable progress bar
-    """
-    metatype_group = write_metadata_group(h5f, "RGP")
-    select_rgps = list(pangenome.get_rgp_by_sources(source=source))
-    meta_len = get_metadata_rgp_len(select_rgps, source)
-    source_table = h5f.create_table(metatype_group, source, desc_metadata_rgp(*meta_len[:-1]),
-                                    expectedrows=meta_len[-1])
-    meta_row = source_table.row
-    for rgp in tqdm(select_rgps, unit='RGP', desc=f'Source = {source}', disable=disable_bar):
-        for metadata in rgp.get_source(name=source):
-            write_row(meta_row, metadata)
-            meta_row["rgp"] = rgp.name
-            meta_row.append()
-    source_table.flush()
-
-
-def desc_metadata_spot(max_name_len: int = 1, max_accession_len: int = 1, max_description_len: int = 1,
-                       max_spot_name_len: int = 1) -> dict:
-    meta_desc = metadata_desc(max_name_len, max_accession_len, max_description_len)
-    meta_desc.update({"spot": tables.StringCol(itemsize=max_spot_name_len)})
-    return meta_desc
-
-
-def get_metadata_spots_len(select_spots: List[Spot], source: str) -> (int, int):
-    """
-    Get maximum size of gene families information
-    :param select_spots: selected gene families from source
-    :param source: Name of the metadata source
-    :return: Maximum size of each element
-    """
-    max_value_len, max_accession_len, max_description_len = (1, 1, 1)
-    max_spot_name_len, expected_rows = (1, 0)
-
-    for spot in select_spots:
-        if len(spot.ID) > max_spot_name_len:
-            max_spot_name_len = len(spot.ID)
-        for metadata in spot.get_source(name=source):
-            if len(metadata.value) > max_value_len:
-                max_value_len = len(metadata.value)
-            if metadata.accession is not None and len(metadata.accession) > max_accession_len:
-                max_accession_len = len(metadata.accession)
-            if metadata.description is not None and len(metadata.description) > max_description_len:
-                max_description_len = len(metadata.description)
-            expected_rows += 1
-
-    return max_value_len, max_accession_len, max_description_len, max_spot_name_len, expected_rows
-
-
-def write_metadata_spots(pangenome: Pangenome, h5f: tables.File, source: str, disable_bar: bool = False):
-    """
-    Writing a table containing the protein sequences of each family
-    :param pangenome: Pangenome with gene families computed
-    :param h5f: HDF5 file to write gene families
-    :param source: name of the metadata source
-    :param disable_bar: Disable progress bar
-    """
-    metatype_group = write_metadata_group(h5f, "spot")
-    select_spots = list(pangenome.get_spots_by_sources(source=source))
-    meta_len = get_metadata_spots_len(select_spots, source)
-    source_table = h5f.create_table(metatype_group, source, desc_metadata_spot(*meta_len[:-1]),
-                                    expectedrows=meta_len[-1])
-    meta_row = source_table.row
-    for spot in tqdm(select_spots, unit='Spot', desc=f'Source = {source}', disable=disable_bar):
-        for metadata in spot.get_source(name=source):
-            write_row(meta_row, metadata)
-            meta_row["spot"] = spot.ID
-            meta_row.append()
-    source_table.flush()
-
-
-def desc_metadata_modules(max_name_len: int = 1, max_accession_len: int = 1, max_description_len: int = 1,
-                         max_module_name_len: int = 1) -> dict:
-    meta_desc = metadata_desc(max_name_len, max_accession_len, max_description_len)
-    meta_desc.update({"module": tables.StringCol(itemsize=max_module_name_len)})
-    return meta_desc
-
-
-def get_metadata_modules_len(select_modules: List[Module], source: str) -> (int, int):
-    """
-    Get maximum size of gene families information
-    :param select_modules: selected gene families from source
-    :param source: Name of the metadata source
-    :return: Maximum size of each element
-    """
-    max_value_len, max_accession_len, max_description_len = (1, 1, 1)
-    max_module_name_len, expected_rows = (1, 0)
-
-    for module in select_modules:
-        if len(module.ID) > max_module_name_len:
-            max_module_name_len = len(module.ID)
-        for metadata in module.get_source(name=source):
-            if len(metadata.value) > max_value_len:
-                max_value_len = len(metadata.value)
-            if metadata.accession is not None and len(metadata.accession) > max_accession_len:
-                max_accession_len = len(metadata.accession)
-            if metadata.description is not None and len(metadata.description) > max_description_len:
-                max_description_len = len(metadata.description)
-            expected_rows += 1
-
-    return max_value_len, max_accession_len, max_description_len, max_module_name_len, expected_rows
-
-
-def write_metadata_modules(pangenome: Pangenome, h5f: tables.File, source: str, disable_bar: bool = False):
-    """
-    Writing a table containing the protein sequences of each family
-    :param pangenome: Pangenome with gene families computed
-    :param h5f: HDF5 file to write gene families
-    :param source: name of the metadata source
-    :param disable_bar: Disable progress bar
-    """
-    metatype_group = write_metadata_group(h5f, "module")
-    select_modules = list(pangenome.get_spots_by_sources(source=source))
-    meta_len = get_metadata_modules_len(select_modules, source)
-    source_table = h5f.create_table(metatype_group, source, desc_metadata_modules(*meta_len[:-1]),
-                                    expectedrows=meta_len[-1])
-    meta_row = source_table.row
-    for module in tqdm(select_modules, unit='Module', desc=f'Source = {source}', disable=disable_bar):
-        for metadata in module.get_source(name=source):
-            write_row(meta_row, metadata)
-            meta_row["module"] = module.ID
+    for element in tqdm(select_elements, unit=metatype, desc=f'Source = {source}', disable=disable_bar):
+        for metadata in element.get_source(name=source):
+            for desc in source_table.colnames:
+                if desc in ["name", "ID"]:
+                    meta_row[desc] = element.__getattribute__(desc)
+                else:
+                    value = metadata.__getattribute__(desc)
+                    if isinstance(value, bytes):
+                        value = value.decode('UTF-8')
+                    meta_row[desc] = value
             meta_row.append()
     source_table.flush()
 
@@ -447,30 +183,42 @@ def erase_metadata(pangenome: Pangenome, h5f: tables.File, status_group: tables.
 def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     if pangenome.status["metadata"]["families"] == "Computed":
         logging.getLogger().info("Writing gene families metadata in pangenome")
-        write_metadata_families(pangenome, h5f, pangenome.status["metasources"]["families"][-1], disable_bar)
+        select_gf = list(pangenome.get_gf_by_sources(source=pangenome.status["metasources"]["families"][-1]))
+        write_metadata_metatype(h5f, pangenome.status["metasources"]["families"][-1],
+                                "families", select_gf, disable_bar)
         pangenome.status["metadata"]["families"] = "Loaded"
 
     if pangenome.status["metadata"]["genomes"] == "Computed":
         logging.getLogger().info("Writing genomes metadata in pangenome")
-        write_metadata_genomes(pangenome, h5f, pangenome.status["metasources"]["genomes"][-1], disable_bar)
+        select_genomes = list(pangenome.get_org_by_sources(source=pangenome.status["metasources"]["genomes"][-1]))
+        write_metadata_metatype(h5f, pangenome.status["metasources"]["genomes"][-1],
+                                "genomes", select_genomes, disable_bar)
         pangenome.status["metadata"]["genomes"] = "Loaded"
 
     if pangenome.status["metadata"]["genes"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")
-        write_metadata_genes(pangenome, h5f, pangenome.status["metasources"]["genes"][-1], disable_bar)
+        select_genes = list(pangenome.get_gene_by_sources(source=pangenome.status["metasources"]["genes"][-1]))
+        write_metadata_metatype(h5f, pangenome.status["metasources"]["genes"][-1],
+                                "genes", select_genes, disable_bar)
         pangenome.status["metadata"]["genes"] = "Loaded"
 
-    if pangenome.status["metadata"]["rgps"] == "Computed":
+    if pangenome.status["metadata"]["RGPs"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")
-        write_metadata_rgps(pangenome, h5f, pangenome.status["metasources"]["rgps"][-1], disable_bar)
-        pangenome.status["metadata"]["rgps"] = "Loaded"
+        select_rgps = list(pangenome.get_rgp_by_sources(source=pangenome.status["metasources"]["RGPs"][-1]))
+        write_metadata_metatype(h5f, pangenome.status["metasources"]["RGPs"][-1],
+                                "RGPs", select_rgps, disable_bar)
+        pangenome.status["metadata"]["RGPs"] = "Loaded"
 
     if pangenome.status["metadata"]["spots"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")
-        write_metadata_spots(pangenome, h5f, pangenome.status["metasources"]["spots"][-1], disable_bar)
+        select_spots = list(pangenome.get_spots_by_sources(source=pangenome.status["metasources"]["spots"][-1]))
+        write_metadata_metatype(h5f, pangenome.status["metasources"]["spots"][-1],
+                                "spots", select_spots, disable_bar)
         pangenome.status["metadata"]["spots"] = "Loaded"
 
     if pangenome.status["metadata"]["modules"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")
-        write_metadata_genomes(pangenome, h5f, pangenome.status["metasources"]["modules"][-1], disable_bar)
+        select_modules = list(pangenome.get_modules_by_sources(source=pangenome.status["metasources"]["modules"][-1]))
+        write_metadata_metatype(h5f, pangenome.status["metasources"]["modules"][-1],
+                                "modules", select_modules, disable_bar)
         pangenome.status["metadata"]["modules"] = "Loaded"

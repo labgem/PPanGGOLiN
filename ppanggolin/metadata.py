@@ -22,30 +22,26 @@ class Metadata:
     :param bias: The biased composition score correction that was applied to the bit score
     """
 
-    def __init__(self, source: str, value: Union[str, int, float], accession: str = None,
-                 secondary_names: Union[str, List[str]] = None, description: str = None,
-                 score: float = None, e_val: float = None, bias: float = None):
+    def __init__(self, source: str, value: Union[str, int, float], **kwargs):
         """Constructor Method
         """
         self.source = source
-        self.accession = accession
         self.value = value
-        self.secondary_names = self._write_secondary_names(secondary_names)
-        self.description = description
-        self.score = score
-        self.e_val = e_val
-        self.bias = bias
+        for attr, value in kwargs.items():
+            if isinstance(value, str) or isinstance(value, list):
+                value = self._join_list(value)
+            setattr(self, attr, value)
 
     def __str__(self):
         return self.value
 
     @staticmethod
-    def _write_secondary_names(secondary_names: Union[str, List[str]]):
-        if isinstance(secondary_names, list):
-            return ','.join(secondary_names)
-        elif isinstance(secondary_names, str):
-            return secondary_names
-        elif secondary_names is None or isna(secondary_names):
+    def _join_list(attr_list: Union[str, List[str]]):
+        if isinstance(attr_list, list):
+            return ','.join(attr_list)
+        elif isinstance(attr_list, str):
+            return attr_list
+        elif attr_list is None or isna(attr_list):
             return ''
 
 
@@ -93,21 +89,17 @@ class MetaFeatures:
         """
         return self._metadataGetter[name] if name in self.sources else None
 
-    def get_metadata(self, value: Union[str, int, float, List[str], List[int], List[float]],
-                     accession: Union[List[str], str]) -> Generator[Metadata, None, None]:
+    def get_metadata(self, value: Union[str, int, float, List[str], List[int], List[float]]) -> Generator[Metadata, None, None]:
         """Get annotation by name or accession in gene family
 
         :param value: Names of annotation searched
-        :param accession: Accession number of annotation searched
 
         :return: annotation searched
         """
-        assert value is not None and accession is not None
         value = value if isinstance(value, list) else [value]
-        accession = accession if isinstance(accession, list) else [accession]
 
         for annotation in self.metadata:
-            if annotation.value in value or annotation.accession in accession:
+            if annotation.value in value:
                 yield annotation
 
     def add_metadata(self, source: str, metadata: Metadata):
@@ -120,38 +112,40 @@ class MetaFeatures:
         same_value = False
         if source_annot is not None:
             index_annot = 0
-            insert_bool = False
+            # insert_bool = False
             while index_annot < len(source_annot):
                 current_annot = source_annot[index_annot]
                 if current_annot.value == metadata.value:
                     same_value = True
-                if current_annot.score is not None and metadata.score is not None:
-                    if current_annot.score < metadata.score:
-                        if same_value:
-                            source_annot[index_annot] = metadata
-                        else:
-                            source_annot.insert(index_annot, metadata)
-                            insert_bool = True
-                    elif current_annot.score == metadata.score:
-                        if current_annot.e_val is not None and metadata.e_val is not None:
-                            if current_annot.e_val > metadata.e_val:
-                                if same_value:
-                                    source_annot[index_annot] = metadata
-                                else:
-                                    source_annot.insert(index_annot, metadata)
-                                    insert_bool = True
-                elif current_annot.e_val is not None and metadata.e_val is not None:
-                    if current_annot.e_val > metadata.e_val:
-                        if same_value:
-                            source_annot[index_annot] = metadata
-                        else:
-                            source_annot.insert(index_annot, metadata)
-                            insert_bool = True
-                if not insert_bool and not same_value:
+                # if current_annot.score is not None and metadata.score is not None:
+                #     if current_annot.score < metadata.score:
+                #         if same_value:
+                #             source_annot[index_annot] = metadata
+                #         else:
+                #             source_annot.insert(index_annot, metadata)
+                #             insert_bool = True
+                #     elif current_annot.score == metadata.score:
+                #         if current_annot.e_val is not None and metadata.e_val is not None:
+                #             if current_annot.e_val > metadata.e_val:
+                #                 if same_value:
+                #                     source_annot[index_annot] = metadata
+                #                 else:
+                #                     source_annot.insert(index_annot, metadata)
+                #                     insert_bool = True
+                # elif current_annot.e_val is not None and metadata.e_val is not None:
+                #     if current_annot.e_val > metadata.e_val:
+                #         if same_value:
+                #             source_annot[index_annot] = metadata
+                #         else:
+                #             source_annot.insert(index_annot, metadata)
+                #             insert_bool = True
+                # if not insert_bool and not same_value:
+                if not same_value:
                     index_annot += 1
                 else:
                     break
-            if not insert_bool and not same_value:
+            # if not insert_bool and not same_value:
+            if not same_value:
                 source_annot.append(metadata)
         else:
             self._metadataGetter[source] = [metadata]
