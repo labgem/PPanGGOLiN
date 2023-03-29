@@ -200,12 +200,12 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     if ignore_incomplete_rgp:
         valid_rgps = [rgp for rgp in pangenome.regions if not rgp.is_contig_border]
 
-        logging.info(f'Ignoring {len(pangenome.regions) - len(valid_rgps)}/{len(pangenome.regions)} RGPs that are located at a contig border and are likely incomplete.')
+        logging.info(f'Ignoring {len(pangenome.regions) - len(valid_rgps)}/{len(pangenome.regions)} ({100*(len(pangenome.regions) - len(valid_rgps))/len(pangenome.regions):.2f}%) RGPs that are located at a contig border and are likely incomplete.')
         
     else:
         valid_rgps = pangenome.regions
         
-    
+
     rgp_to_identical_rgps = dereplicate_rgp(valid_rgps, disable_bar=disable_bar)
     
     uniq_rgps = list(rgp_to_identical_rgps)
