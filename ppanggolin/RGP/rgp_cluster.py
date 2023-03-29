@@ -9,9 +9,9 @@ import os
 from itertools import combinations, product
 from collections.abc import Callable
 from collections import defaultdict 
-from multiprocessing import get_context
+from multiprocessing.pool import Pool
 from itertools import islice
-
+import time
 
 # installed libraries
 from tqdm import tqdm
@@ -100,7 +100,7 @@ def manage_identical_rgps(rgp_graph, uniq_rgps, rgp_to_spot):
             else:
                 strictly_identical_rgp = strictly_identical_rgps.pop()
                 rgp_graph.add_node(strictly_identical_rgp.name, strict_identical_rgp=len(strictly_identical_rgps), identical_rgp=True)
-                rgp_graph.add_edge(rgp.name, identical_rgp.name, max_grr=1.0, min_grr=1.0, jaccard_index=1.0, identical_famillies=True)
+                rgp_graph.add_edge(rgp.name, identical_rgp.name, grr=1.0, identical_famillies=True)
                 
 def dereplicate_rgp(rgps: list, disable_bar=False) -> dict: 
     """
@@ -123,39 +123,50 @@ def dereplicate_rgp(rgps: list, disable_bar=False) -> dict:
     logging.info(f'{len(uniq_rgps)} uniq RGPs')
     return uniq_rgps
 
-def compute_rgp_metric(pairs_of_rgps):
+def compute_rgp_metric(rgp_pair, rgp_to_families, rgp_to_contigborder, grr_cutoff):
     """
     """
-    logging.debug(f'in compute_rgp_metric: computing metrics for {len(pairs_of_rgps)=}')
-    pairs_of_rgps_metrics = []
-    for (rgp_a, rgp_a_fam), (rgp_b, rgp_b_fam) in pairs_of_rgps:
-        # compute metrics between 2 rgp if they share at least one familly
-        if rgp_a_fam & rgp_b_fam:
-            edge_metrics = {}
-            edge_metrics['min_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, min)
-            edge_metrics['max_grr']  = compute_grr(rgp_a_fam, rgp_b_fam, max)
-            edge_metrics['jaccard_index']  = compute_jaccard_index(rgp_a_fam, rgp_b_fam)
-            edge_metrics['shared_family']  = len(rgp_a_fam & rgp_b_fam)
+    # rgp_pair, rgp_to_families = rgp_pair_and_rgp_to_families
+    rgp_a, rgp_b = rgp_pair
+    
+    rgp_a_fam = rgp_to_families[rgp_a]
+    rgp_b_fam = rgp_to_families[rgp_b]
 
-            pairs_of_rgps_metrics.append((rgp_a, rgp_b, edge_metrics))
+    # compute metrics between 2 rgp if they share at least one familly
+    if rgp_a_fam & rgp_b_fam:
+        edge_metrics = {}
+        
+        if rgp_to_contigborder[rgp_a] or rgp_to_contigborder[rgp_b]:
+            # RGP at a contig border are seen as incomplete and min GRR is used instead of max GRR
+            edge_metrics['grr']  = compute_grr(rgp_a_fam, rgp_b_fam, min)
+        else:
+            edge_metrics['grr']  = compute_grr(rgp_a_fam, rgp_b_fam, max)
 
-    return pairs_of_rgps_metrics
+        edge_metrics['max_grr']  = compute_grr(rgp_a_fam, rgp_b_fam, max)
+        edge_metrics['min_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, min)
+        edge_metrics['jaccard_index']  = compute_jaccard_index(rgp_a_fam, rgp_b_fam)
 
-def simplify_rgp_object(rgp):
-    return rgp.name, {f.ID for f in rgp.families}
+        # number of shared fam can be useful when visualising the graph
+        edge_metrics['shared_family']  = len(rgp_a_fam & rgp_b_fam)
+
+        if edge_metrics['grr'] >= grr_cutoff:
+            return (rgp_a, rgp_b, edge_metrics)
 
 
-def make_chunks(iterable, size):
+def launch_rgp_metric(pack: tuple) -> tuple:
+    """ Allow to launch in multiprocessing the rgp metric
+
+    :param pack: Pack of argument for rgp metrics
+
+    :return: edge metrics 
     """
-    """
+    return compute_rgp_metric(*pack)
 
-    i = iter(iterable)
-    piece = [(simplify_rgp_object(rgp1),simplify_rgp_object(rgp2)) for rgp1, rgp2 in islice(i, size)]
-    while piece:
-        yield piece
-        piece =  [(simplify_rgp_object(rgp1),simplify_rgp_object(rgp2)) for rgp1, rgp2 in islice(i, size)]
 
-def cluster_nodes(G, clustering_attributes = ["min_grr", "max_grr", "jaccard_index"], prefix=""):
+def get_rgp_family_ids(rgp):
+    return {f.ID for f in rgp.families}
+
+def cluster_nodes(G, clustering_attributes, prefix=""):
             
         for weight in clustering_attributes:
             partitions = nx.algorithms.community.louvain_communities(G, weight=weight)
@@ -166,7 +177,7 @@ def cluster_nodes(G, clustering_attributes = ["min_grr", "max_grr", "jaccard_ind
 
             logging.info(f"{prefix}: Graph has {len(partitions)} clusters using {weight}")
 
-def cluster_rgp(pangenome, output, basename, cpu, disable_bar):
+def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_rgp, disable_bar):
     """
     Main function to cluster regions of genomic plasticity based on their GRR
 
@@ -179,68 +190,91 @@ def cluster_rgp(pangenome, output, basename, cpu, disable_bar):
     check_pangenome_info(pangenome, need_families=True, need_annotations=True,
                         disable_bar=disable_bar, need_rgp=True, need_spots=True)
 
+
+    if pangenome.regions == 0:
+        raise Exception("The pangenome has no RGPs. The clustering of RGP is then not possible.")
+    
     grr_graph = nx.Graph()
 
     # add all rgp as node
+    if ignore_incomplete_rgp:
+        valid_rgps = [rgp for rgp in pangenome.regions if not rgp.is_contig_border]
 
-    uniq_rgps = dereplicate_rgp(pangenome.regions, disable_bar=disable_bar )
+        logging.info(f'Ignoring {len(pangenome.regions) - len(valid_rgps)}/{len(pangenome.regions)} RGPs that are located at a contig border and are likely incomplete.')
+        
+    else:
+        valid_rgps = pangenome.regions
+        
+    
+    rgp_to_identical_rgps = dereplicate_rgp(valid_rgps, disable_bar=disable_bar)
+    
+    uniq_rgps = list(rgp_to_identical_rgps)
+    rgp_count = len(uniq_rgps)
+
 
     grr_graph.add_nodes_from((rgp.name for rgp in uniq_rgps), identical_rgp=False)
 
+
+    # Creating dictonnaries with rgp index and families 
+    rgp_to_families = {rgp_index:get_rgp_family_ids(rgp) for rgp_index, rgp in enumerate(uniq_rgps)}
+    rgp_to_iscontigborder = {rgp_index:rgp.is_contig_border for rgp_index, rgp in enumerate(uniq_rgps)}
+
     # compute grr for all possible pair of rgp
-    rgp_count = len(uniq_rgps)
     pairs_count = int((rgp_count**2 - rgp_count)/2)
     logging.info(f'Computing GRR metric for {pairs_count:,} pairs of RGP using {cpu} cpus...')
-    
-    rgp_pairs = combinations(uniq_rgps, 2)
-    chunk_size = int(pairs_count/(cpu*200)) +1
-    logging.debug(f'Spliting RGP pairs in {pairs_count/(cpu*200)} chunks of {chunk_size} pairs')
-    chunks_of_rgp_pairs = make_chunks(rgp_pairs, chunk_size)
 
-    # for rgp_a, rgp_b in tqdm(combinations(uniq_rgps, 2), total=pairs_count, unit="RGP pairs", disable=disable_bar) :
-    with get_context('fork').Pool(processes=cpu) as p:
-        for pairs_of_rgps_metrics in tqdm(p.imap_unordered(compute_rgp_metric, chunks_of_rgp_pairs), unit=f"pairs of RGPs", unit_scale=round(pairs_count/(cpu*10)),
-                             total=cpu*10, disable=disable_bar):
-            logging.debug(f'adding {len(pairs_of_rgps_metrics)} edges to the graph...')
-            grr_graph.add_edges_from(pairs_of_rgps_metrics)
+     # use the index of the rgp in the list to make pair rather than their name to save memory 
+    rgp_pairs = combinations(range(rgp_count), 2)
 
-        p.close()
-        p.join()
+    ideal_chunk_size = 50000
+    chunk_count = (pairs_count/ideal_chunk_size) + cpu
+    chunk_size = int(pairs_count/chunk_count )+1 
+    logging.debug(f'Processing RGP pairs in  ~{chunk_count} chunks of {chunk_size} pairs')
     
 
+    arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder, grr_cutoff) for rgp_pair in rgp_pairs)
+
+    pairs_of_rgps_metrics = []
+    with Pool(processes=cpu) as p:
+        for pair_metrics in tqdm(p.imap_unordered(launch_rgp_metric, arg_iter, chunksize=chunk_size),
+                                 unit="pair of RGPs", total=pairs_count, disable=disable_bar):
+            if pair_metrics:
+                pairs_of_rgps_metrics.append(pair_metrics)
+
+    grr_graph.add_edges_from(pairs_of_rgps_metrics)
     # cluster rgp based on grr
     logging.info(f"Louvain_communities clustering of RGP.")
-    clustering_attributes = ["min_grr", "max_grr", "jaccard_index"]
-    cluster_nodes(grr_graph, clustering_attributes, prefix="unfiltered") 
+    clustering_attributes = ["grr"]
+    cluster_nodes(grr_graph, clustering_attributes, prefix=f"grr_cutoff_{grr_cutoff}") 
 
 
-    logging.info(f"Clustering RGPs on filtered graph")
-    thresolds = [0.1, 0.2, 0.5, 0.8]
-    for edge_metric, threshold in product(clustering_attributes, thresolds):
-        edges_to_rm = [(u,v) for u,v,e in grr_graph.edges(data=True) if e[edge_metric] < threshold]
-        grr_graph_filtered = nx.restricted_view(grr_graph, nodes=[], edges=edges_to_rm )
-        logging.info(f"Filtering graph edges with {edge_metric}<{threshold}: {grr_graph_filtered}")
+    # logging.info(f"Clustering RGPs on filtered graph")
+    # thresolds = [0.6, 0.7, 0.8, 0.9]
+    # for edge_metric, threshold in product(clustering_attributes, thresolds):
+    #     edges_to_rm = [(u,v) for u,v,e in grr_graph.edges(data=True) if e[edge_metric] < threshold]
+    #     grr_graph_filtered = nx.restricted_view(grr_graph, nodes=[], edges=edges_to_rm )
+    #     logging.info(f"Filtering graph edges with {edge_metric}<{threshold}: {grr_graph_filtered}")
 
-        # cluster filtered graph
-        cluster_nodes(grr_graph_filtered, [edge_metric], prefix=f"{edge_metric}>{threshold}")
+    #     # cluster filtered graph
+    #     cluster_nodes(grr_graph_filtered, [edge_metric], prefix=f"{edge_metric}>{threshold}")
 
 
     logging.info(f"Manage identical RGP in the graph")
     rgp_to_spot =  {region:spot.ID  for spot in pangenome.spots  for region in spot.regions}
-    manage_identical_rgps(grr_graph, uniq_rgps, rgp_to_spot)
+    manage_identical_rgps(grr_graph, rgp_to_identical_rgps, rgp_to_spot)
     
     # add some attribute to the graph nodes.
     logging.info(f"Add RGP information to the graph")
     region_infos = get_rgp_info_dict(pangenome.regions, rgp_to_spot)
     nx.set_node_attributes(grr_graph, region_infos)
     
-    logging.info(f"Writting graph in graphml format with multiple thresholds.")
-    thresolds = [0.1, 0.2, 0.5, 0.8]
-    for edge_metric, threshold in product(clustering_attributes, thresolds):
-        edges_to_rm = [(u,v) for u,v,e in grr_graph.edges(data=True) if e[edge_metric] < threshold]
-        grr_graph_filtered = nx.restricted_view(grr_graph, nodes=[], edges=edges_to_rm )
+    # logging.info(f"Writting graph in graphml format with multiple thresholds.")
 
-        nx.readwrite.graphml.write_graphml(grr_graph_filtered, os.path.join(output + f"{basename}_{edge_metric}-{threshold}.graphml"))
+    # for edge_metric, threshold in product(clustering_attributes, thresolds):
+    #     edges_to_rm = [(u,v) for u,v,e in grr_graph.edges(data=True) if e[edge_metric] < threshold]
+    #     grr_graph_filtered = nx.restricted_view(grr_graph, nodes=[], edges=edges_to_rm )
+
+    #     nx.readwrite.graphml.write_graphml(grr_graph_filtered, os.path.join(output + f"{basename}_{edge_metric}-{threshold}.graphml"))
 
 
     # writting graph in gexf format
@@ -261,7 +295,7 @@ def launch(args: argparse.Namespace):
 
     pangenome.add_file(args.pangenome)
 
-    cluster_rgp(pangenome, args.output, args.basename, args.cpu, args.disable_prog_bar)
+    cluster_rgp(pangenome, args.grr_cutoff, args.output, args.basename, args.cpu, args.ignore_incomplete_rgp,  args.disable_prog_bar)
 
 
 
@@ -291,8 +325,11 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
 
     optional = parser.add_argument_group(title="Optional arguments")
 
-    optional.add_argument('--grr_cutoff', required=False, type=restricted_float, default=0.8,
-                          help="Gene repertoire relatedness score cutoff used in the rgp clustering")
+    optional.add_argument('--grr_cutoff', required=False, type=restricted_float, default=0.5,
+                          help="Min gene repertoire relatedness score used in the rgp clustering")
+    
+    optional.add_argument('--ignore_incomplete_rgp', required=False, action="store_true",
+                          help="Do not cluster RGPs located on a contig border which are likely incomplete.")
     
     # optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
