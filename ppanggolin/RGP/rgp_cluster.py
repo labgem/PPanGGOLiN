@@ -275,7 +275,7 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     ideal_chunk_size = 50000
     chunk_count = (pairs_count/ideal_chunk_size) + cpu
     chunk_size = int(pairs_count/chunk_count )+1 
-    logging.debug(f'Processing RGP pairs in  ~{chunk_count:.2f} chunks of {chunk_size} pairs')
+    logging.debug(f'Computing GRR metric in ~{chunk_count:.2f} chunks of {chunk_size} pairs')
     
 
     arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder, grr_cutoff) for rgp_pair in rgp_pairs)
@@ -289,18 +289,13 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
 
     grr_graph.add_edges_from(pairs_of_rgps_metrics)
 
-    # cluster rgp based on grr
-    logging.info(f"Louvain_communities clustering of RGP on {grr_graph}.")
-    clustering_attributes = ["grr"]
-    cluster_nodes(grr_graph, clustering_attributes, prefix=f"merged_rgp") 
-
     if unmerge_identical_rgps:
         add_edges_to_identical_rgps(grr_graph, rgp_to_identical_rgps)
 
-        # cluster rgp based on grr
-        logging.info(f"Louvain_communities clustering of RGP on {grr_graph}.")
-        clustering_attributes = ["grr"]
-        cluster_nodes(grr_graph, clustering_attributes, prefix=f"unmerged_rgp") 
+    # cluster rgp based on grr
+    logging.info(f"Louvain_communities clustering of RGP on {grr_graph}.")
+    clustering_attributes = ["grr"]
+    cluster_nodes(grr_graph, clustering_attributes, prefix=f"unmerged_rgp") 
 
 
     # logging.info(f"Clustering RGPs on filtered graph")
@@ -313,14 +308,14 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     #     # cluster filtered graph
     #     cluster_nodes(grr_graph_filtered, [edge_metric], prefix=f"{edge_metric}>{threshold}")
 
-
-    logging.info(f"Manage identical RGP in the graph")
     rgp_to_spot =  {region:spot.ID  for spot in pangenome.spots  for region in spot.regions}
-    add_identical_rgps_info(grr_graph, rgp_to_identical_rgps) 
+        
+    if not unmerge_identical_rgps:
+        logging.info(f"Manage identical RGP in the graph")
+        add_identical_rgps_info(grr_graph, rgp_to_identical_rgps) 
 
-    differentiate_spot_in_identical_rgps(grr_graph, rgp_to_identical_rgps, rgp_to_spot)
-    
-    
+        differentiate_spot_in_identical_rgps(grr_graph, rgp_to_identical_rgps, rgp_to_spot)
+        
 
     # add some attribute to the graph nodes.
     logging.info(f"Add RGP information to the graph")
