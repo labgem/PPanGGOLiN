@@ -74,35 +74,77 @@ def get_rgp_info_dict(regions:list, region_to_spot:set) -> nx.Graph :
         region_info['famillies'] =';'.join([str(f.ID)  for f in region.families])
         region_info['families_count'] = len(region.families)
 
-        region_attributes[region.name] = region_info
+        region_attributes[region.ID] = region_info
 
     return region_attributes
 
 
-
-
-def manage_identical_rgps(rgp_graph, uniq_rgps, rgp_to_spot):
+def add_identical_rgps_info(rgp_graph, rgp_to_identical_rgps):
     """
     """
-    
 
-    for rgp, identical_rgps in uniq_rgps.items():
+    for rgp, identical_rgps in rgp_to_identical_rgps.items():
+        rgp_graph.add_node(rgp.ID, 
+                            identical_rgp_count=len(identical_rgps)+1, # +1 is to count the main rgp use as node in the graph
+                            identical_rgp_names= ';'.join([rgp.name for rgp in identical_rgps])) 
 
+
+def differentiate_spot_in_identical_rgps(rgp_graph, rgp_to_identical_rgps, rgp_to_spot):
+    """
+    """
+    identical_rgp_diff_spot_count = 0
+    for rgp, identical_rgps in rgp_to_identical_rgps.items():
+        # print(rgp.name, rgp.ID, rgp_to_spot.get(rgp, None))
+        # print('IDENTICAL CONTENT', [(rgp.name, get_rgp_family_ids(rgp), rgp_to_spot.get(rgp, None)) for rgp in identical_rgps])
         spot_to_rgps = defaultdict(set)
         for identical_rgp in identical_rgps:
             spot = rgp_to_spot.get(identical_rgp, None)
             spot_to_rgps[spot].add(identical_rgp)
 
+        # print()
         for spot, strictly_identical_rgps in spot_to_rgps.items():
-
-            if spot == rgp_to_spot.get(rgp, None): # is spot same as the main rgp that have been used to compute grr?
-                rgp_graph.add_node(rgp.name, strict_identical_rgp=len(strictly_identical_rgps))
+            if spot == rgp_to_spot.get(rgp, None): # is the spot identical as the main rgp that have been used to compute grr?
+                rgp_graph.add_node(rgp.ID, identical_rgp_fam_and_spot=len(strictly_identical_rgps))
             else:
+                identical_rgp_diff_spot_count += 1
                 strictly_identical_rgp = strictly_identical_rgps.pop()
-                rgp_graph.add_node(strictly_identical_rgp.name, strict_identical_rgp=len(strictly_identical_rgps), identical_rgp=True)
-                rgp_graph.add_edge(rgp.name, identical_rgp.name, grr=1.0, identical_famillies=True)
-                
-def dereplicate_rgp(rgps: list, disable_bar=False) -> dict: 
+                rgp_graph.add_node(strictly_identical_rgp.ID, identical_rgp_fam_and_spot=len(strictly_identical_rgps)+1, identical_rgp=True)
+                rgp_graph.add_edge(rgp.ID, strictly_identical_rgp.ID, grr=1.0, min_grr=1.0, max_grr=1.0, jaccard_index=1.0, identical_famillies=True, different_spot=True)
+        
+    logging.info(f'{identical_rgp_diff_spot_count} identical RGPs but with different spot id have been added to the graph for visualisation purpose.')
+
+def add_edges_to_identical_rgps(rgp_graph, rgp_to_identical_rgps):
+    """
+    """
+
+    identical_edge_data = {'grr': 1.0, 'max_grr': 1.0, 
+                           'min_grr': 1.0, 'jaccard_index': 1.0,
+                           "identical_famillies":True}
+
+    for rgp, identical_rgps in rgp_to_identical_rgps.items():
+        # print(rgp.name)
+        # print("identical", [rgp.name for rgp in identical_rgps])
+
+
+        if not identical_rgps:
+            continue
+        
+        # add edge between identical rgp with metrics at 1 (perfect score)
+        edges_to_add = [(rgp_a.ID, rgp_b.ID, identical_edge_data) for rgp_a, rgp_b in combinations(identical_rgps | {rgp}, 2)]
+
+        # replicate all edges that connect main rgp to all identical rgps
+
+        for connected_rgp in rgp_graph.neighbors(rgp.ID):
+            edge_data = rgp_graph[rgp.ID][connected_rgp]
+            edges_to_add += [(identical_rgp.ID, connected_rgp, edge_data) for identical_rgp in identical_rgps]
+
+        rgp_graph.add_edges_from(edges_to_add)
+
+
+
+
+
+def dereplicate_rgp(rgps: list, disable_bar=False) -> dict:
     """
     Dereplicate RGPs.
 
@@ -177,7 +219,8 @@ def cluster_nodes(G, clustering_attributes, prefix=""):
 
             logging.info(f"{prefix}: Graph has {len(partitions)} clusters using {weight}")
 
-def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_rgp, disable_bar):
+
+def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_rgp, unmerge_identical_rgps, disable_bar):
     """
     Main function to cluster regions of genomic plasticity based on their GRR
 
@@ -199,9 +242,12 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     # add all rgp as node
     if ignore_incomplete_rgp:
         valid_rgps = [rgp for rgp in pangenome.regions if not rgp.is_contig_border]
-
-        logging.info(f'Ignoring {len(pangenome.regions) - len(valid_rgps)}/{len(pangenome.regions)} ({100*(len(pangenome.regions) - len(valid_rgps))/len(pangenome.regions):.2f}%) RGPs that are located at a contig border and are likely incomplete.')
-        
+        ignored_rgp_count = len(pangenome.regions) - len(valid_rgps)
+        total_rgp_count = len(pangenome.regions)
+        logging.info(f'Ignoring {ignored_rgp_count}/{total_rgp_count} ({100*(ignored_rgp_count)/total_rgp_count:.2f}%) '
+                      'RGPs that are located at a contig border and are likely incomplete.')
+        if len(valid_rgps) == 0:
+            raise Exception("The pangenome has no complete RGPs. The clustering of RGP is then not possible.")
     else:
         valid_rgps = pangenome.regions
         
@@ -212,24 +258,24 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     rgp_count = len(uniq_rgps)
 
 
-    grr_graph.add_nodes_from((rgp.name for rgp in uniq_rgps), identical_rgp=False)
+    grr_graph.add_nodes_from((rgp.ID for rgp in uniq_rgps), identical_rgp=False)
 
 
-    # Creating dictonnaries with rgp index and families 
-    rgp_to_families = {rgp_index:get_rgp_family_ids(rgp) for rgp_index, rgp in enumerate(uniq_rgps)}
-    rgp_to_iscontigborder = {rgp_index:rgp.is_contig_border for rgp_index, rgp in enumerate(uniq_rgps)}
+    # Creating dictonnaries paring rgp ID with their families ids
+    rgp_to_families = {rgp.ID:get_rgp_family_ids(rgp) for rgp_index, rgp in enumerate(uniq_rgps)}
+    rgp_to_iscontigborder = {rgp.ID:rgp.is_contig_border for rgp_index, rgp in enumerate(uniq_rgps)}
 
     # compute grr for all possible pair of rgp
     pairs_count = int((rgp_count**2 - rgp_count)/2)
     logging.info(f'Computing GRR metric for {pairs_count:,} pairs of RGP using {cpu} cpus...')
 
-     # use the index of the rgp in the list to make pair rather than their name to save memory 
-    rgp_pairs = combinations(range(rgp_count), 2)
+     # use the ID of the rgp to make pair rather than their name to save memory 
+    rgp_pairs = combinations(rgp_to_families, 2)
 
     ideal_chunk_size = 50000
     chunk_count = (pairs_count/ideal_chunk_size) + cpu
     chunk_size = int(pairs_count/chunk_count )+1 
-    logging.debug(f'Processing RGP pairs in  ~{chunk_count} chunks of {chunk_size} pairs')
+    logging.debug(f'Processing RGP pairs in  ~{chunk_count:.2f} chunks of {chunk_size} pairs')
     
 
     arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder, grr_cutoff) for rgp_pair in rgp_pairs)
@@ -242,10 +288,19 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
                 pairs_of_rgps_metrics.append(pair_metrics)
 
     grr_graph.add_edges_from(pairs_of_rgps_metrics)
+
     # cluster rgp based on grr
-    logging.info(f"Louvain_communities clustering of RGP.")
+    logging.info(f"Louvain_communities clustering of RGP on {grr_graph}.")
     clustering_attributes = ["grr"]
-    cluster_nodes(grr_graph, clustering_attributes, prefix=f"grr_cutoff_{grr_cutoff}") 
+    cluster_nodes(grr_graph, clustering_attributes, prefix=f"merged_rgp") 
+
+    if unmerge_identical_rgps:
+        add_edges_to_identical_rgps(grr_graph, rgp_to_identical_rgps)
+
+        # cluster rgp based on grr
+        logging.info(f"Louvain_communities clustering of RGP on {grr_graph}.")
+        clustering_attributes = ["grr"]
+        cluster_nodes(grr_graph, clustering_attributes, prefix=f"unmerged_rgp") 
 
 
     # logging.info(f"Clustering RGPs on filtered graph")
@@ -261,8 +316,12 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
 
     logging.info(f"Manage identical RGP in the graph")
     rgp_to_spot =  {region:spot.ID  for spot in pangenome.spots  for region in spot.regions}
-    manage_identical_rgps(grr_graph, rgp_to_identical_rgps, rgp_to_spot)
+    add_identical_rgps_info(grr_graph, rgp_to_identical_rgps) 
+
+    differentiate_spot_in_identical_rgps(grr_graph, rgp_to_identical_rgps, rgp_to_spot)
     
+    
+
     # add some attribute to the graph nodes.
     logging.info(f"Add RGP information to the graph")
     region_infos = get_rgp_info_dict(pangenome.regions, rgp_to_spot)
@@ -279,8 +338,9 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
 
     # writting graph in gexf format
     logging.info(f"Writting graph in gexf and graphml format.")
-    nx.readwrite.gexf.write_gexf(grr_graph, os.path.join(output + f"{basename}.gexf"))
+    # nx.readwrite.gexf.write_gexf(grr_graph, os.path.join(output + f"{basename}.gexf"))
     nx.readwrite.graphml.write_graphml(grr_graph, os.path.join(output + f"{basename}.graphml"))
+
 
 
 def launch(args: argparse.Namespace):
@@ -295,7 +355,8 @@ def launch(args: argparse.Namespace):
 
     pangenome.add_file(args.pangenome)
 
-    cluster_rgp(pangenome, args.grr_cutoff, args.output, args.basename, args.cpu, args.ignore_incomplete_rgp,  args.disable_prog_bar)
+    cluster_rgp(pangenome, args.grr_cutoff, args.output, args.basename, 
+                args.cpu, args.ignore_incomplete_rgp, args.no_identical_rgp_merging,  args.disable_prog_bar)
 
 
 
@@ -330,6 +391,9 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
     
     optional.add_argument('--ignore_incomplete_rgp', required=False, action="store_true",
                           help="Do not cluster RGPs located on a contig border which are likely incomplete.")
+    
+    optional.add_argument('--no_identical_rgp_merging', required=False, action="store_true",
+                          help="Do not merge in one node identical RGP (i.e. having the same family content) before clustering.")
     
     # optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 

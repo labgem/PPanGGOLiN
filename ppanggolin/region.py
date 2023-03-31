@@ -22,11 +22,14 @@ class Region:
 
     :param region_id: identifier of the region
     """
+    id_counter = 0
 
     def __init__(self, region_id: str):
         self.genes = []
         self.name = region_id
         self.score = 0
+        self.ID = Region.id_counter
+        Region.id_counter += 1
 
     def __hash__(self):
         return id(self)
