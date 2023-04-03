@@ -20,32 +20,50 @@ from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pang
 
 def check_pangenome_metadata(pangenome: Pangenome, source: str, metatype: str, force: bool = False,
                              disable_bar: bool = False):
-    """ Check and load pangenome information before adding annotation
+    """ Check and load pangenome information before adding metadata
 
     :param pangenome: Pangenome object
-    :param source: source of the annotation
-    :param force: erase if an annotation for the provide source already exist
+    :param source: source of the metadata
+    :param metatype: select to which pangenome element metadata will be added
+    :param force: erase if a metadata for the provide source and metatype already exist
     :param disable_bar: Disable bar
     """
-    need_annotations = False
-    need_families = False
-    if metatype in ["genomes", "genes", "families"]:
-        need_annotations = True
+    need_dic = {'need_annotations': False,
+                'need_families': False,
+                'need_rgp': False,
+                'need_spots': False,
+                'need_modules': False}
+    if metatype in ["genes", "genomes"]:
+        need_dic['need_annotations'] = True
     if metatype == "families":
-        need_families = True
+        need_dic['need_families'] = True
+    if metatype in ["RGPs", "spots"]:
+        need_dic['need_rgp'] = True
+    if metatype in ["RGPs", "spots", "modules"]:
+        need_dic['need_spots'] = True
+    if metatype in ["RGPs", "spots", "modules"]:
+        need_dic['need_modules'] = True
 
     if pangenome.status["metadata"][metatype] == "inFile" and source in pangenome.status["metasources"][metatype]:
         if force:
             erase_pangenome(pangenome, metadata=True, source=source, metatype=metatype)
         else:
             raise Exception(
-                f"An annotation corresponding to the source : '{source}' already exist in pangenome organims."
+                f"An metadata corresponding to the source : '{source}' already exist in pangenome organims."
                 "Add the option --force to erase")
-    check_pangenome_info(pangenome, need_annotations=need_annotations, need_families=need_families,
-                         disable_bar=disable_bar)
+    check_pangenome_info(pangenome, disable_bar=disable_bar, **need_dic)
 
 
-def check_metadata_format(metadata: Path, metatype: str):
+def check_metadata_format(metadata: Path, metatype: str) -> pd.DataFrame:
+    """Check if the TSV with metadata respect the input format
+
+    :param metadata: Path to the TSV file with metadata
+    :param metatype: Indicate which pangenome element metadata will be added
+
+    :return: Dataframe with metadata loaded
+    """
+    assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+
     colname_check = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
     metadata_df = pd.read_csv(metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE,
                               dtype={metatype: str})
@@ -58,22 +76,26 @@ def check_metadata_format(metadata: Path, metatype: str):
             raise ValueError(f"column name is not a valid identifier: {column}; "
                              f"it does not match the pattern {colname_check.pattern}")
         if column != metatype and metadata_df.dtypes[column] == object:
-            # metadata_df[column] = metadata_df[column].astype('|S')
             pd.to_numeric(metadata_df[column], downcast='integer', errors='ignore')
 
     return metadata_df
 
 
 def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str, metatype: str,
-                    omit: bool = False, disable_bar: bool = False) -> dict:
-    """ Add to gene families an annotation and create a dictionary with for each annotation a set of gene family
+                    omit: bool = False, disable_bar: bool = False):
+    """ Add to pangenome element a metadata
 
-    :param metadata_df: Dataframe with for each family an annotation
+    :param metadata_df: Dataframe with for each family a metadata
     :param pangenome: Pangenome with gene families
-    :param source: source of the annotation
-    :param disable_bar:
-    :return: Dictionary with for each annotation a set of gene family
+    :param source: source of the metadata
+    :param metatype: select to which pangenome element metadata will be added
+    :param omit: allow to omit a row in dataframe if the element name is not find in pangenomes
+    :param disable_bar: Disable progress bar
+
+    :raise KeyError: element name is not find in pangenome
+    :raise AssertionError: Metatype is not recognized
     """
+    assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
     for row in tqdm(metadata_df.iterrows(), unit='row',
                     total=metadata_df.shape[0], disable=disable_bar):
         row = row[1]
@@ -88,17 +110,13 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
                 element = pangenome.get_region(row[metatype])
             elif metatype == "spots":
                 element = pangenome.get_spot(row[metatype])
-            elif metatype == "modules":
+            else:  # metatype == "modules":
                 element = pangenome.get_module(row[metatype])
-            else:
-                raise ValueError
         except KeyError:
             if not omit:
                 raise KeyError(f"{metatype} {row[metatype]} does not exist in pangenome. Check name in your file")
             else:
                 logging.getLogger().debug(f"{metatype} doesn't exist")
-        except ValueError:
-            raise ValueError("Metatype is not recognized")
         else:
             meta = Metadata(source=source, **{k: v for k, v in row.to_dict().items() if k != metatype})
             element.add_metadata(source=source, metadata=meta)
@@ -147,12 +165,12 @@ def parser_meta(parser: argparse.ArgumentParser):
                                          description="All of the following arguments are required :")
     required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
     required.add_argument('-m', '--metadata', type=Path, nargs='?',
-                          help='Gene families annotation in TSV file. See our github for more detail about format')
+                          help='Metadata in TSV file. See our github for more detail about format')
     required.add_argument("-s", "--source", required=True, type=str, nargs="?",
-                          help='Name of the annotation source. Default use name of annnotation file or directory.')
+                          help='Name of the metadata source')
     required.add_argument("-a", "--assign", required=True, type=str, nargs="?",
                           choices=["families", "genomes", "genes", "RGPs", "spots", "modules"],
-                          help="Select to which pangenome element metadata will be assigned.")
+                          help="Select to which pangenome element metadata will be assigned")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--omit", required=False, action="store_true",
                           help="Allow to pass if a key in metadata is not find in pangenome")

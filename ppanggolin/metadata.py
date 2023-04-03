@@ -2,7 +2,7 @@
 # coding: utf8
 
 # default libraries
-from typing import Generator, List, Tuple, Union
+from typing import Generator, List, Union
 
 # installed libraries
 from pandas import isna
@@ -10,16 +10,10 @@ from pandas import isna
 
 class Metadata:
     """
-    This represents a metadata lionk to gene families organisms or ...
+    This represents a metadata link to genes, gene families, organisms, regions, spot or modules
 
     :param source: source of the metadata
-    :param value: name of the annotation/function
-    :param accession: accesion identifier
-    :param secondary_names: Other possible name for the annotation
-    :param description: description of the annotation
-    :param e_val: E-value of the gene family/profile comparison
-    :param score: Bit score of the gene family/profile comparison.
-    :param bias: The biased composition score correction that was applied to the bit score
+    :param kwargs: all metadata name with there value
     """
 
     def __init__(self, source: str, **kwargs):
@@ -38,15 +32,19 @@ class Metadata:
 
 
 class MetaFeatures:
-
+    """
+    This represents a methods to access metadata in genes, gene families, organisms, regions, spot or modules
+    """
     def __init__(self):
         self._metadataGetter = {}
 
     @property
     def metadata(self) -> Generator[Metadata, None, None]:
-        """Generate annotations in gene families
+        """Generate metadatas in gene families
 
-        :return: Gene family annotation"""
+        :return: Generator with all metadata from all sources
+        """
+
         for meta_list in self._metadataGetter.values():
             for metadata in meta_list:
                 yield metadata
@@ -55,38 +53,23 @@ class MetaFeatures:
     def sources(self) -> List[str]:
         """ Get all metadata source in gene family
 
-        :return: List of annotation source
+        :return: List of metadata source
         """
         return list(self._metadataGetter.keys())
 
-    def max_metadata_by_source(self) -> Tuple[str, int]:
-        """Get the maximum number of annotation for one source
-
-        :return: Name of the source with the maximum annotation and the number of annotation corresponding
-        """
-        max_meta = 0
-        max_source = None
-        for source, metadata in self._metadataGetter.items():
-            if len(metadata) > max_meta:
-                max_meta = len(metadata)
-                max_source = source
-        return max_source, max_meta
-
     def get_source(self, source: str) -> Union[List[Metadata], None]:
-        """ Get the annotation for a specific source in gene family
+        """ Get the metadata for a specific source in gene family
 
         :param source: Name of the source
 
-        :return: All the annotation from the source if exist else None
+        :return: All the metadata from the source if exist else None
         """
         return self._metadataGetter[source] if source in self.sources else None
 
     def get_metadata(self, **kwargs) -> Generator[Metadata, None, None]:
-        """Get annotation by name or accession in gene family
+        """Get metadata by one or more attribute
 
-        :param value: Names of annotation searched
-
-        :return: annotation searched
+        :return: metadata searched
         """
         for metadata in self.metadata:
             for attr, value in kwargs.items():
@@ -95,49 +78,25 @@ class MetaFeatures:
                         yield metadata
 
     def add_metadata(self, source: str, metadata: Metadata):
-        """ Add annotation to gene family
+        """ Add metadata
 
         :param source: Name of database source
-        :param metadata: Identifier of the annotation
+        :param metadata: Identifier of the metadata
         """
+        assert isinstance(metadata, Metadata)
         source_annot = self.get_source(source)
         same_value = False
         if source_annot is not None:
             index_annot = 0
-            # insert_bool = False
             while index_annot < len(source_annot):
                 current_annot = source_annot[index_annot]
                 for attr, value in metadata.__dict__.items():
                     if hasattr(current_annot, attr) and current_annot.__getattribute__(attr) == value:
                         same_value = True
-                # if current_annot.score is not None and metadata.score is not None:
-                #     if current_annot.score < metadata.score:
-                #         if same_value:
-                #             source_annot[index_annot] = metadata
-                #         else:
-                #             source_annot.insert(index_annot, metadata)
-                #             insert_bool = True
-                #     elif current_annot.score == metadata.score:
-                #         if current_annot.e_val is not None and metadata.e_val is not None:
-                #             if current_annot.e_val > metadata.e_val:
-                #                 if same_value:
-                #                     source_annot[index_annot] = metadata
-                #                 else:
-                #                     source_annot.insert(index_annot, metadata)
-                #                     insert_bool = True
-                # elif current_annot.e_val is not None and metadata.e_val is not None:
-                #     if current_annot.e_val > metadata.e_val:
-                #         if same_value:
-                #             source_annot[index_annot] = metadata
-                #         else:
-                #             source_annot.insert(index_annot, metadata)
-                #             insert_bool = True
-                # if not insert_bool and not same_value:
                 if not same_value:
                     index_annot += 1
                 else:
                     break
-            # if not insert_bool and not same_value:
             if not same_value:
                 source_annot.append(metadata)
         else:

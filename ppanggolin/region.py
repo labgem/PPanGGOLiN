@@ -55,13 +55,19 @@ class Region(MetaFeatures):
     def __getitem__(self, index):
         return self.genes[index]
 
-    def append(self, value):
-        # allowing only gene-class objects in a region.
-        if isinstance(value, Gene):
-            self.genes.append(value)
-            value.RGP.add(self)
+    def append(self, gene: Gene):
+        """allowing only gene-class objects in a region
+
+        :param gene: gene which will be added
+
+        :raise TypeError: If gene is not Gene type raise TypeError
+        """
+
+        if isinstance(gene, Gene):
+            self.genes.append(gene)
+            gene.RGP.add(self)
         else:
-            raise TypeError(f"Unexpected class / type for {type(value)} when adding it to a RGP")
+            raise TypeError(f"Unexpected class / type for {type(gene)} when adding it to a RGP")
 
     @property
     def families(self) -> set:

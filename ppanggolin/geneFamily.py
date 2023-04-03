@@ -7,7 +7,7 @@ from collections import defaultdict
 import logging
 
 # installed libraries
-from typing import Dict, Generator, List, Set, Tuple, Union
+from typing import Dict, List, Set
 
 import gmpy2
 

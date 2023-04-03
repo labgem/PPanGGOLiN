@@ -459,13 +459,13 @@ class Pangenome:
         self.spots |= set(spots)
 
     def get_spot(self, spot_id: str) -> Spot:
-        """returns the gene that has the given geneID
+        """returns the spot that has the given geneID
 
-        :param gene_id: The gene ID to look for
+        :param spot_id: The spot ID to look for
 
         :return: returns the gene that has the ID `geneID`
 
-        :raises KeyError: If the `geneID` is not in the pangenome
+        :raises KeyError: If the `spotID` is not in the pangenome
         """
         try:
             return self._spotGetter[spot_id]
@@ -514,14 +514,14 @@ class Pangenome:
         """
         self.modules |= set(modules)
 
-    def get_module(self, module_id: str) -> Spot:
-        """returns the gene that has the given geneID
+    def get_module(self, module_id: str) -> Module:
+        """returns the module that has the given geneID
 
-        :param gene_id: The gene ID to look for
+        :param module_id: The module ID to look for
 
         :return: returns the gene that has the ID `geneID`
 
-        :raises KeyError: If the `geneID` is not in the pangenome
+        :raises KeyError: If the `moduleID` is not in the pangenome
         """
         try:
             return self._moduleGetter[module_id]
@@ -561,172 +561,91 @@ class Pangenome:
 
     """Metadata"""
 
-    @property
-    def metadata_sources(self) -> Set[str]:
-        """returns all the annotation source in the pangenomes
+    def metadata_sources(self, metatype: str) -> Set[str]:
+        """returns all the metadata source in the pangenomes
 
-        :return: set of annotation source
+        :param metatype: select to which pangenome element metadata should be searched
+
+        :return: set of metadata source
         """
+        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
         source_set = set()
-        for gf in self.gene_families:
-            for source_annotation in gf.sources:
-                source_set.add(source_annotation)
+        if metatype == "families":
+            elements = self.gene_families
+        elif metatype == "genomes":
+            elements = self.organisms
+        elif metatype == "genes":
+            elements = self.genes
+        elif metatype == "RGPs":
+            elements = self.regions
+        elif metatype == "spots":
+            elements = self.spots
+        else:  # metatype == "modules":
+            elements = self.modules
+        for elem in elements:
+            for source_metadata in elem.sources:
+                source_set.add(source_metadata)
         return source_set
 
-    @property
-    def metadata(self) -> Generator[Metadata, None, None]:
-        """Create a generator with all annotations in the pangenome
+    def metadata(self, metatype: str) -> Generator[Metadata, None, None]:
+        """Create a generator with all metadatas in the pangenome
 
-        :return: set of annotation source
+        :return: set of metadata source
         """
-        for gf in self.gene_families:
-            yield gf.metadata
+        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        if metatype == "families":
+            elements = self.gene_families
+        elif metatype == "genomes":
+            elements = self.organisms
+        elif metatype == "genes":
+            elements = self.genes
+        elif metatype == "RGPs":
+            elements = self.regions
+        elif metatype == "spots":
+            elements = self.spots
+        else:  # metatype == "modules":
+            elements = self.modules
+        for elem in elements:
+            yield elem.metadata
 
-    def get_gf_by_metadata(self, value: str = None) -> Generator[GeneFamily, None, None]:
-        """ Get gene famlies with a specific annotation or source in pangenome
+    def get_elem_by_metadata(self, metatype: str, **kargs) -> Generator[Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
+        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        if metatype == "families":
+            elements = self.gene_families
+        elif metatype == "genomes":
+            elements = self.organisms
+        elif metatype == "genes":
+            elements = self.genes
+        elif metatype == "RGPs":
+            elements = self.regions
+        elif metatype == "spots":
+            elements = self.spots
+        else:  # metatype == "modules":
+            elements = self.modules
+        for element in elements:
+            if len(list(element.get_metadata(**kargs))) > 0:
+                yield element
 
-        :param value: Name of the annotation
-
-
-        :return: Gene families with the annotation or source
-        """
-        assert value is not None
-
-        for fam in self.gene_families:
-            if len(list(fam.get_metadata(value=value))) > 0:
-                yield fam
-
-    def get_gf_by_sources(self, source: List[str]) -> Generator[GeneFamily, None, None]:
+    def get_elem_by_sources(self, source: List[str], metatype: str) -> Generator[Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
         """ Get gene famlies with a specific source in pangenome
 
         :param source: Name of the source
 
         :return: Gene families with the source
         """
-        for fam in self.gene_families:
-            if fam.get_source(source) is not None:
-                yield fam
-
-    def get_org_by_metadata(self, value: str = None) -> Generator[Organism, None, None]:
-        """ Get gene famlies with a specific annotation or source in pangenome
-
-        :param value: Name of the annotation
-
-
-        :return: Gene families with the annotation or source
-        """
-        assert value is not None
-
-        for org in self.organisms:
-            if len(list(org.get_metadata(value=value))) > 0:
-                yield org
-
-    def get_org_by_sources(self, source: List[str]) -> Generator[Organism, None, None]:
-        """ Get gene famlies with a specific source in pangenome
-
-        :param source: Name of the source
-
-        :return: Gene families with the source
-        """
-        for org in self.organisms:
-            if org.get_source(source) is not None:
-                yield org
-
-    def get_gene_by_metadata(self, value: str = None) -> Generator[Gene, None, None]:
-        """ Get gene famlies with a specific annotation or source in pangenome
-
-        :param value: Name of the annotation
-
-
-        :return: Gene families with the annotation or source
-        """
-        assert value is not None
-
-        for gene in self.genes:
-            if len(list(gene.get_metadata(value=value))) > 0:
-                yield gene
-
-    def get_gene_by_sources(self, source: List[str]) -> Generator[Gene, None, None]:
-        """ Get gene famlies with a specific source in pangenome
-
-        :param source: Name of the source
-
-        :return: Gene families with the source
-        """
-        for gene in self.genes:
-            if gene.get_source(source) is not None:
-                yield gene
-
-    def get_rgp_by_metadata(self, value: str = None) -> Generator[Region, None, None]:
-        """ Get rgp famlies with a specific annotation or source in pangenome
-
-        :param value: Name of the annotation
-
-
-        :return: Gene families with the annotation or source
-        """
-        assert value is not None
-
-        for rgp in self.regions:
-            if len(list(rgp.get_metadata(value=value))) > 0:
-                yield rgp
-
-    def get_rgp_by_sources(self, source: List[str]) -> Generator[Region, None, None]:
-        """ Get gene famlies with a specific source in pangenome
-
-        :param source: Name of the source
-
-        :return: Gene families with the source
-        """
-        for rgp in self.regions:
-            if rgp.get_source(source) is not None:
-                yield rgp
-
-    def get_spots_by_metadata(self, value: str = None) -> Generator[Spot, None, None]:
-        """ Get rgp famlies with a specific annotation or source in pangenome
-
-        :param value: Name of the annotation
-
-
-        :return: Gene families with the annotation or source
-        """
-        assert value is not None
-
-        for spot in self.spots:
-            if len(list(spot.get_metadata(value=value))) > 0:
-                yield spot
-
-    def get_spots_by_sources(self, source: List[str]) -> Generator[Spot, None, None]:
-        """ Get gene famlies with a specific source in pangenome
-
-        :param source: Name of the source
-
-        :return: Gene families with the source
-        """
-        for spot in self.spots:
-            if spot.get_source(source) is not None:
-                yield spot
-
-    def get_modules_by_metadata(self, value: str = None) -> Generator[Module, None, None]:
-        """ Get rgp famlies with a specific annotation or source in pangenome
-
-        :param value: Name of the annotation
-
-        :return: Gene families with the annotation or source
-        """
-        assert value is not None
-
-        for module in self.modules:
-            if len(list(module.get_metadata(value=value))) > 0:
-                yield module
-
-    def get_modules_by_sources(self, source: List[str]) -> Generator[Module, None, None]:
-        """ Get gene famlies with a specific source in pangenome
-
-        :param source: Name of the source
-
-        :return: Gene families with the source
-        """
-        for module in self.modules:
-            if module.get_source(source) is not None:
-                yield module
+        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        if metatype == "families":
+            elements = self.gene_families
+        elif metatype == "genomes":
+            elements = self.organisms
+        elif metatype == "genes":
+            elements = self.genes
+        elif metatype == "RGPs":
+            elements = self.regions
+        elif metatype == "spots":
+            elements = self.spots
+        else:  # metatype == "modules":
+            elements = self.modules
+        for element in elements:
+            if element.get_source(source) is not None:
+                yield element

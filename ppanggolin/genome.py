@@ -35,7 +35,11 @@ class Feature(MetaFeatures):
         self.dna = None
 
     @property
-    def length(self):
+    def length(self) -> int:
+        """Return gene length
+
+        :return: gene length
+        """
         return self.stop - self.start
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
@@ -72,6 +76,8 @@ class Feature(MetaFeatures):
         """ Add DNA sequence to feature
 
         :param dna: DNA sequence
+
+        :raise TypeError: DNA sequence must be a string
         """
         if not isinstance(dna, str):
             raise TypeError(f"'str' type was expected but you provided a '{type(dna)}' type object")
@@ -102,7 +108,7 @@ class Gene(Feature):
         self.genetic_code = None
         self.protein = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.ID)
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
@@ -113,7 +119,7 @@ class Gene(Feature):
         :param start: Start position
         :param stop: Stop position
         :param strand: associated strand
-        :param gene_type: Type of gene
+        :param gene_type: Type of the gene
         :param name: Gene name
         :param product: Associated product
         :param local_identifier: Identifier provided by the original file
@@ -128,6 +134,8 @@ class Gene(Feature):
         """ Add protein sequence corresponding to translated gene
 
         :param protein: Protein sequence
+
+        :raise TypeError: Protein sequence must be a string
         """
         if not isinstance(protein, str):
             raise TypeError(f"'str' type was expected but you provided a '{type(protein)}' type object")
@@ -156,11 +164,7 @@ class Contig:
         """
         return self._genes_position
 
-    @property
-    def length(self):
-        return sum([gene.length for gene in self.genes])
-
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     def __iter__(self):
@@ -192,7 +196,7 @@ class Contig:
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if gene.position is None:
-            raise TypeError(f"The gene object needs to have its position in the contig filled before adding it")
+            raise TypeError("The gene object needs to have its position in the contig filled before adding it")
         while len(self._genes_position) <= gene.position:
             # adding empty values. They should be filled by the end of the parsing.
             # Doing this because genes are not always met in order.
@@ -275,16 +279,16 @@ class Organism(MetaFeatures):
 
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger().debug(f"all")
+            logging.getLogger().debug("all")
             for fam in self.families:
                 self.bitarray[index[fam]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger().debug(f"shell, cloud")
+            logging.getLogger().debug("shell, cloud")
             for fam in self.families:
                 if fam.named_partition == partition:
                     self.bitarray[index[fam]] = 1
         elif partition == 'accessory':
-            logging.getLogger().debug(f"accessory")
+            logging.getLogger().debug("accessory")
             for fam in self.families:
                 if fam.named_partition in ['shell', 'cloud']:
                     self.bitarray[index[fam]] = 1

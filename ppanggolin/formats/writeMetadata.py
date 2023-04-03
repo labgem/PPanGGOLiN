@@ -16,7 +16,14 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
 
 
-def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: tables.Group):
+def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: tables.Group) -> bool:
+    """Write status of metadata in pangenome file
+
+    :param pangenome: pangenome with metadata
+    :param h5f: HDF5 file with pangenome
+    :param status_group: Pangenome status information group
+    :return:
+    """
     metastatus = pangenome.status["metadata"]
     metasources = pangenome.status["metasources"]
     if 'metastatus' in status_group:
@@ -48,7 +55,14 @@ def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: 
     return True if any(metadata_group._v_attrs._f_list()) else False
 
 
-def write_metadata_group(h5f: tables.File, metatype: str):
+def write_metadata_group(h5f: tables.File, metatype: str) -> tables.Group:
+    """Check and write the group in HDF5 file to organize metadata
+
+    :param h5f: HDF5 file with pangenome
+    :param metatype: select to which pangenome element metadata should be written
+
+    :return: Metadata group of the corresponding metatype
+    """
     if '/metadata' not in h5f:
         metadata_group = h5f.create_group("/", "metadata", "Pangenome metadata")
     else:
@@ -61,8 +75,7 @@ def write_metadata_group(h5f: tables.File, metatype: str):
 
 
 def desc_metadata(max_len_dict: Dict[str, int], type_dict: Dict[str, tables.Col]) -> dict:
-    """
-    Create a formated table for gene families metadata description
+    """Create a formated table for metadata description
 
     :return: Formated table
     """
@@ -71,12 +84,13 @@ def desc_metadata(max_len_dict: Dict[str, int], type_dict: Dict[str, tables.Col]
     return desc_dict
 
 
-def get_metadata_len(select_elem: List[Module], source: str) -> (int, int):
-    """
-    Get maximum size of gene families information
-    :param select_elem: selected gene families from source
+def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, tables.Col], Dict[str, int], int]:
+    """Get maximum size of metadata information
+
+    :param select_elem: selected elements from source
     :param source: Name of the metadata source
-    :return: Maximum size of each element
+
+    :return: Maximum type and size of each element
     """
     type_dict = {}
     max_len_dict = {}
@@ -121,13 +135,14 @@ def get_metadata_len(select_elem: List[Module], source: str) -> (int, int):
 
 def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
                             select_elements: Union[List[Gene], List[Organism], List[GeneFamily], List[Region],
-                                             List[Spot], List[Module]],
+                                                   List[Spot], List[Module]],
                             disable_bar: bool = False):
-    """
-    Writing a table containing the protein sequences of each family
-    :param pangenome: Pangenome with gene families computed
+    """Writing a table containing the protein sequences of each family
+
     :param h5f: HDF5 file to write gene families
     :param source: name of the metadata source
+    :param metatype: select to which pangenome element metadata should be written
+    :param select_elements: Elements selected to write metadata
     :param disable_bar: Disable progress bar
     """
     metatype_group = write_metadata_group(h5f, metatype)
@@ -157,6 +172,15 @@ def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
 
 def erase_metadata(pangenome: Pangenome, h5f: tables.File, status_group: tables.Group,
                    metatype: str = None, source: str = None):
+    """
+    Erase metadata in pangenome
+
+    :param pangenome: Pangenome with metadata to erase
+    :param h5f: HDF5 file with pangenome metadata
+    :param status_group: pangenome status in HDF5
+    :param metatype: select to which pangenome element metadata should be erased
+    :param source: name of the metadata source
+    """
     metadata_group = h5f.root.metadata
 
     metastatus = pangenome.status["metadata"]
@@ -183,44 +207,56 @@ def erase_metadata(pangenome: Pangenome, h5f: tables.File, status_group: tables.
 
 
 def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
+    """Write metadata in pangenome
+
+    :param pangenome: Pangenome where should be written metadata
+    :param h5f: HDF5 file with pangenome
+    :param disable_bar: Disable progress bar
+    """
     if pangenome.status["metadata"]["families"] == "Computed":
         logging.getLogger().info("Writing gene families metadata in pangenome")
-        select_gf = list(pangenome.get_gf_by_sources(source=pangenome.status["metasources"]["families"][-1]))
+        select_gf = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["families"][-1],
+                                                       metatype="families"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["families"][-1],
                                 "families", select_gf, disable_bar)
         pangenome.status["metadata"]["families"] = "Loaded"
 
     if pangenome.status["metadata"]["genomes"] == "Computed":
         logging.getLogger().info("Writing genomes metadata in pangenome")
-        select_genomes = list(pangenome.get_org_by_sources(source=pangenome.status["metasources"]["genomes"][-1]))
+        select_genomes = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["genomes"][-1],
+                                                            metatype="genomes"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["genomes"][-1],
                                 "genomes", select_genomes, disable_bar)
         pangenome.status["metadata"]["genomes"] = "Loaded"
 
     if pangenome.status["metadata"]["genes"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")
-        select_genes = list(pangenome.get_gene_by_sources(source=pangenome.status["metasources"]["genes"][-1]))
+        select_genes = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["genes"][-1],
+                                                          metatype="genes"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["genes"][-1],
                                 "genes", select_genes, disable_bar)
         pangenome.status["metadata"]["genes"] = "Loaded"
 
     if pangenome.status["metadata"]["RGPs"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")
-        select_rgps = list(pangenome.get_rgp_by_sources(source=pangenome.status["metasources"]["RGPs"][-1]))
+        select_rgps = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["RGPs"][-1],
+                                                         metatype="RGPs"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["RGPs"][-1],
                                 "RGPs", select_rgps, disable_bar)
         pangenome.status["metadata"]["RGPs"] = "Loaded"
 
     if pangenome.status["metadata"]["spots"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")
-        select_spots = list(pangenome.get_spots_by_sources(source=pangenome.status["metasources"]["spots"][-1]))
+        select_spots = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["spots"][-1],
+                                                          metatype="spots"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["spots"][-1],
                                 "spots", select_spots, disable_bar)
         pangenome.status["metadata"]["spots"] = "Loaded"
 
     if pangenome.status["metadata"]["modules"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")
-        select_modules = list(pangenome.get_modules_by_sources(source=pangenome.status["metasources"]["modules"][-1]))
+        select_modules = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["modules"][-1],
+                                                            metatype="modules"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["modules"][-1],
                                 "modules", select_modules, disable_bar)
         pangenome.status["metadata"]["modules"] = "Loaded"
