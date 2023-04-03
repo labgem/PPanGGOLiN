@@ -4,9 +4,9 @@
 # default libraries
 import logging
 import argparse
-import numpy
 from pathlib import Path
 import csv
+import re
 
 # installed libraries
 from tqdm import tqdm
@@ -45,25 +45,35 @@ def check_pangenome_metadata(pangenome: Pangenome, source: str, metatype: str, f
                          disable_bar=disable_bar)
 
 
-def assign_metadata(metadata: Path, pangenome: Pangenome, source: str, metatype: str,
+def check_metadata_format(metadata: Path, metatype: str):
+    colname_check = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
+    metadata_df = pd.read_csv(metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE,
+                              dtype={metatype: str})
+    metadata_df.replace(to_replace='-', value=pd.NA, inplace=True)
+    if metatype not in metadata_df.columns or metadata_df.shape[1] < 2:
+        raise KeyError(f"You should at least provide in columns names : {metatype} and one another value. "
+                       "Look at documentation for more information")
+    for column in metadata_df.columns:
+        if not colname_check.match(column):
+            raise ValueError(f"column name is not a valid identifier: {column}; "
+                             f"it does not match the pattern {colname_check.pattern}")
+        if column != metatype and metadata_df.dtypes[column] == object:
+            # metadata_df[column] = metadata_df[column].astype('|S')
+            pd.to_numeric(metadata_df[column], downcast='integer', errors='ignore')
+
+    return metadata_df
+
+
+def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str, metatype: str,
                     omit: bool = False, disable_bar: bool = False) -> dict:
     """ Add to gene families an annotation and create a dictionary with for each annotation a set of gene family
 
-    :param metadata: Dataframe with for each family an annotation
+    :param metadata_df: Dataframe with for each family an annotation
     :param pangenome: Pangenome with gene families
     :param source: source of the annotation
     :param disable_bar:
     :return: Dictionary with for each annotation a set of gene family
     """
-    metadata_df = pd.read_csv(metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE,
-                              dtype={metatype: str})
-    if not {metatype, "value"}.issubset(set(metadata_df.columns)):
-        raise KeyError(f"You should at least provide in columns names : {metatype} and value. "
-                       "Look at documentation for more information")
-    for column in metadata_df.columns:
-        if column != metatype and metadata_df.dtypes[column] == object:
-            metadata_df[column] = metadata_df[column].astype('|S')
-            pd.to_numeric(metadata_df[column], downcast='integer', errors='ignore')
     for row in tqdm(metadata_df.iterrows(), unit='row',
                     total=metadata_df.shape[0], disable=disable_bar):
         row = row[1]
@@ -88,8 +98,8 @@ def assign_metadata(metadata: Path, pangenome: Pangenome, source: str, metatype:
         except ValueError:
             raise ValueError("Metatype is not recognized")
         else:
-            annotation = Metadata(source=source, **{k: v for k, v in row.to_dict().items() if k != metatype})
-            element.add_metadata(source=source, metadata=annotation)
+            meta = Metadata(source=source, **{k: v for k, v in row.to_dict().items() if k != metatype})
+            element.add_metadata(source=source, metadata=meta)
 
     pangenome.status["metadata"][metatype] = "Computed"
     pangenome.status["metasources"][metatype].append(source)
@@ -101,11 +111,12 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
+    metadata_df = check_metadata_format(args.metadata, args.assign)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     check_pangenome_metadata(pangenome, source=args.source, metatype=args.assign,
                              force=args.force, disable_bar=args.disable_prog_bar)
-    assign_metadata(metadata=args.metadata, pangenome=pangenome, source=args.source, metatype=args.assign,
+    assign_metadata(metadata_df, pangenome=pangenome, source=args.source, metatype=args.assign,
                     omit=args.omit, disable_bar=args.disable_prog_bar)
     logging.getLogger().info("Metadata assignment Done")
     write_pangenome(pangenome, pangenome.file, disable_bar=args.disable_prog_bar)

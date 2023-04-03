@@ -83,21 +83,16 @@ def get_metadata_len(select_elem: List[Module], source: str) -> (int, int):
     expected_rows = 0
 
     for element in select_elem:
-        if hasattr(element, 'name'):
-            if 'ID' in max_len_dict:
-                if len(element.name) > max_len_dict['ID']:
-                    max_len_dict['ID'] = len(element.name)
-            else:
-                if "name" not in max_len_dict or len(element.name) > max_len_dict['name']:
-                    max_len_dict['name'] = len(element.name)
-        elif hasattr(element, 'ID'):
-            if 'name' in max_len_dict:
-                if len(element.ID) > max_len_dict['name']:
-                    max_len_dict['name'] = len(element.ID)
+        if hasattr(element, 'ID') and not isinstance(element.ID, (int, float)):
+            if "ID" not in max_len_dict or len(element.ID) > max_len_dict['ID']:
+                max_len_dict['ID'] = len(element.ID)
+        elif hasattr(element, 'name'):
+            if "ID" not in max_len_dict or len(element.name) > max_len_dict['ID']:
+                max_len_dict['ID'] = len(element.name)
         else:
             raise Exception("Unexpected attribute. A recent change could create this error."
                             " Please report the error on our github.")
-        for metadata in element.get_source(name=source):
+        for metadata in element.get_source(source=source):
             for attr, value in ((k, v) for k, v in metadata.__dict__.items() if k != "source"):
                 if isinstance(value, bytes):
                     value = value.decode('UTF-8')
@@ -137,18 +132,25 @@ def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
     """
     metatype_group = write_metadata_group(h5f, metatype)
     meta_len = get_metadata_len(select_elements, source)
+    # h5f.remove_node(metatype_group, source)
     source_table = h5f.create_table(metatype_group, source, desc_metadata(*meta_len[:-1]), expectedrows=meta_len[-1])
     meta_row = source_table.row
     for element in tqdm(select_elements, unit=metatype, desc=f'Source = {source}', disable=disable_bar):
-        for metadata in element.get_source(name=source):
+        for metadata in element.get_source(source=source):
             for desc in source_table.colnames:
-                if desc in ["name", "ID"]:
-                    meta_row[desc] = element.__getattribute__(desc)
+                if desc == "ID":
+                    if hasattr(element, 'name') and len(element.name) > 0:
+                        meta_row[desc] = element.name
+                    else:
+                        meta_row[desc] = element.ID
                 else:
-                    value = metadata.__getattribute__(desc)
-                    if isinstance(value, bytes):
-                        value = value.decode('UTF-8')
-                    meta_row[desc] = value
+                    if hasattr(metadata, desc):
+                        value = metadata.__getattribute__(desc)
+                        if isinstance(value, bytes):
+                            value = value.decode('UTF-8')
+                        meta_row[desc] = value
+                    else:
+                        meta_row[desc] = None
             meta_row.append()
     source_table.flush()
 

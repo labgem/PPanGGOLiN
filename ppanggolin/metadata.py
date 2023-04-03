@@ -22,27 +22,19 @@ class Metadata:
     :param bias: The biased composition score correction that was applied to the bit score
     """
 
-    def __init__(self, source: str, value: Union[str, int, float], **kwargs):
+    def __init__(self, source: str, **kwargs):
         """Constructor Method
         """
         self.source = source
-        self.value = value
         for attr, value in kwargs.items():
-            if isinstance(value, str) or isinstance(value, list):
-                value = self._join_list(value)
-            setattr(self, attr, value)
-
-    def __str__(self):
-        return self.value
+            if value is None or not isna(value):
+                if isinstance(value, list):
+                    value = self._join_list(value)
+                setattr(self, attr, value)
 
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
-        if isinstance(attr_list, list):
-            return ','.join(attr_list)
-        elif isinstance(attr_list, str):
-            return attr_list
-        elif attr_list is None or isna(attr_list):
-            return ''
+        return ','.join(attr_list)
 
 
 class MetaFeatures:
@@ -80,27 +72,27 @@ class MetaFeatures:
                 max_source = source
         return max_source, max_meta
 
-    def get_source(self, name: str) -> Union[List[Metadata], None]:
+    def get_source(self, source: str) -> Union[List[Metadata], None]:
         """ Get the annotation for a specific source in gene family
 
-        :param name: Name of the source
+        :param source: Name of the source
 
         :return: All the annotation from the source if exist else None
         """
-        return self._metadataGetter[name] if name in self.sources else None
+        return self._metadataGetter[source] if source in self.sources else None
 
-    def get_metadata(self, value: Union[str, int, float, List[str], List[int], List[float]]) -> Generator[Metadata, None, None]:
+    def get_metadata(self, **kwargs) -> Generator[Metadata, None, None]:
         """Get annotation by name or accession in gene family
 
         :param value: Names of annotation searched
 
         :return: annotation searched
         """
-        value = value if isinstance(value, list) else [value]
-
-        for annotation in self.metadata:
-            if annotation.value in value:
-                yield annotation
+        for metadata in self.metadata:
+            for attr, value in kwargs.items():
+                if hasattr(metadata, attr):
+                    if metadata.__getattribute__(attr) in value or metadata.__getattribute__(attr) == value:
+                        yield metadata
 
     def add_metadata(self, source: str, metadata: Metadata):
         """ Add annotation to gene family
@@ -115,8 +107,9 @@ class MetaFeatures:
             # insert_bool = False
             while index_annot < len(source_annot):
                 current_annot = source_annot[index_annot]
-                if current_annot.value == metadata.value:
-                    same_value = True
+                for attr, value in metadata.__dict__.items():
+                    if hasattr(current_annot, attr) and current_annot.__getattribute__(attr) == value:
+                        same_value = True
                 # if current_annot.score is not None and metadata.score is not None:
                 #     if current_annot.score < metadata.score:
                 #         if same_value:
