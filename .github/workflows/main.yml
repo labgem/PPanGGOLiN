@@ -87,6 +87,8 @@ jobs:
         ppanggolin panrgp --anno organisms.gbff.list --cluster clusters.tsv --output readclusterpang
         ppanggolin annotate --anno organisms.gbff.list --output readclusters
         ppanggolin cluster --cluster clusters.tsv -p readclusters/pangenome.h5
+        ppanggolin graph -p readclusterpang/pangenome.h5 -r 10
+        ppanggolin partition --output readclusterpang -f -p readclusterpang/pangenome.h5 -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL -se $RANDOM
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f
         cd -
     - name: testing align command
@@ -101,3 +103,12 @@ jobs:
         cd testingDataset
         ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context
         ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f
+        cd -
+    - name: testing metadata command
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genes.tsv -a genes
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_families.tsv -a families
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genomes.tsv -a genomes
+        cd -

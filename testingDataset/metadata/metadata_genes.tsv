@@ -1,4 +1,4 @@
-Gene_family	Accession	protein_name	score	secondary_name	Description
+genes	accession	protein_name	score	secondary_name	Description
 GCF_000092665.1_ASM9266v1_genomic_CDS_0464	3003785	Chlamydia trachomatis intrinsic murA conferring resistance to fosfomycin	889.8	gnl|BL_ORD_ID|2359|hsp_num:0	phosphonic acid antibiotic, antibiotic target alteration, antibiotic-resistant murA transferase
 GCF_000026905.1_ASM2690v1_genomic_CDS_0470	3003785	Chlamydia trachomatis intrinsic murA conferring resistance to fosfomycin	889.4	gnl|BL_ORD_ID|2359|hsp_num:0	phosphonic acid antibiotic, antibiotic target alteration, antibiotic-resistant murA transferase
 GCF_000092685.1_ASM9268v1_genomic_CDS_0463	3003785	Chlamydia trachomatis intrinsic murA conferring resistance to fosfomycin	885.9	gnl|BL_ORD_ID|2359|hsp_num:0	phosphonic acid antibiotic, antibiotic target alteration, antibiotic-resistant murA transferase
