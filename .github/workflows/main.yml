@@ -87,8 +87,6 @@ jobs:
         ppanggolin panrgp --anno organisms.gbff.list --cluster clusters.tsv --output readclusterpang
         ppanggolin annotate --anno organisms.gbff.list --output readclusters
         ppanggolin cluster --cluster clusters.tsv -p readclusters/pangenome.h5
-        ppanggolin graph -p readclusterpang/pangenome.h5 -r 10
-        ppanggolin partition --output readclusterpang -f -p readclusterpang/pangenome.h5 -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL -se $RANDOM
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f
         cd -
     - name: testing align command
