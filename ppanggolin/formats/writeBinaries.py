@@ -16,18 +16,18 @@ from gmpy2 import popcount
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.formats.writeMetadata import write_metadata, erase_metadata, write_metadata_status
+from ppanggolin.genome import Feature
+from ppanggolin.formats.readBinaries import read_genedata, Genedata
 
 
-def gene_desc(org_len, contig_len, id_len, type_len, name_len, product_len, max_local_id) -> dict:
+def gene_desc(org_len, contig_len, id_len, max_local_id) -> dict:
     """
-    Create a table to save gene description
+    Create a table to save gene-related information
 
     :param org_len: Maximum size of organism
     :param contig_len: Maximum size of contigs
     :param id_len: Maximum size of gene ID
-    :param type_len: Maximum size of gene Type
-    :param name_len: Maximum size of gene name
-    :param product_len: Maximum size of gene product
+
     :param max_local_id: Maximum size of gene local identifier
 
     :return: Formatted table
@@ -40,23 +40,37 @@ def gene_desc(org_len, contig_len, id_len, type_len, name_len, product_len, max_
         },
         "gene": {
             'ID': tables.StringCol(itemsize=id_len),
-            'start': tables.UInt64Col(),
-            'stop': tables.UInt64Col(),
+            'genedata_id': tables.UInt32Col(),
+            'local': tables.StringCol(itemsize=max_local_id),
+            'is_fragment': tables.BoolCol(dflt=False)
+        }
+    }
+
+def genedata_desc(type_len, name_len, product_len):
+    """
+    Creates a table for gene-related data
+
+    :param type_len: Maximum size of gene Type
+    :param name_len: Maximum size of gene name
+    :param product_len: Maximum size of gene product
+    :return: Formatted table for gene metadata
+    """
+    return {
+            'genedata_id': tables.UInt32Col(), 
+            'start': tables.UInt32Col(),
+            'stop': tables.UInt32Col(),
             'strand': tables.StringCol(itemsize=1),
-            'type': tables.StringCol(itemsize=type_len),
+            'gene_type': tables.StringCol(itemsize=type_len),
             'position': tables.UInt32Col(),
             'name': tables.StringCol(itemsize=name_len),
             'product': tables.StringCol(itemsize=product_len),
             'genetic_code': tables.UInt32Col(dflt=11),
-            'is_fragment': tables.BoolCol(dflt=False),
-            'local': tables.StringCol(itemsize=max_local_id)
-        }
     }
 
 
-def get_max_len_annotations(pangenome: Pangenome) -> Tuple[int, int, int, int, int, int, int]:
+def get_max_len_annotations(pangenome: Pangenome) -> Tuple[int, int, int, int]:
     """
-    Get the maximum size of each annotation information to optimize saving
+    Get the maximum size of each annotation information to optimize disk space
 
     :param pangenome: Annotated pangenome
     :return: maximum size of each annotation
@@ -64,9 +78,6 @@ def get_max_len_annotations(pangenome: Pangenome) -> Tuple[int, int, int, int, i
     max_org_len = 1
     max_contig_len = 1
     max_gene_id_len = 1
-    max_name_len = 1
-    max_product_len = 1
-    max_type_len = 1
     max_local_id = 1
     for org in pangenome.organisms:
         if len(org.name) > max_org_len:
@@ -77,27 +88,61 @@ def get_max_len_annotations(pangenome: Pangenome) -> Tuple[int, int, int, int, i
             for gene in contig.genes:
                 if len(gene.ID) > max_gene_id_len:
                     max_gene_id_len = len(gene.ID)
-                if len(gene.name) > max_name_len:
-                    max_name_len = len(gene.name)
-                if len(gene.product) > max_product_len:
-                    max_product_len = len(gene.product)
-                if len(gene.type) > max_type_len:
-                    max_type_len = len(gene.type)
                 if len(gene.local_identifier) > max_local_id:
                     max_local_id = len(gene.local_identifier)
             for gene in contig.RNAs:
                 if len(gene.ID) > max_gene_id_len:
                     max_gene_id_len = len(gene.ID)
+                if len(gene.local_identifier) > max_local_id:
+                    max_local_id = len(gene.local_identifier)
+
+    return max_org_len, max_contig_len, max_gene_id_len, max_local_id
+
+
+def get_max_len_genedata(pangenome: Pangenome) -> Tuple[int, int, int]:
+    """
+    Get the maximum size of each gene data information to optimize disk space
+
+    :param pangenome: Annotated pangenome
+    :return: maximum size of each annotation
+    """
+    max_name_len = 1
+    max_product_len = 1
+    max_type_len = 1
+    for org in pangenome.organisms:
+        for contig in org.contigs:
+            for gene in contig.genes:
                 if len(gene.name) > max_name_len:
                     max_name_len = len(gene.name)
                 if len(gene.product) > max_product_len:
                     max_product_len = len(gene.product)
                 if len(gene.type) > max_type_len:
                     max_type_len = len(gene.type)
-                if len(gene.local_identifier) > max_local_id:
-                    max_local_id = len(gene.local_identifier)
+            for gene in contig.RNAs:
+                if len(gene.name) > max_name_len:
+                    max_name_len = len(gene.name)
+                if len(gene.product) > max_product_len:
+                    max_product_len = len(gene.product)
+                if len(gene.type) > max_type_len:
+                    max_type_len = len(gene.type)
 
-    return max_org_len, max_contig_len, max_gene_id_len, max_type_len, max_name_len, max_product_len, max_local_id
+    return max_type_len, max_name_len, max_product_len
+
+
+def get_genedata(gene:Feature) -> Tuple[int, str, str, int, str, str, int]:
+    """
+    Gets the genedata type of a Feature
+
+    :param gene: a Feature
+    :return: Tuple with a Feature associated data
+    """
+    position = None
+    genetic_code = 11
+    if gene.type == "CDS":
+        position = gene.position
+        genetic_code = gene.genetic_code
+    return Genedata(gene.start, gene.stop, gene.strand, gene.type, position, gene.name,
+                    gene.product, genetic_code)
 
 
 def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
@@ -112,96 +157,137 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
     gene_table = h5f.create_table(annotation, "genes", gene_desc(*get_max_len_annotations(pangenome)),
                                   expectedrows=len(pangenome.genes))
 
+    logging.getLogger().debug(f"Writing {len(pangenome.genes)} genes")
+
+    genedata2gene = {}
+    genedata_counter = 0
+
     gene_row = gene_table.row
     for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genome", disable=disable_bar):
         for contig in org.contigs:
-            for gene in contig.genes:
+            for gene in contig.genes + list(contig.RNAs):
                 gene_row["organism"] = org.name
                 gene_row["contig/name"] = contig.name
-                gene_row["contig/is_circular"] = contig.is_circular  # this should be somewhere else.
+                gene_row["contig/is_circular"] = contig.is_circular
                 gene_row["gene/ID"] = gene.ID
-                gene_row["gene/start"] = gene.start
-                gene_row["gene/stop"] = gene.stop
-                gene_row["gene/strand"] = gene.strand
-                gene_row["gene/type"] = gene.type
-                gene_row["gene/position"] = gene.position
-                gene_row["gene/name"] = gene.name
-                gene_row["gene/product"] = gene.product
                 gene_row["gene/is_fragment"] = gene.is_fragment
-                gene_row["gene/genetic_code"] = gene.genetic_code
-                gene_row["gene/local"] = gene.local_identifier
-                gene_row.append()
-            for rna in contig.RNAs:
-                gene_row["organism"] = org.name
-                gene_row["contig/name"] = contig.name
-                gene_row["contig/is_circular"] = contig.is_circular  # this should be somewhere else.
-                gene_row["gene/ID"] = rna.ID
-                gene_row["gene/start"] = rna.start
-                gene_row["gene/stop"] = rna.stop
-                gene_row["gene/strand"] = rna.strand
-                gene_row["gene/type"] = rna.type
-                gene_row["gene/name"] = rna.name
-                gene_row["gene/product"] = rna.product
-                gene_row["gene/is_fragment"] = rna.is_fragment
+                if gene.type == "CDS":
+                    gene_row["gene/local"] = gene.local_identifier
+                genedata = get_genedata(gene)
+                genedata_id = genedata2gene.get(genedata)
+                if genedata_id is None:
+                    genedata_id = genedata_counter
+                    genedata2gene[genedata] = genedata_id
+                    genedata_counter+=1
+                gene_row["gene/genedata_id"] = genedata_id
                 gene_row.append()
     gene_table.flush()
+
+    genedata_table = h5f.create_table(annotation, "genedata", genedata_desc(*get_max_len_genedata(pangenome)),
+                                     expectedrows=len(genedata2gene))
+    logging.getLogger().debug(f"Writing {len(genedata2gene)} gene-related data (can be lower than the number of genes)")
+    genedata_row = genedata_table.row
+    for genedata, genedata_id in genedata2gene.items():
+        genedata_row["genedata_id"] = genedata_id
+        genedata_row["start"] = genedata.start
+        genedata_row["stop"] = genedata.stop
+        genedata_row["strand"] = genedata.strand
+        genedata_row["gene_type"] = genedata.gene_type
+        if genedata.gene_type == "CDS":
+            genedata_row["position"] = genedata.position
+            genedata_row["genetic_code"] = genedata.genetic_code
+        genedata_row["name"] = genedata.name
+        genedata_row["product"] = genedata.product
+        genedata_row.append()
+    genedata_table.flush()
 
 
 def get_gene_sequences_len(pangenome: Pangenome) -> Tuple[int, int]:
     """
     Get the maximum size of gene sequences to optimize disk space
-
     :param pangenome: Annotated pangenome
     :return: maximum size of each annotation
     """
     max_gene_id_len = 1
-    max_gene_seq_len = 1
     max_gene_type = 1
     for gene in pangenome.genes:
         if len(gene.ID) > max_gene_id_len:
             max_gene_id_len = len(gene.ID)
         if len(gene.type) > max_gene_type:
             max_gene_type = len(gene.type)
-        if len(gene.dna) > max_gene_seq_len:
-            max_gene_seq_len = len(gene.dna)
-    return max_gene_id_len, max_gene_seq_len, max_gene_type
+    return max_gene_id_len, max_gene_type
 
 
-def gene_sequences_desc(gene_id_len, gene_seq_len, gene_type_len) -> dict:
+def gene_sequences_desc(gene_id_len, gene_type_len) -> dict:
     """
     Create table to save gene sequences
-
     :param gene_id_len: Maximum size of gene sequence identifier
-    :param gene_seq_len: Maximum size of gene dna sequence
     :param gene_type_len: Maximum size of gene type
-
     :return: Formated table
     """
     return {
         "gene": tables.StringCol(itemsize=gene_id_len),
-        "dna": tables.StringCol(itemsize=gene_seq_len),
+        "seqid": tables.UInt32Col(),
         "type": tables.StringCol(itemsize=gene_type_len)
     }
 
+def get_sequence_len(pangenome: Pangenome) -> int:
+    """
+    Get the maximum size of gene sequences to optimize disk space
+    :param pangenome: Annotated pangenome
+    :return: maximum size of each annotation
+    """
+    max_seq_len = 1
+    for gene in pangenome.genes:
+        if len(gene.dna) > max_seq_len:
+            max_seq_len = len(gene.dna)
+    return max_seq_len
+
+def sequence_desc(max_seq_len: int) -> dict:
+    """
+    Table description to save sequences
+    :param max_seq_len: Maximum size of gene type
+    :return: Formated table
+    """
+    return {
+        "seqid": tables.UInt32Col(),
+        "dna": tables.StringCol(itemsize=max_seq_len)
+    }
 
 def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
     Function writing all the pangenome gene sequences
-
     :param pangenome: Pangenome with gene sequences
     :param h5f: Pangenome HDF5 file without sequences
     :param disable_bar: Disable progress bar
     """
     gene_seq = h5f.create_table("/", "geneSequences", gene_sequences_desc(*get_gene_sequences_len(pangenome)),
                                 expectedrows=len(pangenome.genes))
-
+    #process sequences to save them only once
+    seq2seqid = {}
+    id_counter = 0
     gene_row = gene_seq.row
     for gene in tqdm(pangenome.genes, total=pangenome.number_of_gene(), unit="gene", disable=disable_bar):
+        curr_seq_id = seq2seqid.get(gene.dna)
+        if curr_seq_id is None:
+            curr_seq_id = id_counter
+            seq2seqid[gene.dna] = id_counter
+            id_counter+=1
         gene_row["gene"] = gene.ID
-        gene_row["dna"] = gene.dna
+        gene_row["seqid"] = curr_seq_id
         gene_row["type"] = gene.type
         gene_row.append()
     gene_seq.flush()
+
+    seq_table = h5f.create_table("/","sequences", sequence_desc(get_sequence_len(pangenome)),
+                                 expectedrows=len(seq2seqid))
+
+    seq_row = seq_table.row
+    for seq, seqid in seq2seqid.items():
+        seq_row["dna"] = seq
+        seq_row["seqid"] = seqid
+        seq_row.append()
+    seq_table.flush()
 
 
 def gene_fam_desc(max_name_len: int, max_sequence_length: int, max_part_len: int) -> dict:
@@ -786,9 +872,12 @@ def update_gene_fragments(pangenome: Pangenome, h5f: tables.File, disable_bar: b
     :param disable_bar: Allow to disable progress bar
     """
     logging.getLogger().info("Updating annotations with fragment information")
+    genedataid2genedata = read_genedata(h5f)
+
     table = h5f.root.annotations.genes
     for row in tqdm(table, total=table.nrows, unit="gene", disable=disable_bar):
-        if row['gene/type'].decode() == 'CDS':
+        genedata_id = row['gene/genedata_id']
+        if genedataid2genedata[genedata_id].gene_type == 'CDS':
             row['gene/is_fragment'] = pangenome.get_gene(row['gene/ID'].decode()).is_fragment
             row.update()
     table.flush()
