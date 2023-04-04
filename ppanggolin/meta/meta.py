@@ -33,7 +33,7 @@ def check_pangenome_metadata(pangenome: Pangenome, source: str, metatype: str, f
                 'need_rgp': False,
                 'need_spots': False,
                 'need_modules': False}
-    if metatype in ["genes", "genomes"]:
+    if metatype in ["genes", "genomes", "families"]:
         need_dic['need_annotations'] = True
     if metatype == "families":
         need_dic['need_families'] = True

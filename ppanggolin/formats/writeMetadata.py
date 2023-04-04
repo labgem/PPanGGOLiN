@@ -127,6 +127,7 @@ def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, 
                     else:
                         max_len_dict[attr] = len(value)
                 else:
+                    logging.getLogger().debug(f"attr: {attr}, value: {value}")
                     raise TypeError(f"{type(value)} is not acceptable")
             expected_rows += 1
 
