@@ -25,8 +25,6 @@ class Metadata:
                 if isinstance(value, list):
                     value = self._join_list(value)
                 setattr(self, attr, value)
-            else:
-                print("pika")
 
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
