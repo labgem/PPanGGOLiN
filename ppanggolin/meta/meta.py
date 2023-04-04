@@ -116,7 +116,7 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
             if not omit:
                 raise KeyError(f"{metatype} {row[metatype]} does not exist in pangenome. Check name in your file")
             else:
-                logging.getLogger().debug(f"{metatype} doesn't exist")
+                logging.getLogger().debug(f"{metatype}: {row[metatype]} doesn't exist")
         else:
             meta = Metadata(source=source, **{k: v for k, v in row.to_dict().items() if k != metatype})
             element.add_metadata(source=source, metadata=meta)
