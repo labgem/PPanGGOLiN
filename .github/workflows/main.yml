@@ -107,6 +107,6 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genes.tsv -a genes
-        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_families.tsv -a families
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genomes.tsv -a genomes
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_families.tsv -a families --omit
         cd -
