@@ -139,7 +139,7 @@ def launch(args: argparse.Namespace):
     assign_metadata(metadata_df, pangenome=pangenome, source=args.source, metatype=args.assign,
                     omit=args.omit, disable_bar=args.disable_prog_bar)
     logging.getLogger().info("Metadata assignment Done")
-    write_pangenome(pangenome, pangenome.file, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, pangenome.file, force=args.force, disable_bar=args.disable_prog_bar)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
