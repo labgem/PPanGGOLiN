@@ -2,7 +2,7 @@
 # coding: utf8
 
 # default libraries
-from typing import Generator, List, Union
+from typing import Generator, List, Tuple, Union
 
 # installed libraries
 from pandas import isna
@@ -104,3 +104,15 @@ class MetaFeatures:
                 source_annot.append(metadata)
         else:
             self._metadataGetter[source] = [metadata]
+
+    def max_metadata_by_source(self) -> Tuple[str, int]:
+        """Get the maximum number of annotation for one source
+        :return: Name of the source with the maximum annotation and the number of annotation corresponding
+        """
+        max_meta = 0
+        max_source = None
+        for source, metadata in self._metadataGetter.items():
+            if len(metadata) > max_meta:
+                max_meta = len(metadata)
+                max_source = source
+        return max_source, max_meta
