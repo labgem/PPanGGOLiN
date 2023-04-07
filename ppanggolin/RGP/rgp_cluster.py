@@ -104,7 +104,7 @@ def differentiate_spot_in_identical_rgps(rgp_graph, rgp_to_identical_rgps, rgp_t
         # print()
         for spot, strictly_identical_rgps in spot_to_rgps.items():
             if spot == rgp_to_spot.get(rgp, None): # is the spot identical as the main rgp that have been used to compute grr?
-                rgp_graph.add_node(rgp.ID, identical_rgp_fam_and_spot=len(strictly_identical_rgps))
+                rgp_graph.add_node(rgp.ID, identical_rgp_fam_and_spot=len(strictly_identical_rgps)+1)
             else:
                 identical_rgp_diff_spot_count += 1
                 strictly_identical_rgp = strictly_identical_rgps.pop()
