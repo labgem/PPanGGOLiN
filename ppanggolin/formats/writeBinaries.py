@@ -1005,19 +1005,6 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
             pangenome.status["genomesAnnotated"] = "Loaded"
             h5f.close()
 
-    try:
-        assert all([pangenome.status[step] in ["Computed", "Loaded", "inFile", 'No'] for step in pangenome.status
-                    if step not in ["metadata", "metasources"]])
-        assert all([pangenome.status["metadata"][meta] in ["Computed", "Loaded", "inFile", 'No'] for meta in
-                    pangenome.status["metadata"]])
-    except AssertionError:
-        debug = [f"{step}: {pangenome.status[step] in ['Computed', 'Loaded', 'inFile', 'No']}" for step in
-                 pangenome.status
-                 if step not in ["metadata", "metasources"]]
-        logging.getLogger().debug(debug)
-        raise AssertionError("Something unexcpected happened. "
-                             "Please post an issue on github with what you did to reach this error.")
-
     # from there, appending to existing file
     h5f = tables.open_file(filename, "a")
 

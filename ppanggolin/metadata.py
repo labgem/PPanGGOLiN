@@ -26,6 +26,9 @@ class Metadata:
                     value = self._join_list(value)
                 setattr(self, attr, value)
 
+    def get(self, name: str):
+        return self.__getattribute__(name)
+
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
         return ','.join(attr_list)
