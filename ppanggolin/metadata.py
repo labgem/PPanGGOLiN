@@ -26,8 +26,19 @@ class Metadata:
                     value = self._join_list(value)
                 setattr(self, attr, value)
 
-    def get(self, name: str):
-        return self.__getattribute__(name)
+    def __len__(self):
+        return len(self.__dict__.keys())
+
+    def get(self, name: str, skip_error: bool = False):
+        try:
+            value = self.__getattribute__(name)
+        except AttributeError as attr_error:
+            if skip_error:
+                return None
+            else:
+                raise attr_error
+        else:
+            return value
 
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
@@ -88,20 +99,8 @@ class MetaFeatures:
         """
         assert isinstance(metadata, Metadata)
         source_annot = self.get_source(source)
-        same_value = False
         if source_annot is not None:
-            index_annot = 0
-            while index_annot < len(source_annot):
-                current_annot = source_annot[index_annot]
-                for attr, value in metadata.__dict__.items():
-                    if hasattr(current_annot, attr) and current_annot.__getattribute__(attr) == value:
-                        same_value = True
-                if not same_value:
-                    index_annot += 1
-                else:
-                    break
-            if not same_value:
-                source_annot.append(metadata)
+            self._metadataGetter[source].append(metadata)
         else:
             self._metadataGetter[source] = [metadata]
 
