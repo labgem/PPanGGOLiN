@@ -270,7 +270,7 @@ def parser_default_config(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
 
-    required.add_argument('--default_config', required=False, type=str, nargs="+", default=None,#=subcommands,
+    required.add_argument('--default_config', required=False, type=str, nargs="*", default=None,#=subcommands,
                           help="Generate a config file with default values for the given subcommands." 
                           " If no command is given a config file with parameters for every subcommand is generated", 
                           choices= subcommands)

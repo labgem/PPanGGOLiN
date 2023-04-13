@@ -11,14 +11,14 @@ from collections.abc import Callable
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, restricted_float, WRITE_FLAGS
+from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, restricted_float
 from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas
 from ppanggolin.cluster.cluster import clustering, read_clustering
 from ppanggolin.graph.makeGraph import compute_neighbors_graph
 from ppanggolin.nem.rarefaction import make_rarefaction_curve
 from ppanggolin.nem.partition import partition
 from ppanggolin.formats.writeBinaries import write_pangenome
-from ppanggolin.formats.writeFlat import write_flat_files, flat_file_flags_parser
+from ppanggolin.formats.writeFlat import write_flat_files
 from ppanggolin.figures.ucurve import draw_ucurve
 from ppanggolin.figures.tile_plot import draw_tile_plot
 from ppanggolin.figures.draw_spot import draw_spots
@@ -121,7 +121,6 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
                 cpu = args.partition.cpu,
                 force = args.force,
                 disable_bar=args.disable_prog_bar)
-    
     part_time = time.time() - start_part
 
     start_writing = time.time()
@@ -172,60 +171,54 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
                                 soft_core=args.rarefaction.soft_core, 
                                 cpu=args.rarefaction.cpu, disable_bar=args.disable_prog_bar)
         
+    if not args.only_pangenome:
 
-    ## Flat outputs managenement ##
-
-    if panrgp:
-        start_spot_drawing = time.time()
-        mk_outdir(args.output + '/spot_figures', force=True)
-        draw_spots(pangenome=pangenome, output=args.output + '/spot_figures', spot_list='all',
-                disable_bar=args.disable_prog_bar)
-        spot_time = spot_time + time.time() - start_spot_drawing
+        if panrgp:
+            start_spot_drawing = time.time()
+            mk_outdir(args.output + '/spot_figures', force=True)
+            draw_spots(pangenome=pangenome, output=args.output + '/spot_figures', spot_list='all',
+                    disable_bar=args.disable_prog_bar)
+            spot_time = spot_time + time.time() - start_spot_drawing
 
 
-    if 1 < len(pangenome.organisms) < 5000:
-        draw_tile_plot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
-    draw_ucurve(pangenome, args.output)
+        if 1 < len(pangenome.organisms) < 5000:
+            draw_tile_plot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
+        draw_ucurve(pangenome, args.output)
 
-    
-
-    write_out_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json']
-
-    # Check that we don't ask TO write to output something not computed.
-    borders, spots, regions, spot_modules, modules = (False, False, False, False, False)
-
-    if panmodule:
-        modules = args.write.modules
-        write_out_arguments.append('modules')
-
-    if panrgp:
-        borders, spots, regions = (args.write.borders, args.write.spots, args.write.regions)
-        write_out_arguments +=  ["borders", "spots", 'regions']
-    
-    if panmodule and panrgp:
-        spot_modules = args.write.spot_modules
-        write_out_arguments.append('spot_modules')
-
-    # check that at least one output file is requested. if not, write is not call.
-    write_flat_output = any(( getattr(args.write, arg) is True for arg in  write_out_arguments))
-    if write_flat_output:
         start_desc = time.time()
 
-        # some parameters are set to false because they have not been computed in this workflow
-        write_flat_files(pangenome, args.output, cpu=args.write.cpu,  disable_bar=args.disable_prog_bar, 
-                        soft_core=args.write.soft_core, dup_margin=args.write.dup_margin,
-                        csv=args.write.csv, gene_pa=args.write.Rtab, gexf=args.write.gexf, light_gexf=args.write.light_gexf, projection=args.write.projection,
-                        stats=args.write.stats, json=args.write.json, partitions=args.write.partitions, 
-                        families_tsv=args.write.families_tsv, 
-                        compress=args.write.compress, 
-                        spot_modules=spot_modules, regions=regions, modules=modules, spots=spots, borders=borders)
-        desc_time = time.time() - start_desc
-    else:
-        logging.getLogger().info(f'No flat file output has been requested in cmd line or in config file.')
+        write_out_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json']
 
-    
-    ## Time measure logging ##
-     
+        # Check that we don't ask write to output something not computed.
+        borders, spots, regions, spot_modules, modules = (False, False, False, False, False)
+
+        if panmodule:
+            modules = args.write.modules
+            write_out_arguments.append('modules')
+
+        if panrgp:
+            borders, spots, regions = (args.write.borders, args.write.spots, args.write.regions)
+            write_out_arguments +=  ["borders", "spots", 'regions']
+        
+        if panmodule and panrgp:
+            spot_modules = args.write.spot_modules
+            write_out_arguments.append('spot_modules')
+
+        # check that at least one output file is requested. if not write is not call.
+        if any(( getattr(args.write,arg) is True for arg in  write_out_arguments)):
+            # some parameters are set to false because they have not been computed in this workflow
+            write_flat_files(pangenome, args.output, cpu=args.write.cpu,  disable_bar=args.disable_prog_bar, 
+                            soft_core=args.write.soft_core, dup_margin=args.write.dup_margin,
+                            csv=args.write.csv, gene_pa=args.write.Rtab, gexf=args.write.gexf, light_gexf=args.write.light_gexf, projection=args.write.projection,
+                            stats=args.write.stats, json=args.write.json, partitions=args.write.partitions, 
+                            families_tsv=args.write.families_tsv, 
+                            compress=args.write.compress, 
+                            spot_modules=spot_modules, regions=regions, modules=modules, spots=spots, borders=borders)
+        else:
+            logging.getLogger().info(f'No flat file output has been requested in config file. Writing output flat file is skipped.')
+
+        desc_time = time.time() - start_desc
+
     logging.getLogger().info(f"Annotation took : {round(anno_time, 2)} seconds")
     logging.getLogger().info(f"Clustering took : {round(clust_time, 2)} seconds")
     logging.getLogger().info(f"Building the graph took : {round(graph_time, 2)} seconds")
@@ -240,7 +233,7 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     
     logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
 
-    if write_flat_output:
+    if not args.only_pangenome:
         logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
     
     print_info(filename, content=True)
@@ -260,27 +253,13 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     """
     Subparser to launch PPanGGOLiN in Command line
 
-    :param sub_parser : sub_parser for all command
+    :param sub_parser : sub_parser for align command
 
-    :return : parser arguments for all command
+    :return : parser arguments for align command
     """
     parser = sub_parser.add_parser("all", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    add_workflow_args(parser)
-
-    return parser
-
-
-def add_workflow_args(parser: argparse.ArgumentParser):
-    """
-    Parser for important arguments that can be changed in CLI. 
-    Other (less important) arguments that are step specific can be changed in the config file.
-
-    :param parser: parser for workflow argument
-    """
-    
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
-    
     required.add_argument('--fasta', required=False, type=str,
                           help="A tab-separated file listing the organism names, "
                                "and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). "
@@ -307,40 +286,48 @@ def add_workflow_args(parser: argparse.ArgumentParser):
     optional.add_argument("--rarefaction", required=False, action="store_true",
                           help="Use to compute the rarefaction curves (WARNING: can be time consuming)")
 
-    # optional.add_argument("--write_flat_output", required=False, nargs="*", default=False, choices = WRITE_FLAGS,  
-    #                       help="Use to write flat outputs. "
-    #                       "Can take a list of output flags to write. "
-    #                       "If --write_flat_output is given with no flags, the write flags specified in config file are used. " 
-    #                       "If --write_flat_output is not specified, no flat outputs will be written even if some write flags are specified in config file.")
+    optional.add_argument("--only_pangenome", required=False, action="store_true",
+                          help="Only generate the HDF5 pangenome file")
 
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
-    optional.add_argument("--translation_table", required=False, type=int, default=11,
+
+    add_step_specific_args(optional)
+
+
+    return parser
+
+
+def add_step_specific_args(parser: argparse.ArgumentParser):
+    """
+    Parser for important arguments that can be changed in CLI. 
+    Other (less important) arguments that are step specific can be changed in the config file.
+
+    :param parser: parser for workflow argument
+    """
+
+    parser.add_argument("--translation_table", required=False, type=int, default=11,
                           help="Translation table (genetic code) to use.")
     
-    optional.add_argument("--kingdom", required=False, type=str.lower, default="bacteria",
+    parser.add_argument("--kingdom", required=False, type=str.lower, default="bacteria",
                         choices=["bacteria", "archaea"],
                         help="Kingdom to which the prokaryota belongs to, "
                             "to know which models to use for rRNA annotation.")
 
-    optional.add_argument("--mode", required=False, default="1", choices=["0", "1", "2", "3"],
+    parser.add_argument("--mode", required=False, default="1", choices=["0", "1", "2", "3"],
                           help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component),"
                                " 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
 
-    optional.add_argument("--coverage", required=False, type=restricted_float, default=0.8,
+    parser.add_argument("--coverage", required=False, type=restricted_float, default=0.8,
                           help="Minimal coverage of the alignment for two proteins to be in the same cluster")
 
-    optional.add_argument("--identity", required=False, type=restricted_float, default=0.8,
+    parser.add_argument("--identity", required=False, type=restricted_float, default=0.8,
                           help="Minimal identity percent for two proteins to be in the same cluster")
 
-    optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
+    parser.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
                           help="Number of partitions to use. Must be at least 2. If under 2, "
                                "it will be detected automatically.")
                                
     # This ensures compatibility with workflows built with the old option "defrag" when it was not the default
-    optional.add_argument("--no_defrag", required=False, action="store_true",
+    parser.add_argument("--no_defrag", required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
-    
-    out_flags_parser = parser.add_argument_group(title="Flat file output arguments")
-
-    flat_file_flags_parser(out_flags_parser)
