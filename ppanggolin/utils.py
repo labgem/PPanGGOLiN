@@ -47,17 +47,18 @@ from ppanggolin.geneFamily import GeneFamily
 ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome']
 
 # all params that should be in the general_parameters section of the config file
-ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'only_pangenome', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
+ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
 
 WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panmodule'}
 
 # command that can be launched inside a workflow subcommand
-ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module" ]
+ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module", "draw" ]
 
 # Inside a workflow command, write output default is overwrite to output some of the flat files
 WRITE_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
                         'projection', 'stats', 'json', 'partitions', 'regions', 'spots',
                         'borders', 'modules', 'spot_modules']
+DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "spots"]
 
 # SUBCOMMAND_TO_SUBPARSER = {
 #         "annotate":ppanggolin.annotate.subparser,
@@ -669,9 +670,13 @@ def manage_cli_and_config_args(subcommand: str, config_file:str, subcommand_to_s
             specific_step_params = {param_name for param_name in all_param_names if param_name not in all_unspecific_params}
             config_step_args = get_config_args(workflow_step, step_subparser, config, workflow_step, specific_step_params, strict_config_check=True)
 
-            # overwrite write default when not specified in config 
+            # overwrite write and draw default when not specified in config 
             if workflow_step == 'write':
                 for out_flag in WRITE_FLAG_DEFAULT_IN_WF:
+                    setattr(default_step_args, out_flag, True)
+            
+            if workflow_step == "draw":
+                for out_flag in DRAW_FLAG_DEFAULT_IN_WF:
                     setattr(default_step_args, out_flag, True)
             
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)

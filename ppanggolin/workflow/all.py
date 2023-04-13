@@ -40,7 +40,8 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     """
 
     check_option_workflow(args)
-    
+    print(args.draw)
+    input()
     pangenome = Pangenome()
 
     filename = mk_file_name(args.basename, args.output, args.force)
@@ -155,7 +156,7 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
     writing_time = writing_time + time.time() - start_writing
 
-    if args.rarefaction:
+    if args.rarefaction_flag:
         make_rarefaction_curve(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir, 
                                 beta=args.rarefaction.beta,
                                 depth=args.rarefaction.depth,
@@ -171,19 +172,24 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
                                 soft_core=args.rarefaction.soft_core, 
                                 cpu=args.rarefaction.cpu, disable_bar=args.disable_prog_bar)
         
-    if not args.only_pangenome:
+    if not args.no_flat_files:
 
-        if panrgp:
+        if panrgp and args.draw.spots:  
             start_spot_drawing = time.time()
             mk_outdir(args.output + '/spot_figures', force=True)
             draw_spots(pangenome=pangenome, output=args.output + '/spot_figures', spot_list='all',
                     disable_bar=args.disable_prog_bar)
             spot_time = spot_time + time.time() - start_spot_drawing
 
-
-        if 1 < len(pangenome.organisms) < 5000:
-            draw_tile_plot(pangenome, args.output, nocloud=False if len(pangenome.organisms) < 500 else True)
-        draw_ucurve(pangenome, args.output)
+        if args.draw.tile_plot:
+            if 1 < len(pangenome.organisms) < 5000:
+                nocloud = args.draw.nocloud if len(pangenome.organisms) < 500 else True
+                draw_tile_plot(pangenome, args.output, nocloud=nocloud, disable_bar=args.disable_prog_bar)
+            else:
+                logging.getLogger().warning('Tile plot output have been requested but there are too many organisms to produce a viewable tile plot.')
+        
+        if args.draw.ucurve:
+            draw_ucurve(pangenome, args.output, disable_bar=args.disable_prog_bar, soft_core=args.draw.soft_core)
 
         start_desc = time.time()
 
@@ -205,7 +211,7 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
             write_out_arguments.append('spot_modules')
 
         # check that at least one output file is requested. if not write is not call.
-        if any(( getattr(args.write,arg) is True for arg in  write_out_arguments)):
+        if any(( getattr(args.write, arg) is True for arg in  write_out_arguments)):
             # some parameters are set to false because they have not been computed in this workflow
             write_flat_files(pangenome, args.output, cpu=args.write.cpu,  disable_bar=args.disable_prog_bar, 
                             soft_core=args.write.soft_core, dup_margin=args.write.dup_margin,
@@ -233,7 +239,7 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     
     logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
 
-    if not args.only_pangenome:
+    if not args.no_flat_files:
         logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
     
     print_info(filename, content=True)
@@ -252,23 +258,36 @@ def launch(args: argparse.Namespace):
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
     Subparser to launch PPanGGOLiN in Command line
-
-    :param sub_parser : sub_parser for align command
-
-    :return : parser arguments for align command
+    :param sub_parser : sub_parser for all command
+    :return : parser arguments for all command
     """
     parser = sub_parser.add_parser("all", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    add_workflow_args(parser)
+
+    return parser
+
+
+def add_workflow_args(parser: argparse.ArgumentParser):
+    """
+    Parser for important arguments that can be changed in CLI. 
+    Other (less important) arguments that are step specific can be changed in the config file.
+    :param parser: parser for workflow argument
+    """
+    
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
+    
     required.add_argument('--fasta', required=False, type=str,
                           help="A tab-separated file listing the organism names, "
                                "and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). "
                                "One line per organism. This option can be used alone.")
+    
     required.add_argument('--anno', required=False, type=str,
                           help="A tab-separated file listing the organism names, and the gff filepath of "
                                "its annotations (the gffs can be compressed). One line per organism. "
                                "This option can be used alone IF the fasta sequences are in the gff files, "
                                "otherwise --fasta needs to be used.")
+    
     required.add_argument("--clusters", required=False, type=str,
                           help="a tab-separated file listing the cluster names, the gene IDs, "
                                "and optionally whether they are a fragment or not.")
@@ -283,51 +302,36 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     optional.add_argument("--basename", required=False, default="pangenome",
                             help="basename for the output file")
                             
-    optional.add_argument("--rarefaction", required=False, action="store_true",
+    optional.add_argument("--rarefaction", required=False, action="store_true", dest="rarefaction_flag",
                           help="Use to compute the rarefaction curves (WARNING: can be time consuming)")
-
-    optional.add_argument("--only_pangenome", required=False, action="store_true",
-                          help="Only generate the HDF5 pangenome file")
 
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
-
-    add_step_specific_args(optional)
-
-
-    return parser
-
-
-def add_step_specific_args(parser: argparse.ArgumentParser):
-    """
-    Parser for important arguments that can be changed in CLI. 
-    Other (less important) arguments that are step specific can be changed in the config file.
-
-    :param parser: parser for workflow argument
-    """
-
-    parser.add_argument("--translation_table", required=False, type=int, default=11,
+    optional.add_argument("--translation_table", required=False, type=int, default=11,
                           help="Translation table (genetic code) to use.")
     
-    parser.add_argument("--kingdom", required=False, type=str.lower, default="bacteria",
+    optional.add_argument("--kingdom", required=False, type=str.lower, default="bacteria",
                         choices=["bacteria", "archaea"],
                         help="Kingdom to which the prokaryota belongs to, "
                             "to know which models to use for rRNA annotation.")
 
-    parser.add_argument("--mode", required=False, default="1", choices=["0", "1", "2", "3"],
+    optional.add_argument("--mode", required=False, default="1", choices=["0", "1", "2", "3"],
                           help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component),"
                                " 2: CD-HIT-like, 3: CD-HIT-like (lowmem)")
 
-    parser.add_argument("--coverage", required=False, type=restricted_float, default=0.8,
+    optional.add_argument("--coverage", required=False, type=restricted_float, default=0.8,
                           help="Minimal coverage of the alignment for two proteins to be in the same cluster")
 
-    parser.add_argument("--identity", required=False, type=restricted_float, default=0.8,
+    optional.add_argument("--identity", required=False, type=restricted_float, default=0.8,
                           help="Minimal identity percent for two proteins to be in the same cluster")
 
-    parser.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
+    optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
                           help="Number of partitions to use. Must be at least 2. If under 2, "
                                "it will be detected automatically.")
                                
     # This ensures compatibility with workflows built with the old option "defrag" when it was not the default
-    parser.add_argument("--no_defrag", required=False, action="store_true",
+    optional.add_argument("--no_defrag", required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with their non-fragmented gene family.")
+    
+    optional.add_argument("--no_flat_files", required=False, action="store_true",
+                          help="Generate only the HDF5 pangenome file.")

@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 
-from ppanggolin.utils import get_subcommand_parser, check_log, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES #, subcommand_to_subparser
+from ppanggolin.utils import get_subcommand_parser, check_log, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES , WRITE_FLAG_DEFAULT_IN_WF, DRAW_FLAG_DEFAULT_IN_WF
 
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
@@ -121,12 +121,13 @@ def launch_default_config(args):
     """
 
     """
-    if len(args.default_config) == 0:
-        initial_sub_commands = list(SUBCOMMAND_TO_SUBPARSER.keys())
-    else:
-        initial_sub_commands = args.default_config 
+    # if len(args.default_config) == 0:
+    #     initial_commands = list(SUBCOMMAND_TO_SUBPARSER.keys())
+    # else:
+    #     initial_commands = args.default_config 
 
-    initial_sub_commands = set(initial_sub_commands)
+    # initial_commands = set(initial_commands)
+    initial_command = args.default_config
 
     if os.path.exists(args.output) and not args.force: 
         raise FileExistsError(f"{args.output} already exists. Use -f if you want to overwrite it.")
@@ -142,40 +143,53 @@ def launch_default_config(args):
     #     continue
 
     workflow_dependencies = {sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if sub_cmd not in ["rgp", "spot", "module"]}
-    if any([True for sub_cmd in initial_sub_commands if sub_cmd in  ['panrgp', 'all']]):
+
+    if initial_command in ['panrgp', 'all']:
         workflow_dependencies |= {"rgp", "spot"}
         # write_flag_default_in_wf += ['regions', 'spots', 'borders']
 
-    if any([True for sub_cmd in initial_sub_commands if sub_cmd in ['panmodule', 'all']]):
+    if initial_command in ['panmodule', 'all']:
         workflow_dependencies.add('module')
         # write_flag_default_in_wf.append('modules')
 
     # if args.command == 'all':
     #     write_flag_default_in_wf.append('spot_modules')
 
-    if any([True for sub_cmd in initial_sub_commands if sub_cmd in WORKFLOW_SUBCOMMANDS]):
-         sub_commands = initial_sub_commands | workflow_dependencies
-
+    if initial_command in WORKFLOW_SUBCOMMANDS:
+         commands = {initial_command} | workflow_dependencies
+    else:
+        commands = {initial_command} 
 
     sub_cmd_to_actions = {}
     inputs_actions = []
     general_actions = []
 
-    for sub_command in sub_commands:
+    for sub_command in commands:
         
         parser_fct = SUBCOMMAND_TO_SUBPARSER[sub_command]
 
         _, sub = get_subcommand_parser(parser_fct, sub_command)
         
-
         specific_actions = []
+        
+        # overwrite some default value for write cmd in a workflow context
+        if initial_command in WORKFLOW_SUBCOMMANDS and sub_command == 'write':
+            for sub_action in sub._actions:
+                if sub_action.dest in WRITE_FLAG_DEFAULT_IN_WF:
+                    sub_action.default = True
+        # overwrite some default value for draw cmd in a workflow context
+        if initial_command in WORKFLOW_SUBCOMMANDS and sub_command == 'draw':
+            for sub_action in sub._actions:
+                if sub_action.dest in DRAW_FLAG_DEFAULT_IN_WF:
+                    sub_action.default = True
+
 
         for parser_action in sub._actions:
             if parser_action.dest in ignored_params:
                 continue
 
             if parser_action.dest in ALL_INPUT_PARAMS:
-                if sub_command in initial_sub_commands:
+                if sub_command == initial_command:
                     # with worflow dependencies, we do not use their input params
                     # as input params are given by worflow cmds
                     inputs_actions.append(parser_action)
@@ -270,10 +284,9 @@ def parser_default_config(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
 
-    required.add_argument('--default_config', required=False, type=str, nargs="*", default=None,#=subcommands,
-                          help="Generate a config file with default values for the given subcommands." 
-                          " If no command is given a config file with parameters for every subcommand is generated", 
-                          choices= subcommands)
+    required.add_argument('--default_config', required=False, type=str, default=None,#nargs="*",,
+                          help="Generate a config file with default values for the given subcommand.", 
+                          choices=subcommands)
     
     optional = parser.add_argument_group(title="Config arguments")
 
