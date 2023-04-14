@@ -40,9 +40,17 @@ def split(list_object:list, chunk_count:int) -> list([list]):
     return [list_object[index*quotient+min(index, remainder):(index+1)*quotient+min(index+1, remainder)] for index in range(chunk_count)]
 
 
-def split_comment_string(comment_string:str, max_word_count:int=20, prefix="\n    # "):
+def split_comment_string(comment_string:str, max_word_count:int=20, prefix:str="\n    # ") -> str:
     """
+    Split a line of comment into multiple line.
+
+    :params comment_string: comment string to split
+    :params max_word_count: maximum number of word per line
+    :params prefix: prefic used to start a new comment line
+    
+    :return : the splited comment line.
     """
+
     splitted_comment = comment_string.split()
     word_count = len(splitted_comment)
     line_count = round(word_count/max_word_count) + 1
@@ -103,62 +111,54 @@ def get_default_argument_lines(argument_actions:list([argparse._SubParsersAction
     return arg_default_lines
 
 
-def deduplicate_actions(actions):
+def deduplicate_actions(actions: list([argparse._SubParsersAction])) -> list([argparse._SubParsersAction]):
     """
+    Deduplicate duplicate actions based on their dest.
+
+    When two actions with the same dest attribute, only the first one is kept in the returned list.
+
+    :param argument_actions: list of parser action arguments. 
+
+    :return: list of parser action arguments deduplicated.
 
     """
     dedup_actions = []
     dedup_names = []
     for action in actions:
         if action.dest in dedup_names:
+            # action has been already seen.
             continue
         dedup_names.append(action.dest) 
         dedup_actions.append(action)
     return dedup_actions
 
 
-def launch_default_config(args):
+def launch_default_config(args: argparse.Namespace):
     """
+    Command launcher
 
+    :param args: All arguments provide by user
     """
-    # if len(args.default_config) == 0:
-    #     initial_commands = list(SUBCOMMAND_TO_SUBPARSER.keys())
-    # else:
-    #     initial_commands = args.default_config 
-
-    # initial_commands = set(initial_commands)
     initial_command = args.default_config
 
     if os.path.exists(args.output) and not args.force: 
         raise FileExistsError(f"{args.output} already exists. Use -f if you want to overwrite it.")
     
     ignored_params = ['config', 'help']
-    unspecific_params = ALL_INPUT_PARAMS + ALL_GENERAL_PARAMS + ignored_params
-
-    # write_flag_default_in_wf = ["csv", "Rtab", "gexf", "light_gexf",
-    #                     'projection', 'stats', 'json', 'partitions']
-    # if workflow_step in ["rgp", "spot"] and subcommand in ["workflow", "panmodule"]:
-    #     continue
-    # elif  workflow_step == "module" and subcommand in ["workflow", "panmodule"]:
-    #     continue
 
     workflow_dependencies = {sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if sub_cmd not in ["rgp", "spot", "module"]}
 
     if initial_command in ['panrgp', 'all']:
         workflow_dependencies |= {"rgp", "spot"}
-        # write_flag_default_in_wf += ['regions', 'spots', 'borders']
 
     if initial_command in ['panmodule', 'all']:
         workflow_dependencies.add('module')
-        # write_flag_default_in_wf.append('modules')
-
-    # if args.command == 'all':
-    #     write_flag_default_in_wf.append('spot_modules')
 
     if initial_command in WORKFLOW_SUBCOMMANDS:
-         commands = {initial_command} | workflow_dependencies
+         # it is clearer if the order of the subcommand is conserved in wf config file
+         commands = [initial_command] + [sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if sub_cmd in workflow_dependencies]
     else:
-        commands = {initial_command} 
+        commands = [initial_command]
 
     sub_cmd_to_actions = {}
     inputs_actions = []
@@ -219,22 +219,6 @@ def launch_default_config(args):
         
         arg_lines.append(f"\n{sub_command}:")
         arg_lines += get_default_argument_lines(specific_actions)
-
-
-    # if args.command not in WORKFLOW_SUBCOMMANDS:
-    #     arg_lines.append(f"\n{args.command}:")
-    #     arg_lines += get_default_argument_lines(specific_actions)
-    # else:
-    #     for wf_subcmd in workflow_dependencies:
-    #         _, sub = get_subcommand_parser(SUBCOMMAND_TO_SUBPARSER[wf_subcmd], wf_subcmd )
-    #         specific_subcmd_actions = [sub_action for sub_action in sub._actions if sub_action.dest not in unspecific_params]
-
-    #         # # overwrite some default value for write cmd in a workflow context
-    #         # if wf_subcmd == 'write':
-    #         #     for sub_action in specific_subcmd_actions:
-    #         #         if sub_action.dest in write_flag_default_in_wf:
-    #         #             sub_action.default = True
-
 
     logging.info(f'Writting default config in {args.output}')
     with open(args.output, 'w') as fl:
@@ -308,4 +292,5 @@ if __name__ == '__main__':
                         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_default_config(main_parser)
+    
     launch(main_parser.parse_args())

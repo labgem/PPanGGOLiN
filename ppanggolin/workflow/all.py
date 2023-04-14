@@ -40,8 +40,6 @@ def launch_workflow(args: argparse.Namespace, subcomamand_parser: Callable, panr
     """
 
     check_option_workflow(args)
-    print(args.draw)
-    input()
     pangenome = Pangenome()
 
     filename = mk_file_name(args.basename, args.output, args.force)

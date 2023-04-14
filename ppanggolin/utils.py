@@ -25,22 +25,6 @@ from collections import defaultdict
 
 
 from ppanggolin.geneFamily import GeneFamily
-# import ppanggolin.nem.rarefaction
-# import ppanggolin.graph
-# import ppanggolin.annotate
-# import ppanggolin.cluster
-# import ppanggolin.figures
-# import ppanggolin.formats
-# import ppanggolin.info
-# import ppanggolin.metrics
-# import ppanggolin.align
-# import ppanggolin.RGP
-# import ppanggolin.mod
-# import ppanggolin.context
-# import ppanggolin.workflow
-# import ppanggolin.utility
-
-# from ppanggolin import subcommand_to_subparser
 
 
 # all input params that exists in ppanggolin
@@ -49,39 +33,16 @@ ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome']
 # all params that should be in the general_parameters section of the config file
 ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log', 'disable_prog_bar', 'force']
 
-WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panmodule'}
+WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panModule'}
 
 # command that can be launched inside a workflow subcommand
-ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "write", "rgp", "spot", "module", "draw" ]
+ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "rarefaction", "rgp", "spot", "module", "draw", "write" ]
 
 # Inside a workflow command, write output default is overwrite to output some of the flat files
 WRITE_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
                         'projection', 'stats', 'json', 'partitions', 'regions', 'spots',
                         'borders', 'modules', 'spot_modules']
 DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "spots"]
-
-# SUBCOMMAND_TO_SUBPARSER = {
-#         "annotate":ppanggolin.annotate.subparser,
-#         "cluster":ppanggolin.cluster.subparser,
-#         "graph":ppanggolin.graph.subparser,
-#         "partition":ppanggolin.nem.partition.subparser,
-#         "rarefaction":ppanggolin.nem.rarefaction.subparser,
-#         "workflow":ppanggolin.workflow.workflow.subparser,
-#         "panrgp":ppanggolin.workflow.panRGP.subparser,
-#         "panModule":ppanggolin.workflow.panModule.subparser,
-#         "all":ppanggolin.workflow.all.subparser,
-#         "draw":ppanggolin.figures.subparser,
-#         "write":ppanggolin.formats.writeFlat.subparser,
-#         "fasta":ppanggolin.formats.writeSequences.subparser,
-#         "msa":ppanggolin.formats.writeMSA.subparser,
-#         "metrics":ppanggolin.metrics.metrics.subparser,
-#         "align":ppanggolin.align.subparser,
-#         "rgp":ppanggolin.RGP.genomicIsland.subparser,
-#         "spot":ppanggolin.RGP.spot.subparser,
-#         "module":ppanggolin.mod.subparser,
-#         "context":ppanggolin.context.subparser,
-#         "info":ppanggolin.info.subparser,
-#         "default_config":ppanggolin.utility.default_config.subparser }
 
 
 def check_log(log_file: str) -> TextIO:
