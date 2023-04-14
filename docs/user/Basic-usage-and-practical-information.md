@@ -52,12 +52,12 @@ And if you want to redo an analysis from scratch and store it in a directory tha
 
 Advanced users can provide a configuration file containing any or all parameters to PPanGGolin commands. This feature is particularly useful for workflow commands such as `workflow`, `all`, `panrgp`, and `panmodule`, as it allows for the specification of all parameters for each subcommand launched in a workflow. Additionally, a configuration file can be used to reuse a specific set of parameters across multiple pangenomes.
 
-To provide a configuration file to a PPanGGolin command, use the --config_file parameter. Note that any command line arguments provided along with a configuration file will override the corresponding arguments specified in the configuration file. When an argument is not specified in either the command line or the configuration file, the default value is used.
+To provide a configuration file to a PPanGGolin command, use the `--config_file` parameter. Note that any command line arguments provided along with a configuration file will override the corresponding arguments specified in the configuration file. When an argument is not specified in either the command line or the configuration file, the default value is used.
 The configuration file is a JSON file that contains two sections common to all commands: `input_parameters` and `general_parameters`. In addition, there is a section for each subcommand that contains its specific parameters.
 
 Users can generate a configuration file template with default values by using the `ppanggolin utils` command. For example, to generate a configuration file for the panrgp command with default values, use the command `ppanggolin utils --default_config panrgp`. This command will create the following configuration file: 
 
-```json
+```python
 input_parameters:
     # A tab-separated file listing the organism names, and the fasta filepath of its
     # genomic sequence(s) (the fastas can be compressed with gzip). One line per organism.
