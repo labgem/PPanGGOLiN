@@ -6,6 +6,9 @@ import argparse
 import tempfile
 import time
 import logging
+import os
+from typing import List, Dict, Tuple
+
 
 # installed libraries
 from tqdm import tqdm
@@ -23,7 +26,7 @@ from ppanggolin.region import GeneContext
 
 def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
                                      families: str = None, transitive: int = 4, identity: float = 0.5,
-                                     coverage: float = 0.8, jaccard: float = 0.85, no_defrag: bool = False,
+                                     coverage: float = 0.8, jaccard: float = 0.85, window_size: int = 1, no_defrag: bool = False,
                                      cpu: int = 1, disable_bar=True):
     """
     Main function to search common gene contexts between sequence set and pangenome families
@@ -37,6 +40,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     :param identity: minimum identity threshold between sequences and gene families for the alignment
     :param coverage: minimum coverage threshold between sequences and gene families for the alignment
     :param jaccard: Jaccard index to filter edges in graph
+    :param window_size: Number of genes to consider in the gene context.
     :param no_defrag: do not use the defrag workflow if true
     :param cpu: Number of core used to process
     :param disable_bar: Allow preventing bar progress print
@@ -45,7 +49,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     # check statuses and load info
     if sequences is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
-                        "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
+                        "associated to it. For now this works only if the clustering has been made by PPanGGOLiN.")
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     gene_families = {}
@@ -56,9 +60,12 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
         seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag, identity,
                                            coverage)
         project_partition(seq2pan, seq_set, output)
+        
         new_tmpdir.cleanup()
-        for k, v in seq2pan.items():
-            gene_families[v.name] = v
+
+        for pan_family in seq2pan.values():
+            gene_families[pan_family.name] = pan_family
+        
         fam_2_seq = fam2seq(seq2pan)
 
     if families is not None:
@@ -66,16 +73,20 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
             for fam_name in f.read().splitlines():
                 gene_families[fam_name] = pangenome.get_gene_family(fam_name)
 
+    half_window = round((window_size-1)/2)
+    logging.info(f'Window size of {half_window*2 + 1}. Gene context will include {half_window} genes on each side of the target gene.')
+
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger().info("Building the graph...")
-    g = compute_gene_context_graph(families=gene_families, t=transitive, disable_bar=disable_bar)
+    gene_context_graph = compute_gene_context_graph(families=gene_families, t=transitive, half_window=half_window, disable_bar=disable_bar)
     logging.getLogger().info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
-    logging.getLogger().debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
-
+    logging.getLogger().debug(f"There are {nx.number_of_nodes(gene_context_graph)} nodes and {nx.number_of_edges(gene_context_graph)} edges")
+    
+    
     # extract the modules from the graph
-    common_components = compute_gene_context(g, jaccard)
+    common_components = compute_gene_context(gene_context_graph, jaccard)
 
     families = set()
     for gene_context in common_components:
@@ -89,12 +100,19 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
 
-def compute_gene_context_graph(families: dict, t: int = 4, disable_bar: bool = False) -> nx.Graph:
+
+    # for e, data in gene_context_graph(data=True):
+
+    # nx.write_graphml_lxml(gene_context_graph, os.path.join(output, "context.graphml"))
+    
+
+def compute_gene_context_graph(families: dict, t: int = 4, half_window: int = 0, disable_bar: bool = False) -> nx.Graph:
     """
     Construct the graph of gene contexts between families of the pan
 
     :param families: Gene families of interest
     :param t: transitive value
+    :param half_window: An integer specifying the number of genes to include in the context on each side of the gene of interest.
     :param disable_bar: Prevents progress bar printing
 
     :return: Graph of gene contexts between interesting gene families of the pan
@@ -104,7 +122,7 @@ def compute_gene_context_graph(families: dict, t: int = 4, disable_bar: bool = F
     for family in tqdm(families.values(), unit="families", disable=disable_bar):
         for gene in family.genes:
             contig = gene.contig.genes
-            pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, families, t)
+            pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, families, t, half_window)
             if in_context_left or in_context_right:
                 for env_gene in contig[pos_left:pos_right + 1]:
                     _compute_gene_context_graph(g, env_gene, contig, pos_right)
@@ -133,29 +151,40 @@ def _compute_gene_context_graph(g: nx.Graph, env_gene: Gene, contig: Contig, pos
         pos += 1
 
 
-def extract_gene_context(gene: Gene, contig: list, families: dict, t: int = 4) -> (int, bool, int, bool):
+
+def extract_gene_context(gene: Gene, contig: List[Gene], families: Dict[str, str], t: int = 4, half_window: int = 0) -> Tuple[int, bool, int, bool]:
     """
-    Extract gene context and whether said gene context exists
+    Determine the left and rigth position of the gene context and whether said gene context exists. 
 
     :param gene: Gene of interest
     :param contig: list of genes in contig
     :param families: Alignment results
     :param t: transitive value
+    :param half_window: An integer specifying the number of genes to include in the context on each side of the gene of interest.
 
     :return: Position of the context and if it exists for each side ('left' and 'right')
     """
 
-    pos_left, pos_right = (max(0, gene.position - t),
-                           min(gene.position + t, len(contig) - 1))  # Gene positions to compare family
+    search_window = max(t, half_window)
+
+    pos_left, pos_right = (max(0, gene.position - search_window),
+                           min(gene.position + search_window, len(contig) - 1))  # Gene positions to compare family
+    
     in_context_left, in_context_right = (False, False)
     while pos_left < gene.position and not in_context_left:
-        if contig[pos_left].family in families.values():
+        if gene.position - pos_left <= half_window:
+            # position is in the window 
+            in_context_left = True
+
+        elif contig[pos_left].family in families.values():
             in_context_left = True
         else:
             pos_left += 1
 
     while pos_right > gene.position and not in_context_right:
-        if contig[pos_right].family in families.values():
+        if pos_right - gene.position <= half_window:
+            in_context_right = True
+        elif contig[pos_right].family in families.values():
             in_context_right = True
         else:
             pos_right -= 1
@@ -243,7 +272,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
                                      sequences=args.sequences, families=args.family, transitive=args.transitive,
-                                     identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
+                                     identity=args.identity, coverage=args.coverage, jaccard=args.jaccard, window_size=args.window_size,
                                      no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
 
 
@@ -291,6 +320,9 @@ def parser_context(parser: argparse.ArgumentParser):
                           help="Size of the transitive closure used to build the graph. This indicates the number of "
                                "non related genes allowed in-between two related genes. Increasing it will improve "
                                "precision but lower sensitivity a little.")
+    optional.add_argument("-w", "--window_size", required=False, type=int, default=1,
+                        help="Number of genes adjacent to a gene of interest to consider in the gene context even if they are non related genes.")
+    
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
