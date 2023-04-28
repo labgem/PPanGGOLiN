@@ -183,7 +183,8 @@ def dereplicate_rgp(rgps: list, disable_bar:bool=False) -> Dict[Region, set]:
 def compute_rgp_metric(rgp_pair:Tuple[int, int], 
                        rgp_to_families: Dict[int, set],
                        rgp_to_contigborder:Dict[int, bool],
-                       grr_cutoff:float) -> Tuple[int, int, dict]:
+                       grr_cutoff:float, 
+                       grr_metric:str) -> Tuple[int, int, dict]:
     """
     Compute GRR metric between two RGP.
 
@@ -191,6 +192,7 @@ def compute_rgp_metric(rgp_pair:Tuple[int, int],
     :param rgp_to_families: Mapping of RGP ID to set of families it contains
     :param rgp_to_contigborder: Mapping of RGP ID to whether it is at a contig border or not
     :param grr_cutoff: Minimum GRR value required for the RGP pair to be considered
+    :param grr_metric: grr mode between min_grr, max_grr and incomplete_aware_grr
 
     :returns: Tuple containing the IDs of the two RGPs and the computed metrics as a dictionary
     """
@@ -208,9 +210,9 @@ def compute_rgp_metric(rgp_pair:Tuple[int, int],
         
         # RGP at a contig border are seen as incomplete and min GRR is used instead of max GRR
         if rgp_to_contigborder[rgp_a] or rgp_to_contigborder[rgp_b]:
-            edge_metrics['grr']  = compute_grr(rgp_a_fam, rgp_b_fam, min)
+            edge_metrics["incomplete_aware_grr"]  = compute_grr(rgp_a_fam, rgp_b_fam, min)
         else:
-            edge_metrics['grr']  = compute_grr(rgp_a_fam, rgp_b_fam, max)
+            edge_metrics["incomplete_aware_grr"]  = compute_grr(rgp_a_fam, rgp_b_fam, max)
 
         # Compute max and min GRR metrics
         edge_metrics['max_grr']  = compute_grr(rgp_a_fam, rgp_b_fam, max)
@@ -220,7 +222,7 @@ def compute_rgp_metric(rgp_pair:Tuple[int, int],
         edge_metrics['shared_family']  = len(rgp_a_fam & rgp_b_fam)
 
         # Only return the metrics if the GRR value is above the cutoff
-        if edge_metrics['grr'] >= grr_cutoff:
+        if edge_metrics[grr_metric] >= grr_cutoff:
             return (rgp_a, rgp_b, edge_metrics)
 
 
@@ -262,7 +264,7 @@ def cluster_rgp_on_grr(G:nx.Graph, clustering_attribute:str="grr"):
     logging.info(f"Graph has {len(partitions)} clusters using {clustering_attribute}")
 
 
-def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_rgp, unmerge_identical_rgps, disable_bar):
+def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_rgp, unmerge_identical_rgps, grr_metric, disable_bar):
     """
     Main function to cluster regions of genomic plasticity based on their GRR
 
@@ -320,7 +322,7 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     logging.debug(f'Computing GRR metric in ~{chunk_count:.2f} chunks of {chunk_size} pairs')
     
     # create the argument iterator to use in parallell
-    arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder, grr_cutoff) for rgp_pair in rgp_pairs)
+    arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder, grr_cutoff, grr_metric) for rgp_pair in rgp_pairs)
 
     pairs_of_rgps_metrics = []
     with Pool(processes=cpu) as p:
@@ -335,11 +337,9 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
         add_edges_to_identical_rgps(grr_graph, rgp_to_identical_rgps)
 
     # cluster rgp based on grr value
-    logging.info(f"Louvain_communities clustering of RGP on {grr_graph}.")
-    # could be also max_grr, min_grr
-    # grr value uses max_grr when both rgps are complete and min_grr when they are not.
-    clustering_attribute = "grr"
-    cluster_rgp_on_grr(grr_graph, clustering_attribute) 
+    logging.info(f"Louvain_communities clustering of RGP  based on {grr_metric} on {grr_graph}.")
+
+    cluster_rgp_on_grr(grr_graph, grr_metric) 
 
     rgp_to_spot =  {region:int(spot.ID) for spot in pangenome.spots  for region in spot.regions}
     
@@ -373,10 +373,10 @@ def launch(args: argparse.Namespace):
 
     pangenome.add_file(args.pangenome)
 
-    cluster_rgp(pangenome, args.grr_cutoff, args.output, args.basename, 
-                args.cpu, args.ignore_incomplete_rgp, args.no_identical_rgp_merging, args.disable_prog_bar)
-
-
+    cluster_rgp(pangenome, grr_cutoff=args.grr_cutoff, output= args.output, 
+                basename= args.basename, cpu=args.cpu, ignore_incomplete_rgp=args.ignore_incomplete_rgp,
+                unmerge_identical_rgps=args.no_identical_rgp_merging,
+                grr_metric=args.grr_metric, disable_bar= args.disable_prog_bar)
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
@@ -405,7 +405,15 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
     optional = parser.add_argument_group(title="Optional arguments")
 
     optional.add_argument('--grr_cutoff', required=False, type=restricted_float, default=0.8,
-                          help="Min gene repertoire relatedness score used in the rgp clustering")
+                          help="Min gene repertoire relatedness metric used in the rgp clustering")
+    optional.add_argument('--grr_metric', required=False, type=str, default="incomplete_aware_grr",
+                        help="The grr (Gene Repertoire Relatedness) is used to assess the similarity between two RGPs based on their gene families. "
+                          "There are three different modes for calculating the grr value: 'min_grr', 'max_grr' or  'incomplete_aware_grr'."
+                          " 'min_grr': Computes the number of gene families shared between the two RGPs and divides it by the smaller number of gene families among the two RGPs. " 
+                          " 'max_grr': Calculates the number of gene families shared between the two RGPs and divides it by the larger number of gene families among the two RGPs. "
+                          " 'incomplete_aware_grr' (default): If at least one RGP is considered incomplete, which occurs when it is located at the border of a contig, "
+                          "the 'min_grr' mode is used. Otherwise, the 'max_grr' mode is applied.",
+                        choices=['incomplete_aware_grr', "min_grr", "max_grr"])
     
     optional.add_argument('--ignore_incomplete_rgp', required=False, action="store_true",
                           help="Do not cluster RGPs located on a contig border which are likely incomplete.")
