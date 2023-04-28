@@ -4,15 +4,12 @@
 # default libraries
 import logging
 import argparse
-import time
 import os
-from itertools import combinations, product
+from itertools import combinations
 from collections.abc import Callable
 from collections import defaultdict 
 from multiprocessing.pool import Pool
-from itertools import islice
-import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple, Set
 
 # installed libraries
 from tqdm import tqdm
@@ -75,7 +72,7 @@ def get_rgp_info_dict(regions:List[Region], region_to_spot:dict) -> List[dict] :
                         "genes_count":len(region.genes),
                         "is_contig_border":region.is_contig_border, 
                         "is_whole_contig":region.is_whole_contig,
-                        "spot_id":region_to_spot.get(region, "No spot")}
+                        "spot_id":str(region_to_spot.get(region, "No spot"))}
         
         region_info['famillies'] =';'.join([str(f.ID)  for f in region.families])
         region_info['families_count'] = len(region.families)
@@ -130,8 +127,6 @@ def differentiate_spot_in_identical_rgps(rgp_graph:nx.Graph, rgp_to_identical_rg
         
     logging.info(f'{identical_rgp_diff_spot_count} RGPs with identical families but with different spot id have been added to the graph for visualisation purpose.')
 
-
-from typing import Dict, Set, Any
 
 def add_edges_to_identical_rgps(rgp_graph: nx.Graph, rgp_to_identical_rgps: Dict[Region, Set[Region]]):
     """
@@ -346,8 +341,8 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     clustering_attribute = "grr"
     cluster_rgp_on_grr(grr_graph, clustering_attribute) 
 
-    rgp_to_spot =  {region:spot.ID  for spot in pangenome.spots  for region in spot.regions}
-        
+    rgp_to_spot =  {region:int(spot.ID) for spot in pangenome.spots  for region in spot.regions}
+    
     if not unmerge_identical_rgps:
         logging.info(f"Unmerge identical RGP in the graph")
         add_identical_rgps_info(grr_graph, rgp_to_identical_rgps) 
@@ -356,6 +351,7 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     # add some attribute to the graph nodes.
     logging.info(f"Add RGP information to the graph")
     region_infos = get_rgp_info_dict(pangenome.regions, rgp_to_spot)
+
     nx.set_node_attributes(grr_graph, region_infos)
 
     # writting graph in gexf format
