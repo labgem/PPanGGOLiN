@@ -28,6 +28,7 @@ import ppanggolin.RGP
 import ppanggolin.mod
 import ppanggolin.context
 import ppanggolin.workflow
+import ppanggolin.meta
 
 
 def cmd_line() -> argparse.Namespace:
@@ -55,6 +56,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    partition     Partition the pangenome graph\n"
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
+    desc += "    metadata      Add metadata to elements in pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
@@ -101,7 +103,8 @@ def cmd_line() -> argparse.Namespace:
             ppanggolin.RGP.spot.subparser(subparsers),
             ppanggolin.RGP.rgp_cluster.subparser(subparsers),
             ppanggolin.mod.subparser(subparsers),
-            ppanggolin.context.subparser(subparsers)]  # subparsers
+            ppanggolin.context.subparser(subparsers),
+            ppanggolin.meta.subparser(subparsers)]  # subparsers
     ppanggolin.info.subparser(subparsers)  # not adding to sub because the 'common' options are not needed for this
     for sub in subs:  # add options common to all subcommands
         common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
@@ -190,6 +193,8 @@ def main():
         ppanggolin.workflow.all.launch(args)
     elif args.subcommand == "context":
         ppanggolin.context.launch(args)
+    elif args.subcommand == "metadata":
+        ppanggolin.meta.launch(args)
 
 
 if __name__ == "__main__":

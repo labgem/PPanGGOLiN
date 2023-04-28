@@ -16,6 +16,48 @@ import tables
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot, Module
+from ppanggolin.metadata import Metadata
+
+
+class Genedata:
+    """
+    This is a general class storing unique gene-related data to be written in a specific
+    genedata table
+
+    :param start: Start position of a gene
+    :param stop: Stop position of a gene
+    :param strand: associated strand
+    :param gene_type: Type of gene
+    :param position: Position of the gene on its contig
+    :param name: Name of the feature
+    :param product: Associated product
+    :param genetic_code: associated genetic code, if any
+    """
+
+    def __init__(self, start: int, stop: int, strand: str, gene_type: str, position: int, name: str, product: str,
+                 genetic_code: int):
+        self.start = start
+        self.stop = stop
+        self.strand = strand
+        self.gene_type = gene_type
+        self.position = position
+        self.name = name
+        self.product = product
+        self.genetic_code = genetic_code
+
+    def __eq__(self, other):
+        return self.start == other.start \
+            and self.stop == other.stop \
+            and self.strand == other.strand \
+            and self.gene_type == other.gene_type \
+            and self.position == other.position \
+            and self.name == other.name \
+            and self.product == other.product \
+            and self.genetic_code == other.genetic_code
+
+    def __hash__(self):
+        return hash((self.start, self.stop, self.strand, self.gene_type, self.position,
+                     self.name, self.product, self.genetic_code))
 
 
 def get_number_of_organisms(pangenome: Pangenome) -> int:
@@ -40,6 +82,7 @@ def get_number_of_organisms(pangenome: Pangenome) -> int:
     return len(org_set)
 
 
+# TODO Remove this function
 def fix_partitioned(pangenome: Pangenome, pangenome_file: str):
     """
         Fixes pangenomes with the 'partitionned' typo.
@@ -58,6 +101,7 @@ def fix_partitioned(pangenome: Pangenome, pangenome_file: str):
             status_group._v_attrs.Partitioned = False
         del status_group._v_attrs.Partitionned
     h5f.close()
+
 
 def get_status(pangenome: Pangenome, pangenome_file: str):
     """
@@ -81,8 +125,6 @@ def get_status(pangenome: Pangenome, pangenome_file: str):
     if status_group._v_attrs.NeighborsGraph:
         pangenome.status["neighborsGraph"] = "inFile"
 
-   
-
     if status_group._v_attrs.Partitioned:
         pangenome.status["partitioned"] = "inFile"
 
@@ -94,6 +136,14 @@ def get_status(pangenome: Pangenome, pangenome_file: str):
 
     if hasattr(status_group._v_attrs, "modules") and status_group._v_attrs.modules:
         pangenome.status["modules"] = "inFile"
+        # pangenome.status["annotations_sources"] = status_group._v_attrs.annotations_sources
+
+    if hasattr(status_group._v_attrs, "metadata") and status_group._v_attrs.metadata:
+        metastatus = status_group.metastatus
+        metasources = status_group.metasources
+        for attr in metastatus._v_attrs._f_list():
+            pangenome.status["metadata"][attr] = "inFile"
+            pangenome.status["metasources"][attr] = metasources._v_attrs[attr]
 
     if "/info" in h5f:
         info_group = h5f.root.info
@@ -114,12 +164,46 @@ def read_chunks(table: Table, column: str = None, chunk: int = 10000):
             yield row
 
 
+def read_genedata(h5f: tables.File) -> dict:
+    """
+    Reads the genedata table and returns a genedata_id2genedata dictionnary
+    :param h5f: the hdf5 file handler
+    :return: dictionnary linking genedata to the genedata identifier
+    """
+    table = h5f.root.annotations.genedata
+    genedata_id2genedata = {}
+    for row in read_chunks(table, chunk=20000):
+        genedata = Genedata(start=row["start"],
+                            stop=row["stop"],
+                            strand=row["strand"].decode(),
+                            gene_type=row["gene_type"].decode(),
+                            position=row["position"],
+                            name=row["name"].decode(),
+                            product=row["product"].decode(),
+                            genetic_code=row["genetic_code"])
+        genedata_id = row["genedata_id"]
+        genedata_id2genedata[genedata_id] = genedata
+    return genedata_id2genedata
+
+
+def read_sequences(h5f: tables.File) -> dict:
+    """
+    Reads the sequences table and returns a seqid2seq dictionnary
+    :param h5f: the hdf5 file handler
+    :return: dictionnary linking sequences to the seq identifier
+    """
+    table = h5f.root.sequences
+    seqid2seq = {}
+    for row in read_chunks(table, chunk=20000):
+        seqid2seq[row["seqid"]] = row['dna'].decode()
+    return seqid2seq
+
+
 def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter = None, add: str = '',
                                  disable_bar: bool = False):
     """
     Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
     and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
-
     :param filename: Name of the pangenome file
     :param file_obj: Name of the output file
     :param list_cds: An iterable object of CDS
@@ -130,28 +214,19 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
     h5f = tables.open_file(filename, "r", driver_core_backing_store=0)
     table = h5f.root.geneSequences
     list_cds = set(list_cds) if list_cds is not None else None
+    seqid2seq = read_sequences(h5f)
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
         # Read the table chunk per chunk otherwise RAM dies on big pangenomes
         name_cds = row["gene"].decode()
         if row["type"] == b"CDS" and (list_cds is None or name_cds in list_cds):
             file_obj.write('>' + add + name_cds + "\n")
-            file_obj.write(row["dna"].decode() + "\n")
+            file_obj.write(seqid2seq[row["seqid"]] + "\n")
     file_obj.flush()
     h5f.close()
 
 
-def launch_read_organism(args) -> None:
-    """
-    Allow to launch read organism in multiprocessing
-
-    :param args: (pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, link: bool)
-
-    :return: Nothing function not called yet
-    """
-    return read_organism(*args)
-
-
-def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, link: bool = False):
+def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, genedata_dict: dict,
+                  link: bool = False):
     """
     Read information from pangenome to assign to organism object
 
@@ -169,7 +244,8 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
             if link:  # if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.get_gene(row["ID"].decode())
             else:  # else creating the gene.
-                gene_type = row["type"].decode()
+                curr_genedata = genedata_dict[row["genedata_id"]]
+                gene_type = curr_genedata.gene_type
                 if gene_type == "CDS":
                     gene = Gene(row["ID"].decode())
                 elif "RNA" in gene_type:
@@ -179,14 +255,14 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
             except ValueError:
                 local = ""
             if isinstance(gene, Gene):
-                gene.fill_annotations(start=row["start"], stop=row["stop"], strand=row["strand"].decode(),
-                                      gene_type=row["type"].decode(), name=row["name"].decode(), position=row['position'],
-                                      genetic_code=row["genetic_code"], product=row["product"].decode(),
+                gene.fill_annotations(start=curr_genedata.start, stop=curr_genedata.stop, strand=curr_genedata.strand,
+                                      gene_type=gene_type, name=curr_genedata.name, position=curr_genedata.position,
+                                      genetic_code=curr_genedata.genetic_code, product=curr_genedata.product,
                                       local_identifier=local)
             else:
-                gene.fill_annotations(start=row["start"], stop=row["stop"], strand=row["strand"].decode(),
-                                      gene_type=row["type"].decode(), name=row["name"].decode(),
-                                      product=row["product"].decode(), local_identifier=local)
+                gene.fill_annotations(start=curr_genedata.start, stop=curr_genedata.stop, strand=curr_genedata.strand,
+                                      gene_type=gene_type, name=curr_genedata.name,
+                                      product=curr_genedata.product, local_identifier=local)
             gene.is_fragment = row["is_fragment"]
             gene.fill_parents(org, contig)
             if gene_type == "CDS":
@@ -265,7 +341,6 @@ def read_gene_families_info(pangenome: Pangenome, h5f: tables.File, disable_bar:
 def read_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
     Read gene sequences in pangenome hdf5 file to add in pangenome object
-
     :param pangenome: Pangenome object without gene sequence associate to gene
     :param h5f: Pangenome HDF5 file with gene sequence associate to gene
     :param disable_bar: Disable the progress bar
@@ -275,9 +350,10 @@ def read_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: boo
                         "if the annotations have not been loaded.")
     table = h5f.root.geneSequences
 
+    seqid2seq = read_sequences(h5f)
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
         gene = pangenome.get_gene(row['gene'].decode())
-        gene.add_dna(row['dna'].decode())
+        gene.add_dna(seqid2seq[row['seqid']])
     pangenome.status["geneSequences"] = "Loaded"
 
 
@@ -360,6 +436,9 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = 
     table = annotations.genes
     pangenome_dict = {}
     circular_contigs = {}
+
+    genedata_dict = read_genedata(h5f)
+
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
         decode_org = row["organism"].decode()
         try:
@@ -379,8 +458,7 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = 
 
     for orgName, contigDict in tqdm(pangenome_dict.items(), total=len(pangenome_dict),
                                     unit="organism", disable=disable_bar):
-        # TODO read organism in multiprocessing
-        read_organism(pangenome, orgName, contigDict, circular_contigs[orgName], link)
+        read_organism(pangenome, orgName, contigDict, circular_contigs[orgName], genedata_dict, link)
     pangenome.status["genomesAnnotated"] = "Loaded"
 
 
@@ -460,6 +538,35 @@ def read_modules_info(h5f: tables.File):
                   f"mean: {info_group._v_attrs['StatOfFamiliesInModules']['mean']}")
 
 
+def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str, source: str, disable_bar: bool = False):
+    metadata_group = h5f.root.metadata._f_get_child(metatype)
+    source_table = metadata_group._f_get_child(source)
+    for row in tqdm(read_chunks(source_table), total=source_table.nrows, unit='metadata', disable=disable_bar):
+        meta_dict = {'source': source}
+        if "ID" in row.dtype.names:
+            identifier = row["ID"].decode() if isinstance(row["ID"], bytes) else row["ID"]
+        else:
+            identifier = row["name"].decode()
+        if metatype == "families":
+            element = pangenome.get_gene_family(identifier)
+        elif metatype == "genomes":
+            element = pangenome.get_organism(identifier)
+        elif metatype == "genes":
+            element = pangenome.get_gene(identifier)
+        elif metatype == "RGPs":
+            element = pangenome.get_region(identifier)
+        elif metatype == "spots":
+            element = pangenome.get_spot(identifier)
+        else:  # metatype == "modules":
+            element = pangenome.get_module(identifier)
+        for field in row.dtype.names:
+            if field not in ["ID", "name"]:
+                meta_dict[field] = row[field].decode() if isinstance(row[field], bytes) else row[field]
+        meta = Metadata(**meta_dict)
+        element.add_metadata(source=source, metadata=meta)
+    pangenome.status["metadata"][metatype] = "Loaded"
+
+
 def read_parameters(h5f: tables.File):
     """
     Read pangenome parameters
@@ -477,6 +584,7 @@ def read_parameters(h5f: tables.File):
 
 def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = False, graph: bool = False,
                    rgp: bool = False, spots: bool = False, gene_sequences: bool = False, modules: bool = False,
+                   metadata: bool = False, metatype: str = None, source: str = None,
                    disable_bar: bool = False):
     """
     Reads a previously written pan, with all of its parts, depending on what is asked,
@@ -550,12 +658,24 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have modules information, "
                             f"or has been improperly filled")
+    if metadata:
+        assert metatype is not None and source is not None
+        if h5f.root.status._v_attrs.metadata:
+            metastatus = h5f.root.status._f_get_child("metastatus")
+            metasources = h5f.root.status._f_get_child("metasources")
+            if metastatus._v_attrs[metatype] and source in metasources._v_attrs[metatype]:
+                logging.getLogger().info(f"Reading the {metatype} metadata from source {source}...")
+                read_metadata(pangenome, h5f, metatype, source, disable_bar=disable_bar)
+        else:
+            raise Exception(f"The pangenome in file '{filename}' does not have modules information, "
+                            f"or has been improperly filled")
     h5f.close()
 
 
 def check_pangenome_info(pangenome, need_annotations: bool = False, need_families: bool = False,
                          need_graph: bool = False, need_partitions: bool = False, need_rgp: bool = False,
                          need_spots: bool = False, need_gene_sequences: bool = False, need_modules: bool = False,
+                         need_metadata: bool = False, metatype: str = None, source: str = None,
                          disable_bar: bool = False):
     """
     Defines what needs to be read depending on what is needed, and automatically checks if the required elements
@@ -579,40 +699,41 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
     spots = False
     gene_sequences = False
     modules = False
+    metadata = False
 
     # TODO Automate call if one need another
     if need_annotations:
         if pangenome.status["genomesAnnotated"] == "inFile":
             annotation = True
-        elif not pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
+        elif pangenome.status["genomesAnnotated"] not in ["Computed", "Loaded"]:
             raise Exception("Your pangenome has no genes. See the 'annotate' subcommand.")
     if need_families:
         if pangenome.status["genesClustered"] == "inFile":
             gene_families = True
-        elif not pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
+        elif pangenome.status["genesClustered"] not in ["Computed", "Loaded"]:
             raise Exception("Your pangenome has no gene families. See the 'cluster' subcommand.")
     if need_graph:
         if pangenome.status["neighborsGraph"] == "inFile":
             graph = True
-        elif not pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:
+        elif pangenome.status["neighborsGraph"] not in ["Computed", "Loaded"]:
             raise Exception("Your pangenome does not have a graph (no edges). See the 'graph' subcommand.")
     if need_partitions and pangenome.status["partitioned"] not in ["Computed", "Loaded", "inFile"]:
         raise Exception("Your pangenome has not been partitioned. See the 'partition' subcommand")
     if need_rgp:
         if pangenome.status["predictedRGP"] == "inFile":
             rgp = True
-        elif not pangenome.status["predictedRGP"] in ["Computed", "Loaded"]:
+        elif pangenome.status["predictedRGP"] not in ["Computed", "Loaded"]:
             raise Exception(
                 "Your pangenome  regions of genomic plasticity have not been predicted. See the 'rgp' subcommand")
     if need_spots:
         if pangenome.status["spots"] == "inFile":
             spots = True
-        elif not pangenome.status["spots"] in ["Computed", "Loaded"]:
+        elif pangenome.status["spots"] not in ["Computed", "Loaded"]:
             raise Exception("Your pangenome spots of insertion have not been predicted. See the 'spot' subcommand")
     if need_gene_sequences:
         if pangenome.status["geneSequences"] == "inFile":
             gene_sequences = True
-        elif not pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
+        elif pangenome.status["geneSequences"] not in ["Computed", "Loaded"]:
             raise Exception("Your pangenome does not include gene sequences. "
                             "This is possible only if you provided your own cluster file with the 'cluster' subcommand")
 
@@ -622,7 +743,19 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
         elif not pangenome.status["modules"] in ["Computed", "Loaded"]:
             raise Exception("Your pangenome modules have not been predicted. See the 'module' subcommand")
 
-    if annotation or gene_families or graph or rgp or spots or gene_sequences or modules:
+    if need_metadata:
+        if pangenome.status["metadata"][metatype] == "inFile":
+            if source in pangenome.status["metasources"][metatype]:
+                metadata = True
+            else:
+                raise Exception(f"There is no metadata assign to {metatype} for source : {source} in your pangenome.")
+        elif not pangenome.status["metastatus"][metatype] in ["Computed", "Loaded"]:
+            raise Exception(f"Your pangenome don't have any metadata for {metatype}. See the 'metadata' subcommand")
+
+    if any([annotation, gene_families, graph, rgp, spots, gene_sequences, modules, metadata]):
         # if anything is true, else we need nothing.
-        read_pangenome(pangenome, annotation=annotation, gene_families=gene_families, graph=graph, rgp=rgp, spots=spots,
-                       gene_sequences=gene_sequences, modules=modules, disable_bar=disable_bar)
+        read_pangenome(pangenome, annotation=annotation, gene_families=gene_families,
+                       graph=graph, gene_sequences=gene_sequences,
+                       rgp=rgp, spots=spots, modules=modules,
+                       metadata=metadata, metatype=metatype, source=source,
+                       disable_bar=disable_bar)
