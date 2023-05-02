@@ -39,9 +39,11 @@ def check_pangenome_metadata(pangenome: Pangenome, source: str, metatype: str, f
         need_dic['need_families'] = True
     if metatype in ["RGPs", "spots"]:
         need_dic['need_rgp'] = True
-    if metatype in ["RGPs", "spots", "modules"]:
         need_dic['need_spots'] = True
-    if metatype in ["RGPs", "spots", "modules"]:
+        need_dic['need_families'] = True
+        need_dic['need_annotations'] = True
+
+    if metatype in ["modules"]:
         need_dic['need_modules'] = True
 
     if pangenome.status["metadata"][metatype] == "inFile" and source in pangenome.status["metasources"][metatype]:
