@@ -11,9 +11,12 @@ from collections import defaultdict
 from multiprocessing.pool import Pool
 from typing import Dict, List, Tuple, Set
 
+
 # installed libraries
 from tqdm import tqdm
 import networkx as nx
+import pandas as pd
+
 
 # local libraries
 from ppanggolin.genome import Organism, Contig
@@ -263,6 +266,31 @@ def cluster_rgp_on_grr(G:nx.Graph, clustering_attribute:str="grr"):
 
     logging.info(f"Graph has {len(partitions)} clusters using {clustering_attribute}")
 
+def write_rgp_cluster_table(outfile:str, grr_graph: nx.Graph,
+    rgp_to_identical_rgps: Dict[Region, Set[Region]],
+    grr_metric: str,
+    rgp_to_spot: Dict[Region, int] ) -> None:
+    """
+    Writes RGP cluster info to a TSV file using pandas.
+
+    :param outfile: name of the tsv file
+    :param grr_graph: The GRR graph.
+    :param rgp_to_identical_rgps: A dictionary mapping an RGP to a set of identical RGPs.
+    :param grr_metric: The GRR metric used for clustering.
+    :param rgp_to_spot: A dictionary mapping an RGP to its spot.
+    :return: None
+    """
+
+    
+    all_rgps_infos = []
+    for rgp, identical_rgps in rgp_to_identical_rgps.items():
+        
+        cluster = grr_graph.nodes[rgp.ID][f'{grr_metric}_cluster']
+        all_rgps_infos += [{"RGP":r.name, "cluster":cluster, "spot":str(rgp_to_spot.get(r, "No spot"))} for r in identical_rgps]
+    
+    df = pd.DataFrame(all_rgps_infos)
+    df.to_csv(outfile, sep='\t', index=False)
+
 
 def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_rgp, unmerge_identical_rgps, grr_metric, disable_bar):
     """
@@ -344,7 +372,7 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     rgp_to_spot =  {region:int(spot.ID) for spot in pangenome.spots  for region in spot.regions}
     
     if not unmerge_identical_rgps:
-        logging.info(f"Unmerge identical RGP in the graph")
+        logging.info(f"Add info in the graph on identical RGPs merged")
         add_identical_rgps_info(grr_graph, rgp_to_identical_rgps) 
         differentiate_spot_in_identical_rgps(grr_graph, rgp_to_identical_rgps, rgp_to_spot)
     
@@ -360,6 +388,12 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     nx.readwrite.gexf.write_gexf(grr_graph, graph_file_name)
 
     nx.readwrite.graphml.write_graphml(grr_graph, os.path.join(output, f"{basename}.graphml"))
+
+    
+    outfile =  os.path.join(output, f"{basename}.tsv")
+    logging.info(f"Writting rgp clusters in tsv format in {outfile}")
+    write_rgp_cluster_table(outfile, grr_graph, rgp_to_identical_rgps, grr_metric, rgp_to_spot)
+
 
 def launch(args: argparse.Namespace):
     """
