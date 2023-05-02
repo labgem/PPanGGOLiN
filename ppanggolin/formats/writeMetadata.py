@@ -34,6 +34,7 @@ def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: 
         metasources_group = status_group.metasources
     else:
         metasources_group = h5f.create_group(status_group, "metasources", "Sources of the pangenome metadata")
+
     if metastatus["families"] in ["Computed", "Loaded", "inFile"]:
         metadata_group._v_attrs.families = True
         metasources_group._v_attrs.families = metasources["families"]
@@ -45,13 +46,14 @@ def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: 
         metasources_group._v_attrs.genomes = metasources["genomes"]
     if metastatus["RGPs"] in ["Computed", "Loaded", "inFile"]:
         metadata_group._v_attrs.RGPs = True
-        metasources_group._v_attrs.RGPs = metasources["genes"]
+        metasources_group._v_attrs.RGPs = metasources["RGPs"]
     if metastatus["spots"] in ["Computed", "Loaded", "inFile"]:
         metadata_group._v_attrs.spots = True
-        metasources_group._v_attrs.spots = metasources["genes"]
+        metasources_group._v_attrs.spots = metasources["spots"]
     if metastatus["modules"] in ["Computed", "Loaded", "inFile"]:
         metadata_group._v_attrs.modules = True
-        metasources_group._v_attrs.modules = metasources["genes"]
+        metasources_group._v_attrs.modules = metasources["modules"]
+        
     return True if any(metadata_group._v_attrs._f_list()) else False
 
 
@@ -97,7 +99,7 @@ def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, 
     expected_rows = 0
 
     for element in select_elem:
-        if hasattr(element, 'ID') and not isinstance(element.ID, (int, float)):
+        if hasattr(element, 'ID') and isinstance(element.ID, str):
             if "ID" not in max_len_dict or len(element.ID) > max_len_dict['ID']:
                 max_len_dict['ID'] = len(element.ID)
         elif hasattr(element, 'name'):
