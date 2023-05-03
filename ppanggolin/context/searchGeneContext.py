@@ -7,8 +7,8 @@ import tempfile
 import time
 import logging
 import os
-from typing import List, Dict, Tuple
-
+from typing import List, Dict, Tuple, Iterable
+from itertools import zip_longest
 
 # installed libraries
 from tqdm import tqdm
@@ -105,6 +105,37 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     # nx.write_graphml_lxml(gene_context_graph, os.path.join(output, "context.graphml"))
     
+
+
+def extract_contig_window(contig_length: int, positions_of_interest: Iterable[int], window_size: int):
+    """
+    Extracts contiguous windows around positions of interest within a contig.
+
+    :param contig_length: The length of the contig.
+    :param positions_of_interest: An iterable containing the positions of interest.
+    :param window_size: The size of the window to extract around each position of interest.
+    :return: Yields tuples representing the start and end positions of each contiguous window.
+    """
+
+    sorted_positions = sorted(positions_of_interest)
+
+    if sorted_positions[0] <0 or sorted_positions[-1] >= contig_length:
+        raise IndexError(f'Positions of interest are out of range. '
+                         f"Contig length is {contig_length} while given min={sorted_positions[0]} & max={sorted_positions[-1]} positions")
+    
+    start_po = max(sorted_positions[0] - window_size, 0)
+    
+    for position, next_po in zip_longest(sorted_positions, sorted_positions[1:]):
+        if next_po is None:
+            end_po = min(position + window_size, contig_length-1)
+            yield start_po, end_po
+            break
+            
+        if position + window_size < next_po - window_size:
+            end_po = min(position + window_size, contig_length-1)
+            yield start_po, end_po
+            start_po = max(next_po - window_size, 0)
+
 
 def compute_gene_context_graph(families: dict, t: int = 4, half_window: int = 0, disable_bar: bool = False) -> nx.Graph:
     """
@@ -321,7 +352,7 @@ def parser_context(parser: argparse.ArgumentParser):
                                "non related genes allowed in-between two related genes. Increasing it will improve "
                                "precision but lower sensitivity a little.")
     optional.add_argument("-w", "--window_size", required=False, type=int, default=1,
-                        help="Number of genes adjacent to a gene of interest to consider in the gene context even if they are non related genes.")
+                        help="Number of neighboring genes that are considered when searching for conserved genomic contexts around a gene of interest.")
     
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
