@@ -8,7 +8,7 @@ import time
 import logging
 import os
 from typing import List, Dict, Tuple, Iterable
-from itertools import zip_longest
+from itertools import zip_longest, chain
 
 # installed libraries
 from tqdm import tqdm
@@ -52,8 +52,10 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
                         "associated to it. For now this works only if the clustering has been made by PPanGGOLiN.")
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
+
     gene_families = {}
     fam_2_seq = None
+    
     if sequences is not None:
         # Alignment of sequences on pangenome families
         new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
@@ -106,11 +108,12 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     # nx.write_graphml_lxml(gene_context_graph, os.path.join(output, "context.graphml"))
     
 
-def extract_contig_window(contig_length: int, positions_of_interest: Iterable[int], window_size: int, is_circular:bool = False):
+        
+def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int], window_size: int, is_circular:bool = False):
     """
     Extracts contiguous windows around positions of interest within a contig.
 
-    :param contig_length: The length of the contig.
+    :param contig_size: Number of genes in contig.
     :param positions_of_interest: An iterable containing the positions of interest.
     :param window_size: The size of the window to extract around each position of interest.
     :param is_circular: Indicates if the contig is circular.
@@ -122,23 +125,23 @@ def extract_contig_window(contig_length: int, positions_of_interest: Iterable[in
     sorted_positions = sorted(positions_of_interest)
 
     # Check if any position of interest is out of range
-    if sorted_positions[0] <0 or sorted_positions[-1] >= contig_length:
+    if sorted_positions[0] <0 or sorted_positions[-1] >= contig_size:
         raise IndexError(f'Positions of interest are out of range. '
-                         f"Contig length is {contig_length} while given min={sorted_positions[0]} & max={sorted_positions[-1]} positions")
-    
-    first_position = sorted_positions[0]
-    last_position = sorted_positions[-1]
+                         f"Contig has {contig_size} genes while given min={sorted_positions[0]} & max={sorted_positions[-1]} positions")
+
     if is_circular:
+        first_position = sorted_positions[0]
+        last_position = sorted_positions[-1]
         # in a circular contig, if the window of a gene of interest overlaps the end/start of the contig
         # an out of scope position is added to the sorted positions to take into account those positions
         # the returned window are always checked that its positions are not out of range... 
         # so there's no chance to find an out of scope position in final list
         if first_position - window_size < 0:
-            out_of_scope_position = (contig_length ) + first_position
+            out_of_scope_position = (contig_size ) + first_position
             sorted_positions.append(out_of_scope_position)
     
-        if last_position + window_size >= contig_length :
-            out_of_scope_position = contig_length-1 - (last_position + window_size)
+        if last_position + window_size >= contig_size :
+            out_of_scope_position = last_position - contig_size
             sorted_positions.insert(0, out_of_scope_position)
             
     start_po = max(sorted_positions[0] - window_size, 0)
@@ -147,13 +150,13 @@ def extract_contig_window(contig_length: int, positions_of_interest: Iterable[in
         
         if next_po is None:
             # If there are no more positions, add the final window
-            end_po = min(position + window_size, contig_length-1)
+            end_po = min(position + window_size, contig_size-1)
             windows_coordinates.append((start_po, end_po))
             
         elif position + window_size +1 < next_po - window_size:
             # If there is a gap between positions, add the current window 
             # and update the start position for the next window
-            end_po = min(position + window_size, contig_length-1)
+            end_po = min(position + window_size, contig_size-1)
             
             windows_coordinates.append((start_po, end_po))
             
