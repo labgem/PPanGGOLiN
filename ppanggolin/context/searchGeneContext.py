@@ -106,7 +106,55 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     # for e, data in gene_context_graph(data=True):
 
     # nx.write_graphml_lxml(gene_context_graph, os.path.join(output, "context.graphml"))
+
+def add_edges_to_context_graph(context_graph: nx.Graph,
+                               contig_genes: Iterable[Gene],
+                               contig_windows: List[Tuple[int, int]],
+                               t: int,
+                               is_circular: bool,
+                               disable_bar: bool = False):
     
+    print('WINDOWS to search contig in ', contig_windows)
+    for window_start, window_end in contig_windows:
+        print('IN WINDOW ', window_start, window_end )
+        for gene_index in range(window_start, window_end +1):
+            print("- CURRENT GENE INDEX", gene_index)
+            gene = contig_genes[gene_index]
+            next_genes = get_n_next_genes_index(gene_index, next_genes_count=t, 
+                                                    contig_size=len(contig_genes), is_circular=is_circular)
+            next_genes = list(next_genes)
+            print('- next gene index:', next_genes)
+            
+            for next_gene_index in next_genes:
+                print('-- current next_gene_index', next_gene_index)
+                # check that next gene is in contig windows.. 
+                if not any(lower <= next_gene_index <= upper for (lower, upper) in contig_windows):
+                    # next_gene_index is not in any range of genes in the context
+                    # so it is ignore and all folowing genes as well
+                    break
+                
+                next_gene = contig_genes[next_gene_index]
+                if next_gene.family == gene.family:
+                    # if next gene has the same family, the two gene refer to the same node
+                    # so they are ignored..
+                    print('gene and next gene families are identical.. continue ')
+                    continue
+                
+                context_graph.add_edge(gene.family, next_gene.family)
+                print(f"-- ADD edge between families", gene.family.name, next_gene.family.name)
+                
+                try:
+                    context_graph[gene.family][next_gene.family][gene.family].add(gene)
+                except KeyError:
+                    context_graph[gene.family][next_gene.family][gene.family] = {gene}
+                try:
+                    context_graph[gene.family][next_gene.family][next_gene.family].add(next_gene)
+                except KeyError:
+                    context_graph[gene.family][next_gene.family][next_gene.family] = {next_gene}
+
+
+
+
 def get_n_next_genes_index(current_index:int, next_genes_count:int, contig_size:int, is_circular:bool = False):
         # Check if any position of interest is out of range
     if current_index >= contig_size:

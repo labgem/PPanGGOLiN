@@ -1,6 +1,10 @@
 import pytest
-from ppanggolin.context.searchGeneContext import extract_contig_window, get_n_next_genes_index
+from ppanggolin.context.searchGeneContext import extract_contig_window, get_n_next_genes_index, add_edges_to_context_graph
 
+from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.genome import Gene, Contig
+
+import networkx as nx
 
 
 def test_extract_contig_window():
@@ -55,3 +59,44 @@ def test_get_n_next_genes_index_circular():
 def test_get_n_next_genes_index_out_of_range():
     with pytest.raises(IndexError):
         assert list(get_n_next_genes_index(current_index=10, next_genes_count=16, contig_size=8, is_circular=False))
+
+@pytest.fixture()
+def simple_contig():
+
+    contig = Contig(name="contig1", is_circular=False)
+
+    contig_size=6
+    genes = [Gene(i) for i in range(contig_size)]
+
+    for i, (gene, family_name) in enumerate(zip(genes, 'ABCDEFGHIJKLMNOP')):
+        family = GeneFamily(i, family_name) 
+        gene.fill_annotations(start=0, stop=0, strand=0, position=i)
+
+        contig.add_gene(gene)
+        family.add_gene(gene)
+
+    return contig
+
+
+
+def test_add_edges_to_context_graph(simple_contig):
+    context_graph = nx.Graph()
+
+    #simple_contig families : ABCDEF
+
+    add_edges_to_context_graph(context_graph,
+                            contig_genes = simple_contig.genes,
+                            contig_windows = [(0,3)],
+                            t=2,
+                            is_circular=simple_contig.is_circular)
+
+    nodes = sorted([n.name for n in context_graph.nodes()]) 
+    edges = {tuple(sorted([n.name, v.name])) for n, v in context_graph.edges()}
+
+    assert nodes == ['A', "B", "C", "D"]
+    assert edges == {('A', 'B'), 
+                     ('A', 'C'),
+                     ('B', 'C'),
+                     ('B', 'D'),
+                     ('C', 'D')}
+    
