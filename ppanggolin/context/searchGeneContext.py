@@ -106,35 +106,60 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     # nx.write_graphml_lxml(gene_context_graph, os.path.join(output, "context.graphml"))
     
 
-
-def extract_contig_window(contig_length: int, positions_of_interest: Iterable[int], window_size: int):
+def extract_contig_window(contig_length: int, positions_of_interest: Iterable[int], window_size: int, is_circular:bool = False):
     """
     Extracts contiguous windows around positions of interest within a contig.
 
     :param contig_length: The length of the contig.
     :param positions_of_interest: An iterable containing the positions of interest.
     :param window_size: The size of the window to extract around each position of interest.
+    :param is_circular: Indicates if the contig is circular.
     :return: Yields tuples representing the start and end positions of each contiguous window.
     """
+    windows_coordinates = []
 
+    # Sort the positions of interest
     sorted_positions = sorted(positions_of_interest)
 
+    # Check if any position of interest is out of range
     if sorted_positions[0] <0 or sorted_positions[-1] >= contig_length:
         raise IndexError(f'Positions of interest are out of range. '
                          f"Contig length is {contig_length} while given min={sorted_positions[0]} & max={sorted_positions[-1]} positions")
     
+    first_position = sorted_positions[0]
+    last_position = sorted_positions[-1]
+    if is_circular:
+        # in a circular contig, if the window of a gene of interest overlaps the end/start of the contig
+        # an out of scope position is added to the sorted positions to take into account those positions
+        # the returned window are always checked that its positions are not out of range... 
+        # so there's no chance to find an out of scope position in final list
+        if first_position - window_size < 0:
+            out_of_scope_position = (contig_length ) + first_position
+            sorted_positions.append(out_of_scope_position)
+    
+        if last_position + window_size >= contig_length :
+            out_of_scope_position = contig_length-1 - (last_position + window_size)
+            sorted_positions.insert(0, out_of_scope_position)
+            
     start_po = max(sorted_positions[0] - window_size, 0)
     
     for position, next_po in zip_longest(sorted_positions, sorted_positions[1:]):
+        
         if next_po is None:
+            # If there are no more positions, add the final window
             end_po = min(position + window_size, contig_length-1)
-            yield start_po, end_po
-            break
+            windows_coordinates.append((start_po, end_po))
             
-        if position + window_size < next_po - window_size:
+        elif position + window_size +1 < next_po - window_size:
+            # If there is a gap between positions, add the current window 
+            # and update the start position for the next window
             end_po = min(position + window_size, contig_length-1)
-            yield start_po, end_po
+            
+            windows_coordinates.append((start_po, end_po))
+            
             start_po = max(next_po - window_size, 0)
+            
+    return windows_coordinates
 
 
 def compute_gene_context_graph(families: dict, t: int = 4, half_window: int = 0, disable_bar: bool = False) -> nx.Graph:
