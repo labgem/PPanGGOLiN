@@ -107,7 +107,20 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     # nx.write_graphml_lxml(gene_context_graph, os.path.join(output, "context.graphml"))
     
-
+def get_n_next_genes_index(current_index:int, next_genes_count:int, contig_size:int, is_circular:bool = False):
+        # Check if any position of interest is out of range
+    if current_index >= contig_size:
+        raise IndexError(f'current gene index is out of range. '
+                         f"Contig has {contig_size} genes while the given gene index is {current_index}")
+    if is_circular:
+        next_genes = chain(range(current_index+1, contig_size), range(0, current_index))
+    else:
+        next_genes = range(current_index+1, contig_size)
+    
+    for i, next_gene_index in enumerate(next_genes):
+        if i == next_genes_count:
+            break
+        yield next_gene_index
         
 def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int], window_size: int, is_circular:bool = False):
     """
