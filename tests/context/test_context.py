@@ -1,5 +1,5 @@
 import pytest
-from ppanggolin.context.searchGeneContext import extract_contig_window, get_n_next_genes_index, add_edges_to_context_graph
+from ppanggolin.context.searchGeneContext import extract_contig_window, get_n_next_genes_index, add_edges_to_context_graph, compute_gene_context_graph
 
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Contig
@@ -71,7 +71,9 @@ def simple_contig():
     for i, (gene, family_name) in enumerate(zip(genes, 'ABCDEFGHIJKLMNOP')):
         family = GeneFamily(i, family_name) 
         gene.fill_annotations(start=0, stop=0, strand=0, position=i)
-
+        
+        gene.fill_parents("organism A", contig)
+        
         contig.add_gene(gene)
         family.add_gene(gene)
 
@@ -183,3 +185,28 @@ def test_add_edges_to_context_graph_circular(simple_contig):
                      ('E', "F"),
                      ('A', 'F')} # circular so F and A are linked
     
+
+def test_compute_gene_context_graph(simple_contig):
+
+    #              genes : 0-1-2-3-4-5
+    #           families : A-B-C-D-E-F
+    # family of interest :     ^
+    #       windows of 2 : ___   ___
+
+    # simple case with only one contig with 6 genes and 6 families
+
+    families_in_contigs = [g.family for g in simple_contig.genes ]
+    family_names_of_interest = ["C"]
+    families_of_interest = {f for f in  families_in_contigs if f.name in family_names_of_interest }
+
+    context_graph = compute_gene_context_graph(families_of_interest, 
+                               transitive=1,
+                               window_size = 2) 
+    nodes = sorted([n.name for n in context_graph.nodes()])
+    edges = {tuple(sorted([n.name, v.name])) for n, v in context_graph.edges()}
+
+    assert nodes == ["A", "B", "C", "D", "E"]
+    assert edges == {('A', 'B'),
+                     ('B', 'C'),
+                     ('C', "D"),
+                     ('D', 'E')} 

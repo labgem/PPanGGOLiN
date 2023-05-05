@@ -7,8 +7,9 @@ import tempfile
 import time
 import logging
 import os
-from typing import List, Dict, Tuple, Iterable, Hashable, Iterator
+from typing import List, Dict, Tuple, Iterable, Hashable, Iterator, Set
 from itertools import zip_longest, chain
+from collections import defaultdict
 
 # installed libraries
 from tqdm import tqdm
@@ -18,10 +19,11 @@ import pandas as pd
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig
-from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
+from ppanggolin.utils import mk_outdir, restricted_float, connected_components
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
 from ppanggolin.region import GeneContext
+from ppanggolin.geneFamily import GeneFamily
 
 
 def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
@@ -80,10 +82,14 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
+
     logging.getLogger().info("Building the graph...")
+    
     gene_context_graph = compute_gene_context_graph(families=gene_families, t=transitive, half_window=half_window, disable_bar=disable_bar)
+    
     logging.getLogger().info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
+    
     logging.getLogger().debug(f"There are {nx.number_of_nodes(gene_context_graph)} nodes and {nx.number_of_edges(gene_context_graph)} edges")
     
     
@@ -266,91 +272,55 @@ def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int]
             
     return windows_coordinates
 
-
-def compute_gene_context_graph(families: dict, t: int = 4, half_window: int = 0, disable_bar: bool = False) -> nx.Graph:
+def get_contig_to_genes(gene_families: Iterable[GeneFamily]) -> Dict[Contig, Set[Gene]]:
     """
-    Construct the graph of gene contexts between families of the pan
+    Group genes from specified gene families by contig.
 
-    :param families: Gene families of interest
-    :param t: transitive value
-    :param half_window: An integer specifying the number of genes to include in the context on each side of the gene of interest.
-    :param disable_bar: Prevents progress bar printing
-
-    :return: Graph of gene contexts between interesting gene families of the pan
-    """
-
-    g = nx.Graph()
-    for family in tqdm(families.values(), unit="families", disable=disable_bar):
-        for gene in family.genes:
-            contig = gene.contig.genes
-            pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, families, t, half_window)
-            if in_context_left or in_context_right:
-                for env_gene in contig[pos_left:pos_right + 1]:
-                    _compute_gene_context_graph(g, env_gene, contig, pos_right)
-    return g
-
-
-def _compute_gene_context_graph(g: nx.Graph, env_gene: Gene, contig: Contig, pos_r: int):
-    """
-    Compute graph of gene contexts between one gene and the other part of the contig
-
-    :param: Graph of gene contexts between interesting gene families of the pan
-    :param env_gene: Gene of the current position
-    :param contig: Current contig to search a gene context
-    :param pos_r: Gene to search a gene context
-    """
-
-    g.add_node(env_gene.family)
-    add_gene(g.nodes[env_gene.family], env_gene, fam_split=False)
-    pos = env_gene.position + 1
-    while pos <= pos_r:
-        if env_gene.family != contig[pos].family:
-            g.add_edge(env_gene.family, contig[pos].family)
-            edge = g[env_gene.family][contig[pos].family]
-            add_gene(edge, env_gene)
-            add_gene(edge, contig[pos])
-        pos += 1
-
-
-
-def extract_gene_context(gene: Gene, contig: List[Gene], families: Dict[str, str], t: int = 4, half_window: int = 0) -> Tuple[int, bool, int, bool]:
-    """
-    Determine the left and rigth position of the gene context and whether said gene context exists. 
-
-    :param gene: Gene of interest
-    :param contig: list of genes in contig
-    :param families: Alignment results
-    :param t: transitive value
-    :param half_window: An integer specifying the number of genes to include in the context on each side of the gene of interest.
-
-    :return: Position of the context and if it exists for each side ('left' and 'right')
-    """
-
-    search_window = max(t, half_window)
-
-    pos_left, pos_right = (max(0, gene.position - search_window),
-                           min(gene.position + search_window, len(contig) - 1))  # Gene positions to compare family
+    :param gene_families: An iterable of gene families object.
     
-    in_context_left, in_context_right = (False, False)
-    while pos_left < gene.position and not in_context_left:
-        if gene.position - pos_left <= half_window:
-            # position is in the window 
-            in_context_left = True
+    :return: A dictionary mapping contigs to sets of genes.
+    """
+    
+    contig_to_genes_of_interest = defaultdict(set)
+    for gene_family in gene_families:
+        for gene in gene_family.genes:
+            contig = gene.contig
+            contig_to_genes_of_interest[contig].add(gene)
+    return contig_to_genes_of_interest
 
-        elif contig[pos_left].family in families.values():
-            in_context_left = True
-        else:
-            pos_left += 1
 
-    while pos_right > gene.position and not in_context_right:
-        if pos_right - gene.position <= half_window:
-            in_context_right = True
-        elif contig[pos_right].family in families.values():
-            in_context_right = True
-        else:
-            pos_right -= 1
+def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int = 4, window_size: int = 0, disable_bar: bool = False) -> nx.Graph:
+    """
+    Construct the graph of gene contexts between families of the pangenome.
 
-    return pos_left, in_context_left, pos_right, in_context_right
+    :param families: An iterable of gene families.
+    :param transitive: Size of the transitive closure used to build the graph.
+    :param window_size: Size of the window for extracting gene contexts (default: 0).
+    :param disable_bar: Flag to disable the progress bar (default: False).
+    :return: The constructed gene context graph.
+
+    """
+
+    context_graph = nx.Graph()
+    
+    contig_to_genes_of_interest = get_contig_to_genes(families)
+    
+    for contig, genes_of_interest in  tqdm(contig_to_genes_of_interest.items(), unit="contig", total=len(contig_to_genes_of_interest), disable=disable_bar):
+        logging.debug(f'Processing {len(genes_of_interest)} genes of interest in contig {contig}')
+        
+        genes_count = len(contig.genes)
+        
+        genes_of_interest_positions = [g.position for g in genes_of_interest]
+
+        contig_windows = extract_contig_window(genes_count, genes_of_interest_positions, 
+                                                            window_size=window_size, is_circular=contig.is_circular)
+        
+        add_edges_to_context_graph(context_graph,
+                                contig.genes,
+                                contig_windows,
+                                transitive,
+                                contig.is_circular)
+    return context_graph
 
 
 def compute_gene_context(g: nx.Graph, jaccard: float = 0.85) -> set:
@@ -391,7 +361,8 @@ def fam2seq(seq_to_pan: dict) -> dict:
 
 
 def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, output: str):
-    """ Export the results into dataFrame
+    """
+    Export the results into dataFrame
 
     :param families: Families related to the connected components
     :param gene_contexts: connected components found in the pan
