@@ -7,7 +7,7 @@ import tempfile
 import time
 import logging
 import os
-from typing import List, Dict, Tuple, Iterable
+from typing import List, Dict, Tuple, Iterable, Hashable
 from itertools import zip_longest, chain
 
 # installed libraries
@@ -102,57 +102,84 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
 
-
-    # for e, data in gene_context_graph(data=True):
-
-    # nx.write_graphml_lxml(gene_context_graph, os.path.join(output, "context.graphml"))
-
 def add_edges_to_context_graph(context_graph: nx.Graph,
                                contig_genes: Iterable[Gene],
                                contig_windows: List[Tuple[int, int]],
                                t: int,
-                               is_circular: bool,
-                               disable_bar: bool = False):
-    
-    print('WINDOWS to search contig in ', contig_windows)
+                               is_circular: bool):
+    """
+    Add edges to the context graph based on contig genes and windows.
+
+    :param context_graph: The context graph to which edges will be added.
+    :param contig_genes: An iterable of genes in the contig.
+    :param contig_windows: A list of tuples representing the start and end positions of contig windows.
+    :param t: The number of next genes to consider when adding edges.
+    :param is_circular: A boolean indicating if the contig is circular.
+
+    """
     for window_start, window_end in contig_windows:
-        print('IN WINDOW ', window_start, window_end )
-        for gene_index in range(window_start, window_end +1):
-            print("- CURRENT GENE INDEX", gene_index)
+        for gene_index in range(window_start, window_end + 1):
             gene = contig_genes[gene_index]
             next_genes = get_n_next_genes_index(gene_index, next_genes_count=t, 
-                                                    contig_size=len(contig_genes), is_circular=is_circular)
+                                                contig_size=len(contig_genes), is_circular=is_circular)
             next_genes = list(next_genes)
-            print('- next gene index:', next_genes)
-            
+
             for next_gene_index in next_genes:
-                print('-- current next_gene_index', next_gene_index)
-                # check that next gene is in contig windows.. 
+                # Check if the next gene is within the contig windows
                 if not any(lower <= next_gene_index <= upper for (lower, upper) in contig_windows):
                     # next_gene_index is not in any range of genes in the context
-                    # so it is ignore and all folowing genes as well
+                    # so it is ignored along with all following genes
                     break
                 
                 next_gene = contig_genes[next_gene_index]
                 if next_gene.family == gene.family:
-                    # if next gene has the same family, the two gene refer to the same node
-                    # so they are ignored..
-                    print('gene and next gene families are identical.. continue ')
+                    # If the next gene has the same family, the two genes refer to the same node
+                    # so they are ignored
                     continue
                 
                 context_graph.add_edge(gene.family, next_gene.family)
-                print(f"-- ADD edge between families", gene.family.name, next_gene.family.name)
+
+                # Add edge attributes
+                edge_dict = context_graph[gene.family][next_gene.family]
+                add_val_to_edge_attribute(edge_dict, gene.family, gene)
+                add_val_to_edge_attribute(edge_dict, next_gene.family, next_gene)
+
+                add_val_to_edge_attribute(edge_dict, "organisms", gene.organism)
+
+                update_edge_attribute_counter(edge_dict, "gene_pairs")
                 
-                try:
-                    context_graph[gene.family][next_gene.family][gene.family].add(gene)
-                except KeyError:
-                    context_graph[gene.family][next_gene.family][gene.family] = {gene}
-                try:
-                    context_graph[gene.family][next_gene.family][next_gene.family].add(next_gene)
-                except KeyError:
-                    context_graph[gene.family][next_gene.family][next_gene.family] = {next_gene}
+                assert gene.organism == next_gene.organism 
 
 
+def add_val_to_edge_attribute(edge_dict: dict, attribute_key, attribute_value):
+    """
+    Add an edge attribute value to the edge dictionary set.
+
+    :param edge_dict: The dictionary containing the edge attributes.
+    :param attribute_key: The key of the attribute.
+    :param attribute_value: The value of the attribute to be added.
+
+    """
+
+    try:
+        edge_dict[attribute_key].add(attribute_value)
+    except KeyError:
+        edge_dict[attribute_key] = {attribute_value}
+
+
+def update_edge_attribute_counter(edge_dict: dict, key:Hashable):
+    """
+    Update the counter for an edge attribute in the edge dictionary.
+
+    :param edge_dict: The dictionary containing the edge attributes.
+    :param key: The key of the attribute.
+
+    """
+
+    try:
+        edge_dict[key] += 1
+    except KeyError:
+        edge_dict[key] = 1
 
 
 def get_n_next_genes_index(current_index:int, next_genes_count:int, contig_size:int, is_circular:bool = False):

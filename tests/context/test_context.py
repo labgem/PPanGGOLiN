@@ -77,6 +77,23 @@ def simple_contig():
 
     return contig
 
+@pytest.fixture()
+def simple_circular_contig():
+
+    contig = Contig(name="contig2", is_circular=True)
+
+    contig_size=6
+    genes = [Gene(i) for i in range(contig_size)]
+
+    for i, (gene, family_name) in enumerate(zip(genes, 'ABCDEFGHIJKLMNOP')):
+        family = GeneFamily(i, family_name) 
+        gene.fill_annotations(start=0, stop=0, strand=0, position=i)
+
+        contig.add_gene(gene)
+        family.add_gene(gene)
+
+    return contig
+
 
 
 def test_add_edges_to_context_graph(simple_contig):
@@ -99,4 +116,70 @@ def test_add_edges_to_context_graph(simple_contig):
                      ('B', 'C'),
                      ('B', 'D'),
                      ('C', 'D')}
+    
+def test_add_edges_to_context_graph_2(simple_contig):
+    context_graph = nx.Graph()
+
+    #simple_contig families : A B-C-D E F
+
+    add_edges_to_context_graph(context_graph,
+                            contig_genes = simple_contig.genes,
+                            contig_windows = [(1,3)],
+                            t=1,
+                            is_circular=simple_contig.is_circular)
+
+    nodes = sorted([n.name for n in context_graph.nodes()])
+    edges = {tuple(sorted([n.name, v.name])) for n, v in context_graph.edges()}
+
+    assert nodes == ["B", "C", "D"]
+    assert edges == {('B', 'C'),
+                     ('C', 'D')}
+
+def test_add_edges_to_context_graph_linear(simple_contig):
+    
+    #    genes : 1-2-3-4-5-6
+    # families : A-B-C-D-E-F
+    #  windows : _____   ___ [(0,2) (4,5)]
+
+    
+    context_graph = nx.Graph()
+
+    add_edges_to_context_graph(context_graph,
+                            contig_genes = simple_contig.genes,
+                            contig_windows = [(4,5), (0,2)],
+                            t=1,
+                            is_circular=False)
+
+    nodes = sorted([n.name for n in context_graph.nodes()])
+    edges = {tuple(sorted([n.name, v.name])) for n, v in context_graph.edges()}
+
+    assert nodes == ["A", "B", "C", "E", "F"]
+    assert edges == {('A', 'B'),
+                     ('B', 'C'),
+                     ('E', "F"),
+                     }
+
+   
+def test_add_edges_to_context_graph_circular(simple_contig):
+    
+    #    genes : 1-2-3-4-5-6
+    # families : A-B-C-D-E-F
+    #  windows : _____   ___ [(0,2) (4,5)]
+    
+    context_graph = nx.Graph()
+
+    add_edges_to_context_graph(context_graph,
+                            contig_genes = simple_contig.genes,
+                            contig_windows = [(4,5), (0,2)],
+                            t=1,
+                            is_circular=True)
+
+    nodes = sorted([n.name for n in context_graph.nodes()])
+    edges = {tuple(sorted([n.name, v.name])) for n, v in context_graph.edges()}
+
+    assert nodes == ["A", "B", "C", "E", "F"]
+    assert edges == {('A', 'B'),
+                     ('B', 'C'),
+                     ('E', "F"),
+                     ('A', 'F')} # circular so F and A are linked
     
