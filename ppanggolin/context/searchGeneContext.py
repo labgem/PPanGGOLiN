@@ -7,7 +7,7 @@ import tempfile
 import time
 import logging
 import os
-from typing import List, Dict, Tuple, Iterable, Hashable
+from typing import List, Dict, Tuple, Iterable, Hashable, Iterator
 from itertools import zip_longest, chain
 
 # installed libraries
@@ -182,8 +182,22 @@ def update_edge_attribute_counter(edge_dict: dict, key:Hashable):
         edge_dict[key] = 1
 
 
-def get_n_next_genes_index(current_index:int, next_genes_count:int, contig_size:int, is_circular:bool = False):
-        # Check if any position of interest is out of range
+def get_n_next_genes_index(current_index: int, next_genes_count: int, contig_size: int, is_circular: bool = False) -> Iterator[int]:
+    """
+    Generate the indices of the next genes based on the current index and contig properties.
+
+    :param current_index: The index of the current gene.
+    :param next_genes_count: The number of next genes to consider.
+    :param contig_size: The total number of genes in the contig.
+    :param is_circular: Flag indicating whether the contig is circular (default: False).
+    :return: An iterator yielding the indices of the next genes.
+
+    Raises:
+    - IndexError: If the current index is out of range for the given contig size.
+
+    """
+
+    # Check if the current index is out of range
     if current_index >= contig_size:
         raise IndexError(f'current gene index is out of range. '
                          f"Contig has {contig_size} genes while the given gene index is {current_index}")
