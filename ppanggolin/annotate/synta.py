@@ -44,6 +44,7 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
     """
     locustag = org.name
     cmd = ["aragorn", "-t", "-gcbact", "-l", "-w", fna_file]
+    logging.getLogger().debug(f"aragorn command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=PIPE)
     # loading the whole thing, reverting it to 'pop' in order.
     file_data = p.communicate()[0].decode().split("\n")[:: -1]
@@ -122,6 +123,7 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
 
     tmp_file = tempfile.NamedTemporaryFile(mode="r", dir=tmpdir)
     cmd = ["cmscan", "--tblout", tmp_file.name, "--hmmonly", "--cpu", str(1), "--noali", modelfile, fna_file]
+    logging.getLogger().debug(f"infernal command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
     if err:
