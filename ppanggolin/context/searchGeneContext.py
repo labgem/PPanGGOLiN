@@ -28,7 +28,7 @@ from ppanggolin.geneFamily import GeneFamily
 
 def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
                                      families: str = None, transitive: int = 4, identity: float = 0.5,
-                                     coverage: float = 0.8, jaccard: float = 0.85, window_size: int = 1, no_defrag: bool = False,
+                                     coverage: float = 0.8, jaccard_threshold: float = 0.85, window_size: int = 1, no_defrag: bool = False,
                                      cpu: int = 1, disable_bar=True):
     """
     Main function to search common gene contexts between sequence set and pangenome families
@@ -41,7 +41,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     :param transitive: number of genes to check on both sides of a family aligned with an input sequence
     :param identity: minimum identity threshold between sequences and gene families for the alignment
     :param coverage: minimum coverage threshold between sequences and gene families for the alignment
-    :param jaccard: Jaccard index to filter edges in graph
+    :param jaccard_threshold: Jaccard index threshold to filter edges in graph
     :param window_size: Number of genes to consider in the gene context.
     :param no_defrag: do not use the defrag workflow if true
     :param cpu: Number of core used to process
@@ -55,7 +55,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
 
-    gene_families = {}
+    gene_families = set()
     fam_2_seq = None
     
     if sequences is not None:
@@ -68,44 +68,99 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
         new_tmpdir.cleanup()
 
         for pan_family in seq2pan.values():
-            gene_families[pan_family.name] = pan_family
+            gene_families.add(pan_family)
         
         fam_2_seq = fam2seq(seq2pan)
 
     if families is not None:
         with open(families, 'r') as f:
             for fam_name in f.read().splitlines():
-                gene_families[fam_name] = pangenome.get_gene_family(fam_name)
+                gene_families.add(pangenome.get_gene_family(fam_name))
 
-    half_window = round((window_size-1)/2)
-    logging.info(f'Window size of {half_window*2 + 1}. Gene context will include {half_window} genes on each side of the target gene.')
+    # half_window = round((window_size-1)/2)
+    # logging.info(f'Window size of {half_window*2 + 1}. Gene context will include {half_window} genes on each side of the target gene.')
 
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
 
     logging.getLogger().info("Building the graph...")
     
-    gene_context_graph = compute_gene_context_graph(families=gene_families, t=transitive, half_window=half_window, disable_bar=disable_bar)
+    gene_context_graph = compute_gene_context_graph(families=gene_families, transitive=transitive, window_size=window_size, disable_bar=disable_bar)
     
     logging.getLogger().info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
     
     logging.getLogger().debug(f"There are {nx.number_of_nodes(gene_context_graph)} nodes and {nx.number_of_edges(gene_context_graph)} edges")
-    
+
+    compute_edge_metrics(gene_context_graph, jaccard_threshold)
+
+
+    write_graph(gene_context_graph, output, gene_families)
     
     # extract the modules from the graph
-    common_components = compute_gene_context(gene_context_graph, jaccard)
+    # common_components = compute_gene_context(gene_context_graph, jaccard)
 
-    families = set()
-    for gene_context in common_components:
-        families |= gene_context.families
+    # families = set()
+    # for gene_context in common_components:
+    #     families |= gene_context.families
 
-    if len(families) != 0:
-        export_to_dataframe(families, common_components, fam_2_seq, output)
-    else:
-        logging.getLogger().info(f"No gene contexts were found")
+    # if len(families) != 0:
+    #     export_to_dataframe(families, common_components, fam_2_seq, output)
+    # else:
+    #     logging.getLogger().info(f"No gene contexts were found")
 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
+
+def write_graph(context_graph:nx.Graph, output_dir:str, famillies_of_interest):
+
+    def filter_edge_attribute(data):
+        return {k:v for k, v in data.items() if type(v) != set}
+        
+    G = nx.Graph()
+
+    G.add_edges_from(((f1.name, f2.name) for f1,f2 in context_graph.edges()))
+
+    edges_with_attributes = {(f1.name, f2.name):filter_edge_attribute(d) for f1,f2,d in context_graph.edges(data=True)}
+    
+    nx.set_edge_attributes(G, edges_with_attributes)
+
+    nodes_data = {f.name:{"organisms":len(f.organisms), "genes":len(f.genes), "famillies_of_interest": f in famillies_of_interest} for f in context_graph.nodes()}
+    
+    for f, d in G.nodes(data=True):
+        d.update(nodes_data[f])
+
+    nx.write_graphml_lxml(G, os.path.join(output_dir, "graph_context.graphml"))
+
+def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff:float ):
+    # compute jaccard on organism
+    for f1, f2, data in context_graph.edges(data=True):
+        
+        data['jaccard_organism'] = len(data['organisms'])/len(f1.organisms | f2.organisms)
+        
+        data['min_jaccard_organism'] = len(data['organisms'])/min(len(f1.organisms), len(f2.organisms))
+        data['max_jaccard_organism'] = len(data['organisms'])/max(len(f1.organisms), len(f2.organisms))
+    
+
+        # print("f1", f1)
+        # print("len data[f1]", len(data[f1]))
+        
+        # print('len(f1.genes)', len(f1.genes))
+        
+        f1_gene_proportion = len(data[f1])/len(f1.genes)
+        f2_gene_proportion = len(data[f2])/len(f2.genes)
+        
+        data[f'f1'] = f1.name
+        data[f'f2'] = f2.name
+        data[f'f1_gene_proportion'] = f1_gene_proportion
+        data[f'f2_gene_proportion'] = f2_gene_proportion
+                        
+        data[f'is_gene_proportion_>_{gene_proportion_cutoff}'] = (f1_gene_proportion >= gene_proportion_cutoff) and (f2_gene_proportion >= gene_proportion_cutoff)
+        
+        # for k, v in data.items():
+        #     if type(v) != set:
+        #         print(k, v)
+        # print('===')  
+                        
 
 
 def add_edges_to_context_graph(context_graph: nx.Graph,
@@ -297,8 +352,8 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
     :param transitive: Size of the transitive closure used to build the graph.
     :param window_size: Size of the window for extracting gene contexts (default: 0).
     :param disable_bar: Flag to disable the progress bar (default: False).
-    :return: The constructed gene context graph.
 
+    :return: The constructed gene context graph.
     """
 
     context_graph = nx.Graph()
@@ -404,7 +459,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
                                      sequences=args.sequences, families=args.family, transitive=args.transitive,
-                                     identity=args.identity, coverage=args.coverage, jaccard=args.jaccard, window_size=args.window_size,
+                                     identity=args.identity, coverage=args.coverage, jaccard_threshold=args.jaccard, window_size=args.window_size,
                                      no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
 
 
@@ -452,8 +507,9 @@ def parser_context(parser: argparse.ArgumentParser):
                           help="Size of the transitive closure used to build the graph. This indicates the number of "
                                "non related genes allowed in-between two related genes. Increasing it will improve "
                                "precision but lower sensitivity a little.")
-    optional.add_argument("-w", "--window_size", required=False, type=int, default=1,
-                        help="Number of neighboring genes that are considered when searching for conserved genomic contexts around a gene of interest.")
+    optional.add_argument("-w", "--window_size", required=False, type=int, default=5,
+                        help="Number of neighboring genes that are considered on each side of "
+                        "a gene of interest when searching for conserved genomic contexts.")
     
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
