@@ -28,22 +28,22 @@ def check_pangenome_metadata(pangenome: Pangenome, source: str, metatype: str, f
     :param force: erase if a metadata for the provide source and metatype already exist
     :param disable_bar: Disable bar
     """
-    need_dic = {'need_annotations': False,
+    need_dic = {'need_annotations': True,
                 'need_families': False,
                 'need_rgp': False,
                 'need_spots': False,
                 'need_modules': False}
-    if metatype in ["genes", "genomes", "families"]:
-        need_dic['need_annotations'] = True
-    if metatype == "families":
+
+    if metatype in ["families", "RGPs", "spots", "modules"]:
         need_dic['need_families'] = True
+
     if metatype in ["RGPs", "spots"]:
         need_dic['need_rgp'] = True
-        need_dic['need_spots'] = True
-        need_dic['need_families'] = True
-        need_dic['need_annotations'] = True
 
-    if metatype in ["modules"]:
+    if metatype == "spots":
+        need_dic['need_spots'] = True
+
+    if metatype == "modules":
         need_dic['need_modules'] = True
 
     if pangenome.status["metadata"][metatype] == "inFile" and source in pangenome.status["metasources"][metatype]:

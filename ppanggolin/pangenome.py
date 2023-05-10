@@ -13,8 +13,6 @@ from ppanggolin.edge import Edge
 from ppanggolin.metadata import Metadata
 
 
-
-
 class Pangenome:
     """
     This is a class representing your pangenome. It is used as a basic unit for all the analysis to access to the
@@ -472,7 +470,7 @@ class Pangenome:
         :raises KeyError: If the spot ID does not exist in the pangenome.
         :raises ValueError: If the provided spot ID does not have the expected format.
         """
-        
+
         try:
             spot_id = int(spot_id)
         except ValueError:
@@ -480,15 +478,14 @@ class Pangenome:
             if result:
                 spot_id = int(result.group(1))
             else:
-                ValueError(f"The provided spot ID '{spot_id}' does not have the expected format."
-                           "It should be an integer or in the format 'spot_<integer>'.")
-        
+                raise ValueError(f"The provided spot ID '{spot_id}' does not have the expected format."
+                                 "It should be an integer or in the format 'spot_<integer>'.")
         try:
             return self._spotGetter[spot_id]
         except AttributeError:
             # in that case, either the gene getter has not been computed, or the spot id is not in the pangenome.
             self._mk_spot_getter()  # make it
-            return self.get_spot(spot_id)  # return what was expected. If spot id  does not exist it will raise an error.
+            return self.get_spot(spot_id)  # return what was expected. If spot id does not exist it will raise an error.
         except KeyError:
             raise KeyError(f"Spot {spot_id} does not exist in the pangenome.")
 
@@ -530,8 +527,6 @@ class Pangenome:
         """
         self.modules |= set(modules)
 
-
-
     def get_module(self, module_id: Union[int, str]) -> Module:
         """
         Returns the module that has the given module ID.
@@ -543,7 +538,7 @@ class Pangenome:
         :raises KeyError: If the module ID does not exist in the pangenome.
         :raises ValueError: If the provided module ID does not have the expected format.
         """
-        
+
         try:
             module_id = int(module_id)
         except ValueError:
@@ -551,8 +546,8 @@ class Pangenome:
             if result:
                 module_id = int(result.group(1))
             else:
-                ValueError(f"The provided module ID '{module_id}' does not have the expected format."
-                           "It should be an integer or in the format 'module_<integer>'.")
+                raise ValueError(f"The provided module ID '{module_id}' does not have the expected format."
+                                 "It should be an integer or in the format 'module_<integer>'.")
 
         try:
             return self._moduleGetter[module_id]
@@ -639,7 +634,8 @@ class Pangenome:
         for elem in elements:
             yield elem.metadata
 
-    def get_elem_by_metadata(self, metatype: str, **kargs) -> Generator[Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
+    def get_elem_by_metadata(self, metatype: str, **kargs) -> Generator[
+        Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
         assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
         if metatype == "families":
             elements = self.gene_families
@@ -657,7 +653,8 @@ class Pangenome:
             if len(list(element.get_metadata(**kargs))) > 0:
                 yield element
 
-    def get_elem_by_sources(self, source: List[str], metatype: str) -> Generator[Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
+    def get_elem_by_sources(self, source: List[str], metatype: str) -> Generator[
+        Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
         """ Get gene famlies with a specific source in pangenome
 
         :param source: Name of the source

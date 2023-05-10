@@ -5,6 +5,7 @@
 import logging
 from typing import Dict, List, Tuple, Union
 
+import numpy
 # installed libraries
 from tqdm import tqdm
 import tables
@@ -99,12 +100,17 @@ def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, 
     expected_rows = 0
 
     for element in select_elem:
-        if hasattr(element, 'ID') and isinstance(element.ID, str):
-            if "ID" not in max_len_dict or len(element.ID) > max_len_dict['ID']:
-                max_len_dict['ID'] = len(element.ID)
-        elif hasattr(element, 'name'):
+        if hasattr(element, 'name') and len(element.name) > 0:
             if "ID" not in max_len_dict or len(element.name) > max_len_dict['ID']:
                 max_len_dict['ID'] = len(element.name)
+        elif hasattr(element, 'ID'):
+            if isinstance(element.ID, str):
+                if "ID" not in max_len_dict or len(element.ID) > max_len_dict['ID']:
+                    max_len_dict['ID'] = len(element.ID)
+            elif any(isinstance(element.ID, x) for x in [int, numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64]):
+                type_dict["ID"] = tables.Int64Col()
+            else:
+                raise Exception(f"{type(element)} ID must be an integer")
         else:
             raise Exception("Unexpected attribute. A recent change could create this error."
                             " Please report the error on our github.")
