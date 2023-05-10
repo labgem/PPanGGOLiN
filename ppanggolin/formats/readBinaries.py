@@ -83,7 +83,7 @@ def get_number_of_organisms(pangenome: Pangenome) -> int:
 
 
 # TODO Remove this function
-def fix_partitioned(pangenome: Pangenome, pangenome_file: str):
+def fix_partitioned(pangenome_file: str):
     """
         Fixes pangenomes with the 'partitionned' typo.
 
@@ -110,7 +110,7 @@ def get_status(pangenome: Pangenome, pangenome_file: str):
     :param pangenome: Blank pangenome
     :param pangenome_file: path to the pangenome file
     """
-    fix_partitioned(pangenome, pangenome_file)
+    fix_partitioned(pangenome_file)
     h5f = tables.open_file(pangenome_file, "r")
     logging.getLogger().info("Getting the current pangenome status")
     status_group = h5f.root.status
@@ -470,49 +470,51 @@ def read_info(h5f: tables.File):
     """
     if "/info" in h5f:
         info_group = h5f.root.info
-
-        print(f"Genes: {info_group._v_attrs['numberOfGenes']}")
+        print("Content: ")
+        print(f"\t- Genes: {info_group._v_attrs['numberOfGenes']}")
         if "numberOfOrganisms" in info_group._v_attrs._f_list():
-            print(f"Organisms: {info_group._v_attrs['numberOfOrganisms']}")
+            print(f"\t- Organisms: {info_group._v_attrs['numberOfOrganisms']}")
         if "numberOfClusters" in info_group._v_attrs._f_list():
-            print(f"Families: {info_group._v_attrs['numberOfClusters']}")
+            print(f"\t- Families: {info_group._v_attrs['numberOfClusters']}")
         if "numberOfEdges" in info_group._v_attrs._f_list():
-            print(f"Edges: {info_group._v_attrs['numberOfEdges']}")
+            print(f"\t- Edges: {info_group._v_attrs['numberOfEdges']}")
         if 'numberOfCloud' in info_group._v_attrs._f_list():  # then all the others are there
-            print(
-                f"Persistent ({', '.join([key + ':' + str(round(val, 2)) for key, val in info_group._v_attrs['persistentStats'].items()])} ): "
-                f"{info_group._v_attrs['numberOfPersistent']}")
-            print(
-                f"Shell ( {', '.join([key + ':' + str(round(val, 2)) for key, val in info_group._v_attrs['shellStats'].items()])} ): "
-                f"{info_group._v_attrs['numberOfShell']}")
-            print(
-                f"Cloud ( {', '.join([key + ':' + str(round(val, 2)) for key, val in info_group._v_attrs['cloudStats'].items()])} ): "
-                f"{info_group._v_attrs['numberOfCloud']}")
-            print(f"Number of partitions: {info_group._v_attrs['numberOfPartitions']}")
+            print(f"\t- Persistent: \n"
+                  f"\t\t- count : {info_group._v_attrs['numberOfPersistent']}")
+            for key, val in info_group._v_attrs['persistentStats'].items():
+                print(f"\t\t- {key}: {str(round(val, 2))}")
+            print(f"\t- Shell: \n"
+                  f"\t\t- count : {info_group._v_attrs['numberOfShell']}")
+            for key, val in info_group._v_attrs['shellStats'].items():
+                print(f"\t\t- {key}: {str(round(val, 2))}")
+            print(f"\t- Cloud: \n"
+                  f"\t\t- count : {info_group._v_attrs['numberOfCloud']}")
+            for key, val in info_group._v_attrs['cloudStats'].items():
+                print(f"\t\t- {key}: {str(round(val, 2))}")
+            print(f"\t- Number of partitions: {info_group._v_attrs['numberOfPartitions']}")
             if info_group._v_attrs['numberOfPartitions'] != 3:
                 for key, val in info_group._v_attrs['numberOfSubpartitions'].items():
-                    print(f"Shell {key} : {val}")
+                    print(f"\t\t- Shell {key} : {val}")
         if 'genomes_fluidity' in info_group._v_attrs._f_list():
-            out = "Genomes fluidity: " + \
-                  ", ".join(f"{subset}={round(value, 3)}" for subset, value in
-                            info_group._v_attrs['genomes_fluidity'].items())
-            print(out)
+            print("\t- Genomes fluidity: ")
+            for subset, value in info_group._v_attrs['genomes_fluidity'].items():
+                  print(f"\t  - {subset}: {round(value, 3)}")
         if 'family_fluidity' in info_group._v_attrs._f_list():
-            out = "Families fluidity: " + \
+            out = "\t- Families fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
                             info_group._v_attrs['families_fluidity'].items())
             print(out)
         if 'numberOfRGP' in info_group._v_attrs._f_list():
-            print(f"RGPs: {info_group._v_attrs['numberOfRGP']}")
+            print(f"\t- RGPs: {info_group._v_attrs['numberOfRGP']}")
         if 'numberOfSpots' in info_group._v_attrs._f_list():
-            print(f"Spots: {info_group._v_attrs['numberOfSpots']}")
+            print(f"\t- Spots: {info_group._v_attrs['numberOfSpots']}")
         if 'numberOfModules' in info_group._v_attrs._f_list():
             if all(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'ShellSpecInModules',
                                                                 'numberOfFamiliesInModules']):
                 read_modules_info(h5f)
             else:
-                print(f"Modules: {info_group._v_attrs['numberOfModules']}")
-                print(f"Families in Modules: {info_group._v_attrs['numberOfFamiliesInModules']}")
+                print(f"\t- Modules: {info_group._v_attrs['numberOfModules']}")
+                print(f"\t- Families in Modules: {info_group._v_attrs['numberOfFamiliesInModules']}")
 
 
 def read_modules_info(h5f: tables.File):
@@ -526,16 +528,17 @@ def read_modules_info(h5f: tables.File):
         if all(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'PersistentSpecInModules',
                                                             'ShellSpecInModules', 'numberOfFamiliesInModules',
                                                             'StatOfFamiliesInModules']):
-            print(f"Modules: {info_group._v_attrs['numberOfModules']}")
-            print(f"Number of Families in Modules: {info_group._v_attrs['numberOfFamiliesInModules']}")
-            print(f"\tPercent of Families: persistent {info_group._v_attrs['PersistentSpecInModules']['percent']},"
-                  f"shell {info_group._v_attrs['ShellSpecInModules']['percent']},"
-                  f"cloud {info_group._v_attrs['CloudSpecInModules']['percent']}")
-            print(f"Number of Families per Modules: "
-                  f"min: {info_group._v_attrs['StatOfFamiliesInModules']['min']}, "
-                  f"max: {info_group._v_attrs['StatOfFamiliesInModules']['max']}, "
-                  f"sd: {info_group._v_attrs['StatOfFamiliesInModules']['sd']}, "
-                  f"mean: {info_group._v_attrs['StatOfFamiliesInModules']['mean']}")
+            print(f"\t- Modules: {info_group._v_attrs['numberOfModules']}")
+            print(f"\t\t- Families in Modules: {info_group._v_attrs['numberOfFamiliesInModules']}")
+            print(f"\t\t- Percent of Families: \n"
+                  f"\t\t\t- persistent: {info_group._v_attrs['PersistentSpecInModules']['percent']}\n"
+                  f"\t\t\t- shell {info_group._v_attrs['ShellSpecInModules']['percent']}\n"
+                  f"\t\t\t- cloud {info_group._v_attrs['CloudSpecInModules']['percent']}")
+            print(f"\t\t- Number of Families per Modules:\n"
+                  f"\t\t\t- min: {info_group._v_attrs['StatOfFamiliesInModules']['min']}\n"
+                  f"\t\t\t- max: {info_group._v_attrs['StatOfFamiliesInModules']['max']}\n"
+                  f"\t\t\t- sd: {info_group._v_attrs['StatOfFamiliesInModules']['sd']}\n"
+                  f"\t\t\t- mean: {info_group._v_attrs['StatOfFamiliesInModules']['mean']}")
 
 
 def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str, source: str, disable_bar: bool = False):
@@ -576,10 +579,11 @@ def read_parameters(h5f: tables.File):
     if "/info" in h5f:
         info_group = h5f.root.info
         if "parameters" in info_group._v_attrs._f_list():
+            print("Parameters: ")
             for key, dic in info_group._v_attrs["parameters"].items():
-                print(f"{key}")
+                print(f"\t- {key}")
                 for key2, val in dic.items():
-                    print(f"    {key2} : {val}")
+                    print(f"\t\t- {key2} : {val}")
 
 
 def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = False, graph: bool = False,
@@ -605,7 +609,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
     else:
         raise FileNotFoundError("The provided pangenome does not have an associated .h5 file")
 
-    fix_partitioned(pangenome, pangenome.file)
+    fix_partitioned(pangenome.file)
 
     h5f = tables.open_file(filename, "r")
     if annotation:
