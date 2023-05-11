@@ -8,7 +8,7 @@ import gzip
 import argparse
 from io import TextIOWrapper
 from pathlib import Path
-from typing import TextIO, Union, BinaryIO, Tuple, List, Set
+from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable
 
 import networkx as nx
 import pkg_resources
@@ -464,11 +464,15 @@ def get_non_default_cli_args(subcomamand_parser: Callable) -> argparse.Namespace
     return cli_args
 
 
-def get_arg_name(arg_val: Union[str, TextIOWrapper]):
+def get_arg_name(arg_val: Union[str, TextIOWrapper])  -> Union[str, TextIOWrapper]:
     """
-    # TODO write docstring
-    """
+    Returns the name of a file if the argument is a TextIOWrapper object,
+    otherwise returns the argument value.
 
+    :param arg_val: Either a string or a TextIOWrapper object.
+    :return: Either a string or a TextIOWrapper object, depending on the type of the input argument.
+    """
+    
     if type(arg_val) == TextIOWrapper:
         return arg_val.name
     return arg_val
@@ -688,8 +692,13 @@ def check_config_consistency(config: dict, workflow_steps: list):
     :params workflow_steps: list of subcommand names used in the workflow execution.
     """
 
-    def count_different_values(values):
-        # TODO write docstring
+    def count_different_values(values: Iterable[Union[int, str, Tuple, List]]) -> int:
+        """
+        Returns the number of unique values in a list.
+
+        :param values: A list of values to count.
+        :return: The number of unique values in the list.
+        """
         hashable_values = set()
         for value in values:
             hashable_value = tuple(value) if type(value) == list else value
