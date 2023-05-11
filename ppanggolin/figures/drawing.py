@@ -16,6 +16,12 @@ from ppanggolin.figures.tile_plot import draw_tile_plot
 from ppanggolin.figures.ucurve import draw_ucurve
 
 
+# TODO check args
+# def check_draw_args(args):
+#     if ...:
+#         raise argparse.ArgumentError("Incompatible arguments")
+
+
 def launch(args: argparse.Namespace):
     """
     Command launcher
@@ -70,7 +76,7 @@ def parser_draw(parser: argparse.ArgumentParser):
                           help="Do not draw the cloud in the tile plot")
     optional.add_argument("--soft_core", required=False, default=0.95, help="Soft core threshold to use")
     optional.add_argument("--ucurve", required=False, default=False, action="store_true",
-                          help="draw the U-curve of the pan")
+                          help="draw the U-curve of the pangenome")
     optional.add_argument("--spots", required=False, type=str, default='',
                           help="a comma-separated list of spots to draw (or 'all' to draw all spots)")
 

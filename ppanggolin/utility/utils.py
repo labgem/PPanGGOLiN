@@ -1,32 +1,21 @@
 #!/usr/bin/env python3
+# coding:utf-8
 
+# default libraries
 import argparse
 import logging
 import os
 from pathlib import Path
-
-from ppanggolin.utils import get_subcommand_parser, check_log, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES , WRITE_FLAG_DEFAULT_IN_WF, DRAW_FLAG_DEFAULT_IN_WF
-
-import ppanggolin.nem.rarefaction
-import ppanggolin.graph
-import ppanggolin.annotate
-import ppanggolin.cluster
-import ppanggolin.figures
-import ppanggolin.formats
-import ppanggolin.info
-import ppanggolin.metrics
-import ppanggolin.align
-import ppanggolin.RGP
-import ppanggolin.mod
-import ppanggolin.context
-import ppanggolin.workflow
-import ppanggolin.utility
-
+from typing import List
+# local libraries
+from ppanggolin.utils import get_subcommand_parser, check_log, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, \
+    WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES, WRITE_FLAG_DEFAULT_IN_WF, DRAW_FLAG_DEFAULT_IN_WF
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
 """ Utility scripts to help formating input files of PPanggolin."""
 
-def split(list_object:list, chunk_count:int) -> list([list]):
+
+def split(list_object: list, chunk_count: int) -> List[List[int]]:
     """
     Split list into n chunk. 
 
@@ -37,10 +26,11 @@ def split(list_object:list, chunk_count:int) -> list([list]):
     """
     quotient, remainder = divmod(len(list_object), chunk_count)
 
-    return [list_object[index*quotient+min(index, remainder):(index+1)*quotient+min(index+1, remainder)] for index in range(chunk_count)]
+    return [list_object[index * quotient + min(index, remainder):(index + 1) * quotient + min(index + 1, remainder)] for
+            index in range(chunk_count)]
 
 
-def split_comment_string(comment_string:str, max_word_count:int=20, prefix:str="\n    # ") -> str:
+def split_comment_string(comment_string: str, max_word_count: int = 20, prefix: str = "\n    # ") -> str:
     """
     Split a line of comment into multiple line.
 
@@ -53,13 +43,14 @@ def split_comment_string(comment_string:str, max_word_count:int=20, prefix:str="
 
     splitted_comment = comment_string.split()
     word_count = len(splitted_comment)
-    line_count = round(word_count/max_word_count) + 1
+    line_count = round(word_count / max_word_count) + 1
 
     comment_lines = [' '.join(words) for words in split(splitted_comment, line_count)]
-    
+
     return prefix.join(comment_lines)
 
-def get_input_argument_lines(argument_actions:list([argparse._SubParsersAction])) -> dict:
+
+def get_input_argument_lines(argument_actions: List[argparse._SubParsersAction]) -> List[str]:
     """
     Manage input argument from a specific list of parser actions and format them for the yaml output.
 
@@ -73,7 +64,6 @@ def get_input_argument_lines(argument_actions:list([argparse._SubParsersAction])
 
     arg_default_lines = []
     for action in argument_actions:
-
         # Add the help as comment
         arg_default_lines.append(f"    # {split_comment_string(action.help)}")
 
@@ -81,7 +71,8 @@ def get_input_argument_lines(argument_actions:list([argparse._SubParsersAction])
 
     return arg_default_lines
 
-def get_default_argument_lines(argument_actions:list([argparse._SubParsersAction])) -> dict:
+
+def get_default_argument_lines(argument_actions: List[argparse._SubParsersAction]) -> List[str]:
     """
     Get default arguments for a specific list of parser actions and format them for the yaml output.
 
@@ -103,7 +94,7 @@ def get_default_argument_lines(argument_actions:list([argparse._SubParsersAction
 
         if action.choices:
             arg_default_lines.append(f"    # Choices: {', '.join([str(choice) for choice in action.choices])}")
-        
+
         # When default is None, it is replaced by False to omit the arg and get the None value as expected.
         default = action.default if action.default is not None else False
         arg_default_lines.append(f"    {action.dest}: {default}")
@@ -111,13 +102,13 @@ def get_default_argument_lines(argument_actions:list([argparse._SubParsersAction
     return arg_default_lines
 
 
-def deduplicate_actions(actions: list([argparse._SubParsersAction])) -> list([argparse._SubParsersAction]):
+def deduplicate_actions(actions: List[argparse._SubParsersAction]) -> List[argparse._SubParsersAction]:
     """
     Deduplicate duplicate actions based on their dest.
 
     When two actions with the same dest attribute, only the first one is kept in the returned list.
 
-    :param argument_actions: list of parser action arguments. 
+    :param actions: list of parser action arguments.
 
     :return: list of parser action arguments deduplicated.
 
@@ -128,7 +119,7 @@ def deduplicate_actions(actions: list([argparse._SubParsersAction])) -> list([ar
         if action.dest in dedup_names:
             # action has been already seen.
             continue
-        dedup_names.append(action.dest) 
+        dedup_names.append(action.dest)
         dedup_actions.append(action)
     return dedup_actions
 
@@ -141,12 +132,13 @@ def launch_default_config(args: argparse.Namespace):
     """
     initial_command = args.default_config
 
-    if os.path.exists(args.output) and not args.force: 
+    if os.path.exists(args.output) and not args.force:
         raise FileExistsError(f"{args.output} already exists. Use -f if you want to overwrite it.")
-    
+
     ignored_params = ['config', 'help']
 
-    workflow_dependencies = {sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if sub_cmd not in ["rgp", "spot", "module"]}
+    workflow_dependencies = {sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if
+                             sub_cmd not in ["rgp", "spot", "module"]}
 
     if initial_command in ['panrgp', 'all']:
         workflow_dependencies |= {"rgp", "spot"}
@@ -155,8 +147,9 @@ def launch_default_config(args: argparse.Namespace):
         workflow_dependencies.add('module')
 
     if initial_command in WORKFLOW_SUBCOMMANDS:
-         # it is clearer if the order of the subcommand is conserved in wf config file
-         commands = [initial_command] + [sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if sub_cmd in workflow_dependencies]
+        # it is clearer if the order of the subcommand is conserved in wf config file
+        commands = [initial_command] + [sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if
+                                        sub_cmd in workflow_dependencies]
     else:
         commands = [initial_command]
 
@@ -165,13 +158,13 @@ def launch_default_config(args: argparse.Namespace):
     general_actions = []
 
     for sub_command in commands:
-        
+
         parser_fct = SUBCOMMAND_TO_SUBPARSER[sub_command]
 
         _, sub = get_subcommand_parser(parser_fct, sub_command)
-        
+
         specific_actions = []
-        
+
         # overwrite some default value for write cmd in a workflow context
         if initial_command in WORKFLOW_SUBCOMMANDS and sub_command == 'write':
             for sub_action in sub._actions:
@@ -182,7 +175,6 @@ def launch_default_config(args: argparse.Namespace):
             for sub_action in sub._actions:
                 if sub_action.dest in DRAW_FLAG_DEFAULT_IN_WF:
                     sub_action.default = True
-
 
         for parser_action in sub._actions:
             if parser_action.dest in ignored_params:
@@ -199,9 +191,8 @@ def launch_default_config(args: argparse.Namespace):
 
             else:
                 specific_actions.append(parser_action)
-                
-        sub_cmd_to_actions[sub_command] = specific_actions
 
+        sub_cmd_to_actions[sub_command] = specific_actions
 
     inputs_actions = deduplicate_actions(inputs_actions)
     general_actions = deduplicate_actions(general_actions)
@@ -213,17 +204,16 @@ def launch_default_config(args: argparse.Namespace):
     arg_lines += get_default_argument_lines(general_actions)
 
     for sub_command, specific_actions in sub_cmd_to_actions.items():
-        
+
         if sub_command in WORKFLOW_SUBCOMMANDS:
             continue
-        
+
         arg_lines.append(f"\n{sub_command}:")
         arg_lines += get_default_argument_lines(specific_actions)
 
     logging.info(f'Writting default config in {args.output}')
     with open(args.output, 'w') as fl:
         fl.write('\n'.join(arg_lines) + '\n')
-
 
 
 def launch(args: argparse.Namespace):
@@ -234,9 +224,8 @@ def launch(args: argparse.Namespace):
     """
 
     if args.default_config is not None:
-        
         launch_default_config(args)
-    
+
     # elif args.another_util_args is not None:
     #     launch_another_utils()
 
@@ -260,37 +249,36 @@ def parser_default_config(parser: argparse.ArgumentParser):
 
     :param parser: parser for utils argument
     """
-    # subcommands = ['annotate', 'cluster', 'graph', 'partition', 'rarefaction', 'workflow', 'panrgp', 'panModule',
-    #               'all', 'draw', 'write', 'fasta', 'msa', 'metrics', 'align', 'rgp', 'spot', 'module', 'context']
-    
+
     subcommands = list(SUBCOMMAND_TO_SUBPARSER.keys())
-    
+
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
 
-    required.add_argument('--default_config', required=False, type=str, default=None,#nargs="*",,
-                          help="Generate a config file with default values for the given subcommand.", 
+    required.add_argument('--default_config', required=False, type=str, default=None,  # nargs="*",,
+                          help="Generate a config file with default values for the given subcommand.",
                           choices=subcommands)
-    
+
     optional = parser.add_argument_group(title="Config arguments")
 
-    optional.add_argument('-o','--output', type=Path, default='default_config.yaml',
+    optional.add_argument('-o', '--output', type=Path, default='default_config.yaml',
                           help='name and path of the config file with default parameters written in yaml.')
-    
+
     optional.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    
+                          help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
+
     optional.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
 
     optional.add_argument('-f', '--force', action="store_true",
-                        help="Overwrite the given output file if it exists.")
-        
+                          help="Overwrite the given output file if it exists.")
+
+
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
     main_parser = argparse.ArgumentParser(
-                        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-                        formatter_class=argparse.RawTextHelpFormatter)
+        description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
+        formatter_class=argparse.RawTextHelpFormatter)
 
     parser_default_config(main_parser)
-    
+
     launch(main_parser.parse_args())
