@@ -13,7 +13,7 @@ import tempfile
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_log, check_input_files, set_verbosity_level
+from ppanggolin.utils import check_log, check_input_files, set_verbosity_level, check_tsv_sanity
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
@@ -125,9 +125,6 @@ def cmd_line() -> argparse.Namespace:
         sys.exit(0)
 
     args = parser.parse_args()
-    if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
-                        "or a file with the --gff option to load annotations from.")
     return args
 
 
@@ -138,14 +135,16 @@ def main():
     """
     args = cmd_line()
 
-    if hasattr(args, "pangenome"):
-        check_input_files(pangenome=args.pangenome)
-    if hasattr(args, "fasta"):
-        check_input_files(fasta=args.fasta)
-    if hasattr(args, "anno"):
-        check_input_files(anno=args.anno)
-
     set_verbosity_level(args)
+
+    if hasattr(args, "pangenome"):
+        check_input_files(args.pangenome)
+    if hasattr(args, "fasta") and args.fasta is not None:
+        check_input_files(args.fasta)
+        check_tsv_sanity(args.fasta)
+    if hasattr(args, "anno") and args.anno is not None:
+        check_input_files(args.anno)
+        check_tsv_sanity(args.anno)
 
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)

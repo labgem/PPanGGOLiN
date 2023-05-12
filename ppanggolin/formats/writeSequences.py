@@ -12,9 +12,8 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
-from ppanggolin.annotate.annotate import detect_filetype
 
 poss_values_log = "Possible values are 'all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', " \
                   "'core', 'module_X' with X being a module id."

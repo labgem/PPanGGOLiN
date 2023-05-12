@@ -10,6 +10,7 @@ from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
 from typing import Union
+from pathlib import Path
 
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA
@@ -291,7 +292,7 @@ def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
         return reverse_complement(contig_seq[gene.start - 1:gene.stop])
 
 
-def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: str,
+def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: str,
                       code: int = 11, norna: bool = False, kingdom: str = "bacteria",
                       overlap: bool = True, contig_filter: int = 1, procedure: str = None) -> Organism:
     """

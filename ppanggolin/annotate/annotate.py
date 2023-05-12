@@ -7,6 +7,8 @@ from multiprocessing import get_context
 import logging
 import os
 import time
+from pathlib import Path
+from typing import List
 
 # installed libraries
 from tqdm import tqdm
@@ -15,31 +17,14 @@ from tqdm import tqdm
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, mk_file_name, min_one
+from ppanggolin.utils import read_compressed_or_not, mk_file_name, min_one, detect_filetype
 from ppanggolin.formats import write_pangenome
 
 
-def detect_filetype(filename):
-    """
-    Detects whether the current file is gff3, gbk/gbff, fasta or unknown.
-    If unknown, it will raise an error
-
-    :param filename: path to file
-
-    :return: current file type
-    """
-    with read_compressed_or_not(filename) as f:
-        first_line = f.readline()
-    if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
-        return "gbff"
-    elif first_line.startswith("##gff-version 3"):
-        return 'gff'
-    elif first_line.startswith(">"):
-        return 'fasta'
-    else:
-        raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') "
-                        "nor gbff/gbk (file starts with 'LOCUS       '). "
-                        "Only those two file formats are supported (for now).")
+def check_annotate_args(args):
+    if args.fasta is None and args.anno is None:
+        raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
+                        "or a file with the --gff option to load annotations from.")
 
 
 def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: set,
@@ -94,7 +79,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     new_gene.fill_parents(org, contig)
 
 
-def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, pseudo: bool = False) -> (Organism, bool):
+def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, pseudo: bool = False) -> (Organism, bool):
     """
     Read a GBFF file and fills Organism, Contig and Genes objects based on information contained in this file
 
@@ -107,7 +92,7 @@ def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, ps
     """
     org = Organism(organism)
 
-    logging.getLogger().debug(f"Extracting genes informations from the given gbff {gbff_file_path.split('/')[-1]}")
+    logging.getLogger().debug(f"Extracting genes informations from the given gbff {gbff_file_path.name}")
     # revert the order of the file, to read the first line first.
     lines = read_compressed_or_not(gbff_file_path).readlines()[::-1]
     gene_counter = 0
@@ -238,7 +223,7 @@ def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, ps
     return org, True
 
 
-def read_org_gff(organism: str, gff_file_path: str, circular_contigs, pseudo: bool = False) -> (Organism, bool):
+def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: bool = False) -> (Organism, bool):
     """
     Read annotation from GFF file
 
@@ -382,7 +367,7 @@ def launch_read_anno(args: tuple) -> (Organism, bool):
     return read_anno_file(*args)
 
 
-def read_anno_file(organism_name: str, filename: str, circular_contigs: list, pseudo: bool = False) -> (Organism, bool):
+def read_anno_file(organism_name: str, filename: Path, circular_contigs: list, pseudo: bool = False) -> (Organism, bool):
     """
     Read a GBFF file for one organism
 
@@ -434,7 +419,7 @@ def chose_gene_identifiers(pangenome) -> bool:
     return True
 
 
-def read_annotations(pangenome: Pangenome, organisms_file: str, cpu: int = 1, pseudo: bool = False,
+def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, pseudo: bool = False,
                      disable_bar: bool = False):
     """
     Read the annotation from GBFF file
@@ -445,7 +430,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: str, cpu: int = 1, ps
     :param pseudo: allow to read pseudogène
     :param disable_bar: Disable the progresse bar
     """
-    logging.getLogger().info("Reading " + organisms_file + " the list of organism files ...")
+    logging.getLogger().info(f"Reading {organisms_file.name} the list of organism files ...")
 
     pangenome.status["geneSequences"] = "Computed"
     # we assume there are gene sequences in the annotation files,
@@ -455,7 +440,10 @@ def read_annotations(pangenome: Pangenome, organisms_file: str, cpu: int = 1, ps
         elements = [el.strip() for el in line.split("\t")]
         if len(elements) <= 1:
             raise Exception(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
-        args.append((elements[0], elements[1], elements[2:], pseudo))
+        org_path = Path(elements[1])
+        if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
+            org_path = organisms_file.parent.joinpath(org_path)
+        args.append((elements[0], org_path, elements[2:], pseudo))
     with get_context('fork').Pool(cpu) as p:
         for org, flag in tqdm(p.imap_unordered(launch_read_anno, args), unit="file", total=len(args),
                               disable=disable_bar):
@@ -531,7 +519,7 @@ def launch_annotate_organism(pack: tuple) -> Organism:
     return annotate_organism(*pack)
 
 
-def annotate_pangenome(pangenome: Pangenome, fasta_list: str, tmpdir: str, cpu: int = 1, translation_table: int = 11,
+def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu: int = 1, translation_table: int = 11,
                        kingdom: str = "bacteria", norna: bool = False, overlap: bool = True, contig_filter: int = 1,
                        procedure: str = None, disable_bar: bool = False):
     """
@@ -555,9 +543,12 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: str, tmpdir: str, cpu: 
     arguments = []  # Argument given to annotate organism in same order than prototype
     for line in read_compressed_or_not(fasta_list):
         elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
+        if len(elements) <= 1:  # TODO remove ? Already tested by check TSV sanity
             raise Exception("No tabulation separator found in organisms file")
-        arguments.append((elements[0], elements[1], elements[2:], tmpdir, translation_table,
+        org_path = Path(elements[1])
+        if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
+            org_path = fasta_list.parent.joinpath(org_path)
+        arguments.append((elements[0], org_path, elements[2:], tmpdir, translation_table,
                           norna, kingdom, overlap, contig_filter, procedure))
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
@@ -587,8 +578,7 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
-    if not any([args.fasta, args.anno]):
-        raise Exception("At least one of --fasta or --anno must be given")
+    check_annotate_args(args)
     filename = mk_file_name(args.basename, args.output, args.force)
     pangenome = Pangenome()
     if args.fasta is not None and args.anno is None:
@@ -630,16 +620,16 @@ def parser_annot(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('--fasta', required=False, type=str,
+    required.add_argument('--fasta', required=False, type=Path,
                           help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
                                "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
-    required.add_argument('--anno', required=False, type=str,
+    required.add_argument('--anno', required=False, type=Path,
                           help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
                                "annotations (the files can be compressed with gzip). One line per organism. "
                                "If this is provided, those annotations will be used.")
 
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument('-o', '--output', required=False, type=str,
+    optional.add_argument('-o', '--output', required=False, type=Path,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")

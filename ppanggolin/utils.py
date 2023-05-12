@@ -43,56 +43,45 @@ def check_log(name: str) -> TextIO:
             return log_file
 
 
-def check_tsv_sanity(tsv):
+def check_tsv_sanity(tsv: Path):
     """ Check if the given tsv is readable for the next PPanGGOLiN step
 
-    :param tsv: Path to the input tsv
+    :param tsv: Path to the tsv containing organims informations
     """
-    f = open(tsv, "r")
-    name_set = set()
-    duplicated_names = set()
-    non_existing_files = set()
-    for line in f:
-        elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
-            raise Exception(f"No tabulation separator found in given file: {tsv}")
-        if " " in elements[0]:
-            raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string:"
-                            f" '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN "
-                            f"this is not allowed. Please remove spaces from your genome names.")
-        old_len = len(name_set)
-        name_set.add(elements[0])
-        if len(name_set) == old_len:
-            duplicated_names.add(elements[0])
-        if not os.path.exists(elements[1]):
-            non_existing_files.add(elements[1])
-    if len(non_existing_files) != 0:
-        raise Exception(f"Some of the given files do not exist. The non-existing files are the following : "
-                        f"'{' '.join(non_existing_files)}'")
-    if len(duplicated_names) != 0:
-        raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : "
-                        f"'{' '.join(duplicated_names)}'")
+    with open(tsv, "r") as organisms_file:
+        name_set = set()
+        duplicated_names = set()
+        non_existing_files = set()
+        for line in organisms_file:
+            elements = [el.strip() for el in line.split("\t")]
+            if len(elements) <= 1:
+                raise Exception(f"No tabulation separator found in given file: {tsv}")
+            if " " in elements[0]:
+                raise Exception(f"Your genome names contain spaces (The first encountered genome name that had this string:"
+                                f" '{elements[0]}'). To ensure compatibility with all of the dependencies of PPanGGOLiN "
+                                f"this is not allowed. Please remove spaces from your genome names.")
+            old_len = len(name_set)
+            name_set.add(elements[0])
+            if len(name_set) == old_len:
+                duplicated_names.add(elements[0])
+            org_path = Path(elements[1])
+            if not org_path.exists() and not tsv.parent.joinpath(org_path).exists():
+                non_existing_files.add(elements[1])
+        if len(non_existing_files) != 0:
+            raise Exception(f"Some of the given files do not exist. The non-existing files are the following : "
+                            f"'{' '.join(non_existing_files)}'")
+        if len(duplicated_names) != 0:
+            raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : "
+                            f"'{' '.join(duplicated_names)}'")
 
 
-def check_input_files(anno: str = None, pangenome: str = None, fasta: str = None):
+def check_input_files(file: Path):
     """ Checks if the provided input files exist and are of the proper format
 
-    :param anno: Path to the annotation file
-    :param pangenome: Path to the pangenome hdf5 file
-    :param fasta: path to the fasta file
+    :param file: Path to the file
     """
-    if pangenome is not None and not os.path.exists(pangenome):
-        raise FileNotFoundError(f"No such file or directory: '{pangenome}'")
-
-    if anno is not None:
-        if not os.path.exists(anno):
-            raise FileNotFoundError(f"No such file or directory: '{anno}'")
-        check_tsv_sanity(anno)
-
-    if fasta is not None:
-        if not os.path.exists(fasta):
-            raise FileNotFoundError(f"No such file or directory: '{fasta}'")
-        check_tsv_sanity(fasta)
+    if not file.exists():
+        raise FileNotFoundError(f"No such file or directory: '{file.absolute().as_posix()}'")
 
 
 def set_verbosity_level(args):
@@ -138,7 +127,7 @@ def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
     return similarities
 
 
-def read_compressed_or_not(file_or_file_path: Union[str, BinaryIO, TextIOWrapper, TextIO]) -> Union[TextIOWrapper,
+def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]) -> Union[TextIOWrapper,
                                                                                                     BinaryIO, TextIO]:
     """
     Reads a file object or file path, uncompresses it, if need be.
@@ -147,21 +136,21 @@ def read_compressed_or_not(file_or_file_path: Union[str, BinaryIO, TextIOWrapper
 
     :return: TextIO object in read only
     """
-    file = file_or_file_path
-    if isinstance(file, str):
-        file = open(file, "rb")
-    else:
+    input_file = file_or_file_path
+    if isinstance(input_file, Path):
+        input_file = open(input_file, "rb")
+    else:  # type BinaryIO, TextIOWrapper, TextIO
         try:
-            file = open(file.name, "rb")
+            input_file = open(input_file.name, "rb")
         except AttributeError:
-            return file
-    if file.read(2).startswith(b'\x1f\x8b'):
-        file.seek(0)
-        return TextIOWrapper(gzip.open(filename=file, mode="r"))
+            return input_file
+    if input_file.read(2).startswith(b'\x1f\x8b'):
+        input_file.seek(0)
+        return TextIOWrapper(gzip.open(filename=input_file, mode="r"))
     else:
-        file.close()
-        file = open(file.name, "r")
-        return file
+        input_file.close()
+        input_file = open(input_file.name, "r")
+        return input_file
 
 
 def write_compressed_or_not(file_path: str, compress: bool = False) -> Union[gzip.GzipFile, TextIO]:
@@ -179,24 +168,24 @@ def write_compressed_or_not(file_path: str, compress: bool = False) -> Union[gzi
         return open(file_path, "w")
 
 
-def is_compressed(file_or_file_path: Union[str, TextIO, gzip.GzipFile]):
-    """ Checks is a file, or file path given is compressed or not
+def is_compressed(file_or_file_path: Union[Path, TextIO, gzip.GzipFile]):
+    """ Checks is a compressed_file, or compressed_file path given is compressed or not
 
-    :param file_or_file_path: Input file
+    :param file_or_file_path: Input compressed_file
 
-    :return: Get if the file is compressed
+    :return: Get if the compressed_file is compressed
     """
-    file = file_or_file_path
-    if isinstance(file, str):
-        file = open(file, "rb")
+    compressed_file = file_or_file_path
+    if isinstance(compressed_file, Path):
+        compressed_file = open(compressed_file, "rb")
     else:
         try:
-            file = open(file.name, "rb")
+            compressed_file = open(compressed_file.name, "rb")
         except AttributeError:
             return False
-    if file.read(2).startswith(b'\x1f\x8b'):
+    if compressed_file.read(2).startswith(b'\x1f\x8b'):
         return True
-    file.close()
+    compressed_file.close()
     return False
 
 
@@ -208,13 +197,15 @@ def mk_outdir(output, force):
 
     :raise FileExistError: The current path already exist and force is false
     """
-    if not os.path.exists(output):
-        os.makedirs(output)
-    elif not force:
-        raise FileExistsError(f"{output} already exists. Use -f if you want to overwrite the files in the directory")
+    if not output.is_dir():
+        logging.getLogger().debug(f"Create output directory {output.absolute().as_posix()}")
+        Path.mkdir(output)
+    else:
+        if not force:
+            raise FileExistsError(f"{output} already exists. Use -f if you want to overwrite the files in the directory")
 
 
-def mk_file_name(basename: str, output: str, force: bool = False) -> Path:
+def mk_file_name(basename: str, output: Path, force: bool = False) -> Path:
     """Returns a usable filename for a ppanggolin output file, or crashes.
 
     :param basename: basename for the file
@@ -223,7 +214,7 @@ def mk_file_name(basename: str, output: str, force: bool = False) -> Path:
 
     :return: Path to the file
     """
-    filename = Path(output + "/" + basename)
+    filename = output/basename
     if filename.suffix != ".h5":
         filename = filename.with_suffix(".h5")
 
@@ -233,6 +224,28 @@ def mk_file_name(basename: str, output: str, force: bool = False) -> Path:
         raise FileExistsError(f"{filename.name} already exists. Use -f if you want to overwrite the file")
     return filename
 
+
+def detect_filetype(filename):
+    """
+    Detects whether the current file is gff3, gbk/gbff, fasta or unknown.
+    If unknown, it will raise an error
+
+    :param filename: path to file
+
+    :return: current file type
+    """
+    with read_compressed_or_not(filename) as f:
+        first_line = f.readline()
+    if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
+        return "gbff"
+    elif first_line.startswith("##gff-version 3"):
+        return 'gff'
+    elif first_line.startswith(">"):
+        return 'fasta'
+    else:
+        raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') "
+                        "nor gbff/gbk (file starts with 'LOCUS       '). "
+                        "Only those two file formats are supported (for now).")
 
 def restricted_float(x) -> float:
     """Decrease the choice possibility of float in argparse
