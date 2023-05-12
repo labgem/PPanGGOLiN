@@ -9,6 +9,7 @@ from collections import defaultdict
 import os
 import argparse
 from typing import io
+from pathlib import Path
 
 # installed libraries
 from networkx import Graph
@@ -358,7 +359,7 @@ def infer_singletons(pangenome: Pangenome):
     logging.getLogger().info(f"Inferred {singleton_counter} singleton families")
 
 
-def read_clustering(pangenome: Pangenome, families_tsv_file: str, infer_singleton: bool = False, force: bool = False,
+def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singleton: bool = False, force: bool = False,
                     disable_bar: bool = False):
     """
     Get the pangenome information, the gene families and the genes with an associated gene family.
@@ -373,7 +374,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: str, infer_singleto
     check_pangenome_former_clustering(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, disable_bar=disable_bar)
 
-    logging.getLogger().info("Reading " + families_tsv_file + " the gene families file ...")
+    logging.getLogger().info(f"Reading {families_tsv_file.name} the gene families file ...")
     filesize = os.stat(families_tsv_file).st_size
     families_tsv_file = read_compressed_or_not(families_tsv_file)
     frag = False  # the genome annotations are necessarily loaded.
@@ -471,7 +472,7 @@ def parser_clust(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
     clust = parser.add_argument_group(title="Clustering arguments")
     clust.add_argument("--identity", required=False, type=restricted_float, default=0.8,
                        help="Minimal identity percent for two proteins to be in the same cluster")
@@ -488,7 +489,7 @@ def parser_clust(parser: argparse.ArgumentParser):
     clust.add_argument("--translation_table", required=False, default="11",
                        help="Translation table (genetic code) to use.")
     read = parser.add_argument_group(title="Read clustering arguments")
-    read.add_argument('--clusters', required=False, type=str,
+    read.add_argument('--clusters', required=False, type=Path,
                       help="A tab-separated list containing the result of a clustering. One line per gene. "
                            "First column is cluster ID, and second is gene ID")
     read.add_argument("--infer_singletons", required=False, action="store_true",

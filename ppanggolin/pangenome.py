@@ -3,6 +3,7 @@
 
 # default libraries
 from typing import Iterator, List, Union, Dict, Set, Iterable
+from pathlib import Path
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
@@ -49,7 +50,7 @@ class Pangenome:
         }
         self.parameters = {}
 
-    def add_file(self, pangenome_file: str):
+    def add_file(self, pangenome_file: Path):
         """Links an HDF5 file to the pangenome. If needed elements will be loaded from this file,
         and anything that is computed will be saved to this file when
         :func:`ppanggolin.formats.writeBinaries.writePangenome` is called.
@@ -59,7 +60,7 @@ class Pangenome:
         from ppanggolin.formats.readBinaries import get_status
         # importing on call instead of importing on top to avoid cross-reference problems.
         get_status(self, pangenome_file)
-        self.file = pangenome_file
+        self.file = pangenome_file.absolute().as_posix()
 
     """ Gene Methods"""
     @property

@@ -4,7 +4,7 @@
 # default libraries
 import logging
 import sys
-
+from pathlib import Path
 # installed libraries
 from typing import TextIO
 
@@ -97,7 +97,7 @@ def fix_partitioned(pangenome: Pangenome, pangenome_file: str):
         del status_group._v_attrs.Partitionned
     h5f.close()
 
-def get_status(pangenome: Pangenome, pangenome_file: str):
+def get_status(pangenome: Pangenome, pangenome_file: Path):
     """
     Checks which elements are already present in the file.
 
