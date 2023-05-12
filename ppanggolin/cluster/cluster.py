@@ -484,8 +484,6 @@ def parser_clust(parser: argparse.ArgumentParser):
     clust.add_argument('--no_defrag', required=False, default=False, action="store_true",
                        help="DO NOT Use the defragmentation strategy to link potential fragments "
                             "with their original gene family.")
-    clust.add_argument("--defrag", required=False, action="store_true",
-                       help=argparse.SUPPRESS)  # This ensures compatibility with the old option "defrag"
     clust.add_argument("--translation_table", required=False, default="11",
                        help="Translation table (genetic code) to use.")
     read = parser.add_argument_group(title="Read clustering arguments")
