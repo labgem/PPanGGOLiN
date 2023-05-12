@@ -29,7 +29,7 @@ from ppanggolin.geneFamily import GeneFamily
 def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
                                      families: str = None, transitive: int = 4, identity: float = 0.5,
                                      coverage: float = 0.8, jaccard_threshold: float = 0.85, window_size: int = 1, no_defrag: bool = False,
-                                     cpu: int = 1, disable_bar=True):
+                                     cpu: int = 1, write_context_graph:bool = False, disable_bar=True):
     """
     Main function to search common gene contexts between sequence set and pangenome families
 
@@ -45,6 +45,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     :param window_size: Number of genes to consider in the gene context.
     :param no_defrag: do not use the defrag workflow if true
     :param cpu: Number of core used to process
+    :param write_context_graph: Write graph of the contexts
     :param disable_bar: Allow preventing bar progress print
     """
 
@@ -90,77 +91,159 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     logging.getLogger().info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
     
-    logging.getLogger().debug(f"There are {nx.number_of_nodes(gene_context_graph)} nodes and {nx.number_of_edges(gene_context_graph)} edges")
+    logging.getLogger().debug(f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and {nx.number_of_edges(gene_context_graph)} edges")
 
     compute_edge_metrics(gene_context_graph, jaccard_threshold)
 
-
-    write_graph(gene_context_graph, output, gene_families)
+    # Filter graph 
+    filter_flag = f'is_jaccard_gene_>_{jaccard_threshold}'
     
-    # extract the modules from the graph
-    # common_components = compute_gene_context(gene_context_graph, jaccard)
+    filtered_graph = nx.subgraph_view(gene_context_graph, filter_edge=lambda n1, n2: gene_context_graph[n1][n2][filter_flag] )
 
-    # families = set()
-    # for gene_context in common_components:
-    #     families |= gene_context.families
+    logging.getLogger().debug(f"Filtering context graph on {filter_flag}")
+    logging.getLogger().debug(f"Context graph made of {nx.number_of_nodes(filtered_graph)} nodes and {nx.number_of_edges(filtered_graph)} edges")
+    connected_components = nx.connected_components(filtered_graph)
 
-    # if len(families) != 0:
-    #     export_to_dataframe(families, common_components, fam_2_seq, output)
-    # else:
-    #     logging.getLogger().info(f"No gene contexts were found")
+    # Connected component graph Filtering
+
+    # remove singleton famillies
+    connected_components = (component for component in connected_components if len(component) > 1)  
+
+    # remove component made only of famillies not initially requested
+    connected_components = (component for component in connected_components if component & gene_families)
+    
+    gene_contexts = {GeneContext(gc_id=i, families=component) for i, component in enumerate(connected_components) }
+
+    families_in_contexts = {family for gene_context in gene_contexts for family in gene_context.families}
+    
+    graph_with_final_contexts = nx.subgraph_view(gene_context_graph, filter_node=lambda n: n in families_in_contexts)
+
+    if write_context_graph:
+        write_graph(graph_with_final_contexts, output, gene_families, gene_contexts)
+
+    if len(families_in_contexts) != 0:
+        logging.getLogger().debug(f"There are {len(families_in_contexts)} families among {len(gene_contexts)} gene contexts")
+        
+        output_file = os.path.join(output, "gene_contexts.tsv")
+
+        export_context_to_dataframe(gene_contexts, fam_2_seq, output_file)
+
+    else:
+        logging.getLogger().info(f"No gene contexts were found")
 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
-def write_graph(context_graph:nx.Graph, output_dir:str, famillies_of_interest):
 
-    def filter_edge_attribute(data):
-        return {k:v for k, v in data.items() if type(v) != set}
-        
+    # # Finding connected components with panmodule functions 
+    # # extract the modules from the graph
+
+    # logging.getLogger().debug(f"panmodule style:")
+    # gene_contexts_pandmodule_way = compute_gene_context(gene_context_graph, jaccard_threshold)
+
+    # # remove singleton famillies
+    # gene_contexts_pandmodule_way = (context for context in gene_contexts_pandmodule_way if len(context.families) >  1 )  
+
+    # # remove component made only of famillies not initially requested
+    # gene_contexts_pandmodule_way = [context for context in gene_contexts_pandmodule_way if context.families & gene_families]
+
+    # families_in_contexts = {family for gene_context in gene_contexts_pandmodule_way for family in gene_context.families}
+    
+    # logging.getLogger().debug(f"There are {len(families_in_contexts)} families among {len(gene_contexts_pandmodule_way)} gene contexts")
+
+
+    # output_file = os.path.join(output, "gene_contexts_panmodule_style.tsv")
+    # export_context_to_dataframe(gene_contexts_pandmodule_way, fam_2_seq, output_file)
+
+
+
+def write_graph(context_graph: nx.Graph, output_dir: str, famillies_of_interest: Set[GeneFamily], gene_contexts:List[GeneContext]):
+    """
+    Write a graph to file with node and edge attributes. 
+    
+    This function writes a graph to a file in the GraphML format or in GEXF format. The original context graph contains 
+    ppanggolin objects as nodes and lists and dictionaries in edge attributes. Since these objects 
+    cannot be written to the output graph, this function creates a new graph that contains only 
+    writable objects.
+
+    :param context_graph: A NetworkX Graph object representing the graph.
+    :param output_dir: The output directory where the graph file will be written.
+    :param famillies_of_interest: A list of node objects that are of interest.
+    :param gene_contexts: List of gene context, used to add context id to node of the graph
+
+    """
+    def filter_attribute(data:dict):
+        """
+        Helper function to filter the edge attributes.
+
+        :param data: The edge attribute data.
+        :return: A filtered dictionary containing only non-collection attributes.
+        """
+        return {k:v for k, v in data.items() if type(v) not in [set, dict, list]}
+    
     G = nx.Graph()
 
     G.add_edges_from(((f1.name, f2.name) for f1,f2 in context_graph.edges()))
 
-    edges_with_attributes = {(f1.name, f2.name):filter_edge_attribute(d) for f1,f2,d in context_graph.edges(data=True)}
+    edges_with_attributes = {(f1.name, f2.name):filter_attribute(d) for f1,f2,d in context_graph.edges(data=True)}
     
     nx.set_edge_attributes(G, edges_with_attributes)
-
-    nodes_data = {f.name:{"organisms":len(f.organisms), "genes":len(f.genes), "famillies_of_interest": f in famillies_of_interest} for f in context_graph.nodes()}
     
+    nodes_attributes_filtered = {f.name:filter_attribute(d) for f,d in context_graph.nodes(data=True)}
+
+    # on top of attributes already contained in node of context graph
+    # add organisms and genes count that have the family, the partition and if the family was in initially requested 
+    nodes_family_data = {f.name:{"organisms":len(f.organisms), 
+                                 "partition":f.partition,
+                          "genes":len(f.genes), 
+                          "famillies_of_interest": f in famillies_of_interest} for f in context_graph.nodes()}
+    
+    family_name_to_context_id = {family.name:context.ID for context in gene_contexts for family in context.families}
+
     for f, d in G.nodes(data=True):
-        d.update(nodes_data[f])
+        d.update(nodes_family_data[f])
+        d.update(nodes_attributes_filtered[f])
+        d['context_id'] = family_name_to_context_id[f]
+        
+    
+    graphml_file = os.path.join(output_dir, "graph_context.graphml")
+    logging.info(f'Writting context graph in {graphml_file}')
+    nx.write_graphml_lxml(G, graphml_file)
 
-    nx.write_graphml_lxml(G, os.path.join(output_dir, "graph_context.graphml"))
+    gexf_file = os.path.join(output_dir, "graph_context.gexf")
+    logging.info(f'Writting context graph in {gexf_file}')
+    nx.readwrite.gexf.write_gexf(G, gexf_file)
 
-def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff:float ):
-    # compute jaccard on organism
+
+def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float) -> None:
+    """
+    Compute various metrics on the edges of the context graph.
+
+    :param context_graph: The context graph.
+    :param gene_proportion_cutoff: The minimum proportion of shared genes between two features for their edge to be considered significant.
+    """
+    # compute jaccard on organism and on genes
     for f1, f2, data in context_graph.edges(data=True):
         
         data['jaccard_organism'] = len(data['organisms'])/len(f1.organisms | f2.organisms)
         
-        data['min_jaccard_organism'] = len(data['organisms'])/min(len(f1.organisms), len(f2.organisms))
-        data['max_jaccard_organism'] = len(data['organisms'])/max(len(f1.organisms), len(f2.organisms))
-    
-
-        # print("f1", f1)
-        # print("len data[f1]", len(data[f1]))
-        
-        # print('len(f1.genes)', len(f1.genes))
-        
-        f1_gene_proportion = len(data[f1])/len(f1.genes)
-        f2_gene_proportion = len(data[f2])/len(f2.genes)
+        f1_gene_proportion = len(data['genes'][f1])/len(f1.genes)
+        f2_gene_proportion = len(data['genes'][f2])/len(f2.genes)
         
         data[f'f1'] = f1.name
         data[f'f2'] = f2.name
-        data[f'f1_gene_proportion'] = f1_gene_proportion
-        data[f'f2_gene_proportion'] = f2_gene_proportion
+        data[f'f1_jaccard_gene'] = f1_gene_proportion
+        data[f'f2_jaccard_gene'] = f2_gene_proportion
                         
-        data[f'is_gene_proportion_>_{gene_proportion_cutoff}'] = (f1_gene_proportion >= gene_proportion_cutoff) and (f2_gene_proportion >= gene_proportion_cutoff)
+        data[f'is_jaccard_gene_>_{gene_proportion_cutoff}'] = (f1_gene_proportion >= gene_proportion_cutoff) and (f2_gene_proportion >= gene_proportion_cutoff)
         
-        # for k, v in data.items():
-        #     if type(v) != set:
-        #         print(k, v)
-        # print('===')  
-                        
+        # the following commented out lines are additional metrics that could be used
+
+        # data['min_jaccard_organism'] = len(data['organisms'])/min(len(f1.organisms), len(f2.organisms))
+        # data['max_jaccard_organism'] = len(data['organisms'])/max(len(f1.organisms), len(f2.organisms))
+        # f1_gene_proportion_partial = len(data['genes'][f1])/len(context_graph.nodes[f1]['genes'])
+        # f2_gene_proportion_partial = len(data['genes'][f2])/len(context_graph.nodes[f2]['genes'])
+        # data[f'f1_jaccard_gene_partital'] = f1_gene_proportion_partial
+        # data[f'f2_jaccard_gene_partital'] = f2_gene_proportion_partial          
 
 
 def add_edges_to_context_graph(context_graph: nx.Graph,
@@ -185,7 +268,7 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                                                 contig_size=len(contig_genes), is_circular=is_circular)
             next_genes = list(next_genes)
 
-            for next_gene_index in next_genes:
+            for i, next_gene_index in enumerate(next_genes):
                 # Check if the next gene is within the contig windows
                 if not any(lower <= next_gene_index <= upper for (lower, upper) in contig_windows):
                     # next_gene_index is not in any range of genes in the context
@@ -200,39 +283,60 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                 
                 context_graph.add_edge(gene.family, next_gene.family)
 
+                if i == 0:
+                    context_graph[gene.family][next_gene.family]['adjacent_family'] = True
+
+
+                # Add node attributes
+                node_gene_dict = context_graph.nodes[gene.family]
+                next_gene_gene_dict = context_graph.nodes[next_gene.family]
+
+                increment_attribute_counter(node_gene_dict, "genes_count")
+                increment_attribute_counter(next_gene_gene_dict, "genes_count")
+
+                add_val_to_dict_attribute(node_gene_dict, "genes", gene)
+                add_val_to_dict_attribute(next_gene_gene_dict, "genes", next_gene)
+
+
                 # Add edge attributes
                 edge_dict = context_graph[gene.family][next_gene.family]
-                add_val_to_edge_attribute(edge_dict, gene.family, gene)
-                add_val_to_edge_attribute(edge_dict, next_gene.family, next_gene)
-
-                add_val_to_edge_attribute(edge_dict, "organisms", gene.organism)
-
-                update_edge_attribute_counter(edge_dict, "gene_pairs")
+                try:
+                    genes_edge_dict = edge_dict['genes']
+                except:
+                    genes_edge_dict = {}
+                    edge_dict['genes'] = genes_edge_dict
                 
-                assert gene.organism == next_gene.organism 
+                add_val_to_dict_attribute(genes_edge_dict, gene.family, gene)
+                add_val_to_dict_attribute(genes_edge_dict, next_gene.family, next_gene)
+
+                add_val_to_dict_attribute(edge_dict, "organisms", gene.organism)
+
+                increment_attribute_counter(edge_dict, "gene_pairs")
+                
+                assert gene.organism == next_gene.organism
 
 
-def add_val_to_edge_attribute(edge_dict: dict, attribute_key, attribute_value):
+def add_val_to_dict_attribute(attr_dict: dict, attribute_key, attribute_value):
     """
-    Add an edge attribute value to the edge dictionary set.
+    Add an attribute value to a edge or node dictionary set.
 
-    :param edge_dict: The dictionary containing the edge attributes.
+    :param attr_dict: The dictionary containing the edge/node attributes.
     :param attribute_key: The key of the attribute.
     :param attribute_value: The value of the attribute to be added.
 
     """
 
     try:
-        edge_dict[attribute_key].add(attribute_value)
+        attr_dict[attribute_key].add(attribute_value)
     except KeyError:
-        edge_dict[attribute_key] = {attribute_value}
+        attr_dict[attribute_key] = {attribute_value}
 
 
-def update_edge_attribute_counter(edge_dict: dict, key:Hashable):
+def increment_attribute_counter(edge_dict: dict, key:Hashable):
     """
-    Update the counter for an edge attribute in the edge dictionary.
+    Increment the counter for an edge/node attribute in the edge/node dictionary.
 
-    :param edge_dict: The dictionary containing the edge attributes.
+    :param edge_dict: The dictionary containing the attributes.
     :param key: The key of the attribute.
 
     """
@@ -361,7 +465,6 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
     contig_to_genes_of_interest = get_contig_to_genes(families)
     
     for contig, genes_of_interest in  tqdm(contig_to_genes_of_interest.items(), unit="contig", total=len(contig_to_genes_of_interest), disable=disable_bar):
-        logging.debug(f'Processing {len(genes_of_interest)} genes of interest in contig {contig}')
         
         genes_count = len(contig.genes)
         
@@ -378,22 +481,22 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
     return context_graph
 
 
-def compute_gene_context(g: nx.Graph, jaccard: float = 0.85) -> set:
-    """
-    Compute the gene contexts in the graph
+# def compute_gene_context(g: nx.Graph, jaccard: float = 0.85) -> set:
+#     """
+#     Compute the gene contexts in the graph
 
-    :param g: Graph of gene contexts between interesting gene families of the pan
-    :param jaccard: Jaccard index
+#     :param g: Graph of gene contexts between interesting gene families of the pan
+#     :param jaccard: Jaccard index
 
-    :return: Set of gene contexts find in graph
-    """
+#     :return: Set of gene contexts find in graph
+#     """
 
-    gene_contexts = set()
-    c = 1
-    for comp in connected_components(g, removed=set(), weight=jaccard):
-        gene_contexts.add(GeneContext(gc_id=c, families=comp))
-        c += 1
-    return gene_contexts
+#     gene_contexts = set()
+#     c = 1
+#     for comp in connected_components(g, removed=set(), weight=jaccard):
+#         gene_contexts.add(GeneContext(gc_id=c, families=comp))
+#         c += 1
+#     return gene_contexts
 
 
 def fam2seq(seq_to_pan: dict) -> dict:
@@ -415,34 +518,33 @@ def fam2seq(seq_to_pan: dict) -> dict:
     return fam_2_seq
 
 
-def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, output: str):
+def export_context_to_dataframe(gene_contexts: set, fam_to_seq: dict, output: str):
     """
     Export the results into dataFrame
 
-    :param families: Families related to the connected components
     :param gene_contexts: connected components found in the pan
     :param fam_to_seq: Dictionary with gene families as keys and list of sequence ids as values
     :param output: output path
     """
 
-    logging.getLogger().debug(f"There are {len(families)} families among {len(gene_contexts)} gene contexts")
-
     lines = []
     for gene_context in gene_contexts:
         for family in gene_context.families:
-            line = [gene_context.ID]
-            if fam_to_seq is None or fam_to_seq.get(family.ID) is None:
-                line += [family.name, None, len(family.organisms), family.named_partition]
-            else:
-                line += [family.name, ','.join(fam_to_seq.get(family.ID)),
-                         len(family.organisms), family.named_partition]
-            lines.append(line)
-    df = pd.DataFrame(lines,
-                      columns=["GeneContext ID", "Gene family name", "Sequence ID", "Nb Genomes", "Partition"]
-                      ).set_index("GeneContext ID")
-    df.sort_values(["GeneContext ID", "Sequence ID"], na_position='last').to_csv(
-        path_or_buf=f"{output}/gene_contexts.tsv", sep="\t", na_rep='NA')
-    logging.getLogger(f"detected gene context(s) are listed in: '{output}/gene_contexts.tsv'")
+
+            family_info = {"GeneContext ID":gene_context.ID,
+                           "Gene family name": family.name,
+                           "Sequence ID":None if fam_to_seq is None else ','.join(fam_to_seq.get(family.ID)),
+                           "Nb Genomes":len(family.organisms),
+                           "Partition": family.named_partition  }
+            lines.append(family_info)
+            
+    df = pd.DataFrame(lines).set_index("GeneContext ID")
+    
+    df = df.sort_values(["GeneContext ID", "Sequence ID"], na_position='last')
+
+    df.to_csv(output, sep="\t", na_rep='NA')
+
+    logging.getLogger().debug(f"detected gene context(s) are listed in: '{output}")
 
 
 def launch(args: argparse.Namespace):
@@ -460,7 +562,7 @@ def launch(args: argparse.Namespace):
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
                                      sequences=args.sequences, families=args.family, transitive=args.transitive,
                                      identity=args.identity, coverage=args.coverage, jaccard_threshold=args.jaccard, window_size=args.window_size,
-                                     no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+                                     no_defrag=args.no_defrag, cpu=args.cpu, write_context_graph=args.write_graph, disable_bar=args.disable_prog_bar)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -514,7 +616,8 @@ def parser_context(parser: argparse.ArgumentParser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
-
+    optional.add_argument('--write_graph',  action="store_true",
+                    help="Write context graph in GEXF format.")
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
