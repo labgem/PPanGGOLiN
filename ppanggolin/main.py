@@ -77,7 +77,6 @@ def cmd_line() -> argparse.Namespace:
     desc += "    utils      Helper side commands.\n"
     desc += "  \n"
 
-    cmd_with_no_common_args = ['info', 'default_config']
 
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",

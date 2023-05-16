@@ -154,10 +154,19 @@ def set_verbosity_level(args):
 
         if args.log != sys.stdout and not args.disable_prog_bar:  # if output is not to stdout we remove progress bars.
             args.disable_prog_bar = True
+        format='%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s'
+        datefmt='%Y-%m-%d %H:%M:%S'
+        if args.log in [sys.stdout, sys.stderr]:
+            # use stream
+            logging.basicConfig(stream=args.log, level=level,
+                                format=format,
+                                datefmt=datefmt)
+        else:
+            # log is written in a files. basic condif uses filename
+            logging.basicConfig(filename=args.log, level=level,
+                                format=format,
+                                datefmt=datefmt)            
 
-        logging.basicConfig(stream=args.log, level=level,
-                            format='%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s',
-                            datefmt='%Y-%m-%d %H:%M:%S')
         logging.getLogger().info("Command: " + " ".join([arg for arg in sys.argv]))
         logging.getLogger().info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
 
