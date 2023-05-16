@@ -41,7 +41,7 @@ ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "raref
 WRITE_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
                             'projection', 'stats', 'json', 'partitions', 'regions', 
                             'borders', 'modules', 'spot_modules', "draw_spots"]
-DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "spots"]
+DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "draw_spots"]
 
 
 def check_log(log_file: str) -> TextIO:
