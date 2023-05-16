@@ -68,7 +68,8 @@ def cmd_line() -> argparse.Namespace:
     desc += "  Regions of genomic Plasticity:\n"
     desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and "\
             "predict information from it\n"
-    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pan\n"
+    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
+    desc += "    rgp_cluster  cluster RGPs based on their gene families.\n"
     desc += "    spot         predicts spots in your pan\n"
     desc += "    module       Predicts functional modules in your pan\n"
     desc += "  \n"
