@@ -38,10 +38,10 @@ def compute_grr(rgp_a_families: set, rgp_b_families: set, mode: Callable) -> flo
     :return : grr value between 0 and 1
     """
 
-    max_grr = len((rgp_a_families & rgp_b_families)) / \
+    grr = len((rgp_a_families & rgp_b_families)) / \
         mode(len(rgp_a_families), len(rgp_b_families))
 
-    return max_grr
+    return grr
 
 
 def compute_jaccard_index(rgp_a_families: set, rgp_b_families: set) -> float:
@@ -60,14 +60,16 @@ def compute_jaccard_index(rgp_a_families: set, rgp_b_families: set) -> float:
     return jaccard_index
 
 
-def get_rgp_info_dict(regions: List[Region], region_to_spot: dict) -> List[dict]:
+def get_rgp_info_dict(regions: List[Region], region_to_spot: dict) -> Dict[int, dict]:
     """
-    Format RGP info in a dict to add these infos to the graph.
+    Format RGP information into a dictionary for adding to the graph.
 
-    :params regions: list of RGPs
-    :params region_to_spot: dict mapping rgp to its spot id.
+    This function takes a list of RGPs and a dictionary mapping each RGP to its corresponding spot ID,
+    and formats the RGP information into a dictionary for further processing or addition to a graph.
 
-    :return: list of dict with info on rgp
+    :param regions: A list of RGPs.
+    :param region_to_spot: A dictionary mapping each RGP to its corresponding spot ID.
+    :return: A dictionary with RGP id as key and a dictionaries containing information on the corresponding RGP as value.
     """
 
     region_attributes = {}
@@ -80,9 +82,7 @@ def get_rgp_info_dict(regions: List[Region], region_to_spot: dict) -> List[dict]
                        "is_contig_border": region.is_contig_border,
                        "is_whole_contig": region.is_whole_contig,
                        "spot_id": str(region_to_spot.get(region, "No spot"))}
-
-        region_info['famillies'] = ';'.join(
-            [str(f.ID) for f in region.families])
+        
         region_info['families_count'] = len(region.families)
 
         region_attributes[region.ID] = region_info
@@ -201,7 +201,7 @@ def compute_rgp_metric(rgp_pair: Tuple[int, int],
                        grr_cutoff: float,
                        grr_metric: str) -> Tuple[int, int, dict]:
     """
-    Compute GRR metric between two RGP.
+    Compute GRR metric between two RGPs.
 
     :param rgp_pair: Pair of RGP IDs to compute the metric for
     :param rgp_to_families: Mapping of RGP ID to set of families it contains
@@ -354,9 +354,9 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
 
     # Creating dictonnaries paring rgp ID with their families ids
     rgp_to_families = {rgp.ID: get_rgp_family_ids(
-        rgp) for rgp_index, rgp in enumerate(uniq_rgps)}
+        rgp) for rgp in uniq_rgps}
     rgp_to_iscontigborder = {
-        rgp.ID: rgp.is_contig_border for rgp_index, rgp in enumerate(uniq_rgps)}
+        rgp.ID: rgp.is_contig_border for rgp in uniq_rgps}
 
     # compute grr for all possible pair of rgp
     pairs_count = int((rgp_count**2 - rgp_count)/2)
