@@ -37,7 +37,7 @@ def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO
     if list_cds is None:
         list_cds = pangenome.genes
     logging.getLogger().info("Writing all of the CDS sequences...")
-    for gene in tqdm(list_cds, unit="gene", disable=disable_bar):
+    for gene in tqdm(sorted(list_cds, key=lambda x: x.ID), unit="gene", disable=disable_bar):
         if gene.type == "CDS":
             counter += 1
             file_obj.write('>' + add + gene.ID + "\n")
