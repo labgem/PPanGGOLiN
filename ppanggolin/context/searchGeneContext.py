@@ -531,9 +531,14 @@ def export_context_to_dataframe(gene_contexts: set, fam_to_seq: dict, output: st
     for gene_context in gene_contexts:
         for family in gene_context.families:
 
+            if fam_to_seq is None or fam_to_seq.get(family.ID) is None:
+                sequence_id = None
+            else:
+                sequence_id = ','.join(fam_to_seq.get(family.ID))
+
             family_info = {"GeneContext ID":gene_context.ID,
                            "Gene family name": family.name,
-                           "Sequence ID":None if fam_to_seq is None else ','.join(fam_to_seq.get(family.ID)),
+                           "Sequence ID":sequence_id,
                            "Nb Genomes":len(family.organisms),
                            "Partition": family.named_partition  }
             lines.append(family_info)
@@ -544,7 +549,7 @@ def export_context_to_dataframe(gene_contexts: set, fam_to_seq: dict, output: st
 
     df.to_csv(output, sep="\t", na_rep='NA')
 
-    logging.getLogger().debug(f"detected gene context(s) are listed in: '{output}")
+    logging.getLogger().debug(f"detected gene context(s) are listed in: '{output}'")
 
 
 def launch(args: argparse.Namespace):
