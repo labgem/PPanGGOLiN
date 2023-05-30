@@ -8,6 +8,8 @@ from collections import defaultdict, Counter
 import random
 from math import pi
 import sys
+from typing import List, Set, Union
+from pathlib import Path
 
 # installed libraries
 from scipy.spatial.distance import pdist
@@ -548,8 +550,8 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
 
 
-def draw_selected_spots(selected_spots: list, pangenome: Pangenome, output: str, overlapping_match: int,
-                        exact_match: int, set_size: int, disable_bar: bool = False):
+def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome: Pangenome, output: Path,
+                        overlapping_match: int, exact_match: int, set_size: int, disable_bar: bool = False):
     """
     Draw only the selected spot and give parameters
 
@@ -573,10 +575,10 @@ def draw_selected_spots(selected_spots: list, pangenome: Pangenome, output: str,
 
     for spot in tqdm(selected_spots, total=len(selected_spots), unit="spot", disable=disable_bar):
 
-        fname = output + '/spot_' + str(spot.ID)
+        fname = output/f"spot_{str(spot.ID)}"
 
         # write rgps representatives and the rgps they are identical to
-        out_struc = open(fname + '_identical_rgps.tsv', 'w')
+        out_struc = open(fname.absolute().as_posix() + '_identical_rgps.tsv', 'w')
         out_struc.write('representative_rgp\trepresentative_rgp_organism\tidentical_rgp\tidentical_rgp_organism\n')
         for keyRGP, otherRGPs in spot.get_uniq_to_rgp().items():
             for rgp in otherRGPs:
@@ -618,8 +620,9 @@ def draw_selected_spots(selected_spots: list, pangenome: Pangenome, output: str,
                 uniq_gene_lists.append(genelist)
                 ordered_counts.append(curr_genelist_count)
 
-        draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname)
-        subgraph(spot, fname + ".gexf", set_size=set_size, multigenics=multigenics, fam_to_mod=fam2mod)
+        draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname.absolute().as_posix())
+        subgraph(spot, fname.absolute().as_posix() + ".gexf", set_size=set_size,
+                 multigenics=multigenics, fam_to_mod=fam2mod)
     logging.getLogger().info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 

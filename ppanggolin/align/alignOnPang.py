@@ -8,7 +8,8 @@ import tempfile
 import subprocess
 import argparse
 from collections import defaultdict
-from typing import Tuple, Set, Dict
+from typing import List, Tuple, Set, Dict, IO
+from pathlib import Path
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
@@ -19,7 +20,7 @@ from ppanggolin.region import Spot
 from ppanggolin.figures.draw_spot import draw_selected_spots, subgraph
 
 
-def createdb(file_obj: TextIOWrapper, tmpdir: tempfile.TemporaryDirectory) -> TextIOWrapper:
+def createdb(file_obj: TextIOWrapper, tmpdir: tempfile.TemporaryDirectory) -> IO:
     """
     Create a MMseqs2 sequence database with the given fasta file
 
@@ -35,9 +36,9 @@ def createdb(file_obj: TextIOWrapper, tmpdir: tempfile.TemporaryDirectory) -> Te
     return seqdb
 
 
-def align_seq_to_pang(pang_file: TextIOWrapper, seq_file: TextIOWrapper, output: str,
+def align_seq_to_pang(pang_file: IO, seq_file: TextIOWrapper, output: Path,
                       tmpdir: tempfile.TemporaryDirectory, cpu: int = 1, no_defrag: bool = False,
-                      identity: float = 0.8, coverage: float = 0.8) -> str:
+                      identity: float = 0.8, coverage: float = 0.8) -> Path:
     """
     Align pangenome sequences against fasta sequence
 
@@ -64,8 +65,8 @@ def align_seq_to_pang(pang_file: TextIOWrapper, seq_file: TextIOWrapper, output:
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Aligning sequences to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    outfile = output + "/input_to_pangenome_associations.blast-tab_tmp"  # write a tmp file of the results
-    cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile, "--format-mode", "2"]
+    outfile = output.absolute()/"input_to_pangenome_associations.blast-tab_tmp"  # write a tmp file of the results
+    cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile.as_posix(), "--format-mode", "2"]
     logging.getLogger().debug(" ".join(cmd))
     logging.getLogger().info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
@@ -76,7 +77,7 @@ def align_seq_to_pang(pang_file: TextIOWrapper, seq_file: TextIOWrapper, output:
     return outfile
 
 
-def read_alignments(aln_res: str, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
+def read_alignments(aln_res: Path, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
     """
     Read alignment result to link input sequence to pangenome
 
@@ -86,7 +87,7 @@ def read_alignments(aln_res: str, pangenome: Pangenome) -> Tuple[Dict[str, GeneF
     :return: Dictionnary with sequence link to pangenome gene families and actual name of resulting alignment file
     """
     seq2pang = {}
-    outname = open(aln_res.replace("_tmp", ""), "w")  # write the actual result file
+    outname = open(aln_res.absolute().as_posix().replace("_tmp", ""), "w")  # write the actual result file
     with open(aln_res, "r") as alnFile:
         for line in alnFile:
             line = line.replace("ppanggolin_", "")  # remove the 'ppanggolin_' bit of the id
@@ -113,7 +114,7 @@ def get_seq(seq_file: TextIOWrapper) -> Set[str]:
     return seqset
 
 
-def write_gene_fam_sequences(pangenome: Pangenome, file_obj: TextIOWrapper, add: str = ""):
+def write_gene_fam_sequences(pangenome: Pangenome, file_obj: IO, add: str = ""):
     """
     Export the sequence of genes in families
 
@@ -127,7 +128,7 @@ def write_gene_fam_sequences(pangenome: Pangenome, file_obj: TextIOWrapper, add:
     file_obj.flush()
 
 
-def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], output: str) -> str:
+def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], output: Path) -> str:
     """
     Project the partition of each sequence from the input file
 
@@ -138,12 +139,12 @@ def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], out
     :return: Path to file which contain partition projection
     """
 
-    partition_proj = output + "/sequences_partition_projection.tsv"
+    partition_proj = output.absolute()/"sequences_partition_projection.tsv"
     with open(partition_proj, "w") as partProjFile:
-        for key, pangFam in seq_to_pang.items():
-            partProjFile.write(key + "\t" + pangFam.named_partition + "\n")
-        for remainingSeq in (seq_to_pang.keys() & seq_set):
-            partProjFile.write(remainingSeq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
+        for key, pang_fam in seq_to_pang.items():
+            partProjFile.write(key + "\t" + pang_fam.named_partition + "\n")
+        for remaining_seq in (seq_to_pang.keys() & seq_set):
+            partProjFile.write(remaining_seq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
     return partition_proj
 
 
@@ -166,7 +167,8 @@ def get_fam_to_rgp(pangenome, multigenics: set) -> dict:
     return fam2rgp
 
 
-def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) -> Tuple[dict, dict]:
+def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) -> Tuple[Dict[str, List[Spot]],
+                                                                                 Dict[str, List[Spot]]]:
     """
     Reads a pangenome object to link families and spots and indicate where each family is.
 
@@ -194,6 +196,7 @@ def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) -> Tuple
 
 
 def add_spot_str(spot: Spot) -> str:
+    # TODO define as self.__str__ in spot
     """
     allow to map spot set
 
@@ -204,7 +207,7 @@ def add_spot_str(spot: Spot) -> str:
     return "spot_" + str(spot.ID)
 
 
-def draw_spot_gexf(spots: set, output: str, multigenics: set, fam_to_mod: dict, set_size: int = 3):
+def draw_spot_gexf(spots: set, output: Path, multigenics: set, fam_to_mod: dict, set_size: int = 3):
     """
     Draw a gexf graph of the spot
 
@@ -215,11 +218,11 @@ def draw_spot_gexf(spots: set, output: str, multigenics: set, fam_to_mod: dict, 
     :param set_size:
     """
     for spot in spots:
-        fname = output + "/spot_" + str(spot.ID) + ".gexf"
+        fname = output/f"spot_{str(spot.ID)}.gexf"
         subgraph(spot, fname, set_size=set_size, multigenics=multigenics, fam_to_mod=fam_to_mod)
 
 
-def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: str, draw_related: bool = False, disable_bar=False):
+def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_related: bool = False, disable_bar=False):
     """
     Get sequences information after alignment
 
@@ -233,7 +236,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: str, draw_rela
     logging.getLogger().info("Writing RGP and spot information related to hits in the pan")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    finfo = open(output + "/info_input_seq.tsv", "w")
+    finfo = open(output/"info_input_seq.tsv", "w")
     finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
     fam2rgp = get_fam_to_rgp(pangenome, multigenics)
     fam2spot, fam2border = get_fam_to_spot(pangenome, multigenics)
@@ -265,10 +268,10 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: str, draw_rela
         draw_spot_gexf(drawn_spots, output, multigenics=multigenics, fam_to_mod=fam2mod)
 
     logging.getLogger().info(f"File listing RGP and spots where sequences of interest are located : "
-                             f"'{output + '/info_input_seq.tsv'}'")
+                             f"{output/'info_input_seq.tsv'}")
 
 
-def get_seq2pang(pangenome: Pangenome, sequence_file: str, output: str, tmpdir: tempfile.TemporaryDirectory,
+def get_seq2pang(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: tempfile.TemporaryDirectory,
                  cpu: int = 1, no_defrag: bool = False, identity: float = 0.8,
                  coverage: float = 0.8) -> Tuple[set, str, dict]:
     """
@@ -300,7 +303,7 @@ def get_seq2pang(pangenome: Pangenome, sequence_file: str, output: str, tmpdir: 
     return seq_set, align_file, seq2pang
 
 
-def align(pangenome: Pangenome, sequence_file: str, output: str, tmpdir: str, identity: float = 0.8,
+def align(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path, identity: float = 0.8,
           coverage: float = 0.8, no_defrag: bool = False, cpu: int = 1, getinfo: bool = False,
           draw_related: bool = False, disable_bar: bool = False):
     """
@@ -359,10 +362,6 @@ def launch(args: argparse.Namespace):
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    if args.interest or args.fig_margin or args.label_priority:
-        logging.getLogger().warning("Options --interest, --fig_margin and --label_priority are deprecated, "
-                                    "and the actions they defined are now doable directly in the interactive figures "
-                                    "that are drawn")
     align(pangenome=pangenome, sequence_file=args.sequences, output=args.output, tmpdir=args.tmpdir,
           identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, cpu=args.cpu, getinfo=args.getinfo,
           draw_related=args.draw_related, disable_bar=args.disable_prog_bar)
@@ -389,16 +388,14 @@ def parser_align(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-S', '--sequences', required=True, type=str,
+    required.add_argument('-S', '--sequences', required=True, type=Path,
                           help="sequences (nucleotides or amino acids) to align on the pangenome gene families")
 
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
-    required.add_argument('-o', '--output', required=True, type=str,
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
+    required.add_argument('-o', '--output', required=True, type=Path,
                           help="Output directory where the file(s) will be written")
 
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument("--defrag", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  # This ensures compatibility with the old option "defrag"
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
@@ -414,14 +411,6 @@ def parser_align(parser: argparse.ArgumentParser):
     optional.add_argument("--draw_related", required=False, action="store_true",
                           help="Draw figures and provide graphs in a gexf format of the eventual spots"
                                " associated to the input sequences")
-    optional.add_argument("--interest", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
-    # but does not use the option
-    optional.add_argument("--fig_margin", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
-    # but does not use the option
-    optional.add_argument("--label_priority", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
     # but does not use the option
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
@@ -440,7 +429,7 @@ if __name__ == '__main__':
     common = main_parser.add_argument_group(title="Common argument")
     common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
                         help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+    common.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                         help="directory for storing temporary files")
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
     common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",

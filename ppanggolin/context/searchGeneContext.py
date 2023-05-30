@@ -6,7 +6,7 @@ import argparse
 import tempfile
 import time
 import logging
-
+from pathlib import Path
 # installed libraries
 from tqdm import tqdm
 import networkx as nx
@@ -21,8 +21,8 @@ from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
 from ppanggolin.region import GeneContext
 
 
-def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
-                                     families: str = None, transitive: int = 4, identity: float = 0.5,
+def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir: Path, sequences: Path = None,
+                                     families: Path = None, transitive: int = 4, identity: float = 0.5,
                                      coverage: float = 0.8, jaccard: float = 0.85, no_defrag: bool = False,
                                      cpu: int = 1, disable_bar=True):
     """
@@ -53,8 +53,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     if sequences is not None:
         # Alignment of sequences on pangenome families
         new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag, identity,
-                                           coverage)
+        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag, identity, coverage)
         project_partition(seq2pan, seq_set, output)
         new_tmpdir.cleanup()
         for k, v in seq2pan.items():
@@ -84,7 +83,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     if len(families) != 0:
         export_to_dataframe(families, common_components, fam_2_seq, output)
     else:
-        logging.getLogger().info(f"No gene contexts were found")
+        logging.getLogger().info("No gene contexts were found")
 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
@@ -204,7 +203,7 @@ def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, out
     """ Export the results into dataFrame
 
     :param families: Families related to the connected components
-    :param gene_contexts: connected components found in the pan
+    :param gene_contexts: connected components found in the pangenome
     :param fam_to_seq: Dictionary with gene families as keys and list of sequence ids as values
     :param output: output path
     """
@@ -270,14 +269,14 @@ def parser_context(parser: argparse.ArgumentParser):
 
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome.h5 file")
-    required.add_argument('-o', '--output', required=True, type=str,
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome.h5 file")
+    required.add_argument('-o', '--output', required=True, type=Path,
                           help="Output directory where the file(s) will be written")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
-    onereq.add_argument('-S', '--sequences', required=False, type=str,
+    onereq.add_argument('-S', '--sequences', required=False, type=Path,
                         help="Fasta file with the sequences of interest")
-    onereq.add_argument('-F', '--family', required=False, type=str,
-                        help="List of family IDs of interest from the pan")
+    onereq.add_argument('-F', '--family', required=False, type=Path,
+                        help="List of family IDs of interest from the pangenome")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--no_defrag', required=False, action="store_true",
@@ -306,7 +305,7 @@ if __name__ == '__main__':
 
     parser_context(main_parser)
     common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+    common.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                         help="directory for storing temporary files")
     common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
                         help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")

@@ -128,7 +128,7 @@ def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
 
 
 def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]) -> Union[TextIOWrapper,
-                                                                                                    BinaryIO, TextIO]:
+                                                                                                     BinaryIO, TextIO]:
     """
     Reads a file object or file path, uncompresses it, if need be.
 
@@ -189,7 +189,7 @@ def is_compressed(file_or_file_path: Union[Path, TextIO, gzip.GzipFile]):
     return False
 
 
-def mk_outdir(output, force):
+def mk_outdir(output: Path, force: bool = False):
     """ Create a directory at the given output if it doesn't exist already
 
     :param output: Path where to create directory
