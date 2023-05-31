@@ -93,6 +93,12 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5
+        cd -
+    - name: testing rgp_cluster command
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
         ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_align --draw_related --getinfo
         cd -
     - name: testing context command
@@ -101,7 +107,6 @@ jobs:
         cd testingDataset
         ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context
         ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f
-<<<<<<< HEAD
         cd -
     - name: testing metadata command
       shell: bash -l {0}
@@ -111,7 +116,6 @@ jobs:
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genomes.tsv -a genomes
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_families.tsv -a families --omit
         cd -
-=======
     - name: testing config file
       shell: bash -l {0}
       run: |
@@ -119,4 +123,3 @@ jobs:
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
         ppanggolin panrgp  --anno organisms.gbff.list --cluster clusters.tsv -o test_config
 
->>>>>>> origin/add_wf_config
