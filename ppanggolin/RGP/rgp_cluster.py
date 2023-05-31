@@ -485,7 +485,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
     optional.add_argument('--no_identical_rgp_merging', required=False, action="store_true",
                           help="Do not merge in one node identical RGP (i.e. having the same family content) before clustering.")
 
-    # optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
     optional.add_argument("--basename", required=False,
                           default="rgp_cluster", help="basename for the output file")

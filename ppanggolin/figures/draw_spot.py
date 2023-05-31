@@ -629,7 +629,7 @@ def draw_spots(pangenome: Pangenome, output: str, spot_list: str, disable_bar: b
 
     :param pangenome: Pangenome with spot predicted
     :param output: Path to output directory
-    :param spot_list: List of spot to draw separate by ','
+    :param spot_list: List of spot to draw
     :param disable_bar: Allow to disable progress bar
     """
     # check that the pangenome has spots
@@ -643,15 +643,21 @@ def draw_spots(pangenome: Pangenome, output: str, spot_list: str, disable_bar: b
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
                          need_rgp=True, need_spots=True, need_modules=need_mod, disable_bar=disable_bar)
 
-    curated_spot_list = ['spot_' + str(s) if 'spot' not in s else str(s) for s in spot_list.split(',')]
-
-    if spot_list == 'all' or any(x == 'all' for x in curated_spot_list):
+    if spot_list == 'all' or any(x == 'all' for x in spot_list):
+        logging.getLogger().debug(f"all is found in spot list, all spot are drawn.")
         selected_spots = [s for s in pangenome.spots if len(s.get_uniq_ordered_set()) > 1]
     else:
+        curated_spot_list = {'spot_' + str(s) if not s.startswith("spot_") else str(s) for s in spot_list}
+        logging.getLogger().debug(f'Required spots to draw: {curated_spot_list}')
         selected_spots = [s for s in pangenome.spots if "spot_" + str(s.ID) in curated_spot_list]
+        if len(selected_spots) != len(curated_spot_list):
+            existing_spots = {"spot_" + str(s.ID) for s in pangenome.spots} 
+            required_non_existing_spots = curated_spot_list - existing_spots
+            logging.getLogger().warning(f'{len(required_non_existing_spots)} required spots to draw do not exist: {" ".join(required_non_existing_spots)} ')
+
     if len(selected_spots) < 10:
         logging.getLogger().info(f"Drawing the following spots: "
-                                 f"{','.join(['spot_' + str(s.ID) for s in selected_spots])}")
+                                 f"{' '.join(['spot_' + str(s.ID) for s in selected_spots])}")
     else:
         logging.getLogger().info(f"Drawing {len(selected_spots)} spots")
 
