@@ -13,8 +13,9 @@ from tqdm import tqdm
 import tables
 from gmpy2 import popcount
 
-#local libraries
+# local libraries
 from ppanggolin.pangenome import Pangenome
+from ppanggolin.formats.writeMetadata import write_metadata, erase_metadata, write_metadata_status
 from ppanggolin.genome import Feature
 from ppanggolin.formats.readBinaries import read_genedata, Genedata
 
@@ -377,10 +378,10 @@ def get_gene_to_fam_len(pangenome: Pangenome):
     """
     max_gene_fam_name = 1
     max_gene_id = 1
-    for geneFam in pangenome.gene_families:
-        if len(geneFam.name) > max_gene_fam_name:
-            max_gene_fam_name = len(geneFam.name)
-        for gene in geneFam.genes:
+    for gene_fam in pangenome.gene_families:
+        if len(gene_fam.name) > max_gene_fam_name:
+            max_gene_fam_name = len(gene_fam.name)
+        for gene in gene_fam.genes:
             if len(gene.ID) > max_gene_id:
                 max_gene_id = len(gene.ID)
     return max_gene_fam_name, max_gene_id
@@ -400,11 +401,11 @@ def write_gene_families(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
         h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
     gene_families = h5f.create_table("/", "geneFamilies", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
     gene_row = gene_families.row
-    for geneFam in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families(), unit="gene family",
-                        disable=disable_bar):
-        for gene in geneFam.genes:
+    for gene_fam in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families(), unit="gene family",
+                         disable=disable_bar):
+        for gene in gene_fam.genes:
             gene_row["gene"] = gene.ID
-            gene_row["geneFam"] = geneFam.name
+            gene_row["geneFam"] = gene_fam.name
             gene_row.append()
     gene_families.flush()
 
@@ -457,8 +458,8 @@ def write_graph(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
                                   expectedrows=len(pangenome.edges))
     edge_row = edge_table.row
     for edge in tqdm(pangenome.edges, total=pangenome.number_of_edge(), unit="edge", disable=disable_bar):
-        for genePairs in edge.organisms.values():
-            for gene1, gene2 in genePairs:
+        for gene_pairs in edge.organisms.values():
+            for gene1, gene2 in gene_pairs:
                 edge_row["geneTarget"] = gene1.ID
                 edge_row["geneSource"] = gene2.ID
                 edge_row.append()
@@ -662,6 +663,7 @@ def write_status(pangenome: Pangenome, h5f: tables.File):
                                                                                       "inFile"] else False
     status_group._v_attrs.spots = True if pangenome.status["spots"] in ["Computed", "Loaded", "inFile"] else False
     status_group._v_attrs.modules = True if pangenome.status["modules"] in ["Computed", "Loaded", "inFile"] else False
+    status_group._v_attrs.metadata = write_metadata_status(pangenome, h5f, status_group)
     status_group._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
 
 
@@ -882,7 +884,8 @@ def update_gene_fragments(pangenome: Pangenome, h5f: tables.File, disable_bar: b
 
 
 def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bool = False, partition: bool = False,
-                    rgp: bool = False, spots: bool = False, modules: bool = False):
+                    rgp: bool = False, spots: bool = False, modules: bool = False,
+                    metadata: bool = False, metatype: str = None, source: str = None):
     """
     Erases tables from a pangenome .h5 file
 
@@ -893,8 +896,15 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
     :param rgp: remove rgp information
     :param spots: remove spots information
     :param modules: remove modules information
+    :param metadata: remove metadata information
+    :param metatype:
+    :param source:
     """
-    
+    try:
+        if metadata and (metatype is None or source is None):
+            raise AssertionError
+    except AssertionError:
+        raise AssertionError("To erase metadata. You should provide metatype and source")
     h5f = tables.open_file(pangenome.file, "a")
     status_group = h5f.root.status
     info_group = h5f.root.info
@@ -964,6 +974,8 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
                      'StatOfFamiliesInModules']:
             if info in info_group._v_attrs._f_list():
                 h5f.del_node_attr(info_group, info)
+    if '/metadata/' in h5f and metadata:
+        erase_metadata(pangenome, h5f, status_group, metatype, source)
 
     h5f.close()
 
@@ -977,25 +989,23 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
     :param force: force to write on pangenome if information already exist
     :param disable_bar: Allow to disable progress bar
     """
-
-    if pangenome.status["genomesAnnotated"] == "Computed":
-        compression_filter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
-        h5f = tables.open_file(filename, "w", filters=compression_filter)
-        logging.getLogger().info("Writing genome annotations...")
-
-        write_annotations(pangenome, h5f, disable_bar=disable_bar)
-
-        pangenome.status["genomesAnnotated"] = "Loaded"
-        h5f.close()
-    elif pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"]:
-        pass
+    try:
+        assert pangenome.status["genomesAnnotated"] in ["Computed", "Loaded", "inFile"]
+    except AssertionError:
+        raise AssertionError("Something REALLY unexpected and unplanned for happened here. "
+                             "Please post an issue on github with what you did to reach this error.")
     else:
-        # if the pangenome is not Computed or not Loaded, it's probably not really in a good state
-        # (or something new was coded).
-        raise NotImplementedError("Something REALLY unexpected and unplanned for happened here. "
-                                  "Please post an issue on github with what you did to reach this error.")
+        if pangenome.status["genomesAnnotated"] == "Computed":
+            compression_filter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
+            h5f = tables.open_file(filename, "w", filters=compression_filter)
+            logging.getLogger().info("Writing genome annotations...")
 
-    # from there, appending to existing file.
+            write_annotations(pangenome, h5f, disable_bar=disable_bar)
+
+            pangenome.status["genomesAnnotated"] = "Loaded"
+            h5f.close()
+
+    # from there, appending to existing file
     h5f = tables.open_file(filename, "a")
 
     if pangenome.status["geneSequences"] == "Computed":
@@ -1037,6 +1047,8 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
         logging.getLogger().info("Writing Modules...")
         write_modules(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["modules"] = "Loaded"
+
+    write_metadata(pangenome, h5f, disable_bar)
 
     write_status(pangenome, h5f)
     write_info(pangenome, h5f)

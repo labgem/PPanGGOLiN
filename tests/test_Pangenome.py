@@ -16,18 +16,29 @@ def test_cstr():
         assert hasattr(o_pang, attr)
     assert o_pang.max_fam_id == 0
     assert o_pang.parameters == {}
-    assert o_pang.status == {
-        'genomesAnnotated': "No",
-        'geneSequences': "No",
-        'genesClustered': "No",
-        'defragmented': "No",
-        'geneFamilySequences': "No",
-        'neighborsGraph': "No",
-        'partitioned': "No",
-        'predictedRGP': "No",
-        'spots': "No",
-        'modules': "No"
-    }
+    assert o_pang.status == {'genomesAnnotated': "No",
+                             'geneSequences': "No",
+                             'genesClustered': "No",
+                             'defragmented': "No",
+                             'geneFamilySequences': "No",
+                             'neighborsGraph': "No",
+                             'partitioned': "No",
+                             'predictedRGP': "No",
+                             'spots': "No",
+                             'modules': 'No',
+                             "metadata": {"families": 'No',
+                                          "genes": 'No',
+                                          "genomes": 'No',
+                                          "RGPs": 'No',
+                                          "spots": 'No',
+                                          "modules": 'No'},
+                             "metasources": {"families": [],
+                                             "genes": [],
+                                             "genomes": [],
+                                             "RGPs": [],
+                                             "spots": [],
+                                             "modules": []}
+                             }
 
 
 @pytest.fixture
@@ -166,6 +177,7 @@ def make_gene_pair():
             o_family = GeneFamily(k, k)
             o_family.add_gene(o_gene)
         return tuple(lo_genes)
+
     return _make_gene_pair
 
 
