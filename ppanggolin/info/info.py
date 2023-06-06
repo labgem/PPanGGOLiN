@@ -3,10 +3,8 @@
 
 # default libraries
 import argparse
-
+from pathlib import Path
 # installed libraries
-import time
-
 import tables
 
 # local libraries
@@ -97,7 +95,7 @@ def parser_info(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
 
     options = parser.add_argument_group(title="optional arguments")
     options.add_argument("--parameters", required=False, action="store_true",

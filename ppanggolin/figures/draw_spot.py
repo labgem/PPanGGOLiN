@@ -81,12 +81,12 @@ def row_order_gene_lists(gene_lists: list) -> list:
     :return : An ordered genes list
     """
     fam_dict = defaultdict(set)
-    #if there is only one, ordering is useless
+    # if there is only one, ordering is useless
     if len(gene_lists) == 1:
         return gene_lists
 
     if len(gene_lists) > sys.getrecursionlimit():
-        sys.setrecursionlimit(len(gene_lists))#we need the recursion limit to be higher than the number of regions.
+        sys.setrecursionlimit(len(gene_lists))  # we need the recursion limit to be higher than the number of regions.
 
     for index, genelist in enumerate([genelist[0] for genelist in gene_lists]):
         for gene in genelist:
@@ -95,10 +95,10 @@ def row_order_gene_lists(gene_lists: list) -> list:
     all_indexes = []
     all_columns = []
     data = []
-    for famIndex, RGPindexes in enumerate(fam_dict.values()):
-        all_indexes.extend([famIndex] * len(RGPindexes))
-        all_columns.extend(RGPindexes)
-        data.extend([1.0] * len(RGPindexes))
+    for fam_index, rgp_indexes in enumerate(fam_dict.values()):
+        all_indexes.extend([fam_index] * len(rgp_indexes))
+        all_columns.extend(rgp_indexes)
+        data.extend([1.0] * len(rgp_indexes))
 
     mat_p_a = csc_matrix((data, (all_indexes, all_columns)), shape=(len(fam_dict), len(gene_lists)), dtype='float')
     dist = pdist(1 - jaccard_similarities(mat_p_a, 0).todense())
@@ -126,29 +126,29 @@ def line_order_gene_lists(gene_lists: list, overlapping_match: int, exact_match:
     to_classify = set(range(1, len(gene_lists)))  # the others may (or may not) have it
 
     while len(to_classify) != 0:
-        for classIndex in classified:
-            base_border1 = [gene.family for gene in gene_lists[classIndex][1][0]]
-            base_border2 = [gene.family for gene in gene_lists[classIndex][1][1]]
-            for unclassIndex in list(to_classify):
-                border1 = [gene.family for gene in gene_lists[unclassIndex][1][0]]
-                border2 = [gene.family for gene in gene_lists[unclassIndex][1][1]]
+        for class_index in classified:
+            base_border1 = [gene.family for gene in gene_lists[class_index][1][0]]
+            base_border2 = [gene.family for gene in gene_lists[class_index][1][1]]
+            for unclass_index in list(to_classify):
+                border1 = [gene.family for gene in gene_lists[unclass_index][1][0]]
+                border2 = [gene.family for gene in gene_lists[unclass_index][1][1]]
                 if comp_border(base_border1, border1, overlapping_match, set_size, exact_match) and \
                         comp_border(base_border2, border2, overlapping_match, set_size, exact_match):
-                    to_classify.discard(unclassIndex)
-                    new_classify.add(unclassIndex)
+                    to_classify.discard(unclass_index)
+                    new_classify.add(unclass_index)
                 elif comp_border(base_border2, border1, overlapping_match, set_size, exact_match) and \
                         comp_border(base_border1, border2, overlapping_match, set_size, exact_match):
                     # reverse the order of the genes to match the 'reference'
-                    gene_lists[unclassIndex][0] = gene_lists[unclassIndex][0][::-1]
+                    gene_lists[unclass_index][0] = gene_lists[unclass_index][0][::-1]
                     # inverse the borders
-                    former_border_1 = gene_lists[unclassIndex][1][0]
-                    former_border_2 = gene_lists[unclassIndex][1][1]
-                    gene_lists[unclassIndex][1][0] = former_border_2
-                    gene_lists[unclassIndex][1][1] = former_border_1
+                    former_border_1 = gene_lists[unclass_index][1][0]
+                    former_border_2 = gene_lists[unclass_index][1][1]
+                    gene_lists[unclass_index][1][0] = former_border_2
+                    gene_lists[unclass_index][1][1] = former_border_1
 
                     # specify the new 'classified' and remove from unclassified
-                    to_classify.discard(unclassIndex)
-                    new_classify.add(unclassIndex)
+                    to_classify.discard(unclass_index)
+                    new_classify.add(unclass_index)
         classified |= new_classify  # the newly classified will help to check the unclassified,
         # the formerly classified are not useful for what remains (if something remains)
         new_classify = set()
@@ -228,8 +228,8 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
           "family": [], "product": [], "x_label": [], "y_label": [], "label": [], "gene_type": [], 'gene_ID': [],
           "gene_local_ID": []}
 
-    for index, GeneList in enumerate(genelists):
-        genelist = GeneList[0]
+    for index, gene_list in enumerate(genelists):
+        genelist = gene_list[0]
 
         if genelist[0].start < genelist[1].start:
             # if the order has been inverted, positionning elements on the figure is different
@@ -244,7 +244,7 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
             df["strand"].append(gene.strand)
             df["start"].append(gene.start)
             df["stop"].append(gene.stop)
-            df["length"].append(max([gene.stop, gene.start])-min([gene.stop, gene.start]))
+            df["length"].append(max([gene.stop, gene.start]) - min([gene.stop, gene.start]))
             df["gene_type"].append(gene.type)
             df["product"].append(gene.product)
             df["gene_local_ID"].append(gene.local_identifier)
@@ -425,8 +425,8 @@ def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, lis
     """
     df = {"name": [], "width": [], "occurrences": [], 'x': [], 'y': [], "x_label": []}
 
-    for index, GeneList in enumerate(gene_lists):
-        genelist = GeneList[0]
+    for index, gene_list in enumerate(gene_lists):
+        genelist = gene_list[0]
         df["occurrences"].append(ordered_counts[index])
         df["y"].append(index * 10)
         if genelist[0].start < genelist[1].start:
@@ -575,14 +575,14 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
 
     for spot in tqdm(selected_spots, total=len(selected_spots), unit="spot", disable=disable_bar):
 
-        fname = output/f"spot_{str(spot.ID)}"
+        fname = output / f"spot_{str(spot.ID)}"
 
         # write rgps representatives and the rgps they are identical to
         out_struc = open(fname.absolute().as_posix() + '_identical_rgps.tsv', 'w')
         out_struc.write('representative_rgp\trepresentative_rgp_organism\tidentical_rgp\tidentical_rgp_organism\n')
-        for keyRGP, otherRGPs in spot.get_uniq_to_rgp().items():
-            for rgp in otherRGPs:
-                out_struc.write(f"{keyRGP.name}\t{keyRGP.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
+        for key_rgp, other_rgps in spot.get_uniq_to_rgp().items():
+            for rgp in other_rgps:
+                out_struc.write(f"{key_rgp.name}\t{key_rgp.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
         out_struc.close()
 
         fams = set()
