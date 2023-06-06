@@ -24,9 +24,9 @@ def read_status(h5f: tables.File):
           f"{'true' if status_group._v_attrs.geneFamilySequences else 'false'}")
     print(f"    - neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
     if status_group._v_attrs.Partitioned:
-        print("     - pangenome partitioned : true")
+        print("    - pangenome partitioned : true")
     else:
-        print("     - pangenome partitioned : false")
+        print("    - pangenome partitioned : false")
     if hasattr(status_group._v_attrs, "predictedRGP"):
         print(f"    - RGP predicted : {'true' if status_group._v_attrs.predictedRGP else 'false'}")
 

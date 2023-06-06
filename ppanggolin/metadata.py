@@ -40,6 +40,10 @@ class Metadata:
         else:
             return value
 
+    @property
+    def fields(self) -> List[str]:
+        return list(self.__dict__.keys())
+
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
         return ','.join(attr_list)

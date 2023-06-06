@@ -498,7 +498,7 @@ def read_info(h5f: tables.File):
         if 'genomes_fluidity' in info_group._v_attrs._f_list():
             print("\t- Genomes fluidity: ")
             for subset, value in info_group._v_attrs['genomes_fluidity'].items():
-                  print(f"\t  - {subset}: {round(value, 3)}")
+                print(f"\t\t- {subset}: {round(value, 3)}")
         if 'family_fluidity' in info_group._v_attrs._f_list():
             out = "\t- Families fluidity: " + \
                   ", ".join(f"{subset}={round(value, 3)}" for subset, value in
