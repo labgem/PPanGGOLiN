@@ -116,7 +116,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     families_in_contexts = {family for gene_context in gene_contexts for family in gene_context.families}
     
-    graph_with_final_contexts = nx.subgraph_view(gene_context_graph, filter_node=lambda n: n in families_in_contexts)
+    graph_with_final_contexts = nx.subgraph_view(filtered_graph, filter_node=lambda n: n in families_in_contexts)
 
     if write_context_graph:
         write_graph(graph_with_final_contexts, output, gene_families, gene_contexts)
