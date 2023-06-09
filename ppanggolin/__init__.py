@@ -12,7 +12,7 @@ import ppanggolin.mod
 import ppanggolin.context
 import ppanggolin.workflow
 # import ppanggolin.utility
-
+import ppanggolin.meta
 
 SUBCOMMAND_TO_SUBPARSER = {
         "annotate":ppanggolin.annotate.subparser,
@@ -34,4 +34,5 @@ SUBCOMMAND_TO_SUBPARSER = {
         "spot":ppanggolin.RGP.spot.subparser,
         "module":ppanggolin.mod.subparser,
         "context":ppanggolin.context.subparser,# "info":ppanggolin.info.subparser, "default_config":ppanggolin.utility.default_config.subparser
+        "metadata": ppanggolin.metadata.subparser
         }
