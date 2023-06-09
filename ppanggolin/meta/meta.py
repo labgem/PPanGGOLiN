@@ -165,12 +165,12 @@ def parser_meta(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
-    required.add_argument('-m', '--metadata', type=Path, nargs='?',
+    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
+    required.add_argument('-m', '--metadata', required=False, type=Path, nargs='?',
                           help='Metadata in TSV file. See our github for more detail about format')
-    required.add_argument("-s", "--source", required=True, type=str, nargs="?",
+    required.add_argument("-s", "--source", required=False, type=str, nargs="?",
                           help='Name of the metadata source')
-    required.add_argument("-a", "--assign", required=True, type=str, nargs="?",
+    required.add_argument("-a", "--assign", required=False, type=str, nargs="?",
                           choices=["families", "genomes", "genes", "RGPs", "spots", "modules"],
                           help="Select to which pangenome element metadata will be assigned")
     optional = parser.add_argument_group(title="Optional arguments")

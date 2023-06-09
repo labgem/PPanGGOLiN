@@ -1,4 +1,5 @@
 import ppanggolin.nem.rarefaction
+import ppanggolin.nem.partition
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
@@ -15,24 +16,25 @@ import ppanggolin.workflow
 import ppanggolin.meta
 
 SUBCOMMAND_TO_SUBPARSER = {
-        "annotate":ppanggolin.annotate.subparser,
-        "cluster":ppanggolin.cluster.subparser,
-        "graph":ppanggolin.graph.subparser,
-        "partition":ppanggolin.nem.partition.subparser,
-        "rarefaction":ppanggolin.nem.rarefaction.subparser,
-        "workflow":ppanggolin.workflow.workflow.subparser,
-        "panrgp":ppanggolin.workflow.panRGP.subparser,
-        "panModule":ppanggolin.workflow.panModule.subparser,
-        "all":ppanggolin.workflow.all.subparser,
-        "draw":ppanggolin.figures.subparser,
-        "write":ppanggolin.formats.writeFlat.subparser,
-        "fasta":ppanggolin.formats.writeSequences.subparser,
-        "msa":ppanggolin.formats.writeMSA.subparser,
-        "metrics":ppanggolin.metrics.metrics.subparser,
-        "align":ppanggolin.align.subparser,
-        "rgp":ppanggolin.RGP.genomicIsland.subparser,
-        "spot":ppanggolin.RGP.spot.subparser,
-        "module":ppanggolin.mod.subparser,
-        "context":ppanggolin.context.subparser,# "info":ppanggolin.info.subparser, "default_config":ppanggolin.utility.default_config.subparser
-        "metadata": ppanggolin.metadata.subparser
-        }
+    "annotate": ppanggolin.annotate.subparser,
+    "cluster": ppanggolin.cluster.subparser,
+    "graph": ppanggolin.graph.subparser,
+    "partition": ppanggolin.nem.partition.subparser,
+    "rarefaction": ppanggolin.nem.rarefaction.subparser,
+    "workflow": ppanggolin.workflow.workflow.subparser,
+    "panrgp": ppanggolin.workflow.panRGP.subparser,
+    "panModule": ppanggolin.workflow.panModule.subparser,
+    "all": ppanggolin.workflow.all.subparser,
+    "draw": ppanggolin.figures.subparser,
+    "write": ppanggolin.formats.writeFlat.subparser,
+    "fasta": ppanggolin.formats.writeSequences.subparser,
+    "msa": ppanggolin.formats.writeMSA.subparser,
+    "metrics": ppanggolin.metrics.metrics.subparser,
+    "align": ppanggolin.align.subparser,
+    "rgp": ppanggolin.RGP.genomicIsland.subparser,
+    "spot": ppanggolin.RGP.spot.subparser,
+    "module": ppanggolin.mod.subparser,
+    "context": ppanggolin.context.subparser,
+    # "info":ppanggolin.info.subparser, "default_config":ppanggolin.utility.default_config.subparser
+    "metadata": ppanggolin.meta.subparser
+}
