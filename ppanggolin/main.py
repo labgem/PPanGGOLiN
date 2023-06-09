@@ -9,12 +9,10 @@ if sys.version_info < (3, 6):  # minimum is python3.6
                          ".".join(map(str, sys.version_info)))
 import argparse
 import pkg_resources
-import tempfile
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_log, check_input_files, set_verbosity_level
-import ppanggolin.nem.partition
+from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args #, SUBCOMMAND_TO_SUBPARSER
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
@@ -28,7 +26,9 @@ import ppanggolin.RGP
 import ppanggolin.mod
 import ppanggolin.context
 import ppanggolin.workflow
+import ppanggolin.utility
 
+from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
 def cmd_line() -> argparse.Namespace:
     """ Manage the command line argument given by user
@@ -73,66 +73,77 @@ def cmd_line() -> argparse.Namespace:
     desc += "  Genomic context:\n"
     desc += "    context      Local genomic context analysis\n"
     desc += "  \n"
+    desc += "  Utility command:\n"
+    desc += "    utils      Helper side commands.\n"
+    desc += "  \n"
+
 
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
+    
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
+    
     subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
     subparsers.required = True  # because python3 sent subcommands to hell apparently
 
-    subs = [ppanggolin.annotate.subparser(subparsers),
-            ppanggolin.cluster.subparser(subparsers),
-            ppanggolin.graph.subparser(subparsers),
-            ppanggolin.nem.partition.subparser(subparsers),
-            ppanggolin.nem.rarefaction.subparser(subparsers),
-            ppanggolin.workflow.workflow.subparser(subparsers),
-            ppanggolin.workflow.panRGP.subparser(subparsers),
-            ppanggolin.workflow.panModule.subparser(subparsers),
-            ppanggolin.workflow.all.subparser(subparsers),
-            ppanggolin.figures.subparser(subparsers),
-            ppanggolin.formats.writeFlat.subparser(subparsers),
-            ppanggolin.formats.writeSequences.subparser(subparsers),
-            ppanggolin.formats.writeMSA.subparser(subparsers),
-            ppanggolin.metrics.metrics.subparser(subparsers),
-            ppanggolin.align.subparser(subparsers),
-            ppanggolin.RGP.genomicIsland.subparser(subparsers),
-            ppanggolin.RGP.spot.subparser(subparsers),
-            ppanggolin.mod.subparser(subparsers),
-            ppanggolin.context.subparser(subparsers)]  # subparsers
-    ppanggolin.info.subparser(subparsers)  # not adding to sub because the 'common' options are not needed for this
-    for sub in subs:  # add options common to all subcommands
-        common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
-        common.title = "Common arguments"
-        common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
-                            help="directory for storing temporary files")
-        common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                            help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-        common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-        common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                            help="disables the progress bars")
-        common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-        common.add_argument('-f', '--force', action="store_true",
-                            help="Force writing in output directory and in pangenome output file.")
-        sub._action_groups.append(common)
-        if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
-            sub.print_help()
-            exit(1)
 
+    # print help if no subcommand is specified
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(0)
 
+    # manage command parser to use command arguments
+    subs = []
+    for sub_fct in SUBCOMMAND_TO_SUBPARSER.values():  
+        sub = sub_fct(subparsers)
+        # add options common to all subcommands
+        add_common_arguments(sub)
+        subs.append(sub)
+        
+    # manage command without common arguments
+    sub_info = ppanggolin.info.subparser(subparsers)
+    sub_utils = ppanggolin.utility.utils.subparser(subparsers)
+    subs += [sub_info, sub_utils]
+
+    # print help if only the command is given
+    for sub in subs:
+        if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
+            sub.print_help()
+            exit(0)
+
+
+    # First parse args to check that nothing is missing or not expected in cli and throw help when requested
     args = parser.parse_args()
+
+    if hasattr(args, "config"): # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
+        args = manage_cli_and_config_args(args.subcommand, args.config, SUBCOMMAND_TO_SUBPARSER)
+    else:
+        set_verbosity_level(args)
+
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
-                        "or a file with the --gff option to load annotations from.")
+        parser.error("You must provide at least a file with the --fasta option to annotate from sequences, "
+                        "or a file with the --gff option to load annotations through the command line or the config file.")
+    
+
+    cmds_pangenome_required = ["cluster", "info", "module", "graph","align", 
+                               "context", "write", "msa", "draw", "partition",
+                               "rarefaction", "spot", "fasta", "metrics", "rgp"]
+    if args.subcommand in  cmds_pangenome_required and args.pangenome is None:
+        parser.error("You must provide a pangenome file with the --pangenome "
+                        "argument through the command line or the config file.")
+    
+    if args.subcommand == "align" and args.sequences is None:
+        parser.error("You must provide sequences (nucleotides or amino acids) to align on the pangenome gene families "
+                            "with the --sequences argument through the command line or the config file.")
+        
     return args
 
 
 def main():
-    """ Run the command given by user and set / check some things
+    """
+    Run the command given by user and set / check some things.
 
     :return:
     """
@@ -144,8 +155,6 @@ def main():
         check_input_files(fasta=args.fasta)
     if hasattr(args, "anno"):
         check_input_files(anno=args.anno)
-
-    set_verbosity_level(args)
 
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
@@ -187,6 +196,8 @@ def main():
         ppanggolin.workflow.all.launch(args)
     elif args.subcommand == "context":
         ppanggolin.context.launch(args)
+    elif args.subcommand == "utils":
+        ppanggolin.utility.launch(args)
 
 
 if __name__ == "__main__":
