@@ -389,10 +389,10 @@ def parser_align(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-S', '--sequences', required=True, type=str,
+    required.add_argument('-S', '--sequences', required=False, type=str,
                           help="sequences (nucleotides or amino acids) to align on the pangenome gene families")
 
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=str,
                           help="Output directory where the file(s) will be written")
 
@@ -426,6 +426,10 @@ def parser_align(parser: argparse.ArgumentParser):
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
                                "(Default behavior is to ignore them)")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+
+    # optional.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+    #                     help="directory for storing temporary files")
 
 
 if __name__ == '__main__':
@@ -440,12 +444,9 @@ if __name__ == '__main__':
     common = main_parser.add_argument_group(title="Common argument")
     common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
                         help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
-                        help="directory for storing temporary files")
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
     common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
                         help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
     set_verbosity_level(main_parser.parse_args())
