@@ -11,6 +11,7 @@ import ppanggolin.RGP
 import ppanggolin.mod
 import ppanggolin.context
 import ppanggolin.workflow
+import ppanggolin.projection
 # import ppanggolin.utility
 
 
@@ -33,5 +34,6 @@ SUBCOMMAND_TO_SUBPARSER = {
         "rgp":ppanggolin.RGP.genomicIsland.subparser,
         "spot":ppanggolin.RGP.spot.subparser,
         "module":ppanggolin.mod.subparser,
-        "context":ppanggolin.context.subparser,# "info":ppanggolin.info.subparser, "default_config":ppanggolin.utility.default_config.subparser
+        "context":ppanggolin.context.subparser,
+        "projection":ppanggolin.projection.subparser, # "info":ppanggolin.info.subparser, "default_config":ppanggolin.utility.default_config.subparser
         }

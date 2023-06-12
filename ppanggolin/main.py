@@ -55,6 +55,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    partition     Partition the pangenome graph\n"
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
+    desc += "    projection    Projet a new genome to an existing pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
@@ -181,6 +182,8 @@ def main():
     elif args.subcommand == "metrics":
         ppanggolin.metrics.metrics.launch(args)
     elif args.subcommand == "align":
+        ppanggolin.align.launch(args)
+    elif args.subcommand == "projection":
         ppanggolin.align.launch(args)
     elif args.subcommand == "rgp":
         ppanggolin.RGP.genomicIsland.launch(args)
