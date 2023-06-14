@@ -45,3 +45,4 @@
     * [phylo](https://github.com/labgem/PPanGGOLiN/wiki/Outputs#phylo)
   * [Info](https://github.com/labgem/PPanGGOLiN/wiki/Outputs#info)
   * [Metrics](https://github.com/labgem/PPanGGOLiN/wiki/Outputs#Metrics)
+  * [Metadata](https://github.com/labgem/PPanGGOLiN/wiki/Metadata)
