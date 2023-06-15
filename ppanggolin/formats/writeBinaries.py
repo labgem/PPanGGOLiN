@@ -158,7 +158,7 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
     gene_table = h5f.create_table(annotation, "genes", gene_desc(*get_max_len_annotations(pangenome)),
                                   expectedrows=len(pangenome.genes))
 
-    logging.getLogger().debug(f"Writing {len(pangenome.genes)} genes")
+    logging.debug(f"Writing {len(pangenome.genes)} genes")
 
     genedata2gene = {}
     genedata_counter = 0
@@ -186,7 +186,7 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
 
     genedata_table = h5f.create_table(annotation, "genedata", genedata_desc(*get_max_len_genedata(pangenome)),
                                       expectedrows=len(genedata2gene))
-    logging.getLogger().debug(f"Writing {len(genedata2gene)} gene-related data (can be lower than the number of genes)")
+    logging.debug(f"Writing {len(genedata2gene)} gene-related data (can be lower than the number of genes)")
     genedata_row = genedata_table.row
     for genedata, genedata_id in genedata2gene.items():
         genedata_row["genedata_id"] = genedata_id
@@ -342,7 +342,7 @@ def write_gene_fam_info(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
     :param disable_bar: Disable progress bar
     """
     if '/geneFamiliesInfo' in h5f and force is True:
-        logging.getLogger().info("Erasing the formerly computed gene family representative sequences...")
+        logging.info("Erasing the formerly computed gene family representative sequences...")
         h5f.remove_node('/', 'geneFamiliesInfo')  # erasing the table, and rewriting a new one.
     gene_fam_seq = h5f.create_table("/", "geneFamiliesInfo", gene_fam_desc(*get_gene_fam_len(pangenome)),
                                     expectedrows=len(pangenome.gene_families))
@@ -401,7 +401,7 @@ def write_gene_families(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
     :param disable_bar: Disable progress bar
     """
     if '/geneFamilies' in h5f and force is True:
-        logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
+        logging.info("Erasing the formerly computed gene family to gene associations...")
         h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
     gene_families = h5f.create_table("/", "geneFamilies", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
     gene_row = gene_families.row
@@ -456,7 +456,7 @@ def write_graph(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
     #  consumming parts to read), it might be good to add the organism name in the table here.
     #  for now, forcing the read of annotations.
     if '/edges' in h5f and force is True:
-        logging.getLogger().info("Erasing the formerly computed edges")
+        logging.info("Erasing the formerly computed edges")
         h5f.remove_node("/", "edges")
     edge_table = h5f.create_table("/", "edges", graph_desc(get_gene_id_len(pangenome)),
                                   expectedrows=len(pangenome.edges))
@@ -514,7 +514,7 @@ def write_rgp(pangenome: Pangenome, h5f: tables.File, force: bool = False, disab
     :param disable_bar: Disable progress bar
     """
     if '/RGP' in h5f and force is True:
-        logging.getLogger().info("Erasing the formerly computer RGP")
+        logging.info("Erasing the formerly computer RGP")
         h5f.remove_node('/', 'RGP')
 
     rgp_table = h5f.create_table('/', 'RGP', rgp_desc(*get_rgp_len(pangenome)),
@@ -568,7 +568,7 @@ def write_spots(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
     :param disable_bar: Disable progress bar
     """
     if '/spots' in h5f and force is True:
-        logging.getLogger().info("Erasing the formerly computed spots")
+        logging.info("Erasing the formerly computed spots")
         h5f.remove_node("/", "spots")
 
     spot_table = h5f.create_table("/", "spots", spot_desc(get_spot_desc(pangenome)),
@@ -622,7 +622,7 @@ def write_modules(pangenome: Pangenome, h5f: tables.File, force: bool = False, d
     :param disable_bar: Disable progress bar
     """
     if '/modules' in h5f and force is True:
-        logging.getLogger().info("Erasing the formerly computed modules")
+        logging.info("Erasing the formerly computed modules")
         h5f.remove_node("/", "modules")
 
     mod_table = h5f.create_table('/', 'modules', mod_desc(get_mod_desc(pangenome)),
@@ -859,7 +859,7 @@ def update_gene_fam_partition(pangenome: Pangenome, h5f: tables.File, disable_ba
     :param h5f: HDF5 file with gene families
     :param disable_bar: Allow to disable progress bar
     """
-    logging.getLogger().info("Updating gene families with partition information")
+    logging.info("Updating gene families with partition information")
     table = h5f.root.geneFamiliesInfo
     for row in tqdm(table, total=table.nrows, unit="gene family", disable=disable_bar):
         row["partition"] = pangenome.get_gene_family(row["name"].decode()).partition
@@ -874,7 +874,7 @@ def update_gene_fragments(pangenome: Pangenome, h5f: tables.File, disable_bar: b
     :param h5f: HDF5 pangenome file
     :param disable_bar: Allow to disable progress bar
     """
-    logging.getLogger().info("Updating annotations with fragment information")
+    logging.info("Updating annotations with fragment information")
     genedataid2genedata = read_genedata(h5f)
 
     table = h5f.root.annotations.genes
@@ -905,13 +905,13 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
     info_group = h5f.root.info
 
     if '/edges' in h5f and (graph or gene_families):
-        logging.getLogger().info("Erasing the formerly computed edges")
+        logging.info("Erasing the formerly computed edges")
         h5f.remove_node("/", "edges")
         status_group._v_attrs.NeighborsGraph = False
         pangenome.status["neighborsGraph"] = "No"
         h5f.del_node_attr(info_group, "numberOfEdges")
     if '/geneFamilies' in h5f and gene_families:
-        logging.getLogger().info("Erasing the formerly computed gene family to gene associations...")
+        logging.info("Erasing the formerly computed gene family to gene associations...")
         h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
         pangenome.status["defragmented"] = "No"
         pangenome.status["genesClustered"] = "No"
@@ -921,12 +921,12 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
         h5f.del_node_attr(info_group, "numberOfClusters")
 
     if '/geneFamiliesInfo' in h5f and gene_families:
-        logging.getLogger().info("Erasing the formerly computed gene family representative sequences...")
+        logging.info("Erasing the formerly computed gene family representative sequences...")
         h5f.remove_node('/', 'geneFamiliesInfo')  # erasing the table, and rewriting a new one.
         pangenome.status["geneFamilySequences"] = "No"
         status_group._v_attrs.geneFamilySequences = False
         if partition:
-            logging.getLogger().info("Erasing former partitions...")
+            logging.info("Erasing former partitions...")
             pangenome.status["partitioned"] = "No"
             status_group._v_attrs.Partitioned = False
             if 'Partitioned' in status_group._v_attrs._f_list():
@@ -942,7 +942,7 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
             h5f.del_node_attr(info_group, "numberOfSubpartitions")
 
     if '/RGP' in h5f and (gene_families or partition or rgp):
-        logging.getLogger().info("Erasing the formerly computer RGP...")
+        logging.info("Erasing the formerly computer RGP...")
         pangenome.status["predictedRGP"] = "No"
         status_group._v_attrs.predictedRGP = False
         h5f.remove_node("/", "RGP")
@@ -950,7 +950,7 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
         h5f.del_node_attr(info_group, "numberOfRGP")
 
     if '/spots' in h5f and (gene_families or partition or rgp or spots):
-        logging.getLogger().info("Erasing the formerly computed spots...")
+        logging.info("Erasing the formerly computed spots...")
         pangenome.status["spots"] = "No"
         status_group._v_attrs.spots = False
         h5f.remove_node("/", "spots")
@@ -958,7 +958,7 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
         h5f.del_node_attr(info_group, "numberOfSpots")
 
     if '/modules' in h5f and (gene_families or partition or modules):
-        logging.getLogger().info("Erasing the formerly computed modules...")
+        logging.info("Erasing the formerly computed modules...")
         pangenome.status["modules"] = "No"
         status_group._v_attrs.modules = False
         h5f.remove_node("/", "modules")
@@ -987,7 +987,7 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
         if pangenome.status["genomesAnnotated"] == "Computed":
             compression_filter = tables.Filters(complevel=1, shuffle=True, bitshuffle=True, complib='blosc:zstd')
             h5f = tables.open_file(filename, "w", filters=compression_filter)
-            logging.getLogger().info("Writing genome annotations...")
+            logging.info("Writing genome annotations...")
 
             write_annotations(pangenome, h5f, disable_bar=disable_bar)
 
@@ -1003,14 +1003,14 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
     h5f = tables.open_file(filename, "a")
 
     if pangenome.status["geneSequences"] == "Computed":
-        logging.getLogger().info("writing the protein coding gene dna sequences")
+        logging.info("writing the protein coding gene dna sequences")
         write_gene_sequences(pangenome, h5f, disable_bar=disable_bar)
         pangenome.status["geneSequences"] = "Loaded"
 
     if pangenome.status["genesClustered"] == "Computed":
-        logging.getLogger().info("Writing gene families and gene associations...")
+        logging.info("Writing gene families and gene associations...")
         write_gene_families(pangenome, h5f, force, disable_bar=disable_bar)
-        logging.getLogger().info("Writing gene families information...")
+        logging.info("Writing gene families information...")
         write_gene_fam_info(pangenome, h5f, force, disable_bar=disable_bar)
         if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and \
                 pangenome.status["defragmented"] == "Computed":
@@ -1019,7 +1019,7 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
             update_gene_fragments(pangenome, h5f, disable_bar=disable_bar)
         pangenome.status["genesClustered"] = "Loaded"
     if pangenome.status["neighborsGraph"] == "Computed":
-        logging.getLogger().info("Writing the edges...")
+        logging.info("Writing the edges...")
         write_graph(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["neighborsGraph"] = "Loaded"
     if pangenome.status["partitioned"] == "Computed" and \
@@ -1028,17 +1028,17 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
         pangenome.status["partitioned"] = "Loaded"
 
     if pangenome.status['predictedRGP'] == "Computed":
-        logging.getLogger().info("Writing Regions of Genomic Plasticity...")
+        logging.info("Writing Regions of Genomic Plasticity...")
         write_rgp(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status['predictedRGP'] = "Loaded"
 
     if pangenome.status["spots"] == "Computed":
-        logging.getLogger().info("Writing Spots of Insertion...")
+        logging.info("Writing Spots of Insertion...")
         write_spots(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status['spots'] = "Loaded"
 
     if pangenome.status["modules"] == "Computed":
-        logging.getLogger().info("Writing Modules...")
+        logging.info("Writing Modules...")
         write_modules(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["modules"] = "Loaded"
 
@@ -1046,4 +1046,4 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
     write_info(pangenome, h5f)
 
     h5f.close()
-    logging.getLogger().info(f"Done writing the pangenome. It is in file : {filename}")
+    logging.info(f"Done writing the pangenome. It is in file : {filename}")

@@ -83,33 +83,33 @@ def first_clustering(sequences: io.TextIO, tmpdir: tempfile.TemporaryDirectory, 
     """
     seq_nucdb = tmpdir.name + '/nucleotid_sequences_db'
     cmd = list(map(str, ["mmseqs", "createdb", sequences.name, seq_nucdb]))
-    logging.getLogger().debug(" ".join(cmd))
-    logging.getLogger().info("Creating sequence database...")
+    logging.debug(" ".join(cmd))
+    logging.info("Creating sequence database...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    logging.getLogger().debug("Translate sequence ...")
+    logging.debug("Translate sequence ...")
     seqdb = tmpdir.name + '/aa_db'
     cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", cpu, "--translation-table", code]))
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    logging.getLogger().info("Clustering sequences...")
+    logging.info("Clustering sequences...")
     cludb = tmpdir.name + '/cluster_db'
     cmd = list(map(str, ["mmseqs", "cluster", seqdb, cludb, tmpdir.name, "--cluster-mode", mode, "--min-seq-id",
                          identity, "-c", coverage, "--threads", cpu, "--kmer-per-seq", 80, "--max-seqs", 300]))
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    logging.getLogger().info("Extracting cluster representatives...")
+    logging.info("Extracting cluster representatives...")
     repdb = tmpdir.name + '/representative_db'
     cmd = list(map(str, ["mmseqs", "result2repseq", seqdb, cludb, repdb]))
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     reprfa = tmpdir.name + '/representative_sequences.fasta'
     cmd = ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    logging.getLogger().info("Writing gene to family informations")
+    logging.info("Writing gene to family informations")
     outtsv = tmpdir.name + '/families_tsv'
     cmd = list(map(str, ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv, "--threads", cpu, "--full-header"]))
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     return reprfa, outtsv
 
@@ -146,21 +146,21 @@ def align_rep(faa_file: str, tmpdir: tempfile.TemporaryDirectory, cpu: int = 1,
 
     :return: Result of alignment
     """
-    logging.getLogger().debug("Create database")
+    logging.debug("Create database")
     seqdb = tmpdir.name + '/rep_sequence_db'
     cmd = ["mmseqs", "createdb", faa_file, seqdb]
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    logging.getLogger().info("Aligning cluster representatives...")
+    logging.info("Aligning cluster representatives...")
     alndb = tmpdir.name + '/rep_alignment_db'
     cmd = list(map(str, ["mmseqs", "search", seqdb, seqdb, alndb, tmpdir.name, "-a", "--min-seq-id", identity,
                          "-c", coverage, "--cov-mode", 1, "--threads", cpu]))
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    logging.getLogger().info("Extracting alignments...")
+    logging.info("Extracting alignments...")
     outfile = tmpdir.name + '/rep_families.tsv'
     cmd = ["mmseqs", "convertalis", seqdb, seqdb, alndb, outfile, "--format-output", "query,target,qlen,tlen,bits"]
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     return outfile
 
@@ -195,7 +195,7 @@ def refine_clustering(tsv: str, aln_file: str, fam_to_seq: dict) -> (dict, dict)
     """
     simgraph = Graph()
     genes2fam, fam2genes = read_tsv(tsv)
-    logging.getLogger().info(f"Starting with {len(fam_to_seq)} families")
+    logging.info(f"Starting with {len(fam_to_seq)} families")
     # create the nodes
     for fam, genes in fam2genes.items():
         simgraph.add_node(fam, nbgenes=len(genes))
@@ -229,7 +229,7 @@ def refine_clustering(tsv: str, aln_file: str, fam_to_seq: dict) -> (dict, dict)
     new_fam_to_seq = {}
     for fam in fam2genes:
         new_fam_to_seq[fam] = fam_to_seq[fam]
-    logging.getLogger().info(f"Ending with {len(new_fam_to_seq)} gene families")
+    logging.info(f"Ending with {len(new_fam_to_seq)} gene families")
     return genes2fam, new_fam_to_seq
 
 
@@ -240,7 +240,7 @@ def read_fam2seq(pangenome: Pangenome, fam_to_seq: dict):
     :param pangenome: Annotated pangenome
     :param fam_to_seq: Dictionary which link families and sequences
     """
-    logging.getLogger().info("Adding protein sequences to the gene families")
+    logging.info("Adding protein sequences to the gene families")
     for family, protein in fam_to_seq.items():
         fam = pangenome.add_gene_family(family)
         fam.add_sequence(protein)
@@ -254,7 +254,7 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
     :param gene_to_fam: Dictionary which link gene to families
     :param disable_bar: Allow to disable progress bar
     """
-    logging.getLogger().info(f"Adding {len(gene_to_fam)} genes to the gene families")
+    logging.info(f"Adding {len(gene_to_fam)} genes to the gene families")
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
     if link:
@@ -295,15 +295,15 @@ def clustering(pangenome: Pangenome, tmpdir: str, cpu: int = 1, defrag: bool = T
     newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
     with open(newtmpdir.name + '/nucleotid_sequences', "w") as sequence_file:
         check_pangenome_for_clustering(pangenome, sequence_file, force, disable_bar=disable_bar)
-        logging.getLogger().info("Clustering all of the genes sequences...")
+        logging.info("Clustering all of the genes sequences...")
         rep, tsv = first_clustering(sequence_file, newtmpdir, cpu, code, coverage, identity, mode)
 
     fam2seq = read_faa(rep)
     if not defrag:
-        logging.getLogger().debug("No defragmentation")
+        logging.debug("No defragmentation")
         genes2fam, _ = read_tsv(tsv)
     else:
-        logging.getLogger().info("Associating fragments to their original gene family...")
+        logging.info("Associating fragments to their original gene family...")
         aln = align_rep(rep, newtmpdir, cpu, coverage, identity)
         genes2fam, fam2seq = refine_clustering(tsv, aln, fam2seq)
         pangenome.status["defragmented"] = "Computed"
@@ -356,7 +356,7 @@ def infer_singletons(pangenome: Pangenome):
         if gene.family is None:
             pangenome.add_gene_family(gene.ID).add_gene(gene)
             singleton_counter += 1
-    logging.getLogger().info(f"Inferred {singleton_counter} singleton families")
+    logging.info(f"Inferred {singleton_counter} singleton families")
 
 
 def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singleton: bool = False, force: bool = False,
@@ -374,7 +374,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     check_pangenome_former_clustering(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, disable_bar=disable_bar)
 
-    logging.getLogger().info(f"Reading {families_tsv_file.name} the gene families file ...")
+    logging.info(f"Reading {families_tsv_file.name} the gene families file ...")
     filesize = os.stat(families_tsv_file).st_size
     families_tsv_file = read_compressed_or_not(families_tsv_file)
     frag = False  # the genome annotations are necessarily loaded.
@@ -436,18 +436,18 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     if args.clusters is None:
         if args.infer_singletons is True:
-            logging.getLogger().warning("--infer_singletons option is not compatible with clustering creation. "
+            logging.warning("--infer_singletons option is not compatible with clustering creation. "
                                         "To infer singleton you should give a clustering")
         clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, code=args.translation_table,
                    coverage=args.coverage, identity=args.identity, mode=args.mode, force=args.force,
                    disable_bar=args.disable_prog_bar)
-        logging.getLogger().info("Done with the clustering")
+        logging.info("Done with the clustering")
     else:
         if None in [args.tmpdir, args.cpu, args.no_defrag, args.translation_table,
                     args.coverage, args.identity, args.mode]:
-            logging.getLogger().warning("You are using an option compatible only with clustering creation.")
+            logging.warning("You are using an option compatible only with clustering creation.")
         read_clustering(pangenome, args.clusters, args.infer_singletons, args.force, disable_bar=args.disable_prog_bar)
-        logging.getLogger().info("Done reading the cluster file")
+        logging.info("Done reading the cluster file")
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 

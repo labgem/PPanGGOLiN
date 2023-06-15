@@ -118,10 +118,10 @@ def predict_modules(pangenome: Pangenome, tmpdir: str, cpu: int = 1, dup_margin:
 
     # compute the graph with transitive closure size provided as parameter
     start_time = time.time()
-    logging.getLogger().info("Building the graph...")
+    logging.info("Building the graph...")
     g = compute_mod_graph(pangenome.organisms, t=transitive, disable_bar=disable_bar)
-    logging.getLogger().info(f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
-    logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
+    logging.info(f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
+    logging.info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     start_time = time.time()
     # get all multigenic gene families
@@ -134,8 +134,8 @@ def predict_modules(pangenome: Pangenome, tmpdir: str, cpu: int = 1, dup_margin:
     for mod in modules:
         fams |= mod.families
 
-    logging.getLogger().info(f"There are {len(fams)} families among {len(modules)} modules")
-    logging.getLogger().info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
+    logging.info(f"There are {len(fams)} families among {len(modules)} modules")
+    logging.info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
 
     pangenome.add_modules(modules)
 

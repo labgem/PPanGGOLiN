@@ -102,8 +102,8 @@ def set_verbosity_level(args):
         logging.basicConfig(stream=args.log, level=level,
                             format='%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s',
                             datefmt='%Y-%m-%d %H:%M:%S')
-        logging.getLogger().info("Command: " + " ".join([arg for arg in sys.argv]))
-        logging.getLogger().info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
+        logging.info("Command: " + " ".join([arg for arg in sys.argv]))
+        logging.info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
 
 
 def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
@@ -198,7 +198,7 @@ def mk_outdir(output: Path, force: bool = False):
     :raise FileExistError: The current path already exist and force is false
     """
     if not output.is_dir():
-        logging.getLogger().debug(f"Create output directory {output.absolute().as_posix()}")
+        logging.debug(f"Create output directory {output.absolute().as_posix()}")
         Path.mkdir(output)
     else:
         if not force:

@@ -22,7 +22,7 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
     :return:
     """
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
-    logging.getLogger().info("Drawing the U-shaped curve...")
+    logging.info("Drawing the U-shaped curve...")
     max_bar = 0
     count = defaultdict(lambda: defaultdict(int))
     is_partitioned = False
@@ -76,4 +76,4 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
 
     fig = go.Figure(data=data_plot, layout=layout)
     out_plotly.plot(fig, filename=output/"Ushaped_plot.html", auto_open=False)
-    logging.getLogger().info(f"Done drawing the U-shaped curve : '{output.as_posix() + '/Ushaped_plot.html'}'")
+    logging.info(f"Done drawing the U-shaped curve : '{output.as_posix() + '/Ushaped_plot.html'}'")

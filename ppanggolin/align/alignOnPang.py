@@ -31,7 +31,7 @@ def createdb(file_obj: TextIOWrapper, tmpdir: tempfile.TemporaryDirectory) -> IO
     """
     seqdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
     cmd = ["mmseqs", "createdb", file_obj.name, seqdb.name, '--dbtype', '0']
-    logging.getLogger().debug(" ".join(cmd))
+    logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     return seqdb
 
@@ -62,13 +62,13 @@ def align_seq_to_pang(pang_file: IO, seq_file: TextIOWrapper, output: Path,
     aln_db = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
     cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
            "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)]
-    logging.getLogger().debug(" ".join(cmd))
-    logging.getLogger().info("Aligning sequences to cluster representatives...")
+    logging.debug(" ".join(cmd))
+    logging.info("Aligning sequences to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     outfile = output.absolute()/"input_to_pangenome_associations.blast-tab_tmp"  # write a tmp file of the results
     cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile.as_posix(), "--format-mode", "2"]
-    logging.getLogger().debug(" ".join(cmd))
-    logging.getLogger().info("Extracting alignments...")
+    logging.debug(" ".join(cmd))
+    logging.info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
     pang_db.close()
     seq_db.close()
@@ -233,7 +233,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
     :param disable_bar: disable progress bar
     :return:
     """
-    logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
+    logging.info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
     finfo = open(output/"info_input_seq.tsv", "w")
@@ -253,7 +253,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
         for spot in spot_list:
             if len(spot.get_uniq_ordered_set()) > 1:
                 drawn_spots.add(spot)
-        logging.getLogger().info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
+        logging.info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
                                  f"related to hits of the input sequences...")
         draw_selected_spots(drawn_spots, pangenome, output, pangenome.parameters["spots"]["overlapping_match"],
                             pangenome.parameters["spots"]["exact_match"], pangenome.parameters["spots"]["set_size"],
@@ -267,7 +267,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
 
         draw_spot_gexf(drawn_spots, output, multigenics=multigenics, fam_to_mod=fam2mod)
 
-    logging.getLogger().info(f"File listing RGP and spots where sequences of interest are located : "
+    logging.info(f"File listing RGP and spots where sequences of interest are located : "
                              f"{output/'info_input_seq.tsv'}")
 
 
@@ -346,9 +346,9 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path,
     if getinfo or draw_related:  # TODO Add getinfo to function and remove if
         get_seq_info(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
     part_proj = project_partition(seq2pang, seq_set, output)  # write the partition assignation only
-    logging.getLogger().info(f"sequences partition projection : '{part_proj}'")
-    logging.getLogger().info(f"{len(seq2pang)} sequences over {len(seq_set)} have at least one hit in the pangenome.")
-    logging.getLogger().info(f"Blast-tab file of the alignment : '{align_file}'")
+    logging.info(f"sequences partition projection : '{part_proj}'")
+    logging.info(f"{len(seq2pang)} sequences over {len(seq_set)} have at least one hit in the pangenome.")
+    logging.info(f"Blast-tab file of the alignment : '{align_file}'")
 
     new_tmpdir.cleanup()
 

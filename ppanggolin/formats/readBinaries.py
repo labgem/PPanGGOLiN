@@ -109,7 +109,7 @@ def get_status(pangenome: Pangenome, pangenome_file: Path):
     """
     fix_partitioned(pangenome_file)
     h5f = tables.open_file(pangenome_file, "r")
-    logging.getLogger().info("Getting the current pangenome status")
+    logging.info("Getting the current pangenome status")
     status_group = h5f.root.status
     if status_group._v_attrs.genomesAnnotated:
         pangenome.status["genomesAnnotated"] = "inFile"
@@ -199,7 +199,7 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
     :param add: Add a prefix to sequence header
     :param disable_bar: Prevent to print disable progress bar
     """
-    logging.getLogger().info(f"Extracting and writing CDS sequences from a {filename} file to a fasta file...")
+    logging.info(f"Extracting and writing CDS sequences from a {filename} file to a fasta file...")
     h5f = tables.open_file(filename, "r", driver_core_backing_store=0)
     table = h5f.root.geneSequences
     list_cds = set(list_cds) if list_cds is not None else None
@@ -570,13 +570,13 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
     h5f = tables.open_file(filename, "r")
     if annotation:
         if h5f.root.status._v_attrs.genomesAnnotated:
-            logging.getLogger().info("Reading pangenome annotations...")
+            logging.info("Reading pangenome annotations...")
             read_annotation(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' has not been annotated, or has been improperly filled")
     if gene_sequences:
         if h5f.root.status._v_attrs.geneSequences:
-            logging.getLogger().info("Reading pangenome gene dna sequences...")
+            logging.info("Reading pangenome gene dna sequences...")
             read_gene_sequences(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have gene sequences, "
@@ -584,7 +584,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
 
     if gene_families:
         if h5f.root.status._v_attrs.genesClustered:
-            logging.getLogger().info("Reading pangenome gene families...")
+            logging.info("Reading pangenome gene families...")
             read_gene_families(pangenome, h5f, disable_bar=disable_bar)
             read_gene_families_info(pangenome, h5f, disable_bar=disable_bar)
         else:
@@ -592,28 +592,28 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
                 f"The pangenome in file '{filename}' does not have gene families, or has been improperly filled")
     if graph:
         if h5f.root.status._v_attrs.NeighborsGraph:
-            logging.getLogger().info("Reading the neighbors graph edges...")
+            logging.info("Reading the neighbors graph edges...")
             read_graph(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have graph information, "
                             f"or has been improperly filled")
     if rgp:
         if h5f.root.status._v_attrs.predictedRGP:
-            logging.getLogger().info("Reading the RGP...")
+            logging.info("Reading the RGP...")
             read_rgp(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have RGP information, "
                             f"or has been improperly filled")
     if spots:
         if h5f.root.status._v_attrs.spots:
-            logging.getLogger().info("Reading the spots...")
+            logging.info("Reading the spots...")
             read_spots(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have spots information, "
                             f"or has been improperly filled")
     if modules:
         if h5f.root.status._v_attrs.modules:
-            logging.getLogger().info("Reading the modules...")
+            logging.info("Reading the modules...")
             read_modules(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have modules information, "

@@ -122,16 +122,16 @@ def launch(args: argparse.Namespace):
                          borders=True, modules=True, spot_modules=True)
         desc_time = time.time() - start_desc
 
-    logging.getLogger().info(f"Annotation took : {round(anno_time, 2)} seconds")
-    logging.getLogger().info(f"Clustering took : {round(clust_time, 2)} seconds")
-    logging.getLogger().info(f"Building the graph took : {round(graph_time, 2)} seconds")
-    logging.getLogger().info(f"Partitioning the pangenome took : {round(part_time, 2)} seconds")
-    logging.getLogger().info(f"Predicting RGP took : {round(regions_time, 2)} seconds")
-    logging.getLogger().info(f"Gathering RGP into spots took : {round(spot_time, 2)} seconds")
-    logging.getLogger().info(f"Predicting modules took : {round(mod_time, 2)} seconds")
-    logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
+    logging.info(f"Annotation took : {round(anno_time, 2)} seconds")
+    logging.info(f"Clustering took : {round(clust_time, 2)} seconds")
+    logging.info(f"Building the graph took : {round(graph_time, 2)} seconds")
+    logging.info(f"Partitioning the pangenome took : {round(part_time, 2)} seconds")
+    logging.info(f"Predicting RGP took : {round(regions_time, 2)} seconds")
+    logging.info(f"Gathering RGP into spots took : {round(spot_time, 2)} seconds")
+    logging.info(f"Predicting modules took : {round(mod_time, 2)} seconds")
+    logging.info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
     if not args.only_pangenome:
-        logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
+        logging.info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
     print_info(filename, content=True)
 
 

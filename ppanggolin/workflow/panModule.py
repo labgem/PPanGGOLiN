@@ -101,13 +101,13 @@ def launch(args: argparse.Namespace):
                      projection=True, stats=True, json=True, partitions=True, modules=True)
     desc_time = time.time() - start_desc
 
-    logging.getLogger().info(f"Annotation took : {round(anno_time, 2)} seconds")
-    logging.getLogger().info(f"Clustering took : {round(clust_time, 2)} seconds")
-    logging.getLogger().info(f"Building the graph took : {round(graph_time, 2)} seconds")
-    logging.getLogger().info(f"Partitioning the pangenome took : {round(part_time, 2)} seconds")
-    logging.getLogger().info(f"Predicting modules took : {round(mod_time, 2)} seconds")
-    logging.getLogger().info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
-    logging.getLogger().info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
+    logging.info(f"Annotation took : {round(anno_time, 2)} seconds")
+    logging.info(f"Clustering took : {round(clust_time, 2)} seconds")
+    logging.info(f"Building the graph took : {round(graph_time, 2)} seconds")
+    logging.info(f"Partitioning the pangenome took : {round(part_time, 2)} seconds")
+    logging.info(f"Predicting modules took : {round(mod_time, 2)} seconds")
+    logging.info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
+    logging.info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
     print_info(filename, content=True)
 
 

@@ -92,7 +92,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
     """
     org = Organism(organism)
 
-    logging.getLogger().debug(f"Extracting genes informations from the given gbff {gbff_file_path.name}")
+    logging.debug(f"Extracting genes informations from the given gbff {gbff_file_path.name}")
     # revert the order of the file, to read the first line first.
     lines = read_compressed_or_not(gbff_file_path).readlines()[::-1]
     gene_counter = 0
@@ -430,7 +430,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     :param pseudo: allow to read pseudogène
     :param disable_bar: Disable the progresse bar
     """
-    logging.getLogger().info(f"Reading {organisms_file.name} the list of organism files ...")
+    logging.info(f"Reading {organisms_file.name} the list of organism files ...")
 
     pangenome.status["geneSequences"] = "Computed"
     # we assume there are gene sequences in the annotation files,
@@ -454,10 +454,10 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     # decide whether we use local ids or ppanggolin ids.
     used_local_identifiers = chose_gene_identifiers(pangenome)
     if used_local_identifiers:
-        logging.getLogger().info("gene identifiers used in the provided annotation files were unique, "
+        logging.info("gene identifiers used in the provided annotation files were unique, "
                                  "PPanGGOLiN will use them.")
     else:
-        logging.getLogger().info("gene identifiers used in the provided annotation files were not unique, "
+        logging.info("gene identifiers used in the provided annotation files were not unique, "
                                  "PPanGGOLiN will use self-generated identifiers.")
 
     pangenome.status["genomesAnnotated"] = "Computed"
@@ -478,7 +478,7 @@ def get_gene_sequences_from_fastas(pangenome, fasta_file):
     for line in read_compressed_or_not(fasta_file):
         elements = [el.strip() for el in line.split("\t")]
         if len(elements) <= 1:
-            logging.getLogger().error("No tabulation separator found in organisms file")
+            logging.error("No tabulation separator found in organisms file")
             exit(1)
         try:
             org = pangenome.get_organism(elements[0])
@@ -538,7 +538,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     :param disable_bar: Disable the progresse bar
     """
 
-    logging.getLogger().info(f"Reading {fasta_list} the list of organism files")
+    logging.info(f"Reading {fasta_list} the list of organism files")
 
     arguments = []  # Argument given to annotate organism in same order than prototype
     for line in read_compressed_or_not(fasta_list):
@@ -552,7 +552,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
                           norna, kingdom, overlap, contig_filter, procedure))
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
-    logging.getLogger().info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
+    logging.info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
     with get_context('fork').Pool(processes=cpu) as p:
         for organism in tqdm(p.imap_unordered(launch_annotate_organism, arguments), unit="genome",
                              total=len(arguments), disable=disable_bar):
@@ -560,7 +560,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
         p.close()
         p.join()
 
-    logging.getLogger().info("Done annotating genomes")
+    logging.info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"  # the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"  # the gene objects have their respective gene sequences.
     pangenome.parameters["annotation"] = {}
@@ -591,9 +591,9 @@ def launch(args: argparse.Namespace):
             if args.fasta:
                 get_gene_sequences_from_fastas(pangenome, args.fasta)
             else:
-                logging.getLogger().warning("You provided gff files without sequences, and you did not provide "
+                logging.warning("You provided gff files without sequences, and you did not provide "
                                             "fasta sequences. Thus it was not possible to get the gene sequences.")
-                logging.getLogger().warning("You will be able to proceed with your analysis ONLY if you provide "
+                logging.warning("You will be able to proceed with your analysis ONLY if you provide "
                                             "the clustering results in the next step.")
 
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)

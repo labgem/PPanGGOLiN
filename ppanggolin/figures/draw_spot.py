@@ -564,7 +564,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
     :param disable_bar: Allow preventing bar progress print
     """
 
-    logging.getLogger().info("Ordering genes among regions, and drawing spots...")
+    logging.info("Ordering genes among regions, and drawing spots...")
 
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
@@ -623,7 +623,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
         draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname.absolute().as_posix())
         subgraph(spot, fname.absolute().as_posix() + ".gexf", set_size=set_size,
                  multigenics=multigenics, fam_to_mod=fam2mod)
-    logging.getLogger().info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
+    logging.info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 
 def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: bool = False):
@@ -653,10 +653,10 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
     else:
         selected_spots = [s for s in pangenome.spots if "spot_" + str(s.ID) in curated_spot_list]
     if len(selected_spots) < 10:
-        logging.getLogger().info(f"Drawing the following spots: "
+        logging.info(f"Drawing the following spots: "
                                  f"{','.join(['spot_' + str(s.ID) for s in selected_spots])}")
     else:
-        logging.getLogger().info(f"Drawing {len(selected_spots)} spots")
+        logging.info(f"Drawing {len(selected_spots)} spots")
 
     draw_selected_spots(selected_spots, pangenome, output,
                         overlapping_match=pangenome.parameters["spots"]["overlapping_match"],

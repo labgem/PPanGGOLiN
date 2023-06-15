@@ -115,11 +115,11 @@ def make_spot_graph(rgps: list, multigenics: set, output: str, spot_graph: bool 
         else:
             used += 1
             add_new_node(graph_spot, rgp, border)
-    logging.getLogger().info(f"{lost} RGPs were not used as they are on a contig border (or have less than {set_size} "
+    logging.info(f"{lost} RGPs were not used as they are on a contig border (or have less than {set_size} "
                              f"persistent gene families until the contig border)")
-    logging.getLogger().info(f"{used} RGPs are being used to predict spots of insertion")
+    logging.info(f"{used} RGPs are being used to predict spots of insertion")
     node_list = list(graph_spot.nodes)
-    logging.getLogger().info(f"{len(node_list)} number of different pairs of flanking gene families")
+    logging.info(f"{len(node_list)} number of different pairs of flanking gene families")
     for i, nodei in enumerate(node_list[:-1]):
         for nodej in node_list[i + 1:]:
             node_obj_i = graph_spot.nodes[nodei]
@@ -188,19 +188,19 @@ def predict_hotspots(pangenome: Pangenome, output: str, spot_graph: bool = False
                          need_rgp=True, disable_bar=disable_bar)
 
     # get multigenic gene families
-    logging.getLogger().info("Detecting multigenic families...")
+    logging.info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    logging.getLogger().info("Detecting hotspots in the pangenome...")
+    logging.info("Detecting hotspots in the pangenome...")
 
     # predict spots
     spots = make_spot_graph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size,
                             exact_match)
 
     if len(spots) == 0:
-        logging.getLogger().warning("No spots were detected.")
+        logging.warning("No spots were detected.")
     else:
-        logging.getLogger().info(f"{len(spots)} spots were detected")
+        logging.info(f"{len(spots)} spots were detected")
 
     pangenome.add_spots(spots)
     pangenome.status["spots"] = "Computed"
@@ -221,7 +221,7 @@ def launch(args: argparse.Namespace):
     if args.spot_graph:
         mk_outdir(args.output, args.force)
     if args.draw_hotspots or args.interest or args.fig_margin or args.priority:
-        logging.getLogger().warning(
+        logging.warning(
             "Options to draw the spots with the 'ppanggolin spot' subcommand have been deprecated, "
             "and are now dealt with in a dedicated subcommand 'ppanggolin drawspot'.")
     predict_hotspots(pangenome, args.output, force=args.force, spot_graph=args.spot_graph,

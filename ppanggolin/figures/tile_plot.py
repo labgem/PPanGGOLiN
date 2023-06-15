@@ -35,9 +35,9 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     if pangenome.status["partitioned"] == "No":
         raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
     if len(pangenome.organisms) > 500 and nocloud is False:
-        logging.getLogger().warning("You asked to draw a tile plot for a lot of organisms (>500). "
+        logging.warning("You asked to draw a tile plot for a lot of organisms (>500). "
                                     "Your browser will probably not be able to open it.")
-    logging.getLogger().info("Drawing the tile plot...")
+    logging.info("Drawing the tile plot...")
     data = []
     all_indexes = []
     all_columns = []
@@ -55,7 +55,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
               "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
               "undefined": "#828282"}
 
-    logging.getLogger().info("start with matrice")
+    logging.info("start with matrice")
 
     for row, fam in enumerate(families):
         new_col = [org_index[org] for org in fam.organisms]
@@ -71,7 +71,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     hc = linkage(dist, 'single')
 
     dendro = dendrogram(hc, no_plot=True)
-    logging.getLogger().info("done with making the dendrogram to order the organisms on the plot")
+    logging.info("done with making the dendrogram to order the organisms on the plot")
 
     order_organisms = [index2org[index] for index in dendro["leaves"]]
 
@@ -105,7 +105,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         ordered_nodes += ordered_nodes_c
         separators.append(separators[len(separators) - 1] + len(ordered_nodes_c))
 
-    logging.getLogger().info("Getting the gene name(s) and the number for each tile of the plot ...")
+    logging.info("Getting the gene name(s) and the number for each tile of the plot ...")
     for node in ordered_nodes:
         fam_order.append('\u200c' + node.name)
         data = node.organisms
@@ -115,7 +115,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
 
     xaxis_values = ['\u200c' + org.name for org in order_organisms]
 
-    logging.getLogger().info("Done extracting names and numbers. Making the heatmap ...")
+    logging.info("Done extracting names and numbers. Making the heatmap ...")
 
     heatmap = go.Heatmap(z=binary_data,
                          x=xaxis_values,
@@ -172,6 +172,6 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
                                              tickfont=dict(size=10)),
                        shapes=shapes,
                        plot_bgcolor='#ffffff')
-    logging.getLogger().info("Drawing the figure itself...")
+    logging.info("Drawing the figure itself...")
     out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename=output/"tile_plot.html", auto_open=False)
-    logging.getLogger().info(f"Done with the tile plot : '{output.as_posix() + '/tile_plot.html'}' ")
+    logging.info(f"Done with the tile plot : '{output.as_posix() + '/tile_plot.html'}' ")
