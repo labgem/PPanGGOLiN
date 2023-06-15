@@ -59,7 +59,7 @@ def launch(args: argparse.Namespace):
 
     compute_neighbors_graph(pangenome, disable_bar=args.disable_prog_bar)
 
-    partition(pangenome, tmpdir=args.tmpdir, kval=args.nb_of_partitions, cpu=args.cpu,
+    partition(pangenome, kval=args.nb_of_partitions, cpu=args.cpu, tmpdir=args.tmpdir,
               disable_bar=args.disable_prog_bar)
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
 

@@ -10,6 +10,7 @@ if sys.version_info < (3, 6):  # minimum is python3.6
 import argparse
 import pkg_resources
 import tempfile
+from pathlib import Path
 
 # local modules
 import ppanggolin.pangenome
@@ -105,7 +106,7 @@ def cmd_line() -> argparse.Namespace:
     for sub in subs:  # add options common to all subcommands
         common = sub._action_groups.pop(1)  # get the 'optional arguments' action group.
         common.title = "Common arguments"
-        common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+        common.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                             help="directory for storing temporary files")
         common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
                             help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")

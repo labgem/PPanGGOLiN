@@ -5,24 +5,18 @@
 import logging
 import argparse
 import time
-import os
 import tempfile
-import subprocess
-from itertools import combinations
-from statistics import mean, median
-from collections import defaultdict
+from pathlib import Path
 
 # installed libraries
 from tqdm import tqdm
 import networkx as nx
-from gmpy2 import xmpz, popcount  # pylint: disable=no-name-in-module
 
 # local libraries
-from ppanggolin.genome import Organism
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Module
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
-from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
+from ppanggolin.utils import restricted_float, add_gene, connected_components
 
 
 def check_pangenome_former_modules(pangenome: Pangenome, force: bool = False):
@@ -76,7 +70,7 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     :param multi: a set of families :class:`ppanggolin.geneFamily.GeneFamily` considered multigenic
     :param weight: the minimal jaccard under which edges are not considered
     :param min_fam: the minimal number of presence under which the family is not considered
-    : param size: Minimal number of gene family in a module
+    :param size: Minimal number of gene family in a module
     """
 
     # removing families with low presence
@@ -94,15 +88,13 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     return modules
 
 
-def predict_modules(pangenome: Pangenome, tmpdir: str, cpu: int = 1, dup_margin: float = 0.05,
+def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05,
                     size: int = 3, min_presence: int = 2, transitive: int = 4, jaccard: float = 0.85,
                     force: bool = False, disable_bar: bool = False):
     """
     Main function to predict module
 
     :param pangenome: Pangenome object with Gene Families, Annotation and Partition
-    :param tmpdir: Path to temporary directory
-    :param cpu: Number of available core
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
     :param size: Minimal number of gene family in a module
     :param min_presence: Minimum number of times the module needs to be present in the pangenome to be reported.
@@ -156,7 +148,7 @@ def launch(args: argparse.Namespace):
     """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=args.cpu, dup_margin=args.dup_margin, size=args.size,
+    predict_modules(pangenome=pangenome, dup_margin=args.dup_margin, size=args.size,
                     min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard, force=args.force,
                     disable_bar=args.disable_prog_bar)
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
@@ -183,7 +175,7 @@ def parser_module(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--size", required=False, type=int, default=3,

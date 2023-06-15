@@ -11,10 +11,10 @@ import time
 from multiprocessing import get_context
 import os
 import warnings
+from pathlib import Path
+from typing import Union, Tuple, Dict
 
 # installed libraries
-from typing import Union, Tuple
-
 from tqdm import tqdm
 import gmpy2
 import numpy
@@ -34,8 +34,9 @@ import ppanggolin.nem.partition as ppp
 samples = []
 
 
-def raref_nem(index: int, tmpdir: str, beta: float = 2.5, sm_degree: int = 10, free_dispersion: bool = False,
-              chunk_size: int = 500, kval: int = -1, krange: list = None, seed: int = 42) -> (dict, int):
+def raref_nem(index: int, tmpdir: Path, beta: float = 2.5, sm_degree: int = 10,
+              free_dispersion: bool = False, chunk_size: int = 500, kval: int = -1,
+              krange: list = None, seed: int = 42) -> Tuple[Dict[str, int], int]:
     """
 
     :param index: Index of the sample group organisms
@@ -51,12 +52,14 @@ def raref_nem(index: int, tmpdir: str, beta: float = 2.5, sm_degree: int = 10, f
     :return: Count of each partition and paremeters for the given sample index
     """
     samp = samples[index]
-    currtmpdir = tmpdir + "/" + str(index) + "/"
+    currtmpdir = tmpdir / f"{str(index)}"
+
     kmm = [3, 20] if krange is None else krange
 
     if kval < 3:
-        kval = ppp.evaluate_nb_partitions(samp, tmpdir + "/" + str(index) + "_eval", None, sm_degree, free_dispersion,
-                                          chunk_size, kmm, 0.05, False, 1, seed)
+        kval = ppp.evaluate_nb_partitions(organisms=samp, sm_degree=sm_degree, free_dispersion=free_dispersion,
+                                          chunk_size=chunk_size, krange=kmm, seed=seed,
+                                          tmpdir=tmpdir / f"{str(index)}_eval")
 
     if len(samp) <= chunk_size:  # all good, just write stuff.
         edges_weight, nb_fam = ppp.write_nem_input_files(tmpdir=currtmpdir, organisms=set(samp),
@@ -109,9 +112,11 @@ def raref_nem(index: int, tmpdir: str, beta: float = 2.5, sm_degree: int = 10, f
                     shuffled_orgs = shuffled_orgs[chunk_size:]
             # making arguments for all samples:
             for samp in org_samples:
-                edges_weight, nb_fam = ppp.write_nem_input_files(currtmpdir + "/" + str(cpt) + "/", samp,
+                if not currtmpdir.exists():
+                    mk_outdir(currtmpdir)
+                edges_weight, nb_fam = ppp.write_nem_input_files(currtmpdir / f"{str(cpt)}", samp,
                                                                  sm_degree=sm_degree)
-                validate_family(ppp.run_partitioning(currtmpdir + "/" + str(cpt) + "/", len(samp),
+                validate_family(ppp.run_partitioning(currtmpdir / f"{str(cpt)}", len(samp),
                                                      beta * (nb_fam / edges_weight), free_dispersion, kval=kval,
                                                      seed=seed, init="param_file"))
                 cpt += 1
@@ -136,7 +141,7 @@ def raref_nem(index: int, tmpdir: str, beta: float = 2.5, sm_degree: int = 10, f
     return counts, index
 
 
-def launch_raref_nem(args: tuple) -> (dict, int):
+def launch_raref_nem(args: Tuple[int, Path, float, int, bool, int, int, list, int]) -> Tuple[Tuple[Dict[str, int], int]]:
     """
     Launch raref_nem in multiprocessing
 
@@ -147,7 +152,7 @@ def launch_raref_nem(args: tuple) -> (dict, int):
     return raref_nem(*args)
 
 
-def draw_curve(output: str, data: list, max_sampling: int = 10):
+def draw_curve(output: Path, data: list, max_sampling: int = 10):
     """
     Draw the rarefaction curve and associated data
 
@@ -156,7 +161,7 @@ def draw_curve(output: str, data: list, max_sampling: int = 10):
     :param data:
     """
     logging.info("Drawing the rarefaction curve ...")
-    raref_name = output + "/rarefaction.csv"
+    raref_name = output/"rarefaction.csv"
     raref = open(raref_name, "w")
     raref.write(",".join(["nb_org", "persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory",
                           "soft_core", "soft_accessory", "pangenome", "K"]) + "\n")
@@ -176,7 +181,7 @@ def draw_curve(output: str, data: list, max_sampling: int = 10):
     annotations = []
     traces = []
     data_raref = read_csv(raref_name, index_col=False)
-    params_file = open(output + "/rarefaction_parameters" + ".csv", "w")
+    params_file = open(output/"rarefaction_parameters.csv", "w")
     params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error,IQR_area\n")
     for partition in ["persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory", "soft_core",
                       "soft_accessory", "pangenome"]:
@@ -321,11 +326,11 @@ def draw_curve(output: str, data: list, max_sampling: int = 10):
                        annotations=annotations,
                        plot_bgcolor='#ffffff')
     fig = go.Figure(data=traces, layout=layout)
-    out_plotly.plot(fig, filename=output + "/rarefaction_curve.html", auto_open=False)
+    out_plotly.plot(fig, filename=output.as_posix() + "/rarefaction_curve.html", auto_open=False)
     params_file.close()
 
 
-def make_rarefaction_curve(pangenome: Pangenome, output: str, tmpdir: str, beta: float = 2.5, depth: int = 30,
+def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = None, beta: float = 2.5, depth: int = 30,
                            min_sampling: int = 1, max_sampling: int = 100, sm_degree: int = 10,
                            free_dispersion: bool = False, chunk_size: int = 500, kval: int = -1, krange: list = None,
                            cpu: int = 1, seed: int = 42, kestimate: bool = False, soft_core: float = 0.95,
@@ -351,6 +356,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: str, tmpdir: str, beta:
     :param soft_core: Soft core threshold
     :param disable_bar: Disable progress bar
     """
+    tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     if krange is None:
         krange = [3, -1]
     ppp.pan = pangenome  # use the global from partition to store the pangenome, so that it is usable
@@ -363,7 +369,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: str, tmpdir: str, beta:
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
 
     tmpdir_obj = tempfile.TemporaryDirectory(dir=tmpdir)
-    tmpdir = tmpdir_obj.name
+    tmp_path = Path(tmpdir_obj.name)
 
     if float(len(pangenome.organisms)) < max_sampling:
         max_sampling = len(pangenome.organisms)
@@ -376,8 +382,9 @@ def make_rarefaction_curve(pangenome: Pangenome, output: str, tmpdir: str, beta:
             logging.info(f"Reuse the number of partitions {kval}")
         except KeyError:
             logging.info("Estimating the number of partitions...")
-            kval = ppp.evaluate_nb_partitions(set(pangenome.organisms), tmpdir, None, sm_degree, free_dispersion,
-                                              chunk_size, krange, 0.05, False, cpu, seed)
+            kval = ppp.evaluate_nb_partitions(organisms=set(pangenome.organisms), sm_degree=sm_degree,
+                                              free_dispersion=free_dispersion, chunk_size=chunk_size, krange=krange,
+                                              cpu=cpu, seed=seed, tmpdir=tmp_path)
             logging.info(f"The number of partitions has been evaluated at {kval}")
 
     logging.info("Extracting samples ...")
@@ -391,7 +398,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: str, tmpdir: str, beta:
     logging.info("Computing bitarrays for each family...")
     index_org = pangenome.compute_family_bitarrays()
     logging.info("Done computing bitarrays. Comparing them to get exact and soft core stats for "
-                             f"{len(all_samples)} samples...")
+                 f"{len(all_samples)} samples...")
     bar = tqdm(range(len(all_samples) * len(pangenome.gene_families)), unit="gene family", disable=disable_bar)
     for samp in all_samples:
         # make the sample's organism bitarray.
@@ -427,7 +434,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: str, tmpdir: str, beta:
 
     args = []
     for index, samp in enumerate(samples):
-        args.append((index, tmpdir, beta, sm_degree, free_dispersion, chunk_size, kval, krange, seed))
+        args.append((index, tmp_path, beta, sm_degree, free_dispersion, chunk_size, kval, krange, seed))
 
     with get_context('fork').Pool(processes=cpu) as p:
         # launch partitioning
@@ -486,7 +493,7 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("-b", "--beta", required=False, default=2.5, type=float,
@@ -501,9 +508,10 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
 
     optional.add_argument("-ms", "--max_degree_smoothing", required=False, default=10, type=float,
                           help="max. degree of the nodes to be included in the smoothing process.")
-    optional.add_argument('-o', '--output', required=False, type=str,
-                          default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
-                                                                      time.localtime()) + "_PID" + str(os.getpid()),
+    optional.add_argument('-o', '--output', required=False, type=Path,
+                          default=Path(
+                              f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
+                              f"_PID{str(os.getpid())}"),
                           help="Output directory")
     optional.add_argument("-fd", "--free_dispersion", required=False, default=False, action="store_true",
                           help="use if the dispersion around the centroid vector of each partition during must be free."
@@ -538,7 +546,7 @@ if __name__ == '__main__':
     common = main_parser.add_argument_group(title="Common argument")
     common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
                         help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
+    common.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                         help="directory for storing temporary files")
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
     common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",

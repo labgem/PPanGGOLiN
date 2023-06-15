@@ -8,10 +8,10 @@ from pathlib import Path
 import tables
 
 # local libraries
-from ppanggolin.formats import read_info, read_parameters
+from ppanggolin.formats import read_info, read_parameters, fix_partitioned
 
 
-def print_info(pangenome: str, status: bool = False, content: bool = False, parameters: bool = False):
+def print_info(pangenome: Path, status: bool = False, content: bool = False, parameters: bool = False):
     """
     Main function to return information about pangenome
 
@@ -20,6 +20,7 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
     :param content: Get pangenome content
     :param parameters: Get pangenome parameters
     """
+    fix_partitioned(pangenome)
     if status or content or parameters:
         h5f = tables.open_file(pangenome, "r+")
         if status:
@@ -30,16 +31,6 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
             print(f"gene families have their sequences : "
                   f"{'true' if status_group._v_attrs.geneFamilySequences else 'false'}")
             print(f"neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
-            if 'Partitionned' in status_group._v_attrs._f_list():
-                # Partitionned keep working with older version
-                h5f.close()
-                h5f = tables.open_file(pangenome, "a")
-                status_group = h5f.root.status
-                if status_group._v_attrs.Partitionned:
-                    status_group._v_attrs.Partitioned = True
-                else:
-                    status_group._v_attrs.Partitioned = False
-                del status_group._v_attrs.Partitionned
             if status_group._v_attrs.Partitioned:
                 print("pangenome partitioned : true")
             else:
@@ -55,7 +46,6 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
 
             if hasattr(status_group._v_attrs, "version"):
                 print(f"PPanGGOLiN version : {status_group._v_attrs.version}")
-
         if content:
             read_info(h5f)
         if parameters:

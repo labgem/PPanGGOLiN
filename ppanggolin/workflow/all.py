@@ -79,7 +79,7 @@ def launch(args: argparse.Namespace):
     graph_time = time.time() - start_graph
 
     start_part = time.time()
-    partition(pangenome, tmpdir=args.tmpdir, kval=args.nb_of_partitions, cpu=args.cpu,
+    partition(pangenome, kval=args.nb_of_partitions, cpu=args.cpu, tmpdir=args.tmpdir,
               disable_bar=args.disable_prog_bar)
     part_time = time.time() - start_part
 

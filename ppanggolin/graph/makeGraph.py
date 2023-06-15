@@ -4,6 +4,7 @@
 # default libraries
 import logging
 import argparse
+from pathlib import Path
 
 # installed libraries
 from tqdm import tqdm
@@ -146,7 +147,7 @@ def parser_graph(parser: argparse.ArgumentParser):
 
     :param parser: parser for align argument
     """
-    parser.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    parser.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
     parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
                         help="Positive Number: Remove families having a number of copy of gene in a single organism "
                              "above or equal to this threshold in at least one organism "
