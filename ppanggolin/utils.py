@@ -225,7 +225,7 @@ def mk_file_name(basename: str, output: Path, force: bool = False) -> Path:
     return filename
 
 
-def detect_filetype(filename):
+def detect_filetype(filename: Path) -> str:
     """
     Detects whether the current file is gff3, gbk/gbff, fasta or unknown.
     If unknown, it will raise an error
