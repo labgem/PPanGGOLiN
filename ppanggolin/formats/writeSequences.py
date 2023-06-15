@@ -404,7 +404,7 @@ def launch(args: argparse.Namespace):
     """
     if args.regions is not None and args.fasta is None and args.anno is None:
         raise Exception("The --regions options requires the use of --anno or --fasta "
-                        "(You need to provide the same file used to compute the pan)")
+                        "(You need to provide the same file used to compute the pangenome)")
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)

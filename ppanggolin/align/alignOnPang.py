@@ -233,7 +233,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
     :param disable_bar: disable progress bar
     :return:
     """
-    logging.getLogger().info("Writing RGP and spot information related to hits in the pan")
+    logging.getLogger().info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
     finfo = open(output/"info_input_seq.tsv", "w")

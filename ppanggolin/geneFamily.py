@@ -90,7 +90,7 @@ class GeneFamily:
         """Produces a bitarray representing the presence/absence of the family in the pangenome using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
-        :param index: The index computed by :func:`ppanggolin.pan.Pangenome.getIndex`
+        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
         :param partition: partition used to compute bitarray
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member

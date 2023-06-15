@@ -29,7 +29,7 @@ from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info
 import ppanggolin.nem.partition as ppp
 
-# import this way to use the global variable pan defined in ppanggolin.nem.partition
+# import this way to use the global variable pangenome defined in ppanggolin.nem.partition
 
 samples = []
 
@@ -353,7 +353,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: str, tmpdir: str, beta:
     """
     if krange is None:
         krange = [3, -1]
-    ppp.pan = pangenome  # use the global from partition to store the pan, so that it is usable
+    ppp.pan = pangenome  # use the global from partition to store the pangenome, so that it is usable
 
     try:
         krange[0] = ppp.pan.parameters["partition"]["K"] if krange[0] < 0 else krange[0]

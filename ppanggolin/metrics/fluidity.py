@@ -15,7 +15,7 @@ from ppanggolin.formats import check_pangenome_info
 
 
 def gen_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
-    """ Compute the genomes' fluidity from the pan
+    """ Compute the genomes' fluidity from the pangenome
 
     :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :param disable_bar: Disable the progress bar
@@ -24,7 +24,7 @@ def gen_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
     """
 
     # check statuses and load info
-    logging.getLogger().info("Check information in pan")
+    logging.getLogger().info("Check information in pangenome")
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     fluidity_dict = {'all': None, 'shell': None, 'cloud': None, 'accessory': None}
     for subset in fluidity_dict.keys():
@@ -66,7 +66,7 @@ def nb_fam_per_org(pangenome: Pangenome, disable_bar: bool = False) -> dict:
 # TODO Function to compute mash distance between genome for normalization
 
 def fam_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
-    """ Compute the family fluidity from the pan
+    """ Compute the family fluidity from the pangenome
 
     :param pangenome: pangenome which will be used to compute the genomes' fluidity
     :param disable_bar: Disable the progress bar
@@ -74,7 +74,7 @@ def fam_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
     :return: family fluidity value from the pangenome for each partition
     """
     # check statuses and load info
-    logging.getLogger().info("Check information in pan")
+    logging.getLogger().info("Check information in pangenome")
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     fluidity_dict = {'all': None, 'shell': None, 'cloud': None, 'accessory': None}
     for subset in fluidity_dict.keys():

@@ -4,6 +4,7 @@
 # default libraries
 import logging
 from collections import defaultdict
+from pathlib import Path
 
 # installed libraries
 import numpy
@@ -13,13 +14,14 @@ from scipy.cluster.hierarchy import linkage, dendrogram
 import plotly.graph_objs as go
 import plotly.offline as out_plotly
 import colorlover as cl
+
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import jaccard_similarities
 
 
-def draw_tile_plot(pangenome: Pangenome, output: str, nocloud: bool = False, disable_bar: bool = False):
+def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, disable_bar: bool = False):
     """
     Draw a tile plot from a partitioned pangenome
 
@@ -49,7 +51,7 @@ def draw_tile_plot(pangenome: Pangenome, output: str, nocloud: bool = False, dis
     index2org = {}
     for org, index in org_index.items():
         index2org[index] = org
-    colors = {"pan": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
+    colors = {"pangenome": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
               "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
               "undefined": "#828282"}
 
@@ -171,5 +173,5 @@ def draw_tile_plot(pangenome: Pangenome, output: str, nocloud: bool = False, dis
                        shapes=shapes,
                        plot_bgcolor='#ffffff')
     logging.getLogger().info("Drawing the figure itself...")
-    out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename=output + "/tile_plot.html", auto_open=False)
-    logging.getLogger().info(f"Done with the tile plot : '{output + '/tile_plot.html'}' ")
+    out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename=output/"tile_plot.html", auto_open=False)
+    logging.getLogger().info(f"Done with the tile plot : '{output.as_posix() + '/tile_plot.html'}' ")

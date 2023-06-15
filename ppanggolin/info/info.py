@@ -101,7 +101,7 @@ def parser_info(parser: argparse.ArgumentParser):
     options.add_argument("--parameters", required=False, action="store_true",
                          help="Shows the parameters used (or computed) for each step of the pangenome generation")
     options.add_argument("--content", required=False, action="store_true",
-                         help="Shows detailled informations about the pan's content")
+                         help="Shows detailled informations about the pangenome's content")
     options.add_argument("--status", required=False, action="store_true",
                          help="Shows informations about the statuses of the different elements of the pangenome "
                               "(what has been computed, or not)")

@@ -81,15 +81,15 @@ def write_metrics(pangenome: Pangenome, metrics_dict: dict, no_print_info: bool 
         info_group = h5f.root.info
         logging.getLogger().debug("H5f open")
         if 'genomes_fluidity' in metrics_dict.keys():
-            logging.getLogger().info("Writing genome fluidity in pan")
+            logging.getLogger().info("Writing genome fluidity in pangenome")
             info_group._v_attrs.genomes_fluidity = metrics_dict['genomes_fluidity']
 
         if 'families_fluidity' in metrics_dict.keys():
-            logging.getLogger().info("Writing family fluidity in pan")
+            logging.getLogger().info("Writing family fluidity in pangenome")
             info_group._v_attrs.families_fluidity = metrics_dict['families_fluidity']
 
         if 'info_modules' in metrics_dict.keys():
-            logging.getLogger().info("Writing modules information in pan")
+            logging.getLogger().info("Writing modules information in pangenome")
             write_info_modules(pangenome, h5f)
 
         # After all metrics was written

@@ -191,7 +191,7 @@ def predict_hotspots(pangenome: Pangenome, output: str, spot_graph: bool = False
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    logging.getLogger().info("Detecting hotspots in the pan...")
+    logging.getLogger().info("Detecting hotspots in the pangenome...")
 
     # predict spots
     spots = make_spot_graph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size,

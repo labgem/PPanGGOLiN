@@ -90,13 +90,13 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
 def compute_gene_context_graph(families: dict, t: int = 4, disable_bar: bool = False) -> nx.Graph:
     """
-    Construct the graph of gene contexts between families of the pan
+    Construct the graph of gene contexts between families of the pangenome
 
     :param families: Gene families of interest
     :param t: transitive value
     :param disable_bar: Prevents progress bar printing
 
-    :return: Graph of gene contexts between interesting gene families of the pan
+    :return: Graph of gene contexts between interesting gene families of the pangenome
     """
 
     g = nx.Graph()
@@ -114,7 +114,7 @@ def _compute_gene_context_graph(g: nx.Graph, env_gene: Gene, contig: Contig, pos
     """
     Compute graph of gene contexts between one gene and the other part of the contig
 
-    :param: Graph of gene contexts between interesting gene families of the pan
+    :param: Graph of gene contexts between interesting gene families of the pangenome
     :param env_gene: Gene of the current position
     :param contig: Current contig to search a gene context
     :param pos_r: Gene to search a gene context
@@ -166,7 +166,7 @@ def compute_gene_context(g: nx.Graph, jaccard: float = 0.85) -> set:
     """
     Compute the gene contexts in the graph
 
-    :param g: Graph of gene contexts between interesting gene families of the pan
+    :param g: Graph of gene contexts between interesting gene families of the pangenome
     :param jaccard: Jaccard index
 
     :return: Set of gene contexts find in graph

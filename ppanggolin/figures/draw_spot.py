@@ -521,7 +521,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     # generate the figure and add some tools to it
     wheel_zoom = WheelZoomTool()
     fig = figure(title="spot graphic", plot_width=1600, plot_height=600,
-                 tools=["pan", "box_zoom", "reset", "save", wheel_zoom, "ywheel_zoom", "xwheel_zoom"])
+                 tools=["pangenome", "box_zoom", "reset", "save", wheel_zoom, "ywheel_zoom", "xwheel_zoom"])
     fig.axis.visible = True
     fig.toolbar.active_scroll = wheel_zoom
 
@@ -626,7 +626,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
     logging.getLogger().info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 
-def draw_spots(pangenome: Pangenome, output: str, spot_list: str, disable_bar: bool = False):
+def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: bool = False):
     """
     Main function to draw spot
 

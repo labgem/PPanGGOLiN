@@ -411,7 +411,7 @@ def chose_gene_identifiers(pangenome) -> bool:
         if len(local_to_gene_id) != len(gene_id_2_local):
             # then, there are non unique local identifiers
             return False
-    # if we reach this line, local identifiers are unique within the pan
+    # if we reach this line, local identifiers are unique within the pangenome
     for gene in pangenome.genes:
         gene.ID = gene.local_identifier  # Erase ppanggolin generated gene ids and replace with local identifiers
         gene.local_identifier = ""  # this is now useless, setting it to default value
