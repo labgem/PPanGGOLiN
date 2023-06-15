@@ -4,7 +4,7 @@
 # default libraries
 import logging
 import argparse
-
+from pathlib import Path
 # installed libraries
 from tqdm import tqdm
 
@@ -163,6 +163,7 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
 
     :return:
     """
+
     def max_index_node(lst):
         """gets the last node with the highest score from a list of matriceNode"""
         if isinstance(lst, list):
@@ -209,7 +210,7 @@ def naming_scheme(pangenome: Pangenome):
             contigsids.add(contig.name)
             if oldlen == len(contigsids):
                 logging.warning("You have contigs with identical identifiers in your assemblies. "
-                                            "identifiers will be supplemented with your provided organism names.")
+                                "identifiers will be supplemented with your provided organism names.")
                 return "organism"
     return "contig"
 
@@ -273,7 +274,7 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
     pangenome = Pangenome()
-    pangenome.add_file(args.pan)
+    pangenome.add_file(args.pangenome)
     predict_rgp(pangenome, persistent_penalty=args.persistent_penalty, variable_gain=args.variable_gain,
                 min_length=args.min_length, min_score=args.min_score, dup_margin=args.dup_margin, force=args.force,
                 disable_bar=args.disable_prog_bar)
@@ -301,7 +302,7 @@ def parser_rgp(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--persistent_penalty', required=False, type=int, default=3,
