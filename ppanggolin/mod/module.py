@@ -5,7 +5,6 @@
 import logging
 import argparse
 import time
-import tempfile
 from pathlib import Path
 
 # installed libraries
@@ -88,9 +87,8 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     return modules
 
 
-def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05,
-                    size: int = 3, min_presence: int = 2, transitive: int = 4, jaccard: float = 0.85,
-                    force: bool = False, disable_bar: bool = False):
+def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 3, min_presence: int = 2,
+                    transitive: int = 4, jaccard: float = 0.85, force: bool = False, disable_bar: bool = False):
     """
     Main function to predict module
 
@@ -175,8 +173,7 @@ def parser_module(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
-
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--size", required=False, type=int, default=3,
                           help="Minimal number of gene family in a module")
@@ -194,26 +191,18 @@ def parser_module(parser: argparse.ArgumentParser):
                           help="minimum jaccard similarity used to filter edges between gene families. "
                                "Increasing it will improve precision but lower sensitivity a lot.")
 
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_module(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
-                        help="directory for storing temporary files")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

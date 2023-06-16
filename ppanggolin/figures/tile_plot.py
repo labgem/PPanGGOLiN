@@ -173,5 +173,6 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
                        shapes=shapes,
                        plot_bgcolor='#ffffff')
     logging.info("Drawing the figure itself...")
-    out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename=output/"tile_plot.html", auto_open=False)
+    out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename=output.as_posix() + "/tile_plot.html",
+                    auto_open=False)
     logging.info(f"Done with the tile plot : '{output.as_posix() + '/tile_plot.html'}' ")

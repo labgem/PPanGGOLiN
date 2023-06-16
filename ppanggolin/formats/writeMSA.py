@@ -166,7 +166,7 @@ def launch_mafft(fname: Path, output: Path, fam_name: str):
     :param output: directory to save alignment
     :param fam_name: Name of the gene family
     """
-    outname = output/f"{fam_name}.aln"
+    outname = output / f"{fam_name}.aln"
     cmd = ["mafft", "--thread", "1", fname.absolute().as_posix()]
     logging.debug("command: " + " ".join(cmd))
     subprocess.run(cmd, stdout=open(outname, "w"), stderr=subprocess.DEVNULL, check=True)
@@ -318,8 +318,8 @@ def write_msa_files(pangenome: Pangenome, output: Path, cpu: int = 1, partition:
     if 'translation_table' in pangenome.parameters["cluster"]:
         if pangenome.parameters["cluster"]["translation_table"] != translation_table:
             logging.warning("The translation table used during clustering "
-                                        f"('{pangenome.parameters['cluster']['translation_table']}') "
-                                        f"is different than the one provided now ('{translation_table}')")
+                            f"('{pangenome.parameters['cluster']['translation_table']}') "
+                            f"is different than the one provided now ('{translation_table}')")
     code = translation_table
 
     compute_msa(families, outdir, cpu=cpu, tmpdir=tmpdir, source=source, use_gene_id=use_gene_id, code=code,
@@ -372,7 +372,7 @@ def parser_msa(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=Path,
                           help="Output directory where the file(s) will be written")
 
@@ -400,27 +400,19 @@ def parser_msa(parser: argparse.ArgumentParser):
                                " (organism names are used by default)")
     optional.add_argument("--translation_table", required=False, default=11, type=int,
                           help="Translation table (genetic code) to use.")
-
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+                          help="directory for storing temporary files")
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_msa(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
-                        help="directory for storing temporary files")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

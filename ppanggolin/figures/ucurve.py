@@ -75,5 +75,5 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
                        plot_bgcolor='#ffffff')
 
     fig = go.Figure(data=data_plot, layout=layout)
-    out_plotly.plot(fig, filename=output/"Ushaped_plot.html", auto_open=False)
+    out_plotly.plot(fig, filename=output.as_posix() + "/Ushaped_plot.html", auto_open=False)
     logging.info(f"Done drawing the U-shaped curve : '{output.as_posix() + '/Ushaped_plot.html'}'")

@@ -521,7 +521,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     # generate the figure and add some tools to it
     wheel_zoom = WheelZoomTool()
     fig = figure(title="spot graphic", plot_width=1600, plot_height=600,
-                 tools=["pangenome", "box_zoom", "reset", "save", wheel_zoom, "ywheel_zoom", "xwheel_zoom"])
+                 tools=["pan", "box_zoom", "reset", "save", wheel_zoom, "ywheel_zoom", "xwheel_zoom"])
     fig.axis.visible = True
     fig.toolbar.active_scroll = wheel_zoom
 
@@ -632,7 +632,7 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
 
     :param pangenome: Pangenome with spot predicted
     :param output: Path to output directory
-    :param spot_list: List of spot to draw separate by ','
+    :param spot_list: List of spot to draw
     :param disable_bar: Allow to disable progress bar
     """
     # check that the pangenome has spots
@@ -646,15 +646,22 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
                          need_rgp=True, need_spots=True, need_modules=need_mod, disable_bar=disable_bar)
 
-    curated_spot_list = ['spot_' + str(s) if 'spot' not in s else str(s) for s in spot_list.split(',')]
-
-    if spot_list == 'all' or any(x == 'all' for x in curated_spot_list):
+    if spot_list == 'all' or any(x == 'all' for x in spot_list):
+        logging.debug("all is found in spot list, all spot are drawn.")
         selected_spots = [s for s in pangenome.spots if len(s.get_uniq_ordered_set()) > 1]
     else:
+        curated_spot_list = {'spot_' + str(s) if not s.startswith("spot_") else str(s) for s in spot_list}
+        logging.debug(f'Required spots to draw: {curated_spot_list}')
         selected_spots = [s for s in pangenome.spots if "spot_" + str(s.ID) in curated_spot_list]
+        if len(selected_spots) != len(curated_spot_list):
+            existing_spots = {"spot_" + str(s.ID) for s in pangenome.spots}
+            required_non_existing_spots = curated_spot_list - existing_spots
+            logging.warning(
+                f'{len(required_non_existing_spots)} required spots to draw do not exist: {" ".join(required_non_existing_spots)} ')
+
     if len(selected_spots) < 10:
         logging.info(f"Drawing the following spots: "
-                                 f"{','.join(['spot_' + str(s.ID) for s in selected_spots])}")
+                     f"{','.join(['spot_' + str(s.ID) for s in selected_spots])}")
     else:
         logging.info(f"Drawing {len(selected_spots)} spots")
 

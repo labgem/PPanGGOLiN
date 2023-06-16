@@ -3,10 +3,11 @@
 
 # default libraries
 import argparse
+import logging
 import tempfile
 import time
-import logging
 from pathlib import Path
+
 # installed libraries
 from tqdm import tqdm
 import networkx as nx
@@ -53,7 +54,8 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
     if sequences is not None:
         # Alignment of sequences on pangenome families
         new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag, identity, coverage)
+        tmp_path = Path(new_tmpdir.name)
+        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, tmp_path, cpu, no_defrag, identity, coverage)
         project_partition(seq2pan, seq_set, output)
         new_tmpdir.cleanup()
         for k, v in seq2pan.items():
@@ -269,8 +271,8 @@ def parser_context(parser: argparse.ArgumentParser):
 
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome.h5 file")
-    required.add_argument('-o', '--output', required=True, type=Path,
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome.h5 file")
+    required.add_argument('-o', '--output', required=False, type=Path,
                           help="Output directory where the file(s) will be written")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
     onereq.add_argument('-S', '--sequences', required=False, type=Path,
@@ -293,27 +295,20 @@ def parser_context(parser: argparse.ArgumentParser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+                          help="directory for storing temporary files")
 
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_context(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
-                        help="directory for storing temporary files")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

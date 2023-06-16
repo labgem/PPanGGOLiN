@@ -20,7 +20,7 @@ from ppanggolin.region import Spot
 from ppanggolin.figures.draw_spot import draw_selected_spots, subgraph
 
 
-def createdb(file_obj: TextIOWrapper, tmpdir: tempfile.TemporaryDirectory) -> IO:
+def createdb(file_obj: TextIOWrapper, tmpdir: Path) -> IO:
     """
     Create a MMseqs2 sequence database with the given fasta file
 
@@ -29,7 +29,7 @@ def createdb(file_obj: TextIOWrapper, tmpdir: tempfile.TemporaryDirectory) -> IO
 
     :return: DB file
     """
-    seqdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
+    seqdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir)
     cmd = ["mmseqs", "createdb", file_obj.name, seqdb.name, '--dbtype', '0']
     logging.debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
@@ -37,7 +37,7 @@ def createdb(file_obj: TextIOWrapper, tmpdir: tempfile.TemporaryDirectory) -> IO
 
 
 def align_seq_to_pang(pang_file: IO, seq_file: TextIOWrapper, output: Path,
-                      tmpdir: tempfile.TemporaryDirectory, cpu: int = 1, no_defrag: bool = False,
+                      tmpdir: Path, cpu: int = 1, no_defrag: bool = False,
                       identity: float = 0.8, coverage: float = 0.8) -> Path:
     """
     Align pangenome sequences against fasta sequence
@@ -59,14 +59,15 @@ def align_seq_to_pang(pang_file: IO, seq_file: TextIOWrapper, output: Path,
     cov_mode = "0"  # coverage of query and target
     if not no_defrag:
         cov_mode = "1"  # coverage of target
-    aln_db = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
-    cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
-           "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)]
+    aln_db = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir)
+    cmd = list(map(str, ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir, "-a",
+                         "--min-seq-id", identity, "-c", coverage, "--cov-mode", cov_mode, "--threads", cpu]))
     logging.debug(" ".join(cmd))
     logging.info("Aligning sequences to cluster representatives...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    outfile = output.absolute()/"input_to_pangenome_associations.blast-tab_tmp"  # write a tmp file of the results
-    cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile.as_posix(), "--format-mode", "2"]
+    outfile = output.absolute() / "input_to_pangenome_associations.blast-tab_tmp"  # write a tmp file of the results
+    cmd = list(map(str, ["mmseqs", "convertalis", seq_db.name, pang_db.name,
+                         aln_db.name, outfile, "--format-mode", "2"]))
     logging.debug(" ".join(cmd))
     logging.info("Extracting alignments...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
@@ -139,7 +140,7 @@ def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], out
     :return: Path to file which contain partition projection
     """
 
-    partition_proj = output.absolute()/"sequences_partition_projection.tsv"
+    partition_proj = output.absolute() / "sequences_partition_projection.tsv"
     with open(partition_proj, "w") as partProjFile:
         for key, pang_fam in seq_to_pang.items():
             partProjFile.write(key + "\t" + pang_fam.named_partition + "\n")
@@ -167,8 +168,8 @@ def get_fam_to_rgp(pangenome, multigenics: set) -> dict:
     return fam2rgp
 
 
-def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) -> Tuple[Dict[str, List[Spot]],
-                                                                                 Dict[str, List[Spot]]]:
+def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) \
+        -> Tuple[Dict[str, List[Spot]], Dict[str, List[Spot]]]:
     """
     Reads a pangenome object to link families and spots and indicate where each family is.
 
@@ -218,7 +219,7 @@ def draw_spot_gexf(spots: set, output: Path, multigenics: set, fam_to_mod: dict,
     :param set_size:
     """
     for spot in spots:
-        fname = output/f"spot_{str(spot.ID)}.gexf"
+        fname = output / f"spot_{str(spot.ID)}.gexf"
         subgraph(spot, fname, set_size=set_size, multigenics=multigenics, fam_to_mod=fam_to_mod)
 
 
@@ -236,7 +237,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
     logging.info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    finfo = open(output/"info_input_seq.tsv", "w")
+    finfo = open(output / "info_input_seq.tsv", "w")
     finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
     fam2rgp = get_fam_to_rgp(pangenome, multigenics)
     fam2spot, fam2border = get_fam_to_spot(pangenome, multigenics)
@@ -254,7 +255,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
             if len(spot.get_uniq_ordered_set()) > 1:
                 drawn_spots.add(spot)
         logging.info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
-                                 f"related to hits of the input sequences...")
+                     f"related to hits of the input sequences...")
         draw_selected_spots(drawn_spots, pangenome, output, pangenome.parameters["spots"]["overlapping_match"],
                             pangenome.parameters["spots"]["exact_match"], pangenome.parameters["spots"]["set_size"],
                             disable_bar=disable_bar)
@@ -268,17 +269,16 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
         draw_spot_gexf(drawn_spots, output, multigenics=multigenics, fam_to_mod=fam2mod)
 
     logging.info(f"File listing RGP and spots where sequences of interest are located : "
-                             f"{output/'info_input_seq.tsv'}")
+                 f"{output / 'info_input_seq.tsv'}")
 
 
-def get_seq2pang(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: tempfile.TemporaryDirectory,
-                 cpu: int = 1, no_defrag: bool = False, identity: float = 0.8,
-                 coverage: float = 0.8) -> Tuple[set, str, dict]:
+def get_seq2pang(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path, cpu: int = 1,
+                 no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8) -> Tuple[set, str, dict]:
     """
     Assign a pangenome gene family to the input sequences.
 
     :param pangenome: Pangenome with gene families to align with the given input sequences
-    :param sequence_file: Sequences in a .fasta file to align with the given Pangenome
+    :param sequence_file: Path to sequences in a .fasta file to align with the given Pangenome
     :param output: Path of the output directory
     :param tmpdir: Temporary directory
     :param cpu: number of CPU cores to use
@@ -288,7 +288,7 @@ def get_seq2pang(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir
 
     :return: sequence set, blast-tab result file string, and sequences aligned with families
     """
-    tmp_pang_file = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
+    tmp_pang_file = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir)
 
     write_gene_fam_sequences(pangenome, tmp_pang_file, add="ppanggolin_")
 
@@ -303,25 +303,26 @@ def get_seq2pang(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir
     return seq_set, align_file, seq2pang
 
 
-def align(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path, identity: float = 0.8,
+def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: float = 0.8,
           coverage: float = 0.8, no_defrag: bool = False, cpu: int = 1, getinfo: bool = False,
-          draw_related: bool = False, disable_bar: bool = False):
+          draw_related: bool = False, tmpdir: Path = None, disable_bar: bool = False):
     """
     Main function to align pangenome sequences with fasta file using MMSeqs2
 
     :param pangenome: Pangenome with gene families to align with the given input sequences
-    :param sequence_file: Sequences in a .fasta file to align with the given Pangenome
+    :param sequence_file: Path to sequences in a .fasta file to align with the given Pangenome
     :param output: Path of the output directory
-    :param tmpdir: Temporary directory
     :param identity: minimal identity threshold for the alignment
     :param coverage: minimal coverage threshold for the alignment
     :param no_defrag: do not use the defrag workflow if true
     :param cpu: number of CPU cores to use
     :param getinfo: Extract info related to the best hit of each query, such as the RGP it is in, or the spots.
     :param draw_related: Draw figures and graphs in a gexf format of spots associated to the input sequences
+    :param tmpdir: Temporary directory
     :param disable_bar: Disable the progresse bar
     """
 
+    tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
                         "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
@@ -338,9 +339,10 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path,
     else:
         check_pangenome_info(pangenome, need_families=True, disable_bar=disable_bar)
 
+    # TODO add possibility to keep_tmp
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-
-    seq_set, align_file, seq2pang = get_seq2pang(pangenome, sequence_file, output, new_tmpdir, cpu, no_defrag, identity,
+    tmp_path = Path(new_tmpdir.name)
+    seq_set, align_file, seq2pang = get_seq2pang(pangenome, sequence_file, output, tmp_path, cpu, no_defrag, identity,
                                                  coverage)
 
     if getinfo or draw_related:  # TODO Add getinfo to function and remove if
@@ -388,10 +390,10 @@ def parser_align(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-S', '--sequences', required=True, type=Path,
+    required.add_argument('-S', '--sequences', required=False, type=Path,
                           help="sequences (nucleotides or amino acids) to align on the pangenome gene families")
 
-    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=Path,
                           help="Output directory where the file(s) will be written")
 
@@ -415,27 +417,19 @@ def parser_align(parser: argparse.ArgumentParser):
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
                                "(Default behavior is to ignore them)")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+                          help="directory for storing temporary files")
 
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import check_log, set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
-
     parser_align(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
-                        help="directory for storing temporary files")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

@@ -3,9 +3,9 @@
 
 # default libraries
 import argparse
+import logging
 from multiprocessing import get_context
 from collections import Counter, defaultdict
-import logging
 from pathlib import Path
 from typing import TextIO
 import pkg_resources
@@ -304,9 +304,7 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
     txt += "light gexf file for the pangenome graph..." if light else "gexf file for the pangenome graph..."
 
     logging.info(txt)
-    outname = output / "pangenomeGraph"
-    outname += "_light" if light else ""
-    outname += ".gexf"
+    outname = output / f"pangenomeGraph{'_light' if light else ''}.gexf"
     with write_compressed_or_not(outname, compress) as gexf:
         write_gexf_header(gexf, light)
         write_gexf_nodes(gexf, light)
@@ -641,7 +639,7 @@ def write_gene_families_tsv(output: Path, compress: bool = False):
                 tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier,
                                      "F" if gene.is_fragment else ""]) + "\n")
     logging.info("Done writing the file providing the association between genes and "
-                             f"gene families : '{outname}'")
+                 f"gene families : '{outname}'")
 
 
 def write_regions(output: Path, compress: bool = False):
@@ -880,16 +878,14 @@ def write_rgp_modules(output: Path, compress: bool = False):
                     f"{','.join([reg.name for reg in regions])}\n")
     lists.close()
 
-    logging.info(
-        f"RGP and associated modules are listed in : {output.as_posix() + '/modules_RGP_lists.tsv'}")
+    logging.info(f"RGP and associated modules are listed in : {output.as_posix() + '/modules_RGP_lists.tsv'}")
 
 
 def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core: float = 0.95,
-                     dup_margin: float = 0.05,
-                     csv: bool = False, gene_pa: bool = False, gexf: bool = False, light_gexf: bool = False,
-                     projection: bool = False, stats: bool = False, json: bool = False, partitions: bool = False,
-                     regions: bool = False, families_tsv: bool = False, spots: bool = False, borders: bool = False,
-                     modules: bool = False, spot_modules: bool = False, compress: bool = False,
+                     dup_margin: float = 0.05, csv: bool = False, gene_pa: bool = False, gexf: bool = False,
+                     light_gexf: bool = False, projection: bool = False, stats: bool = False, json: bool = False,
+                     partitions: bool = False, regions: bool = False, families_tsv: bool = False, spots: bool = False,
+                     borders: bool = False, modules: bool = False, spot_modules: bool = False, compress: bool = False,
                      disable_bar: bool = False):
     """
     Main function to write flat files from pangenome
@@ -1032,10 +1028,11 @@ def parser_flat(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     required.add_argument('-o', '--output', required=True, type=Path,
                           help="Output directory where the file(s) will be written")
     optional = parser.add_argument_group(title="Optional arguments")
+
     optional.add_argument("--soft_core", required=False, type=restricted_float, default=0.95,
                           help="Soft core threshold to use")
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
@@ -1071,25 +1068,18 @@ def parser_flat(parser: argparse.ArgumentParser):
                           help="Write a tsv file providing the association between genes and gene families")
     optional.add_argument("--spot_modules", required=False, action="store_true",
                           help="writes 3 files comparing the presence of modules within spots")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_flat(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

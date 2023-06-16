@@ -156,12 +156,11 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
     return gene_objs
 
 
-def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filter: int = 1) -> (dict, int):
+def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> (dict, int):
     """ Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
 
     :param org: Organism corresponding to fasta file
     :param fna_file: Input fasta file with sequences or list of each line as sequence
-    :param contig_filter: Filter the contig by size
 
     :return: Dictionnary with contig_name as keys and contig sequence in values
     """
@@ -172,14 +171,14 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filte
         contig = None
         for line in fna_file:
             if line.startswith('>'):
-                if len(contig_seq) >= contig_filter:
+                if len(contig_seq) >= 1:  # contig filter = 1
                     contigs[contig.name] = contig_seq.upper()
                     all_contig_len += len(contig_seq)
                 contig_seq = ""
                 contig = org.get_contig(line.split()[0][1:])
             else:
                 contig_seq += line.strip()
-        if len(contig_seq) >= contig_filter:  # processing the last contig
+        if len(contig_seq) >= 1:  # processing the last contig
             contigs[contig.name] = contig_seq.upper()
             all_contig_len += len(contig_seq)
     except AttributeError as e:
@@ -294,7 +293,7 @@ def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
 
 def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: str,
                       code: int = 11, norna: bool = False, kingdom: str = "bacteria",
-                      overlap: bool = True, contig_filter: int = 1, procedure: str = None) -> Organism:
+                      overlap: bool = True, procedure: str = None) -> Organism:
     """
     Function to annotate a single organism
 
@@ -306,7 +305,6 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
     :param norna: Use to avoid annotating RNA features.
     :param tmpdir: Path to temporary directory
     :param overlap: Use to not remove genes overlapping with RNA features
-    :param contig_filter: Filter the contig by size
     :param procedure: prodigal procedure used
 
     :return: Complete organism object for pangenome
@@ -315,7 +313,7 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
 
     fasta_file = read_compressed_or_not(file_name)
 
-    contig_sequences, all_contig_len = read_fasta(org, fasta_file, contig_filter)
+    contig_sequences, all_contig_len = read_fasta(org, fasta_file)
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
     if procedure is None:  # prodigal procedure is not force by user
