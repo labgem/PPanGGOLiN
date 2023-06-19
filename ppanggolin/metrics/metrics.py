@@ -79,17 +79,17 @@ def write_metrics(pangenome: Pangenome, metrics_dict: dict, no_print_info: bool 
     """
     with tables.open_file(pangenome.file, "a") as h5f:
         info_group = h5f.root.info
-        logging.debug("H5f open")
+        logging.getLogger("PPanGGOLiN").debug("H5f open")
         if 'genomes_fluidity' in metrics_dict.keys():
-            logging.info("Writing genome fluidity in pangenome")
+            logging.getLogger("PPanGGOLiN").info("Writing genome fluidity in pangenome")
             info_group._v_attrs.genomes_fluidity = metrics_dict['genomes_fluidity']
 
         if 'families_fluidity' in metrics_dict.keys():
-            logging.info("Writing family fluidity in pangenome")
+            logging.getLogger("PPanGGOLiN").info("Writing family fluidity in pangenome")
             info_group._v_attrs.families_fluidity = metrics_dict['families_fluidity']
 
         if 'info_modules' in metrics_dict.keys():
-            logging.info("Writing modules information in pangenome")
+            logging.getLogger("PPanGGOLiN").info("Writing modules information in pangenome")
             write_info_modules(pangenome, h5f)
 
         # After all metrics was written
@@ -115,12 +115,12 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
 
-    logging.debug("Check if one of the metrics was already compute")
+    logging.getLogger("PPanGGOLiN").debug("Check if one of the metrics was already compute")
     if not args.force:
         check_metric(pangenome, **args_dict)
-    logging.info("Metrics computation begin")
+    logging.getLogger("PPanGGOLiN").info("Metrics computation begin")
     metrics_dictionary = compute_metrics(pangenome, disable_bar=args.disable_prog_bar, **args_dict)
-    logging.info("Metrics computation done")
+    logging.getLogger("PPanGGOLiN").info("Metrics computation done")
 
     write_metrics(pangenome, metrics_dictionary, no_print_info=args.no_print_info)
 

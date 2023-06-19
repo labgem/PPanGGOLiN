@@ -116,11 +116,11 @@ def make_spot_graph(rgps: list, multigenics: set, output: Path, spot_graph: bool
         else:
             used += 1
             add_new_node(graph_spot, rgp, border)
-    logging.info(f"{lost} RGPs were not used as they are on a contig border (or have less than {set_size} "
+    logging.getLogger("PPanGGOLiN").info(f"{lost} RGPs were not used as they are on a contig border (or have less than {set_size} "
                              f"persistent gene families until the contig border)")
-    logging.info(f"{used} RGPs are being used to predict spots of insertion")
+    logging.getLogger("PPanGGOLiN").info(f"{used} RGPs are being used to predict spots of insertion")
     node_list = list(graph_spot.nodes)
-    logging.info(f"{len(node_list)} number of different pairs of flanking gene families")
+    logging.getLogger("PPanGGOLiN").info(f"{len(node_list)} number of different pairs of flanking gene families")
     for i, nodei in enumerate(node_list[:-1]):
         for nodej in node_list[i + 1:]:
             node_obj_i = graph_spot.nodes[nodei]
@@ -189,19 +189,19 @@ def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = Fals
                          need_rgp=True, disable_bar=disable_bar)
 
     # get multigenic gene families
-    logging.info("Detecting multigenic families...")
+    logging.getLogger("PPanGGOLiN").info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    logging.info("Detecting hotspots in the pangenome...")
+    logging.getLogger("PPanGGOLiN").info("Detecting hotspots in the pangenome...")
 
     # predict spots
     spots = make_spot_graph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size,
                             exact_match)
 
     if len(spots) == 0:
-        logging.warning("No spots were detected.")
+        logging.getLogger("PPanGGOLiN").warning("No spots were detected.")
     else:
-        logging.info(f"{len(spots)} spots were detected")
+        logging.getLogger("PPanGGOLiN").info(f"{len(spots)} spots were detected")
 
     pangenome.add_spots(spots)
     pangenome.status["spots"] = "Computed"

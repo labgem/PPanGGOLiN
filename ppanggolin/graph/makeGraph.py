@@ -85,7 +85,7 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
     if remove_copy_number > 0:
         remove_high_copy_number(pangenome, remove_copy_number)
 
-    logging.info("Computing the neighbors graph...")
+    logging.getLogger("PPanGGOLiN").info("Computing the neighbors graph...")
     bar = tqdm(pangenome.organisms, total=len(pangenome.organisms), unit="organism", disable=disable_bar)
     for org in bar:
         bar.set_description(f"Processing {org.name}")
@@ -106,7 +106,7 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
             if prev is not None and contig.is_circular and len(contig.genes) > 0:
                 # if prev is None, the contig is entirely made of duplicated genes, so no edges are added
                 pangenome.add_edge(contig.genes[0], prev)
-    logging.info("Done making the neighbors graph.")
+    logging.getLogger("PPanGGOLiN").info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"
 
     pangenome.parameters["graph"] = {}

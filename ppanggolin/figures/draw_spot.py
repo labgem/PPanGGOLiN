@@ -564,7 +564,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
     :param disable_bar: Allow preventing bar progress print
     """
 
-    logging.info("Ordering genes among regions, and drawing spots...")
+    logging.getLogger("PPanGGOLiN").info("Ordering genes among regions, and drawing spots...")
 
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
@@ -623,7 +623,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
         draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname.absolute().as_posix())
         subgraph(spot, fname.absolute().as_posix() + ".gexf", set_size=set_size,
                  multigenics=multigenics, fam_to_mod=fam2mod)
-    logging.info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
+    logging.getLogger("PPanGGOLiN").info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 
 def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: bool = False):
@@ -647,23 +647,23 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
                          need_rgp=True, need_spots=True, need_modules=need_mod, disable_bar=disable_bar)
 
     if spot_list == 'all' or any(x == 'all' for x in spot_list):
-        logging.debug("all is found in spot list, all spot are drawn.")
+        logging.getLogger("PPanGGOLiN").debug("all is found in spot list, all spot are drawn.")
         selected_spots = [s for s in pangenome.spots if len(s.get_uniq_ordered_set()) > 1]
     else:
         curated_spot_list = {'spot_' + str(s) if not s.startswith("spot_") else str(s) for s in spot_list}
-        logging.debug(f'Required spots to draw: {curated_spot_list}')
+        logging.getLogger("PPanGGOLiN").debug(f'Required spots to draw: {curated_spot_list}')
         selected_spots = [s for s in pangenome.spots if "spot_" + str(s.ID) in curated_spot_list]
         if len(selected_spots) != len(curated_spot_list):
             existing_spots = {"spot_" + str(s.ID) for s in pangenome.spots}
             required_non_existing_spots = curated_spot_list - existing_spots
-            logging.warning(
+            logging.getLogger("PPanGGOLiN").warning(
                 f'{len(required_non_existing_spots)} required spots to draw do not exist: {" ".join(required_non_existing_spots)} ')
 
     if len(selected_spots) < 10:
-        logging.info(f"Drawing the following spots: "
+        logging.getLogger("PPanGGOLiN").info(f"Drawing the following spots: "
                      f"{','.join(['spot_' + str(s.ID) for s in selected_spots])}")
     else:
-        logging.info(f"Drawing {len(selected_spots)} spots")
+        logging.getLogger("PPanGGOLiN").info(f"Drawing {len(selected_spots)} spots")
 
     draw_selected_spots(selected_spots, pangenome, output,
                         overlapping_match=pangenome.parameters["spots"]["overlapping_match"],

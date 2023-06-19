@@ -151,16 +151,14 @@ def set_verbosity_level(args):
             # use stream
             logging.basicConfig(stream=args.log, level=level,
                                 format=str_format,
-                                datefmt=datefmt,
-                                force=True)
+                                datefmt=datefmt)
         else:
             # log is written in a files. basic condif uses filename
             logging.basicConfig(filename=args.log, level=level,
                                 format=str_format,
-                                datefmt=datefmt,
-                                force=True)
-        logging.info("Command: " + " ".join([arg for arg in sys.argv]))
-        logging.info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
+                                datefmt=datefmt)
+        logging.getLogger("PPanGGOLiN").info("Command: " + " ".join([arg for arg in sys.argv]))
+        logging.getLogger("PPanGGOLiN").info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
 
 
 def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
@@ -254,7 +252,7 @@ def mk_outdir(output: Path, force: bool = False):
     :raise FileExistError: The current path already exist and force is false
     """
     if not output.is_dir():
-        logging.debug(f"Create output directory {output.absolute().as_posix()}")
+        logging.getLogger("PPanGGOLiN").debug(f"Create output directory {output.absolute().as_posix()}")
         Path.mkdir(output)
     else:
         if not force:
@@ -493,7 +491,7 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
             setattr(args, param, cli_val)
 
             if default_val != cli_val:
-                logging.debug(
+                logging.getLogger("PPanGGOLiN").debug(
                     f'Parameter "--{param} {get_arg_name(cli_val)}" has been specified in command line.'
                     f' Its value overwrites putative config values.')
 
@@ -502,7 +500,7 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
             setattr(args, param, config_val)
 
             if default_val != config_val:
-                logging.debug(
+                logging.getLogger("PPanGGOLiN").debug(
                     f'Parameter "{param}: {get_arg_name(config_val)}" has been specified in config file with non default value.'
                     f' Its value overwrites default value ({get_arg_name(default_val)}).')
         else:
@@ -614,7 +612,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
     if params_that_differ:
         params_that_differ_str = ', '.join([f'{p}={v}' for p, v in params_that_differ.items()])
-        logging.debug(
+        logging.getLogger("PPanGGOLiN").debug(
             f"{len(params_that_differ)} {subcommand} parameters have non-default value: {params_that_differ_str}")
 
     # manage workflow command
@@ -624,7 +622,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
                     (workflow_step == "module" and subcommand in ["workflow", "panmodule"]):
                 continue
 
-            logging.debug(f'Parsing {workflow_step} arguments in config file.')
+            logging.getLogger("PPanGGOLiN").debug(f'Parsing {workflow_step} arguments in config file.')
             step_subparser = subcommand_to_subparser[workflow_step]
 
             default_step_args = get_default_args(workflow_step, step_subparser, unwanted_args=all_unspecific_params)
@@ -651,7 +649,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             if step_params_that_differ:
                 step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
-                logging.debug(f"{len(step_params_that_differ)} {workflow_step} "
+                logging.getLogger("PPanGGOLiN").debug(f"{len(step_params_that_differ)} {workflow_step} "
                               f"parameters have a non-default value: {step_params_that_differ_str}")
 
             # add step name to differentiate the params
@@ -664,7 +662,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
             setattr(args, workflow_step, step_args)
 
     if params_that_differ:
-        logging.info(f'{len(params_that_differ)} parameters have a non-default value.')
+        logging.getLogger("PPanGGOLiN").info(f'{len(params_that_differ)} parameters have a non-default value.')
 
     check_config_consistency(config, ALL_WORKFLOW_DEPENDENCIES)
 
@@ -675,7 +673,7 @@ def check_config_consistency(config: dict, workflow_steps: list):
     """
     Check that the same parameter used in different subcommand inside a workflow has the same value. 
 
-    If not, the function throw a logging.warning. 
+    If not, the function throw a logging.getLogger("PPanGGOLiN").warning. 
 
     :params config_dict: config dict with as key the section of the config file and as value another dict pairing name and value of parameters.
     :params workflow_steps: list of subcommand names used in the workflow execution.
@@ -704,7 +702,7 @@ def check_config_consistency(config: dict, workflow_steps: list):
                          duplicate_param in param_to_value}
 
         if count_different_values(step_to_value.values()) > 1:
-            logging.warning(
+            logging.getLogger("PPanGGOLiN").warning(
                 f'The parameter {duplicate_param} used in multiple subcommands of the workflow is specified with different values in config file: {step_to_value}.')
 
 
@@ -826,7 +824,7 @@ def get_config_args(subcommand: str, subparser_fct: Callable, config_dict: dict,
         config = {name: value for name, value in config.items() if name in expected_args_names}
 
         if unexpected_config:
-            logging.info(
+            logging.getLogger("PPanGGOLiN").info(
                 f'While parsing {config_section} section in config file, {len(unexpected_config)} unexpected parameters '
                 f'were ignored : {" ".join(unexpected_config)}')
     else:

@@ -160,7 +160,7 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
     :param max_sampling: Maximum number of organisms in a sample
     :param data:
     """
-    logging.info("Drawing the rarefaction curve ...")
+    logging.getLogger("PPanGGOLiN").info("Drawing the rarefaction curve ...")
     raref_name = output/"rarefaction.csv"
     raref = open(raref_name, "w")
     raref.write(",".join(["nb_org", "persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory",
@@ -379,25 +379,25 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
     if kval < 3 and kestimate is False:  # estimate K once and for all.
         try:
             kval = ppp.pan.parameters["partition"]["K"]
-            logging.info(f"Reuse the number of partitions {kval}")
+            logging.getLogger("PPanGGOLiN").info(f"Reuse the number of partitions {kval}")
         except KeyError:
-            logging.info("Estimating the number of partitions...")
+            logging.getLogger("PPanGGOLiN").info("Estimating the number of partitions...")
             kval = ppp.evaluate_nb_partitions(organisms=set(pangenome.organisms), sm_degree=sm_degree,
                                               free_dispersion=free_dispersion, chunk_size=chunk_size, krange=krange,
                                               cpu=cpu, seed=seed, tmpdir=tmp_path)
-            logging.info(f"The number of partitions has been evaluated at {kval}")
+            logging.getLogger("PPanGGOLiN").info(f"The number of partitions has been evaluated at {kval}")
 
-    logging.info("Extracting samples ...")
+    logging.getLogger("PPanGGOLiN").info("Extracting samples ...")
     all_samples = []
     for i in range(min_sampling, max_sampling):  # each point
         for _ in range(depth):  # number of samples per points
             all_samples.append(set(random.sample(set(pangenome.organisms), i + 1)))
-    logging.info(f"Done sampling organisms in the pan, there are {len(all_samples)} samples")
+    logging.getLogger("PPanGGOLiN").info(f"Done sampling organisms in the pan, there are {len(all_samples)} samples")
     samp_nb_per_part = []
 
-    logging.info("Computing bitarrays for each family...")
+    logging.getLogger("PPanGGOLiN").info("Computing bitarrays for each family...")
     index_org = pangenome.compute_family_bitarrays()
-    logging.info("Done computing bitarrays. Comparing them to get exact and soft core stats for "
+    logging.getLogger("PPanGGOLiN").info("Done computing bitarrays. Comparing them to get exact and soft core stats for "
                  f"{len(all_samples)} samples...")
     bar = tqdm(range(len(all_samples) * len(pangenome.gene_families)), unit="gene family", disable=disable_bar)
     for samp in all_samples:
@@ -438,7 +438,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
 
     with get_context('fork').Pool(processes=cpu) as p:
         # launch partitioning
-        logging.info(" Partitioning all samples...")
+        logging.getLogger("PPanGGOLiN").info(" Partitioning all samples...")
         bar = tqdm(range(len(args)), unit="samples partitioned", disable=disable_bar)
         random.shuffle(args)  # shuffling the processing so that the progress bar is closer to reality.
         for result in p.imap_unordered(launch_raref_nem, args):
@@ -446,12 +446,12 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
             bar.update()
     bar.close()
 
-    logging.info("Done  partitioning everything")
+    logging.getLogger("PPanGGOLiN").info("Done  partitioning everything")
     warnings.filterwarnings("ignore")
     draw_curve(output, samp_nb_per_part, max_sampling)
     warnings.resetwarnings()
     tmpdir_obj.cleanup()
-    logging.info("Done making the rarefaction curves")
+    logging.getLogger("PPanGGOLiN").info("Done making the rarefaction curves")
 
 
 def launch(args: argparse.Namespace):

@@ -38,7 +38,7 @@ def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO
     counter = 0  # TODO remove ?
     if list_cds is None:
         list_cds = pangenome.genes
-    logging.info("Writing all of the CDS sequences...")
+    logging.getLogger("PPanGGOLiN").info("Writing all of the CDS sequences...")
     for gene in tqdm(list_cds, unit="gene", disable=disable_bar):
         if gene.type == "CDS":
             counter += 1
@@ -61,7 +61,7 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     """
     assert genes in poss_values, f"Selected part to write genes not in {poss_values}"
 
-    logging.info("Writing all the gene nucleotide sequences...")
+    logging.getLogger("PPanGGOLiN").info("Writing all the gene nucleotide sequences...")
     outpath = output / f"{genes}_genes.fna"
 
     genefams = select_families(pangenome, genes, "gene nucleotide sequences", soft_core)
@@ -70,7 +70,7 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     for fam in genefams:
         genes_to_write.extend(fam.genes)
 
-    logging.info(f"There are {len(genes_to_write)} genes to write")
+    logging.getLogger("PPanGGOLiN").info(f"There are {len(genes_to_write)} genes to write")
     with write_compressed_or_not(outpath, compress) as fasta:
         if pangenome.status["geneSequences"] in ["inFile"]:
             get_gene_sequences_from_file(pangenome.file, fasta, set([gene.ID for gene in genes_to_write]),
@@ -80,7 +80,7 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
         else:
             # this should never happen if the pangenome has been properly checked before launching this function.
             raise Exception("The pangenome does not include gene sequences")
-    logging.info(f"Done writing the gene sequences : '{outpath}'")
+    logging.getLogger("PPanGGOLiN").info(f"Done writing the gene sequences : '{outpath}'")
 
 
 def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_core: float = 0.95) -> Set[GeneFamily]:
@@ -96,31 +96,31 @@ def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_c
     """
     genefams = set()
     if partition == 'all':
-        logging.info(f"Writing all of the {type_name}...")
+        logging.getLogger("PPanGGOLiN").info(f"Writing all of the {type_name}...")
         genefams = pangenome.gene_families
     elif partition in ['persistent', 'shell', 'cloud']:
-        logging.info(f"Writing the {type_name} of the {partition}...")
+        logging.getLogger("PPanGGOLiN").info(f"Writing the {type_name} of the {partition}...")
         for fam in pangenome.gene_families:
             if fam.named_partition == partition:
                 genefams.add(fam)
     elif partition == "rgp":
-        logging.info(f"Writing the {type_name} in RGPs...")
+        logging.getLogger("PPanGGOLiN").info(f"Writing the {type_name} in RGPs...")
         for region in pangenome.regions:
             genefams |= region.families
     elif partition == "softcore":
-        logging.info(
+        logging.getLogger("PPanGGOLiN").info(
             f"Writing the {type_name} in {partition} genome, that are present in more than {soft_core} of genomes")
         threshold = pangenome.number_of_organisms() * soft_core
         for fam in pangenome.gene_families:
             if len(fam.organisms) >= threshold:
                 genefams.add(fam)
     elif partition == "core":
-        logging.info(f"Writing the representative {type_name} of the {partition} gene families...")
+        logging.getLogger("PPanGGOLiN").info(f"Writing the representative {type_name} of the {partition} gene families...")
         for fam in pangenome.gene_families:
             if len(fam.organisms) == pangenome.number_of_organisms():
                 genefams.add(fam)
     elif "module_" in partition:
-        logging.info(f"Writing the representation {type_name} of {partition} gene families...")
+        logging.getLogger("PPanGGOLiN").info(f"Writing the representation {type_name} of {partition} gene families...")
         mod_id = int(partition.replace("module_", ""))
         for mod in pangenome.modules:
             # could be way more efficient with a dict structure instead of a set
@@ -152,7 +152,7 @@ def write_fasta_gene_fam(pangenome: Pangenome, output: Path, gene_families: str,
     with write_compressed_or_not(outpath, compress) as fasta:
         get_gene_sequences_from_file(pangenome.file, fasta, [fam.name for fam in genefams], disable_bar=disable_bar)
 
-    logging.info(f"Done writing the representative nucleotide sequences of the gene families : '{outpath}'")
+    logging.getLogger("PPanGGOLiN").info(f"Done writing the representative nucleotide sequences of the gene families : '{outpath}'")
 
 
 def write_fasta_prot_fam(pangenome: Pangenome, output: Path, prot_families: str, soft_core: float = 0.95,
@@ -178,7 +178,7 @@ def write_fasta_prot_fam(pangenome: Pangenome, output: Path, prot_families: str,
         for fam in tqdm(genefams, unit="prot families", disable=disable_bar):
             fasta.write('>' + fam.name + "\n")
             fasta.write(fam.sequence + "\n")
-    logging.info(f"Done writing the representative amino acid sequences of the gene families : '{outpath}'")
+    logging.getLogger("PPanGGOLiN").info(f"Done writing the representative amino acid sequences of the gene families : '{outpath}'")
 
 
 def read_fasta_or_gff(file_path: Path) -> Dict[str, str]:
@@ -306,7 +306,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
         if not org_dict[elements[0]].exists():  # Check tsv sanity test if it's not one it's the other
             org_dict[elements[0]] = organisms_file.parent.joinpath(org_dict[elements[0]])
 
-    logging.info(f"Writing {regions} rgp genomic sequences...")
+    logging.getLogger("PPanGGOLiN").info(f"Writing {regions} rgp genomic sequences...")
     regions_to_write = []
     if regions == "complete":
         for region in pangenome.regions:
@@ -327,7 +327,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
                 genome_sequence = read_genome_file(org_dict, loaded_genome)
             fasta.write(f">{region.name}\n")
             fasta.write(write_spaced_fasta(genome_sequence[region.contig.name][region.start:region.stop], 60))
-    logging.info(f"Done writing the regions nucleotide sequences: '{outname}'")
+    logging.getLogger("PPanGGOLiN").info(f"Done writing the regions nucleotide sequences: '{outname}'")
 
 
 def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None, anno: Path = None,

@@ -385,7 +385,7 @@ class Pangenome:
                            len([gene for gene in genes if not gene.is_fragment]) > 1])
                 if (dup / len(fam.organisms)) >= dup_margin:  # tot / nborgs >= 1.05
                     multigenics.add(fam)
-        # logging.info(f"{len(multigenics)} gene families are defined as being multigenic.
+        # logging.getLogger("PPanGGOLiN").info(f"{len(multigenics)} gene families are defined as being multigenic.
         # (duplicated in more than {dup_margin} of the genomes)")
         return multigenics
 

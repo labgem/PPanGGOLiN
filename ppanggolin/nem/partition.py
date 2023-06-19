@@ -53,7 +53,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
 
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
-    logging.debug("run_partitioning...")
+    logging.getLogger("PPanGGOLiN").debug("run_partitioning...")
     if init == "param_file":
         with open(nem_dir_path / f"nem_file_init_{str(kval)}.m", "w") as m_file:
             m_file.write("1 ")  # 1 to initialize parameter,
@@ -87,8 +87,8 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
     convergence_th = 0.01
     # (INIT_SORT, init_random, init_param_file, INIT_FILE, INIT_LABEL, INIT_NB) = range(0,6)
     init_random, init_param_file = range(1, 3)
-    logging.debug("Running NEM...")
-    logging.debug([nem_dir_path.as_posix().encode('ascii') + b"/nem_file", kval, algo, beta, convergence,
+    logging.getLogger("PPanGGOLiN").debug("Running NEM...")
+    logging.getLogger("PPanGGOLiN").debug([nem_dir_path.as_posix().encode('ascii') + b"/nem_file", kval, algo, beta, convergence,
                    convergence_th, b"fuzzy", itermax, True, model, proportion, variance_model,
                    init_param_file if init in ["param_file", "init_from_old"] else init_random,
                    nem_dir_path.as_posix().encode('ascii') + b"/nem_file_init_" + str(kval).encode('ascii') + b".m",
@@ -102,17 +102,17 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                   out_file_prefix=nem_dir_path.as_posix().encode('ascii') + b"/nem_file_" + str(kval).encode('ascii'),
                   seed=seed)
 
-    logging.debug("After running NEM...")
+    logging.getLogger("PPanGGOLiN").debug("After running NEM...")
 
     no_nem = False
     nem_out_path = nem_dir_path / f"nem_file_{str(kval)}.uf"
     if nem_out_path.is_file():
-        logging.debug("Reading NEM results...")
+        logging.getLogger("PPanGGOLiN").debug("Reading NEM results...")
     elif not just_log_likelihood:
-        # logging.warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(K)+".uf")
+        # logging.getLogger("PPanGGOLiN").warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(K)+".uf")
         no_nem = True
     else:
-        logging.debug(f"No NEM output file found: {nem_out_path.absolute().as_posix()}")
+        logging.getLogger("PPanGGOLiN").debug(f"No NEM output file found: {nem_out_path.absolute().as_posix()}")
         no_nem = True
     index_fam = []
 
@@ -165,7 +165,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                     else:
                         partitions_list[i] = parti[positions_max_prob.pop()]
     except IOError:
-        logging.debug("partitioning did not work (the number of organisms used is probably too low), "
+        logging.getLogger("PPanGGOLiN").debug("partitioning did not work (the number of organisms used is probably too low), "
                       "see logs here to obtain more details " + nem_dir_path.as_posix() + "/nem_file_" +
                       str(kval) + ".log")
         return {}, None, None  # return empty objects
@@ -253,7 +253,7 @@ def write_nem_input_files(tmpdir: Path, organisms: set, sm_degree: int = 10) -> 
     with open(tmpdir / "column_org_file", "w") as org_file:
         org_file.write(" ".join([f'"{org.name}"' for org in organisms]) + "\n")
 
-    logging.debug("Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files")
+    logging.getLogger("PPanGGOLiN").debug("Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files")
     with open(tmpdir / "nem_file.str", "w") as str_file, \
             open(tmpdir / "nem_file.index", "w") as index_file, \
             open(tmpdir / "nem_file.nei", "w") as nei_file, \
@@ -470,7 +470,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
     tmp_path = Path(tmp_dir.name)
 
     if len(organisms) <= 10:
-        logging.warning(f"The number of selected organisms is too low ({len(organisms)} "
+        logging.getLogger("PPanGGOLiN").warning(f"The number of selected organisms is too low ({len(organisms)} "
                         f"organisms used) to robustly partition the graph")
 
     pangenome.parameters["partition"] = {}
@@ -483,10 +483,10 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
 
     if kval < 2:
         pangenome.parameters["partition"]["computed_K"] = True
-        logging.info("Estimating the optimal number of partitions...")
+        logging.getLogger("PPanGGOLiN").info("Estimating the optimal number of partitions...")
         kval = evaluate_nb_partitions(organisms, output, sm_degree, free_dispersion, chunk_size, kmm,
                                       icl_margin, draw_icl, cpu, seed, tmp_path, disable_bar)
-        logging.info(f"The number of partitions has been evaluated at {kval}")
+        logging.getLogger("PPanGGOLiN").info(f"The number of partitions has been evaluated at {kval}")
 
     pangenome.parameters["partition"]["K"] = kval
     init = "param_file"
@@ -504,7 +504,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
             cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
 
     start_partitioning = time.time()
-    logging.info("Partitioning...")
+    logging.getLogger("PPanGGOLiN").info("Partitioning...")
     pansize = len(families)
     if chunk_size < len(organisms):
         validated = set()
@@ -548,7 +548,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
                 args.append((i, kval, beta, sm_degree, free_dispersion, seed, init,
                              tmp_path, keep_tmp_files))
 
-            logging.info("Launching NEM")
+            logging.getLogger("PPanGGOLiN").info("Launching NEM")
             with get_context('fork').Pool(processes=cpu) as p:
                 # launch partitioning
                 bar = tqdm(range(len(args)), unit=" samples partitioned", disable=disable_bar)
@@ -558,7 +558,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
 
                 bar.close()
                 condition += 1  # if len(validated) < pan_size, we will want to resample more.
-                logging.debug(f"There are {len(validated)} validated families out of {pansize} families.")
+                logging.getLogger("PPanGGOLiN").debug(f"There are {len(validated)} validated families out of {pansize} families.")
                 p.close()
                 p.join()
         for fam, data in cpt_partition.items():
@@ -567,7 +567,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
         # need to compute the median vectors of each partition ???
         partitioning_results = [partitioning_results, []]  # introduces a 'non feature'.
 
-        logging.info(f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
+        logging.getLogger("PPanGGOLiN").info(f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
                      f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds.")
     else:
         edges_weight, nb_fam = write_nem_input_files(tmp_path / f"{str(cpt)}", organisms,
@@ -579,7 +579,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
             raise Exception("Statistical partitioning does not work on your data. "
                             "This usually happens because you used very few (<15) genomes.")
         cpt += 1
-        logging.info(f"Partitioned {len(organisms)} genomes in "
+        logging.getLogger("PPanGGOLiN").info(f"Partitioned {len(organisms)} genomes in "
                      f"{round(time.time() - start_partitioning, 2)} seconds.")
 
     # pangenome.savePartitionParameters(K, beta, free_dispersion, sm_degree, partitioning_results[1], chunk_size)
@@ -607,9 +607,9 @@ def launch(args: argparse.Namespace):
     partition(pan, args.output, args.beta, args.max_degree_smoothing, args.free_dispersion, args.chunk_size,
               args.nb_of_partitions, args.krange, args.ICL_margin, args.draw_ICL, args.cpu, args.seed, args.tmpdir,
               args.keep_tmp_files, args.force, disable_bar=args.disable_prog_bar)
-    logging.debug("Write partition in pangenome")
+    logging.getLogger("PPanGGOLiN").debug("Write partition in pangenome")
     write_pangenome(pan, pan.file, args.force, disable_bar=args.disable_prog_bar)
-    logging.debug("Partitioning is finished")
+    logging.getLogger("PPanGGOLiN").debug("Partitioning is finished")
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:

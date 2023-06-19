@@ -45,7 +45,7 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
     """
     locustag = org.name
     cmd = ["aragorn", "-t", "-gcbact", "-l", "-w", fna_file]
-    logging.debug(f"aragorn command : {' '.join(cmd)}")
+    logging.getLogger("PPanGGOLiN").debug(f"aragorn command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=PIPE)
     # loading the whole thing, reverting it to 'pop' in order.
     file_data = p.communicate()[0].decode().split("\n")[:: -1]
@@ -81,7 +81,7 @@ def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str
     """
     locustag = org.name
     cmd = list(map(str, ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", procedure, "-q"]))
-    logging.debug(f"prodigal command : {' '.join(cmd)}")
+    logging.getLogger("PPanGGOLiN").debug(f"prodigal command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=PIPE)
 
     gene_objs = defaultdict(set)
@@ -124,7 +124,7 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
 
     tmp_file = tempfile.NamedTemporaryFile(mode="r", dir=tmpdir)
     cmd = ["cmscan", "--tblout", tmp_file.name, "--hmmonly", "--cpu", str(1), "--noali", modelfile, fna_file]
-    logging.debug(f"infernal command : {' '.join(cmd)}")
+    logging.getLogger("PPanGGOLiN").debug(f"infernal command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
     if err:
@@ -317,7 +317,7 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
     if procedure is None:  # prodigal procedure is not force by user
-        logging.debug(all_contig_len)
+        logging.getLogger("PPanGGOLiN").debug(all_contig_len)
         if all_contig_len < 20000:  # case of short sequence
             procedure = "meta"
         else:

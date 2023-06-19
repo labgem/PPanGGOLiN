@@ -209,7 +209,7 @@ def naming_scheme(pangenome: Pangenome):
             oldlen = len(contigsids)
             contigsids.add(contig.name)
             if oldlen == len(contigsids):
-                logging.warning("You have contigs with identical identifiers in your assemblies. "
+                logging.getLogger("PPanGGOLiN").warning("You have contigs with identical identifiers in your assemblies. "
                                 "identifiers will be supplemented with your provided organism names.")
                 return "organism"
     return "contig"
@@ -248,14 +248,14 @@ def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
                          disable_bar=disable_bar)
 
-    logging.info("Detecting multigenic families...")
+    logging.getLogger("PPanGGOLiN").info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
-    logging.info("Compute Regions of Genomic Plasticity ...")
+    logging.getLogger("PPanGGOLiN").info("Compute Regions of Genomic Plasticity ...")
     name_scheme = naming_scheme(pangenome)
     for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genomes", disable=disable_bar):
         pangenome.add_regions(compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
                                               min_score, naming=name_scheme))
-    logging.info(f"Predicted {len(pangenome.regions)} RGP")
+    logging.getLogger("PPanGGOLiN").info(f"Predicted {len(pangenome.regions)} RGP")
 
     # save parameters and save status
     pangenome.parameters["RGP"] = {}

@@ -190,7 +190,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                 nocloud = args.draw.nocloud if len(pangenome.organisms) < 500 else True
                 draw_tile_plot(pangenome, args.output, nocloud=nocloud, disable_bar=args.disable_prog_bar)
             else:
-                logging.warning(
+                logging.getLogger("PPanGGOLiN").warning(
                     'Tile plot output have been requested but there are too many organisms to produce a viewable tile plot.')
 
         if args.draw.ucurve:
@@ -227,26 +227,26 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                              compress=args.write.compress,
                              spot_modules=spot_modules, regions=regions, modules=modules, spots=spots, borders=borders)
         else:
-            logging.info('No flat file output has been requested in config file. Writing output flat file is skipped.')
+            logging.getLogger("PPanGGOLiN").info('No flat file output has been requested in config file. Writing output flat file is skipped.')
 
         desc_time = time.time() - start_desc
 
-    logging.info(f"Annotation took : {round(anno_time, 2)} seconds")
-    logging.info(f"Clustering took : {round(clust_time, 2)} seconds")
-    logging.info(f"Building the graph took : {round(graph_time, 2)} seconds")
-    logging.info(f"Partitioning the pangenome took : {round(part_time, 2)} seconds")
+    logging.getLogger("PPanGGOLiN").info(f"Annotation took : {round(anno_time, 2)} seconds")
+    logging.getLogger("PPanGGOLiN").info(f"Clustering took : {round(clust_time, 2)} seconds")
+    logging.getLogger("PPanGGOLiN").info(f"Building the graph took : {round(graph_time, 2)} seconds")
+    logging.getLogger("PPanGGOLiN").info(f"Partitioning the pangenome took : {round(part_time, 2)} seconds")
 
     if panrgp:
-        logging.info(f"Predicting RGP took : {round(regions_time, 2)} seconds")
-        logging.info(f"Gathering RGP into spots took : {round(spot_time, 2)} seconds")
+        logging.getLogger("PPanGGOLiN").info(f"Predicting RGP took : {round(regions_time, 2)} seconds")
+        logging.getLogger("PPanGGOLiN").info(f"Gathering RGP into spots took : {round(spot_time, 2)} seconds")
 
     if panmodule:
-        logging.info(f"Predicting modules took : {round(mod_time, 2)} seconds")
+        logging.getLogger("PPanGGOLiN").info(f"Predicting modules took : {round(mod_time, 2)} seconds")
 
-    logging.info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
+    logging.getLogger("PPanGGOLiN").info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
 
     if not args.no_flat_files:
-        logging.info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
+        logging.getLogger("PPanGGOLiN").info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
 
     print_info(filename, content=True)
 

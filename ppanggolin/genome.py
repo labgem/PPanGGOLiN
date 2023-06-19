@@ -270,16 +270,16 @@ class Organism:
 
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.debug(f"all")
+            logging.getLogger("PPanGGOLiN").debug(f"all")
             for fam in self.families:
                 self.bitarray[index[fam]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.debug(f"shell, cloud")
+            logging.getLogger("PPanGGOLiN").debug(f"shell, cloud")
             for fam in self.families:
                 if fam.named_partition == partition:
                     self.bitarray[index[fam]] = 1
         elif partition == 'accessory':
-            logging.debug(f"accessory")
+            logging.getLogger("PPanGGOLiN").debug(f"accessory")
             for fam in self.families:
                 if fam.named_partition in ['shell', 'cloud']:
                     self.bitarray[index[fam]] = 1

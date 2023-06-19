@@ -168,7 +168,7 @@ def launch_mafft(fname: Path, output: Path, fam_name: str):
     """
     outname = output / f"{fam_name}.aln"
     cmd = ["mafft", "--thread", "1", fname.absolute().as_posix()]
-    logging.debug("command: " + " ".join(cmd))
+    logging.getLogger("PPanGGOLiN").debug("command: " + " ".join(cmd))
     subprocess.run(cmd, stdout=open(outname, "w"), stderr=subprocess.DEVNULL, check=True)
 
 
@@ -200,7 +200,7 @@ def compute_msa(families: set, output: Path, tmpdir: Path, cpu: int = 1, source:
 
     write_total = 0
     args = []
-    logging.info("Preparing input files for MSA...")
+    logging.getLogger("PPanGGOLiN").info("Preparing input files for MSA...")
     code_table = genetic_codes(str(code))
 
     for family in tqdm(families, unit="family", disable=disable_bar):
@@ -209,7 +209,7 @@ def compute_msa(families: set, output: Path, tmpdir: Path, cpu: int = 1, source:
         write_total = write_total + (time.time() - start_write)
         args.append((fname, output, family.name))
 
-    logging.info("Computing the MSA ...")
+    logging.getLogger("PPanGGOLiN").info("Computing the MSA ...")
     bar = tqdm(range(len(families)), unit="family", disable=disable_bar)
     with get_context('fork').Pool(cpu) as p:
         for _ in p.imap_unordered(launch_multi_mafft, args):
@@ -310,30 +310,30 @@ def write_msa_files(pangenome: Pangenome, output: Path, cpu: int = 1, partition:
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=need_partitions,
                          need_gene_sequences=True, disable_bar=disable_bar)
-    logging.info(f"Doing MSA for {partition} families...")
+    logging.getLogger("PPanGGOLiN").info(f"Doing MSA for {partition} families...")
     families = get_families_to_write(pangenome, partition_filter=partition, soft_core=soft_core, dup_margin=dup_margin,
                                      single_copy=single_copy)
 
     # check that the code is similar than the one used previously, if there is one
     if 'translation_table' in pangenome.parameters["cluster"]:
         if pangenome.parameters["cluster"]["translation_table"] != translation_table:
-            logging.warning("The translation table used during clustering "
+            logging.getLogger("PPanGGOLiN").warning("The translation table used during clustering "
                             f"('{pangenome.parameters['cluster']['translation_table']}') "
                             f"is different than the one provided now ('{translation_table}')")
     code = translation_table
 
     compute_msa(families, outdir, cpu=cpu, tmpdir=tmpdir, source=source, use_gene_id=use_gene_id, code=code,
                 disable_bar=disable_bar)
-    logging.info(f"Done writing all {partition} MSA in: {outdir}")
+    logging.getLogger("PPanGGOLiN").info(f"Done writing all {partition} MSA in: {outdir}")
 
     if phylo:
-        logging.info("Writing the whole genome msa file")
+        logging.getLogger("PPanGGOLiN").info("Writing the whole genome msa file")
         if partition == "softcore":
             phylo_name = output / f"{partition}_{soft_core}_genome_alignment.aln"
         else:
             phylo_name = output / f"{partition}_genome_alignment.aln"
         write_whole_genome_msa(pangenome, families, phylo_name, outdir, use_gene_id=use_gene_id)
-        logging.info(f"Done writing the {partition} genome alignment in: '{phylo_name}'")
+        logging.getLogger("PPanGGOLiN").info(f"Done writing the {partition} genome alignment in: '{phylo_name}'")
 
 
 def launch(args: argparse.Namespace):

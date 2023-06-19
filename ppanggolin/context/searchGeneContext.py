@@ -69,11 +69,11 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
-    logging.info("Building the graph...")
+    logging.getLogger("PPanGGOLiN").info("Building the graph...")
     g = compute_gene_context_graph(families=gene_families, t=transitive, disable_bar=disable_bar)
-    logging.info(
+    logging.getLogger("PPanGGOLiN").info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
-    logging.debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
+    logging.getLogger("PPanGGOLiN").debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     # extract the modules from the graph
     common_components = compute_gene_context(g, jaccard)
@@ -85,9 +85,9 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
     if len(families) != 0:
         export_to_dataframe(families, common_components, fam_2_seq, output)
     else:
-        logging.info("No gene contexts were found")
+        logging.getLogger("PPanGGOLiN").info("No gene contexts were found")
 
-    logging.info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
+    logging.getLogger("PPanGGOLiN").info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
 
 def compute_gene_context_graph(families: dict, t: int = 4, disable_bar: bool = False) -> nx.Graph:
@@ -210,7 +210,7 @@ def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, out
     :param output: output path
     """
 
-    logging.debug(f"There are {len(families)} families among {len(gene_contexts)} gene contexts")
+    logging.getLogger("PPanGGOLiN").debug(f"There are {len(families)} families among {len(gene_contexts)} gene contexts")
 
     lines = []
     for gene_context in gene_contexts:
@@ -227,7 +227,7 @@ def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, out
                       ).set_index("GeneContext ID")
     df.sort_values(["GeneContext ID", "Sequence ID"], na_position='last').to_csv(
         path_or_buf=f"{output}/gene_contexts.tsv", sep="\t", na_rep='NA')
-    logging.getLogger(f"detected gene context(s) are listed in: '{output}/gene_contexts.tsv'")
+    logging.getLogger("PPanGGOLiN").info(f"detected gene context(s) are listed in: '{output}/gene_contexts.tsv'")
 
 
 def launch(args: argparse.Namespace):
