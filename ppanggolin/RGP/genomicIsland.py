@@ -209,8 +209,9 @@ def naming_scheme(pangenome: Pangenome):
             oldlen = len(contigsids)
             contigsids.add(contig.name)
             if oldlen == len(contigsids):
-                logging.getLogger("PPanGGOLiN").warning("You have contigs with identical identifiers in your assemblies. "
-                                "identifiers will be supplemented with your provided organism names.")
+                logging.getLogger("PPanGGOLiN").warning("You have contigs with identical identifiers in your "
+                                                        "assemblies. identifiers will be supplemented with your "
+                                                        "provided organism names.")
                 return "organism"
     return "contig"
 

@@ -88,17 +88,19 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
     # (INIT_SORT, init_random, init_param_file, INIT_FILE, INIT_LABEL, INIT_NB) = range(0,6)
     init_random, init_param_file = range(1, 3)
     logging.getLogger("PPanGGOLiN").debug("Running NEM...")
-    logging.getLogger("PPanGGOLiN").debug([nem_dir_path.as_posix().encode('ascii') + b"/nem_file", kval, algo, beta, convergence,
-                   convergence_th, b"fuzzy", itermax, True, model, proportion, variance_model,
-                   init_param_file if init in ["param_file", "init_from_old"] else init_random,
-                   nem_dir_path.as_posix().encode('ascii') + b"/nem_file_init_" + str(kval).encode('ascii') + b".m",
-                   nem_dir_path.as_posix().encode('ascii') + b"/nem_file_" + str(kval).encode('ascii'),
-                   seed])
+    logging.getLogger("PPanGGOLiN").debug(
+        [nem_dir_path.as_posix().encode('ascii') + b"/nem_file", kval, algo, beta, convergence,
+         convergence_th, b"fuzzy", itermax, True, model, proportion, variance_model,
+         init_param_file if init in ["param_file", "init_from_old"] else init_random,
+         nem_dir_path.as_posix().encode('ascii') + b"/nem_file_init_" + str(kval).encode('ascii') + b".m",
+         nem_dir_path.as_posix().encode('ascii') + b"/nem_file_" + str(kval).encode('ascii'),
+         seed])
     nem_stats.nem(Fname=nem_dir_path.as_posix().encode('ascii') + b"/nem_file", nk=kval, algo=algo, beta=beta,
                   convergence=convergence, convergence_th=convergence_th, format=b"fuzzy", it_max=itermax,
                   dolog=True, model_family=model, proportion=proportion, dispersion=variance_model,
                   init_mode=init_param_file if init in ["param_file", "init_from_old"] else init_random,
-                  init_file=nem_dir_path.as_posix().encode('ascii') + b"/nem_file_init_" + str(kval).encode('ascii') + b".m",
+                  init_file=nem_dir_path.as_posix().encode('ascii') + b"/nem_file_init_" + str(kval).encode(
+                      'ascii') + b".m",
                   out_file_prefix=nem_dir_path.as_posix().encode('ascii') + b"/nem_file_" + str(kval).encode('ascii'),
                   seed=seed)
 
@@ -116,7 +118,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
         no_nem = True
     index_fam = []
 
-    with open(nem_dir_path /  "nem_file.index", "r") as index_nem_file:
+    with open(nem_dir_path / "nem_file.index", "r") as index_nem_file:
         for line in index_nem_file:
             index_fam.append(line.split("\t")[1].strip())
 
@@ -165,9 +167,10 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                     else:
                         partitions_list[i] = parti[positions_max_prob.pop()]
     except IOError:
-        logging.getLogger("PPanGGOLiN").debug("partitioning did not work (the number of organisms used is probably too low), "
-                      "see logs here to obtain more details " + nem_dir_path.as_posix() + "/nem_file_" +
-                      str(kval) + ".log")
+        logging.getLogger("PPanGGOLiN").debug(
+            "partitioning did not work (the number of organisms used is probably too low), "
+            "see logs here to obtain more details " + nem_dir_path.as_posix() + "/nem_file_" +
+            str(kval) + ".log")
         return {}, None, None  # return empty objects
     except ValueError:
         # return the default partitions_list which correspond to undefined
@@ -471,7 +474,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
 
     if len(organisms) <= 10:
         logging.getLogger("PPanGGOLiN").warning(f"The number of selected organisms is too low ({len(organisms)} "
-                        f"organisms used) to robustly partition the graph")
+                                                f"organisms used) to robustly partition the graph")
 
     pangenome.parameters["partition"] = {}
     pangenome.parameters["partition"]["beta"] = beta
@@ -558,7 +561,8 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
 
                 bar.close()
                 condition += 1  # if len(validated) < pan_size, we will want to resample more.
-                logging.getLogger("PPanGGOLiN").debug(f"There are {len(validated)} validated families out of {pansize} families.")
+                logging.getLogger("PPanGGOLiN").debug(
+                    f"There are {len(validated)} validated families out of {pansize} families.")
                 p.close()
                 p.join()
         for fam, data in cpt_partition.items():
@@ -568,7 +572,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
         partitioning_results = [partitioning_results, []]  # introduces a 'non feature'.
 
         logging.getLogger("PPanGGOLiN").info(f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
-                     f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds.")
+                                             f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds.")
     else:
         edges_weight, nb_fam = write_nem_input_files(tmp_path / f"{str(cpt)}", organisms,
                                                      sm_degree=sm_degree)
@@ -580,7 +584,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
                             "This usually happens because you used very few (<15) genomes.")
         cpt += 1
         logging.getLogger("PPanGGOLiN").info(f"Partitioned {len(organisms)} genomes in "
-                     f"{round(time.time() - start_partitioning, 2)} seconds.")
+                                             f"{round(time.time() - start_partitioning, 2)} seconds.")
 
     # pangenome.savePartitionParameters(K, beta, free_dispersion, sm_degree, partitioning_results[1], chunk_size)
 
@@ -642,8 +646,9 @@ def parser_partition(parser: argparse.ArgumentParser):
     optional.add_argument("-ms", "--max_degree_smoothing", required=False, default=10, type=float,
                           help="max. degree of the nodes to be included in the smoothing process.")
     optional.add_argument('-o', '--output', required=False, type=Path,
-                          default=Path(f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
-                                       f"_PID{str(os.getpid())}"),
+                          default=Path(
+                              f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
+                              f"_PID{str(os.getpid())}"),
                           help="Output directory")
     optional.add_argument("-fd", "--free_dispersion", required=False, default=False, action="store_true",
                           help="use if the dispersion around the centroid vector of each partition during must be free."

@@ -116,8 +116,8 @@ def make_spot_graph(rgps: list, multigenics: set, output: Path, spot_graph: bool
         else:
             used += 1
             add_new_node(graph_spot, rgp, border)
-    logging.getLogger("PPanGGOLiN").info(f"{lost} RGPs were not used as they are on a contig border (or have less than {set_size} "
-                             f"persistent gene families until the contig border)")
+    logging.getLogger("PPanGGOLiN").info(f"{lost} RGPs were not used as they are on a contig border (or have "
+                                         f"less than {set_size} persistent gene families until the contig border)")
     logging.getLogger("PPanGGOLiN").info(f"{used} RGPs are being used to predict spots of insertion")
     node_list = list(graph_spot.nodes)
     logging.getLogger("PPanGGOLiN").info(f"{len(node_list)} number of different pairs of flanking gene families")

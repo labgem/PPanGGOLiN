@@ -397,8 +397,8 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
 
     logging.getLogger("PPanGGOLiN").info("Computing bitarrays for each family...")
     index_org = pangenome.compute_family_bitarrays()
-    logging.getLogger("PPanGGOLiN").info("Done computing bitarrays. Comparing them to get exact and soft core stats for "
-                 f"{len(all_samples)} samples...")
+    logging.getLogger("PPanGGOLiN").info("Done computing bitarrays. Comparing them to get exact and soft core stats "
+                                         f"for {len(all_samples)} samples...")
     bar = tqdm(range(len(all_samples) * len(pangenome.gene_families)), unit="gene family", disable=disable_bar)
     for samp in all_samples:
         # make the sample's organism bitarray.

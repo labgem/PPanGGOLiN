@@ -136,9 +136,8 @@ class Region:
         """
         if len(self.genes) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")
-        if self.start_gene.position == 0 and not self.contig.is_circular:
-            return True
-        elif self.stop_gene.position == len(self.contig.genes) - 1 and not self.contig.is_circular:
+        if (self.start_gene.position == 0 and not self.contig.is_circular) or \
+                (self.stop_gene.position == len(self.contig.genes) - 1 and not self.contig.is_circular):
             return True
         return False
 
@@ -283,10 +282,10 @@ class Spot:
         """cluster RGP into groups that have an identical synteny"""
         for rgp in self.regions:
             z = True
-            for seenRgp in self._uniqOrderedSet:
-                if rgp == seenRgp:
+            for seen_rgp in self._uniqOrderedSet:
+                if rgp == seen_rgp:
                     z = False
-                    self._uniqOrderedSet[seenRgp].add(rgp)
+                    self._uniqOrderedSet[seen_rgp].add(rgp)
             if z:
                 self._uniqOrderedSet[rgp] = {rgp}
 
@@ -294,10 +293,10 @@ class Spot:
         """cluster RGP into groups that have identical gene content"""
         for rgp in self.regions:
             z = True
-            for seenRgp in self._uniqContent:
-                if rgp.families == seenRgp.families:
+            for seen_rgp in self._uniqContent:
+                if rgp.families == seen_rgp.families:
                     z = False
-                    self._uniqContent[seenRgp].add(rgp)
+                    self._uniqContent[seen_rgp].add(rgp)
             if z:
                 self._uniqContent[rgp] = {rgp}
 
@@ -406,21 +405,21 @@ class Module:
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger("PPanGGOLiN").debug(f"all")
+            logging.getLogger("PPanGGOLiN").debug("all")
             for fam in self.families:
                 self.bitarray[index[fam]] = 1
         elif partition == 'persistent':
-            logging.getLogger("PPanGGOLiN").debug(f"persistent")
+            logging.getLogger("PPanGGOLiN").debug("persistent")
             for fam in self.families:
                 if fam.named_partition in ['persistent']:
                     self.bitarray[index[fam]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger("PPanGGOLiN").debug(f"shell, cloud")
+            logging.getLogger("PPanGGOLiN").debug("shell, cloud")
             for fam in self.families:
                 if fam.named_partition == partition:
                     self.bitarray[index[fam]] = 1
         elif partition == 'accessory':
-            logging.getLogger("PPanGGOLiN").debug(f"accessory")
+            logging.getLogger("PPanGGOLiN").debug("accessory")
             for fam in self.families:
                 if fam.named_partition in ['shell', 'cloud']:
                     self.bitarray[index[fam]] = 1
@@ -441,8 +440,8 @@ class GeneContext:
         self.families = set()
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception(f"You provided elements that were not GeneFamily object."
-                                f" GeneContext are only made of GeneFamily")
+                raise Exception("You provided elements that were not GeneFamily object."
+                                " GeneContext are only made of GeneFamily")
             self.families |= set(families)
 
     def add_family(self, family: GeneFamily):

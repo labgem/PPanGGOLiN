@@ -255,7 +255,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
             if len(spot.get_uniq_ordered_set()) > 1:
                 drawn_spots.add(spot)
         logging.getLogger("PPanGGOLiN").info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
-                     f"related to hits of the input sequences...")
+                                             f"related to hits of the input sequences...")
         draw_selected_spots(drawn_spots, pangenome, output, pangenome.parameters["spots"]["overlapping_match"],
                             pangenome.parameters["spots"]["exact_match"], pangenome.parameters["spots"]["set_size"],
                             disable_bar=disable_bar)
@@ -269,7 +269,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
         draw_spot_gexf(drawn_spots, output, multigenics=multigenics, fam_to_mod=fam2mod)
 
     logging.getLogger("PPanGGOLiN").info(f"File listing RGP and spots where sequences of interest are located : "
-                 f"{output / 'info_input_seq.tsv'}")
+                                         f"{output / 'info_input_seq.tsv'}")
 
 
 def get_seq2pang(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path, cpu: int = 1,
@@ -349,7 +349,8 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
         get_seq_info(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
     part_proj = project_partition(seq2pang, seq_set, output)  # write the partition assignation only
     logging.getLogger("PPanGGOLiN").info(f"sequences partition projection : '{part_proj}'")
-    logging.getLogger("PPanGGOLiN").info(f"{len(seq2pang)} sequences over {len(seq_set)} have at least one hit in the pangenome.")
+    logging.getLogger("PPanGGOLiN").info(
+        f"{len(seq2pang)} sequences over {len(seq_set)} have at least one hit in the pangenome.")
     logging.getLogger("PPanGGOLiN").info(f"Blast-tab file of the alignment : '{align_file}'")
 
     new_tmpdir.cleanup()

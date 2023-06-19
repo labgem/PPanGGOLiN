@@ -435,8 +435,8 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     if args.clusters is None:
         if args.infer_singletons is True:
-            logging.getLogger("PPanGGOLiN").warning("--infer_singletons option is not compatible with clustering creation. "
-                            "To infer singleton you should give a clustering")
+            logging.getLogger("PPanGGOLiN").warning("--infer_singletons option is not compatible with clustering "
+                                                    "creation. To infer singleton you should give a clustering")
         clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, code=args.translation_table,
                    coverage=args.coverage, identity=args.identity, mode=args.mode, force=args.force,
                    disable_bar=args.disable_prog_bar)
@@ -502,7 +502,7 @@ def parser_clust(parser: argparse.ArgumentParser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level, add_common_arguments
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",

@@ -318,8 +318,8 @@ def write_msa_files(pangenome: Pangenome, output: Path, cpu: int = 1, partition:
     if 'translation_table' in pangenome.parameters["cluster"]:
         if pangenome.parameters["cluster"]["translation_table"] != translation_table:
             logging.getLogger("PPanGGOLiN").warning("The translation table used during clustering "
-                            f"('{pangenome.parameters['cluster']['translation_table']}') "
-                            f"is different than the one provided now ('{translation_table}')")
+                                                    f"('{pangenome.parameters['cluster']['translation_table']}') "
+                                                    f"is different than the one provided now ('{translation_table}')")
     code = translation_table
 
     compute_msa(families, outdir, cpu=cpu, tmpdir=tmpdir, source=source, use_gene_id=use_gene_id, code=code,
@@ -403,6 +403,7 @@ def parser_msa(parser: argparse.ArgumentParser):
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
+
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""

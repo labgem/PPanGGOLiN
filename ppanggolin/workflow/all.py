@@ -6,7 +6,6 @@ import logging
 import os
 import time
 import argparse
-from collections.abc import Callable
 from pathlib import Path
 import tempfile
 

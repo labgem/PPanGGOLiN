@@ -36,7 +36,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
     if len(pangenome.organisms) > 500 and nocloud is False:
         logging.getLogger("PPanGGOLiN").warning("You asked to draw a tile plot for a lot of organisms (>500). "
-                                    "Your browser will probably not be able to open it.")
+                                                "Your browser will probably not be able to open it.")
     logging.getLogger("PPanGGOLiN").info("Drawing the tile plot...")
     data = []
     all_indexes = []

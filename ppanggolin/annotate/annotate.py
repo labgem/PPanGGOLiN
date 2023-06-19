@@ -463,10 +463,10 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     used_local_identifiers = chose_gene_identifiers(pangenome)
     if used_local_identifiers:
         logging.getLogger("PPanGGOLiN").info("gene identifiers used in the provided annotation files were unique, "
-                     "PPanGGOLiN will use them.")
+                                             "PPanGGOLiN will use them.")
     else:
         logging.getLogger("PPanGGOLiN").info("gene identifiers used in the provided annotation files were not unique, "
-                     "PPanGGOLiN will use self-generated identifiers.")
+                                             "PPanGGOLiN will use self-generated identifiers.")
 
     pangenome.status["genomesAnnotated"] = "Computed"
     pangenome.parameters["annotation"] = {}
@@ -597,10 +597,12 @@ def launch(args: argparse.Namespace):
             if args.fasta:
                 get_gene_sequences_from_fastas(pangenome, args.fasta)
             else:
-                logging.getLogger("PPanGGOLiN").warning("You provided gff files without sequences, and you did not provide "
-                                "fasta sequences. Thus it was not possible to get the gene sequences.")
-                logging.getLogger("PPanGGOLiN").warning("You will be able to proceed with your analysis ONLY if you provide "
-                                "the clustering results in the next step.")
+                logging.getLogger("PPanGGOLiN").warning(
+                    "You provided gff files without sequences, and you did not provide "
+                    "fasta sequences. Thus it was not possible to get the gene sequences.")
+                logging.getLogger("PPanGGOLiN").warning(
+                    "You will be able to proceed with your analysis ONLY if you provide "
+                    "the clustering results in the next step.")
 
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
 

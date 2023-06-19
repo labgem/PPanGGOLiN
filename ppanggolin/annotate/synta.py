@@ -325,8 +325,8 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
     genes = syntaxic_annotation(org, fasta_file, tmpdir, norna, kingdom, code, procedure)
     genes = overlap_filter(genes, overlap)
 
-    for contigName, genes in genes.items():
-        contig = org.get_contig(contigName)
+    for contig_name, genes in genes.items():
+        contig = org.get_contig(contig_name)
         if contig.name in circular_contigs:
             contig.is_circular = True
         for gene in genes:

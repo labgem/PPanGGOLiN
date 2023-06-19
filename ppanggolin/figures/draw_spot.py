@@ -661,7 +661,7 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
 
     if len(selected_spots) < 10:
         logging.getLogger("PPanGGOLiN").info(f"Drawing the following spots: "
-                     f"{','.join(['spot_' + str(s.ID) for s in selected_spots])}")
+                                             f"{','.join(['spot_' + str(s.ID) for s in selected_spots])}")
     else:
         logging.getLogger("PPanGGOLiN").info(f"Drawing {len(selected_spots)} spots")
 

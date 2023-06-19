@@ -158,7 +158,8 @@ def set_verbosity_level(args):
                                 format=str_format,
                                 datefmt=datefmt)
         logging.getLogger("PPanGGOLiN").info("Command: " + " ".join([arg for arg in sys.argv]))
-        logging.getLogger("PPanGGOLiN").info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
+        logging.getLogger("PPanGGOLiN").info(
+            "PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
 
 
 def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
@@ -649,8 +650,8 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             if step_params_that_differ:
                 step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
-                logging.getLogger("PPanGGOLiN").debug(f"{len(step_params_that_differ)} {workflow_step} "
-                              f"parameters have a non-default value: {step_params_that_differ_str}")
+                logging.getLogger("PPanGGOLiN").debug(f"{len(step_params_that_differ)} {workflow_step} parameters have "
+                                                      f"a non-default value: {step_params_that_differ_str}")
 
             # add step name to differentiate the params
             step_params_that_differ = {f'{workflow_step}:{param}': value for param, value in

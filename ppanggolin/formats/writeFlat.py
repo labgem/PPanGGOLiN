@@ -631,7 +631,8 @@ def write_gene_families_tsv(output: Path, compress: bool = False):
     :param output: Path to output directory
     :param compress: Compress the file in .gz
     """
-    logging.getLogger("PPanGGOLiN").info("Writing the file providing the association between genes and gene families...")
+    logging.getLogger("PPanGGOLiN").info(
+        "Writing the file providing the association between genes and gene families...")
     outname = output / "gene_families.tsv"
     with write_compressed_or_not(outname, compress) as tsv:
         for fam in pan.gene_families:
@@ -639,7 +640,7 @@ def write_gene_families_tsv(output: Path, compress: bool = False):
                 tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier,
                                      "F" if gene.is_fragment else ""]) + "\n")
     logging.getLogger("PPanGGOLiN").info("Done writing the file providing the association between genes and "
-                 f"gene families : '{outname}'")
+                                         f"gene families : '{outname}'")
 
 
 def write_regions(output: Path, compress: bool = False):
@@ -781,7 +782,8 @@ def write_modules(output: Path, compress: bool = False):
                 fout.write(f"module_{mod.ID}\t{family.name}\n")
         fout.close()
 
-    logging.getLogger("PPanGGOLiN").info(f"Done writing functional modules to: '{output.as_posix() + '/functional_modules.tsv'}'")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Done writing functional modules to: '{output.as_posix() + '/functional_modules.tsv'}'")
 
 
 def write_org_modules(output: Path, compress: bool = False):
@@ -834,7 +836,8 @@ def write_spot_modules(output: Path, compress: bool = False):
                     # if all the families in the module are found in the spot, write the association
                     fout.write(f"module_{mod.ID}\tspot_{spot.ID}\n")
 
-    logging.getLogger("PPanGGOLiN").info(f"Done writing module to spot associations to: {output.as_posix() + '/modules_spots.tsv'}")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Done writing module to spot associations to: {output.as_posix() + '/modules_spots.tsv'}")
 
 
 def write_rgp_modules(output: Path, compress: bool = False):
@@ -878,7 +881,8 @@ def write_rgp_modules(output: Path, compress: bool = False):
                     f"{','.join([reg.name for reg in regions])}\n")
     lists.close()
 
-    logging.getLogger("PPanGGOLiN").info(f"RGP and associated modules are listed in : {output.as_posix() + '/modules_RGP_lists.tsv'}")
+    logging.getLogger("PPanGGOLiN").info(
+        f"RGP and associated modules are listed in : {output.as_posix() + '/modules_RGP_lists.tsv'}")
 
 
 def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core: float = 0.95,
