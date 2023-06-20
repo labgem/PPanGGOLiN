@@ -5,7 +5,7 @@
 import argparse
 import tables
 import logging
-
+from pathlib import Path
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, read_info
@@ -146,15 +146,13 @@ def parser_metrics(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
     onereq.add_argument('--genome_fluidity', required=False, action="store_true", default=False,
                         help="Compute the pangenome genomic fluidity.")
     # help="Compute the pangenome genomic and/or family fluidity.")
     onereq.add_argument('--info_modules', required=False, action='store_true', default=False,
                         help='Compute more information about modules')
-    onereq.add_argument('--family_fluidity', required=False, action="store_true", default=False,
-                        help=argparse.SUPPRESS)
     onereq.add_argument('--all', required=False, action="store_true", default=False,
                         help="Compute all the metrics")
     optional = parser.add_argument_group(title="Optional arguments",
@@ -163,28 +161,17 @@ def parser_metrics(parser: argparse.ArgumentParser):
     optional.add_argument('--no_print_info', required=False, action="store_true", default=False,
                           help="Don't show the metrics result. "
                                "All the metric are saved in your pangenome and visible with ppanggolin info.")
-    # optional.add_argument('--genome_only', required=False, action="store_true", default=False,
-    #                       help="Compute the genome fluidity only")
-    # optional.add_argument('--family_only', required=False, action="store_true", default=False,
-    #                       help="Compute the genome fluidity only")
 
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_metrics(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())
