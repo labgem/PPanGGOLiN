@@ -471,7 +471,7 @@ def parser_clust(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
     clust = parser.add_argument_group(title="Clustering arguments")
     clust.add_argument("--identity", required=False, type=restricted_float, default=0.8,
                        help="Minimal identity percent for two proteins to be in the same cluster")
@@ -487,6 +487,9 @@ def parser_clust(parser: argparse.ArgumentParser):
                        help=argparse.SUPPRESS)  # This ensures compatibility with the old option "defrag"
     clust.add_argument("--translation_table", required=False, default="11",
                        help="Translation table (genetic code) to use.")
+
+    clust.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    
     read = parser.add_argument_group(title="Read clustering arguments")
     read.add_argument('--clusters', required=False, type=str,
                       help="A tab-separated list containing the result of a clustering. One line per gene. "
@@ -494,7 +497,6 @@ def parser_clust(parser: argparse.ArgumentParser):
     read.add_argument("--infer_singletons", required=False, action="store_true",
                       help="When reading a clustering result with --clusters, if a gene is not in the provided file"
                            " it will be placed in a cluster where the gene is the only member.")
-
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
@@ -513,7 +515,6 @@ if __name__ == '__main__':
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
     common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
                         help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
     set_verbosity_level(main_parser.parse_args())

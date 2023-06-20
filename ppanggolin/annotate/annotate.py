@@ -594,7 +594,7 @@ def launch(args: argparse.Namespace):
     if args.fasta is not None and args.anno is None:
         annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, procedure=args.prodigal_procedure,
                            translation_table=args.translation_table, kingdom=args.kingdom, norna=args.norna,
-                           overlap=args.overlap, contig_filter=args.contig_filter, disable_bar=args.disable_prog_bar)
+                           overlap=args.allow_overlap, contig_filter=args.contig_filter, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
         read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":
@@ -626,7 +626,7 @@ def parser_annot(parser: argparse.ArgumentParser):
     """
     Parser for specific argument of annotate command
 
-    :param parser: parser for align argument
+    :param parser: parser for annotate argument
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
@@ -643,7 +643,7 @@ def parser_annot(parser: argparse.ArgumentParser):
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
-    optional.add_argument('--overlap', required=False, action='store_false', default=True,
+    optional.add_argument('--allow_overlap', required=False, action='store_true', default=False,
                           help="Use to not remove genes overlapping with RNA features.")
     optional.add_argument("--norna", required=False, action="store_true", default=False,
                           help="Use to avoid annotating RNA features.")
@@ -661,7 +661,8 @@ def parser_annot(parser: argparse.ArgumentParser):
                           default=None, help="Allow to force the prodigal procedure. "
                                              "If nothing given, PPanGGOLiN will decide in function of contig length")
     optional.add_argument("--contig_filter", required=False, default=1, type=min_one, help=argparse.SUPPRESS)
-
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
@@ -682,7 +683,6 @@ if __name__ == '__main__':
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
     common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
                         help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
     set_verbosity_level(main_parser.parse_args())

@@ -131,9 +131,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     """
     Subparser to launch PPanGGOLiN in Command line
 
-    :param sub_parser : sub_parser for align command
+    :param sub_parser : sub_parser for graph command
 
-    :return : parser arguments for align command
+    :return : parser arguments for graph command
     """
     parser = sub_parser.add_parser("graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_graph(parser)
@@ -144,9 +144,9 @@ def parser_graph(parser: argparse.ArgumentParser):
     """
     Parser for specific argument of graph command
 
-    :param parser: parser for align argument
+    :param parser: parser for graph argument
     """
-    parser.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    parser.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
     parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
                         help="Positive Number: Remove families having a number of copy of gene in a single organism "
                              "above or equal to this threshold in at least one organism "
@@ -168,7 +168,6 @@ if __name__ == '__main__':
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
     common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
                         help="disables the progress bars")
-    common.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
     set_verbosity_level(main_parser.parse_args())
