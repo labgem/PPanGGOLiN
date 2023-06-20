@@ -182,11 +182,13 @@ def write_graph(context_graph: nx.Graph, output_dir: str, famillies_of_interest:
     
     G = nx.Graph()
 
-    G.add_edges_from(((f1.name, f2.name) for f1,f2 in context_graph.edges()))
-
-    edges_with_attributes = {(f1.name, f2.name):filter_attribute(d) for f1,f2,d in context_graph.edges(data=True)}
+    G.add_edges_from((f1.name, f2.name, filter_attribute(d)) for f1, f2, d in context_graph.edges(data=True)) 
     
-    nx.set_edge_attributes(G, edges_with_attributes)
+
+    # convert transitivity dict to str
+    edges_with_transitivity_str = {(f1.name, f2.name):str(d['transitivity']) for f1, f2, d in context_graph.edges(data=True)}
+    
+    nx.set_edge_attributes(G, edges_with_transitivity_str, name="transitivity")
     
     nodes_attributes_filtered = {f.name:filter_attribute(d) for f,d in context_graph.nodes(data=True)}
 
@@ -235,6 +237,12 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
         data[f'f2_jaccard_gene'] = f2_gene_proportion
                         
         data[f'is_jaccard_gene_>_{gene_proportion_cutoff}'] = (f1_gene_proportion >= gene_proportion_cutoff) and (f2_gene_proportion >= gene_proportion_cutoff)
+
+        transitivity_counter = data['transitivity']
+
+        mean_transitivity = sum((transitivity*counter for transitivity, counter in transitivity_counter.items()))/sum((counter for counter in transitivity_counter.values()))
+
+        data['mean_transitivity'] = mean_transitivity
         
         # the following commented out lines are additional metrics that could be used
 
@@ -283,10 +291,17 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                 
                 context_graph.add_edge(gene.family, next_gene.family)
 
+                edge_dict = context_graph[gene.family][next_gene.family]
+
                 if i == 0:
-                    context_graph[gene.family][next_gene.family]['adjacent_family'] = True
+                    edge_dict['adjacent_family'] = True
+                
+                # Store information of the transitivity used to link the two genes:
+                if "transitivity" not in edge_dict:
+                    edge_dict['transitivity'] = {i:0 for i in range(t +1)}
+                edge_dict['transitivity'][i] += 1
 
-
+                
                 # Add node attributes
                 node_gene_dict = context_graph.nodes[gene.family]
                 next_gene_gene_dict = context_graph.nodes[next_gene.family]
@@ -375,6 +390,7 @@ def get_n_next_genes_index(current_index: int, next_genes_count: int, contig_siz
         if i == next_genes_count:
             break
         yield next_gene_index
+
         
 def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int], window_size: int, is_circular:bool = False):
     """
