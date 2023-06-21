@@ -56,7 +56,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
 
-    gene_families = set()
+    families_of_interest = set()
     fam_2_seq = None
     
     if sequences is not None:
@@ -69,14 +69,14 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
         new_tmpdir.cleanup()
 
         for pan_family in seq2pan.values():
-            gene_families.add(pan_family)
+            families_of_interest.add(pan_family)
         
         fam_2_seq = fam2seq(seq2pan)
 
     if families is not None:
         with open(families, 'r') as f:
             for fam_name in f.read().splitlines():
-                gene_families.add(pangenome.get_gene_family(fam_name))
+                families_of_interest.add(pangenome.get_gene_family(fam_name))
 
     # half_window = round((window_size-1)/2)
     # logging.info(f'Window size of {half_window*2 + 1}. Gene context will include {half_window} genes on each side of the target gene.')
@@ -86,7 +86,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     logging.getLogger().info("Building the graph...")
     
-    gene_context_graph = compute_gene_context_graph(families=gene_families, transitive=transitive, window_size=window_size, disable_bar=disable_bar)
+    gene_context_graph = compute_gene_context_graph(families=families_of_interest, transitive=transitive, window_size=window_size, disable_bar=disable_bar)
     
     logging.getLogger().info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
@@ -102,27 +102,14 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     logging.getLogger().debug(f"Filtering context graph on {filter_flag}")
     logging.getLogger().debug(f"Context graph made of {nx.number_of_nodes(filtered_graph)} nodes and {nx.number_of_edges(filtered_graph)} edges")
-    connected_components = nx.connected_components(filtered_graph)
 
-    # Connected component graph Filtering
-
-    # remove singleton famillies
-    connected_components = (component for component in connected_components if len(component) > 1)  
-
-    # remove component made only of famillies not initially requested
-    connected_components = (component for component in connected_components if component & gene_families)
-    
-    gene_contexts = {GeneContext(gc_id=i, families=component) for i, component in enumerate(connected_components) }
-
-    families_in_contexts = {family for gene_context in gene_contexts for family in gene_context.families}
-    
-    graph_with_final_contexts = nx.subgraph_view(filtered_graph, filter_node=lambda n: n in families_in_contexts)
+    gene_contexts = get_gene_contexts(filtered_graph, families_of_interest)
 
     if write_context_graph:
-        write_graph(graph_with_final_contexts, output, gene_families, gene_contexts)
+        write_graph(gene_contexts, output, families_of_interest, graph_format=['graphml', "gexf"])
 
-    if len(families_in_contexts) != 0:
-        logging.getLogger().debug(f"There are {len(families_in_contexts)} families among {len(gene_contexts)} gene contexts")
+    if len(gene_contexts) != 0:
+        logging.getLogger().debug(f"There are {sum((len(gc) for gc in gene_contexts))} families among {len(gene_contexts)} gene contexts")
         
         output_file = os.path.join(output, "gene_contexts.tsv")
 
@@ -133,7 +120,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
-
+    return gene_contexts
     # # Finding connected components with panmodule functions 
     # # extract the modules from the graph
 
@@ -155,20 +142,60 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     # export_context_to_dataframe(gene_contexts_pandmodule_way, fam_2_seq, output_file)
 
 
+def get_gene_contexts(context_graph: nx.Graph, families_of_interest: Set[GeneFamily]) -> Set[GeneContext]:
+    """
+    Extract gene contexts from a context graph based on the provided set of gene families of interest.
+    
+    Gene contexts are extracted from a context graph by identifying connected components. 
+    The function filters the connected components based on the following criteria:
+    - Remove singleton families (components with only one gene family).
+    - Remove components that do not contain any gene families of interest.
 
-def write_graph(context_graph: nx.Graph, output_dir: str, famillies_of_interest: Set[GeneFamily], gene_contexts:List[GeneContext]):
+    For each remaining connected component, a GeneContext object is created.
+
+    :param context_graph: The context graph from which to extract gene contexts.
+    :param families_of_interest: Set of gene families of interest.
+    :return: Set of GeneContext objects representing the extracted gene contexts.
+    """
+
+    connected_components = nx.connected_components(context_graph)
+
+    # Connected component graph Filtering
+
+    # remove singleton famillies
+    connected_components = (component for component in connected_components if len(component) > 1)  
+
+    # remove component made only of famillies not initially requested
+    connected_components = (component for component in connected_components if component & families_of_interest)
+
+    gene_contexts = set()
+    for i, component in enumerate(connected_components):
+
+        family_of_interest_of_gc = component & families_of_interest
+        gene_context = GeneContext(gc_id=i, families=component, families_of_interest=family_of_interest_of_gc)
+
+        graph_of_gc = nx.subgraph_view(context_graph, filter_node=lambda n: n in component) # .copy()
+        nx.set_node_attributes(graph_of_gc, i, name="gene_context_id")
+        gene_context.add_context_graph(graph_of_gc)
+
+        gene_contexts.add(gene_context)
+
+    return gene_contexts
+
+
+def write_graph(gene_contexts:List[GeneContext], output_dir: str, families_of_interest: Set[GeneFamily],  graph_format:List[str]):
     """
     Write a graph to file with node and edge attributes. 
     
-    This function writes a graph to a file in the GraphML format or in GEXF format. The original context graph contains 
+    This function writes a graph to a file in the GraphML format or/and in GEXF format. The original context graph contains 
     ppanggolin objects as nodes and lists and dictionaries in edge attributes. Since these objects 
     cannot be written to the output graph, this function creates a new graph that contains only 
     writable objects.
 
-    :param context_graph: A NetworkX Graph object representing the graph.
+    :param gene_contexts: List of gene context. it includes graph of the context
     :param output_dir: The output directory where the graph file will be written.
-    :param famillies_of_interest: A list of node objects that are of interest.
-    :param gene_contexts: List of gene context, used to add context id to node of the graph
+    :param families_of_interest: A list of node objects that are of interest.
+    :param graph_format: List of formats of the output graph. Can be graphml or gexf 
 
     """
     def filter_attribute(data:dict):
@@ -182,38 +209,36 @@ def write_graph(context_graph: nx.Graph, output_dir: str, famillies_of_interest:
     
     G = nx.Graph()
 
-    G.add_edges_from((f1.name, f2.name, filter_attribute(d)) for f1, f2, d in context_graph.edges(data=True)) 
+    for gc in gene_contexts:
+        G.add_edges_from((f1.name, f2.name, filter_attribute(d)) for f1, f2, d in gc.graph.edges(data=True)) 
     
 
-    # convert transitivity dict to str
-    edges_with_transitivity_str = {(f1.name, f2.name):str(d['transitivity']) for f1, f2, d in context_graph.edges(data=True)}
+        # convert transitivity dict to str
+        edges_with_transitivity_str = {(f1.name, f2.name):str(d['transitivity']) for f1, f2, d in gc.graph.edges(data=True)}
     
-    nx.set_edge_attributes(G, edges_with_transitivity_str, name="transitivity")
+        nx.set_edge_attributes(G, edges_with_transitivity_str, name="transitivity")
     
-    nodes_attributes_filtered = {f.name:filter_attribute(d) for f,d in context_graph.nodes(data=True)}
+        nodes_attributes_filtered = {f.name:filter_attribute(d) for f,d in gc.graph.nodes(data=True)}
 
-    # on top of attributes already contained in node of context graph
-    # add organisms and genes count that have the family, the partition and if the family was in initially requested 
-    nodes_family_data = {f.name:{"organisms":len(f.organisms), 
-                                 "partition":f.partition,
-                          "genes":len(f.genes), 
-                          "famillies_of_interest": f in famillies_of_interest} for f in context_graph.nodes()}
-    
-    family_name_to_context_id = {family.name:context.ID for context in gene_contexts for family in context.families}
-
-    for f, d in G.nodes(data=True):
-        d.update(nodes_family_data[f])
-        d.update(nodes_attributes_filtered[f])
-        d['context_id'] = family_name_to_context_id[f]
+        # on top of attributes already contained in node of context graph
+        # add organisms and genes count that have the family, the partition and if the family was in initially requested 
+        nodes_family_data = {f.name:{"organisms": len(f.organisms), 
+                                    "partition": f.named_partition,
+                                    "genes": len(f.genes), 
+                                    "families_of_interest": f in families_of_interest} for f in gc.graph.nodes()}
+        for f, d in G.nodes(data=True):
+            d.update(nodes_family_data[f])
+            d.update(nodes_attributes_filtered[f])
         
-    
-    graphml_file = os.path.join(output_dir, "graph_context.graphml")
-    logging.info(f'Writting context graph in {graphml_file}')
-    nx.write_graphml_lxml(G, graphml_file)
+    if "graphml" in graph_format:
+        graphml_file = os.path.join(output_dir, "graph_context.graphml")
+        logging.info(f'Writting context graph in {graphml_file}')
+        nx.write_graphml_lxml(G, graphml_file)
 
-    gexf_file = os.path.join(output_dir, "graph_context.gexf")
-    logging.info(f'Writting context graph in {gexf_file}')
-    nx.readwrite.gexf.write_gexf(G, gexf_file)
+    if "gexf" in graph_format:
+        gexf_file = os.path.join(output_dir, "graph_context.gexf")
+        logging.info(f'Writting context graph in {gexf_file}')
+        nx.readwrite.gexf.write_gexf(G, gexf_file)
 
 
 def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float) -> None:
@@ -610,7 +635,7 @@ def parser_context(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
     required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome.h5 file")
-    required.add_argument('-o', '--output', required=True, type=str,
+    required.add_argument('-o', '--output', required=False, type=str,
                           help="Output directory where the file(s) will be written")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
     onereq.add_argument('-S', '--sequences', required=False, type=str,

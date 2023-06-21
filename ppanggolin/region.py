@@ -7,8 +7,8 @@ import logging
 from collections.abc import Iterable
 
 # installed libraries
-from typing import Dict
-
+from typing import Dict, Set
+import networkx as nx
 import gmpy2
 
 # local libraries
@@ -431,26 +431,49 @@ class Module(MetaFeatures):
 
 class GeneContext:
     """
-    A class used to represent a gene context
+    A class used to represent a gene context.
 
-    :param gc_id : identifier of the Gene context
-    :param families: Gene families related to the GeneContext
+    :param gc_id: Identifier of the gene context.
+    :param families: Gene families related to the gene context.
+    :param families_of_interest: Input families for which the context is being searched.
+
+    Gene contexts are used to represent a set of gene families and their relationships.
     """
 
-    def __init__(self, gc_id: int, families: set = None):
+    def __init__(self, gc_id: int, families: Set[GeneFamily] = None, families_of_interest: Set[GeneFamily] = None):
         self.ID = gc_id
         self.families = set()
+        self.families_of_interest = families_of_interest
+        self.graph = None
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception("You provided elements that were not GeneFamily object."
-                                " GeneContext are only made of GeneFamily")
+                raise Exception("You provided elements that were not GeneFamily objects. "
+                                "GeneContexts are only made of GeneFamily objects.")
             self.families |= set(families)
 
     def add_family(self, family: GeneFamily):
         """
-        Allow to add one family in the GeneContext
-        :param family: family to add
+        Add a gene family to the gene context.
+
+        :param family: The gene family to add.
         """
         if not isinstance(family, GeneFamily):
-            raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
+            raise Exception("You did not provide a GeneFamily object. "
+                            "GeneContexts are only made of GeneFamily objects.")
         self.families.add(family)
+
+    def __len__(self) -> int:
+        """
+        Get length of a context graph by returning the number of gene families it includes.
+
+        :return: number of family in the gene context
+        """
+        return len(self.families)
+
+    def add_context_graph(self, graph: nx.Graph):
+        """
+        Add a context graph to the gene context.
+
+        :param graph: The context graph.
+        """
+        self.graph = graph
