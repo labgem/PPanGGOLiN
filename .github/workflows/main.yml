@@ -106,5 +106,4 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
-        ppanggolin panrgp  --anno organisms.gbff.list --cluster clusters.tsv -o test_config --config panrgp_default_config.yaml
- 
+        ppanggolin panrgp  --anno organisms.gbff.list --cluster clusters.tsv -o test_config --config panrgp_default_config.yaml -f
