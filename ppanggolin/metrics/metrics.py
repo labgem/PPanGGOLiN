@@ -84,10 +84,6 @@ def write_metrics(pangenome: Pangenome, metrics_dict: dict, no_print_info: bool 
             logging.getLogger("PPanGGOLiN").info("Writing genome fluidity in pangenome")
             info_group._v_attrs.genomes_fluidity = metrics_dict['genomes_fluidity']
 
-        if 'families_fluidity' in metrics_dict.keys():
-            logging.getLogger("PPanGGOLiN").info("Writing family fluidity in pangenome")
-            info_group._v_attrs.families_fluidity = metrics_dict['families_fluidity']
-
         if 'info_modules' in metrics_dict.keys():
             logging.getLogger("PPanGGOLiN").info("Writing modules information in pangenome")
             write_info_modules(pangenome, h5f)
@@ -103,10 +99,9 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
-    if not any(x for x in [args.genome_fluidity, args.family_fluidity, args.info_modules, args.all]):
+    if not any(x for x in [args.genome_fluidity, args.info_modules, args.all]):
         raise Exception("You did not indicate which metric you want to compute.")
     args_dict = {'genomes_fluidity': args.genome_fluidity,
-                 'families_fluidity': args.family_fluidity,
                  'info_modules': args.info_modules}
     if args.all:
         for arg in args_dict.keys():
