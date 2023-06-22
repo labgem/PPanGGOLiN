@@ -49,13 +49,6 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     :param disable_bar: Allow preventing bar progress print
     """
 
-    # check statuses and load info
-    if sequences is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
-        raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
-                        "associated to it. For now this works only if the clustering has been made by PPanGGOLiN.")
-
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
-
     families_of_interest = set()
     fam_2_seq = None
     
@@ -98,15 +91,20 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     # Filter graph 
     filter_flag = f'is_jaccard_gene_>_{jaccard_threshold}'
     
-    filtered_graph = nx.subgraph_view(gene_context_graph, filter_edge=lambda n1, n2: gene_context_graph[n1][n2][filter_flag] )
+    edges_to_remove = [(n,v) for n,v,d in gene_context_graph.edges(data=True) if not d[filter_flag]]
+    gene_context_graph.remove_edges_from(edges_to_remove)
+
+    # filtered_context_graph = nx.subgraph_view(gene_context_graph, filter_edge=lambda n1, n2: gene_context_graph[n1][n2][filter_flag] )
 
     logging.getLogger().debug(f"Filtering context graph on {filter_flag}")
-    logging.getLogger().debug(f"Context graph made of {nx.number_of_nodes(filtered_graph)} nodes and {nx.number_of_edges(filtered_graph)} edges")
+    logging.getLogger().debug(f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and {nx.number_of_edges(gene_context_graph)} edges")
 
-    gene_contexts = get_gene_contexts(filtered_graph, families_of_interest)
+    gene_contexts = get_gene_contexts(gene_context_graph, families_of_interest)
 
-    if write_context_graph:
-        write_graph(gene_contexts, output, families_of_interest, graph_format=['graphml', "gexf"])
+    
+    gene_context_graph = make_graph_writable(gene_context_graph)
+    print(f"WRITING gene context graph in {output}")
+    write_graph(gene_context_graph, output, graph_format=['graphml', "gexf"])
 
     if len(gene_contexts) != 0:
         logging.getLogger().debug(f"There are {sum((len(gc) for gc in gene_contexts))} families among {len(gene_contexts)} gene contexts")
@@ -120,7 +118,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
-    return gene_contexts
+    return gene_context_graph
     # # Finding connected components with panmodule functions 
     # # extract the modules from the graph
 
@@ -169,35 +167,46 @@ def get_gene_contexts(context_graph: nx.Graph, families_of_interest: Set[GeneFam
     connected_components = (component for component in connected_components if component & families_of_interest)
 
     gene_contexts = set()
+    families_in_context = set()
+    
     for i, component in enumerate(connected_components):
-
+        families_in_context |= component
         family_of_interest_of_gc = component & families_of_interest
         gene_context = GeneContext(gc_id=i, families=component, families_of_interest=family_of_interest_of_gc)
+        
+        # nx.set_node_attributes(context_graph, i, name="gene_context_id")
+        # add gc id to node attribute
+        node_attributes = {n:{"gene_context_id":i, "families_of_interest": n in families_of_interest} for n in component}
+        nx.set_node_attributes(context_graph, node_attributes)
 
-        graph_of_gc = nx.subgraph_view(context_graph, filter_node=lambda n: n in component) # .copy()
-        nx.set_node_attributes(graph_of_gc, i, name="gene_context_id")
-        gene_context.add_context_graph(graph_of_gc)
+        # for n, attribute in context_graph.nodes(data=True):
+        #     if n in component:
+        #         attribute['gene_context_id'] = i
+        #         attribute['families_of_interest'] = n in families_of_interest
+        #     print(context_graph.get_node_attributes(n, 'families_of_interest') )
+        # # gene_context.add_context_graph(graph_of_gc)
 
         gene_contexts.add(gene_context)
+    
+    node_not_in_context = set(context_graph.nodes()) - families_in_context
+    context_graph.remove_nodes_from(node_not_in_context)
 
     return gene_contexts
 
 
-def write_graph(gene_contexts:List[GeneContext], output_dir: str, families_of_interest: Set[GeneFamily],  graph_format:List[str]):
+def make_graph_writable(context_graph):
+
     """
-    Write a graph to file with node and edge attributes. 
-    
-    This function writes a graph to a file in the GraphML format or/and in GEXF format. The original context graph contains 
+
+    The original context graph contains 
     ppanggolin objects as nodes and lists and dictionaries in edge attributes. Since these objects 
     cannot be written to the output graph, this function creates a new graph that contains only 
     writable objects.
 
     :param gene_contexts: List of gene context. it includes graph of the context
-    :param output_dir: The output directory where the graph file will be written.
-    :param families_of_interest: A list of node objects that are of interest.
-    :param graph_format: List of formats of the output graph. Can be graphml or gexf 
 
     """
+    
     def filter_attribute(data:dict):
         """
         Helper function to filter the edge attributes.
@@ -206,30 +215,40 @@ def write_graph(gene_contexts:List[GeneContext], output_dir: str, families_of_in
         :return: A filtered dictionary containing only non-collection attributes.
         """
         return {k:v for k, v in data.items() if type(v) not in [set, dict, list]}
-    
+
     G = nx.Graph()
 
-    for gc in gene_contexts:
-        G.add_edges_from((f1.name, f2.name, filter_attribute(d)) for f1, f2, d in gc.graph.edges(data=True)) 
-    
+    G.add_edges_from((f1.name, f2.name, filter_attribute(d)) for f1, f2, d in context_graph.edges(data=True)) 
 
-        # convert transitivity dict to str
-        edges_with_transitivity_str = {(f1.name, f2.name):str(d['transitivity']) for f1, f2, d in gc.graph.edges(data=True)}
-    
-        nx.set_edge_attributes(G, edges_with_transitivity_str, name="transitivity")
-    
-        nodes_attributes_filtered = {f.name:filter_attribute(d) for f,d in gc.graph.nodes(data=True)}
 
-        # on top of attributes already contained in node of context graph
-        # add organisms and genes count that have the family, the partition and if the family was in initially requested 
-        nodes_family_data = {f.name:{"organisms": len(f.organisms), 
-                                    "partition": f.named_partition,
-                                    "genes": len(f.genes), 
-                                    "families_of_interest": f in families_of_interest} for f in gc.graph.nodes()}
-        for f, d in G.nodes(data=True):
-            d.update(nodes_family_data[f])
-            d.update(nodes_attributes_filtered[f])
-        
+    # convert transitivity dict to str
+    edges_with_transitivity_str = {(f1.name, f2.name):str(d['transitivity']) for f1, f2, d in context_graph.edges(data=True)}
+
+    nx.set_edge_attributes(G, edges_with_transitivity_str, name="transitivity")
+
+    nodes_attributes_filtered = {f.name:filter_attribute(d) for f,d in context_graph.nodes(data=True)}
+
+    # on top of attributes already contained in node of context graph
+    # add organisms and genes count that have the family, the partition and if the family was in initially requested 
+    nodes_family_data = {f.name:{"organisms": len(f.organisms), 
+                                "partition": f.named_partition,
+                                "genes": len(f.genes)} for f in context_graph.nodes()}
+    
+    for f, d in G.nodes(data=True):
+        d.update(nodes_family_data[f])
+        d.update(nodes_attributes_filtered[f])
+
+    return G
+
+def write_graph(G:nx.Graph, output_dir: str, graph_format:List[str]):
+    """
+    Write a graph to file in the GraphML format or/and in GEXF format. 
+
+    :param output_dir: The output directory where the graph file will be written.
+    :param graph_format: List of formats of the output graph. Can be graphml or gexf 
+
+    """
+
     if "graphml" in graph_format:
         graphml_file = os.path.join(output_dir, "graph_context.graphml")
         logging.info(f'Writting context graph in {graphml_file}')
@@ -605,6 +624,15 @@ def launch(args: argparse.Namespace):
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
+
+    # check statuses and load info
+    if args.sequences is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
+        raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
+                        "associated to it. For now this works only if the clustering has been made by PPanGGOLiN.")
+
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar)
+
+
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
                                      sequences=args.sequences, families=args.family, transitive=args.transitive,
                                      identity=args.identity, coverage=args.coverage, jaccard_threshold=args.jaccard, window_size=args.window_size,
