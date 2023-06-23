@@ -29,7 +29,7 @@ from ppanggolin.geneFamily import GeneFamily
 def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
                                      families: str = None, transitive: int = 4, identity: float = 0.5,
                                      coverage: float = 0.8, jaccard_threshold: float = 0.85, window_size: int = 1, no_defrag: bool = False,
-                                     cpu: int = 1, write_context_graph:bool = False, disable_bar=True):
+                                     cpu: int = 1, disable_bar=True):
     """
     Main function to search common gene contexts between sequence set and pangenome families
 
@@ -103,7 +103,6 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     
     gene_context_graph = make_graph_writable(gene_context_graph)
-    print(f"WRITING gene context graph in {output}")
     write_graph(gene_context_graph, output, graph_format=['graphml', "gexf"])
 
     if len(gene_contexts) != 0:
@@ -301,7 +300,7 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
 def add_edges_to_context_graph(context_graph: nx.Graph,
                                contig_genes: Iterable[Gene],
                                contig_windows: List[Tuple[int, int]],
-                               t: int,
+                               transitivity: int,
                                is_circular: bool):
     """
     Add edges to the context graph based on contig genes and windows.
@@ -309,14 +308,14 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
     :param context_graph: The context graph to which edges will be added.
     :param contig_genes: An iterable of genes in the contig.
     :param contig_windows: A list of tuples representing the start and end positions of contig windows.
-    :param t: The number of next genes to consider when adding edges.
+    :param transitivity: The number of next genes to consider when adding edges.
     :param is_circular: A boolean indicating if the contig is circular.
 
     """
     for window_start, window_end in contig_windows:
         for gene_index in range(window_start, window_end + 1):
             gene = contig_genes[gene_index]
-            next_genes = get_n_next_genes_index(gene_index, next_genes_count=t, 
+            next_genes = get_n_next_genes_index(gene_index, next_genes_count=transitivity+1, 
                                                 contig_size=len(contig_genes), is_circular=is_circular)
             next_genes = list(next_genes)
 
@@ -342,7 +341,7 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                 
                 # Store information of the transitivity used to link the two genes:
                 if "transitivity" not in edge_dict:
-                    edge_dict['transitivity'] = {i:0 for i in range(t +1)}
+                    edge_dict['transitivity'] = {i:0 for i in range(transitivity +1)}
                 edge_dict['transitivity'][i] += 1
 
                 
@@ -541,23 +540,6 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
     return context_graph
 
 
-# def compute_gene_context(g: nx.Graph, jaccard: float = 0.85) -> set:
-#     """
-#     Compute the gene contexts in the graph
-
-#     :param g: Graph of gene contexts between interesting gene families of the pan
-#     :param jaccard: Jaccard index
-
-#     :return: Set of gene contexts find in graph
-#     """
-
-#     gene_contexts = set()
-#     c = 1
-#     for comp in connected_components(g, removed=set(), weight=jaccard):
-#         gene_contexts.add(GeneContext(gc_id=c, families=comp))
-#         c += 1
-#     return gene_contexts
-
 
 def fam2seq(seq_to_pan: dict) -> dict:
     """
@@ -636,7 +618,7 @@ def launch(args: argparse.Namespace):
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
                                      sequences=args.sequences, families=args.family, transitive=args.transitive,
                                      identity=args.identity, coverage=args.coverage, jaccard_threshold=args.jaccard, window_size=args.window_size,
-                                     no_defrag=args.no_defrag, cpu=args.cpu, write_context_graph=args.write_graph, disable_bar=args.disable_prog_bar)
+                                     no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -690,8 +672,8 @@ def parser_context(parser: argparse.ArgumentParser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
-    optional.add_argument('--write_graph',  action="store_true",
-                    help="Write context graph in GEXF format.")
+    # optional.add_argument('--write_graph',  action="store_true",
+    #                 help="Write context graph in GEXF format.")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
 if __name__ == '__main__':

@@ -106,7 +106,7 @@ def test_add_edges_to_context_graph(simple_contig):
     add_edges_to_context_graph(context_graph,
                             contig_genes = simple_contig.genes,
                             contig_windows = [(0,3)],
-                            t=2,
+                            transitivity=1,
                             is_circular=simple_contig.is_circular)
 
     nodes = sorted([n.name for n in context_graph.nodes()]) 
@@ -127,7 +127,7 @@ def test_add_edges_to_context_graph_2(simple_contig):
     add_edges_to_context_graph(context_graph,
                             contig_genes = simple_contig.genes,
                             contig_windows = [(1,3)],
-                            t=1,
+                            transitivity=0,
                             is_circular=simple_contig.is_circular)
 
     nodes = sorted([n.name for n in context_graph.nodes()])
@@ -149,7 +149,7 @@ def test_add_edges_to_context_graph_linear(simple_contig):
     add_edges_to_context_graph(context_graph,
                             contig_genes = simple_contig.genes,
                             contig_windows = [(4,5), (0,2)],
-                            t=1,
+                            transitivity=0,
                             is_circular=False)
 
     nodes = sorted([n.name for n in context_graph.nodes()])
@@ -173,7 +173,7 @@ def test_add_edges_to_context_graph_circular(simple_contig):
     add_edges_to_context_graph(context_graph,
                             contig_genes = simple_contig.genes,
                             contig_windows = [(4,5), (0,2)],
-                            t=1,
+                            transitivity=0,
                             is_circular=True)
 
     nodes = sorted([n.name for n in context_graph.nodes()])
@@ -200,7 +200,7 @@ def test_compute_gene_context_graph(simple_contig):
     families_of_interest = {f for f in  families_in_contigs if f.name in family_names_of_interest }
 
     context_graph = compute_gene_context_graph(families_of_interest, 
-                               transitive=1,
+                               transitive=0,
                                window_size = 2) 
     nodes = sorted([n.name for n in context_graph.nodes()])
     edges = {tuple(sorted([n.name, v.name])) for n, v in context_graph.edges()}
