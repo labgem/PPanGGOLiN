@@ -29,7 +29,7 @@ from ppanggolin.geneFamily import GeneFamily
 def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
                                      families: str = None, transitive: int = 4, identity: float = 0.5,
                                      coverage: float = 0.8, jaccard_threshold: float = 0.85, window_size: int = 1, no_defrag: bool = False,
-                                     cpu: int = 1, disable_bar=True):
+                                     cpu: int = 1, graph_format:str = "graphml", disable_bar=True):
     """
     Main function to search common gene contexts between sequence set and pangenome families
 
@@ -45,7 +45,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     :param window_size: Number of genes to consider in the gene context.
     :param no_defrag: do not use the defrag workflow if true
     :param cpu: Number of core used to process
-    :param write_context_graph: Write graph of the contexts
+    :param graph_format: Write format of the context graph. Can be graphml or gexf
     :param disable_bar: Allow preventing bar progress print
     """
 
@@ -103,7 +103,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     
     gene_context_graph = make_graph_writable(gene_context_graph)
-    write_graph(gene_context_graph, output, graph_format=['graphml', "gexf"])
+    out_graph_file = write_graph(gene_context_graph, output, graph_format)
 
     if len(gene_contexts) != 0:
         logging.getLogger().debug(f"There are {sum((len(gc) for gc in gene_contexts))} families among {len(gene_contexts)} gene contexts")
@@ -117,7 +117,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
-    return gene_context_graph
+    return gene_context_graph, out_graph_file
     # # Finding connected components with panmodule functions 
     # # extract the modules from the graph
 
@@ -239,25 +239,28 @@ def make_graph_writable(context_graph):
 
     return G
 
-def write_graph(G:nx.Graph, output_dir: str, graph_format:List[str]):
+def write_graph(G:nx.Graph, output_dir: str, graph_format:str):
     """
     Write a graph to file in the GraphML format or/and in GEXF format. 
 
     :param output_dir: The output directory where the graph file will be written.
-    :param graph_format: List of formats of the output graph. Can be graphml or gexf 
+    :param graph_format: Formats of the output graph. Can be graphml or gexf 
 
     """
 
-    if "graphml" in graph_format:
-        graphml_file = os.path.join(output_dir, "graph_context.graphml")
-        logging.info(f'Writting context graph in {graphml_file}')
-        nx.write_graphml_lxml(G, graphml_file)
+    if "graphml" == graph_format:
+        out_file = os.path.join(output_dir, "graph_context.graphml")
+        logging.info(f'Writting context graph in {out_file}')
+        nx.write_graphml_lxml(G, out_file)
 
-    if "gexf" in graph_format:
-        gexf_file = os.path.join(output_dir, "graph_context.gexf")
-        logging.info(f'Writting context graph in {gexf_file}')
-        nx.readwrite.gexf.write_gexf(G, gexf_file)
+    elif "gexf" == graph_format:
+        out_file = os.path.join(output_dir, "graph_context.gexf")
+        logging.info(f'Writting context graph in {out_file}')
+        nx.readwrite.gexf.write_gexf(G, out_file)
+    else:
+        raise ValueError(f'The given graph format ({graph_format}) is not correct. it should be "graphml" or gexf')
 
+    return out_file
 
 def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float) -> None:
     """
@@ -618,7 +621,7 @@ def launch(args: argparse.Namespace):
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
                                      sequences=args.sequences, families=args.family, transitive=args.transitive,
                                      identity=args.identity, coverage=args.coverage, jaccard_threshold=args.jaccard, window_size=args.window_size,
-                                     no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+                                     no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar, graph_format=args.graph_format)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -672,8 +675,7 @@ def parser_context(parser: argparse.ArgumentParser):
     optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
-    # optional.add_argument('--write_graph',  action="store_true",
-    #                 help="Write context graph in GEXF format.")
+    optional.add_argument('--graph_format', help="Format of the context graph. Can be gexf or graphml.", default='graphml', choices=['gexf','graphml'])
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
 if __name__ == '__main__':
