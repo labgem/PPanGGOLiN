@@ -148,26 +148,13 @@ class Pangenome:
             return len(self._geneGetter)
 
     """Gene families methods"""
-
     @property
-    def gene_families(self) -> List[GeneFamily]:
+    def gene_families(self) -> Set[GeneFamily]:
         """returns all the gene families in the pangenome
         
         :return: list of :class:`ppanggolin.geneFamily.GeneFamily`
         """
-        return list(self._famGetter.values())
-
-    def _create_gene_family(self, name: str) -> GeneFamily:
-        """Creates a gene family object with the given `name`
-
-        :param name: the name to give to the gene family. Must not exist already.
-
-        :return: the created GeneFamily object
-        """
-        new_fam = GeneFamily(family_id=self.max_fam_id, name=name)
-        self.max_fam_id += 1
-        self._famGetter[new_fam.name] = new_fam
-        return new_fam
+        return set(self._famGetter.values())
 
     def number_of_gene_families(self) -> int:
         """Returns the number of gene families present in the pangenome
@@ -183,21 +170,32 @@ class Pangenome:
 
         :return: returns the gene family that has the name `name`
         """
-        return self._famGetter[name]
+        try:
+            fam = self._famGetter[name]
+        except KeyError:
+            raise KeyError(f"Gene family with name={name} is not in pangenome")
+        except Exception as error:
+            raise error
+        else:
+            return fam
 
-    def add_gene_family(self, name: str):
+    def add_gene_family(self, family: GeneFamily):
         """
         Get the :class:`ppanggolin.geneFamily.GeneFamily` object that has the given `name`.
         If it does not exist, creates it.
 
-        :param name: The gene family name to get if it exists, and create otherwise.
+        :param family: The gene family to add in pangenomes
 
-        :return: GeneFamily object.
+        :raise KeyError: Exception if family with the same name already in pangenome
         """
-        fam = self._famGetter.get(name)
-        if fam is None:
-            fam = self._create_gene_family(name)
-        return fam
+        try:
+            _ = self.get_gene_family(family.name)
+        except KeyError:
+            self._famGetter[family.name] = family
+        except Exception as error:
+            raise error
+        else:
+            raise KeyError("Gene Family already exist")
 
     """Graph methods"""
 
@@ -238,12 +236,12 @@ class Pangenome:
     """Organism methods"""
 
     @property
-    def organisms(self) -> List[Organism]:
+    def organisms(self) -> Set[Organism]:
         """returns all the organisms in the pangenome
         
         :return: list of :class:`ppanggolin.genome.Organism`
         """
-        return list(self._orgGetter.values())
+        return set(self._orgGetter.values())
 
     def number_of_organisms(self) -> int:
         """Returns the number of organisms present in the pangenome

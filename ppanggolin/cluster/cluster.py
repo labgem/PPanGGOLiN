@@ -17,6 +17,7 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.utils import read_compressed_or_not, restricted_float
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
@@ -241,8 +242,9 @@ def read_fam2seq(pangenome: Pangenome, fam_to_seq: dict):
     """
     logging.getLogger().info("Adding protein sequences to the gene families")
     for family, protein in fam_to_seq.items():
-        fam = pangenome.add_gene_family(family)
+        fam = GeneFamily(pangenome.max_fam_id, family)
         fam.add_sequence(protein)
+        pangenome.add_gene_family(fam)
 
 
 def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = False):
@@ -256,15 +258,18 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
     logging.getLogger().info(f"Adding {len(gene_to_fam)} genes to the gene families")
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
-    if link:
-        if len(gene_to_fam) != len(pangenome.genes):  # then maybe there are genes with identical IDs
-            raise Exception("Something unexpected happened during clustering "
-                            "(have less genes clustered than genes in the pangenome). "
-                            "A probable reason is that two genes in two different organisms have the same IDs; "
-                            "If you are sure that all of your genes have non identical IDs, "
-                            "please post an issue at https://github.com/labgem/PPanGGOLiN/")
+    if link and len(gene_to_fam) != len(pangenome.genes):  # then maybe there are genes with identical IDs
+        raise Exception("Something unexpected happened during clustering "
+                        "(have less genes clustered than genes in the pangenome). "
+                        "A probable reason is that two genes in two different organisms have the same IDs; "
+                        "If you are sure that all of your genes have non identical IDs, "
+                        "please post an issue at https://github.com/labgem/PPanGGOLiN/")
     for gene, (family, is_frag) in tqdm(gene_to_fam.items(), unit="gene", total=len(gene_to_fam), disable=disable_bar):
-        fam = pangenome.add_gene_family(family)
+        try:
+            fam = pangenome.get_gene_family(family)
+        except KeyError:  # Family not found so create and add
+            fam = GeneFamily(pangenome.max_fam_id, family)
+            pangenome.add_gene_family(fam)
         if link:  # doing the linking if the annotations are loaded.
             gene_obj = pangenome.get_gene(gene)
         else:
@@ -353,7 +358,9 @@ def infer_singletons(pangenome: Pangenome):
     singleton_counter = 0
     for gene in pangenome.genes:
         if gene.family is None:
-            pangenome.add_gene_family(gene.ID).add_gene(gene)
+            fam = GeneFamily(family_id=pangenome.max_fam_id, name=gene.ID)
+            fam.add_gene(gene)
+            pangenome.add_gene_family(fam)
             singleton_counter += 1
     logging.getLogger().info(f"Inferred {singleton_counter} singleton families")
 
@@ -395,7 +402,11 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: str, infer_singleto
                 gene_obj = local_dict.get(gene_id)
             if gene_obj is not None:
                 nb_gene_with_fam += 1
-                fam = pangenome.add_gene_family(fam_id)
+                try:
+                    fam = pangenome.get_gene_family(fam_id)
+                except KeyError:  # Family not found so create and add
+                    fam = GeneFamily(pangenome.max_fam_id, fam_id)
+                    pangenome.add_gene_family(fam)
                 gene_obj.is_fragment = True if is_frag == "F" else False  # F for Fragment
                 fam.add_gene(gene_obj)
             if is_frag == "F":

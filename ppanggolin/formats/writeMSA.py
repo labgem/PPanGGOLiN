@@ -54,7 +54,7 @@ def getFamiliesToWrite(pangenome, partition_filter, soft_core=0.95, dup_margin=0
     nb_org = pangenome.number_of_organisms()
 
     if partition_filter == "all":
-        return set(pangenome.gene_families)
+        return pangenome.gene_families
     if partition_filter in ["persistent", "shell", "cloud"]:
         for fam in pangenome.gene_families:
             if fam.named_partition == partition_filter:

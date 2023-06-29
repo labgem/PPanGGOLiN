@@ -44,7 +44,7 @@ def draw_tile_plot(pangenome: Pangenome, output: str, nocloud: bool = False, dis
     if nocloud:
         families = {fam for fam in pangenome.gene_families if not fam.partition.startswith("C")}
     else:
-        families = set(pangenome.gene_families)
+        families = pangenome.gene_families
     org_index = pangenome.get_org_index()
     index2org = {}
     for org, index in org_index.items():

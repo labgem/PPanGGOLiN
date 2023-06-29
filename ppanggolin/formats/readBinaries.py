@@ -15,6 +15,7 @@ import tables
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.pangenome import Pangenome
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Spot, Module
 from ppanggolin.metadata import Metadata
 
@@ -308,7 +309,8 @@ def read_gene_families(pangenome: Pangenome, h5f: tables.File, disable_bar: bool
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
 
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene family", disable=disable_bar):
-        fam = pangenome.add_gene_family(row["geneFam"].decode())
+        fam = GeneFamily(family_id=pangenome.max_fam_id, name=row["geneFam"].decode())
+        pangenome.add_gene_family(fam)
         if link:  # linking if we have loaded the annotations
             gene_obj = pangenome.get_gene(row["gene"].decode())
         else:  # else, no
@@ -328,7 +330,7 @@ def read_gene_families_info(pangenome: Pangenome, h5f: tables.File, disable_bar:
     table = h5f.root.geneFamiliesInfo
 
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene family", disable=disable_bar):
-        fam = pangenome.add_gene_family(row["name"].decode())
+        fam = pangenome.get_gene_family(row["name"].decode())
         fam.add_partition(row["partition"].decode())
         fam.add_sequence(row["protein"].decode())
 
