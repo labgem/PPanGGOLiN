@@ -4,7 +4,7 @@
 # default libraries
 import logging
 import argparse
-
+from pathlib import Path
 # installed libraries
 from tqdm import tqdm
 
@@ -163,6 +163,7 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
 
     :return:
     """
+
     def max_index_node(lst):
         """gets the last node with the highest score from a list of matriceNode"""
         if isinstance(lst, list):
@@ -208,8 +209,9 @@ def naming_scheme(pangenome: Pangenome):
             oldlen = len(contigsids)
             contigsids.add(contig.name)
             if oldlen == len(contigsids):
-                logging.getLogger().warning("You have contigs with identical identifiers in your assemblies. "
-                                            "identifiers will be supplemented with your provided organism names.")
+                logging.getLogger("PPanGGOLiN").warning("You have contigs with identical identifiers in your "
+                                                        "assemblies. identifiers will be supplemented with your "
+                                                        "provided organism names.")
                 return "organism"
     return "contig"
 
@@ -247,14 +249,14 @@ def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
                          disable_bar=disable_bar)
 
-    logging.getLogger().info("Detecting multigenic families...")
+    logging.getLogger("PPanGGOLiN").info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
-    logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
+    logging.getLogger("PPanGGOLiN").info("Compute Regions of Genomic Plasticity ...")
     name_scheme = naming_scheme(pangenome)
     for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genomes", disable=disable_bar):
         pangenome.add_regions(compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
                                               min_score, naming=name_scheme))
-    logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")
+    logging.getLogger("PPanGGOLiN").info(f"Predicted {len(pangenome.regions)} RGP")
 
     # save parameters and save status
     pangenome.parameters["RGP"] = {}
@@ -301,7 +303,7 @@ def parser_rgp(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--persistent_penalty', required=False, type=int, default=3,
@@ -319,20 +321,13 @@ def parser_rgp(parser: argparse.ArgumentParser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_rgp(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

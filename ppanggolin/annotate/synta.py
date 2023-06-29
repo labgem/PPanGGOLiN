@@ -10,6 +10,7 @@ from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
 from typing import Union
+from pathlib import Path
 
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA
@@ -44,7 +45,7 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
     """
     locustag = org.name
     cmd = ["aragorn", "-t", "-gcbact", "-l", "-w", fna_file]
-    logging.getLogger().debug(f"aragorn command : {' '.join(cmd)}")
+    logging.getLogger("PPanGGOLiN").debug(f"aragorn command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=PIPE)
     # loading the whole thing, reverting it to 'pop' in order.
     file_data = p.communicate()[0].decode().split("\n")[:: -1]
@@ -80,7 +81,7 @@ def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str
     """
     locustag = org.name
     cmd = list(map(str, ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", procedure, "-q"]))
-    logging.getLogger().debug(f"prodigal command : {' '.join(cmd)}")
+    logging.getLogger("PPanGGOLiN").debug(f"prodigal command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=PIPE)
 
     gene_objs = defaultdict(set)
@@ -123,7 +124,7 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
 
     tmp_file = tempfile.NamedTemporaryFile(mode="r", dir=tmpdir)
     cmd = ["cmscan", "--tblout", tmp_file.name, "--hmmonly", "--cpu", str(1), "--noali", modelfile, fna_file]
-    logging.getLogger().debug(f"infernal command : {' '.join(cmd)}")
+    logging.getLogger("PPanGGOLiN").debug(f"infernal command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
     if err:
@@ -155,12 +156,11 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
     return gene_objs
 
 
-def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filter: int = 1) -> (dict, int):
+def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> (dict, int):
     """ Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
 
     :param org: Organism corresponding to fasta file
     :param fna_file: Input fasta file with sequences or list of each line as sequence
-    :param contig_filter: Filter the contig by size
 
     :return: Dictionnary with contig_name as keys and contig sequence in values
     """
@@ -171,14 +171,14 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list], contig_filte
         contig = None
         for line in fna_file:
             if line.startswith('>'):
-                if len(contig_seq) >= contig_filter:
+                if len(contig_seq) >= 1:  # contig filter = 1
                     contigs[contig.name] = contig_seq.upper()
                     all_contig_len += len(contig_seq)
                 contig_seq = ""
                 contig = org.get_contig(line.split()[0][1:])
             else:
                 contig_seq += line.strip()
-        if len(contig_seq) >= contig_filter:  # processing the last contig
+        if len(contig_seq) >= 1:  # processing the last contig
             contigs[contig.name] = contig_seq.upper()
             all_contig_len += len(contig_seq)
     except AttributeError as e:
@@ -291,9 +291,9 @@ def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
         return reverse_complement(contig_seq[gene.start - 1:gene.stop])
 
 
-def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: str,
+def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: str,
                       code: int = 11, norna: bool = False, kingdom: str = "bacteria",
-                      overlap: bool = True, contig_filter: int = 1, procedure: str = None) -> Organism:
+                      overlap: bool = True, procedure: str = None) -> Organism:
     """
     Function to annotate a single organism
 
@@ -305,7 +305,6 @@ def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: s
     :param norna: Use to avoid annotating RNA features.
     :param tmpdir: Path to temporary directory
     :param overlap: Use to not remove genes overlapping with RNA features
-    :param contig_filter: Filter the contig by size
     :param procedure: prodigal procedure used
 
     :return: Complete organism object for pangenome
@@ -314,11 +313,11 @@ def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: s
 
     fasta_file = read_compressed_or_not(file_name)
 
-    contig_sequences, all_contig_len = read_fasta(org, fasta_file, contig_filter)
+    contig_sequences, all_contig_len = read_fasta(org, fasta_file)
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
     if procedure is None:  # prodigal procedure is not force by user
-        logging.getLogger().debug(all_contig_len)
+        logging.getLogger("PPanGGOLiN").debug(all_contig_len)
         if all_contig_len < 20000:  # case of short sequence
             procedure = "meta"
         else:
@@ -326,8 +325,8 @@ def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: s
     genes = syntaxic_annotation(org, fasta_file, tmpdir, norna, kingdom, code, procedure)
     genes = overlap_filter(genes, overlap)
 
-    for contigName, genes in genes.items():
-        contig = org.get_contig(contigName)
+    for contig_name, genes in genes.items():
+        contig = org.get_contig(contig_name)
         if contig.name in circular_contigs:
             contig.is_circular = True
         for gene in genes:

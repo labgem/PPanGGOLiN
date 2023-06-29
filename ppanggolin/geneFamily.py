@@ -92,21 +92,21 @@ class GeneFamily(MetaFeatures):
         """Produces a bitarray representing the presence/absence of the family in the pangenome using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
-        :param index: The index computed by :func:`ppanggolin.pan.Pangenome.getIndex`
+        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
         :param partition: partition used to compute bitarray
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger().debug("all")
+            logging.getLogger("PPanGGOLiN").debug(f"all")
             for org in self.organisms:
                 self.bitarray[index[org]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger().debug("shell, cloud")
+            logging.getLogger("PPanGGOLiN").debug(f"shell, cloud")
             if self.named_partition == partition:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
         elif partition == 'accessory':
-            logging.getLogger().debug("accessory")
+            logging.getLogger("PPanGGOLiN").debug(f"accessory")
             if self.named_partition in ['shell', 'cloud']:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1

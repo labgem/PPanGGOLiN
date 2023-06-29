@@ -2,8 +2,9 @@
 # coding: utf8
 
 # default libraries
-from typing import Iterator, List, Union, Dict, Set, Iterable, Generator
 import re
+from typing import Iterator, List, Union, Dict, Set, Iterable, Generator
+from pathlib import Path
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
@@ -16,8 +17,8 @@ from ppanggolin.metadata import Metadata
 class Pangenome:
     """
     This is a class representing your pangenome. It is used as a basic unit for all the analysis to access to the
-    different elements of your pan, such as organisms, contigs, genes or gene families. It has setter and getter
-    methods for most elements in your pan, and you can use those to add new elements to it,
+    different elements of your pangenome, such as organisms, contigs, genes or gene families. It has setter and getter
+    methods for most elements in your pangenome, and you can use those to add new elements to it,
     or get objects that have a specific identifier to manipulate them directly.
     """
 
@@ -34,8 +35,8 @@ class Pangenome:
         self._orgGetter = {}
         self._edgeGetter = {}
         self._regionGetter = {}
-        self.spots = set()
-        self.modules = set()
+        self._spotGetter = {}
+        self._moduleGetter = {}
 
         self.status = {
             'genomesAnnotated': "No",
@@ -63,7 +64,7 @@ class Pangenome:
         }
         self.parameters = {}
 
-    def add_file(self, pangenome_file: str):
+    def add_file(self, pangenome_file: Path):
         """Links an HDF5 file to the pangenome. If needed elements will be loaded from this file,
         and anything that is computed will be saved to this file when
         :func:`ppanggolin.formats.writeBinaries.writePangenome` is called.
@@ -73,7 +74,7 @@ class Pangenome:
         from ppanggolin.formats.readBinaries import get_status
         # importing on call instead of importing on top to avoid cross-reference problems.
         get_status(self, pangenome_file)
-        self.file = pangenome_file
+        self.file = pangenome_file.absolute().as_posix()
 
     """ Gene Methods"""
 
@@ -148,6 +149,7 @@ class Pangenome:
             return len(self._geneGetter)
 
     """Gene families methods"""
+
     @property
     def gene_families(self) -> Set[GeneFamily]:
         """returns all the gene families in the pangenome
@@ -396,7 +398,7 @@ class Pangenome:
                            len([gene for gene in genes if not gene.is_fragment]) > 1])
                 if (dup / len(fam.organisms)) >= dup_margin:  # tot / nborgs >= 1.05
                     multigenics.add(fam)
-        # logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic.
+        # logging.getLogger("PPanGGOLiN").info(f"{len(multigenics)} gene families are defined as being multigenic.
         # (duplicated in more than {dup_margin} of the genomes)")
         return multigenics
 
@@ -420,42 +422,18 @@ class Pangenome:
                             f"but you provided a {type(region_group)} type object")
 
     def number_of_rgp(self) -> int:
-        """Returns the number of gene families present in the pan
+        """Returns the number of gene families present in the pangenome
 
         :return: the number of gene families
         """
         return len(self._regionGetter)
 
     """Spot methods"""
-
-    def _yield_spot(self) -> Generator[Spot, None, None]:
-        """ Use a generator to get all the genes of a pangenome
-
-        :return: an iterator of Gene
-        """
-        if self.number_of_spots() > 0:  # if we have organisms, they're supposed to have genes
-            for spot in self.spots:
-                yield spot
-
-    def _mk_spot_getter(self):
-        """
-        Builds the attribute _geneGetter of the pangenome
-
-        Since the genes are never explicitly 'added' to a pangenome (but rather to a gene family, or a contig),
-        the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
-        if at some point we want to extract genes from a pangenome we'll create a geneGetter.
-        The assumption behind this is that the pangenome has been filled and no more gene will be added.
-        """
-        self._spotGetter = {}
-        for spot in self._yield_spot():
-            self._spotGetter[spot.ID] = spot
-
-    def add_spots(self, spots: Iterable[Spot]):
-        """Adds the given iterable of spots to the pangenome.
-
-        :param spots: An iterable of :class:`ppanggolin.region.Spot`.
-        """
-        self.spots |= set(spots)
+    @property
+    def spots(self) -> Generator[Spot, None, None]:
+        # TODO made as generator
+        for spot in self._spotGetter.values():
+            yield spot
 
     def get_spot(self, spot_id: Union[int, str]) -> Spot:
         """
@@ -479,51 +457,43 @@ class Pangenome:
                 raise ValueError(f"The provided spot ID '{spot_id}' does not have the expected format."
                                  "It should be an integer or in the format 'spot_<integer>'.")
         try:
-            return self._spotGetter[spot_id]
-        except AttributeError:
-            # in that case, either the gene getter has not been computed, or the spot id is not in the pangenome.
-            self._mk_spot_getter()  # make it
-            return self.get_spot(spot_id)  # return what was expected. If spot id does not exist it will raise an error.
+            spot = self._spotGetter[spot_id]
         except KeyError:
             raise KeyError(f"Spot {spot_id} does not exist in the pangenome.")
+        else:
+            return spot
+
+    def add_spots(self, spots: Iterable[spots]):
+        #TODO remove this function
+        for spot in spots:
+            self.add_spot(spot)
+
+    def add_spot(self, spot: Spot):
+        """Adds the given iterable of spots to the pangenome.
+
+        :param spot: spot which should be added
+        """
+        try:
+            _ = self.get_spot(spot.ID)
+        except KeyError:
+            self._spotGetter[spot.ID] = spot
+        except Exception as error:
+            raise error
+        else:
+            raise KeyError("Spot already exist")
 
     def number_of_spots(self) -> int:
-        """Returns the number of gene families present in the pan
+        """Returns the number of gene families present in the pangenome
 
         :return: the number of gene families
         """
-        return len(self.spots)
+        return len(self._spotGetter)
 
     """Modules methods"""
-
-    def _yield_module(self) -> Generator[Module, None, None]:
-        """ Use a generator to get all the genes of a pangenome
-
-        :return: an iterator of Gene
-        """
-        if self.number_of_modules() > 0:  # if we have organisms, they're supposed to have genes
-            for module in self.modules:
-                yield module
-
-    def _mk_module_getter(self):
-        """
-        Builds the attribute _geneGetter of the pangenome
-
-        Since the genes are never explicitly 'added' to a pangenome (but rather to a gene family, or a contig),
-        the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
-        if at some point we want to extract genes from a pangenome we'll create a geneGetter.
-        The assumption behind this is that the pangenome has been filled and no more gene will be added.
-        """
-        self._moduleGetter = {}
-        for module in self._yield_module():
-            self._moduleGetter[module.ID] = module
-
-    def add_modules(self, modules: Iterable[Module]):
-        """Adds the given iterable of modules to the pangenome
-
-        :param modules: an iterable of :class:`ppanggolin.module.Module`
-        """
-        self.modules |= set(modules)
+    @property
+    def modules(self) -> Module:
+        for module in self._moduleGetter.values():
+            yield module
 
     def get_module(self, module_id: Union[int, str]) -> Module:
         """
@@ -548,14 +518,34 @@ class Pangenome:
                                  "It should be an integer or in the format 'module_<integer>'.")
 
         try:
-            return self._moduleGetter[module_id]
-        except AttributeError:
-            # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
-            self._mk_module_getter()  # make it
-            return self.get_module(
-                module_id)  # return what was expected. If geneID does not exist it will raise an error.
+            module = self._moduleGetter[module_id]
         except KeyError:
             raise KeyError(f"Module {module_id} does not exist in the pangenome.")
+        else:
+            return module
+
+    def add_modules(self, modules: Iterable[Module]):
+        # TODO remove
+        """Adds the given iterable of modules to the pangenome
+
+        :param modules: an iterable of :class:`ppanggolin.module.Module`
+        """
+        for module in modules:
+            self.add_module(module)
+
+    def add_module(self, module: Module):
+        """Adds the given module to the pangenome
+
+        :param module: module to add in pangenome
+        """
+        try:
+            _ = self.get_module(module.ID)
+        except KeyError:
+            self._moduleGetter[module.ID] = module
+        except Exception as error:
+            raise error
+        else:
+            raise KeyError("Module already exist")
 
     def compute_mod_bitarrays(self, part: str = 'all') -> Dict[GeneFamily, int]:
         """Based on the index generated by get_fam_index, generated a bitarray
@@ -584,7 +574,6 @@ class Pangenome:
         return len(self.modules)
 
     """Metadata"""
-
     def metadata_sources(self, metatype: str) -> Set[str]:
         """returns all the metadata source in the pangenomes
 

@@ -227,7 +227,7 @@ def test_genes_organism_debug(o_pang, make_org_with_genes):
 
 
 def test_genes_genefamilies(o_pang, fill_fam_with_genes):
-    """Genes are added in pan through their family."""
+    """Genes are added in pangenome through their family."""
     # geneFamily with genes.
     o_fam = o_pang.add_gene_family("fam1")
     l_genes = fill_fam_with_genes(o_fam)  # the list of genes, and the geneFam are supposed to be the same

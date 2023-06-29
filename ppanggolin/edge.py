@@ -9,7 +9,7 @@ from ppanggolin.genome import Gene, Organism
 
 
 class Edge:
-    """The Edge class represents an edge between two gene families in the pan graph. It is associated with all the
+    """The Edge class represents an edge between two gene families in the pangenome graph. It is associated with all the
      organisms in which the neighborship is found, and all the involved genes as well.
 
     :param source_gene: a first gene to initialize the edge

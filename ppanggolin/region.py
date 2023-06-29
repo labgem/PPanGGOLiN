@@ -7,7 +7,7 @@ import logging
 from collections.abc import Iterable
 
 # installed libraries
-from typing import Dict
+from typing import Dict, Set
 
 import gmpy2
 
@@ -67,10 +67,11 @@ class Region(MetaFeatures):
             self.genes.append(gene)
             gene.RGP.add(self)
         else:
-            raise TypeError(f"Unexpected class / type for {type(gene)} when adding it to a RGP")
+            raise TypeError(f"Unexpected class / type for {type(gene)} "
+                            f"when adding it to a region of genomic plasticity")
 
     @property
-    def families(self) -> set:
+    def families(self) -> Set[GeneFamily]:
         """Get the gene families in the RGP
 
         :return: Set of gene families
@@ -379,13 +380,18 @@ class Module(MetaFeatures):
         """
         super().__init__()
         self.ID = module_id
-        self.families = set()
+        self._families = set()
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception("You provided elements that were not GeneFamily object."
-                                " Modules are only made of GeneFamily")
-            self.families |= set(families)
+                raise Exception("You provided elements that were not GeneFamily object. "
+                                "Modules are only made of GeneFamily")
+            self._families |= set(families)
         self.bitarray = None
+
+    @property
+    def families(self) -> Set[GeneFamily]:
+        # TODO made as generator
+        return self._families
 
     def add_family(self, family: GeneFamily):
         """
@@ -396,32 +402,32 @@ class Module(MetaFeatures):
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
         family.modules.add(self)
-        self.families.add(family)
+        self._families.add(family)
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
         :param partition: filter module by partition
-        :param index: The index computed by :func:`ppanggolin.pan.Pangenome.getIndex`
+        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger().debug("all")
+            logging.getLogger("PPanGGOLiN").debug("all")
             for fam in self.families:
                 self.bitarray[index[fam]] = 1
         elif partition == 'persistent':
-            logging.getLogger().debug("persistent")
+            logging.getLogger("PPanGGOLiN").debug("persistent")
             for fam in self.families:
                 if fam.named_partition in ['persistent']:
                     self.bitarray[index[fam]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger().debug("shell, cloud")
+            logging.getLogger("PPanGGOLiN").debug("shell, cloud")
             for fam in self.families:
                 if fam.named_partition == partition:
                     self.bitarray[index[fam]] = 1
         elif partition == 'accessory':
-            logging.getLogger().debug("accessory")
+            logging.getLogger("PPanGGOLiN").debug("accessory")
             for fam in self.families:
                 if fam.named_partition in ['shell', 'cloud']:
                     self.bitarray[index[fam]] = 1
