@@ -5,6 +5,7 @@
 import logging
 import argparse
 from pathlib import Path
+from typing import Set
 # installed libraries
 from tqdm import tqdm
 
@@ -30,7 +31,7 @@ class MatriceNode:
         self.score = score if score >= 0 else 0
 
 
-def extract_rgp(contig, node, rgp_id, naming):
+def extract_rgp(contig, node, rgp_id, naming) -> Region:
     """
         Extract the region from the given starting node
     """
@@ -148,7 +149,7 @@ def init_matrices(contig: Contig, multi: set, persistent_penalty: int = 3, varia
 
 
 def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000, min_score: int = 4,
-               persistent: int = 3, continuity: int = 1, naming: str = "contig") -> set:
+               persistent: int = 3, continuity: int = 1, naming: str = "contig") -> Set[Region]:
     """
     Processing matrix and 'emptying' it to get the regions.
 
@@ -191,7 +192,7 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
 
 
 def compute_org_rgp(organism: Organism, multigenics: set, persistent_penalty: int = 3, variable_gain: int = 1,
-                    min_length: int = 3000, min_score: int = 4, naming: str = "contig") -> set:
+                    min_length: int = 3000, min_score: int = 4, naming: str = "contig") -> Set[Region]:
     org_regions = set()
     for contig in organism.contigs:
         if len(contig.genes) != 0:  # some contigs have no coding genes...
@@ -256,7 +257,7 @@ def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain
     for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genomes", disable=disable_bar):
         pangenome.add_regions(compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
                                               min_score, naming=name_scheme))
-    logging.getLogger("PPanGGOLiN").info(f"Predicted {len(pangenome.regions)} RGP")
+    logging.getLogger("PPanGGOLiN").info(f"Predicted {pangenome.number_of_rgp()} RGP")
 
     # save parameters and save status
     pangenome.parameters["RGP"] = {}

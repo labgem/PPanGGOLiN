@@ -56,6 +56,7 @@ class Region(MetaFeatures):
         return self.genes[index]
 
     def append(self, gene: Gene):
+        # TODO change name foir add_gene
         """allowing only gene-class objects in a region
 
         :param gene: gene which will be added

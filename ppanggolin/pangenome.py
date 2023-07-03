@@ -77,23 +77,11 @@ class Pangenome:
         self.file = pangenome_file.absolute().as_posix()
 
     """ Gene Methods"""
-
     @property
-    def genes(self) -> list:
-        """Creates the geneGetter if it does not exist, and returns all the genes of all organisms in the pangenome.
+    def genes(self) -> Generator[Gene, None, None]:
+        """Generator of genes in the pangenome.
         
-        :return: list of :class:`ppanggolin.genome.Gene`
-        """
-        try:
-            return list(self._geneGetter.values())
-        except AttributeError:  # in that case the gene getter has not been computed
-            self._mk_gene_getter()  # make it
-            return self.genes  # return what was expected
-
-    def _yield_genes(self) -> Iterator[Gene]:
-        """ Use a generator to get all the genes of a pangenome
-
-        :return: an iterator of Gene
+        :return: gene generator
         """
         if self.number_of_organisms() > 0:  # if we have organisms, they're supposed to have genes
             for org in self.organisms:
@@ -116,7 +104,7 @@ class Pangenome:
         The assumption behind this is that the pangenome has been filled and no more gene will be added.
         """
         self._geneGetter = {}
-        for gene in self._yield_genes():
+        for gene in self.genes:
             self._geneGetter[gene.ID] = gene
 
     def get_gene(self, gene_id: str) -> Gene:
@@ -137,7 +125,7 @@ class Pangenome:
         except KeyError:
             raise KeyError(f"{gene_id} does not exist in the pangenome.")
 
-    def number_of_gene(self) -> int:
+    def number_of_genes(self) -> int:
         """Returns the number of gene present in the pangenome
 
         :return: the number of gene families
@@ -149,14 +137,14 @@ class Pangenome:
             return len(self._geneGetter)
 
     """Gene families methods"""
-
     @property
-    def gene_families(self) -> Set[GeneFamily]:
+    def gene_families(self) -> Generator[GeneFamily, None, None]:
         """returns all the gene families in the pangenome
         
         :return: list of :class:`ppanggolin.geneFamily.GeneFamily`
         """
-        return set(self._famGetter.values())
+        for family in self._famGetter.values():
+            yield family
 
     def number_of_gene_families(self) -> int:
         """Returns the number of gene families present in the pangenome
@@ -172,12 +160,13 @@ class Pangenome:
 
         :return: returns the gene family that has the name `name`
         """
+        assert isinstance(name, str)
         try:
             fam = self._famGetter[name]
         except KeyError:
             raise KeyError(f"Gene family with name={name} is not in pangenome")
         except Exception as error:
-            raise error
+            raise Exception(error)
         else:
             return fam
 
@@ -194,22 +183,25 @@ class Pangenome:
             _ = self.get_gene_family(family.name)
         except KeyError:
             self._famGetter[family.name] = family
+            self.max_fam_id += 1
         except Exception as error:
-            raise error
+            raise Exception(error)
         else:
             raise KeyError("Gene Family already exist")
 
     """Graph methods"""
 
     @property
-    def edges(self) -> list:
+    def edges(self) -> Generator[Edge, None, None]:
         """returns all the edges in the pangenome graph
         
-        :return: list of :class:`ppanggolin.pangenome.Edge`
+        :return: Generator of edge
         """
-        return list(self._edgeGetter.values())
+        for edge in self._edgeGetter.values():
+            yield edge
 
     def add_edge(self, gene1: Gene, gene2: Gene) -> Edge:
+        # TODO add_edge should not create edge but add one to pangenome like other add methods
         """
         Adds an edge between the two gene families that the two given genes belong to.
         Genes object are expected, and they are also expected to have a family assigned
@@ -228,7 +220,7 @@ class Pangenome:
             edge.add_genes(gene1, gene2)
         return edge
 
-    def number_of_edge(self) -> int:
+    def number_of_edges(self) -> int:
         """Returns the number of edge present in the pangenome
 
         :return: the number of gene families
@@ -236,14 +228,14 @@ class Pangenome:
         return len(self._edgeGetter)
 
     """Organism methods"""
-
     @property
-    def organisms(self) -> Set[Organism]:
+    def organisms(self) -> Generator[Organism, None, None]:
         """returns all the organisms in the pangenome
         
         :return: list of :class:`ppanggolin.genome.Organism`
         """
-        return set(self._orgGetter.values())
+        for organism in self._orgGetter.values():
+            yield organism
 
     def number_of_organisms(self) -> int:
         """Returns the number of organisms present in the pangenome
@@ -268,34 +260,24 @@ class Pangenome:
         except KeyError:
             raise KeyError(f"{org_name} does not seem to be in your pangenome")
 
-    def add_organism(self, new_org: Union[Organism, str]) -> Organism:
+    def add_organism(self, organism: Organism):
         """
         adds an organism that did not exist previously in the pangenome if an Organism object is provided.
         If an organism with the same name exists it will raise an error.
         If a str object is provided, will return the corresponding organism that has this name
         OR create a new one if it does not exist.
 
-        :param new_org: Organism to add to the pangenome
+        :param organism: Organism to add to the pangenome
 
-        :return: The created organism
-
-        :raises TypeError: if the provided `newOrg` is neither a str nor a :class:`ppanggolin.genome.Organism`
+        :raises KeyError: if the provided organism is already in pangenome
         """
-        if isinstance(new_org, Organism):
-            old_len = len(self._orgGetter)
-            self._orgGetter[new_org.name] = new_org
-            if len(self._orgGetter) == old_len:
-                raise KeyError(f"Redondant organism name was found ({new_org.name})."
-                               f"All of your organisms must have unique names.")
-        elif isinstance(new_org, str):
-            org = self._orgGetter.get(new_org)
-            if org is None:
-                org = Organism(new_org)
-                self._orgGetter[org.name] = org
-            new_org = org
+        try:
+            self.get_organism(organism.name)
+        except KeyError:
+            self._orgGetter[organism.name] = organism
         else:
-            raise TypeError("Provide an Organism object or a str that will serve as organism name")
-        return new_org
+            raise KeyError(f"Redondant organism name was found ({organism.name})."
+                           f"All of your organisms must have unique names.")
 
     def get_org_index(self) -> Dict[Organism, int]:  # will not make a new index if it exists already
         """Creates an index for Organisms (each organism is assigned an Integer).
@@ -360,12 +342,13 @@ class Pangenome:
     """RGP methods"""
 
     @property
-    def regions(self) -> list:
+    def regions(self) -> Generator[Region, None, None]:
         """returns all the regions (RGP) in the pangenome
 
         :return: list of RGP
         """
-        return list(self._regionGetter.values())
+        for region in self._regionGetter.values():
+            yield region
 
     def get_region(self, region_name: str) -> Region:
         """Returns a region with the given region_name. Creates it if it does not exist.
@@ -375,11 +358,11 @@ class Pangenome:
         :return: The region
         """
         try:
-            return self._regionGetter[region_name]
+            rgp = self._regionGetter[region_name]
         except KeyError:  # then the region is not stored in this pangenome.
-            new_region = Region(region_name)
-            self._regionGetter[region_name] = new_region
-            return new_region
+            raise KeyError(f"There is no RGP with name={region_name}")
+        else:
+            return rgp
 
     def get_multigenics(self, dup_margin: float, persistent: bool = True) -> Set[GeneFamily]:
         """
@@ -402,24 +385,32 @@ class Pangenome:
         # (duplicated in more than {dup_margin} of the genomes)")
         return multigenics
 
-    def add_regions(self, region_group: Union[Region, Iterable[Region]]):
-        """Takes an Iterable or a Region object and adds it to the pangenome
+    def add_region(self, region: Region):
+        """Add a region to the pangenome
 
-        :param region_group: a region or an Iterable of regions to add to the pangenome
+        :param region: Region to add in pangenome
 
-        :raises TypeError: if regionGroup is neither a Region nor an Iterable[Region]
+        :raise KeyError: Error if another Region exist in pangenome with the same name
         """
-        old_len = len(self._regionGetter)
-        if isinstance(region_group, Iterable):
-            for region in region_group:
-                self._regionGetter[region.name] = region
-            if len(self._regionGetter) != len(region_group) + old_len:
-                raise Exception("Two regions had an identical name, which was unexpected.")
-        elif isinstance(region_group, Region):
-            self._regionGetter[region_group.name] = region_group
+        try:
+            self.get_region(region.name)
+        except KeyError:
+            self._regionGetter[region.name] = region
         else:
-            raise TypeError(f"An iterable or a 'Region' type object were expected, "
-                            f"but you provided a {type(region_group)} type object")
+            raise KeyError(f"A RGP with this name ({region.name} already exist in pangenome")
+
+    def add_regions(self, regions: Iterable[Region]):
+        #TODO remove this function
+        """Takes an Iterable of Region and adds it to the pangenome
+
+        :param regions: An Iterable of regions to add to the pangenome
+
+        :raises AssertionError: if regions is not an Iterable[Region]
+        """
+        assert isinstance(regions, Iterable), f"An iterable was expected, but you provided a {type(regions)}"
+
+        for region in regions:
+            self.add_region(region)
 
     def number_of_rgp(self) -> int:
         """Returns the number of gene families present in the pangenome
@@ -431,11 +422,11 @@ class Pangenome:
     """Spot methods"""
     @property
     def spots(self) -> Generator[Spot, None, None]:
-        # TODO made as generator
         for spot in self._spotGetter.values():
             yield spot
 
     def get_spot(self, spot_id: Union[int, str]) -> Spot:
+        # TODO Change for only str or only int
         """
         Returns the spot that has the given spot ID.
 
@@ -450,7 +441,7 @@ class Pangenome:
         try:
             spot_id = int(spot_id)
         except ValueError:
-            result = re.search("^spot_(\d+)$", spot_id)
+            result = re.search(r"^spot_(\d+)$", spot_id)
             if result:
                 spot_id = int(result.group(1))
             else:
@@ -463,7 +454,7 @@ class Pangenome:
         else:
             return spot
 
-    def add_spots(self, spots: Iterable[spots]):
+    def add_spots(self, spots: Iterable[Spot]):
         #TODO remove this function
         for spot in spots:
             self.add_spot(spot)
@@ -474,11 +465,11 @@ class Pangenome:
         :param spot: spot which should be added
         """
         try:
-            _ = self.get_spot(spot.ID)
+            self.get_spot(spot.ID)
         except KeyError:
             self._spotGetter[spot.ID] = spot
         except Exception as error:
-            raise error
+            raise Exception(error)
         else:
             raise KeyError("Spot already exist")
 
@@ -510,7 +501,7 @@ class Pangenome:
         try:
             module_id = int(module_id)
         except ValueError:
-            result = re.search("^module_(\d+)$", module_id)
+            result = re.search(r"^module_(\d+)$", module_id)
             if result:
                 module_id = int(result.group(1))
             else:
@@ -539,11 +530,11 @@ class Pangenome:
         :param module: module to add in pangenome
         """
         try:
-            _ = self.get_module(module.ID)
+            self.get_module(module.ID)
         except KeyError:
             self._moduleGetter[module.ID] = module
         except Exception as error:
-            raise error
+            raise Exception(error)
         else:
             raise KeyError("Module already exist")
 
@@ -571,9 +562,23 @@ class Pangenome:
 
         :return: the number of modules
         """
-        return len(self.modules)
+        return len(self._moduleGetter)
 
     """Metadata"""
+    def select_elem(self, metatype: str):
+        if metatype == "families":
+            return self.gene_families
+        elif metatype == "genomes":
+            return self.organisms
+        elif metatype == "genes":
+            return self.genes
+        elif metatype == "RGPs":
+            return self.regions
+        elif metatype == "spots":
+            return self.spots
+        else:  # metatype == "modules":
+            return self.modules
+
     def metadata_sources(self, metatype: str) -> Set[str]:
         """returns all the metadata source in the pangenomes
 
@@ -583,19 +588,7 @@ class Pangenome:
         """
         assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
         source_set = set()
-        if metatype == "families":
-            elements = self.gene_families
-        elif metatype == "genomes":
-            elements = self.organisms
-        elif metatype == "genes":
-            elements = self.genes
-        elif metatype == "RGPs":
-            elements = self.regions
-        elif metatype == "spots":
-            elements = self.spots
-        else:  # metatype == "modules":
-            elements = self.modules
-        for elem in elements:
+        for elem in self.select_elem(metatype):
             for source_metadata in elem.sources:
                 source_set.add(source_metadata)
         return source_set
@@ -606,39 +599,15 @@ class Pangenome:
         :return: set of metadata source
         """
         assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
-        if metatype == "families":
-            elements = self.gene_families
-        elif metatype == "genomes":
-            elements = self.organisms
-        elif metatype == "genes":
-            elements = self.genes
-        elif metatype == "RGPs":
-            elements = self.regions
-        elif metatype == "spots":
-            elements = self.spots
-        else:  # metatype == "modules":
-            elements = self.modules
-        for elem in elements:
+        for elem in self.select_elem(metatype):
             yield elem.metadata
 
     def get_elem_by_metadata(self, metatype: str, **kargs) -> Generator[
         Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
         assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
-        if metatype == "families":
-            elements = self.gene_families
-        elif metatype == "genomes":
-            elements = self.organisms
-        elif metatype == "genes":
-            elements = self.genes
-        elif metatype == "RGPs":
-            elements = self.regions
-        elif metatype == "spots":
-            elements = self.spots
-        else:  # metatype == "modules":
-            elements = self.modules
-        for element in elements:
-            if len(list(element.get_metadata(**kargs))) > 0:
-                yield element
+        for elem in self.select_elem(metatype):
+            if len(list(elem.get_metadata(**kargs))) > 0:
+                yield elem
 
     def get_elem_by_sources(self, source: List[str], metatype: str) -> Generator[
         Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
@@ -649,18 +618,6 @@ class Pangenome:
         :return: Gene families with the source
         """
         assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
-        if metatype == "families":
-            elements = self.gene_families
-        elif metatype == "genomes":
-            elements = self.organisms
-        elif metatype == "genes":
-            elements = self.genes
-        elif metatype == "RGPs":
-            elements = self.regions
-        elif metatype == "spots":
-            elements = self.spots
-        else:  # metatype == "modules":
-            elements = self.modules
-        for element in elements:
-            if element.get_source(source) is not None:
-                yield element
+        for elem in self.select_elem(metatype):
+            if elem.get_source(source) is not None:
+                yield elem

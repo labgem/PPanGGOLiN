@@ -259,7 +259,7 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
     logging.getLogger("PPanGGOLiN").info(f"Adding {len(gene_to_fam)} genes to the gene families")
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
-    if link and len(gene_to_fam) != len(pangenome.genes):  # then maybe there are genes with identical IDs
+    if link and len(gene_to_fam) != pangenome.number_of_genes():  # then maybe there are genes with identical IDs
         raise Exception("Something unexpected happened during clustering (have less genes clustered than genes "
                         "in the pangenome). A probable reason is that two genes in two different organisms have "
                         "the same IDs; If you are sure that all of your genes have non identical IDs,  please post an "
@@ -416,7 +416,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
             raise Exception(f"line {line_counter} of the file '{families_tsv_file.name}' raised an error.")
     bar.close()
     families_tsv_file.close()
-    if nb_gene_with_fam < len(pangenome.genes):  # not all genes have an associated cluster
+    if nb_gene_with_fam < pangenome.number_of_genes():  # not all genes have an associated cluster
         if nb_gene_with_fam == 0:
             raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step."
                             " Please ensure that the annotations that you loaded previously and the clustering results "
@@ -426,7 +426,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
             if infer_singleton:
                 infer_singletons(pangenome)
             else:
-                raise Exception(f"Some genes ({len(pangenome.genes) - nb_gene_with_fam}) did not have an associated "
+                raise Exception(f"Some genes ({pangenome.number_of_genes() - nb_gene_with_fam}) did not have an associated "
                                 f"cluster. Either change your cluster file so that each gene has a cluster, "
                                 f"or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
     pangenome.status["genesClustered"] = "Computed"

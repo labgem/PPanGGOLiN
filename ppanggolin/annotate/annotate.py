@@ -497,9 +497,9 @@ def get_gene_sequences_from_fastas(pangenome, fasta_file):
         with read_compressed_or_not(elements[1]) as currFastaFile:
             fasta_dict[org], _ = read_fasta(org, currFastaFile)
     if set(pangenome.organisms) > set(fasta_dict.keys()):
-        missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fasta_dict.keys()))
+        missing = pangenome.number_of_organisms() - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome organisms are present within the provided fasta file. "
-                        f"{missing} are missing (out of {len(pangenome.organisms)}).")
+                        f"{missing} are missing (out of {pangenome.number_of_organisms()}).")
 
     for org in pangenome.organisms:
         for contig in org.contigs:

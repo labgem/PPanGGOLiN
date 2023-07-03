@@ -34,7 +34,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     if pangenome.status["partitioned"] == "No":
         raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
-    if len(pangenome.organisms) > 500 and nocloud is False:
+    if pangenome.number_of_organisms() > 500 and nocloud is False:
         logging.getLogger("PPanGGOLiN").warning("You asked to draw a tile plot for a lot of organisms (>500). "
                                                 "Your browser will probably not be able to open it.")
     logging.getLogger("PPanGGOLiN").info("Drawing the tile plot...")
@@ -46,7 +46,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     if nocloud:
         families = {fam for fam in pangenome.gene_families if not fam.partition.startswith("C")}
     else:
-        families = pangenome.gene_families
+        families = set(pangenome.gene_families)
     org_index = pangenome.get_org_index()
     index2org = {}
     for org, index in org_index.items():
@@ -65,7 +65,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         index2fam[row] = fam.name
         fam2index[fam.name] = row
 
-    mat_p_a = csc_matrix((data, (all_indexes, all_columns)), shape=(len(families), len(pangenome.organisms)),
+    mat_p_a = csc_matrix((data, (all_indexes, all_columns)), shape=(len(families), pangenome.number_of_organisms()),
                          dtype='float')
     dist = pdist(1 - jaccard_similarities(mat_p_a, 0).todense())
     hc = linkage(dist, 'single')
@@ -153,9 +153,9 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         else:
             color = colors["shell"]
         shapes.append(dict(type='line', x0=-1, x1=-1, y0=sep_prec, y1=sep, line=dict(dict(width=10, color=color))))
-        shapes.append(dict(type='line', x0=len(pangenome.organisms), x1=len(pangenome.organisms), y0=sep_prec, y1=sep,
+        shapes.append(dict(type='line', x0=pangenome.number_of_organisms(), x1=pangenome.number_of_organisms(), y0=sep_prec, y1=sep,
                            line=dict(dict(width=10, color=color))))
-        shapes.append(dict(type='line', x0=-1, x1=len(pangenome.organisms), y0=sep, y1=sep,
+        shapes.append(dict(type='line', x0=-1, x1=pangenome.number_of_organisms(), y0=sep, y1=sep,
                            line=dict(dict(width=1, color=color))))
         sep_prec = sep
 

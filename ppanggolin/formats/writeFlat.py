@@ -141,9 +141,9 @@ def write_json_edges(json):
     :param json: file-like object, compressed or not
     """
     json.write(', "links": [')
-    edgelist = pan.edges
-    write_json_edge(edgelist[0], json)
-    for edge in edgelist[1:]:
+    edge_list = list(pan.edges)
+    write_json_edge(edge_list[0], json)
+    for edge in edge_list[1:]:
         json.write(", ")
         write_json_edge(edge, json)
     json.write(']')
@@ -241,9 +241,9 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
         gexf.write(f'          <attvalue for="4" value="{fam.named_partition}" />\n')
         gexf.write(f'          <attvalue for="5" value="{fam.partition}" />\n')
         gexf.write(f'          <attvalue for="6" value="'
-                   f'{"exact_accessory" if len(fam.organisms) != len(pan.organisms) else "exact_core"}" />\n')
+                   f'{"exact_accessory" if len(fam.organisms) != pan.number_of_organisms() else "exact_core"}" />\n')
         gexf.write(f'          <attvalue for="7" value="'
-                   f'{"soft_core" if len(fam.organisms) >= (len(pan.organisms) * soft_core) else "soft_accessory"}"'
+                   f'{"soft_core" if len(fam.organisms) >= (pan.number_of_organisms() * soft_core) else "soft_accessory"}"'
                    f' />\n')
         gexf.write(f'          <attvalue for="8" value="{round(sum(lis) / len(lis), 2)}" />\n')
         gexf.write(f'          <attvalue for="9" value="{int(median(lis))}" />\n')
@@ -349,7 +349,7 @@ def write_matrix(output: Path, sep: str = ',', ext: str = 'csv', compress: bool 
                                '"Max group size nuc"',  # 13
                                '"Avg group size nuc"']  # 14
                               + ['"' + str(org) + '"' for org in pan.organisms]) + "\n")  # 15
-        default_genes = ['""'] * len(pan.organisms) if gene_names else ["0"] * len(pan.organisms)
+        default_genes = ['""'] * pan.number_of_organisms() if gene_names else ["0"] * pan.number_of_organisms()
         org_index = pan.get_org_index()  # should just return things
         for fam in pan.gene_families:
             genes = default_genes.copy()
@@ -406,7 +406,7 @@ def write_gene_presence_absence(output: Path, compress: bool = False):
 
         matrix.write('\t'.join(['Gene'] +  # 14
                                [str(org) for org in pan.organisms]) + "\n")  # 15
-        default_genes = ["0"] * len(pan.organisms)
+        default_genes = ["0"] * pan.number_of_organisms()
         org_index = pan.get_org_index()  # should just return things
         for fam in pan.gene_families:
             genes = default_genes.copy()
@@ -606,9 +606,9 @@ def write_parts(output: Path, soft_core: float = 0.95):
         part_sets[fam.named_partition].add(fam.name)
         if fam.partition.startswith("S"):
             part_sets[fam.partition].add(fam.name)
-        if len(fam.organisms) >= len(pan.organisms) * soft_core:
+        if len(fam.organisms) >= pan.number_of_organisms() * soft_core:
             part_sets["soft_core"].add(fam.name)
-            if len(fam.organisms) == len(pan.organisms):
+            if len(fam.organisms) == pan.number_of_organisms():
                 part_sets["exact_core"].add(fam.name)
             else:
                 part_sets["exact_accessory"].add(fam.name)
