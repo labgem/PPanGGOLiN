@@ -55,7 +55,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    partition     Partition the pangenome graph\n"
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
-    desc += "    projection    Projet a new genome to an existing pangenome\n"
+    desc += "    projection    Annotate an input genome with an existing pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
@@ -130,8 +130,8 @@ def cmd_line() -> argparse.Namespace:
 
     cmds_pangenome_required = ["cluster", "info", "module", "graph","align", 
                                "context", "write", "msa", "draw", "partition",
-                               "rarefaction", "spot", "fasta", "metrics", "rgp"]
-    if args.subcommand in  cmds_pangenome_required and args.pangenome is None:
+                               "rarefaction", "spot", "fasta", "metrics", "rgp", "projection"]
+    if args.subcommand in cmds_pangenome_required and args.pangenome is None:
         parser.error("You must provide a pangenome file with the --pangenome "
                         "argument through the command line or the config file.")
     
@@ -184,7 +184,7 @@ def main():
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
     elif args.subcommand == "projection":
-        ppanggolin.align.launch(args)
+        ppanggolin.projection.projection.launch(args)
     elif args.subcommand == "rgp":
         ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "spot":

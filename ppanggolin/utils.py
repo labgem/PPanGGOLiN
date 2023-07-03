@@ -25,7 +25,7 @@ from collections import defaultdict
 from ppanggolin.geneFamily import GeneFamily
 
 # all input params that exists in ppanggolin
-ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome']
+ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', "fasta_file", "annot_file"]
 
 # all params that should be in the general_parameters section of the config file
 ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log',

@@ -21,6 +21,7 @@ poss_values_log = "Possible values are 'all', 'persistent', 'shell', 'cloud', 'r
 
 
 def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO, list_cds: list = None, add: str = '',
+                                          seq_attr_to_write: str  = "dna" ,
                                           disable_bar: bool = False):
     """
     Writes the CDS sequences given through list_CDS of the Pangenome object to a tmpFile object,
@@ -33,6 +34,8 @@ def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO
     :param add: Add prefix to gene ID
     :param disable_bar: Disable progress bar
     """
+    assert seq_attr_to_write in ['dna', "protein"] 
+
     counter = 0
     if list_cds is None:
         list_cds = pangenome.genes
@@ -41,7 +44,7 @@ def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO
         if gene.type == "CDS":
             counter += 1
             file_obj.write('>' + add + gene.ID + "\n")
-            file_obj.write(gene.dna + "\n")
+            file_obj.write(getattr(gene, seq_attr_to_write) + "\n")
     file_obj.flush()
 
 

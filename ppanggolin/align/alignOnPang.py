@@ -37,7 +37,7 @@ def createdb(file_obj: TextIOWrapper, tmpdir: tempfile.TemporaryDirectory) -> Te
 
 def align_seq_to_pang(pang_file: TextIOWrapper, seq_file: TextIOWrapper, output: str,
                       tmpdir: tempfile.TemporaryDirectory, cpu: int = 1, no_defrag: bool = False,
-                      identity: float = 0.8, coverage: float = 0.8) -> str:
+                      identity: float = 0.8, coverage: float = 0.8, is_protein:bool = False, translation_table: int = None ) -> str:
     """
     Align pangenome sequences against fasta sequence
 
@@ -49,53 +49,75 @@ def align_seq_to_pang(pang_file: TextIOWrapper, seq_file: TextIOWrapper, output:
     :param no_defrag: Allow to pass the defragmentation step
     :param identity: minimal identity threshold for the alignment
     :param coverage: minimal identity threshold for the alignment
+    :param is_protein: Is the sequence file are protein sequences. If True, the sequences are not translated by mmseqs
+    :param translation_table: Translation table to use, if sequences are nucleotide and need to be translated.
 
     :return: Alignement result file
     """
 
     pang_db = createdb(pang_file, tmpdir)
     seq_db = createdb(seq_file, tmpdir)
-    cov_mode = "0"  # coverage of query and target
-    if not no_defrag:
-        cov_mode = "1"  # coverage of target
-    aln_db = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
-    cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
-           "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)]
-    logging.getLogger().debug(" ".join(cmd))
+
+    cov_mode = "1"  # coverage of target
+    if no_defrag:    
+       cov_mode = "0"  # coverage of query and target
+
+    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name, prefix="aln_result_db_file") as aln_db:
+        cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
+            "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)]
+        if is_protein:
+            logging.getLogger().debug(f"Input sequences will be translated by mmseqs with translation table {translation_table}")
+            cmd += ["--translation-table", f"{translation_table}", "--translate", "0" ]
+    
+    
     logging.getLogger().info("Aligning sequences to cluster representatives...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
-    outfile = output + "/input_to_pangenome_associations.blast-tab_tmp"  # write a tmp file of the results
-    cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile, "--format-mode", "2"]
     logging.getLogger().debug(" ".join(cmd))
-    logging.getLogger().info("Extracting alignments...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL)
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+
+    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name, prefix="aln_result_db_file", suffix = ".tsv", delete=False) as outfile:
+        cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile.name, "--format-mode", "2"]
+
+        logging.getLogger().info("Extracting alignments...")
+        logging.getLogger().debug(" ".join(cmd))
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+
+
     pang_db.close()
     seq_db.close()
     aln_db.close()
 
-    return outfile
+    return outfile.name
 
 
-def read_alignments(aln_res: str, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
+def associate_input_seq_to_gene_family_from_aln(aln_res: str, outdir:TextIOWrapper, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
     """
-    Read alignment result to link input sequence to pangenome
+    Read alignment result to link input sequence to pangenome gene family
 
     :param aln_res: Alignement result file
+    :param outdir: Output directory
     :param pangenome: Input pangenome
 
-    :return: Dictionnary with sequence link to pangenome gene families and actual name of resulting alignment file
+    :return: Dictionnary with sequence link to pangenome gene families and actual path to the cleaned alignment file
     """
     seq2pang = {}
-    outname = open(aln_res.replace("_tmp", ""), "w")  # write the actual result file
-    with open(aln_res, "r") as alnFile:
+    result_file = outdir + f"/alignment_input_seqs_to_pangenome_gene_families.tsv"  # write the actual result file 
+    logging.getLogger(f'Get write alignment file in {result_file}')
+
+    with open(aln_res, "r") as alnFile, open(result_file, "w") as outfile :
         for line in alnFile:
-            line = line.replace("ppanggolin_", "")  # remove the 'ppanggolin_' bit of the id
-            outname.write(line)
-            line = line.split()
-            if seq2pang.get(line[0]) is None:  # if no results were found yet
-                seq2pang[line[0]] = pangenome.get_gene_family(line[1])  # then the best hit is the first one we see.
-    outname.close()
-    return seq2pang, outname.name
+            line_splitted = line.split()
+            
+
+            line_splitted[1] = line_splitted[1].replace("ppanggolin_", "")  # remove the 'ppanggolin_' bit of the id
+
+            outfile.write("\t".join(line_splitted))
+
+            input_seq_id, gene_family_id = line_splitted[0:2]
+
+            if seq2pang.get(input_seq_id) is None:  # if no results were found yet
+                seq2pang[input_seq_id] = pangenome.get_gene_family(gene_family_id)  # then the best hit is the first one we see.
+
+    return seq2pang, outfile
 
 
 def get_seq(seq_file: TextIOWrapper) -> Set[str]:
@@ -115,7 +137,7 @@ def get_seq(seq_file: TextIOWrapper) -> Set[str]:
 
 def write_gene_fam_sequences(pangenome: Pangenome, file_obj: TextIOWrapper, add: str = ""):
     """
-    Export the sequence of genes in families
+    Export the sequence of gene families
 
     :param pangenome: Pangenome containing families
     :param file_obj: Temporary file where sequences will be written
@@ -124,7 +146,7 @@ def write_gene_fam_sequences(pangenome: Pangenome, file_obj: TextIOWrapper, add:
     for fam in pangenome.gene_families:
         file_obj.write(">" + add + fam.name + "\n")
         file_obj.write(fam.sequence + "\n")
-    file_obj.flush()
+    # file_obj.flush()
 
 
 def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], output: str) -> str:
@@ -140,8 +162,8 @@ def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], out
 
     partition_proj = output + "/sequences_partition_projection.tsv"
     with open(partition_proj, "w") as partProjFile:
-        for key, pangFam in seq_to_pang.items():
-            partProjFile.write(key + "\t" + pangFam.named_partition + "\n")
+        for input_seq, pangFam in seq_to_pang.items():
+            partProjFile.write(input_seq + "\t" + pangFam.named_partition + "\n")
         for remainingSeq in (seq_to_pang.keys() & seq_set):
             partProjFile.write(remainingSeq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
     return partition_proj
@@ -270,7 +292,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: str, draw_rela
 
 def get_seq2pang(pangenome: Pangenome, sequence_file: str, output: str, tmpdir: tempfile.TemporaryDirectory,
                  cpu: int = 1, no_defrag: bool = False, identity: float = 0.8,
-                 coverage: float = 0.8) -> Tuple[set, str, dict]:
+                 coverage: float = 0.8, is_protein:bool = True, translation_table:int = 11) -> Tuple[set, str, dict]:
     """
     Assign a pangenome gene family to the input sequences.
 
@@ -282,20 +304,21 @@ def get_seq2pang(pangenome: Pangenome, sequence_file: str, output: str, tmpdir: 
     :param no_defrag: do not use the defrag workflow if true
     :param identity: minimal identity threshold for the alignment
     :param coverage: minimal identity threshold for the alignment
+    :param is_protein: Is the sequence file are protein sequences. If True, the sequences are not translated by mmseqs
+    :param translation_table: Translation table to use, if sequences are nucleotide and need to be translated.
 
     :return: sequence set, blast-tab result file string, and sequences aligned with families
-    """
-    tmp_pang_file = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name)
+    """ 
+    
+    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name, delete=False, suffix=".faa") as tmp_pang_file:
 
-    write_gene_fam_sequences(pangenome, tmp_pang_file, add="ppanggolin_")
+        write_gene_fam_sequences(pangenome, tmp_pang_file, add="ppanggolin_")
 
-    with read_compressed_or_not(sequence_file) as seqFileObj:
-        seq_set = get_seq(seqFileObj)
-        align_file = align_seq_to_pang(tmp_pang_file, seqFileObj, output, tmpdir, cpu, no_defrag, identity, coverage)
+        with read_compressed_or_not(sequence_file) as seqFileObj:
+            seq_set = get_seq(seqFileObj)
+            align_file = align_seq_to_pang(tmp_pang_file, seqFileObj, output, tmpdir, cpu, no_defrag, identity, coverage, is_protein, translation_table )
 
-    seq2pang, align_file = read_alignments(align_file, pangenome)
-
-    tmp_pang_file.close()
+        seq2pang, align_file = associate_input_seq_to_gene_family_from_aln(align_file, output, pangenome)
 
     return seq_set, align_file, seq2pang
 
