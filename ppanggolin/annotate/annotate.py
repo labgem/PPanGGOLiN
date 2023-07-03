@@ -7,6 +7,7 @@ from multiprocessing import get_context
 import logging
 import os
 import time
+from typing import Tuple
 
 # installed libraries
 from tqdm import tqdm
@@ -94,7 +95,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     new_gene.fill_parents(org, contig)
 
 
-def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, pseudo: bool = False) -> (Organism, bool):
+def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, pseudo: bool = False) -> Tuple[Organism, bool]:
     """
     Read a GBFF file and fills Organism, Contig and Genes objects based on information contained in this file
 
@@ -238,7 +239,7 @@ def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, ps
     return org, True
 
 
-def read_org_gff(organism: str, gff_file_path: str, circular_contigs, pseudo: bool = False) -> (Organism, bool):
+def read_org_gff(organism: str, gff_file_path: str, circular_contigs, pseudo: bool = False) -> Tuple[Organism, bool]:
     """
     Read annotation from GFF file
 
@@ -382,7 +383,7 @@ def launch_read_anno(args: tuple) -> (Organism, bool):
     return read_anno_file(*args)
 
 
-def read_anno_file(organism_name: str, filename: str, circular_contigs: list, pseudo: bool = False) -> (Organism, bool):
+def read_anno_file(organism_name: str, filename: str, circular_contigs: list, pseudo: bool = False) -> Tuple[Organism, bool]:
     """
     Read a GBFF file for one organism
 
@@ -391,7 +392,7 @@ def read_anno_file(organism_name: str, filename: str, circular_contigs: list, ps
     :param circular_contigs: list of sequence in contig
     :param pseudo: allow to read pseudogène
 
-    :return: Annotated organism for pangenome
+    :return: Annotated organism for pangenome and true for sequence in file
     """
     filetype = detect_filetype(filename)
     if filetype == "gff":
