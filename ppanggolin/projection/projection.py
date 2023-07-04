@@ -98,7 +98,8 @@ def compute_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penal
     rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
                     min_score, naming=name_scheme, disable_bar=disable_bar)
 
-    print("Found RGPS ", len(rgps))
+    # print("Found RGPS ", len(rgps))
+    # TODO add number of RGP found.. 
     return rgps
 
 
@@ -193,7 +194,9 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
 
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar, need_rgp=args.predict_rgp)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar, 
+                         need_rgp=args.predict_rgp, need_modules=args.project_modules,
+                         need_spots=args.project_spots)
 
     # Add input organism in pangenome. This temporary as pangenome is not going to be written.
     pangenome.add_organism(input_organism)
@@ -211,8 +214,42 @@ def launch(args: argparse.Namespace):
         
         write_predicted_regions(rgps, output=output_dir)
 
-        
+    if args.project_modules:
+        write_projected_modules_to_input_organism(pangenome, input_organism, output_dir)
+    if args.project_spots:
+        pass
+
     # write_flat_files_for_input_genome(input_organism)
+
+def write_projected_modules_to_input_organism(pangenome, input_organism, output, compress=False):
+    """Write a tsv file providing association between modules and organisms
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
+
+    # TODO ad logging with number of module associated with the input orga
+    output_file = output / "modules_in_input_organism.tsv"
+
+    logging.getLogger().info("Writing modules to organisms associations...")
+
+    input_organism_families = input_organism.families
+
+    with write_compressed_or_not(output_file, compress) as fout:
+        fout.write("module_id\torganism\tcompletion\n")
+
+        for mod in pangenome.modules:
+            mod_orgs = set()
+
+            module_in_input_organism = any((fam in input_organism_families for fam in mod.families))
+
+            if module_in_input_organism:
+
+                completion = round(len(input_organism.families & mod.families) / len(mod.families), 2)
+                fout.write(f"module_{mod.ID}\t{input_organism.name}\t{completion}\n")
+
+    logging.getLogger().info(
+        f"Writing projected modules to input organism : '{output_file}'")
 
 
 # def write_flat_files_for_input_genome(input_organism):
@@ -271,7 +308,9 @@ def parser_projection(parser: argparse.ArgumentParser):
     optional.add_argument('--predict_rgp', required=False, action='store_true', default=False,
                           help="Predict rgp on the input genome.")
     optional.add_argument('--project_modules', required=False, action='store_true', default=False,
-                          help="Predict rgp on the input genome.")
+                          help="Project pangenome modules to the input genome.")
+    optional.add_argument('--project_spots', required=False, action='store_true', default=False,
+                          help="Project pangenome spots to the input genome.")
     # optional.add_argument("--basename", required=False, default="pangenome", help="basename for the output file")
     
     # annotate = parser.add_argument_group(title="Annotation arguments")
