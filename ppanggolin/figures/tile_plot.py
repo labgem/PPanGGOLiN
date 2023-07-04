@@ -68,7 +68,7 @@ def draw_tile_plot(pangenome: Pangenome, output: str, nocloud: bool = False, dis
     dist = pdist(1 - jaccard_similarities(mat_p_a, 0).todense())
     hc = linkage(dist, 'single')
 
-    dendro_org = dendrogram(hc, no_plot=False)
+    dendro_org = dendrogram(hc, no_plot=True)
     logging.getLogger().info("done with making the dendrogram to order the organisms on the plot")
 
     order_organisms = [index2org[index] for index in dendro_org["leaves"]]
