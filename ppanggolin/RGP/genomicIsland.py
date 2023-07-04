@@ -189,27 +189,62 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
     return contig_regions
 
 
-def compute_org_rgp(organism: Organism, multigenics: set, persistent_penalty: int = 3, variable_gain: int = 1,
-                    min_length: int = 3000, min_score: int = 4, naming: str = "contig") -> set:
+def compute_org_rgp(
+    organism: Organism,
+    multigenics: set,
+    persistent_penalty: int = 3,
+    variable_gain: int = 1,
+    min_length: int = 3000,
+    min_score: int = 4,
+    naming: str = "contig"
+) -> set:
+    """
+    Compute RGP on the given organism based on the provided parameters.
+
+    :param organism: Organism object representing the organism.
+    :param multigenics: Set of multigenic regions.
+    :param persistent_penalty: Penalty for persistent multigenic regions (default: 3).
+    :param variable_gain: Gain for variable multigenic regions (default: 1).
+    :param min_length: Minimum length threshold for organization regions (default: 3000).
+    :param min_score: Minimum score threshold for organization regions (default: 4).
+    :param naming: Naming scheme for the regions (default: "contig").
+    :return: Set of organization regions.
+    """
     org_regions = set()
     for contig in organism.contigs:
         if len(contig.genes) != 0:  # some contigs have no coding genes...
             # can definitely multiprocess this part, as not THAT much information is needed...
             matrix = init_matrices(contig, multigenics, persistent_penalty, variable_gain)
-            org_regions |= mk_regions(contig, matrix, multigenics, min_length, min_score, persistent_penalty,
-                                      variable_gain, naming=naming)
+            org_regions |= mk_regions(
+                contig,
+                matrix,
+                multigenics,
+                min_length,
+                min_score,
+                persistent_penalty,
+                variable_gain,
+                naming=naming
+            )
     return org_regions
 
 
-def naming_scheme(pangenome: Pangenome):
+def naming_scheme(pangenome: Pangenome) -> str:
+    """
+    Determine the naming scheme for the contigs in the pangenome.
+
+    :param pangenome: Pangenome object representing the pangenome.
+    :return: Naming scheme for the contigs ("contig" or "organism").
+    """
     contigsids = set()
     for org in pangenome.organisms:
         for contig in org.contigs:
             oldlen = len(contigsids)
             contigsids.add(contig.name)
             if oldlen == len(contigsids):
-                logging.getLogger().warning("You have contigs with identical identifiers in your assemblies. "
-                                            "identifiers will be supplemented with your provided organism names.")
+                logging.getLogger().warning(
+                    "You have contigs with identical identifiers in your assemblies. "
+                    "Identifiers will be supplemented with your provided organism names."
+                )
                 return "organism"
     return "contig"
 
