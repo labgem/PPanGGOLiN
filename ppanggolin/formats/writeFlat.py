@@ -3,6 +3,7 @@
 
 # default libraries
 import argparse
+import pdb
 from multiprocessing import get_context
 from collections import Counter, defaultdict
 import logging
@@ -196,12 +197,12 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
     if len(pan.modules):
         gexf.write('      <attribute id="13" title="module" type="string" />\n')
     shift = 14
+
+    source_fields = {m.source : m.fields for f in pan.gene_families if len(list(f.metadata)) > 0 for m in f.metadata}
     for source_metadata_families in pan.metadata_sources("families"):
-        fields = list(list(pan.gene_families)[0].metadata)[0].fields
-        for field in fields:
-            if field != 'source':
-                gexf.write(f'      <attribute id="{shift}" title="{source_metadata_families}_{field}" type="string" />\n')
-                shift += 1
+        for field in source_fields[source_metadata_families]:
+            gexf.write(f'      <attribute id="{shift}" title="{source_metadata_families}_{field}" type="string" />\n')
+            shift += 1
     if not light:
         for org, orgIndex in index.items():
             gexf.write(f'      <attribute id="{orgIndex + shift}" title="{org.name}" type="string" />\n')
@@ -268,11 +269,11 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
             gexf.write(f'      <attvalue for="13" value="{str_module}"/>\n')
         shift = 14
         for source_metadata_families in pan.metadata_sources("families"):
-            fields = list(list(pan.gene_families)[0].metadata)[0].fields
-            for field in fields:
-                if field != 'source':
-                    gexf.write(f'      <attvalue for="{shift}" value="{fam.get_source(source_metadata_families)[0].get(field)}"/>\n')
-                    shift += 1
+            for m in fam.metadata:
+                if m.source == source_metadata_families:
+                    for field in m.fields:
+                        gexf.write(f'      <attvalue for="{shift}" value="{fam.get_source(source_metadata_families)[0].get(field)}"/>\n')
+                        shift += 1
         if not light:
             for org, genes in fam.get_org_dict().items():
                 gexf.write(
