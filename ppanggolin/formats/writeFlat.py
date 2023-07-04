@@ -28,6 +28,8 @@ needPartitions = False
 needSpots = False
 needRegions = False
 needModules = False
+needMetadata = False
+metatype = False
 ignore_err = False
 
 
@@ -188,21 +190,32 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
     gexf.write('      <attribute id="8" title="length_avg" type="double" />\n')
     gexf.write('      <attribute id="9" title="length_med" type="long" />\n')
     gexf.write('      <attribute id="10" title="nb_organisms" type="long" />\n')
+
+    if len(pan.spots):
+        gexf.write('      <attribute id="12" title="spot" type="string" />\n')
+    if len(pan.modules):
+        gexf.write('      <attribute id="13" title="module" type="string" />\n')
+    shift = 14
+    for source_metadata_families in pan.metadata_sources("families"):
+        fields = list(list(pan.gene_families)[0].metadata)[0].fields
+        for field in fields:
+            if field != 'source':
+                gexf.write(f'      <attribute id="{shift}" title="{source_metadata_families}_{field}" type="string" />\n')
+                shift += 1
     if not light:
         for org, orgIndex in index.items():
-            gexf.write(f'      <attribute id="{orgIndex + 12}" title="{org.name}" type="string" />\n')
+            gexf.write(f'      <attribute id="{orgIndex + shift}" title="{org.name}" type="string" />\n')
 
     gexf.write('    </attributes>\n')
     gexf.write('    <attributes class="edge" mode="static">\n')
     gexf.write('      <attribute id="11" title="nb_genes" type="long" />\n')
     if not light:
         for org, orgIndex in index.items():
-            gexf.write(f'      <attribute id="{orgIndex + len(index) + 12}" title="{org.name}" type="long" />\n')
+            gexf.write(f'      <attribute id="{orgIndex + len(index) + shift}" title="{org.name}" type="long" />\n')
     gexf.write('    </attributes>\n')
     gexf.write('    <meta>\n')
     gexf.write(f'      <creator>PPanGGOLiN {pkg_resources.get_distribution("ppanggolin").version}</creator>\n')
     gexf.write('    </meta>\n')
-
 
 def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
     """Write the node of pangenome graph in gexf file
@@ -247,11 +260,24 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
         gexf.write(f'          <attvalue for="8" value="{round(sum(lis) / len(lis), 2)}" />\n')
         gexf.write(f'          <attvalue for="9" value="{int(median(lis))}" />\n')
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
+        if len(pan.spots) > 0:
+            str_spot = "|".join([str(s.ID) for s in list(fam.spot)])
+            gexf.write(f'      <attvalue for="12" value="{str_spot}"/>\n')
+        if len(pan.modules) > 0:
+            str_module = "|".join([str(m.ID) for m in list(fam.modules)])
+            gexf.write(f'      <attvalue for="13" value="{str_module}"/>\n')
+        shift = 14
+        for source_metadata_families in pan.metadata_sources("families"):
+            fields = list(list(pan.gene_families)[0].metadata)[0].fields
+            for field in fields:
+                if field != 'source':
+                    gexf.write(f'      <attvalue for="{shift}" value="{fam.get_source(source_metadata_families)[0].get(field)}"/>\n')
+                    shift += 1
         if not light:
             for org, genes in fam.get_org_dict().items():
                 gexf.write(
                     f'          <attvalue for="'
-                    f'{index[org] + 12}" '
+                    f'{index[org] + shift}" '
                     f'value="{"|".join([gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in genes])}" />\n')
         gexf.write(f'        </attvalues>\n')
         gexf.write(f'      </node>\n')
@@ -273,10 +299,10 @@ def write_gexf_edges(gexf: TextIO, light: bool = True):
                    f'{edge.source.ID}" target="{edge.target.ID}" weight="{len(edge.organisms)}">\n')
         gexf.write(f'        <viz:thickness value="{len(edge.organisms)}" />\n')
         gexf.write('        <attvalues>\n')
-        gexf.write(f'          <attribute id="11" value="{len(edge.gene_pairs)}" />\n')
+        gexf.write(f'          <attvalue for="11" value="{len(edge.gene_pairs)}" />\n')
         if not light:
             for org, genes in edge.get_org_dict().items():
-                gexf.write(f'          <attvalue for="{index[org] + len(index) + 12}" value="{len(genes)}" />\n')
+                gexf.write(f'          <attvalue for="{index[org] + len(index) + len(pan.metadata_sources("families")) + 2}" value="{len(genes)}" />\n')
         gexf.write('        </attvalues>\n')
         gexf.write('      </edge>\n')
         edgeids += 1
@@ -312,7 +338,6 @@ def write_gexf(output: str, light: bool = True, compress: bool = False):
         write_gexf_edges(gexf, light)
         write_gexf_end(gexf)
     logging.getLogger().info(f"Done writing the gexf file : '{outname}'")
-
 
 def write_matrix(output: str, sep: str = ',', ext: str = 'csv', compress: bool = False, gene_names: bool = False):
     """
@@ -926,6 +951,8 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
     global needSpots
     global needRegions
     global needModules
+    global needMetadata
+    global metatype
     global ignore_err
 
     pan = pangenome
@@ -938,6 +965,13 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
         needPartitions = True
     if gexf or light_gexf or json:
         needGraph = True
+        needSpots = True if pan.status["spots"] == "inFile" else False
+        needModules = True if pan.status["modules"] == "inFile" else False
+        if pangenome.status["metadata"]["families"] == "inFile":
+            needMetadata = True
+            metatype = "families"
+        else:
+            needMetadata = False
     if regions or spots or borders or spot_modules:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
@@ -951,8 +985,7 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
 
     check_pangenome_info(pan, need_annotations=needAnnotations, need_families=needFamilies, need_graph=needGraph,
                          need_partitions=needPartitions, need_rgp=needRegions, need_spots=needSpots,
-                         need_modules=needModules, disable_bar=disable_bar)
-
+                         need_modules=needModules, need_metadata=needMetadata, metatype=metatype, sources=None, disable_bar=disable_bar)
     pan.get_org_index()  # make the index because it will be used most likely
     with get_context('fork').Pool(processes=cpu) as p:
         if csv:
@@ -1005,7 +1038,6 @@ def launch(args: argparse.Namespace):
                      stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions,
                      families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, modules=args.modules,
                      spot_modules=args.spot_modules, compress=args.compress, disable_bar=args.disable_prog_bar)
-
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
