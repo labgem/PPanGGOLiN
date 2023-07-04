@@ -9,7 +9,7 @@ import os
 import time
 from pathlib import Path
 import tempfile
-
+from typing import Tuple, Set, Dict, Iterator
 
 # installed libraries
 from tqdm import tqdm
@@ -18,14 +18,19 @@ from tqdm import tqdm
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.annotate.annotate import read_anno_file
 from ppanggolin.pangenome import Pangenome
+from ppanggolin.cluster.cluster import infer_singletons
 # from ppanggolin.genome import input_organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, mk_file_name, min_one, restricted_float, mk_outdir
-from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
+from ppanggolin.utils import read_compressed_or_not, write_compressed_or_not, mk_file_name, min_one, restricted_float, mk_outdir
+from ppanggolin.align.alignOnPang import get_seq2pang, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
 from ppanggolin.formats import check_pangenome_info
 # from ppanggolin.formats import write_pangenome
 from ppanggolin.RGP.genomicIsland import naming_scheme, compute_org_rgp
-from ppanggolin.formats.readBinaries import retrieve_pangenome_parameters
+# from ppanggolin.formats.readBinaries import retrieve_pangenome_parameters
+from ppanggolin.genome import Organism, Gene, RNA, Contig
+from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.region import Region
+from ppanggolin.formats.writeFlat import write_flat_files
 
 def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  output, cpu,  no_defrag, identity, coverage, tmpdir,
                                         disable_bar, translation_table, ):
@@ -42,26 +47,76 @@ def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  out
     
     # get corresponding gene families
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_")
-    seq_set, _, seq2pan = get_seq2pang(pangenome, str(seq_fasta_file), str(output), new_tmpdir, cpu, no_defrag, identity=identity,
+    seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, str(seq_fasta_file), str(output), new_tmpdir, cpu, no_defrag, identity=identity,
                                 coverage=coverage, is_protein=False, translation_table=translation_table)
     
-    project_partition(seq2pan, seq_set, str(output))
+    # this function only write the seqid and partition associated in a file
+    project_and_write_partition(seqid_to_gene_family, seq_set, str(output))
+
+    # Add gene of the input organism in the associated gene family
+    # when a gene is not associated with any gene family, a new family is created.
+    lonely_gene = 0
+    for gene in input_organism.genes:
+        try:
+            gene_family = seqid_to_gene_family[gene.ID]
+            gene_family.add_gene(gene)
+
+        except KeyError:
+            # add a new gene family
+            new_gene_family = pangenome.add_gene_family(gene.ID)
+            new_gene_family.add_gene(gene)
+            new_gene_family.add_partition("Cloud")
+            lonely_gene += 1
+
+    logging.getLogger().info(f"The input organisms have {lonely_gene}/{input_organism.number_of_genes()} " 
+                             "genes that do not cluster with any of the gene families of the pangenome.")
 
 
-def compute_RGP(pangenome, input_organism,  dup_margin, persistent_penalty, variable_gain, min_length, min_score):
-    
-    ## Computing RGPs ##   
+def compute_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penalty: int, variable_gain: int,
+                min_length: int, min_score: int, dup_margin: float,
+                disable_bar: bool) -> None:
+    """
+    Compute Regions of Genomic Plasticity (RGP) for the given pangenome and input organism.
+
+    :param pangenome: The pangenome object.
+    :param input_organism: The input organism for which to compute RGPs.
+    :param persistent_penalty: Penalty score to apply to persistent genes.
+    :param variable_gain: Gain score to apply to variable genes.
+    :param min_length: Minimum length (bp) of a region to be considered as RGP.
+    :param min_score: Minimal score required for considering a region as RGP.
+    :param dup_margin: Minimum ratio of organisms in which a family must have multiple genes to be considered duplicated.
+    :param disable_bar: Flag to disable the progress bar.
+
+    :return: None
+    """
     logging.getLogger().info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
 
-    logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
+    logging.getLogger().info("Computing Regions of Genomic Plasticity...")
     name_scheme = naming_scheme(pangenome)
 
-    compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
-                                                min_score, naming=name_scheme)
-    
+    rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
+                    min_score, naming=name_scheme, disable_bar=disable_bar)
+
+    print("Found RGPS ", len(rgps))
+    return rgps
 
 
+def write_predicted_regions(regions : Set[Region], output:Path, compress=False):
+    """
+    Write the file providing information about RGP content
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
+    fname = output / "plastic_regions.tsv"
+    with write_compressed_or_not(fname, compress) as tab:
+        tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
+        regions = sorted(regions, key=lambda x: (x.organism.name, x.contig.name, x.start))
+        for region in regions:
+            tab.write('\t'.join(map(str, [region.name, region.organism, region.contig, region.start, region.stop,
+                                          len(region.genes), region.is_contig_border, region.is_whole_contig])) + "\n")
+            
 
 def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
     """
@@ -99,6 +154,7 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
     
+
     output_dir = Path(args.output)
     mk_outdir(output_dir, args.force)
     
@@ -108,9 +164,6 @@ def launch(args: argparse.Namespace):
     # TODO some params are no keep in pangenome... like use_pseudo. what to do?
     logging.getLogger().info('Retrieving pangenome parameters from the provided pangenome file.')
 
-    step_to_params = retrieve_pangenome_parameters(args.pangenome)
-    annotation_params_str = "  ".join([f"{param}={value}"  for param, value in step_to_params["annotation"].items()]) 
-    logging.getLogger().debug(f'annotation params {annotation_params_str}' )
     
     if args.annot_file is not None:
         # read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
@@ -139,17 +192,40 @@ def launch(args: argparse.Namespace):
 
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar)
+
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar, need_rgp=args.predict_rgp)
+
+    # Add input organism in pangenome. This temporary as pangenome is not going to be written.
+    pangenome.add_organism(input_organism)
 
     annotate_input_genes_with_pangenome_families(pangenome, input_organism=input_organism, output=output_dir, cpu=args.cluster.cpu, 
                                         no_defrag = args.cluster.no_defrag, identity = args.cluster.identity, coverage = args.cluster.coverage, tmpdir=args.tmpdir,
                                         disable_bar=args.disable_prog_bar, translation_table = args.annotate.translation_table )
     
 
-    # compute_RGP(pangenome, input_organism,  dup_margin=0.05, persistent_penalty=3, variable_gain=1, min_length=3000, min_score=4)
+    if args.predict_rgp:
+        
+        rgps = compute_RGP(pangenome, input_organism,  persistent_penalty=args.rgp.persistent_penalty, variable_gain=args.rgp.variable_gain,
+                min_length=args.rgp.min_length, min_score=args.rgp.min_score, dup_margin=args.rgp.dup_margin,
+                disable_bar=args.disable_prog_bar)
+        
+        write_predicted_regions(rgps, output=output_dir)
+
+        
+    # write_flat_files_for_input_genome(input_organism)
 
 
+# def write_flat_files_for_input_genome(input_organism):
     
+#     # create a pangenome object with only the input organism
+#     pangenome = Pangenome()
+
+#     pangenome.add_organism(input_organism)
+    
+
+#     write_flat_files(pangenome, regions=True)
+
+
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
     Subparser to launch PPanGGOLiN in Command line
@@ -184,19 +260,18 @@ def parser_projection(parser: argparse.ArgumentParser):
                         help="The filepath of the annotations in GFF/GBFF format for the projected genome. "
                         "(Annotation file can be compressed with gzip)")
 
-    # required.add_argument('--fasta', required=False, type=str,
-    #                       help="A tab-separated file listing the input_organism names, and the fasta filepath of its genomic "
-    #                            "sequence(s) (the fastas can be compressed with gzip). One line per input_organism.")
-    
-    # required.add_argument('--anno', required=False, type=str,
-    #                       help="A tab-separated file listing the input_organism names, and the gff/gbff filepath of its "
-    #                            "annotations (the files can be compressed with gzip). One line per input_organism. "
-    #                            "If this is provided, those annotations will be used.")
+
+
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
+    
+    optional.add_argument('--predict_rgp', required=False, action='store_true', default=False,
+                          help="Predict rgp on the input genome.")
+    optional.add_argument('--project_modules', required=False, action='store_true', default=False,
+                          help="Predict rgp on the input genome.")
     # optional.add_argument("--basename", required=False, default="pangenome", help="basename for the output file")
     
     # annotate = parser.add_argument_group(title="Annotation arguments")
