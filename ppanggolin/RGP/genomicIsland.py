@@ -189,29 +189,24 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
     return contig_regions
 
 
-def compute_org_rgp(
-    organism: Organism,
-    multigenics: set,
-    persistent_penalty: int = 3,
-    variable_gain: int = 1,
-    min_length: int = 3000,
-    min_score: int = 4,
-    naming: str = "contig"
-) -> set:
+def compute_org_rgp( organism: Organism, multigenics: set,
+    persistent_penalty: int = 3, variable_gain: int = 1,  min_length: int = 3000,  min_score: int = 4,
+    naming: str = "contig", disable_bar: bool = True ) -> set:
     """
-    Compute RGP on the given organism based on the provided parameters.
+    Compute regions of genomic plasticity (RGP) on the given organism based on the provided parameters.
 
-    :param organism: Organism object representing the organism.
-    :param multigenics: multigenic persistent families of the pangenome graph.
-    :param persistent_penalty: Penalty for persistent multigenic families (default: 3).
-    :param variable_gain: Gain for variable multigenic families (default: 1).
-    :param min_length: Minimum length threshold for regions (default: 3000).
-    :param min_score: Minimum score threshold for regions (default: 4).
-    :param naming: Naming scheme for the regions (default: "contig").
-    :return: Set of organization regions.
+    :param organism: The Organism object representing the organism.
+    :param multigenics: A set of multigenic persistent families of the pangenome graph.
+    :param persistent_penalty: Penalty score to apply to persistent multigenic families (default: 3).
+    :param variable_gain: Gain score to apply to variable multigenic families (default: 1).
+    :param min_length: Minimum length threshold (in base pairs) for the regions to be considered RGP (default: 3000).
+    :param min_score: Minimum score threshold for considering a region as RGP (default: 4).
+    :param naming: Naming scheme for the regions, either "contig" or "organism" (default: "contig").
+    :param disable_bar: Whether to disable the progress bar. It is recommended to disable it when calling this function in a loop on multiple organisms (default: True).
+    :return: A set of organization regions representing the predicted RGPs.
     """
     org_regions = set()
-    for contig in organism.contigs:
+    for contig in tqdm(organism.contigs, total=len(organism.contigs), unit="contig", disable=disable_bar): 
         if len(contig.genes) != 0:  # some contigs have no coding genes...
             # can definitely multiprocess this part, as not THAT much information is needed...
             matrix = init_matrices(contig, multigenics, persistent_penalty, variable_gain)
