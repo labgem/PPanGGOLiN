@@ -8,7 +8,7 @@ import tempfile
 import subprocess
 import argparse
 from collections import defaultdict
-from typing import Tuple, Set, Dict
+from typing import Tuple, Set, Dict, Iterator
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
@@ -149,11 +149,11 @@ def write_gene_fam_sequences(pangenome: Pangenome, file_obj: TextIOWrapper, add:
     # file_obj.flush()
 
 
-def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], output: str) -> str:
+def project_and_write_partition(seqid_to_gene_family: Dict[str, GeneFamily], seq_set: Set[str], output: str) -> str:
     """
-    Project the partition of each sequence from the input file
+    Project the partition of each sequence from the input file and write them in a file
 
-    :param seq_to_pang: dictionnary which link sequence and pangenome
+    :param seqid_to_gene_family: dictionnary which link sequence and pangenome gene family
     :param seq_set: input sequences
     :param output: Path of the output directory
 
@@ -162,10 +162,10 @@ def project_partition(seq_to_pang: Dict[str, GeneFamily], seq_set: Set[str], out
 
     partition_proj = output + "/sequences_partition_projection.tsv"
     with open(partition_proj, "w") as partProjFile:
-        for input_seq, pangFam in seq_to_pang.items():
+        for input_seq, pangFam in seqid_to_gene_family.items():
             partProjFile.write(input_seq + "\t" + pangFam.named_partition + "\n")
-        for remainingSeq in (seq_to_pang.keys() & seq_set):
-            partProjFile.write(remainingSeq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
+        for remainingSeq in (seqid_to_gene_family.keys() & seq_set):
+            partProjFile.write(remainingSeq + "\tCloud\n")  # if there is no hit, it's going to be cloud genes.
     return partition_proj
 
 
@@ -365,7 +365,7 @@ def align(pangenome: Pangenome, sequence_file: str, output: str, tmpdir: str, id
 
     if getinfo or draw_related:  # TODO Add getinfo to function and remove if
         get_seq_info(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
-    part_proj = project_partition(seq2pang, seq_set, output)  # write the partition assignation only
+    part_proj = project_and_write_partition(seq2pang, seq_set, output)  # write the partition assignation only
     logging.getLogger().info(f"sequences partition projection : '{part_proj}'")
     logging.getLogger().info(f"{len(seq2pang)} sequences over {len(seq_set)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{align_file}'")

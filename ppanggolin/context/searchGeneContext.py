@@ -17,7 +17,7 @@ from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig
 from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
+from ppanggolin.align.alignOnPang import get_seq2pang, project_and_write_partition
 from ppanggolin.region import GeneContext
 
 
@@ -55,7 +55,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
         new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
         seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag, identity,
                                            coverage)
-        project_partition(seq2pan, seq_set, output)
+        project_and_write_partition(seq2pan, seq_set, output)
         new_tmpdir.cleanup()
         for k, v in seq2pan.items():
             gene_families[v.name] = v
