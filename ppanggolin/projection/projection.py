@@ -24,10 +24,11 @@ from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
 from ppanggolin.formats import check_pangenome_info
 # from ppanggolin.formats import write_pangenome
+from ppanggolin.RGP.genomicIsland import naming_scheme, compute_org_rgp
+from ppanggolin.formats.readBinaries import retrieve_pangenome_parameters
 
-
-def annotate_input_genome_with_pangenome(pangenome, input_organism,  output, basename, cpu,  no_defrag, identity, coverage, tmpdir,
-                                        disable_bar, translation_table ):
+def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  output, cpu,  no_defrag, identity, coverage, tmpdir,
+                                        disable_bar, translation_table, ):
     
     """
 
@@ -45,6 +46,22 @@ def annotate_input_genome_with_pangenome(pangenome, input_organism,  output, bas
                                 coverage=coverage, is_protein=False, translation_table=translation_table)
     
     project_partition(seq2pan, seq_set, str(output))
+
+
+def compute_RGP(pangenome, input_organism,  dup_margin, persistent_penalty, variable_gain, min_length, min_score):
+    
+    ## Computing RGPs ##   
+    logging.getLogger().info("Detecting multigenic families...")
+    multigenics = pangenome.get_multigenics(dup_margin)
+
+    logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
+    name_scheme = naming_scheme(pangenome)
+
+    compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
+                                                min_score, naming=name_scheme)
+    
+
+
 
 def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
     """
@@ -73,6 +90,8 @@ def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
             raise KeyError(msg)
     
 
+
+
 def launch(args: argparse.Namespace):
     """
     Command launcher
@@ -86,13 +105,19 @@ def launch(args: argparse.Namespace):
     # TODO check that the provided input_organism name is not found in pangenome 
     # if so add a warning or error
 
+    # TODO some params are no keep in pangenome... like use_pseudo. what to do?
+    logging.getLogger().info('Retrieving pangenome parameters from the provided pangenome file.')
+
+    step_to_params = retrieve_pangenome_parameters(args.pangenome)
+    annotation_params_str = "  ".join([f"{param}={value}"  for param, value in step_to_params["annotation"].items()]) 
+    logging.getLogger().debug(f'annotation params {annotation_params_str}' )
     
-    if args.anno_file is not None:
+    if args.annot_file is not None:
         # read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         input_organism, has_sequence = read_anno_file(organism_name = args.organism_name, 
-                       filename=args.anno_file,
+                       filename=args.annot_file,
                         circular_contigs=[],
-                        pseudo=args.use_pseudo)
+                        pseudo=False) 
         
         if not has_sequence:
             if args.fasta_file:
@@ -103,8 +128,8 @@ def launch(args: argparse.Namespace):
 
     elif args.fasta_file is not None:
         input_organism = annotate_organism(org_name=args.organism_name, file_name = args.fasta_file, circular_contigs=[], tmpdir=args.tmpdir,
-                      code = args.translation_table, norna=args.norna, kingdom = args.kingdom,
-                      overlap=args.allow_overlap, procedure=args.prodigal_procedure)
+                      code = args.annotate.translation_table, norna=args.annotate.norna, kingdom = args.annotate.kingdom,
+                      overlap=args.annotate.allow_overlap, procedure=args.annotate.prodigal_procedure)
 
     else:
         raise Exception("At least one of --fasta_file or --anno_file must be given")
@@ -116,10 +141,14 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar)
 
-    annotate_input_genome_with_pangenome(pangenome, input_organism=input_organism, output=output_dir, basename=args.basename, cpu=args.cpu, 
-                                        no_defrag = args.no_defrag, identity = args.identity, coverage = args.coverage, tmpdir=args.tmpdir,
-                                        disable_bar=args.disable_prog_bar, translation_table = args.translation_table )
+    annotate_input_genes_with_pangenome_families(pangenome, input_organism=input_organism, output=output_dir, cpu=args.cluster.cpu, 
+                                        no_defrag = args.cluster.no_defrag, identity = args.cluster.identity, coverage = args.cluster.coverage, tmpdir=args.tmpdir,
+                                        disable_bar=args.disable_prog_bar, translation_table = args.annotate.translation_table )
     
+
+    # compute_RGP(pangenome, input_organism,  dup_margin=0.05, persistent_penalty=3, variable_gain=1, min_length=3000, min_score=4)
+
+
     
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
@@ -145,13 +174,13 @@ def parser_projection(parser: argparse.ArgumentParser):
     required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome.h5 file")
     
     required.add_argument('--organism_name', required=False, type=str,
-                        help="Name of the input_organism whose genome is being projected onto the provided pangenome.")
+                        help="Name of the input_organism whose genome is being annotated with the provided pangenome.")
     
     required.add_argument('--fasta_file', required=False, type=str,
                         help="The filepath of the genomic sequence(s) in FASTA format for the projected genome. "
                         "(Fasta file can be compressed with gzip)")
 
-    required.add_argument('--anno_file', required=False, type=str,
+    required.add_argument('--annot_file', required=False, type=str,
                         help="The filepath of the annotations in GFF/GBFF format for the projected genome. "
                         "(Annotation file can be compressed with gzip)")
 
@@ -168,36 +197,35 @@ def parser_projection(parser: argparse.ArgumentParser):
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
-    optional.add_argument("--basename", required=False, default="pangenome", help="basename for the output file")
-    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    # optional.add_argument("--basename", required=False, default="pangenome", help="basename for the output file")
     
-    annotate = parser.add_argument_group(title="Annotation arguments")
+    # annotate = parser.add_argument_group(title="Annotation arguments")
 
 
-    annotate.add_argument('--allow_overlap', required=False, action='store_true', default=False,
-                          help="Use to not remove genes overlapping with RNA features.")
-    annotate.add_argument("--norna", required=False, action="store_true", default=False,
-                          help="Use to avoid annotating RNA features.")
-    annotate.add_argument("--kingdom", required=False, type=str.lower, default="bacteria",
-                          choices=["bacteria", "archaea"],
-                          help="Kingdom to which the prokaryota belongs to, "
-                               "to know which models to use for rRNA annotation.")
-    annotate.add_argument("--translation_table", required=False, type=int, default=11,
-                          help="Translation table (genetic code) to use.")
+    # annotate.add_argument('--allow_overlap', required=False, action='store_true', default=False,
+    #                       help="Use to not remove genes overlapping with RNA features.")
+    # annotate.add_argument("--norna", required=False, action="store_true", default=False,
+    #                       help="Use to avoid annotating RNA features.")
+    # annotate.add_argument("--kingdom", required=False, type=str.lower, default="bacteria",
+    #                       choices=["bacteria", "archaea"],
+    #                       help="Kingdom to which the prokaryota belongs to, "
+    #                            "to know which models to use for rRNA annotation.")
+    # annotate.add_argument("--translation_table", required=False, type=int, default=11,
+    #                       help="Translation table (genetic code) to use.")
 
-    annotate.add_argument("--prodigal_procedure", required=False, type=str.lower, choices=["single", "meta"],
-                          default=None, help="Allow to force the prodigal procedure. "
-                                             "If nothing given, PPanGGOLiN will decide in function of contig length")
-    annotate.add_argument("--use_pseudo", required=False, action="store_true",
-                        help="In the context of provided annotation, use this option to read pseudogenes. "
-                            "(Default behavior is to ignore them)")
+    # annotate.add_argument("--prodigal_procedure", required=False, type=str.lower, choices=["single", "meta"],
+    #                       default=None, help="Allow to force the prodigal procedure. "
+    #                                          "If nothing given, PPanGGOLiN will decide in function of contig length")
+    # annotate.add_argument("--use_pseudo", required=False, action="store_true",
+    #                     help="In the context of provided annotation, use this option to read pseudogenes. "
+    #                         "(Default behavior is to ignore them)")
 
-    cluster = parser.add_argument_group(title="Clustering arguments")
-    cluster.add_argument('--no_defrag', required=False, action="store_true",
-                          help="DO NOT Realign gene families to link fragments with"
-                               "their non-fragmented gene family.")
-    cluster.add_argument('--identity', required=False, type=float, default=0.5,
-                          help="min identity percentage threshold")
-    cluster.add_argument('--coverage', required=False, type=float, default=0.8,
-                          help="min coverage percentage threshold")
+    # cluster = parser.add_argument_group(title="Clustering arguments")
+    # cluster.add_argument('--no_defrag', required=False, action="store_true",
+    #                       help="DO NOT Realign gene families to link fragments with"
+    #                            "their non-fragmented gene family.")
+    # cluster.add_argument('--identity', required=False, type=float, default=0.5,
+    #                       help="min identity percentage threshold")
+    # cluster.add_argument('--coverage', required=False, type=float, default=0.8,
+    #                       help="min coverage percentage threshold")
     

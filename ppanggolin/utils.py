@@ -25,7 +25,8 @@ from collections import defaultdict
 from ppanggolin.geneFamily import GeneFamily
 
 # all input params that exists in ppanggolin
-ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', "fasta_file", "annot_file"]
+ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', 
+                    "fasta_file", "annot_file", "organism_name"] # the last three params is for projection cmd
 
 # all params that should be in the general_parameters section of the config file
 ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log',
@@ -682,6 +683,41 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             # Add args namespace of the step to the inital args namespace
             setattr(args, workflow_step, step_args)
+
+    # manage projection step parameters
+    elif subcommand == "projection" :
+        for projection_step in ["annotate", "cluster", "graph", "partition", "rarefaction", "rgp", "spot", "module"]:
+
+            logging.getLogger().debug(f'Parsing {projection_step} arguments in config file.')
+            step_subparser = subcommand_to_subparser[projection_step]
+
+            default_step_args = get_default_args(projection_step, step_subparser, unwanted_args=all_unspecific_params)
+
+            # remove general args
+            all_param_names = {arg_name for arg_name in dir(default_step_args) if not arg_name.startswith('_')}
+            specific_step_params = {param_name for param_name in all_param_names if
+                                    param_name not in all_unspecific_params}
+            config_step_args = get_config_args(projection_step, step_subparser, config, projection_step,
+                                               specific_step_params, strict_config_check=True)
+
+            step_args = overwrite_args(default_step_args, config_step_args, cli_args)
+
+            step_params_that_differ = get_args_that_differe_from_default(default_step_args, step_args)
+
+            if step_params_that_differ:
+                step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
+                logging.getLogger().debug(
+                    f"{len(step_params_that_differ)} {projection_step} parameters have a non-default value: {step_params_that_differ_str}")
+
+            # add step name to differentiate the params
+            step_params_that_differ = {f'{projection_step}:{param}': value for param, value in
+                                       step_params_that_differ.items()}
+
+            params_that_differ.update(step_params_that_differ)
+
+            # Add args namespace of the step to the inital args namespace
+            setattr(args, projection_step, step_args)
+
 
     if params_that_differ:
         logging.getLogger().info(f'{len(params_that_differ)} parameters have a non-default value.')
