@@ -5,9 +5,6 @@
 import argparse
 import logging
 
-# installed libraries
-import time
-
 import tables
 
 # local libraries
@@ -94,9 +91,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     """
     Subparser to launch PPanGGOLiN in Command line
 
-    :param sub_parser : sub_parser for align command
+    :param sub_parser : sub_parser for info command
 
-    :return : parser arguments for align command
+    :return : parser arguments for info command
     """
     parser = sub_parser.add_parser("info", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_info(parser)
@@ -105,9 +102,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
 def parser_info(parser: argparse.ArgumentParser):
     """
-    Parser for specific argument of graph command
+    Parser for specific argument of info command
 
-    :param parser: parser for align argument
+    :param parser: parser for info argument
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments is required :")
