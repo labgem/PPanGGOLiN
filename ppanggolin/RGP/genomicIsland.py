@@ -202,11 +202,11 @@ def compute_org_rgp(
     Compute RGP on the given organism based on the provided parameters.
 
     :param organism: Organism object representing the organism.
-    :param multigenics: Set of multigenic regions.
-    :param persistent_penalty: Penalty for persistent multigenic regions (default: 3).
-    :param variable_gain: Gain for variable multigenic regions (default: 1).
-    :param min_length: Minimum length threshold for organization regions (default: 3000).
-    :param min_score: Minimum score threshold for organization regions (default: 4).
+    :param multigenics: multigenic persistent families of the pangenome graph.
+    :param persistent_penalty: Penalty for persistent multigenic families (default: 3).
+    :param variable_gain: Gain for variable multigenic families (default: 1).
+    :param min_length: Minimum length threshold for regions (default: 3000).
+    :param min_score: Minimum score threshold for regions (default: 4).
     :param naming: Naming scheme for the regions (default: "contig").
     :return: Set of organization regions.
     """
@@ -232,7 +232,7 @@ def naming_scheme(pangenome: Pangenome) -> str:
     """
     Determine the naming scheme for the contigs in the pangenome.
 
-    :param pangenome: Pangenome object representing the pangenome.
+    :param pangenome: Pangenome object
     :return: Naming scheme for the contigs ("contig" or "organism").
     """
     contigsids = set()
