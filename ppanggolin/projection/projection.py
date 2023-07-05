@@ -97,8 +97,7 @@ def compute_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penal
     rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
                     min_score, naming=name_scheme, disable_bar=disable_bar)
 
-    # print("Found RGPS ", len(rgps))
-    # TODO add number of RGP found.. 
+    logging.getLogger().info(f"{len(rgps)} RGPs have been predicted the input genomes.")
     return rgps
 
 
@@ -227,39 +226,28 @@ def write_projected_modules_to_input_organism(pangenome, input_organism, output,
     :param compress: Compress the file in .gz
     """
 
-    # TODO ad logging with number of module associated with the input orga
     output_file = output / "modules_in_input_organism.tsv"
 
     logging.getLogger().info("Writing modules to organisms associations...")
 
     input_organism_families = input_organism.families
-
+    counter = 0
     with write_compressed_or_not(output_file, compress) as fout:
         fout.write("module_id\torganism\tcompletion\n")
 
         for mod in pangenome.modules:
-            mod_orgs = set()
-
             module_in_input_organism = any((fam in input_organism_families for fam in mod.families))
 
             if module_in_input_organism:
+                counter += 1
 
                 completion = round(len(input_organism.families & mod.families) / len(mod.families), 2)
                 fout.write(f"module_{mod.ID}\t{input_organism.name}\t{completion}\n")
 
+    logging.getLogger().info(f"{counter} modules have been projected to the input genomes.")
+
     logging.getLogger().info(
         f"Writing projected modules to input organism : '{output_file}'")
-
-
-# def write_flat_files_for_input_genome(input_organism):
-    
-#     # create a pangenome object with only the input organism
-#     pangenome = Pangenome()
-
-#     pangenome.add_organism(input_organism)
-    
-
-#     write_flat_files(pangenome, regions=True)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
