@@ -47,7 +47,7 @@ def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  out
                                             disable_bar=True) # this progress bar is useless here.. so I disable it. 
     # get corresponding gene families
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_")
-    seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, str(seq_fasta_file), str(output), new_tmpdir, cpu, no_defrag, identity=identity,
+    seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, new_tmpdir, cpu, no_defrag, identity=identity,
                                 coverage=coverage, is_protein=False, translation_table=translation_table)
     
     # this function only write the seqid and partition associated in a file
@@ -299,16 +299,16 @@ def parser_projection(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome.h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome.h5 file")
     
     required.add_argument('--organism_name', required=False, type=str,
                         help="Name of the input_organism whose genome is being annotated with the provided pangenome.")
     
-    required.add_argument('--fasta_file', required=False, type=str,
+    required.add_argument('--fasta_file', required=False, type=Path,
                         help="The filepath of the genomic sequence(s) in FASTA format for the projected genome. "
                         "(Fasta file can be compressed with gzip)")
 
-    required.add_argument('--annot_file', required=False, type=str,
+    required.add_argument('--annot_file', required=False, type=Path,
                         help="The filepath of the annotations in GFF/GBFF format for the projected genome. "
                         "(Annotation file can be compressed with gzip)")
 
