@@ -42,9 +42,8 @@ def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  out
     seq_fasta_file = output / f"{input_organism.name}.fasta"
 
     with open(seq_fasta_file, "w") as fh_out_faa:
-        write_gene_sequences_from_annotations(input_organism, fh_out_faa, seq_attr_to_write="dna",
+        write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa,
                                             disable_bar=disable_bar)
-    
     # get corresponding gene families
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_")
     seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, str(seq_fasta_file), str(output), new_tmpdir, cpu, no_defrag, identity=identity,

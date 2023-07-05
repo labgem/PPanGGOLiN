@@ -20,33 +20,24 @@ poss_values_log = "Possible values are 'all', 'persistent', 'shell', 'cloud', 'r
                   "'core', 'module_X' with X being a module id."
 
 
-def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO, list_cds: list = None, add: str = '',
-                                          seq_attr_to_write: str  = "dna" ,
+def write_gene_sequences_from_annotations(genes_to_write: Pangenome, file_obj: TextIO, add: str = '',
                                           disable_bar: bool = False):
     """
-    Writes the CDS sequences given through list_CDS of the Pangenome object to a tmpFile object,
-    and adds the str provided through add in front of it.
-    Loads the sequences from previously computed or loaded annotations
+    Writes the CDS sequences to a File object,
+    and adds the string provided through `add` in front of it.
+    Loads the sequences from previously computed or loaded annotations.
 
-    :param pangenome: Pangenome object with gene families sequences
-    :param file_obj: Output file to write sequences
-    :param list_cds: Selected genes
-    :param add: Add prefix to gene ID
-    :param disable_bar: Disable progress bar
+    :param genes_to_write: Genes to write.
+    :param file_obj: Output file to write sequences.
+    :param add: Add prefix to gene ID.
+    :param disable_bar: Disable progress bar.
     """
-    assert seq_attr_to_write in ['dna', "protein"] 
-
-    counter = 0
-    if list_cds is None:
-        list_cds = pangenome.genes
-    logging.getLogger().info("Writing all of the CDS sequences...")
-    for gene in tqdm(list_cds, unit="gene", total=pangenome.number_of_gene(), disable=disable_bar):
+    logging.getLogger().info("Writing CDS sequences...")
+    for gene in tqdm(genes_to_write, unit="gene", disable=disable_bar):
         if gene.type == "CDS":
-            counter += 1
-            file_obj.write('>' + add + gene.ID + "\n")
-            file_obj.write(getattr(gene, seq_attr_to_write) + "\n")
+            file_obj.write(f'>{add}{gene.ID}\n')
+            file_obj.write(f'{gene.dna}\n')
     file_obj.flush()
-
 
 def write_gene_sequences(pangenome: Pangenome, output: str, genes: str, soft_core: float = 0.95,
                          compress: bool = False, disable_bar: bool = False):
@@ -75,7 +66,7 @@ def write_gene_sequences(pangenome: Pangenome, output: str, genes: str, soft_cor
             get_gene_sequences_from_file(pangenome.file, fasta, set([gene.ID for gene in genes_to_write]),
                                          disable_bar=disable_bar)
         elif pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-            write_gene_sequences_from_annotations(pangenome, fasta, genes_to_write, disable_bar=disable_bar)
+            write_gene_sequences_from_annotations(genes_to_write, fasta, disable_bar=disable_bar)
         else:
             # this should never happen if the pangenome has been properly checked before launching this function.
             raise Exception("The pangenome does not include gene sequences")

@@ -53,7 +53,7 @@ def check_pangenome_for_clustering(pangenome: Pangenome, tmp_file: io.TextIO, fo
     check_pangenome_former_clustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
         # we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
-        write_gene_sequences_from_annotations(pangenome, tmp_file, add="ppanggolin_", disable_bar=disable_bar)
+        write_gene_sequences_from_annotations(pangenome.genes, tmp_file, add="ppanggolin_", disable_bar=disable_bar)
     elif pangenome.status["geneSequences"] == "inFile":
         get_gene_sequences_from_file(pangenome.file, tmp_file, add="ppanggolin_",
                                      disable_bar=disable_bar)  # write CDS sequences to the tmpFile
