@@ -26,6 +26,7 @@ from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotati
 from ppanggolin.formats import check_pangenome_info
 # from ppanggolin.formats import write_pangenome
 from ppanggolin.RGP.genomicIsland import naming_scheme, compute_org_rgp
+from ppanggolin.RGP.spot import make_spot_graph
 # from ppanggolin.formats.readBinaries import retrieve_pangenome_parameters
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.geneFamily import GeneFamily
@@ -43,7 +44,7 @@ def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  out
 
     with open(seq_fasta_file, "w") as fh_out_faa:
         write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa,
-                                            disable_bar=disable_bar)
+                                            disable_bar=True) # this progress bar is useless here.. so I disable it. 
     # get corresponding gene families
     new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_")
     seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, str(seq_fasta_file), str(output), new_tmpdir, cpu, no_defrag, identity=identity,
@@ -71,8 +72,8 @@ def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  out
                              "genes that do not cluster with any of the gene families of the pangenome.")
 
 
-def compute_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penalty: int, variable_gain: int,
-                min_length: int, min_score: int, dup_margin: float,
+def predict_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penalty: int, variable_gain: int,
+                min_length: int, min_score: int, multigenics: float,
                 disable_bar: bool) -> None:
     """
     Compute Regions of Genomic Plasticity (RGP) for the given pangenome and input organism.
@@ -83,13 +84,11 @@ def compute_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penal
     :param variable_gain: Gain score to apply to variable genes.
     :param min_length: Minimum length (bp) of a region to be considered as RGP.
     :param min_score: Minimal score required for considering a region as RGP.
-    :param dup_margin: Minimum ratio of organisms in which a family must have multiple genes to be considered duplicated.
+    :param multigenics: multigenic families.
     :param disable_bar: Flag to disable the progress bar.
 
     :return: None
     """
-    logging.getLogger().info("Detecting multigenic families...")
-    multigenics = pangenome.get_multigenics(dup_margin)
 
     logging.getLogger().info("Computing Regions of Genomic Plasticity...")
     name_scheme = naming_scheme(pangenome)
@@ -205,19 +204,48 @@ def launch(args: argparse.Namespace):
     
 
     if args.predict_rgp:
+
+        logging.getLogger().info("Detecting multigenic families...")
+        multigenics = pangenome.get_multigenics(args.rgp.dup_margin)
         
-        rgps = compute_RGP(pangenome, input_organism,  persistent_penalty=args.rgp.persistent_penalty, variable_gain=args.rgp.variable_gain,
-                min_length=args.rgp.min_length, min_score=args.rgp.min_score, dup_margin=args.rgp.dup_margin,
-                disable_bar=args.disable_prog_bar)
+        input_org_rgps = predict_RGP(pangenome, input_organism,  persistent_penalty=args.rgp.persistent_penalty, variable_gain=args.rgp.variable_gain,
+                                    min_length=args.rgp.min_length, min_score=args.rgp.min_score, multigenics=multigenics, 
+                                    disable_bar=args.disable_prog_bar)
+        all_rgps = list(input_org_rgps) + pangenome.regions
         
-        write_predicted_regions(rgps, output=output_dir)
+        write_predicted_regions(input_org_rgps, output=output_dir)
+
+        spots = predict_spots(all_rgps, multigenics, output=output_dir, spot_graph=args.spot.spot_graph, 
+                              overlapping_match=args.spot.overlapping_match, set_size=args.spot.set_size,
+                              exact_match=args.spot.exact_match_size)
+        
 
     if args.project_modules:
         write_projected_modules_to_input_organism(pangenome, input_organism, output_dir)
-    if args.project_spots:
-        pass
-
+        
     # write_flat_files_for_input_genome(input_organism)
+
+
+def predict_spots(rgps: list, multigenics: set, output: str,
+    spot_graph: bool = False, overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1):
+    
+    """
+    Create a spot graph from pangenome RGP
+
+    :param rgps: list of pangenome RGP
+    :param multigenics: pangenome graph multigenic persistent families
+    :param output: Output directory to save the spot graph
+    :param spot_graph: Writes gexf graph of pairs of blocks of single copy markers flanking RGPs from same hotspot
+    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes
+    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
+
+    :return: list of computed spots
+    """
+
+    spots = make_spot_graph(rgps=rgps, multigenics=multigenics, output=output, spot_graph=spot_graph,
+                    overlapping_match=overlapping_match, set_size=set_size, exact_match=exact_match)
+
 
 def write_projected_modules_to_input_organism(pangenome, input_organism, output, compress=False):
     """Write a tsv file providing association between modules and organisms
@@ -293,7 +321,7 @@ def parser_projection(parser: argparse.ArgumentParser):
                           help="Output directory")
     
     optional.add_argument('--predict_rgp', required=False, action='store_true', default=False,
-                          help="Predict rgp on the input genome.")
+                          help="Predict RGPs and hot spots on the input genome.")
     optional.add_argument('--project_modules', required=False, action='store_true', default=False,
                           help="Project pangenome modules to the input genome.")
     optional.add_argument('--project_spots', required=False, action='store_true', default=False,
