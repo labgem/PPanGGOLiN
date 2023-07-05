@@ -262,18 +262,23 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
         gexf.write(f'          <attvalue for="9" value="{int(median(lis))}" />\n')
         gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
         if len(pan.spots) > 0:
-            str_spot = "|".join([str(s.ID) for s in list(fam.spot)])
+            str_spot = "|".join([str(s) for s in list(fam.spot)])
             gexf.write(f'      <attvalue for="12" value="{str_spot}"/>\n')
         if len(pan.modules) > 0:
-            str_module = "|".join([str(m.ID) for m in list(fam.modules)])
+            str_module = "|".join([str(m) for m in list(fam.modules)])
             gexf.write(f'      <attvalue for="13" value="{str_module}"/>\n')
         shift = 14
+        source_fields = {m.source: m.fields for f in pan.gene_families if len(list(f.metadata)) > 0 for m in f.metadata}
         for source_metadata_families in pan.metadata_sources("families"):
+            to_concat = defaultdict(list)
             for m in fam.metadata:
                 if m.source == source_metadata_families:
                     for field in m.fields:
-                        gexf.write(f'      <attvalue for="{shift}" value="{fam.get_source(source_metadata_families)[0].get(field)}"/>\n')
-                        shift += 1
+                        to_concat[field].append(str(m.get(field)))
+            for field in source_fields[source_metadata_families]:
+                concatenated_fields = '|'.join(to_concat[field])
+                gexf.write(f'      <attvalue for="{shift}" value="{concatenated_fields}"/>\n')
+                shift += 1
         if not light:
             for org, genes in fam.get_org_dict().items():
                 gexf.write(
@@ -712,7 +717,7 @@ def summarize_spots(spots: set, output: str, compress: bool = False):
             stdev_size = stdev(size_list) if len(size_list) > 1 else 0
             max_size = max(size_list)
             min_size = min(size_list)
-            fout.write("\t".join(map(r_and_s, [f"spot_{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content,
+            fout.write("\t".join(map(r_and_s, [f"{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content,
                                                mean_size, stdev_size, max_size, min_size])) + "\n")
     logging.getLogger().info(f"Done writing spots in : '{output + '/summarize_spots.tsv'}'")
 
@@ -1102,7 +1107,6 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--spot_modules", required=False, action="store_true",
                           help="writes 3 files comparing the presence of modules within spots")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-   
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""

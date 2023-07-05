@@ -30,6 +30,9 @@ class Region(MetaFeatures):
         self.name = region_id
         self.score = 0
 
+    def __str__(self):
+        return self.name
+
     def __hash__(self):
         return id(self)
 
@@ -219,6 +222,9 @@ class Spot(MetaFeatures):
         self._uniqContent = {}
         self._compContent = False
 
+    def __str__(self):
+        return f'spot_{str(self.ID)}'
+
     @property
     def families(self) -> set:
         """Get the gene families in the RGP
@@ -387,6 +393,9 @@ class Module(MetaFeatures):
             self.families |= set(families)
         self.bitarray = None
 
+    def __str__(self):
+        return f'module_{str(self.ID)}'
+
     def add_family(self, family: GeneFamily):
         """
         Add a family to the module
@@ -445,6 +454,9 @@ class GeneContext:
                 raise Exception("You provided elements that were not GeneFamily object."
                                 " GeneContext are only made of GeneFamily")
             self.families |= set(families)
+
+    def __str__(self):
+        return f'GC_{str(self.ID)}'
 
     def add_family(self, family: GeneFamily):
         """
