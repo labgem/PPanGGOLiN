@@ -54,7 +54,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
     if sequences is not None:
         # Alignment of sequences on pangenome families
         new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, new_tmpdir, cpu, no_defrag, identity,
+        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, Path(new_tmpdir.name), cpu, no_defrag, identity,
                                            coverage)
         project_and_write_partition(seq2pan, seq_set, output)
         new_tmpdir.cleanup()
