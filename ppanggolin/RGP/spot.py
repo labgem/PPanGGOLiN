@@ -142,9 +142,9 @@ def make_spot_graph(rgps: list, multigenics: set, output: Path, spot_graph: bool
             del graph_spot.nodes[node]["border0"]
             del graph_spot.nodes[node]["border1"]
             del graph_spot.nodes[node]["rgp"]
-
-        nx.readwrite.gexf.write_gexf(graph_spot, output / "/spotGraph.gexf")
-        nx.readwrite.graphml.write_graphml(graph_spot, output / "/spotGraph.graphml")
+            
+        nx.readwrite.gexf.write_gexf(graph_spot, output / "spotGraph.gexf")
+        nx.readwrite.graphml.write_graphml(graph_spot, output / "spotGraph.graphml")
     return spots
 
 
