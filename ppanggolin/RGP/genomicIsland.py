@@ -287,12 +287,12 @@ def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain
     logging.getLogger("PPanGGOLiN").info(f"Predicted {len(pangenome.regions)} RGP")
 
     # save parameters and save status
-    pangenome.parameters["RGP"] = {}
-    pangenome.parameters["RGP"]["persistent_penalty"] = persistent_penalty
-    pangenome.parameters["RGP"]["variable_gain"] = variable_gain
-    pangenome.parameters["RGP"]["min_length"] = min_length
-    pangenome.parameters["RGP"]["min_score"] = min_score
-    pangenome.parameters["RGP"]["dup_margin"] = dup_margin
+    pangenome.parameters["rgp"] = {}
+    pangenome.parameters["rgp"]["persistent_penalty"] = persistent_penalty
+    pangenome.parameters["rgp"]["variable_gain"] = variable_gain
+    pangenome.parameters["rgp"]["min_length"] = min_length
+    pangenome.parameters["rgp"]["min_score"] = min_score
+    pangenome.parameters["rgp"]["dup_margin"] = dup_margin
     pangenome.status['predictedRGP'] = "Computed"
 
 

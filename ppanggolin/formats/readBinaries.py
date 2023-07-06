@@ -5,9 +5,9 @@
 import logging
 import sys
 from pathlib import Path
-# installed libraries
-from typing import TextIO
+from typing import TextIO, Dict, Any
 
+# installed libraries
 from tables import Table
 from tqdm import tqdm
 import tables
@@ -528,19 +528,31 @@ def read_modules_info(h5f: tables.File):
                   f"mean: {info_group._v_attrs['StatOfFamiliesInModules']['mean']}")
 
 
-def read_parameters(h5f: tables.File):
+def print_pangenome_parameters(h5f: tables.File):
     """
     Read pangenome parameters
 
     :param h5f: Pangenome HDF5 file
     """
+    step_to_parameters = get_pangenome_parameters(h5f)
+
+    for step, param_name_to_value in step_to_parameters.items():
+        print(f"{step}:")
+        for param_name, val in param_name_to_value.items():
+            print(f"    {param_name} : {val}")
+
+def get_pangenome_parameters(h5f: tables.File) -> Dict[str, Dict[str, Any]]:
+    """
+    Read and return the pangenome parameters.
+
+    :param h5f: Pangenome HDF5 file
+    :return: A dictionary containing the name of the ppanggolin step as the key, and a dictionary of parameter names
+             and their corresponding values used for that step.
+    """
     if "/info" in h5f:
         info_group = h5f.root.info
         if "parameters" in info_group._v_attrs._f_list():
-            for key, dic in info_group._v_attrs["parameters"].items():
-                print(f"{key}")
-                for key2, val in dic.items():
-                    print(f"    {key2} : {val}")
+            return info_group._v_attrs["parameters"]
 
 
 def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = False, graph: bool = False,

@@ -468,10 +468,10 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
                                              "PPanGGOLiN will use self-generated identifiers.")
 
     pangenome.status["genomesAnnotated"] = "Computed"
-    pangenome.parameters["annotation"] = {}
-    pangenome.parameters["annotation"]["used_local_identifiers"] = used_local_identifiers
-    pangenome.parameters["annotation"]["read_pseudogenes"] = pseudo
-    pangenome.parameters["annotation"]["read_annotations_from_file"] = True
+    pangenome.parameters["annotate"] = {}
+    pangenome.parameters["annotate"]["used_local_identifiers"] = used_local_identifiers
+    pangenome.parameters["annotate"]["use_pseudo"] = pseudo
+    pangenome.parameters["annotate"]["read_annotations_from_file"] = True
 
 
 def get_gene_sequences_from_fastas(pangenome, fasta_file):
@@ -569,12 +569,13 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     logging.getLogger("PPanGGOLiN").info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"  # the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"  # the gene objects have their respective gene sequences.
-    pangenome.parameters["annotation"] = {}
-    pangenome.parameters["annotation"]["remove_Overlapping_CDS"] = overlap
-    pangenome.parameters["annotation"]["annotate_RNA"] = True if not norna else False
-    pangenome.parameters["annotation"]["kingdom"] = kingdom
-    pangenome.parameters["annotation"]["translation_table"] = translation_table
-    pangenome.parameters["annotation"]["read_annotations_from_file"] = False
+    pangenome.parameters["annotate"] = {}
+    pangenome.parameters["annotate"]["allow_overlap"] = overlap
+    pangenome.parameters["annotate"]["norna"] = norna
+    pangenome.parameters["annotate"]["kingdom"] = kingdom
+    pangenome.parameters["annotate"]["translation_table"] = translation_table
+    pangenome.parameters["annotate"]["prodigal_procedure"] = procedure
+    pangenome.parameters["annotate"]["read_annotations_from_file"] = False
 
 
 def launch(args: argparse.Namespace):

@@ -181,7 +181,7 @@ def get_fam_to_rgp(pangenome, multigenics: set) -> dict:
     for rgp in pangenome.regions:
         for fam in rgp.families:
             fam2rgp[fam].append(rgp.name)
-        for fam in [gene.family for border in rgp.get_bordering_genes(pangenome.parameters["spots"]["set_size"],
+        for fam in [gene.family for border in rgp.get_bordering_genes(pangenome.parameters["spot"]["set_size"],
                                                                       multigenics) for gene in border]:
             fam2rgp[fam].append(rgp.name)
     return fam2rgp
@@ -206,7 +206,7 @@ def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) \
         for rgp in spot.regions:
             fams |= rgp.families
             fams_border |= set([gene.family for border in  # Set of families in border of spot
-                                rgp.get_bordering_genes(pangenome.parameters["spots"]["set_size"], multigenics)
+                                rgp.get_bordering_genes(pangenome.parameters["spot"]["set_size"], multigenics)
                                 for gene in border])
         for fam in fams:
             fam2spot[fam].append(spot)
@@ -254,7 +254,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
     :return:
     """
     logging.getLogger("PPanGGOLiN").info("Writing RGP and spot information related to hits in the pangenome")
-    multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
+    multigenics = pangenome.get_multigenics(pangenome.parameters["rgp"]["dup_margin"])
 
     finfo = open(output / "info_input_seq.tsv", "w")
     finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
@@ -275,8 +275,8 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
                 drawn_spots.add(spot)
         logging.getLogger("PPanGGOLiN").info(f"Drawing the {len(drawn_spots)} spots with more than 1 organization "
                                              f"related to hits of the input sequences...")
-        draw_selected_spots(drawn_spots, pangenome, output, pangenome.parameters["spots"]["overlapping_match"],
-                            pangenome.parameters["spots"]["exact_match"], pangenome.parameters["spots"]["set_size"],
+        draw_selected_spots(drawn_spots, pangenome, output, pangenome.parameters["spot"]["overlapping_match"],
+                            pangenome.parameters["spot"]["exact_match_size"], pangenome.parameters["spot"]["set_size"],
                             disable_bar=disable_bar)
 
         fam2mod = {}  # fam2module

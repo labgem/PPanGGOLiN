@@ -142,7 +142,7 @@ def make_spot_graph(rgps: list, multigenics: set, output: Path, spot_graph: bool
             del graph_spot.nodes[node]["border0"]
             del graph_spot.nodes[node]["border1"]
             del graph_spot.nodes[node]["rgp"]
-            
+
         nx.readwrite.gexf.write_gexf(graph_spot, output / "spotGraph.gexf")
         nx.readwrite.graphml.write_graphml(graph_spot, output / "spotGraph.graphml")
     return spots
@@ -191,7 +191,7 @@ def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = Fals
 
     # get multigenic gene families
     logging.getLogger("PPanGGOLiN").info("Detecting multigenic families...")
-    multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
+    multigenics = pangenome.get_multigenics(pangenome.parameters["rgp"]["dup_margin"])
 
     logging.getLogger("PPanGGOLiN").info("Detecting hotspots in the pangenome...")
 
@@ -206,10 +206,10 @@ def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = Fals
 
     pangenome.add_spots(spots)
     pangenome.status["spots"] = "Computed"
-    pangenome.parameters["spots"] = {}
-    pangenome.parameters["spots"]["set_size"] = set_size
-    pangenome.parameters["spots"]["overlapping_match"] = overlapping_match
-    pangenome.parameters["spots"]["exact_match"] = exact_match
+    pangenome.parameters["spot"] = {}
+    pangenome.parameters["spot"]["set_size"] = set_size
+    pangenome.parameters["spot"]["overlapping_match"] = overlapping_match
+    pangenome.parameters["spot"]["exact_match_size"] = exact_match
 
 
 def launch(args: argparse.Namespace):

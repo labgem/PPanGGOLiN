@@ -9,7 +9,7 @@ from pathlib import Path
 import tables
 
 # local libraries
-from ppanggolin.formats import read_info, read_parameters, fix_partitioned
+from ppanggolin.formats import read_info, print_pangenome_parameters, fix_partitioned
 
 
 def print_info(pangenome: Path, status: bool = False, content: bool = False, parameters: bool = False):
@@ -23,35 +23,34 @@ def print_info(pangenome: Path, status: bool = False, content: bool = False, par
     """
     fix_partitioned(pangenome)
     if status or content or parameters:
-        h5f = tables.open_file(pangenome, "r+")
-        if status:
-            status_group = h5f.root.status
-            print(f"genomes annotated : {'true' if status_group._v_attrs.genomesAnnotated else 'false'}")
-            print(f"genes clustered : {'true' if status_group._v_attrs.genesClustered else 'false'}")
-            print(f"genes have their sequences : {'true' if status_group._v_attrs.geneSequences else 'false'}")
-            print(f"gene families have their sequences : "
-                  f"{'true' if status_group._v_attrs.geneFamilySequences else 'false'}")
-            print(f"neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
-            if status_group._v_attrs.Partitioned:
-                print("pangenome partitioned : true")
-            else:
-                print("pangenome partitioned : false")
-            if hasattr(status_group._v_attrs, "predictedRGP"):
-                print(f"RGP predicted : {'true' if status_group._v_attrs.predictedRGP else 'false'}")
+        with tables.open_file(pangenome, "r+") as h5f:
+            if status:
+                status_group = h5f.root.status
+                print(f"genomes annotated : {'true' if status_group._v_attrs.genomesAnnotated else 'false'}")
+                print(f"genes clustered : {'true' if status_group._v_attrs.genesClustered else 'false'}")
+                print(f"genes have their sequences : {'true' if status_group._v_attrs.geneSequences else 'false'}")
+                print(f"gene families have their sequences : "
+                    f"{'true' if status_group._v_attrs.geneFamilySequences else 'false'}")
+                print(f"neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
+                if status_group._v_attrs.Partitioned:
+                    print("pangenome partitioned : true")
+                else:
+                    print("pangenome partitioned : false")
+                if hasattr(status_group._v_attrs, "predictedRGP"):
+                    print(f"RGP predicted : {'true' if status_group._v_attrs.predictedRGP else 'false'}")
 
-            if hasattr(status_group._v_attrs, "spots"):
-                print(f"Spots predicted : {'true' if status_group._v_attrs.spots else 'false'}")
+                if hasattr(status_group._v_attrs, "spots"):
+                    print(f"Spots predicted : {'true' if status_group._v_attrs.spots else 'false'}")
 
-            if hasattr(status_group._v_attrs, "modules"):
-                print(f"Modules predicted : {'true' if status_group._v_attrs.modules else 'false'}")
+                if hasattr(status_group._v_attrs, "modules"):
+                    print(f"Modules predicted : {'true' if status_group._v_attrs.modules else 'false'}")
 
-            if hasattr(status_group._v_attrs, "version"):
-                print(f"PPanGGOLiN version : {status_group._v_attrs.version}")
-        if content:
-            read_info(h5f)
-        if parameters:
-            read_parameters(h5f)
-        h5f.close()
+                if hasattr(status_group._v_attrs, "version"):
+                    print(f"PPanGGOLiN version : {status_group._v_attrs.version}")
+            if content:
+                read_info(h5f)
+            if parameters:
+                print_pangenome_parameters(h5f)
     else:
         print("Please select what information you want by using --parameters, --content or --status")
 
