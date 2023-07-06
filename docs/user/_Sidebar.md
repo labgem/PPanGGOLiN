@@ -19,3 +19,4 @@
   * [Fasta](https://github.com/labgem/PPanGGOLiN/wiki/Outputs#fasta)
   * [MSA](https://github.com/labgem/PPanGGOLiN/wiki/Outputs#MSA)
   * [Info](https://github.com/labgem/PPanGGOLiN/wiki/Outputs#info)
+  * [Metadata](https://github.com/labgem/PPanGGOLiN/wiki/Metadata)

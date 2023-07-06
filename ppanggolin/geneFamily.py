@@ -7,16 +7,17 @@ from collections import defaultdict
 import logging
 
 # installed libraries
-from typing import Dict, Set, List
+from typing import Dict, List, Set
 
 import gmpy2
 
 # local libraries
 from ppanggolin.edge import Edge
 from ppanggolin.genome import Gene, Organism
+from ppanggolin.metadata import MetaFeatures
 
 
-class GeneFamily:
+class GeneFamily(MetaFeatures):
     """
     This represents a single gene family. It will be a node in the pangenome graph, and be aware of its genes and edges.
 
@@ -27,6 +28,7 @@ class GeneFamily:
     """
 
     def __init__(self, family_id: int, name: str):
+        super().__init__()
         self.name = str(name)
         self.ID = family_id
         self._edges = {}
@@ -95,16 +97,16 @@ class GeneFamily:
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger().debug(f"all")
+            logging.getLogger().debug("all")
             for org in self.organisms:
                 self.bitarray[index[org]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger().debug(f"shell, cloud")
+            logging.getLogger().debug("shell, cloud")
             if self.named_partition == partition:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
         elif partition == 'accessory':
-            logging.getLogger().debug(f"accessory")
+            logging.getLogger().debug("accessory")
             if self.named_partition in ['shell', 'cloud']:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1

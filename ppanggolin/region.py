@@ -14,9 +14,10 @@ import gmpy2
 # local libraries
 from ppanggolin.genome import Gene, Organism, Contig
 from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.metadata import MetaFeatures
 
 
-class Region:
+class Region(MetaFeatures):
     """
     This class represent a region of genomic plasticity.
 
@@ -24,9 +25,13 @@ class Region:
     """
 
     def __init__(self, region_id: str):
+        super().__init__()
         self.genes = []
         self.name = region_id
         self.score = 0
+
+    def __str__(self):
+        return self.name
 
     def __hash__(self):
         return id(self)
@@ -53,14 +58,19 @@ class Region:
     def __getitem__(self, index):
         return self.genes[index]
 
-    def append(self, value):
-        # allowing only gene-class objects in a region.
-        if isinstance(value, Gene):
-            self.genes.append(value)
-            value.RGP.add(self)
+    def append(self, gene: Gene):
+        """allowing only gene-class objects in a region
+
+        :param gene: gene which will be added
+
+        :raise TypeError: If gene is not Gene type raise TypeError
+        """
+
+        if isinstance(gene, Gene):
+            self.genes.append(gene)
+            gene.RGP.add(self)
         else:
-            raise TypeError("Unexpected class / type for " + type(value) +
-                            " when adding it to a region of genomic plasticity")
+            raise TypeError(f"Unexpected class / type for {type(gene)} when adding it to a RGP")
 
     @property
     def families(self) -> set:
@@ -136,9 +146,8 @@ class Region:
         """
         if len(self.genes) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")
-        if self.start_gene.position == 0 and not self.contig.is_circular:
-            return True
-        elif self.stop_gene.position == len(self.contig.genes) - 1 and not self.contig.is_circular:
+        if (self.start_gene.position == 0 and not self.contig.is_circular) or \
+                (self.stop_gene.position == len(self.contig.genes) - 1 and not self.contig.is_circular):
             return True
         return False
 
@@ -198,19 +207,23 @@ class Region:
         return border
 
 
-class Spot:
+class Spot(MetaFeatures):
     """
     This class represent a hotspot.
 
     :param spot_id: identifier of the spot
     """
     def __init__(self, spot_id):
+        super().__init__()
         self.ID = spot_id
         self.regions = set()
         self._uniqOrderedSet = {}
         self._compOrderedSet = False
         self._uniqContent = {}
         self._compContent = False
+
+    def __str__(self):
+        return f'spot_{str(self.ID)}'
 
     @property
     def families(self) -> set:
@@ -264,9 +277,7 @@ class Spot:
             all_borders.append(rgp.get_bordering_genes(set_size, multigenics))
 
         family_borders = []
-        c = 0
         for borders in all_borders:
-            c += 1
             new = True
             curr_set = [[gene.family for gene in borders[0]], [gene.family for gene in borders[1]]]
             for i, (c, former_borders) in enumerate(family_borders):
@@ -283,10 +294,10 @@ class Spot:
         """cluster RGP into groups that have an identical synteny"""
         for rgp in self.regions:
             z = True
-            for seenRgp in self._uniqOrderedSet:
-                if rgp == seenRgp:
+            for seen_rgp in self._uniqOrderedSet:
+                if rgp == seen_rgp:
                     z = False
-                    self._uniqOrderedSet[seenRgp].add(rgp)
+                    self._uniqOrderedSet[seen_rgp].add(rgp)
             if z:
                 self._uniqOrderedSet[rgp] = {rgp}
 
@@ -294,10 +305,10 @@ class Spot:
         """cluster RGP into groups that have identical gene content"""
         for rgp in self.regions:
             z = True
-            for seenRgp in self._uniqContent:
-                if rgp.families == seenRgp.families:
+            for seen_rgp in self._uniqContent:
+                if rgp.families == seen_rgp.families:
                     z = False
-                    self._uniqContent[seenRgp].add(rgp)
+                    self._uniqContent[seen_rgp].add(rgp)
             if z:
                 self._uniqContent[rgp] = {rgp}
 
@@ -359,7 +370,7 @@ class Spot:
         return dict([(key, len(val)) for key, val in self._get_ordered_set().items()])
 
 
-class Module:
+class Module(MetaFeatures):
     """
     This class represent a hotspot.
 
@@ -372,14 +383,18 @@ class Module:
         'associated_families' are gene families that you believe are associated to the module in some way,
         but do not define it.
         """
+        super().__init__()
         self.ID = module_id
         self.families = set()
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception(f"You provided elements that were not GeneFamily object."
-                                f" Modules are only made of GeneFamily")
+                raise Exception("You provided elements that were not GeneFamily object."
+                                " Modules are only made of GeneFamily")
             self.families |= set(families)
         self.bitarray = None
+
+    def __str__(self):
+        return f'module_{str(self.ID)}'
 
     def add_family(self, family: GeneFamily):
         """
@@ -401,21 +416,21 @@ class Module:
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger().debug(f"all")
+            logging.getLogger().debug("all")
             for fam in self.families:
                 self.bitarray[index[fam]] = 1
         elif partition == 'persistent':
-            logging.getLogger().debug(f"persistent")
+            logging.getLogger().debug("persistent")
             for fam in self.families:
                 if fam.named_partition in ['persistent']:
                     self.bitarray[index[fam]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger().debug(f"shell, cloud")
+            logging.getLogger().debug("shell, cloud")
             for fam in self.families:
                 if fam.named_partition == partition:
                     self.bitarray[index[fam]] = 1
         elif partition == 'accessory':
-            logging.getLogger().debug(f"accessory")
+            logging.getLogger().debug("accessory")
             for fam in self.families:
                 if fam.named_partition in ['shell', 'cloud']:
                     self.bitarray[index[fam]] = 1
@@ -436,9 +451,12 @@ class GeneContext:
         self.families = set()
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception(f"You provided elements that were not GeneFamily object."
-                                f" GeneContext are only made of GeneFamily")
+                raise Exception("You provided elements that were not GeneFamily object."
+                                " GeneContext are only made of GeneFamily")
             self.families |= set(families)
+
+    def __str__(self):
+        return f'GC_{str(self.ID)}'
 
     def add_family(self, family: GeneFamily):
         """
