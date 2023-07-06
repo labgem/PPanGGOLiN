@@ -603,8 +603,8 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
     :param gene_sequences: get gene sequences
     :param modules: get modules
     :param metadata: get metadata
-    :param metatype: provide metatype
-    :param sources: provide sources
+    :param metatype: metatype of the metadata to get
+    :param sources: sources of the metadata to get (None means all sources)
     :param disable_bar: Allow to disable the progress bar
     """
     if hasattr(pangenome, "file"):
@@ -698,6 +698,9 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
     :param need_spots: get hotspot
     :param need_gene_sequences: get gene sequences
     :param need_modules: get modules
+    :param need_metadata: get metadata
+    :param metatype: metatype of the metadata to get
+    :param sources: sources of the metadata to get (None means all sources)
     :param disable_bar: Allow to disable the progress bar
     """
     annotation = False
