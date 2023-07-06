@@ -3,14 +3,16 @@
 
 # default libraries
 import argparse
+from pathlib import Path
 
+# installed libraries
 import tables
 
 # local libraries
-from ppanggolin.formats import read_info, read_parameters
+from ppanggolin.formats import read_info, read_parameters, fix_partitioned
 
 
-def print_info(pangenome: str, status: bool = False, content: bool = False, parameters: bool = False):
+def print_info(pangenome: Path, status: bool = False, content: bool = False, parameters: bool = False):
     """
     Main function to return information about pangenome
 
@@ -19,6 +21,7 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
     :param content: Get pangenome content
     :param parameters: Get pangenome parameters
     """
+    fix_partitioned(pangenome)
     if status or content or parameters:
         h5f = tables.open_file(pangenome, "r+")
         if status:
@@ -29,16 +32,6 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
             print(f"gene families have their sequences : "
                   f"{'true' if status_group._v_attrs.geneFamilySequences else 'false'}")
             print(f"neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
-            if 'Partitionned' in status_group._v_attrs._f_list():
-                # Partitionned keep working with older version
-                h5f.close()
-                h5f = tables.open_file(pangenome, "a")
-                status_group = h5f.root.status
-                if status_group._v_attrs.Partitionned:
-                    status_group._v_attrs.Partitioned = True
-                else:
-                    status_group._v_attrs.Partitioned = False
-                del status_group._v_attrs.Partitionned
             if status_group._v_attrs.Partitioned:
                 print("pangenome partitioned : true")
             else:
@@ -54,7 +47,6 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
 
             if hasattr(status_group._v_attrs, "version"):
                 print(f"PPanGGOLiN version : {status_group._v_attrs.version}")
-
         if content:
             read_info(h5f)
         if parameters:
@@ -94,13 +86,13 @@ def parser_info(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
 
     options = parser.add_argument_group(title="optional arguments")
     options.add_argument("--parameters", required=False, action="store_true",
                          help="Shows the parameters used (or computed) for each step of the pangenome generation")
     options.add_argument("--content", required=False, action="store_true",
-                         help="Shows detailled informations about the pan's content")
+                         help="Shows detailled informations about the pangenome's content")
     options.add_argument("--status", required=False, action="store_true",
                          help="Shows informations about the statuses of the different elements of the pangenome "
                               "(what has been computed, or not)")

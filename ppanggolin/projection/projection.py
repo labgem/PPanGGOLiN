@@ -46,12 +46,12 @@ def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  out
         write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa,
                                             disable_bar=True) # this progress bar is useless here.. so I disable it. 
     # get corresponding gene families
-    new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_")
-    seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, new_tmpdir, cpu, no_defrag, identity=identity,
-                                coverage=coverage, is_protein=False, translation_table=translation_table)
+    with tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_") as new_tmpdir:
+        seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, Path(new_tmpdir), cpu, no_defrag, identity=identity,
+                                    coverage=coverage, is_nucleotide=True, translation_table=translation_table)
     
     # this function only write the seqid and partition associated in a file
-    project_and_write_partition(seqid_to_gene_family, seq_set, str(output))
+    project_and_write_partition(seqid_to_gene_family, seq_set, output)
 
     # Add gene of the input organism in the associated gene family
     # when a gene is not associated with any gene family, a new family is created.
@@ -326,6 +326,8 @@ def parser_projection(parser: argparse.ArgumentParser):
                           help="Project pangenome modules to the input genome.")
     optional.add_argument('--project_spots', required=False, action='store_true', default=False,
                           help="Project pangenome spots to the input genome.")
+    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+                        help="directory for storing temporary files")
     # optional.add_argument("--basename", required=False, default="pangenome", help="basename for the output file")
     
     # annotate = parser.add_argument_group(title="Annotation arguments")

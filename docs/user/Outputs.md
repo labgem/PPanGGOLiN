@@ -479,7 +479,7 @@ gene-level similarity among groups of sequenced isolates.*
 We add the possibility to get genomic fluidity for all the pangenome or 
 for specific partition. The genomic fluidity is computable like that :
 ```
-ppanggolin metrics -p pangenome --genomic_fluidity
+ppanggolin metrics -p pangenome --genome_fluidity
 ...
 Genomes fluidity : all=0.026, shell=0.477, cloud=0.045, accessory=0.554
 ```

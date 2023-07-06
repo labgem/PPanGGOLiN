@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import List
 # local libraries
-from ppanggolin.utils import get_subcommand_parser, check_log, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, \
+from ppanggolin.utils import get_subcommand_parser, check_log, mk_outdir, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, \
     WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES, WRITE_FLAG_DEFAULT_IN_WF, DRAW_FLAG_DEFAULT_IN_WF
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
@@ -215,7 +215,8 @@ def launch_default_config(args: argparse.Namespace):
         arg_lines.append(f"\n{sub_command}:")
         arg_lines += get_default_argument_lines(specific_actions)
 
-    logging.info(f'Writting default config in {args.output}')
+    mk_outdir(args.output.parent, args.force)
+    logging.getLogger("PPanGGOLiN").info(f'Writting default config in {args.output}')
     with open(args.output, 'w') as fl:
         fl.write('\n'.join(arg_lines) + '\n')
 

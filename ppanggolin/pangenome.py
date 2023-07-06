@@ -3,6 +3,7 @@
 
 # default libraries
 from typing import Iterator, List, Union, Dict, Set, Iterable
+from pathlib import Path
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
@@ -14,8 +15,8 @@ from ppanggolin.edge import Edge
 class Pangenome:
     """
     This is a class representing your pangenome. It is used as a basic unit for all the analysis to access to the
-    different elements of your pan, such as organisms, contigs, genes or gene families. It has setter and getter
-    methods for most elements in your pan, and you can use those to add new elements to it,
+    different elements of your pangenome, such as organisms, contigs, genes or gene families. It has setter and getter
+    methods for most elements in your pangenome, and you can use those to add new elements to it,
     or get objects that have a specific identifier to manipulate them directly.
     """
 
@@ -32,8 +33,8 @@ class Pangenome:
         self._orgGetter = {}
         self._edgeGetter = {}
         self._regionGetter = {}
-        self.spots = set()
-        self.modules = set()
+        self._spots = set()
+        self._modules = set()
 
         self.status = {
             'genomesAnnotated': "No",
@@ -49,7 +50,7 @@ class Pangenome:
         }
         self.parameters = {}
 
-    def add_file(self, pangenome_file: str):
+    def add_file(self, pangenome_file: Path):
         """Links an HDF5 file to the pangenome. If needed elements will be loaded from this file,
         and anything that is computed will be saved to this file when
         :func:`ppanggolin.formats.writeBinaries.writePangenome` is called.
@@ -59,9 +60,10 @@ class Pangenome:
         from ppanggolin.formats.readBinaries import get_status
         # importing on call instead of importing on top to avoid cross-reference problems.
         get_status(self, pangenome_file)
-        self.file = pangenome_file
+        self.file = pangenome_file.absolute().as_posix()
 
     """ Gene Methods"""
+
     @property
     def genes(self) -> list:
         """Creates the geneGetter if it does not exist, and returns all the genes of all organisms in the pangenome.
@@ -133,6 +135,7 @@ class Pangenome:
             return len(self._geneGetter)
 
     """Gene families methods"""
+
     @property
     def gene_families(self) -> List[GeneFamily]:
         """returns all the gene families in the pangenome
@@ -184,6 +187,7 @@ class Pangenome:
         return fam
 
     """Graph methods"""
+
     @property
     def edges(self) -> list:
         """returns all the edges in the pangenome graph
@@ -219,6 +223,7 @@ class Pangenome:
         return len(self._edgeGetter)
 
     """Organism methods"""
+
     @property
     def organisms(self) -> List[Organism]:
         """returns all the organisms in the pangenome
@@ -340,6 +345,7 @@ class Pangenome:
         return self._fam_index
 
     """RGP methods"""
+
     @property
     def regions(self) -> list:
         """returns all the regions (RGP) in the pangenome
@@ -379,7 +385,7 @@ class Pangenome:
                            len([gene for gene in genes if not gene.is_fragment]) > 1])
                 if (dup / len(fam.organisms)) >= dup_margin:  # tot / nborgs >= 1.05
                     multigenics.add(fam)
-        # logging.getLogger().info(f"{len(multigenics)} gene families are defined as being multigenic.
+        # logging.getLogger("PPanGGOLiN").info(f"{len(multigenics)} gene families are defined as being multigenic.
         # (duplicated in more than {dup_margin} of the genomes)")
         return multigenics
 
@@ -403,34 +409,46 @@ class Pangenome:
                             f"but you provided a {type(region_group)} type object")
 
     def number_of_rgp(self) -> int:
-        """Returns the number of gene families present in the pan
+        """Returns the number of gene families present in the pangenome
 
         :return: the number of gene families
         """
         return len(self._regionGetter)
 
     """Spot methods"""
+
+    @property
+    def spots(self) -> Set[Spot]:
+        # TODO made as generator
+        return self._spots
+
     def add_spots(self, spots: Iterable[Spot]):
         """Adds the given iterable of spots to the pangenome.
 
         :param spots: An iterable of :class:`ppanggolin.region.Spot`.
         """
-        self.spots |= set(spots)
+        self._spots |= set(spots)
 
     def number_of_spots(self) -> int:
-        """Returns the number of gene families present in the pan
+        """Returns the number of gene families present in the pangenome
 
         :return: the number of gene families
         """
         return len(self.spots)
 
     """Modules methods"""
+
+    @property
+    def modules(self) -> Set[Module]:
+        # TODO made as generator
+        return self._modules
+
     def add_modules(self, modules: Iterable[Module]):
         """Adds the given iterable of modules to the pangenome
 
         :param modules: an iterable of :class:`ppanggolin.module.Module`
         """
-        self.modules |= set(modules)
+        self._modules |= set(modules)
 
     def compute_mod_bitarrays(self, part: str = 'all') -> Dict[GeneFamily, int]:
         """Based on the index generated by get_fam_index, generated a bitarray

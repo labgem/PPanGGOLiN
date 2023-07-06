@@ -2,6 +2,7 @@
 # coding:utf-8
 
 # default libraries
+import logging
 import sys
 import os
 import gzip
@@ -13,8 +14,6 @@ from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable
 import networkx as nx
 import pkg_resources
 from numpy import repeat
-import logging
-import tempfile
 from collections.abc import Callable
 
 from scipy.sparse import csc_matrix
@@ -40,8 +39,8 @@ ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "raref
 
 # Inside a workflow command, write output default is overwrite to output some flat files
 WRITE_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
-                            'projection', 'stats', 'json', 'partitions', 'regions', 
-                            'borders', 'modules', 'spot_modules', "draw_spots"]
+                            'projection', 'stats', 'json', 'partitions', 'regions',
+                            'borders', 'modules', 'spot_modules', "spots"]
 DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "draw_spots"]
 
 
@@ -80,11 +79,10 @@ def check_log(log_file: str) -> TextIO:
         raise IOError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
 
 
-def check_tsv_sanity(tsv):
-    """ 
-    Check if the given tsv is readable for the next PPanGGOLiN step.
+def check_tsv_sanity(tsv: Path):
+    """ Check if the given tsv is readable for the next PPanGGOLiN step
 
-    :param tsv: Path to the input tsv
+    :param tsv: Path to the tsv containing organims information
     """
     try:
         input_file = open(tsv, "r")
@@ -109,7 +107,8 @@ def check_tsv_sanity(tsv):
             name_set.add(elements[0])
             if len(name_set) == old_len:
                 duplicated_names.add(elements[0])
-            if not os.path.exists(elements[1]):
+            org_path = Path(elements[1])
+            if not org_path.exists() and not tsv.parent.joinpath(org_path).exists():
                 non_existing_files.add(elements[1])
         if len(non_existing_files) != 0:
             raise Exception(f"Some of the given files do not exist. The non-existing files are the following : "
@@ -120,25 +119,17 @@ def check_tsv_sanity(tsv):
         input_file.close()
 
 
-def check_input_files(anno: str = None, pangenome: str = None, fasta: str = None):
+def check_input_files(file: Path, check_tsv: bool = False):
     """ Checks if the provided input files exist and are of the proper format
 
-    :param anno: Path to the annotation file
-    :param pangenome: Path to the pangenome hdf5 file
-    :param fasta: path to the fasta file
+    :param file: Path to the file
+    :param check_tsv: Allow checking tsv file for annotation or fasta list
     """
-    if pangenome is not None and not os.path.exists(pangenome):
-        raise FileNotFoundError(f"No such file or directory: '{pangenome}'")
-
-    if anno is not None:
-        if not os.path.exists(anno):
-            raise FileNotFoundError(f"No such file or directory: '{anno}'")
-        check_tsv_sanity(anno)
-
-    if fasta is not None:
-        if not os.path.exists(fasta):
-            raise FileNotFoundError(f"No such file or directory: '{fasta}'")
-        check_tsv_sanity(fasta)
+    if file.exists():
+        if check_tsv:
+            check_tsv_sanity(file)
+    else:
+        raise FileNotFoundError(f"No such file or directory: '{file.absolute().as_posix()}'")
 
 
 def set_verbosity_level(args):
@@ -155,21 +146,21 @@ def set_verbosity_level(args):
 
         if args.log != sys.stdout and not args.disable_prog_bar:  # if output is not to stdout we remove progress bars.
             args.disable_prog_bar = True
-        format='%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s'
-        datefmt='%Y-%m-%d %H:%M:%S'
+        str_format = "%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s"
+        datefmt = '%Y-%m-%d %H:%M:%S'
         if args.log in [sys.stdout, sys.stderr]:
             # use stream
             logging.basicConfig(stream=args.log, level=level,
-                                format=format,
+                                format=str_format,
                                 datefmt=datefmt)
         else:
             # log is written in a files. basic condif uses filename
             logging.basicConfig(filename=args.log, level=level,
-                                format=format,
-                                datefmt=datefmt)            
-
-        logging.getLogger().info("Command: " + " ".join([arg for arg in sys.argv]))
-        logging.getLogger().info("PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
+                                format=str_format,
+                                datefmt=datefmt)
+        logging.getLogger("PPanGGOLiN").info("Command: " + " ".join([arg for arg in sys.argv]))
+        logging.getLogger("PPanGGOLiN").info(
+            "PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
 
 
 def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
@@ -193,7 +184,8 @@ def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
     return similarities
 
 
-def read_compressed_or_not(file_or_file_path: Union[str, BinaryIO, TextIOWrapper, TextIO]) -> Union[TextIOWrapper, BinaryIO, TextIO]:
+def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]) \
+        -> Union[TextIOWrapper, BinaryIO, TextIO]:
     """
     Reads a file object or file path, uncompresses it, if need be.
 
@@ -202,11 +194,11 @@ def read_compressed_or_not(file_or_file_path: Union[str, BinaryIO, TextIOWrapper
     :return: TextIO object in read only
     """
     input_file = file_or_file_path
-    if isinstance(file_or_file_path, str):
-        input_file = open(file_or_file_path, "rb")
-    else:
+    if isinstance(input_file, Path):
+        input_file = open(input_file, "rb")
+    else:  # type BinaryIO, TextIOWrapper, TextIO
         try:
-            input_file = open(file_or_file_path.name, "rb")
+            input_file = open(input_file.name, "rb")
         except AttributeError:
             return input_file
     if input_file.read(2).startswith(b'\x1f\x8b'):
@@ -218,7 +210,7 @@ def read_compressed_or_not(file_or_file_path: Union[str, BinaryIO, TextIOWrapper
         return input_file
 
 
-def write_compressed_or_not(file_path: str, compress: bool = False) -> Union[gzip.GzipFile, TextIO]:
+def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gzip.GzipFile, TextIO]:
     """
     Create a file-like object, compressed or not.
 
@@ -228,19 +220,19 @@ def write_compressed_or_not(file_path: str, compress: bool = False) -> Union[gzi
     :return: file-like object, compressed or not
     """
     if compress:
-        return gzip.open(file_path + ".gz", mode="wt")
+        return gzip.open(file_path.with_suffix(".gz"), mode="wt")
     else:
         return open(file_path, "w")
 
 
-def is_compressed(file_or_file_path: Union[str, TextIO, gzip.GzipFile]):
-    """ Checks is a file, or file path given is compressed or not
+def is_compressed(file_or_file_path: Union[Path, TextIO, gzip.GzipFile]):
+    """ Checks if file or file path given is compressed or not
 
-    :param file_or_file_path: Input file
+    :param file_or_file_path: Input compressed_file
 
-    :return: Get if the file is compressed
+    :return: Get if the compressed_file is compressed
     """
-    if isinstance(file_or_file_path, str):
+    if isinstance(file_or_file_path, Path):
         input_file = open(file_or_file_path, "rb")
     else:
         try:
@@ -253,7 +245,7 @@ def is_compressed(file_or_file_path: Union[str, TextIO, gzip.GzipFile]):
     return False
 
 
-def mk_outdir(output, force):
+def mk_outdir(output: Path, force: bool = False):
     """ Create a directory at the given output if it doesn't exist already
 
     :param output: Path where to create directory
@@ -261,13 +253,16 @@ def mk_outdir(output, force):
 
     :raise FileExistError: The current path already exist and force is false
     """
-    if not os.path.exists(output):
-        os.makedirs(output)
-    elif not force:
-        raise FileExistsError(f"{output} already exists. Use -f if you want to overwrite the files in the directory")
+    if not output.is_dir():
+        logging.getLogger("PPanGGOLiN").debug(f"Create output directory {output.absolute().as_posix()}")
+        Path.mkdir(output)
+    else:
+        if not force:
+            raise FileExistsError(
+                f"{output} already exists. Use -f if you want to overwrite the files in the directory")
 
 
-def mk_file_name(basename: str, output: str, force: bool = False) -> Path:
+def mk_file_name(basename: str, output: Path, force: bool = False) -> Path:
     """Returns a usable filename for a ppanggolin output file, or crashes.
 
     :param basename: basename for the file
@@ -276,7 +271,7 @@ def mk_file_name(basename: str, output: str, force: bool = False) -> Path:
 
     :return: Path to the file
     """
-    filename = Path(output + "/" + basename)
+    filename = output / basename
     if filename.suffix != ".h5":
         filename = filename.with_suffix(".h5")
 
@@ -287,7 +282,30 @@ def mk_file_name(basename: str, output: str, force: bool = False) -> Path:
     return filename
 
 
-def restricted_float(x) -> float:
+def detect_filetype(filename: Path) -> str:
+    """
+    Detects whether the current file is gff3, gbk/gbff, fasta or unknown.
+    If unknown, it will raise an error
+
+    :param filename: path to file
+
+    :return: current file type
+    """
+    with read_compressed_or_not(filename) as f:
+        first_line = f.readline()
+    if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
+        return "gbff"
+    elif first_line.startswith("##gff-version 3"):
+        return 'gff'
+    elif first_line.startswith(">"):
+        return 'fasta'
+    else:
+        raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') "
+                        "nor gbff/gbk (file starts with 'LOCUS       '). "
+                        "Only those two file formats are supported (for now).")
+
+
+def restricted_float(x: Union[int, float]) -> float:
     """Decrease the choice possibility of float in argparse
 
     :param x: given float by user
@@ -422,8 +440,6 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
 
     common = subparser._action_groups.pop(1)  # get the 'optional arguments' action group.
     common.title = "Common arguments"
-    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
-                        help="directory for storing temporary files")
     common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
                         help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
     common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
@@ -431,7 +447,6 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
                         help="disables the progress bars")
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
-
     common.add_argument("--config", required=False, type=argparse.FileType(),
                         help="Config file in yaml format to launch the different step of "
                              "the workflow with specific arguments.")
@@ -439,42 +454,7 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
     subparser._action_groups.append(common)
 
 
-def get_non_default_cli_args(subcomamand_parser: Callable) -> argparse.Namespace:
-    """
-    Get args value that have been specified in cmd line.
-
-    This function recreate the same parser as in main but change default value to None
-    in order to distinguish specified and default value
-
-    :param: subparser function used to add subcommand specific arguments 
-    """
-
-    parser = argparse.ArgumentParser(prog="", allow_abbrev=True, add_help=False)
-    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description="")
-
-    sub = subcomamand_parser(subparsers)
-
-    add_common_arguments(sub)
-
-    # set default to None
-    for p_action in sub._actions:
-        p_action.default = None
-        # some args have special type calling a function to trigger something
-        # like --log. We need to prevent calling this function a second time.
-        if p_action.type in [check_log]:
-            p_action.type = None
-
-    cli_args = parser.parse_args()
-
-    # delete args not specified in CLI (so the one with None value) 
-    for arg_name, arg_val in cli_args._get_kwargs():
-        if arg_val is None:
-            delattr(cli_args, arg_name)
-
-    return cli_args
-
-
-def get_arg_name(arg_val: Union[str, TextIOWrapper])  -> Union[str, TextIOWrapper]:
+def get_arg_name(arg_val: Union[str, TextIOWrapper]) -> Union[str, TextIOWrapper]:
     """
     Returns the name of a file if the argument is a TextIOWrapper object,
     otherwise returns the argument value.
@@ -482,7 +462,7 @@ def get_arg_name(arg_val: Union[str, TextIOWrapper])  -> Union[str, TextIOWrappe
     :param arg_val: Either a string or a TextIOWrapper object.
     :return: Either a string or a TextIOWrapper object, depending on the type of the input argument.
     """
-    
+
     if type(arg_val) == TextIOWrapper:
         return arg_val.name
     return arg_val
@@ -513,7 +493,7 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
             setattr(args, param, cli_val)
 
             if default_val != cli_val:
-                logging.getLogger().debug(
+                logging.getLogger("PPanGGOLiN").debug(
                     f'Parameter "--{param} {get_arg_name(cli_val)}" has been specified in command line.'
                     f' Its value overwrites putative config values.')
 
@@ -522,7 +502,7 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
             setattr(args, param, config_val)
 
             if default_val != config_val:
-                logging.getLogger().debug(
+                logging.getLogger("PPanGGOLiN").debug(
                     f'Parameter "{param}: {get_arg_name(config_val)}" has been specified in config file with non default value.'
                     f' Its value overwrites default value ({get_arg_name(default_val)}).')
         else:
@@ -583,7 +563,6 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     :params config_file: Path to the config file given in argument. If None, only default and cli arguments value are used.
     :params subcommand_to_subparser: Dict with subcommand name as key and the corresponding subparser function as value. 
     """
-
     if config_file:
         config = parse_config_file(config_file)
     else:
@@ -635,7 +614,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
     if params_that_differ:
         params_that_differ_str = ', '.join([f'{p}={v}' for p, v in params_that_differ.items()])
-        logging.getLogger().debug(
+        logging.getLogger("PPanGGOLiN").debug(
             f"{len(params_that_differ)} {subcommand} parameters have non-default value: {params_that_differ_str}")
 
     # manage workflow command
@@ -645,7 +624,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
                     (workflow_step == "module" and subcommand in ["workflow", "panmodule"]):
                 continue
 
-            logging.getLogger().debug(f'Parsing {workflow_step} arguments in config file.')
+            logging.getLogger("PPanGGOLiN").debug(f'Parsing {workflow_step} arguments in config file.')
             step_subparser = subcommand_to_subparser[workflow_step]
 
             default_step_args = get_default_args(workflow_step, step_subparser, unwanted_args=all_unspecific_params)
@@ -672,8 +651,8 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             if step_params_that_differ:
                 step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
-                logging.getLogger().debug(
-                    f"{len(step_params_that_differ)} {workflow_step} parameters have a non-default value: {step_params_that_differ_str}")
+                logging.getLogger("PPanGGOLiN").debug(f"{len(step_params_that_differ)} {workflow_step} parameters have "
+                                                      f"a non-default value: {step_params_that_differ_str}")
 
             # add step name to differentiate the params
             step_params_that_differ = {f'{workflow_step}:{param}': value for param, value in
@@ -720,7 +699,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
 
     if params_that_differ:
-        logging.getLogger().info(f'{len(params_that_differ)} parameters have a non-default value.')
+        logging.getLogger("PPanGGOLiN").info(f'{len(params_that_differ)} parameters have a non-default value.')
 
     check_config_consistency(config, ALL_WORKFLOW_DEPENDENCIES)
 
@@ -731,7 +710,7 @@ def check_config_consistency(config: dict, workflow_steps: list):
     """
     Check that the same parameter used in different subcommand inside a workflow has the same value. 
 
-    If not, the function throw a logging.warning. 
+    If not, the function throw a logging.getLogger("PPanGGOLiN").warning. 
 
     :params config_dict: config dict with as key the section of the config file and as value another dict pairing name and value of parameters.
     :params workflow_steps: list of subcommand names used in the workflow execution.
@@ -760,7 +739,7 @@ def check_config_consistency(config: dict, workflow_steps: list):
                          duplicate_param in param_to_value}
 
         if count_different_values(step_to_value.values()) > 1:
-            logging.warning(
+            logging.getLogger("PPanGGOLiN").warning(
                 f'The parameter {duplicate_param} used in multiple subcommands of the workflow is specified with different values in config file: {step_to_value}.')
 
 
@@ -793,7 +772,8 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
     return arguments_to_parse
 
 
-def get_subcommand_parser(subparser_fct: Callable, name: str = '') -> Tuple[argparse._SubParsersAction, argparse.ArgumentParser]:
+def get_subcommand_parser(subparser_fct: Callable, name: str = '') \
+        -> Tuple[argparse._SubParsersAction, argparse.ArgumentParser]:
     """
     Get subcommand parser object using the given subparser function.
 
@@ -881,7 +861,7 @@ def get_config_args(subcommand: str, subparser_fct: Callable, config_dict: dict,
         config = {name: value for name, value in config.items() if name in expected_args_names}
 
         if unexpected_config:
-            logging.info(
+            logging.getLogger("PPanGGOLiN").info(
                 f'While parsing {config_section} section in config file, {len(unexpected_config)} unexpected parameters '
                 f'were ignored : {" ".join(unexpected_config)}')
     else:

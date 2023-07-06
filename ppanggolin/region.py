@@ -7,7 +7,7 @@ import logging
 from collections.abc import Iterable
 
 # installed libraries
-from typing import Dict
+from typing import Dict, Set
 
 import gmpy2
 
@@ -59,11 +59,11 @@ class Region:
             self.genes.append(value)
             value.RGP.add(self)
         else:
-            raise TypeError("Unexpected class / type for " + type(value) +
-                            " when adding it to a region of genomic plasticity")
+            raise TypeError(f"Unexpected class / type for {type(value)} "
+                            f"when adding it to a region of genomic plasticity")
 
     @property
-    def families(self) -> set:
+    def families(self) -> Set[GeneFamily]:
         """Get the gene families in the RGP
 
         :return: Set of gene families
@@ -136,9 +136,8 @@ class Region:
         """
         if len(self.genes) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")
-        if self.start_gene.position == 0 and not self.contig.is_circular:
-            return True
-        elif self.stop_gene.position == len(self.contig.genes) - 1 and not self.contig.is_circular:
+        if (self.start_gene.position == 0 and not self.contig.is_circular) or \
+                (self.stop_gene.position == len(self.contig.genes) - 1 and not self.contig.is_circular):
             return True
         return False
 
@@ -283,10 +282,10 @@ class Spot:
         """cluster RGP into groups that have an identical synteny"""
         for rgp in self.regions:
             z = True
-            for seenRgp in self._uniqOrderedSet:
-                if rgp == seenRgp:
+            for seen_rgp in self._uniqOrderedSet:
+                if rgp == seen_rgp:
                     z = False
-                    self._uniqOrderedSet[seenRgp].add(rgp)
+                    self._uniqOrderedSet[seen_rgp].add(rgp)
             if z:
                 self._uniqOrderedSet[rgp] = {rgp}
 
@@ -294,10 +293,10 @@ class Spot:
         """cluster RGP into groups that have identical gene content"""
         for rgp in self.regions:
             z = True
-            for seenRgp in self._uniqContent:
-                if rgp.families == seenRgp.families:
+            for seen_rgp in self._uniqContent:
+                if rgp.families == seen_rgp.families:
                     z = False
-                    self._uniqContent[seenRgp].add(rgp)
+                    self._uniqContent[seen_rgp].add(rgp)
             if z:
                 self._uniqContent[rgp] = {rgp}
 
@@ -373,13 +372,18 @@ class Module:
         but do not define it.
         """
         self.ID = module_id
-        self.families = set()
+        self._families = set()
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception(f"You provided elements that were not GeneFamily object."
-                                f" Modules are only made of GeneFamily")
-            self.families |= set(families)
+                raise Exception("You provided elements that were not GeneFamily object. "
+                                "Modules are only made of GeneFamily")
+            self._families |= set(families)
         self.bitarray = None
+
+    @property
+    def families(self) -> Set[GeneFamily]:
+        # TODO made as generator
+        return self._families
 
     def add_family(self, family: GeneFamily):
         """
@@ -390,32 +394,32 @@ class Module:
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
         family.modules.add(self)
-        self.families.add(family)
+        self._families.add(family)
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
         :param partition: filter module by partition
-        :param index: The index computed by :func:`ppanggolin.pan.Pangenome.getIndex`
+        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger().debug(f"all")
+            logging.getLogger("PPanGGOLiN").debug("all")
             for fam in self.families:
                 self.bitarray[index[fam]] = 1
         elif partition == 'persistent':
-            logging.getLogger().debug(f"persistent")
+            logging.getLogger("PPanGGOLiN").debug("persistent")
             for fam in self.families:
                 if fam.named_partition in ['persistent']:
                     self.bitarray[index[fam]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger().debug(f"shell, cloud")
+            logging.getLogger("PPanGGOLiN").debug("shell, cloud")
             for fam in self.families:
                 if fam.named_partition == partition:
                     self.bitarray[index[fam]] = 1
         elif partition == 'accessory':
-            logging.getLogger().debug(f"accessory")
+            logging.getLogger("PPanGGOLiN").debug("accessory")
             for fam in self.families:
                 if fam.named_partition in ['shell', 'cloud']:
                     self.bitarray[index[fam]] = 1
@@ -436,8 +440,8 @@ class GeneContext:
         self.families = set()
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception(f"You provided elements that were not GeneFamily object."
-                                f" GeneContext are only made of GeneFamily")
+                raise Exception("You provided elements that were not GeneFamily object."
+                                " GeneContext are only made of GeneFamily")
             self.families |= set(families)
 
     def add_family(self, family: GeneFamily):

@@ -3,9 +3,10 @@
 
 # default libraries
 import argparse
+import logging
 import tempfile
 import time
-import logging
+from pathlib import Path
 
 # installed libraries
 from tqdm import tqdm
@@ -21,8 +22,8 @@ from ppanggolin.align.alignOnPang import get_seq2pang, project_and_write_partiti
 from ppanggolin.region import GeneContext
 
 
-def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: str, sequences: str = None,
-                                     families: str = None, transitive: int = 4, identity: float = 0.5,
+def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir: Path, sequences: Path = None,
+                                     families: Path = None, transitive: int = 4, identity: float = 0.5,
                                      coverage: float = 0.8, jaccard: float = 0.85, no_defrag: bool = False,
                                      cpu: int = 1, disable_bar=True):
     """
@@ -68,11 +69,11 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
 
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
-    logging.getLogger().info("Building the graph...")
+    logging.getLogger("PPanGGOLiN").info("Building the graph...")
     g = compute_gene_context_graph(families=gene_families, t=transitive, disable_bar=disable_bar)
-    logging.getLogger().info(
+    logging.getLogger("PPanGGOLiN").info(
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
-    logging.getLogger().debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
+    logging.getLogger("PPanGGOLiN").debug(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     # extract the modules from the graph
     common_components = compute_gene_context(g, jaccard)
@@ -84,20 +85,20 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: str, tmpdir: 
     if len(families) != 0:
         export_to_dataframe(families, common_components, fam_2_seq, output)
     else:
-        logging.getLogger().info(f"No gene contexts were found")
+        logging.getLogger("PPanGGOLiN").info("No gene contexts were found")
 
-    logging.getLogger().info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
+    logging.getLogger("PPanGGOLiN").info(f"Computing gene contexts took {round(time.time() - start_time, 2)} seconds")
 
 
 def compute_gene_context_graph(families: dict, t: int = 4, disable_bar: bool = False) -> nx.Graph:
     """
-    Construct the graph of gene contexts between families of the pan
+    Construct the graph of gene contexts between families of the pangenome
 
     :param families: Gene families of interest
     :param t: transitive value
     :param disable_bar: Prevents progress bar printing
 
-    :return: Graph of gene contexts between interesting gene families of the pan
+    :return: Graph of gene contexts between interesting gene families of the pangenome
     """
 
     g = nx.Graph()
@@ -115,7 +116,7 @@ def _compute_gene_context_graph(g: nx.Graph, env_gene: Gene, contig: Contig, pos
     """
     Compute graph of gene contexts between one gene and the other part of the contig
 
-    :param: Graph of gene contexts between interesting gene families of the pan
+    :param: Graph of gene contexts between interesting gene families of the pangenome
     :param env_gene: Gene of the current position
     :param contig: Current contig to search a gene context
     :param pos_r: Gene to search a gene context
@@ -167,7 +168,7 @@ def compute_gene_context(g: nx.Graph, jaccard: float = 0.85) -> set:
     """
     Compute the gene contexts in the graph
 
-    :param g: Graph of gene contexts between interesting gene families of the pan
+    :param g: Graph of gene contexts between interesting gene families of the pangenome
     :param jaccard: Jaccard index
 
     :return: Set of gene contexts find in graph
@@ -204,12 +205,12 @@ def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, out
     """ Export the results into dataFrame
 
     :param families: Families related to the connected components
-    :param gene_contexts: connected components found in the pan
+    :param gene_contexts: connected components found in the pangenome
     :param fam_to_seq: Dictionary with gene families as keys and list of sequence ids as values
     :param output: output path
     """
 
-    logging.getLogger().debug(f"There are {len(families)} families among {len(gene_contexts)} gene contexts")
+    logging.getLogger("PPanGGOLiN").debug(f"There are {len(families)} families among {len(gene_contexts)} gene contexts")
 
     lines = []
     for gene_context in gene_contexts:
@@ -226,7 +227,7 @@ def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, out
                       ).set_index("GeneContext ID")
     df.sort_values(["GeneContext ID", "Sequence ID"], na_position='last').to_csv(
         path_or_buf=f"{output}/gene_contexts.tsv", sep="\t", na_rep='NA')
-    logging.getLogger(f"detected gene context(s) are listed in: '{output}/gene_contexts.tsv'")
+    logging.getLogger("PPanGGOLiN").info(f"detected gene context(s) are listed in: '{output}/gene_contexts.tsv'")
 
 
 def launch(args: argparse.Namespace):
@@ -270,14 +271,14 @@ def parser_context(parser: argparse.ArgumentParser):
 
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome.h5 file")
-    required.add_argument('-o', '--output', required=True, type=str,
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome.h5 file")
+    required.add_argument('-o', '--output', required=False, type=Path,
                           help="Output directory where the file(s) will be written")
     onereq = parser.add_argument_group(title="Input file", description="One of the following argument is required :")
-    onereq.add_argument('-S', '--sequences', required=False, type=str,
+    onereq.add_argument('-S', '--sequences', required=False, type=Path,
                         help="Fasta file with the sequences of interest")
-    onereq.add_argument('-F', '--family', required=False, type=str,
-                        help="List of family IDs of interest from the pan")
+    onereq.add_argument('-F', '--family', required=False, type=Path,
+                        help="List of family IDs of interest from the pangenome")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--no_defrag', required=False, action="store_true",
@@ -295,25 +296,19 @@ def parser_context(parser: argparse.ArgumentParser):
                           help="minimum jaccard similarity used to filter edges between gene families. Increasing it "
                                "will improve precision but lower sensitivity a lot.")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+                          help="directory for storing temporary files")
+
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_context(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
-                        help="directory for storing temporary files")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())
