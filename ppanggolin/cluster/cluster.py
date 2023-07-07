@@ -316,9 +316,11 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     pangenome.parameters["cluster"] = {}
     pangenome.parameters["cluster"]["coverage"] = coverage
     pangenome.parameters["cluster"]["identity"] = identity
-    pangenome.parameters["cluster"]["defragmentation"] = defrag
+    pangenome.parameters["cluster"]["# defragmentation"] = defrag
+    pangenome.parameters["cluster"]["no_defrag"] = not defrag
+    
     pangenome.parameters["cluster"]["translation_table"] = code
-    pangenome.parameters["cluster"]["read_clustering_from_file"] = False
+    pangenome.parameters["cluster"]["# read_clustering_from_file"] = False
 
 
 # Read clustering
@@ -334,12 +336,12 @@ def mk_local_to_gene(pangenome: Pangenome) -> dict:
         old_len = len(local_dict)
         local_dict[gene.local_identifier] = gene
         if len(local_dict) == old_len:
-            if pangenome.parameters["annotation"]["read_annotations_from_file"] and not \
-                    pangenome.parameters["annotation"]["used_local_identifiers"]:
+            if pangenome.parameters["annotate"]["# read_annotations_from_file"] and not \
+                    pangenome.parameters["annotate"]["# used_local_identifiers"]:
                 raise Exception(f"'{gene.local_identifier}' was found multiple times used as an identifier. "
                                 f"The identifier of the genes (locus_tag, protein_id in gbff, ID in gff) were not "
                                 f"unique throughout all of the files. It is thus impossible to differentiate the genes."
-                                f" To use this function while importing annotation, all identifiers MUST be unique "
+                                f" To use this function while importing annotate, all identifiers MUST be unique "
                                 f"throughout all of your genomes")
             return {}  # local identifiers are not unique.
     return local_dict
@@ -421,7 +423,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
     pangenome.parameters["cluster"] = {}
-    pangenome.parameters["cluster"]["read_clustering_from_file"] = True
+    pangenome.parameters["cluster"]["# read_clustering_from_file"] = True
     pangenome.parameters["cluster"]["infer_singletons"] = infer_singleton
 
 

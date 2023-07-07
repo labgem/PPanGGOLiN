@@ -478,20 +478,25 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
 
     pangenome.parameters["partition"] = {}
     pangenome.parameters["partition"]["beta"] = beta
+    pangenome.parameters["partition"]["max_degree_smoothing"] = sm_degree
     pangenome.parameters["partition"]["free_dispersion"] = free_dispersion
-    pangenome.parameters["partition"]["max_node_degree_for_smoothing"] = sm_degree
+    pangenome.parameters["partition"]["ICL_margin"] = icl_margin
+    pangenome.parameters["partition"]["seed"] = seed
     if len(organisms) > chunk_size:
         pangenome.parameters["partition"]["chunk_size"] = chunk_size
-    pangenome.parameters["partition"]["computed_K"] = False
+    pangenome.parameters["partition"]["# computed nb of partitions"] = False
 
+    # the K value initally given by the user 
+    pangenome.parameters["partition"]["nb_of_partitions"] = kval
     if kval < 2:
-        pangenome.parameters["partition"]["computed_K"] = True
+        pangenome.parameters["partition"]["# computed nb of partitions"] = True
         logging.getLogger("PPanGGOLiN").info("Estimating the optimal number of partitions...")
         kval = evaluate_nb_partitions(organisms, output, sm_degree, free_dispersion, chunk_size, kmm,
                                       icl_margin, draw_icl, cpu, seed, tmp_path, disable_bar)
         logging.getLogger("PPanGGOLiN").info(f"The number of partitions has been evaluated at {kval}")
 
-    pangenome.parameters["partition"]["K"] = kval
+    pangenome.parameters["partition"]["# final nb of partitions"] = kval
+    pangenome.parameters["partition"]["krange"] = kmm
     init = "param_file"
 
     partitioning_results = {}

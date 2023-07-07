@@ -469,7 +469,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
 
     pangenome.status["genomesAnnotated"] = "Computed"
     pangenome.parameters["annotate"] = {}
-    pangenome.parameters["annotate"]["used_local_identifiers"] = used_local_identifiers
+    pangenome.parameters["annotate"]["# used_local_identifiers"] = used_local_identifiers
     pangenome.parameters["annotate"]["use_pseudo"] = pseudo
     pangenome.parameters["annotate"]["read_annotations_from_file"] = True
 
@@ -574,8 +574,8 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     pangenome.parameters["annotate"]["norna"] = norna
     pangenome.parameters["annotate"]["kingdom"] = kingdom
     pangenome.parameters["annotate"]["translation_table"] = translation_table
-    pangenome.parameters["annotate"]["prodigal_procedure"] = procedure
-    pangenome.parameters["annotate"]["read_annotations_from_file"] = False
+    pangenome.parameters["annotate"]["prodigal_procedure"] = False if procedure is None else procedure
+    pangenome.parameters["annotate"]["# read_annotations_from_file"] = False
 
 
 def launch(args: argparse.Namespace):
