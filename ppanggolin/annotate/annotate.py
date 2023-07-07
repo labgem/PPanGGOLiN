@@ -471,7 +471,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotate"] = {}
     pangenome.parameters["annotate"]["# used_local_identifiers"] = used_local_identifiers
     pangenome.parameters["annotate"]["use_pseudo"] = pseudo
-    pangenome.parameters["annotate"]["read_annotations_from_file"] = True
+    pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
 
 
 def get_gene_sequences_from_fastas(pangenome, fasta_file):
