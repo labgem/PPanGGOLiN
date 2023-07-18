@@ -123,11 +123,10 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
     fams = set()
     for mod in modules:
         fams |= mod.families
+        pangenome.add_module(mod)
 
     logging.getLogger("PPanGGOLiN").info(f"There are {len(fams)} families among {len(modules)} modules")
     logging.getLogger("PPanGGOLiN").info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
-
-    pangenome.add_modules(modules)
 
     pangenome.status["modules"] = "Computed"
     pangenome.parameters["modules"] = {}

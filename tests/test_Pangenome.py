@@ -83,6 +83,10 @@ class TestPangenome:
     def test_is_instance_pangenome(self, pangenome):
         assert isinstance(pangenome, Pangenome)
 
+    def test_add_file_is_not_path(self, pangenome):
+        with pytest.raises(AssertionError):
+            pangenome.add_file("pangenome.h5")
+
 
 class TestPangenomeOrganism(TestPangenome):
     """Organism test"""
@@ -144,6 +148,10 @@ class TestPangenomeGeneFamilies(TestPangenome):
         pangenome.add_gene_family(family)
         assert isinstance(pangenome.get_gene_family("family"), GeneFamily)
         assert pangenome.get_gene_family("family") == family
+
+    def test_get_gene_family_with_name_no_str(self, pangenome):
+        with pytest.raises(AssertionError):
+            pangenome.get_gene_family(3)
 
     @pytest.fixture
     def families(self) -> Generator[Set[GeneFamily], None, None]:
@@ -228,6 +236,10 @@ class TestPangenomeGene(TestPangenome):
         pangenome.add_gene_family(family)
         for gene in genes:
             assert pangenome.get_gene(gene.ID) == gene
+
+    def test_get_gene_with_id_not_int(self, pangenome):
+        with pytest.raises(AssertionError):
+            pangenome.get_gene(gene_id="id")
 
     def test_number_of_gene(self, pangenome, organism_genes):
         # orgs with genes.

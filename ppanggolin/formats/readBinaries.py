@@ -406,7 +406,8 @@ def read_spots(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False
             spots[row["spot"]] = curr_spot
         curr_spot.add_region(pangenome.get_region(row["RGP"].decode()))
         curr_spot.spot_2_families()
-    pangenome.add_spots(spots.values())
+    for spot in spots.values():
+        pangenome.add_spot(spot)
     pangenome.status["spots"] = "Loaded"
 
 
@@ -428,7 +429,8 @@ def read_modules(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = Fal
             curr_module = Module(row['module'])
             modules[row["module"]] = curr_module
         curr_module.add_family(pangenome.get_gene_family(row['geneFam'].decode()))
-    pangenome.add_modules(modules.values())
+    for module in modules.values():
+	    pangenome.add_module(module)
     pangenome.status["modules"] = "Loaded"
 
 

@@ -28,6 +28,10 @@ class GeneFamily(MetaFeatures):
     """
 
     def __init__(self, family_id: int, name: str):
+        assert isinstance(family_id, int), "GeneFamily object id should be an integer"
+        assert isinstance(name, str), "GeneFamily object name should be a string"
+        assert name != '', "GeneFamily object cannot be created with an empty name"
+
         super().__init__()
         self.name = str(name)
         self.ID = family_id
@@ -46,6 +50,7 @@ class GeneFamily(MetaFeatures):
 
         :param seq: the sequence to add to the gene family
         """
+        assert isinstance(seq, str) and str != "", "Sequence must be a string and not empty"
         self.sequence = seq
 
     def add_partition(self, partition: str):

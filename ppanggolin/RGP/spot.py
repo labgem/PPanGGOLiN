@@ -202,8 +202,8 @@ def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = Fals
         logging.getLogger("PPanGGOLiN").warning("No spots were detected.")
     else:
         logging.getLogger("PPanGGOLiN").info(f"{len(spots)} spots were detected")
-
-    pangenome.add_spots(spots)
+        for spot in spots:
+            pangenome.add_spot(spot)
     pangenome.status["spots"] = "Computed"
     pangenome.parameters["spots"] = {}
     pangenome.parameters["spots"]["set_size"] = set_size
@@ -251,8 +251,9 @@ def parser_spot(parser: argparse.ArgumentParser):
     required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('-o', '--output', required=False, type=Path,
-                          default=Path(f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
-                                       f"_PID{str(os.getpid())}"),
+                          default=Path(
+                              f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
+                              f"_PID{str(os.getpid())}"),
                           help="Output directory")
     optional.add_argument("--spot_graph", required=False, action="store_true",
                           help="Writes a graph in .gexf format of pairs of blocks of single copy markers flanking RGPs,"
