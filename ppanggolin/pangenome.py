@@ -72,7 +72,7 @@ class Pangenome:
 
         :param pangenome_file: A string representing filepath to hdf5 pangenome file to be either used or created
 
-        :raises AssertionError: If the `pangenome_file` is not a Path
+        :raises AssertionError: If the `pangenome_file` is not an instance of the Path class
         """
         assert isinstance(pangenome_file, Path), "pangenome file should be a Path object type"
         from ppanggolin.formats.readBinaries import get_status
@@ -621,7 +621,6 @@ class Pangenome:
 
         :raise AssertionError: Error if metatype is not a string
         """
-        assert isinstance(metatype, str), "Metatype name should be a string"
         source_set = set()
         for elem in self.select_elem(metatype):
             for source_metadata in elem.sources:
@@ -635,7 +634,6 @@ class Pangenome:
 
         :return: set of metadata source
         """
-        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
         for elem in self.select_elem(metatype):
             yield elem.metadata
 
@@ -648,7 +646,6 @@ class Pangenome:
 
         :return: metadata element
         """
-        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
         for elem in self.select_elem(metatype):
             if len(list(elem.get_metadata(**kwargs))) > 0:
                 yield elem
