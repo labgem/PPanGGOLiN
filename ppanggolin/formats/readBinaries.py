@@ -173,14 +173,14 @@ def read_genedata(h5f: tables.File) -> dict:
     table = h5f.root.annotations.genedata
     genedata_id2genedata = {}
     for row in read_chunks(table, chunk=20000):
-        genedata = Genedata(start=row["start"],
-                            stop=row["stop"],
+        genedata = Genedata(start=int(row["start"]),
+                            stop=int(row["stop"]),
                             strand=row["strand"].decode(),
                             gene_type=row["gene_type"].decode(),
-                            position=row["position"],
+                            position=int(row["position"]),
                             name=row["name"].decode(),
                             product=row["product"].decode(),
-                            genetic_code=row["genetic_code"])
+                            genetic_code=int(row["genetic_code"]))
         genedata_id = row["genedata_id"]
         genedata_id2genedata[genedata_id] = genedata
     return genedata_id2genedata

@@ -543,7 +543,6 @@ def write_org_file(org: Organism, output: Path, compress: bool = False):
                 nb_shell = 0
                 nb_cloud = 0
                 modules = None
-                rgp = None
                 spot = None
                 for neighbor in gene.family.neighbors:
                     if neighbor.named_partition == "persistent":
@@ -556,8 +555,8 @@ def write_org_file(org: Organism, output: Path, compress: bool = False):
                        contig.name, gene.start, gene.stop, gene.strand, gene.family.name,
                        len(gene.family.get_genes_per_org(org)), gene.family.named_partition,
                        nb_pers, nb_shell, nb_cloud]
-                if needRegions and gene.RGP is not None:
-                    row.append(rgp)
+                if needRegions:
+                    row.append(gene.RGP.name if gene.RGP is not None else gene.RGP)
                 if needSpots:
                     if len(gene.family.spot) > 0:
                         spot = ','.join([str(s.ID) for s in gene.family.spot])
