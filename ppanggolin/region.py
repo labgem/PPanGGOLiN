@@ -66,7 +66,7 @@ class Region(MetaFeatures):
 
         if isinstance(gene, Gene):
             self.genes.append(gene)
-            gene.RGP.add(self)
+            gene.RGP = self
         else:
             raise TypeError(f"Unexpected class / type for {type(gene)} "
                             f"when adding it to a region of genomic plasticity")

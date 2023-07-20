@@ -194,7 +194,7 @@ class Gene(Feature):
         super().__init__(gene_id)
         self.position = None
         self._family = None
-        self.RGP = set()  # TODO check if a RGP is unique to a Gene. In that case change for setter/getter with none as default
+        self._RGP =  None
         self.genetic_code = None
         self.protein = None
 
@@ -206,6 +206,7 @@ class Gene(Feature):
         """Return GeneFamily that Gene belongs to.
 
         :return: Gene family of the gene
+        :rtype: GeneFamily
         """
         return self._family
 
@@ -215,6 +216,22 @@ class Gene(Feature):
         if not isinstance(family, GeneFamily):
             raise TypeError(f'Expected type Organism, got {type(family)}')
         self._family = family
+
+    @property
+    def RGP(self):
+        """Return the RGP that gene belongs to
+
+        :return: RGP fo the Gene
+        :rtype: Region
+        """
+        return self._RGP
+
+    @RGP.setter
+    def RGP(self, RGP):
+        from ppanggolin.region import Region
+        if not isinstance(RGP, Region):
+            raise TypeError(f'Expected type Organism, got {type(RGP)}')
+        self._RGP = RGP
 
     def fill_annotations(self, position: int = None, genetic_code: int = 11, **kwargs):
         """Fill Gene annotation provide by PPanGGOLiN dependencies

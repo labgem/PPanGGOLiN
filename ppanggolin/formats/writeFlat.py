@@ -556,9 +556,7 @@ def write_org_file(org: Organism, output: Path, compress: bool = False):
                        contig.name, gene.start, gene.stop, gene.strand, gene.family.name,
                        len(gene.family.get_genes_per_org(org)), gene.family.named_partition,
                        nb_pers, nb_shell, nb_cloud]
-                if needRegions:
-                    if len(gene.RGP) > 0:
-                        rgp = ','.join([str(region.name) for region in gene.RGP])
+                if needRegions and gene.RGP is not None:
                     row.append(rgp)
                 if needSpots:
                     if len(gene.family.spot) > 0:

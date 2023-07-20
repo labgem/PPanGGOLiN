@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ppanggolin.genome import Feature, Gene, RNA, Contig, Organism
 from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.region import Region
 
 
 class TestFeature:
@@ -159,7 +160,7 @@ class TestGene:
         """Tests that Gene annotations can be filled with valid parameters
         """
         gene = Gene('gene1')
-        gene.fill_annotations(position=10, genetic_code=4)
+        gene.fill_annotations(start=1, stop=10, strand='+', position=10, genetic_code=4)
         assert gene.position == 10
         assert gene.genetic_code == 4
 
@@ -167,9 +168,9 @@ class TestGene:
     def test_fill_annotations_invalid_parameters(self):
         gene = Gene('gene1')
         with pytest.raises(TypeError):
-            gene.fill_annotations(position='10', genetic_code=4)
+            gene.fill_annotations(start=1, stop=10, strand='+', position='10', genetic_code=4)
         with pytest.raises(TypeError):
-            gene.fill_annotations(position=10, genetic_code="4")
+            gene.fill_annotations(start=1, stop=10, strand='+', position=10, genetic_code="4")
 
     def test_add_protein(self):
         """Tests that a protein sequence can be added to a Gene object
@@ -199,3 +200,18 @@ class TestGene:
         gene = Gene('gene1')
         with pytest.raises(TypeError):
             gene.family = 4
+
+    def test_set_rgp_valid_type(self):
+        """Tests that RGP setter sets family with valid type
+        """
+        gene = Gene('gene1')
+        region = Region(0)
+        gene.RGP = region
+        assert gene.RGP == region
+
+    def test_set_rgp_invalid_type(self):
+        """Tests that family setter return TypeError if sets family with invalid type
+        """
+        gene = Gene('gene1')
+        with pytest.raises(TypeError):
+            gene.RGP = 4
