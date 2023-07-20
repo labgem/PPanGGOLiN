@@ -328,7 +328,7 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
             gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
             gene.fill_parents(org, contig)
             if isinstance(gene, Gene):
-                contig.add_gene(gene)
+                contig[gene.start] = gene
             elif isinstance(gene, RNA):
                 contig.add_rna(gene)
     return org

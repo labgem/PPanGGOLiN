@@ -167,7 +167,7 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
     gene_row = gene_table.row
     for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genome", disable=disable_bar):
         for contig in org.contigs:
-            for gene in contig.genes + list(contig.RNAs):
+            for gene in list(contig.genes) + list(contig.RNAs):
                 gene_row["organism"] = org.name
                 gene_row["contig/name"] = contig.name
                 gene_row["contig/is_circular"] = contig.is_circular

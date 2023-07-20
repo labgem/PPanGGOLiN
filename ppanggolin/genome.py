@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # installed libraries
 import logging
-from typing import Dict, Iterator
+from typing import Dict, Iterator, Generator
 
 import gmpy2
 
@@ -35,7 +35,6 @@ class Feature(MetaFeatures):
     - contig: Parent contig of the feature.
     - dna: DNA sequence of the feature.
     """
-
     def __init__(self, identifier: str):
         """Constructor Method
 
@@ -185,7 +184,6 @@ class Gene(Feature):
     - genetic_code: the genetic code associated with the gene.
     - protein: the protein sequence corresponding to the translated gene.
     """
-
     def __init__(self, gene_id: str):
         """Constructor method
 
@@ -194,7 +192,7 @@ class Gene(Feature):
         super().__init__(gene_id)
         self.position = None
         self._family = None
-        self._RGP =  None
+        self._RGP = None
         self.genetic_code = None
         self.protein = None
 
@@ -263,17 +261,64 @@ class Gene(Feature):
 class Contig:
     """
     Describe the contig content and some information
+    Methods:
+    - genes(self) -> list: Returns a list of gene objects present in the contig.
+    - add_rna(self, rna: RNA): Adds an RNA object to the contig.
+    - add_gene(self, gene: Gene): Adds a gene object to the contig.
 
-    :param name: Name of the contig
-    :param is_circular: save if the contig is circular
+    Fields:
+    - name: Name of the contig.
+    - is_circular: Boolean value indicating whether the contig is circular or not.
+    - RNAs: Set of RNA annotations present in the contig.
     """
 
     def __init__(self, name: str, is_circular: bool = False):
+        """Constructor method
+        :param name: Name of the contig
+        :param is_circular: save if the contig is circular
+        """
         self.name = name
         self.is_circular = is_circular
-        self.RNAs = set()  # saving the rna annotations. We're not using them in the vast majority of cases.
-        self._genes_start = {}
+        self._rnaGetter = {}  # saving the rna annotations. We're not using them in the vast majority of cases.
+        self._genesGetter = {}
         self._genes_position = []
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __len__(self):
+        return len(self._genes_position)
+
+    def __setitem__(self, start: int, gene: Gene):
+        """ Set gene to Contig
+
+        :param gene: Gene object to add
+        """
+        if not isinstance(gene, Gene):
+            raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
+        if start in self._genesGetter:
+            raise ValueError(f"Gene with start position {start} already exists in the contig")
+        if gene.position is None:
+            raise TypeError("The gene object needs to have its position in the contig filled before adding it")
+        # adding empty values. They should be filled by the end of the parsing.
+        # Doing this because genes are not always met in order.
+        self._genes_position.extend([None] * (gene.position - len(self._genes_position) + 1))
+        self._genes_position[gene.position] = gene
+        self._genesGetter[gene.start] = gene
+
+    # retrieve gene by start position
+    def __getitem__(self, index: int) -> Gene:
+        if not isinstance(index, int):
+            raise TypeError(f"Expected type is int, given type was '{type(index)}'")
+        return self._genes_position[index]
+
+    def get_genes(self, begin: int, end: int):
+        if not isinstance(begin, int) or not isinstance(end, int):
+            raise TypeError(f"Expected type is int, given type was '{type(begin)}, {type(end)}'")
+        if end < begin:
+            raise ValueError("End position is lower than begin position")
+        else:
+            return self._genes_position[begin: end]
 
     @property
     def genes(self) -> list:
@@ -281,22 +326,17 @@ class Contig:
 
         :return: list of gene in contig
         """
-        return self._genes_position
+        for gene in self._genes_position:
+            yield gene
 
-    def __str__(self) -> str:
-        return self.name
+    @property
+    def RNAs(self) -> Generator[RNA, None, None]:
+        """Return all the RNA in the contig
 
-    def __iter__(self):
-        return iter(self.genes)
-
-    # retrieve gene by start position
-    def __getitem__(self, index: int):
-        gene = self._genes_start.get(index)
-        if not gene:
-            if not isinstance(index, int):
-                raise TypeError(f"Expected type is int, given type was '{type(index)}'")
-            raise IndexError(f"No gene start at the given position {index}")
-        return gene
+        :return: Generator of RNA
+        """
+        for rna in self._rnaGetter.values():
+            yield rna
 
     def add_rna(self, rna: RNA):
         """ Add RNA to contig
@@ -305,23 +345,9 @@ class Contig:
         """
         if not isinstance(rna, RNA):
             raise TypeError(f"'RNA' type was expected but you provided a '{type(rna)}' type object")
-        self.RNAs.add(rna)
-
-    def add_gene(self, gene: Gene):
-        """ Add gene to Contig
-
-        :param gene: Gene object to add
-        """
-        if not isinstance(gene, Gene):
-            raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
-        if gene.position is None:
-            raise TypeError("The gene object needs to have its position in the contig filled before adding it")
-        while len(self._genes_position) <= gene.position:
-            # adding empty values. They should be filled by the end of the parsing.
-            # Doing this because genes are not always met in order.
-            self._genes_position.append(None)
-        self._genes_position[gene.position] = gene
-        self._genes_start[gene.start] = gene
+        if rna.ID in self._rnaGetter:
+            raise KeyError(f"RNA with the id: {rna.ID} already exist in contig {self.name}")
+        self._rnaGetter[rna.ID] = rna
 
 
 class Organism(MetaFeatures):
@@ -357,7 +383,7 @@ class Organism(MetaFeatures):
 
         :return: Number of gene in organism
         """
-        return sum([len(list(contig.genes)) for contig in self.contigs])
+        return sum([len(contig) for contig in self.contigs])
 
     @property
     def contigs(self) -> dict.values:

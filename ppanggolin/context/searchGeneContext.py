@@ -104,7 +104,7 @@ def compute_gene_context_graph(families: dict, t: int = 4, disable_bar: bool = F
     g = nx.Graph()
     for family in tqdm(families.values(), unit="families", disable=disable_bar):
         for gene in family.genes:
-            contig = gene.contig.genes
+            contig = list(gene.contig.genes)
             pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, families, t)
             if in_context_left or in_context_right:
                 for env_gene in contig[pos_left:pos_right + 1]:

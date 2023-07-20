@@ -267,7 +267,7 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
             gene.is_fragment = row["is_fragment"]
             gene.fill_parents(org, contig)
             if gene_type == "CDS":
-                contig.add_gene(gene)
+                contig[gene.start] = gene
             elif "RNA" in gene_type:
                 contig.add_rna(gene)
             else:

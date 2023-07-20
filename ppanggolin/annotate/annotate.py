@@ -76,7 +76,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
         new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
                                   position=position, product=product, local_identifier=gene_id,
                                   genetic_code=genetic_code)
-        contig.add_gene(new_gene)
+        contig[new_gene.start] = new_gene
     else:  # if not CDS, it is RNA
         new_gene = RNA(org.name + "_RNA_" + str(rna_counter).zfill(4))
         new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
@@ -151,7 +151,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             if curr_type != "":
                 if useful_info:
                     create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
-                                len(contig.genes), gene_name, product, genetic_code, protein_id)
+                                len(contig), gene_name, product, genetic_code, protein_id)
                     if obj_type == "CDS":
                         gene_counter += 1
                     else:
@@ -175,8 +175,9 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
                                     # pseudogene likely
                                     useful_info = False
                                 else:
-                                    start = int(start.replace('>', '').replace('<', ''))
-                                    stop = int(stop.replace('>', '').replace('<', ''))
+                                    start = start.replace('>', '').replace('<', '')
+                                    stop = stop.replace('>', '').replace('<', '')
+                            start, stop = map(int, [start, stop])
                     except ValueError:
                         pass
                         # don't know what to do with that, ignoring for now.
@@ -210,7 +211,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             # end of contig
         if useful_info:  # saving the last element...
             create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
-                        len(contig.genes), gene_name, product, genetic_code, protein_id)
+                        len(contig), gene_name, product, genetic_code, protein_id)
             if obj_type == "CDS":
                 gene_counter += 1
             else:
@@ -338,10 +339,10 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                     # here contig is filled in order, so position is the number of genes already stored in the contig.
                     gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                           strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
-                                          position=len(contig.genes), product=product, local_identifier=gene_id,
+                                          position=len(contig), product=product, local_identifier=gene_id,
                                           genetic_code=genetic_code)
                     gene.fill_parents(org, contig)
-                    contig.add_gene(gene)
+                    contig[gene.start] = gene
                     gene_counter += 1
                 elif "RNA" in fields_gff[gff_type]:
                     rna = RNA(org.name + "_CDS_" + str(rna_counter).zfill(4))

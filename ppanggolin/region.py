@@ -133,7 +133,7 @@ class Region(MetaFeatures):
 
         :return: True if whole contig
         """
-        if self.start_gene.position == 0 and self.stop_gene.position == len(self.contig.genes) - 1:
+        if self.start_gene.position == 0 and self.stop_gene.position == len(self.contig) - 1:
             return True
         return False
 
@@ -146,7 +146,7 @@ class Region(MetaFeatures):
         if len(self.genes) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")
         if (self.start_gene.position == 0 and not self.contig.is_circular) or \
-                (self.stop_gene.position == len(self.contig.genes) - 1 and not self.contig.is_circular):
+                (self.stop_gene.position == len(self.contig) - 1 and not self.contig.is_circular):
             return True
         return False
 
@@ -176,30 +176,30 @@ class Region(MetaFeatures):
             curr_gene = None
             if pos == 0:
                 if self.contig.is_circular:
-                    curr_gene = self.contig.genes[-1]
+                    curr_gene = self.contig[pos - 1]
             else:
-                curr_gene = self.contig.genes[pos - 1]
+                curr_gene = self.contig[pos - 1]
             if curr_gene is not None and curr_gene.family not in multigenics and \
                     curr_gene.family.named_partition == "persistent":
                 border[0].append(curr_gene)
             pos -= 1
             if pos == -1 and self.contig.is_circular:
-                pos = len(self.contig.genes)
+                pos = len(self.contig)
             if pos == init:
                 break  # looped around the contig
         pos = self.stop_gene.position
         init = pos
-        while len(border[1]) < n and (pos != len(self.contig.genes) - 1 or self.contig.is_circular):
+        while len(border[1]) < n and (pos != len(self.contig) - 1 or self.contig.is_circular):
             curr_gene = None
-            if pos == len(self.contig.genes) - 1:
+            if pos == len(self.contig) - 1:
                 if self.contig.is_circular:
-                    curr_gene = self.contig.genes[0]
+                    curr_gene = self.contig[0]
             else:
-                curr_gene = self.contig.genes[pos + 1]
+                curr_gene = self.contig[pos + 1]
             if curr_gene is not None and curr_gene.family not in multigenics:
                 border[1].append(curr_gene)
             pos += 1
-            if pos == len(self.contig.genes) and self.contig.is_circular:
+            if pos == len(self.contig) and self.contig.is_circular:
                 pos = -1
             if pos == init:
                 break  # looped around the contig
