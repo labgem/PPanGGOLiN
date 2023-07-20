@@ -279,7 +279,7 @@ class Contig:
         """
         self.name = name
         self.is_circular = is_circular
-        self._rnaGetter = {}  # saving the rna annotations. We're not using them in the vast majority of cases.
+        self._rnaGetter = set()  # saving the rna annotations. We're not using them in the vast majority of cases.
         self._genesGetter = {}
         self._genes_position = []
 
@@ -292,6 +292,7 @@ class Contig:
     def __setitem__(self, start: int, gene: Gene):
         """ Set gene to Contig
 
+        :param start: Start position of the gene
         :param gene: Gene object to add
         """
         if not isinstance(gene, Gene):
@@ -299,7 +300,7 @@ class Contig:
         if start in self._genesGetter:
             raise ValueError(f"Gene with start position {start} already exists in the contig")
         if gene.position is None:
-            raise TypeError("The gene object needs to have its position in the contig filled before adding it")
+            raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
         # adding empty values. They should be filled by the end of the parsing.
         # Doing this because genes are not always met in order.
         self._genes_position.extend([None] * (gene.position - len(self._genes_position) + 1))
@@ -335,7 +336,7 @@ class Contig:
 
         :return: Generator of RNA
         """
-        for rna in self._rnaGetter.values():
+        for rna in self._rnaGetter:
             yield rna
 
     def add_rna(self, rna: RNA):
@@ -345,9 +346,9 @@ class Contig:
         """
         if not isinstance(rna, RNA):
             raise TypeError(f"'RNA' type was expected but you provided a '{type(rna)}' type object")
-        if rna.ID in self._rnaGetter:
+        if rna in self._rnaGetter:
             raise KeyError(f"RNA with the id: {rna.ID} already exist in contig {self.name}")
-        self._rnaGetter[rna.ID] = rna
+        self._rnaGetter.add(rna)
 
 
 class Organism(MetaFeatures):

@@ -215,3 +215,126 @@ class TestGene:
         gene = Gene('gene1')
         with pytest.raises(TypeError):
             gene.RGP = 4
+
+
+class TestContig:
+    """Tests Contig class
+    """
+    @pytest.fixture
+    def gene(self) -> Generator[Gene, None, None]:
+        gene = Gene('test_gene')
+        gene.fill_annotations(start=1, stop=10, strand='+', position=0, genetic_code=4)
+        yield gene
+
+    @pytest.fixture
+    def genes(self):
+        gene1 = Gene('test_gene1')
+        gene1.fill_annotations(start=1, stop=10, strand='+', position=0, genetic_code=4)
+        gene2 = Gene('test_gene2')
+        gene2.fill_annotations(start=11, stop=20, strand='+', position=1, genetic_code=4)
+        gene3 = Gene('test_gene3')
+        gene3.fill_annotations(start=21, stop=30, strand='+', position=2, genetic_code=4)
+        yield {gene1, gene2, gene3}
+
+    def test_add_gene(self, gene):
+        """Tests that a gene can be added to the contig
+        """
+        contig = Contig('test_contig')
+        contig[gene.start] = gene
+        assert len(contig._genesGetter) == 1
+        assert len(contig._genes_position) == 1
+        assert contig._genesGetter[gene.start] == gene
+        assert contig._genes_position[0] == gene
+
+    def test_add_rna(self):
+        """Tests that an RNA can be added to the contig
+        """
+        contig = Contig('test_contig')
+        rna = RNA('test_rna')
+        contig.add_rna(rna)
+        assert list(contig.RNAs) == [rna]
+
+    def test_get_length(self, gene):
+        """Tests that the length of the contig can be retrieved
+        """
+        contig = Contig('test_contig')
+        contig[gene.start] = gene
+        assert len(contig) == 1
+
+    def test_get_gene(self, gene):
+        """Tests that a gene can be retrieved by its position
+        """
+        contig = Contig('test_contig')
+        contig[gene.start] = gene
+        assert contig[0] == gene
+
+    def test_get_genes(self, genes):
+        """Tests that a list of genes within a range can be retrieved
+        """
+        contig = Contig('test_contig')
+        gene1, gene2, gene3 = genes
+        contig[gene1.start] = gene1
+        contig[gene2.start] = gene2
+        contig[gene3.start] = gene3
+        assert set(contig.get_genes(0, 3)) == genes
+
+    def test_iterate_over_genes(self, genes):
+        """Tests that all genes in the contig can be iterated over
+        """
+        contig = Contig('test_contig')
+        gene1, gene2, gene3 = genes
+        contig[gene1.start] = gene1
+        contig[gene2.start] = gene2
+        contig[gene3.start] = gene3
+        assert list(contig.genes) == sorted([gene1, gene2, gene3], key=lambda x: x.position)
+
+    def test_add_gene_with_existing_start_position(self, gene):
+        """Tests that a gene cannot be added with a start position that already exists
+        """
+        contig = Contig('test_contig')
+        contig[gene.start] = gene
+        with pytest.raises(ValueError):
+            contig[gene.start] = gene
+
+    def test_add_gene_without_position(self):
+        """Tests that a gene cannot be added without a position
+        """
+        contig = Contig('test_contig')
+        gene = Gene('test_gene')
+        gene.fill_annotations(start=1, stop=10, strand='+', genetic_code=4)
+        with pytest.raises(AttributeError):
+            contig[gene.start] = gene
+
+    def test_get_gene_with_non_integer_index(self, gene):
+        """Tests that a gene cannot be retrieved with an index that is not an integer
+        """
+        contig = Contig('test_contig')
+        contig[gene.start] = gene
+        with pytest.raises(TypeError):
+            contig['a']
+
+    def test_get_genes_with_non_integer_begin_and_end_positions_edge_case(self, genes):
+        """Tests that genes cannot be retrieved with non-integer begin and end positions
+        """
+        contig = Contig('test_contig')
+        gene1, gene2, gene3 = genes
+        contig[gene1.start] = gene1
+        contig[gene2.start] = gene2
+        contig[gene3.start] = gene3
+        with pytest.raises(TypeError):
+            contig.get_genes('a', 4)
+        with pytest.raises(TypeError):
+            contig.get_genes(5, 'b')
+        with pytest.raises(TypeError):
+            contig.get_genes('a', 'b')
+
+    def test_get_genes_with_end_position_lower_than_begin_position_edge_case(self, genes):
+        """Tests that genes cannot be retrieved with end position lower than begin position
+        """
+        contig = Contig('test_contig')
+        gene1, gene2, gene3 = genes
+        contig[gene1.start] = gene1
+        contig[gene2.start] = gene2
+        contig[gene3.start] = gene3
+        with pytest.raises(ValueError):
+            contig.get_genes(2, 0)
