@@ -16,10 +16,34 @@ from ppanggolin.metadata import MetaFeatures
 class Feature(MetaFeatures):
     """This is a general class representation of Gene, RNA
 
-    :param identifier: Identifier of the feature given by PPanGGOLiN
+    Methods:
+    - fill_annotations(): fills general annotation for child classes.
+    - fill_parents(): associates the object to an organism and a contig.
+    - add_dna(): adds DNA sequence to the feature.
+
+    Fields:
+    - ID: Identifier of the feature given by PPanGGOLiN.
+    - is_fragment: Boolean value indicating whether the feature is a fragment or not.
+    - type: Type of the feature.
+    - start: Start position of the feature.
+    - stop: Stop position of the feature.
+    - strand: Strand associated with the feature.
+    - product: Associated product of the feature.
+    - name: Name of the feature.
+    - local_identifier: Identifier provided by the original file.
+    - organism: Parent organism of the feature.
+    - contig: Parent contig of the feature.
+    - dna: DNA sequence of the feature.
     """
 
     def __init__(self, identifier: str):
+        """Constructor Method
+
+        :param identifier: identifier of the feature
+        """
+        assert isinstance(identifier, str), "Expected identifier should be a string"
+        if identifier == '':
+            raise ValueError("Identifier should not be empty")
         super().__init__()
         self.ID = identifier
         self.is_fragment = False
@@ -30,9 +54,37 @@ class Feature(MetaFeatures):
         self.product = None
         self.name = None
         self.local_identifier = None
-        self.organism = None
-        self.contig = None
+        self._organism = None
+        self._contig = None
         self.dna = None
+
+    @property
+    def organism(self) -> Organism:
+        """Return organism that Feature belongs to.
+
+        :return: Organism of the feature
+        """
+        return self._organism
+
+    @organism.setter
+    def organism(self, organism: Organism):
+        if not isinstance(organism, Organism):
+            raise TypeError(f'Expected type Organism, got {type(organism)}')
+        self._organism = organism
+
+    @property
+    def contig(self) -> Contig:
+        """Return contig that Feature belongs to.
+
+        :return: Contig of the feature
+        """
+        return self._contig
+
+    @contig.setter
+    def contig(self, contig: Contig):
+        if not isinstance(contig, Contig):
+            raise TypeError(f'Expected type Contig, got {type(contig)}')
+        self._contig = contig
 
     @property
     def length(self) -> int:
@@ -40,7 +92,13 @@ class Feature(MetaFeatures):
 
         :return: gene length
         """
-        return self.stop - self.start
+        if self.start is not None:
+            if self.stop is not None:
+                return self.stop - self.start
+            else:
+                raise ValueError("Stop is not known")
+        else:
+            raise ValueError("Start is not known")
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
                          product: str = "", local_identifier: str = ""):
@@ -54,16 +112,35 @@ class Feature(MetaFeatures):
         :param name: Name of the feature
         :param product: Associated product
         :param local_identifier: Identifier provided by the original file
+
+        :raises TypeError: If attribute value not correspond to expected type
+        :raises ValueError: If strand is not '+' or '-'
         """
-        self.start = start if isinstance(start, int) else int(start)
-        self.stop = stop if isinstance(stop, int) else int(stop)
-        self.type = gene_type
+        if not isinstance(start, int):
+            raise TypeError("Start should be int")
+        if not isinstance(stop, int):
+            raise TypeError("Stop should be int")
+        if not isinstance(strand, str):
+            raise TypeError("Strand should be str")
+        if not isinstance(gene_type, str):
+            raise TypeError("Gene type should be str")
+        if not isinstance(name, str):
+            raise TypeError("Name should be str")
+        if not isinstance(product, str):
+            raise TypeError("Product should be str")
+        if not isinstance(local_identifier, str):
+            raise TypeError("Local identifier should be str")
+        if strand not in ["+", "-"]:
+            raise ValueError("Strand should be + or -")
+        self.start = start
+        self.stop = stop
         self.strand = strand
+        self.type = gene_type
         self.product = product
         self.name = name
         self.local_identifier = local_identifier
 
-    def fill_parents(self, organism: Organism, contig: Contig):
+    def fill_parents(self, organism: Organism = None, contig: Contig = None):
         """ Associate object to an organism and a contig
 
         :param organism: Parent organism
@@ -79,8 +156,7 @@ class Feature(MetaFeatures):
 
         :raise TypeError: DNA sequence must be a string
         """
-        if not isinstance(dna, str):
-            raise TypeError(f"'str' type was expected but you provided a '{type(dna)}' type object")
+        assert isinstance(dna, str), f"'str' type was expected but you provided a '{type(dna)}' type object"
         self.dna = dna
 
 
@@ -97,41 +173,66 @@ class RNA(Feature):
 class Gene(Feature):
     """Save gene from genome as an Object with some information for Pangenome
 
-    :param gene_id: Identifier of the gene
+    Methods:
+    - fill_annotations(): fills general annotation for the gene object and adds additional attributes such as
+    position and genetic code.
+    - add_protein(): adds the protein sequence corresponding to the translated gene to the object.
+
+    Fields:
+    - position: the position of the gene in the genome.
+    - family: the family that the gene belongs to.
+    - RGP: a set of resistance gene profiles associated with the gene.
+    - genetic_code: the genetic code associated with the gene.
+    - protein: the protein sequence corresponding to the translated gene.
     """
 
     def __init__(self, gene_id: str):
+        """Constructor method
+
+        :param gene_id: Identifier of the gene
+        """
         super().__init__(gene_id)
         self.position = None
-        self.family = None
-        self.RGP = set()
+        self._family = None
+        self.RGP = set()  # TODO check if a RGP is unique to a Gene. In that case change for setter/getter with none as default
         self.genetic_code = None
         self.protein = None
 
     def __str__(self) -> str:
         return str(self.ID)
 
-    def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
-                         product: str = "", local_identifier: str = "", position: int = None, genetic_code: int = 11):
-        """
-        Fill Gene annotation provide by PPanGGOLiN dependencies
+    @property
+    def family(self):
+        """Return GeneFamily that Gene belongs to.
 
-        :param start: Start position
-        :param stop: Stop position
-        :param strand: associated strand
-        :param gene_type: Type of the gene
-        :param name: Gene name
-        :param product: Associated product
-        :param local_identifier: Identifier provided by the original file
+        :return: Gene family of the gene
+        """
+        return self._family
+
+    @family.setter
+    def family(self, family):
+        from ppanggolin.geneFamily import GeneFamily
+        if not isinstance(family, GeneFamily):
+            raise TypeError(f'Expected type Organism, got {type(family)}')
+        self._family = family
+
+    def fill_annotations(self, position: int = None, genetic_code: int = 11, **kwargs):
+        """Fill Gene annotation provide by PPanGGOLiN dependencies
+
         :param position: Gene localisation in genome
         :param genetic_code: Genetic code associated to gene
+        :param kwargs: look at Feature.fill_annotations methods
         """
-        super().fill_annotations(start, stop, strand, gene_type, name, product, local_identifier)
+        super().fill_annotations(**kwargs)
+        if position is not None and not isinstance(position, int):
+            raise TypeError("position should be an integer")
+        if not isinstance(genetic_code, int):
+            raise TypeError("Genetic code should be an integer")
         self.position = position
         self.genetic_code = genetic_code
 
     def add_protein(self, protein: str):
-        """ Add protein sequence corresponding to translated gene
+        """Add protein sequence corresponding to translated gene
 
         :param protein: Protein sequence
 
@@ -149,6 +250,7 @@ class Contig:
     :param name: Name of the contig
     :param is_circular: save if the contig is circular
     """
+
     def __init__(self, name: str, is_circular: bool = False):
         self.name = name
         self.is_circular = is_circular
@@ -211,6 +313,7 @@ class Organism(MetaFeatures):
 
     :param name: Name of the genome
     """
+
     def __init__(self, name: str):
         super().__init__()
         self.name = name

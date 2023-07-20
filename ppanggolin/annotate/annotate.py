@@ -143,14 +143,14 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
         genetic_code = ""
         useful_info = False
         start = None
-        end = None
+        stop = None
         strand = None
         line = lines.pop()
         while not line.startswith("ORIGIN"):
             curr_type = line[5:21].strip()
             if curr_type != "":
                 if useful_info:
-                    create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, end, strand, obj_type,
+                    create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
                                 len(contig.genes), gene_name, product, genetic_code, protein_id)
                     if obj_type == "CDS":
                         gene_counter += 1
@@ -166,18 +166,17 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
                             useful_info = True
                             if line[21:].startswith('complement('):
                                 strand = "-"
-                                start, end = line[32:].strip().replace(
-                                    ')', '').split("..")
+                                start, stop = line[32:].strip().replace(')', '').split("..")
                             else:
                                 strand = "+"
-                                start, end = line[21:].strip().split('..')
-                            if '>' in start or '<' in start or '>' in end or '<' in end:
+                                start, stop = line[21:].strip().split('..')
+                            if '>' in start or '<' in start or '>' in stop or '<' in stop:
                                 if not pseudo:
                                     # pseudogene likely
                                     useful_info = False
                                 else:
-                                    start = start.replace('>', '').replace('<', '')
-                                    end = end.replace('>', '').replace('<', '')
+                                    start = int(start.replace('>', '').replace('<', ''))
+                                    stop = int(stop.replace('>', '').replace('<', ''))
                     except ValueError:
                         pass
                         # don't know what to do with that, ignoring for now.
@@ -210,7 +209,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             line = lines.pop()
             # end of contig
         if useful_info:  # saving the last element...
-            create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, end, strand, obj_type,
+            create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
                         len(contig.genes), gene_name, product, genetic_code, protein_id)
             if obj_type == "CDS":
                 gene_counter += 1

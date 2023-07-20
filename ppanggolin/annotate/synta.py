@@ -143,16 +143,11 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
             c += 1
             line_data = line.split()
             strand = line_data[9]
-            if strand == "-":
-                start = line_data[8]
-                stop = line_data[7]
-            else:
-                start, stop = map(int, (line_data[7], line_data[8]))
+            start, stop = map(int, (line_data[8], line_data[7]) if strand == "-" else (line_data[7], line_data[8]))
             gene = RNA(rna_id=locustag + "_rRNA_" + str(c).zfill(3))
             gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type="rRNA",
                                   product=" ".join(line_data[17:]))
             gene_objs[line_data[2]].add(gene)
-
     return gene_objs
 
 
