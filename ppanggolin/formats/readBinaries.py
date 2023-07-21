@@ -13,7 +13,7 @@ from tqdm import tqdm
 import tables
 
 # local libraries
-from ppanggolin.genome import Organism, Gene, RNA
+from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
@@ -240,7 +240,11 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
     org = Organism(org_name)
     gene, gene_type = (None, None)
     for contig_name, gene_list in contig_dict.items():
-        contig = org.get_contig(contig_name, is_circular=circular_contigs[contig_name])
+        try:
+            contig = org.get_contig(contig_name)
+        except KeyError:
+            contig = Contig(contig_name, is_circular=circular_contigs[contig_name])
+            org.add_contig(contig)
         for row in gene_list:
             if link:  # if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.get_gene(row["ID"].decode())
@@ -358,7 +362,7 @@ def read_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: boo
     seqid2seq = read_sequences(h5f)
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
         gene = pangenome.get_gene(row['gene'].decode())
-        gene.add_dna(seqid2seq[row['seqid']])
+        gene.add_sequence(seqid2seq[row['seqid']])
     pangenome.status["geneSequences"] = "Loaded"
 
 

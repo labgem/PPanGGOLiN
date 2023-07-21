@@ -13,7 +13,7 @@ from typing import Union
 from pathlib import Path
 
 # local libraries
-from ppanggolin.genome import Organism, Gene, RNA
+from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import is_compressed, read_compressed_or_not
 
 
@@ -170,7 +170,11 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> (dict, in
                     contigs[contig.name] = contig_seq.upper()
                     all_contig_len += len(contig_seq)
                 contig_seq = ""
-                contig = org.get_contig(line.split()[0][1:])
+                try:
+                    contig = org.get_contig(line.split()[0][1:])
+                except KeyError:
+                    contig = Contig(line.split()[0][1:])
+                    org.add_contig(contig)
             else:
                 contig_seq += line.strip()
         if len(contig_seq) >= 1:  # processing the last contig
@@ -321,11 +325,13 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
     genes = overlap_filter(genes, overlap)
 
     for contig_name, genes in genes.items():
-        contig = org.get_contig(contig_name)
-        if contig.name in circular_contigs:
-            contig.is_circular = True
+        try:
+            contig = org.get_contig(contig_name)
+        except KeyError:
+            contig = Contig(contig_name, True if contig_name in circular_contigs else False)
+            org.add_contig(contig)
         for gene in genes:
-            gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
+            gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             gene.fill_parents(org, contig)
             if isinstance(gene, Gene):
                 contig[gene.start] = gene

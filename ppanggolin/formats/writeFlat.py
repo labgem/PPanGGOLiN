@@ -469,11 +469,10 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
              "nb_exact_core_genes", "nb_soft_core_genes", "completeness", "nb_single_copy_markers"]) + "\n")
 
         for org in pan.organisms:
-            fams = org.families
             nb_pers = 0
             nb_shell = 0
             nb_cloud = 0
-            for fam in fams:
+            for fam in org.families:
                 if fam.named_partition == "persistent":
                     nb_pers += 1
                 elif fam.named_partition == "shell":
@@ -499,14 +498,15 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
                         nb_gene_core += 1
             completeness = "NA"
             if len(single_copy_markers) > 0:
-                completeness = round((len(fams & single_copy_markers) / len(single_copy_markers)) * 100, 2)
+                completeness = round(((org.number_of_families() + len(single_copy_markers)) /
+                                      len(single_copy_markers)) * 100, 2)
             outfile.write("\t".join(map(str, [org.name,
-                                              len(fams),
+                                              org.number_of_families(),
                                               nb_pers,
                                               nb_shell,
                                               nb_cloud,
-                                              len(core & fams),
-                                              len(soft & fams),
+                                              len(core) + org.number_of_families(),
+                                              len(soft) + org.number_of_families(),
                                               org.number_of_genes(),
                                               nb_gene_pers,
                                               nb_gene_shell,
@@ -514,7 +514,7 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
                                               nb_gene_core,
                                               nb_gene_soft,
                                               completeness,
-                                              len(fams & single_copy_markers)])) + "\n")
+                                              org.number_of_families() + len(single_copy_markers)])) + "\n")
 
     logging.getLogger("PPanGGOLiN").info("Done writing genome per genome statistics")
 
@@ -797,7 +797,7 @@ def write_org_modules(output: Path, compress: bool = False):
             for fam in mod.families:
                 mod_orgs |= fam.organisms
             for org in mod_orgs:
-                completion = round(len(org.families & mod.families) / len(mod.families), 2)
+                completion = round((org.number_of_families() + len(mod.families)) / len(mod.families), 2)
                 fout.write(f"module_{mod.ID}\t{org.name}\t{completion}\n")
         fout.close()
     logging.getLogger("PPanGGOLiN").info(

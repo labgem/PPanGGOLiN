@@ -121,18 +121,22 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
                 if line.startswith('VERSION'):
                     contig_id = line[12:].strip()
                     if contig_id != "":
-                        if contig_id in circular_contigs:
-                            is_circ = True
-                        contig = org.get_contig(contig_id, is_circ)
+                        try:
+                            contig = org.get_contig(contig_id)
+                        except KeyError:
+                            contig = Contig(contig_id, True if contig_id in circular_contigs else False)
+                            org.add_contig(contig)
                         set_contig = True
                 line = lines.pop()
         if not set_contig:
             # if no contig ids were filled after VERSION, we use what was found in LOCUS for the contig ID.
             # Should be unique in a dataset, but if there's an update the contig ID
             # might still be the same even though it should not(?)
-            if contig_locus_id in circular_contigs:
-                is_circ = True
-            contig = org.get_contig(contig_locus_id, is_circ)
+            try:
+                contig = org.get_contig(contig_locus_id)
+            except KeyError:
+                contig = Contig(contig_locus_id, True if contig_locus_id in circular_contigs else False)
+                org.add_contig(contig)
         # start of the feature object.
         dbxref = set()
         gene_name = ""
@@ -226,7 +230,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             line = lines.pop()
         # get each gene's sequence.
         for gene in contig.genes:
-            gene.add_dna(get_dna_sequence(sequence, gene))
+            gene.add_sequence(get_dna_sequence(sequence, gene))
     return org, True
 
 
@@ -292,7 +296,12 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                     has_fasta = True
                 elif line.startswith('sequence-region', 2, 17):
                     fields = [el.strip() for el in line.split()]
-                    contig = org.get_contig(fields[1], True if fields[1] in circular_contigs else False)
+                    try:
+                        contig = org.get_contig(fields[1])
+                    except KeyError:
+                        contig = Contig(fields[1], True if fields[1] in circular_contigs else False)
+                        org.add_contig(contig)
+
                 continue
             elif line.startswith('#'):  # comment lines to be ignores by parsers
                 continue
@@ -331,8 +340,12 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                     genetic_code = 11
                 if contig is None or contig.name != fields_gff[gff_seqname]:
                     # get the current contig
-                    contig = org.get_contig(fields_gff[gff_seqname],
-                                            True if fields_gff[gff_seqname] in circular_contigs else False)
+                    try:
+                        contig = org.get_contig(fields_gff[gff_seqname])
+                    except KeyError:
+                        contig = Contig(fields_gff[gff_seqname],
+                                        True if fields_gff[gff_seqname] in circular_contigs else False)
+                        org.add_contig(contig)
 
                 if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
@@ -342,7 +355,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                                           position=len(contig), product=product, local_identifier=gene_id,
                                           genetic_code=genetic_code)
                     gene.fill_parents(org, contig)
-                    contig[gene.start] = gene
                     gene_counter += 1
                 elif "RNA" in fields_gff[gff_type]:
                     rna = RNA(org.name + "_CDS_" + str(rna_counter).zfill(4))
@@ -350,7 +362,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                                          strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                          product=product, local_identifier=gene_id)
                     rna.fill_parents(org, contig)
-                    contig.add_rna(rna)
                     rna_counter += 1
 
     # GET THE FASTA SEQUENCES OF THE GENES
@@ -358,9 +369,9 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
         contig_sequences, _ = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
         for contig in org.contigs:
             for gene in contig.genes:
-                gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
+                gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             for rna in contig.RNAs:
-                rna.add_dna(get_dna_sequence(contig_sequences[contig.name], rna))
+                rna.add_sequence(get_dna_sequence(contig_sequences[contig.name], rna))
     return org, has_fasta
 
 
@@ -505,9 +516,9 @@ def get_gene_sequences_from_fastas(pangenome, fasta_file):
         for contig in org.contigs:
             try:
                 for gene in contig.genes:
-                    gene.add_dna(get_dna_sequence(fasta_dict[org][contig.name], gene))
+                    gene.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], gene))
                 for rna in contig.RNAs:
-                    rna.add_dna(get_dna_sequence(fasta_dict[org][contig.name], rna))
+                    rna.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], rna))
             except KeyError:
                 msg = f"Fasta file for organism {org.name} did not have the contig {contig.name} " \
                       f"that was read from the annotation file. "
