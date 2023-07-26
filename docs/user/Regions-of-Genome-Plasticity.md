@@ -52,7 +52,7 @@ The resulting RGP clusters are stored in a tsv file with the folowing columns:
 |---------|------------------------------|
 | RGP     | The unique region identifier |
 | cluster | The cluster id of the RGP    |
-| spot    | the spot ID of the RGP       |
+| spot_id    | the spot ID of the RGP       |
 
 
 

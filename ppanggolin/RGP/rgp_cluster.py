@@ -299,12 +299,28 @@ def write_rgp_cluster_table(outfile: str, grr_graph: nx.Graph,
     :return: None
     """
 
+    def get_spot_id(rgp:Region, rgp_to_spot:Dict[Region, int]) -> str:
+        """
+        Return Spot ID associated to an RGP. 
+        It adds the prefix "spot_" to the spot ID.
+        When no spot is associated to the RGP, then the string "No spot" is return 
+
+        :params rgp: RGP id
+        :params rgp_to_spot: A dictionary mapping an RGP to its spot .
+
+        :return: Spot ID of the given RGP with the prefix spot_ or "No spot". 
+        """
+        if rgp in rgp_to_spot:
+            return f"spot_{rgp_to_spot[rgp]}"
+        else:
+            return "No spot"
+
     all_rgps_infos = []
     for rgp, identical_rgps in rgp_to_identical_rgps.items():
 
         cluster = grr_graph.nodes[rgp.ID][f'{grr_metric}_cluster']
         all_rgps_infos += [{"RGP": r.name, "cluster": cluster,
-                            "spot": str(rgp_to_spot.get(r, "No spot"))} for r in identical_rgps]
+                            "spot_id": get_spot_id(rgp, rgp_to_spot)} for r in identical_rgps]
 
     df = pd.DataFrame(all_rgps_infos)
     df.to_csv(outfile, sep='\t', index=False)
