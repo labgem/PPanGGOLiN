@@ -89,7 +89,62 @@ def get_rgp_info_dict(regions: List[Region], region_to_spot: dict) -> Dict[int, 
 
     return region_attributes
 
+# def add_rgp_metadata_to_graph(graph, pangenome):
+#     """
+#     """
 
+#     source_fields = {m.source: m.fields for rgp in pangenome.regions if len(list(rgp.metadata)) > 0 for m in rgp.metadata}
+
+
+#     for rgp in pangenome.regions:
+        
+#         for source_metadata_rgps in pangenome.metadata_sources("RGPs"):
+#             metadata_source_count = 0 # counter to count how many metadata for the current source a rgp has. 
+#             print(source_metadata_rgps)
+#             to_concat = defaultdict(list)
+
+#             for rgp_metadata in rgp.metadata:
+#                 if rgp_metadata.source == source_metadata_rgps:
+#                     metadata_source_count += 1
+
+#                     for field in rgp_metadata.fields:
+#                         to_concat[field].append(str(rgp_metadata.get(field)))
+                        
+#                 for field in source_fields[source_metadata_rgps]:
+#                     concatenated_fields = '|'.join(to_concat[field])
+#                     if concatenated_fields != "":
+#                         graph.nodes[rgp.ID][f"{source_metadata_rgps}_{field}"] = concatenated_fields
+            
+
+def add_rgp_metadata_to_graph(graph, pangenome):
+    """
+    """
+    
+    metadata_sources = pangenome.metadata_sources("RGPs")
+
+    for rgp in pangenome.regions:
+        
+        source_field_2_value = defaultdict(list)
+
+        source_metadata_counter = defaultdict(int)
+        for rgp_metadata in rgp.metadata:
+            source = rgp_metadata.source
+            source_metadata_counter[source] += 1
+
+            for field in rgp_metadata.fields:
+                source_field_2_value[f"{source}_{field}"].append(str(rgp_metadata.get(field)))
+    
+        # for source in metadata_sources:
+        #     metadata_count = source_metadata_counter[source] # number of metadata associated to the current metadata for source
+        #     graph.nodes[rgp.ID][f"{source}_metadata_count"] = metadata_count
+            
+        for source_field, values in source_field_2_value.items():
+            concatenated_values = '|'.join(values)
+            if concatenated_values != '':
+                graph.nodes[rgp.ID][source_field] = concatenated_values
+
+            
+            
 def add_identical_rgps_info(rgp_graph: nx.Graph, rgp_to_identical_rgps: Dict[Region, list]):
     """
     Add identical rgps info in the graph as node attributes.
@@ -154,8 +209,7 @@ def add_edges_to_identical_rgps(rgp_graph: nx.Graph, rgp_to_identical_rgps: Dict
 
     for rgp, identical_rgps in rgp_to_identical_rgps.items():
 
-        if not identical_rgps:
-            continue
+        rgp_graph.add_nodes_from([ident_rgp.ID for ident_rgp in identical_rgps if ident_rgp.ID != rgp.ID ], identical_rgp = True)
 
         # add edge between identical rgp with metrics at 1 (perfect score)
         edges_to_add = [(rgp_a.ID, rgp_b.ID, identical_edge_data)
@@ -337,7 +391,7 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
 
     # check statuses and load info
     check_pangenome_info(pangenome, need_families=True, need_annotations=True,
-                         disable_bar=disable_bar, need_rgp=True, need_spots=True)
+                         disable_bar=disable_bar, need_rgp=True, need_spots=True, need_metadata=True, metatype="RGPs")
 
     if pangenome.regions == 0:
         raise Exception(
@@ -371,6 +425,7 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     # Creating dictonnaries paring rgp ID with their families ids
     rgp_to_families = {rgp.ID: get_rgp_family_ids(
         rgp) for rgp in uniq_rgps}
+    
     rgp_to_iscontigborder = {
         rgp.ID: rgp.is_contig_border for rgp in uniq_rgps}
 
@@ -424,6 +479,8 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     region_infos = get_rgp_info_dict(pangenome.regions, rgp_to_spot)
 
     nx.set_node_attributes(grr_graph, region_infos)
+
+    add_rgp_metadata_to_graph(grr_graph, pangenome)
 
     # writting graph in gexf format
     graph_file_name = os.path.join(output, f"{basename}.gexf")
