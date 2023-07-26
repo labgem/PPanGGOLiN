@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest']
+        os: ['ubuntu-latest'] #, 'macos-latest']
         python-version: ['3.8', '3.9', '3.10']
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -89,13 +89,13 @@ jobs:
         ppanggolin cluster --cluster clusters.tsv -p readclusters/pangenome.h5
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f
         cd -
-    - name: testing align command
+    - name: testing rgp_cluster command
       shell: bash -l {0}
       run: |
         cd testingDataset
         ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5
         cd -
-    - name: testing rgp_cluster command
+    - name: testing align command
       shell: bash -l {0}
       run: |
         cd testingDataset
