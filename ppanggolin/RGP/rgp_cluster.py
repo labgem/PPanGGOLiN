@@ -388,10 +388,15 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     :param output: Allow to force write on Pangenome file
     :param disable_bar: Disable progress bar
     """
+    if pangenome.status["metadata"]["RGPs"] == "inFile":
+        need_metadata = True
+        logging.info(f'Some RGPs metadata have been found in pangenome, they will be included in rgp graph.')
+    else:
+        need_metadata = False
 
     # check statuses and load info
     check_pangenome_info(pangenome, need_families=True, need_annotations=True,
-                         disable_bar=disable_bar, need_rgp=True, need_spots=True, need_metadata=True, metatype="RGPs")
+                         disable_bar=disable_bar, need_rgp=True, need_spots=True, need_metadata=need_metadata, metatype="RGPs")
 
     if pangenome.regions == 0:
         raise Exception(
