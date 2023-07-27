@@ -9,7 +9,7 @@ from itertools import combinations
 from collections.abc import Callable
 from collections import defaultdict
 from multiprocessing.pool import Pool
-from typing import Dict, List, Tuple, Set
+from typing import Dict, List, Tuple, Set, Union, Any
 
 
 # installed libraries
@@ -24,9 +24,26 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.utils import restricted_float, mk_outdir
+from ppanggolin.geneFamily import GeneFamily
 
 
-def compute_grr(rgp_a_families: set, rgp_b_families: set, mode: Callable) -> float:
+class IdenticalRegions():
+    """
+
+    """
+
+    def __init__(self, name: str, identical_rgps: Set[Region], families: Set[GeneFamily], is_contig_border: bool):
+
+        self.name = name
+
+        self.families = families
+        self.rgps = identical_rgps
+        self.is_contig_border = is_contig_border
+        self.ID = Region.id_counter
+        Region.id_counter += 1
+
+    
+def compute_grr(rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily], mode: Callable) -> float:
     """
     Compute gene repertoire relatedness (GRR) between two rgp.
     mode can be the function min to compute min GRR or max to compute max_grr
@@ -60,7 +77,7 @@ def compute_jaccard_index(rgp_a_families: set, rgp_b_families: set) -> float:
     return jaccard_index
 
 
-def get_rgp_info_dict(regions: List[Region], region_to_spot: dict) -> Dict[int, dict]:
+def add_info_to_rgp_nodes(graph, regions: List[Region], region_to_spot: dict):
     """
     Format RGP information into a dictionary for adding to the graph.
 
@@ -81,71 +98,76 @@ def get_rgp_info_dict(regions: List[Region], region_to_spot: dict) -> Dict[int, 
                        "genes_count": len(region.genes),
                        "is_contig_border": region.is_contig_border,
                        "is_whole_contig": region.is_whole_contig,
-                       "spot_id": str(region_to_spot.get(region, "No spot"))}
-        
-        region_info['families_count'] = len(region.families)
+                       "spot_id": get_spot_id(region, region_to_spot),
+                       'families_count' : len(region.families)}
 
         region_attributes[region.ID] = region_info
+        
+        node_attributes = graph.nodes[region.ID]
+        node_attributes.update(region_info)
 
     return region_attributes
 
-# def add_rgp_metadata_to_graph(graph, pangenome):
-#     """
-#     """
-
-#     source_fields = {m.source: m.fields for rgp in pangenome.regions if len(list(rgp.metadata)) > 0 for m in rgp.metadata}
 
 
-#     for rgp in pangenome.regions:
-        
-#         for source_metadata_rgps in pangenome.metadata_sources("RGPs"):
-#             metadata_source_count = 0 # counter to count how many metadata for the current source a rgp has. 
-#             print(source_metadata_rgps)
-#             to_concat = defaultdict(list)
+def join_dicts(dicts: List[Dict[str, Any]], delimiter: str = ';') -> Dict[str, Any]:
+    """
+    Join dictionaries by concatenating the values with a custom delimiter for common keys.
 
-#             for rgp_metadata in rgp.metadata:
-#                 if rgp_metadata.source == source_metadata_rgps:
-#                     metadata_source_count += 1
+    Given a list of dictionaries, this function creates a new dictionary where the values for common keys
+    are concatenated with the specified delimiter.
 
-#                     for field in rgp_metadata.fields:
-#                         to_concat[field].append(str(rgp_metadata.get(field)))
-                        
-#                 for field in source_fields[source_metadata_rgps]:
-#                     concatenated_fields = '|'.join(to_concat[field])
-#                     if concatenated_fields != "":
-#                         graph.nodes[rgp.ID][f"{source_metadata_rgps}_{field}"] = concatenated_fields
-            
+    :param dicts: A list of dictionaries to be joined.
+    :param delimiter: The delimiter to use for joining values. Default is ';'.
+    :return: A dictionary with joined values for common keys.
+    """
+    final_dict = defaultdict(list)
+    for dict_obj in dicts:
+        for k, v in dict_obj.items():
+            final_dict[k].append(str(v))
+    return {k: delimiter.join(v) for k, v in final_dict.items()}
 
-def add_rgp_metadata_to_graph(graph, pangenome):
+
+
+def format_rgp_metadata(rgp: Region) -> Dict[str, str]:
+    """
+    Format RGP metadata by combining source and field values.
+
+    Given an RGP object with metadata, this function creates a new dictionary where the keys
+    are formatted as 'source_field' and the values are concatenated with '|' as the delimiter.
+
+    :param rgp: The RGP object with metadata.
+    :return: A dictionary with formatted metadata.
+    """
+    source_field_2_value = defaultdict(list)
+    for rgp_metadata in rgp.metadata:
+        source = rgp_metadata.source
+        for field in rgp_metadata.fields:
+            source_field_2_value[f"{source}_{field}"].append(str(rgp_metadata.get(field)))
+
+    return {col_name: '|'.join(values) for col_name, values in source_field_2_value.items()}
+
+
+def add_rgp_metadata_to_graph(graph, rgps):
     """
     """
-    
-    metadata_sources = pangenome.metadata_sources("RGPs")
 
-    for rgp in pangenome.regions:
+    for rgp in rgps:
+
+        if isinstance(rgp, Region):
+            rgp_metadata = format_rgp_metadata(rgp)
+        elif isinstance(rgp, IdenticalRegions):
+            rgp_metadata_dicts = [format_rgp_metadata(ident_rgp) for ident_rgp in rgp.rgps]
+            rgp_metadata = join_dicts(rgp_metadata_dicts)
+
+        else:
+            raise TypeError(f'Expect Region or  IdenticalRegions object not {type(rgp)}')
         
-        source_field_2_value = defaultdict(list)
-
-        source_metadata_counter = defaultdict(int)
-        for rgp_metadata in rgp.metadata:
-            source = rgp_metadata.source
-            source_metadata_counter[source] += 1
-
-            for field in rgp_metadata.fields:
-                source_field_2_value[f"{source}_{field}"].append(str(rgp_metadata.get(field)))
-    
-        # for source in metadata_sources:
-        #     metadata_count = source_metadata_counter[source] # number of metadata associated to the current metadata for source
-        #     graph.nodes[rgp.ID][f"{source}_metadata_count"] = metadata_count
-            
-        for source_field, values in source_field_2_value.items():
-            concatenated_values = '|'.join(values)
-            if concatenated_values != '':
-                graph.nodes[rgp.ID][source_field] = concatenated_values
-
+        for metadata_name, value in rgp_metadata.items():
+            graph.nodes[rgp.ID][metadata_name] = value
             
             
-def add_identical_rgps_info(rgp_graph: nx.Graph, rgp_to_identical_rgps: Dict[Region, list]):
+def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List[IdenticalRegions], rgp_to_spot: Dict[Region, int]):
     """
     Add identical rgps info in the graph as node attributes.
 
@@ -153,51 +175,64 @@ def add_identical_rgps_info(rgp_graph: nx.Graph, rgp_to_identical_rgps: Dict[Reg
     :params rgp_to_identical_rgps: dict with uniq RGP as key and set of identical rgps as value  
     """
 
-    for rgp, identical_rgps in rgp_to_identical_rgps.items():
-        rgp_graph.add_node(rgp.ID,
-                           identical_rgp_count=len(identical_rgps),
-                           identical_rgp_names=';'.join([rgp.name for rgp in identical_rgps]))
+    for identical_rgp_obj in identical_rgps_objects:
+        
+        spots_of_identical_rgp_obj = {get_spot_id(i_rgp, rgp_to_spot) for i_rgp in identical_rgp_obj.rgps}
+
+        rgp_graph.add_node(identical_rgp_obj.ID,
+                           identical_rgp_group = True,
+                           name = identical_rgp_obj.name,
+                           families_count = len(identical_rgp_obj.families),
+                           identical_rgp_count=len(identical_rgp_obj.rgps),
+                           identical_rgp_names=';'.join([i_rgp.name for i_rgp in identical_rgp_obj.rgps]),
+                           identical_rgp_organisms = ';'.join({i_rgp.organism.name for i_rgp in identical_rgp_obj.rgps}),
+                           identical_rgp_contig_border_count = len([True for i_rgp in identical_rgp_obj.rgps if i_rgp.is_contig_border]),
+                           identical_rgp_whole_contig_count = len([True for i_rgp in identical_rgp_obj.rgps if i_rgp.is_whole_contig]),
+                           identical_rgp_spots = ";".join(spots_of_identical_rgp_obj),
+                           spot_id = spots_of_identical_rgp_obj.pop() if len(spots_of_identical_rgp_obj) == 1 else "Mulitple spots"
+                           )
+        
 
 
-def differentiate_spot_in_identical_rgps(rgp_graph: nx.Graph, rgp_to_identical_rgps: Dict[Region, List[Region]], rgp_to_spot: Dict[Region, int]):
+# def differentiate_spot_in_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List[IdenticalRegions], rgp_to_spot: Dict[Region, int]):
+#     """
+#     Adds nodes and edges to the `rgp_graph` for RGPs that have identical families but different spot ID.
+
+#     :param rgp_graph: a NetworkX graph representing RGP relationships
+#     :param rgp_to_identical_rgps: a dict mapping RGPs to sets of RGPs that are identical to them except for their spot ID
+#     :param rgp_to_spot: a dict mapping RGPs to their spot ID
+#     """
+#     identical_rgp_diff_spot_count = 0
+#     for identical_rgp_obj in identical_rgps_objects:
+#         # Create a defaultdict that maps spot IDs to sets of RGPs
+#         spot_to_rgps = defaultdict(set)
+#         for identical_rgp in identical_rgp_obj.rgps:
+#             # For each identical RGP, add it to the set corresponding to its spot ID
+#             spot = rgp_to_spot.get(identical_rgp, None)
+#             spot_to_rgps[spot].add(identical_rgp)
+
+#         # For each set of strictly identical RGPs (i.e., all RGPs in the set have the same spot ID)
+#         for spot, strictly_identical_rgps in spot_to_rgps.items():
+#             # is the spot identical as the main rgp that have been used to compute grr?
+#             if spot == rgp_to_spot.get(rgp, None):
+#                 rgp_graph.add_node(rgp.ID, identical_rgp_fam_and_spot=len(
+#                     strictly_identical_rgps)+1)
+#             else:
+#                 # If the spot ID is different from the main RGP, add a node for one of the strictly identical RGPs
+#                 # and set the `identical_rgp_fam_and_spot` and `identical_rgp` attributes.
+#                 identical_rgp_diff_spot_count += 1
+#                 strictly_identical_rgp = strictly_identical_rgps.pop()
+#                 rgp_graph.add_node(strictly_identical_rgp.ID, identical_rgp_fam_and_spot=len(
+#                     strictly_identical_rgps)+1, identical_rgp=True)
+#                 rgp_graph.add_edge(rgp.ID, strictly_identical_rgp.ID, grr=1.0, min_grr=1.0,
+#                                    max_grr=1.0, identical_famillies=True, different_spot=True)
+
+#     logging.info(f'{identical_rgp_diff_spot_count} RGPs with identical families but with different spot id have been added to the graph for visualisation purpose.')
+
+
+def add_edges_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List[IdenticalRegions]):
     """
-    Adds nodes and edges to the `rgp_graph` for RGPs that have identical families but different spot ID.
-
-    :param rgp_graph: a NetworkX graph representing RGP relationships
-    :param rgp_to_identical_rgps: a dict mapping RGPs to sets of RGPs that are identical to them except for their spot ID
-    :param rgp_to_spot: a dict mapping RGPs to their spot ID
-    """
-    identical_rgp_diff_spot_count = 0
-    for rgp, identical_rgps in rgp_to_identical_rgps.items():
-        # Create a defaultdict that maps spot IDs to sets of RGPs
-        spot_to_rgps = defaultdict(set)
-        for identical_rgp in identical_rgps:
-            # For each identical RGP, add it to the set corresponding to its spot ID
-            spot = rgp_to_spot.get(identical_rgp, None)
-            spot_to_rgps[spot].add(identical_rgp)
-
-        # For each set of strictly identical RGPs (i.e., all RGPs in the set have the same spot ID)
-        for spot, strictly_identical_rgps in spot_to_rgps.items():
-            # is the spot identical as the main rgp that have been used to compute grr?
-            if spot == rgp_to_spot.get(rgp, None):
-                rgp_graph.add_node(rgp.ID, identical_rgp_fam_and_spot=len(
-                    strictly_identical_rgps)+1)
-            else:
-                # If the spot ID is different from the main RGP, add a node for one of the strictly identical RGPs
-                # and set the `identical_rgp_fam_and_spot` and `identical_rgp` attributes.
-                identical_rgp_diff_spot_count += 1
-                strictly_identical_rgp = strictly_identical_rgps.pop()
-                rgp_graph.add_node(strictly_identical_rgp.ID, identical_rgp_fam_and_spot=len(
-                    strictly_identical_rgps)+1, identical_rgp=True)
-                rgp_graph.add_edge(rgp.ID, strictly_identical_rgp.ID, grr=1.0, min_grr=1.0,
-                                   max_grr=1.0, identical_famillies=True, different_spot=True)
-
-    logging.info(f'{identical_rgp_diff_spot_count} RGPs with identical families but with different spot id have been added to the graph for visualisation purpose.')
-
-
-def add_edges_to_identical_rgps(rgp_graph: nx.Graph, rgp_to_identical_rgps: Dict[Region, Set[Region]]):
-    """
-    Adds edges to the RGP graph between identical RGPs.
+    Replace identical rgp object by all identical rgp it contains.
 
     :param rgp_graph: The RGP graph to add edges to.
     :param rgp_to_identical_rgps: A dictionary mapping RGPs to sets of identical RGPs.
@@ -206,47 +241,73 @@ def add_edges_to_identical_rgps(rgp_graph: nx.Graph, rgp_to_identical_rgps: Dict
     identical_edge_data = {'grr': 1.0, 'max_grr': 1.0,
                            'min_grr': 1.0,
                            "identical_famillies": True}
+    
+    added_identical_rgps = []
 
-    for rgp, identical_rgps in rgp_to_identical_rgps.items():
+    for identical_rgp_obj in identical_rgps_objects:
 
-        rgp_graph.add_nodes_from([ident_rgp.ID for ident_rgp in identical_rgps if ident_rgp.ID != rgp.ID ], identical_rgp = True)
+        rgp_graph.add_nodes_from([ident_rgp.ID for ident_rgp in identical_rgp_obj.rgps], identical_rgp_group = identical_rgp_obj.name)
 
         # add edge between identical rgp with metrics at 1 (perfect score)
         edges_to_add = [(rgp_a.ID, rgp_b.ID, identical_edge_data)
-                        for rgp_a, rgp_b in combinations(identical_rgps | {rgp}, 2)]
+                        for rgp_a, rgp_b in combinations(identical_rgp_obj.rgps, 2)]
 
-        # replicate all edges that connect main rgp to all identical rgps
-        for connected_rgp in rgp_graph.neighbors(rgp.ID):
-            edge_data = rgp_graph[rgp.ID][connected_rgp]
+        # replicate all edges that connect identical rgp object to other rgps
+        for connected_rgp in rgp_graph.neighbors(identical_rgp_obj.ID):
+            edge_data = rgp_graph[identical_rgp_obj.ID][connected_rgp]
             edges_to_add += [(identical_rgp.ID, connected_rgp, edge_data)
-                             for identical_rgp in identical_rgps]
+                             for identical_rgp in identical_rgp_obj.rgps]
 
         rgp_graph.add_edges_from(edges_to_add)
 
+        # remove node of the identical rgp object
+        rgp_graph.remove_node(identical_rgp_obj.ID)
 
-def dereplicate_rgp(rgps: list, disable_bar: bool = False) -> Dict[Region, set]:
+        added_identical_rgps += list(identical_rgp_obj.rgps)
+
+    return added_identical_rgps
+
+
+def dereplicate_rgp(rgps: List[Union[Region, IdenticalRegions]], disable_bar: bool = False) -> List[Union[Region, IdenticalRegions]]:
     """
-    Dereplicate RGPs that have the same families.
+    Dereplicate Region Group Patterns (RGPs) that have the same families.
 
-    :params rgps: list of rgps
-    :param disable_bar: Disable progress bar
+    Given a list of Region or IdenticalRegions objects representing RGPs, this function groups together
+    RGPs with the same families into IdenticalRegions objects and returns a list of dereplicated RGPs.
 
-    :return : dict with uniq RGP as key and set of identical rgps as value  
+    :param rgps: A list of Region or IdenticalRegions objects representing the RGPs to be dereplicated.
+    :param disable_bar: If True, disable the progress bar.
+
+    :return: A list of dereplicated RGPs (Region or IdenticalRegions objects). For RGPs with the same families,
+             they will be grouped together in IdenticalRegions objects.
     """
     logging.info(f'Dereplicating {len(rgps)} RGPs')
     families_to_rgps = defaultdict(list)
 
     for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
-        families_to_rgps[tuple(
-            sorted((f.ID for f in rgp.families)))].append(rgp)
+        families_to_rgps[tuple(sorted((f.ID for f in rgp.families)))].append(rgp)
 
-    uniq_rgps = {}
+    dereplicated_rgps = []
+    identical_region_count = 0
     for rgps in families_to_rgps.values():
+        if len(rgps) == 1:
+            dereplicated_rgps.append(rgps[0])
+        else:
+            families = rgps[0].families
 
-        uniq_rgps[rgps[0]] = set(rgps)
+            # identical regions object is considered on a contig border if all rgp are contig border
+            is_contig_border = all([rgp.is_contig_border for rgp in rgps])
 
-    logging.info(f'{len(uniq_rgps)} uniq RGPs')
-    return uniq_rgps
+            # create a new object that will represent the identical rgps
+            identical_rgp = IdenticalRegions(name=f"identical_rgps_{identical_region_count}",
+                                             identical_rgps=rgps,
+                                             families=families,
+                                             is_contig_border = is_contig_border)
+            identical_region_count += 1
+            dereplicated_rgps.append(identical_rgp)
+
+    logging.info(f'{len(dereplicated_rgps)} unique RGPs')
+    return dereplicated_rgps
 
 
 def compute_rgp_metric(rgp_pair: Tuple[int, int],
@@ -336,10 +397,25 @@ def cluster_rgp_on_grr(G: nx.Graph, clustering_attribute: str = "grr"):
 
     logging.info(
         f"Graph has {len(partitions)} clusters using {clustering_attribute}")
+    
+def get_spot_id(rgp:Region, rgp_to_spot:Dict[Region, int]) -> str:
+    """
+    Return Spot ID associated to an RGP. 
+    It adds the prefix "spot_" to the spot ID.
+    When no spot is associated to the RGP, then the string "No spot" is return 
 
+    :params rgp: RGP id
+    :params rgp_to_spot: A dictionary mapping an RGP to its spot .
+
+    :return: Spot ID of the given RGP with the prefix spot_ or "No spot". 
+    """
+    if rgp in rgp_to_spot:
+        return f"spot_{rgp_to_spot[rgp]}"
+    else:
+        return "No spot"
 
 def write_rgp_cluster_table(outfile: str, grr_graph: nx.Graph,
-                            rgp_to_identical_rgps: Dict[Region, Set[Region]],
+                            rgps_in_graph: List[Union[Region, IdenticalRegions]],
                             grr_metric: str,
                             rgp_to_spot: Dict[Region, int]) -> None:
     """
@@ -353,28 +429,15 @@ def write_rgp_cluster_table(outfile: str, grr_graph: nx.Graph,
     :return: None
     """
 
-    def get_spot_id(rgp:Region, rgp_to_spot:Dict[Region, int]) -> str:
-        """
-        Return Spot ID associated to an RGP. 
-        It adds the prefix "spot_" to the spot ID.
-        When no spot is associated to the RGP, then the string "No spot" is return 
-
-        :params rgp: RGP id
-        :params rgp_to_spot: A dictionary mapping an RGP to its spot .
-
-        :return: Spot ID of the given RGP with the prefix spot_ or "No spot". 
-        """
-        if rgp in rgp_to_spot:
-            return f"spot_{rgp_to_spot[rgp]}"
-        else:
-            return "No spot"
-
     all_rgps_infos = []
-    for rgp, identical_rgps in rgp_to_identical_rgps.items():
+    for rgp_in_graph in rgps_in_graph:
 
-        cluster = grr_graph.nodes[rgp.ID][f'{grr_metric}_cluster']
+        cluster = grr_graph.nodes[rgp_in_graph.ID][f'{grr_metric}_cluster']
+
+        identical_rgps = [rgp_in_graph] if isinstance(rgp_in_graph, Region) else rgp_in_graph.rgps
+         
         all_rgps_infos += [{"RGP": r.name, "cluster": cluster,
-                            "spot_id": get_spot_id(rgp, rgp_to_spot)} for r in identical_rgps]
+                            "spot_id": get_spot_id(r, rgp_to_spot)} for r in identical_rgps]
 
     df = pd.DataFrame(all_rgps_infos)
     df.to_csv(outfile, sep='\t', index=False)
@@ -418,21 +481,20 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     else:
         valid_rgps = pangenome.regions
 
-    rgp_to_identical_rgps = dereplicate_rgp(
+    dereplicated_rgps = dereplicate_rgp(
         valid_rgps, disable_bar=disable_bar)
 
-    uniq_rgps = list(rgp_to_identical_rgps)
-    rgp_count = len(uniq_rgps)
+    rgp_count = len(dereplicated_rgps)
 
     grr_graph.add_nodes_from(
-        (rgp.ID for rgp in uniq_rgps), identical_rgp=False)
+        (rgp.ID for rgp in dereplicated_rgps))
 
     # Creating dictonnaries paring rgp ID with their families ids
     rgp_to_families = {rgp.ID: get_rgp_family_ids(
-        rgp) for rgp in uniq_rgps}
+        rgp) for rgp in dereplicated_rgps}
     
     rgp_to_iscontigborder = {
-        rgp.ID: rgp.is_contig_border for rgp in uniq_rgps}
+        rgp.ID: rgp.is_contig_border for rgp in dereplicated_rgps}
 
     # compute grr for all possible pair of rgp
     pairs_count = int((rgp_count**2 - rgp_count)/2)
@@ -440,10 +502,10 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
         f'Computing GRR metric for {pairs_count:,} pairs of RGP using {cpu} cpus...')
 
     # use the ID of the rgp to make pair rather than their name to save memory
-    rgp_pairs = combinations(rgp_to_families, 2)
+    rgp_pairs = combinations(rgp_to_families.keys(), 2)
 
-    ideal_chunk_size = 50000
-    chunk_count = (pairs_count/ideal_chunk_size) + cpu
+    optimal_chunk_size = 50000
+    chunk_count = (pairs_count/optimal_chunk_size) + cpu
     chunk_size = int(pairs_count/chunk_count)+1
     logging.debug(
         f'Computing GRR metric in ~{chunk_count:.2f} chunks of {chunk_size} pairs')
@@ -461,8 +523,12 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
 
     grr_graph.add_edges_from(pairs_of_rgps_metrics)
 
+
+    identical_rgps_objects = [rgp for rgp in dereplicated_rgps if isinstance(rgp, IdenticalRegions)]
+    rgp_objects_in_graph = [rgp for rgp in dereplicated_rgps if isinstance(rgp, Region)]
+
     if unmerge_identical_rgps:
-        add_edges_to_identical_rgps(grr_graph, rgp_to_identical_rgps)
+        rgp_objects_in_graph += add_edges_to_identical_rgps(grr_graph, identical_rgps_objects)
 
     # cluster rgp based on grr value
     logging.info(
@@ -474,18 +540,21 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
                    for spot in pangenome.spots for region in spot.regions}
 
     if not unmerge_identical_rgps:
-        logging.info(f"Add info in the graph on identical RGPs merged")
-        add_identical_rgps_info(grr_graph, rgp_to_identical_rgps)
-        differentiate_spot_in_identical_rgps(
-            grr_graph, rgp_to_identical_rgps, rgp_to_spot)
+        logging.info(f"Add info on identical RGPs merged in the graph")
+        add_info_to_identical_rgps(grr_graph, identical_rgps_objects, rgp_to_spot)
+
+        # differentiate_spot_in_identical_rgps(
+        #     grr_graph, identical_rgps_objects, rgp_to_spot)
+
+
+    rgps_in_graph = rgp_objects_in_graph if unmerge_identical_rgps else dereplicated_rgps
 
     # add some attribute to the graph nodes.
     logging.info(f"Add RGP information to the graph")
-    region_infos = get_rgp_info_dict(pangenome.regions, rgp_to_spot)
-
-    nx.set_node_attributes(grr_graph, region_infos)
-
-    add_rgp_metadata_to_graph(grr_graph, pangenome)
+    add_info_to_rgp_nodes(grr_graph, rgp_objects_in_graph, rgp_to_spot)
+    
+    if need_metadata:
+       add_rgp_metadata_to_graph(grr_graph, rgps_in_graph)
 
     # writting graph in gexf format
     graph_file_name = os.path.join(output, f"{basename}.gexf")
@@ -497,8 +566,9 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
 
     outfile = os.path.join(output, f"{basename}.tsv")
     logging.info(f"Writting rgp clusters in tsv format in {outfile}")
+
     write_rgp_cluster_table(
-        outfile, grr_graph, rgp_to_identical_rgps, grr_metric, rgp_to_spot)
+        outfile, grr_graph, rgps_in_graph, grr_metric, rgp_to_spot)
 
 
 def launch(args: argparse.Namespace):
