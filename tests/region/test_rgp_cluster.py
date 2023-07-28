@@ -6,6 +6,7 @@ from ppanggolin.RGP import rgp_cluster
 from ppanggolin.region import Region
 
 from test_Region import l_genes, o_org, o_contig
+import networkx as nx
 
 
 @pytest.fixture
@@ -47,9 +48,14 @@ def test_compute_grr():
 def test_dereplicate_rgp(identical_rgps):
 
     rgp1 = identical_rgps[0]
-    assert rgp_cluster.dereplicate_rgp([rgp1]) == {rgp1:{rgp1}}
+    assert rgp_cluster.dereplicate_rgp([rgp1]) == [rgp1]
 
-    assert rgp_cluster.dereplicate_rgp(identical_rgps) == {identical_rgps[0]:set(identical_rgps)}
+    identical_region_obj = rgp_cluster.IdenticalRegions(name=f"identical_rgps_0",
+                                             identical_rgps=identical_rgps,
+                                             families=identical_rgps[0].families,
+                                             is_contig_border = True)
+    
+    assert rgp_cluster.dereplicate_rgp(identical_rgps)[0] == identical_region_obj
 
 
 def test_compute_rgp_metric():
@@ -77,8 +83,11 @@ def test_compute_rgp_metric():
     assert rgp_cluster.compute_rgp_metric(rgp_pair, rgp_to_families, rgp_to_contigborder, 0.8, "max_grr") == None
 
 
-def test_get_rgp_info_dict(RGP_a):
+def add_info_to_rgp_nodes(RGP_a):
     rgp_id = RGP_a.ID
+    graph = nx.Graph()
+    graph.add_node(rgp_id)
+
     region_to_spot={RGP_a:6}
     region_info = {"contig": 1,
                     'organism': "toto",

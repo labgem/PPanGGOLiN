@@ -42,6 +42,14 @@ class IdenticalRegions():
         self.ID = Region.id_counter
         Region.id_counter += 1
 
+    def __eq__(self, other): 
+    
+        if not isinstance(other, IdenticalRegions):
+            # don't attempt to compare against unrelated types
+            return NotImplemented
+
+        return self.families == other.families and self.rgps == other.rgps and self.is_contig_border == other.is_contig_border
+
     
 def compute_grr(rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily], mode: Callable) -> float:
     """
@@ -192,43 +200,6 @@ def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List
                            spot_id = spots_of_identical_rgp_obj.pop() if len(spots_of_identical_rgp_obj) == 1 else "Mulitple spots"
                            )
         
-
-
-# def differentiate_spot_in_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List[IdenticalRegions], rgp_to_spot: Dict[Region, int]):
-#     """
-#     Adds nodes and edges to the `rgp_graph` for RGPs that have identical families but different spot ID.
-
-#     :param rgp_graph: a NetworkX graph representing RGP relationships
-#     :param rgp_to_identical_rgps: a dict mapping RGPs to sets of RGPs that are identical to them except for their spot ID
-#     :param rgp_to_spot: a dict mapping RGPs to their spot ID
-#     """
-#     identical_rgp_diff_spot_count = 0
-#     for identical_rgp_obj in identical_rgps_objects:
-#         # Create a defaultdict that maps spot IDs to sets of RGPs
-#         spot_to_rgps = defaultdict(set)
-#         for identical_rgp in identical_rgp_obj.rgps:
-#             # For each identical RGP, add it to the set corresponding to its spot ID
-#             spot = rgp_to_spot.get(identical_rgp, None)
-#             spot_to_rgps[spot].add(identical_rgp)
-
-#         # For each set of strictly identical RGPs (i.e., all RGPs in the set have the same spot ID)
-#         for spot, strictly_identical_rgps in spot_to_rgps.items():
-#             # is the spot identical as the main rgp that have been used to compute grr?
-#             if spot == rgp_to_spot.get(rgp, None):
-#                 rgp_graph.add_node(rgp.ID, identical_rgp_fam_and_spot=len(
-#                     strictly_identical_rgps)+1)
-#             else:
-#                 # If the spot ID is different from the main RGP, add a node for one of the strictly identical RGPs
-#                 # and set the `identical_rgp_fam_and_spot` and `identical_rgp` attributes.
-#                 identical_rgp_diff_spot_count += 1
-#                 strictly_identical_rgp = strictly_identical_rgps.pop()
-#                 rgp_graph.add_node(strictly_identical_rgp.ID, identical_rgp_fam_and_spot=len(
-#                     strictly_identical_rgps)+1, identical_rgp=True)
-#                 rgp_graph.add_edge(rgp.ID, strictly_identical_rgp.ID, grr=1.0, min_grr=1.0,
-#                                    max_grr=1.0, identical_famillies=True, different_spot=True)
-
-#     logging.info(f'{identical_rgp_diff_spot_count} RGPs with identical families but with different spot id have been added to the graph for visualisation purpose.')
-
 
 def add_edges_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List[IdenticalRegions]):
     """
