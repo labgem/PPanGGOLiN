@@ -164,6 +164,7 @@ def launch(args: argparse.Namespace):
                          need_rgp=predict_rgp, need_modules=project_modules,
                          need_spots=project_spots)
 
+    logging.getLogger().info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(**{step:argparse.Namespace(**k_v)  for step, k_v in pangenome.parameters.items()})
 
     output_dir = Path(args.output)
@@ -209,7 +210,6 @@ def launch(args: argparse.Namespace):
     
     if predict_rgp:
         logging.getLogger().info('Detecting rgp in input genome.')
-        logging.getLogger().info('Retrieving rgp parameters from the provided pangenome file.')
 
 
         logging.getLogger().info("Detecting multigenic families...")
@@ -251,7 +251,7 @@ def predict_spots(rgps: list, multigenics: set, output: str,
     :return: list of computed spots
     """
 
-    spots = make_spot_graph(rgps=rgps, multigenics=multigenics, output=output, spot_graph=spot_graph,
+    spots = make_spot_graph(rgps=rgps, multigenics=multigenics, output=output, spot_graph=True,
                     overlapping_match=overlapping_match, set_size=set_size, exact_match=exact_match)
 
 
