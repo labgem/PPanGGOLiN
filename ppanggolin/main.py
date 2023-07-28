@@ -15,6 +15,7 @@ import ppanggolin.pangenome
 from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
+import ppanggolin.nem.partition
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
@@ -27,6 +28,7 @@ import ppanggolin.RGP
 import ppanggolin.mod
 import ppanggolin.context
 import ppanggolin.workflow
+import ppanggolin.meta
 import ppanggolin.utility
 
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
@@ -58,6 +60,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
     desc += "    projection    Annotate an input genome with an existing pangenome\n"
+    desc += "    metadata      Add metadata to elements in pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
@@ -116,7 +119,9 @@ def cmd_line() -> argparse.Namespace:
 
     # First parse args to check that nothing is missing or not expected in cli and throw help when requested
     args = parser.parse_args()
-    if hasattr(args, "config"):  # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
+
+    if hasattr(args,  "config"):
+        # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
         args = manage_cli_and_config_args(args.subcommand, args.config, SUBCOMMAND_TO_SUBPARSER)
     else:
         set_verbosity_level(args)
@@ -127,7 +132,7 @@ def cmd_line() -> argparse.Namespace:
 
     cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
                                "context", "write", "msa", "draw", "partition",
-                               "rarefaction", "spot", "fasta", "metrics", "rgp", "projection"]
+                               "rarefaction", "spot", "fasta", "metrics", "rgp", "projection", "metadata"]
     if args.subcommand in cmds_pangenome_required and args.pangenome is None:
         parser.error("You must provide a pangenome file with the --pangenome "
                      "argument through the command line or the config file.")
@@ -196,6 +201,8 @@ def main():
         ppanggolin.workflow.all.launch(args)
     elif args.subcommand == "context":
         ppanggolin.context.launch(args)
+    elif args.subcommand == "metadata":
+        ppanggolin.meta.launch(args)
     elif args.subcommand == "utils":
         ppanggolin.utility.launch(args)
 

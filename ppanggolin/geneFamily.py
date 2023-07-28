@@ -7,16 +7,17 @@ from collections import defaultdict
 import logging
 
 # installed libraries
-from typing import Dict, Set, List
+from typing import Dict, List, Set
 
 import gmpy2
 
 # local libraries
 from ppanggolin.edge import Edge
 from ppanggolin.genome import Gene, Organism
+from ppanggolin.metadata import MetaFeatures
 
 
-class GeneFamily:
+class GeneFamily(MetaFeatures):
     """
     This represents a single gene family. It will be a node in the pangenome graph, and be aware of its genes and edges.
 
@@ -27,6 +28,7 @@ class GeneFamily:
     """
 
     def __init__(self, family_id: int, name: str):
+        super().__init__()
         self.name = str(name)
         self.ID = family_id
         self._edges = {}

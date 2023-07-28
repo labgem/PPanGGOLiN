@@ -2,14 +2,16 @@
 # coding: utf8
 
 # default libraries
-from typing import Iterator, List, Union, Dict, Set, Iterable
 from pathlib import Path
+from typing import Iterator, List, Union, Dict, Set, Iterable, Generator
+import re
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.edge import Edge
+from ppanggolin.metadata import Metadata
 
 
 class Pangenome:
@@ -46,7 +48,19 @@ class Pangenome:
             'partitioned': "No",
             'predictedRGP': "No",
             'spots': "No",
-            'modules': 'No'
+            'modules': 'No',
+            "metadata": {"families": 'No',
+                         "genes": 'No',
+                         "genomes": 'No',
+                         "RGPs": 'No',
+                         "spots": 'No',
+                         "modules": 'No'},
+            "metasources": {"families": [],
+                            "genes": [],
+                            "genomes": [],
+                            "RGPs": [],
+                            "spots": [],
+                            "modules": []}
         }
         self.parameters = {}
 
@@ -88,8 +102,8 @@ class Pangenome:
                         yield gene
         elif self.number_of_gene_families() > 0:
             # we might have no organism loaded, in that case there are gene families.
-            for geneFam in self.gene_families:
-                for gene in geneFam.genes:
+            for gene_fam in self.gene_families:
+                for gene in gene_fam.genes:
                     yield gene
 
     def _mk_gene_getter(self):
@@ -421,6 +435,27 @@ class Pangenome:
     def spots(self) -> Set[Spot]:
         # TODO made as generator
         return self._spots
+    def _yield_spot(self) -> Generator[Spot, None, None]:
+        """ Use a generator to get all the genes of a pangenome
+
+        :return: an iterator of Gene
+        """
+        if self.number_of_spots() > 0:  # if we have organisms, they're supposed to have genes
+            for spot in self.spots:
+                yield spot
+
+    def _mk_spot_getter(self):
+        """
+        Builds the attribute _geneGetter of the pangenome
+
+        Since the genes are never explicitly 'added' to a pangenome (but rather to a gene family, or a contig),
+        the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
+        if at some point we want to extract genes from a pangenome we'll create a geneGetter.
+        The assumption behind this is that the pangenome has been filled and no more gene will be added.
+        """
+        self._spotGetter = {}
+        for spot in self._yield_spot():
+            self._spotGetter[spot.ID] = spot
 
     def add_spots(self, spots: Iterable[Spot]):
         """Adds the given iterable of spots to the pangenome.
@@ -428,6 +463,36 @@ class Pangenome:
         :param spots: An iterable of :class:`ppanggolin.region.Spot`.
         """
         self._spots |= set(spots)
+
+    def get_spot(self, spot_id: Union[int, str]) -> Spot:
+        """
+        Returns the spot that has the given spot ID.
+
+        :param spot_id: The spot ID to look for. It can be an integer or a string in the format 'spot_<integer>'.
+
+        :return: The spot with the specified ID.
+
+        :raises KeyError: If the spot ID does not exist in the pangenome.
+        :raises ValueError: If the provided spot ID does not have the expected format.
+        """
+
+        try:
+            spot_id = int(spot_id)
+        except ValueError:
+            result = re.search("^spot_(\d+)$", spot_id)
+            if result:
+                spot_id = int(result.group(1))
+            else:
+                raise ValueError(f"The provided spot ID '{spot_id}' does not have the expected format."
+                                 "It should be an integer or in the format 'spot_<integer>'.")
+        try:
+            return self._spotGetter[spot_id]
+        except AttributeError:
+            # in that case, either the gene getter has not been computed, or the spot id is not in the pangenome.
+            self._mk_spot_getter()  # make it
+            return self.get_spot(spot_id)  # return what was expected. If spot id does not exist it will raise an error.
+        except KeyError:
+            raise KeyError(f"Spot {spot_id} does not exist in the pangenome.")
 
     def number_of_spots(self) -> int:
         """Returns the number of gene families present in the pangenome
@@ -442,6 +507,27 @@ class Pangenome:
     def modules(self) -> Set[Module]:
         # TODO made as generator
         return self._modules
+    def _yield_module(self) -> Generator[Module, None, None]:
+        """ Use a generator to get all the genes of a pangenome
+
+        :return: an iterator of Gene
+        """
+        if self.number_of_modules() > 0:  # if we have organisms, they're supposed to have genes
+            for module in self.modules:
+                yield module
+
+    def _mk_module_getter(self):
+        """
+        Builds the attribute _geneGetter of the pangenome
+
+        Since the genes are never explicitly 'added' to a pangenome (but rather to a gene family, or a contig),
+        the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
+        if at some point we want to extract genes from a pangenome we'll create a geneGetter.
+        The assumption behind this is that the pangenome has been filled and no more gene will be added.
+        """
+        self._moduleGetter = {}
+        for module in self._yield_module():
+            self._moduleGetter[module.ID] = module
 
     def add_modules(self, modules: Iterable[Module]):
         """Adds the given iterable of modules to the pangenome
@@ -449,6 +535,38 @@ class Pangenome:
         :param modules: an iterable of :class:`ppanggolin.module.Module`
         """
         self._modules |= set(modules)
+
+    def get_module(self, module_id: Union[int, str]) -> Module:
+        """
+        Returns the module that has the given module ID.
+
+        :param module_id: The module ID to look for. It can be an integer or a string in the format 'module_<integer>'.
+
+        :return: The module with the specified ID.
+
+        :raises KeyError: If the module ID does not exist in the pangenome.
+        :raises ValueError: If the provided module ID does not have the expected format.
+        """
+
+        try:
+            module_id = int(module_id)
+        except ValueError:
+            result = re.search("^module_(\d+)$", module_id)
+            if result:
+                module_id = int(result.group(1))
+            else:
+                raise ValueError(f"The provided module ID '{module_id}' does not have the expected format."
+                                 "It should be an integer or in the format 'module_<integer>'.")
+
+        try:
+            return self._moduleGetter[module_id]
+        except AttributeError:
+            # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
+            self._mk_module_getter()  # make it
+            return self.get_module(
+                module_id)  # return what was expected. If geneID does not exist it will raise an error.
+        except KeyError:
+            raise KeyError(f"Module {module_id} does not exist in the pangenome.")
 
     def compute_mod_bitarrays(self, part: str = 'all') -> Dict[GeneFamily, int]:
         """Based on the index generated by get_fam_index, generated a bitarray
@@ -475,3 +593,96 @@ class Pangenome:
         :return: the number of modules
         """
         return len(self.modules)
+
+    """Metadata"""
+
+    def metadata_sources(self, metatype: str) -> Set[str]:
+        """returns all the metadata source in the pangenomes
+
+        :param metatype: select to which pangenome element metadata should be searched
+
+        :return: set of metadata source
+        """
+        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        source_set = set()
+        if metatype == "families":
+            elements = self.gene_families
+        elif metatype == "genomes":
+            elements = self.organisms
+        elif metatype == "genes":
+            elements = self.genes
+        elif metatype == "RGPs":
+            elements = self.regions
+        elif metatype == "spots":
+            elements = self.spots
+        else:  # metatype == "modules":
+            elements = self.modules
+        for elem in elements:
+            for source_metadata in elem.sources:
+                source_set.add(source_metadata)
+        return source_set
+
+    def metadata(self, metatype: str) -> Generator[Metadata, None, None]:
+        """Create a generator with all metadatas in the pangenome
+
+        :return: set of metadata source
+        """
+        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        if metatype == "families":
+            elements = self.gene_families
+        elif metatype == "genomes":
+            elements = self.organisms
+        elif metatype == "genes":
+            elements = self.genes
+        elif metatype == "RGPs":
+            elements = self.regions
+        elif metatype == "spots":
+            elements = self.spots
+        else:  # metatype == "modules":
+            elements = self.modules
+        for elem in elements:
+            yield elem.metadata
+
+    def get_elem_by_metadata(self, metatype: str, **kargs) -> Generator[
+        Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
+        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        if metatype == "families":
+            elements = self.gene_families
+        elif metatype == "genomes":
+            elements = self.organisms
+        elif metatype == "genes":
+            elements = self.genes
+        elif metatype == "RGPs":
+            elements = self.regions
+        elif metatype == "spots":
+            elements = self.spots
+        else:  # metatype == "modules":
+            elements = self.modules
+        for element in elements:
+            if len(list(element.get_metadata(**kargs))) > 0:
+                yield element
+
+    def get_elem_by_sources(self, source: List[str], metatype: str) -> Generator[
+        Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
+        """ Get gene famlies with a specific source in pangenome
+
+        :param source: Name of the source
+
+        :return: Gene families with the source
+        """
+        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        if metatype == "families":
+            elements = self.gene_families
+        elif metatype == "genomes":
+            elements = self.organisms
+        elif metatype == "genes":
+            elements = self.genes
+        elif metatype == "RGPs":
+            elements = self.regions
+        elif metatype == "spots":
+            elements = self.spots
+        else:  # metatype == "modules":
+            elements = self.modules
+        for element in elements:
+            if element.get_source(source) is not None:
+                yield element

@@ -9,10 +9,49 @@ from pathlib import Path
 import tables
 
 # local libraries
-from ppanggolin.formats import read_info, print_pangenome_parameters, fix_partitioned
+from ppanggolin.formats import read_info, read_parameters,  fix_partitioned
 
 
-def print_info(pangenome: Path, status: bool = False, content: bool = False, parameters: bool = False):
+def read_status(h5f: tables.File):
+    status_group = h5f.root.status
+    print("Status: ")
+    print(f"    - genomes annotated : {'true' if status_group._v_attrs.genomesAnnotated else 'false'}")
+    print(f"    - genes clustered : {'true' if status_group._v_attrs.genesClustered else 'false'}")
+    print(f"    - genes have their sequences : {'true' if status_group._v_attrs.geneSequences else 'false'}")
+    print(f"    - gene families have their sequences : "
+          f"{'true' if status_group._v_attrs.geneFamilySequences else 'false'}")
+    print(f"    - neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
+    if status_group._v_attrs.Partitioned:
+        print("    - pangenome partitioned : true")
+    else:
+        print("    - pangenome partitioned : false")
+    if hasattr(status_group._v_attrs, "predictedRGP"):
+        print(f"    - RGP predicted : {'true' if status_group._v_attrs.predictedRGP else 'false'}")
+
+    if hasattr(status_group._v_attrs, "spots"):
+        print(f"    - Spots predicted : {'true' if status_group._v_attrs.spots else 'false'}")
+
+    if hasattr(status_group._v_attrs, "modules"):
+        print(f"    - Modules predicted : {'true' if status_group._v_attrs.modules else 'false'}")
+
+    if hasattr(status_group._v_attrs, "version"):
+        print(f"    - PPanGGOLiN version : {status_group._v_attrs.version}")
+
+
+def read_metadata(h5f):
+    status_group = h5f.root.status
+    if hasattr(status_group._v_attrs, "metadata") and status_group._v_attrs.metadata:
+        metastatus = status_group.metastatus
+        metasources = status_group.metasources
+        print("Metadata: ")
+        for attr in metastatus._v_attrs._f_list():
+            print(f"    - {attr} : {', '.join(metasources._v_attrs[attr])}")
+    else:
+        print("There is not any metadata in the pangenome")
+
+
+def print_info(pangenome: str, status: bool = False, content: bool = False, parameters: bool = False,
+               metadata: bool = False):
     """
     Main function to return information about pangenome
 
@@ -22,35 +61,20 @@ def print_info(pangenome: Path, status: bool = False, content: bool = False, par
     :param parameters: Get pangenome parameters
     """
     fix_partitioned(pangenome)
-    if status or content or parameters:
-        with tables.open_file(pangenome, "r+") as h5f:
-            if status:
-                status_group = h5f.root.status
-                print(f"genomes annotated : {'true' if status_group._v_attrs.genomesAnnotated else 'false'}")
-                print(f"genes clustered : {'true' if status_group._v_attrs.genesClustered else 'false'}")
-                print(f"genes have their sequences : {'true' if status_group._v_attrs.geneSequences else 'false'}")
-                print(f"gene families have their sequences : "
-                    f"{'true' if status_group._v_attrs.geneFamilySequences else 'false'}")
-                print(f"neighbors graph : {'true' if status_group._v_attrs.NeighborsGraph else 'false'}")
-                if status_group._v_attrs.Partitioned:
-                    print("pangenome partitioned : true")
-                else:
-                    print("pangenome partitioned : false")
-                if hasattr(status_group._v_attrs, "predictedRGP"):
-                    print(f"RGP predicted : {'true' if status_group._v_attrs.predictedRGP else 'false'}")
-
-                if hasattr(status_group._v_attrs, "spots"):
-                    print(f"Spots predicted : {'true' if status_group._v_attrs.spots else 'false'}")
-
-                if hasattr(status_group._v_attrs, "modules"):
-                    print(f"Modules predicted : {'true' if status_group._v_attrs.modules else 'false'}")
-
-                if hasattr(status_group._v_attrs, "version"):
-                    print(f"PPanGGOLiN version : {status_group._v_attrs.version}")
-            if content:
-                read_info(h5f)
-            if parameters:
-                print_pangenome_parameters(h5f)
+    if status or content or parameters or metadata:
+        h5f = tables.open_file(pangenome, "r+")
+        if status:
+            read_status(h5f)
+            print("\n")
+        if content:
+            read_info(h5f)
+            print("\n")
+        if parameters:
+            read_parameters(h5f)
+            print("\n")
+        if metadata:
+            read_metadata(h5f)
+        h5f.close()
     else:
         print("Please select what information you want by using --parameters, --content or --status")
 
@@ -61,7 +85,7 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
-    print_info(args.pangenome, args.status, args.content, args.parameters)
+    print_info(args.pangenome, args.status, args.content, args.parameters, args.metadata)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -95,6 +119,8 @@ def parser_info(parser: argparse.ArgumentParser):
     options.add_argument("--status", required=False, action="store_true",
                          help="Shows informations about the statuses of the different elements of the pangenome "
                               "(what has been computed, or not)")
+    options.add_argument("--metadata", required=False, action="store_true",
+                         help="Shows which metadata are saved in the pangenome")
 
 
 if __name__ == '__main__':

@@ -70,10 +70,11 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     dist = pdist(1 - jaccard_similarities(mat_p_a, 0).todense())
     hc = linkage(dist, 'single')
 
-    dendro = dendrogram(hc, no_plot=True)
     logging.getLogger("PPanGGOLiN").info("done with making the dendrogram to order the organisms on the plot")
+    dendro_org = dendrogram(hc, no_plot=True)
+    logging.getLogger().info("done with making the dendrogram to order the organisms on the plot")
 
-    order_organisms = [index2org[index] for index in dendro["leaves"]]
+    order_organisms = [index2org[index] for index in dendro_org["leaves"]]
 
     binary_data = []
     text_data = []
@@ -173,6 +174,18 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
                        shapes=shapes,
                        plot_bgcolor='#ffffff')
     logging.getLogger("PPanGGOLiN").info("Drawing the figure itself...")
-    out_plotly.plot(go.Figure(data=[heatmap], layout=layout), filename=output.as_posix() + "/tile_plot.html",
-                    auto_open=False)
+    #fig = go.Figure(data=[heatmap], layout=layout)
+    fig = go.Figure(data=[heatmap])
+
+    fig.add_trace(go.Scatter(x=dendro_org['icoord'],
+                             y=dendro_org['dcoord'],
+                             mode='lines',
+                             line=dict(color='black'),
+                             showlegend=False,
+                             xaxis='x2',
+                             yaxis='y'))
+
+
+    fig.update_layout(layout)
+    out_plotly.plot(fig, filename=output.as_posix() + "/tile_plot.html", auto_open=False)
     logging.getLogger("PPanGGOLiN").info(f"Done with the tile plot : '{output.as_posix() + '/tile_plot.html'}' ")

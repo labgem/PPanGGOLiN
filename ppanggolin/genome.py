@@ -5,18 +5,22 @@ from __future__ import annotations
 
 # installed libraries
 import logging
-from typing import Iterator, Dict
+from typing import Dict, Iterator
 
 import gmpy2
 
+# local libraries
+from ppanggolin.metadata import MetaFeatures
 
-class Feature:
+
+class Feature(MetaFeatures):
     """This is a general class representation of Gene, RNA
 
     :param identifier: Identifier of the feature given by PPanGGOLiN
     """
 
     def __init__(self, identifier: str):
+        super().__init__()
         self.ID = identifier
         self.is_fragment = False
         self.type = ""
@@ -31,7 +35,11 @@ class Feature:
         self.dna = None
 
     @property
-    def length(self):
+    def length(self) -> int:
+        """Return gene length
+
+        :return: gene length
+        """
         return self.stop - self.start
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
@@ -68,6 +76,8 @@ class Feature:
         """ Add DNA sequence to feature
 
         :param dna: DNA sequence
+
+        :raise TypeError: DNA sequence must be a string
         """
         if not isinstance(dna, str):
             raise TypeError(f"'str' type was expected but you provided a '{type(dna)}' type object")
@@ -98,7 +108,7 @@ class Gene(Feature):
         self.genetic_code = None
         self.protein = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.ID)
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
@@ -109,7 +119,7 @@ class Gene(Feature):
         :param start: Start position
         :param stop: Stop position
         :param strand: associated strand
-        :param gene_type: Type of gene
+        :param gene_type: Type of the gene
         :param name: Gene name
         :param product: Associated product
         :param local_identifier: Identifier provided by the original file
@@ -124,6 +134,8 @@ class Gene(Feature):
         """ Add protein sequence corresponding to translated gene
 
         :param protein: Protein sequence
+
+        :raise TypeError: Protein sequence must be a string
         """
         if not isinstance(protein, str):
             raise TypeError(f"'str' type was expected but you provided a '{type(protein)}' type object")
@@ -152,11 +164,7 @@ class Contig:
         """
         return self._genes_position
 
-    @property
-    def length(self):
-        return sum([gene.length for gene in self.genes])
-
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     def __iter__(self):
@@ -188,7 +196,7 @@ class Contig:
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if gene.position is None:
-            raise TypeError(f"The gene object needs to have its position in the contig filled before adding it")
+            raise TypeError("The gene object needs to have its position in the contig filled before adding it")
         while len(self._genes_position) <= gene.position:
             # adding empty values. They should be filled by the end of the parsing.
             # Doing this because genes are not always met in order.
@@ -197,13 +205,14 @@ class Contig:
         self._genes_start[gene.start] = gene
 
 
-class Organism:
+class Organism(MetaFeatures):
     """
     Describe the Genome content and some information
 
     :param name: Name of the genome
     """
     def __init__(self, name: str):
+        super().__init__()
         self.name = name
         self._contigs_getter = {}
         self.bitarray = None

@@ -1,4 +1,5 @@
 import ppanggolin.nem.rarefaction
+import ppanggolin.nem.partition
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
@@ -13,7 +14,7 @@ import ppanggolin.context
 import ppanggolin.workflow
 import ppanggolin.projection
 # import ppanggolin.utility
-
+import ppanggolin.meta
 
 SUBCOMMAND_TO_SUBPARSER = {
     "annotate": ppanggolin.annotate.subparser,
@@ -37,4 +38,6 @@ SUBCOMMAND_TO_SUBPARSER = {
     "context": ppanggolin.context.subparser,
     "projection":ppanggolin.projection.subparser,
     # "info":ppanggolin.info.subparser, "default_config":ppanggolin.utility.default_config.subparser
+    # "info":ppanggolin.info.subparser, "default_config":ppanggolin.utility.default_config.subparser
+    "metadata": ppanggolin.meta.subparser
 }
