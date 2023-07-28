@@ -27,23 +27,32 @@ from ppanggolin.utils import restricted_float, mk_outdir
 from ppanggolin.geneFamily import GeneFamily
 
 
-class IdenticalRegions():
-    """
 
+class IdenticalRegions:
+    """
+    Represents a group of Identical Regions within a pangenome.
+
+    :param name: The name of the identical region group.
+    :param identical_rgps: A set of Region objects representing the identical regions.
+    :param families: A set of GeneFamily objects associated with the identical regions.
+    :param is_contig_border: A boolean indicating if the identical regions span across contig borders.
     """
 
     def __init__(self, name: str, identical_rgps: Set[Region], families: Set[GeneFamily], is_contig_border: bool):
-
         self.name = name
-
         self.families = families
         self.rgps = identical_rgps
         self.is_contig_border = is_contig_border
         self.ID = Region.id_counter
         Region.id_counter += 1
 
-    def __eq__(self, other): 
-    
+    def __eq__(self, other: 'IdenticalRegions') -> bool:
+        """
+        Check if two IdenticalRegions objects are equal based on their families, identical regions, and contig border status.
+
+        :param other: The IdenticalRegions object to compare.
+        :return: True if the objects are equal, False otherwise.
+        """
         if not isinstance(other, IdenticalRegions):
             # don't attempt to compare against unrelated types
             return NotImplemented
