@@ -426,14 +426,24 @@ def write_rgp_cluster_table(outfile: str, grr_graph: nx.Graph,
     df.to_csv(outfile, sep='\t', index=False)
 
 
-def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_rgp, unmerge_identical_rgps, grr_metric, disable_bar):
+def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str, cpu: int, 
+                ignore_incomplete_rgp: bool, unmerge_identical_rgps: bool, grr_metric: str,
+                disable_bar: bool, graph_formats: Set[str]):
     """
     Main function to cluster regions of genomic plasticity based on their GRR
 
     :param pangenome: pangenome object
-    :param output: Allow to force write on Pangenome file
-    :param disable_bar: Disable progress bar
+    :param grr_cutoff: GRR cutoff value for clustering
+    :param output: Directory where the output files will be saved
+    :param basename: Basename for the output files
+    :param cpu: Number of CPU cores to use for computation
+    :param ignore_incomplete_rgp: Whether to ignore incomplete RGPs located at a contig border
+    :param unmerge_identical_rgps: Whether to unmerge identical RGPs into separate nodes in the graph
+    :param grr_metric: GRR metric to use for clustering
+    :param disable_bar: Whether to disable the progress bar
+    :param graph_formats: Set of graph file formats to save the output
     """
+
     if pangenome.status["metadata"]["RGPs"] == "inFile":
         need_metadata = True
         logging.info(f'Some RGPs metadata have been found in pangenome, they will be included in rgp graph.')
@@ -539,13 +549,16 @@ def cluster_rgp(pangenome, grr_cutoff, output, basename, cpu, ignore_incomplete_
     if need_metadata:
        add_rgp_metadata_to_graph(grr_graph, rgps_in_graph)
 
-    # writting graph in gexf format
-    graph_file_name = os.path.join(output, f"{basename}.gexf")
-    logging.info(f"Writting graph in gexf format in {graph_file_name}.")
-    nx.readwrite.gexf.write_gexf(grr_graph, graph_file_name)
-
-    nx.readwrite.graphml.write_graphml(
-        grr_graph, os.path.join(output, f"{basename}.graphml"))
+    if "gexf" in graph_formats:
+        # writting graph in gexf format
+        graph_file_name = os.path.join(output, f"{basename}.gexf")
+        logging.info(f"Writting graph in gexf format in {graph_file_name}.")
+        nx.readwrite.gexf.write_gexf(grr_graph, graph_file_name)
+    
+    if "graphml" in graph_formats:
+        graph_file_name = os.path.join(output, f"{basename}.graphml")
+        logging.info(f"Writting graph in graphml format in {graph_file_name}.")
+        nx.readwrite.graphml.write_graphml(grr_graph, graph_file_name)
 
     outfile = os.path.join(output, f"{basename}.tsv")
     logging.info(f"Writting rgp clusters in tsv format in {outfile}")
@@ -569,7 +582,7 @@ def launch(args: argparse.Namespace):
     cluster_rgp(pangenome, grr_cutoff=args.grr_cutoff, output=args.output,
                 basename=args.basename, cpu=args.cpu, ignore_incomplete_rgp=args.ignore_incomplete_rgp,
                 unmerge_identical_rgps=args.no_identical_rgp_merging,
-                grr_metric=args.grr_metric, disable_bar=args.disable_prog_bar)
+                grr_metric=args.grr_metric, disable_bar=args.disable_prog_bar, graph_formats=args.graph_formats)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -623,3 +636,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
 
     optional.add_argument('-o', '--output', required=False, type=str,
                           default="rgp_clustering", help="Output directory")
+    
+    optional.add_argument('--graph_formats', required=False, type=str, choices=['gexf', "graphml"], nargs="+",
+                          default=['gexf'], help="Format of the output graph.")    
+    
