@@ -471,14 +471,15 @@ def get_arg_name(arg_val: Union[str, TextIOWrapper]) -> Union[str, TextIOWrapper
 def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Namespace, cli_args: argparse.Namespace):
     """
     Overwrite args objects.
-    When arguments are given in CLI, their value is used instead of the one found in config. 
-    When arguments are specified in config they overwrite default values.
+
+    When arguments are given in CLI, their values are used instead of the ones found in the config file.
+    When arguments are specified in the config file, they overwrite default values.
 
     :param default_args: default arguments
-    :param config_args: arguments parsed from config file
-    :param cli_args: arguments parsed from command line
+    :param config_args: arguments parsed from the config file
+    :param cli_args: arguments parsed from the command line
 
-    :return: final arguments 
+    :return: final arguments
     """
     args = argparse.Namespace()
     all_params = [arg for arg in dir(default_args) if not arg.startswith('_')]
@@ -488,28 +489,46 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
         cli_val = getattr(cli_args, param, 'unspecified')
         config_val = getattr(config_args, param, 'unspecified')
 
-        if param in cli_args:
-            # param is defined in cli, cli val is used
+        if param in cli_args and param not in config_args:
+            # Use the value from the command line argument
             setattr(args, param, cli_val)
 
-            if default_val != cli_val:
+            if default_val != cli_val and param != "config":
                 logging.getLogger("PPanGGOLiN").debug(
-                    f'Parameter "--{param} {get_arg_name(cli_val)}" has been specified in command line.'
-                    f' Its value overwrites putative config values.')
+                    f'The parameter "--{param}: {get_arg_name(cli_val)}" has been specified in the command line with a non-default value.'
+                    f' Its value overwrites the default value ({get_arg_name(default_val)}).')
 
-        elif param in config_args:
-            # parma is defined only in config. config val is used
+        elif param not in cli_args and param in config_args:
+            # Use the value from the config file
             setattr(args, param, config_val)
 
-            if default_val != config_val:
+            if default_val != config_args:
                 logging.getLogger("PPanGGOLiN").debug(
-                    f'Parameter "{param}: {get_arg_name(config_val)}" has been specified in config file with non default value.'
-                    f' Its value overwrites default value ({get_arg_name(default_val)}).')
+                    f'The parameter "--{param}: {get_arg_name(config_val)}" has been specified in the config file with a non-default value.'
+                    f' Its value overwrites the default value ({get_arg_name(default_val)}).')
+
+        elif param in cli_args and param in config_args:
+            # Use the value from the command line argument (cli) if it's different from the config file (config)
+            setattr(args, param, cli_val)
+
+            if cli_val == config_val and cli_val != default_val:
+                logging.getLogger("PPanGGOLiN").debug(
+                    f'The parameter "--{param} {get_arg_name(cli_val)}" has been specified in both the command line '
+                    f'and the config file with the same values, but with non-default value. '
+                    f'Its value overwrites the default value ({get_arg_name(default_val)}).')
+
+            elif cli_val != config_val and param != "config":
+                # Values in cli and config differ. Use the value from the command line argument (cli)
+                logging.getLogger("PPanGGOLiN").debug(
+                    f'The parameter "--{param}" has been specified in both the command line ("{get_arg_name(cli_val)}") '
+                    f'and the config file ("{get_arg_name(config_val)}") with different values. '
+                    f'The value from the command line argument is used.')
         else:
-            # param is not defined in cli and in config. default value is applied
+            # Parameter is not defined in cli and in config. Use the default value.
             setattr(args, param, default_val)
 
     return args
+
 
 
 def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
@@ -667,41 +686,41 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
             # Add args namespace of the step to the inital args namespace
             setattr(args, workflow_step, step_args)
 
-    # manage projection step parameters
-    elif subcommand == "projection" :
+    # # manage projection step parameters
+    # elif subcommand == "projection" :
         
-        projection_step = "annotate"
-        workflow_steps = [projection_step]
-        logging.getLogger().debug(f'Parsing {projection_step} arguments in config file.')
-        step_subparser = subcommand_to_subparser[projection_step]
+    #     projection_step = "annotate"
+    #     workflow_steps = [projection_step]
+    #     logging.getLogger().debug(f'Parsing {projection_step} arguments in config file.')
+    #     step_subparser = subcommand_to_subparser[projection_step]
 
-        default_step_args = get_default_args(projection_step, step_subparser, unwanted_args=all_unspecific_params)
+    #     default_step_args = get_default_args(projection_step, step_subparser, unwanted_args=all_unspecific_params)
 
-        # remove general args
-        all_param_names = {arg_name for arg_name in dir(default_step_args) if not arg_name.startswith('_')}
-        specific_step_params = {param_name for param_name in all_param_names if
-                                param_name not in all_unspecific_params}
+    #     # remove general args
+    #     all_param_names = {arg_name for arg_name in dir(default_step_args) if not arg_name.startswith('_')}
+    #     specific_step_params = {param_name for param_name in all_param_names if
+    #                             param_name not in all_unspecific_params}
         
-        config_step_args = get_config_args(projection_step, step_subparser, config, projection_step,
-                                            specific_step_params, strict_config_check=True)
+    #     config_step_args = get_config_args(projection_step, step_subparser, config, projection_step,
+    #                                         specific_step_params, strict_config_check=True)
 
-        step_args = overwrite_args(default_step_args, config_step_args, cli_args)
+    #     step_args = overwrite_args(default_step_args, config_step_args, cli_args)
 
-        step_params_that_differ = get_args_that_differe_from_default(default_step_args, step_args)
+    #     step_params_that_differ = get_args_that_differe_from_default(default_step_args, step_args)
 
-        if step_params_that_differ:
-            step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
-            logging.getLogger().debug(
-                f"{len(step_params_that_differ)} {projection_step} parameters have a non-default value: {step_params_that_differ_str}")
+    #     if step_params_that_differ:
+    #         step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
+    #         logging.getLogger().debug(
+    #             f"{len(step_params_that_differ)} {projection_step} parameters have a non-default value: {step_params_that_differ_str}")
 
-        # add step name to differentiate the params
-        step_params_that_differ = {f'{projection_step}:{param}': value for param, value in
-                                    step_params_that_differ.items()}
+    #     # add step name to differentiate the params
+    #     step_params_that_differ = {f'{projection_step}:{param}': value for param, value in
+    #                                 step_params_that_differ.items()}
 
-        params_that_differ.update(step_params_that_differ)
+    #     params_that_differ.update(step_params_that_differ)
 
-        # Add args namespace of the step to the inital args namespace
-        setattr(args, projection_step, step_args)
+    #     # Add args namespace of the step to the inital args namespace
+    #     setattr(args, projection_step, step_args)
 
 
     if params_that_differ:
@@ -903,8 +922,8 @@ def get_cli_args(subparser_fct: Callable) -> argparse.Namespace:
     # remove argument that have not been specified
     delete_unspecified_args(cli_args)
     delattr(cli_args, 'subcommand')
-    if 'config' in cli_args:
-        delattr(cli_args, 'config')
+    # if 'config' in cli_args:
+    #     delattr(cli_args, 'config')
 
     return cli_args
 
