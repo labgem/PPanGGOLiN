@@ -94,6 +94,8 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 --ignore_incomplete_rgp --grr_metric max_grr -f --graph_formats graphml gexf
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 --no_identical_rgp_merging -o rgp_clustering_no_identical_rgp_merging --graph_formats graphml
         cd -
     - name: testing align command
       shell: bash -l {0}
