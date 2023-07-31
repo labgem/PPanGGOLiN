@@ -9,17 +9,20 @@ import os
 import time
 from pathlib import Path
 import tempfile
-from typing import Tuple, Set, Dict, Iterator
+from typing import Tuple, Set, Dict, Iterator, Optional, List
 # installed libraries
 from tqdm import tqdm
+from collections import defaultdict
+
 
 # # local libraries
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.annotate.annotate import read_anno_file
+from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.cluster.cluster import infer_singletons
 # from ppanggolin.genome import input_organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, write_compressed_or_not, mk_file_name, min_one, restricted_float, mk_outdir
+from ppanggolin.utils import read_compressed_or_not, write_compressed_or_not, mk_file_name, min_one, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args
 from ppanggolin.align.alignOnPang import get_seq2pang, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
 from ppanggolin.formats.readBinaries import get_pangenome_parameters, check_pangenome_info
@@ -142,6 +145,69 @@ def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
     
 
 
+def manage_annotate_param(annotate_param_names: List[str], pangenome_args: argparse.Namespace, 
+                          config_file: Optional[str]) -> argparse.Namespace:
+    """
+    Manage annotate parameters by collecting them from different sources and merging them.
+
+    :param annotate_param_names: List of annotate parameter names to be managed.
+    :param pangenome_args: Annotate arguments parsed from pangenomes parameters.
+    :param config_file: Path to the config file, can be None if not provided.
+
+    :return: An argparse.Namespace containing the merged annotate parameters with their values.
+    """
+
+    default_annotate_args = get_default_args('annotate', annotate_subparser)
+
+    if config_file is None:
+        config_annotate_args = argparse.Namespace()
+    else:
+        config = defaultdict(dict, parse_config_file(config_file))
+        config_annotate_args = get_config_args('annotate', annotate_subparser, config, "annotate", annotate_param_names, strict_config_check=False)
+
+    annotate_param_from_pangenome = {}
+    annotate_param_from_config = {}
+    annotate_param_from_default = {}
+
+    annotate_params = argparse.Namespace()
+
+    # Collecting annotate parameters from different sources
+    for annotate_arg in annotate_param_names:
+        if hasattr(pangenome_args, annotate_arg):
+            param_val = getattr(pangenome_args, annotate_arg) 
+            annotate_param_from_pangenome[annotate_arg] = param_val
+            setattr(annotate_params, annotate_arg, param_val)
+
+        elif hasattr(config_annotate_args, annotate_arg):
+            param_val =  getattr(config_annotate_args, annotate_arg) 
+            annotate_param_from_config[annotate_arg] = param_val
+            setattr(annotate_params, annotate_arg, param_val)
+
+        else:
+            param_val =  getattr(default_annotate_args, annotate_arg) 
+            annotate_param_from_default[annotate_arg] = param_val
+            setattr(annotate_params, annotate_arg, param_val)
+
+    # Log the sources of the annotate parameters
+    if len(annotate_param_from_pangenome) > 0:
+        param_val_string = ' '.join([f'--{k} {v}' for k, v in annotate_param_from_pangenome.items()])
+        logging.getLogger("PPanGGOLiN").debug(f"{len(annotate_param_from_pangenome)}/{len(annotate_param_names)} annotate parameters extracted from pangenome parameters "
+                                              f"(the parameters used to build the input pangenome): {param_val_string}")
+
+    if len(annotate_param_from_config) > 0:
+        param_val_string = ';'.join([f' {k} : {v}' for k, v in annotate_param_from_config.items()])
+        logging.getLogger("PPanGGOLiN").debug(f"{len(annotate_param_from_config)}/{len(annotate_param_names)} annotate parameters were not found in pangenome internal parameters."
+                                            f" They have been parsed from the annotate section in the config file: {param_val_string}")
+
+    if len(annotate_param_from_default) > 0:
+        param_val_string = ';'.join([f' {k} : {v}' for k, v in annotate_param_from_default.items()])
+        logging.getLogger("PPanGGOLiN").debug(f"{len(annotate_param_from_default)}/{len(annotate_param_names)} annotate parameters were not found in the pangenome parameters "
+                                            f"nor in the config file. Default values have been used: {param_val_string}")
+
+    return annotate_params
+
+
+
 
 def launch(args: argparse.Namespace):
     """
@@ -178,11 +244,12 @@ def launch(args: argparse.Namespace):
     #     pangenome_parameter = get_pangenome_parameters(h5f)
     
     if args.annot_file is not None:
+
         # read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         input_organism, has_sequence = read_anno_file(organism_name = args.organism_name, 
                        filename=args.annot_file,
                         circular_contigs=[],
-                        pseudo=False)
+                        pseudo=args.use_pseudo)
         
         if not has_sequence:
             if args.fasta_file:
@@ -192,13 +259,17 @@ def launch(args: argparse.Namespace):
                             "Thus, we do not have the information we need to continue the projection.")
 
     elif args.fasta_file is not None:
+        annotate_param_names = ["norna", "kingdom", "allow_overlap", "prodigal_procedure"]
+                    
+        annotate_params =  manage_annotate_param(annotate_param_names, pangenome_params.annotate, args.config)
+
+
         input_organism = annotate_organism(org_name=args.organism_name, file_name = args.fasta_file, circular_contigs=[], tmpdir=args.tmpdir,
-                      code = args.annotate.translation_table, norna=args.annotate.norna, kingdom = args.annotate.kingdom,
-                      overlap=args.annotate.allow_overlap, procedure=args.annotate.prodigal_procedure)
+                      code = args.translation_table, norna=annotate_params.norna, kingdom = annotate_params.kingdom,
+                      overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure)
 
     else:
         raise Exception("At least one of --fasta_file or --anno_file must be given")
-
 
 
     # Add input organism in pangenome. This temporary as pangenome is not going to be written.
@@ -338,25 +409,7 @@ def parser_projection(parser: argparse.ArgumentParser):
     
     optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                         help="directory for storing temporary files")
-    # optional.add_argument("--basename", required=False, default="pangenome", help="basename for the output file")
     
-    # annotate = parser.add_argument_group(title="Annotation arguments")
-
-    optional.add_argument('--allow_overlap', required=False, action='store_true', default=False,
-                          help="Use to not remove genes overlapping with RNA features.")
-    optional.add_argument("--norna", required=False, action="store_true", default=False,
-                          help="Use to avoid annotating RNA features.")
-    optional.add_argument("--kingdom", required=False, type=str.lower, default="bacteria",
-                          choices=["bacteria", "archaea"],
-                          help="Kingdom to which the prokaryota belongs to, "
-                               "to know which models to use for rRNA annotation.")
-    # optional.add_argument("--translation_table", required=False, type=int, default=11,
-    #                       help="Translation table (genetic code) to use.")
-
-    optional.add_argument("--prodigal_procedure", required=False, type=str.lower, choices=["single", "meta"],
-                          default=None, help="Allow to force the prodigal procedure. "
-                                             "If nothing given, PPanGGOLiN will decide in function of contig length")
-
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
@@ -370,15 +423,6 @@ def parser_projection(parser: argparse.ArgumentParser):
     optional.add_argument("--translation_table", required=False, default="11",
                           help="Translation table (genetic code) to use.")
     
-    # optional.add_argument("--getinfo", required=False, action="store_true",
-    #                       help="Use this option to extract info related to the best hit of each query, "
-    #                            "such as the RGP it is in, or the spots.")
-    
-    # optional.add_argument("--draw_related", required=False, action="store_true",
-    #                       help="Draw figures and provide graphs in a gexf format of the eventual spots"
-    #                            " associated to the input sequences")
-    
-    # but does not use the option
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
                                "(Default behavior is to ignore them)")
