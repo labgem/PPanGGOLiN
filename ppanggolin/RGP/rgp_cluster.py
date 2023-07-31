@@ -165,24 +165,27 @@ def format_rgp_metadata(rgp: Region) -> Dict[str, str]:
     return {col_name: '|'.join(values) for col_name, values in source_field_2_value.items()}
 
 
-def add_rgp_metadata_to_graph(graph, rgps):
-    """
-    """
 
+def add_rgp_metadata_to_graph(graph: nx.Graph, rgps: Set[Union[Region, IdenticalRegions]]) -> None:
+    """
+    Add metadata from Region or IdenticalRegions objects to the graph.
+
+    :param graph: The graph to which the metadata will be added.
+    :param rgps: A set of Region or IdenticalRegions objects containing the metadata to be added.
+
+    """
     for rgp in rgps:
-
         if isinstance(rgp, Region):
             rgp_metadata = format_rgp_metadata(rgp)
         elif isinstance(rgp, IdenticalRegions):
             rgp_metadata_dicts = [format_rgp_metadata(ident_rgp) for ident_rgp in rgp.rgps]
             rgp_metadata = join_dicts(rgp_metadata_dicts)
-
         else:
-            raise TypeError(f'Expect Region or  IdenticalRegions object not {type(rgp)}')
+            raise TypeError(f'Expect Region or IdenticalRegions object, not {type(rgp)}')
         
         for metadata_name, value in rgp_metadata.items():
             graph.nodes[rgp.ID][metadata_name] = value
-            
+
             
 def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List[IdenticalRegions], rgp_to_spot: Dict[Region, int]):
     """
@@ -416,7 +419,7 @@ def write_rgp_cluster_table(outfile: str, grr_graph: nx.Graph,
 
         identical_rgps = [rgp_in_graph] if isinstance(rgp_in_graph, Region) else rgp_in_graph.rgps
          
-        all_rgps_infos += [{"RGP": r.name, "cluster": cluster,
+        all_rgps_infos += [{"RGPs": r.name, "cluster": cluster,
                             "spot_id": get_spot_id(r, rgp_to_spot)} for r in identical_rgps]
 
     df = pd.DataFrame(all_rgps_infos)
