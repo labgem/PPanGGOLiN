@@ -307,7 +307,6 @@ def launch(args: argparse.Namespace):
 
 def predict_spots(rgps: list, multigenics: set, output: str,
     spot_graph: bool = False, overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1):
-    
     """
     Create a spot graph from pangenome RGP
 

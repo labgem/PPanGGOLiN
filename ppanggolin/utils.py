@@ -502,7 +502,7 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
             # Use the value from the config file
             setattr(args, param, config_val)
 
-            if default_val != config_args:
+            if default_val != config_val:
                 logging.getLogger("PPanGGOLiN").debug(
                     f'The parameter "--{param}: {get_arg_name(config_val)}" has been specified in the config file with a non-default value.'
                     f' Its value overwrites the default value ({get_arg_name(default_val)}).')
@@ -745,10 +745,11 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
     arguments_to_parse = []
     for param, val in config_param_val.items():
 
-        if type(val) == bool:
+        if type(val) == bool or val is None or val == "None":
             # param is a flag
             if val is True:
                 arguments_to_parse.append(f"--{param}")
+            # if val is False or None we don't add id to the  
         else:
             arguments_to_parse.append(f"--{param}")
 
