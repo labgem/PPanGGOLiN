@@ -35,7 +35,7 @@ def is_single_copy(family: GeneFamily, dup_margin: float = 0.95) -> bool:
     for gene_list in family.get_org_dict().values():
         if len(gene_list) > 1:
             nb_multi += 1
-    dup_ratio = nb_multi / family.number_of_organisms()
+    dup_ratio = nb_multi / family.number_of_organisms
     if dup_ratio < dup_margin:
         return True
     return False
@@ -70,7 +70,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
     elif partition_filter in ["core", "accessory", "softcore"]:
         if partition_filter == "core":
             for family in pangenome.gene_families:
-                if family.number_of_organisms() == nb_org:
+                if family.number_of_organisms == nb_org:
                     if single_copy:
                         if is_single_copy(family, dup_margin):
                             families.add(family)
@@ -78,7 +78,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                         families.add(family)
         elif partition_filter == "accessory":
             for family in pangenome.gene_families:
-                if family.number_of_organisms() < nb_org:
+                if family.number_of_organisms < nb_org:
                     if single_copy:
                         if is_single_copy(family, dup_margin):
                             families.add(family)
@@ -86,7 +86,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                         families.add(family)
         elif partition_filter == "softcore":
             for family in pangenome.gene_families:
-                if family.number_of_organisms() >= nb_org * soft_core:
+                if family.number_of_organisms >= nb_org * soft_core:
                     if single_copy:
                         if is_single_copy(family, dup_margin):
                             families.add(family)

@@ -417,7 +417,7 @@ class Pangenome:
             if fam.named_partition == "persistent" or not persistent:
                 dup = len([genes for org, genes in fam.get_org_dict().items() if
                            len([gene for gene in genes if not gene.is_fragment]) > 1])
-                if (dup / fam.number_of_organisms()) >= dup_margin:  # tot / nborgs >= 1.05
+                if (dup / fam.number_of_organisms) >= dup_margin:  # tot / nborgs >= 1.05
                     multigenics.add(fam)
         return multigenics
 

@@ -219,10 +219,10 @@ def export_to_dataframe(families: Set[GeneFamily], gene_contexts: Set[GeneContex
         for family in gene_context.families:
             line = [gene_context.ID]
             if fam_to_seq is None or fam_to_seq.get(family.ID) is None:
-                line += [family.name, None, family.number_of_organisms(), family.named_partition]
+                line += [family.name, None, family.number_of_organisms, family.named_partition]
             else:
                 line += [family.name, ','.join(fam_to_seq.get(family.ID)),
-                         family.number_of_organisms(), family.named_partition]
+                         family.number_of_organisms, family.named_partition]
             lines.append(line)
     df = pd.DataFrame(lines,
                       columns=["GeneContext ID", "Gene family name", "Sequence ID", "Nb Genomes", "Partition"]

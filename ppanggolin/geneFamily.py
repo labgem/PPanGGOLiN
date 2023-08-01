@@ -7,8 +7,7 @@ from collections import defaultdict
 import logging
 
 # installed libraries
-from typing import Dict, List, Set
-
+from typing import Dict, Generator, Set
 import gmpy2
 
 # local libraries
@@ -20,14 +19,44 @@ from ppanggolin.metadata import MetaFeatures
 class GeneFamily(MetaFeatures):
     """
     This represents a single gene family. It will be a node in the pangenome graph, and be aware of its genes and edges.
+    Methods:
+        - named_partition: returns a meaningful name for the partition associated with the family.
+        - neighbors: returns all the GeneFamilies that are linked with an edge.
+        - edges: returns all Edges that are linked to this gene family.
+        - genes: returns all the genes associated with the family.
+        - organisms: returns all the Organisms that have this gene family.
+        - spots: returns all the spots associated with the family.
+        - modules: returns all the modules associated with the family.
+        - number_of_neighbor: returns the number of neighbor GeneFamilies.
+        - number_of_edges: returns the number of edges.
+        - number_of_genes: returns the number of genes.
+        - number_of_organisms: returns the number of organisms.
+        - number_of_spots: returns the number of spots.
+        - number_of_modules: returns the number of modules.
+        - set_edge: sets an edge between the current family and a target family.
+        - add_sequence: assigns a protein sequence to the gene family.
+        - add_gene: adds a gene to the gene family and sets the gene's family accordingly.
+        - add_spot: adds a spot to the gene family.
+        - add_module: adds a module to the gene family.
+        - mk_bitarray: produces a bitarray representing the presence/absence of the family in the pangenome using the provided index.
+        - get_org_dict: returns a dictionary of organisms as keys and sets of genes as values.
+        - get_genes_per_org: returns the genes belonging to the gene family in the given organism.
 
-    :param family_id: The internal identifier to give to the gene family
-    :type family_id: any
-    :param name: The name of the gene family (to be printed in output files)
-    :type name: str
+    Fields:
+        - name: the name of the gene family.
+        - ID: the internal identifier of the gene family.
+        - removed: a boolean indicating whether the family has been removed from the main graph.
+        - sequence: the protein sequence associated with the family.
+        - partition: the partition associated with the family.
     """
 
     def __init__(self, family_id: int, name: str):
+        """Constructor method
+        :param family_id: The internal identifier to give to the gene family
+        :type family_id: any
+        :param name: The name of the gene family (to be printed in output files)
+        :type name: str
+        """
         assert isinstance(family_id, int), "GeneFamily object id should be an integer"
         assert isinstance(name, str), "GeneFamily object name should be a string"
         assert name != '', "GeneFamily object cannot be created with an empty name"
@@ -49,12 +78,12 @@ class GeneFamily(MetaFeatures):
     def named_partition(self) -> str:
         """Reads the partition attribute and returns a meaningful name
 
-        :raises Exception: If the gene family has no partition assigned
-
         :return: the partition name of the gene family
+
+        :raises ValueError: If the gene family has no partition assigned
         """
         if self.partition == "":
-            raise Exception("The gene family has not beed associated to a partition")
+            raise ValueError("The gene family has not beed associated to a partition")
         if self.partition.startswith("P"):
             return "persistent"
         elif self.partition.startswith("C"):
@@ -65,7 +94,7 @@ class GeneFamily(MetaFeatures):
             return "undefined"
 
     @property
-    def neighbors(self) -> Set[GeneFamily]:
+    def neighbors(self) -> Generator[GeneFamily, None, None]:
         """Returns all the GeneFamilies that are linked with an edge
 
         :return: Neighbors
@@ -74,7 +103,7 @@ class GeneFamily(MetaFeatures):
             yield family
 
     @property
-    def edges(self) -> List[Edge]:
+    def edges(self) -> Generator[Edge, None, None]:
         """Returns all Edges that are linked to this gene family
 
         :return: Edges of the gene family
@@ -88,7 +117,7 @@ class GeneFamily(MetaFeatures):
             yield gene
 
     @property
-    def organisms(self) -> Set[Organism]:
+    def organisms(self) -> Generator[Organism, None, None]:
         """Returns all the Organisms that have this gene family
 
         :return: Organisms that have this gene family
@@ -104,40 +133,45 @@ class GeneFamily(MetaFeatures):
             raise Exception("An unexpected error occurs. Please report in our GitHub")
 
     @property
-    def spots(self):
+    def spots(self) -> Generator[Spot, None, None]:
         for spot in self._spots:
             yield spot
 
     @property
-    def modules(self):
+    def modules(self) -> Generator[Module, None, None]:
         for module in self._modules:
             yield module
-
+    @property
     def number_of_neighbor(self) -> int:
         """Get the number of neighbor for the current gene family
         """
         return len(self._edges.keys())
 
+    @property
     def number_of_edges(self) -> int:
         """Get the number of edges for the current gene family
         """
         return len(self._edges.values())
 
+    @property
     def number_of_genes(self) -> int:
         """Get the number of genes for the current gene family
         """
         return len(self._genes)
 
+    @property
     def number_of_organisms(self) -> int:
         """Get the number of organisms for the current gene family
         """
         return len(self._genePerOrg.keys())
 
+    @property
     def number_of_spots(self) -> int:
         """Get the number of spots for the current gene family
         """
         return len(self._spots)
 
+    @property
     def number_of_modules(self) -> int:
         """Get the number of modules for the current gene family
         """

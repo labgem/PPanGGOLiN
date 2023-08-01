@@ -28,7 +28,7 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
     is_partitioned = False
     has_undefined = False
     for fam in pangenome.gene_families:
-        nb_org = fam.number_of_organisms()
+        nb_org = fam.number_of_organisms
         if fam.partition != "":
             is_partitioned = True
             if fam.partition == "U":
