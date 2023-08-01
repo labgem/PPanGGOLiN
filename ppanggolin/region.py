@@ -258,7 +258,7 @@ class Spot(MetaFeatures):
     def spot_2_families(self):
         """Add to Gene Families a link to spot"""
         for family in self.families:
-            family.spot.add(self)
+            family.add_spot(self)
 
     def borders(self, set_size: int, multigenics):
         """ Extracts all the borders of all RGPs belonging to the spot
@@ -402,7 +402,7 @@ class Module(MetaFeatures):
         """
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
-        family.modules.add(self)
+        family.add_module(self)
         self._families.add(family)
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):

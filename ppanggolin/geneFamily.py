@@ -37,28 +37,13 @@ class GeneFamily(MetaFeatures):
         self.ID = family_id
         self._edges = {}
         self._genePerOrg = defaultdict(set)
-        self.genes = set()
+        self._genes = set()
         self.removed = False  # for the repeated family not added in the main graph
         self.sequence = ""
         self.partition = ""
-        self.spot = set()
-        self.modules = set()
+        self._spots = set()
+        self._modules = set()
         self.bitarray = None
-
-    def add_sequence(self, seq: str):
-        """Assigns a protein sequence to the gene family.
-
-        :param seq: the sequence to add to the gene family
-        """
-        assert isinstance(seq, str) and str != "", "Sequence must be a string and not empty"
-        self.sequence = seq
-
-    def add_partition(self, partition: str):
-        """Assigns a partition to the gene family. It should be the raw partition name provided by NEM.
-
-        :param partition: The partition
-        """
-        self.partition = partition
 
     @property
     def named_partition(self) -> str:
@@ -79,6 +64,97 @@ class GeneFamily(MetaFeatures):
         else:
             return "undefined"
 
+    @property
+    def neighbors(self) -> Set[GeneFamily]:
+        """Returns all the GeneFamilies that are linked with an edge
+
+        :return: Neighbors
+        """
+        for family in self._edges.keys():
+            yield family
+
+    @property
+    def edges(self) -> List[Edge]:
+        """Returns all Edges that are linked to this gene family
+
+        :return: Edges of the gene family
+        """
+        for edge in self._edges.values():
+            yield edge
+
+    @property
+    def genes(self):
+        for gene in self._genes:
+            yield gene
+
+    @property
+    def organisms(self) -> Set[Organism]:
+        """Returns all the Organisms that have this gene family
+
+        :return: Organisms that have this gene family
+        """
+        try:
+            for org in self._genePerOrg.keys():
+                yield org
+        except AttributeError:  # then the genes have been added before they had organisms
+            for gene in self.genes:
+                self._genePerOrg[gene.organism].add(gene)
+            return self.organisms
+        except Exception:
+            raise Exception("An unexpected error occurs. Please report in our GitHub")
+
+    @property
+    def spots(self):
+        for spot in self._spots:
+            yield spot
+
+    @property
+    def modules(self):
+        for module in self._modules:
+            yield module
+
+    def number_of_neighbor(self) -> int:
+        """Get the number of neighbor for the current gene family
+        """
+        return len(self._edges.keys())
+
+    def number_of_edges(self) -> int:
+        """Get the number of edges for the current gene family
+        """
+        return len(self._edges.values())
+
+    def number_of_genes(self) -> int:
+        """Get the number of genes for the current gene family
+        """
+        return len(self._genes)
+
+    def number_of_organisms(self) -> int:
+        """Get the number of organisms for the current gene family
+        """
+        return len(self._genePerOrg.keys())
+
+    def number_of_spots(self) -> int:
+        """Get the number of spots for the current gene family
+        """
+        return len(self._spots)
+
+    def number_of_modules(self) -> int:
+        """Get the number of modules for the current gene family
+        """
+        return len(self._modules)
+
+    def set_edge(self, target: GeneFamily, edge: Edge):
+        self._edges[target] = edge
+
+    def add_sequence(self, seq: str):
+        """Assigns a protein sequence to the gene family.
+
+        :param seq: the sequence to add to the gene family
+        """
+        assert isinstance(seq, str), "Sequence must be a string"
+
+        self.sequence = seq
+
     def add_gene(self, gene: Gene):
         """Add a gene to the gene family, and sets the gene's :attr:family accordingly.
 
@@ -88,10 +164,16 @@ class GeneFamily(MetaFeatures):
         """
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
-        self.genes.add(gene)
+        self._genes.add(gene)
         gene.family = self
         if hasattr(gene, "organism"):
             self._genePerOrg[gene.organism].add(gene)
+
+    def add_spot(self, spot: Spot):
+        self._spots.add(spot)
+
+    def add_module(self, module: Module):
+        self._modules.add(module)
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence/absence of the family in the pangenome using the provided index
@@ -138,41 +220,11 @@ class GeneFamily(MetaFeatures):
         :return: a set of gene(s)
         """
         try:
-            return self._genePerOrg[org]
+            for gene in self._genePerOrg[org]:
+                yield gene
         except AttributeError:
             for gene in self.genes:
                 self._genePerOrg[gene.organism].add(gene)
-            return self._genePerOrg[org]
-        except Exception:
-            raise Exception("An unexpected error occurs. Please report in our GitHub")
-
-    @property
-    def neighbors(self) -> Set[GeneFamily]:
-        """Returns all the GeneFamilies that are linked with an edge
-
-        :return: Neighbors
-        """
-        return set(self._edges.keys())
-
-    @property
-    def edges(self) -> List[Edge]:
-        """Returns all Edges that are linked to this gene family
-
-        :return: Edges of the gene family
-        """
-        return list(self._edges.values())
-
-    @property
-    def organisms(self) -> Set[Organism]:
-        """Returns all the Organisms that have this gene family
-
-        :return: Organisms that have this gene family
-        """
-        try:
-            return set(self._genePerOrg.keys())
-        except AttributeError:  # then the genes have been added before they had organisms
-            for gene in self.genes:
-                self._genePerOrg[gene.organism].add(gene)
-            return set(self._genePerOrg.keys())
+            return self.get_genes_per_org(org)
         except Exception:
             raise Exception("An unexpected error occurs. Please report in our GitHub")

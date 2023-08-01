@@ -734,7 +734,7 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
         part_set = set()
         for fam in pangenome.gene_families:
             named_part_counter[fam.named_partition] += 1
-            part_distribs[fam.named_partition].append(len(fam.organisms) / pangenome.number_of_organisms())
+            part_distribs[fam.named_partition].append(fam.number_of_organisms() / pangenome.number_of_organisms())
             if fam.named_partition == "shell":
                 subpart_counter[fam.partition] += 1
             if fam.partition != "S_":

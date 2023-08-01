@@ -338,7 +338,7 @@ def read_gene_families_info(pangenome: Pangenome, h5f: tables.File, disable_bar:
 
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene family", disable=disable_bar):
         fam = pangenome.get_gene_family(row["name"].decode())
-        fam.add_partition(row["partition"].decode())
+        fam.partition = row["partition"].decode()
         fam.add_sequence(row["protein"].decode())
 
     if h5f.root.status._v_attrs.Partitioned:

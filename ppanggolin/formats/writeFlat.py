@@ -60,7 +60,7 @@ def write_json_gene_fam(gene_fam: GeneFamily, json: TextIO):
     :param gene_fam: file-like object, compressed or not
     :param json: file-like object, compressed or not
     """
-    json.write('{' + f'"id": "{gene_fam.name}", "nb_genes": {len(gene_fam.genes)}, '
+    json.write('{' + f'"id": "{gene_fam.name}", "nb_genes": {gene_fam.number_of_genes()}, '
                      f'"partition": "{gene_fam.named_partition}", "subpartition": "{gene_fam.partition}"' + '}')
     org_dict = {}
     name_counts = Counter()
@@ -232,22 +232,22 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
 
         gexf.write(f'      <node id="{fam.ID}" label="{fam.name}">\n')
         gexf.write(f'        <viz:color {colors[fam.named_partition]} />\n')
-        gexf.write(f'        <viz:size value="{len(fam.organisms)}" />\n')
+        gexf.write(f'        <viz:size value="{fam.number_of_organisms()}" />\n')
         gexf.write('        <attvalues>\n')
-        gexf.write(f'          <attvalue for="0" value="{len(fam.genes)}" />\n')
+        gexf.write(f'          <attvalue for="0" value="{fam.number_of_genes()}" />\n')
         gexf.write(f'          <attvalue for="1" value="{name.most_common(1)[0][0]}" />\n')
         gexf.write(f'          <attvalue for="2" value="{product.most_common(1)[0][0]}" />\n')
         gexf.write(f'          <attvalue for="3" value="{gtype.most_common(1)[0][0]}" />\n')
         gexf.write(f'          <attvalue for="4" value="{fam.named_partition}" />\n')
         gexf.write(f'          <attvalue for="5" value="{fam.partition}" />\n')
         gexf.write(f'          <attvalue for="6" value="'
-                   f'{"exact_accessory" if len(fam.organisms) != pan.number_of_organisms() else "exact_core"}" />\n')
+                   f'{"exact_accessory" if fam.number_of_organisms() != pan.number_of_organisms() else "exact_core"}" />\n')
         gexf.write(f'          <attvalue for="7" value="'
-                   f'{"soft_core" if len(fam.organisms) >= (pan.number_of_organisms() * soft_core) else "soft_accessory"}"'
+                   f'{"soft_core" if fam.number_of_organisms() >= (pan.number_of_organisms() * soft_core) else "soft_accessory"}"'
                    f' />\n')
         gexf.write(f'          <attvalue for="8" value="{round(sum(lis) / len(lis), 2)}" />\n')
         gexf.write(f'          <attvalue for="9" value="{int(median(lis))}" />\n')
-        gexf.write(f'          <attvalue for="10" value="{len(fam.organisms)}" />\n')
+        gexf.write(f'          <attvalue for="10" value="{fam.number_of_organisms()}" />\n')
         if not light:
             for org, genes in fam.get_org_dict().items():
                 gexf.write(
@@ -373,9 +373,9 @@ def write_matrix(output: Path, sep: str = ',', ext: str = 'csv', compress: bool 
             matrix.write(sep.join(['"' + fam.name + '"',  # 1
                                    '"' + alt + '"',  # 2
                                    '"' + str(product.most_common(1)[0][0]) + '"',  # 3
-                                   '"' + str(len(fam.organisms)) + '"',  # 4
-                                   '"' + str(len(fam.genes)) + '"',  # 5
-                                   '"' + str(round(len(fam.genes) / len(fam.organisms), 2)) + '"',  # 6
+                                   '"' + str(fam.number_of_organisms()) + '"',  # 4
+                                   '"' + str(fam.number_of_genes()) + '"',  # 5
+                                   '"' + str(round(fam.number_of_genes() / fam.number_of_organisms(), 2)) + '"',  # 6
                                    '"NA"',  # 7
                                    '"NA"',  # 8
                                    '""',  # 9
@@ -436,12 +436,12 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
                       "\n")
         for fam in pan.gene_families:
             if fam.named_partition == "persistent":
-                mean_pres = len(fam.genes) / len(fam.organisms)
+                mean_pres = fam.number_of_genes() / fam.number_of_organisms()
                 nb_multi = 0
                 for gene_list in fam.get_org_dict().values():
                     if len(gene_list) > 1:
                         nb_multi += 1
-                dup_ratio = nb_multi / len(fam.organisms)
+                dup_ratio = nb_multi / fam.number_of_organisms()
                 is_scm = False
                 if dup_ratio < dup_margin:
                     is_scm = True
@@ -455,9 +455,9 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
     soft = set()  # could use bitarrays if speed is needed
     core = set()
     for fam in pan.gene_families:
-        if len(fam.organisms) >= pan.number_of_organisms() * soft_core:
+        if fam.number_of_organisms() >= pan.number_of_organisms() * soft_core:
             soft.add(fam)
-        if len(fam.organisms) == pan.number_of_organisms():
+        if fam.number_of_organisms() == pan.number_of_organisms():
             core.add(fam)
 
     with write_compressed_or_not(output / "organisms_statistics.tsv", compress) as outfile:
@@ -553,16 +553,16 @@ def write_org_file(org: Organism, output: Path, compress: bool = False):
                         nb_cloud += 1
                 row = [gene.ID if gene.local_identifier == "" else gene.local_identifier,
                        contig.name, gene.start, gene.stop, gene.strand, gene.family.name,
-                       len(gene.family.get_genes_per_org(org)), gene.family.named_partition,
+                       len(list(gene.family.get_genes_per_org(org))), gene.family.named_partition,
                        nb_pers, nb_shell, nb_cloud]
                 if needRegions:
                     row.append(gene.RGP.name if gene.RGP is not None else gene.RGP)
                 if needSpots:
-                    if len(gene.family.spot) > 0:
-                        spot = ','.join([str(s.ID) for s in gene.family.spot])
+                    if gene.family.number_of_spots() > 0:
+                        spot = ','.join([str(spot.ID) for spot in gene.family.spots])
                     row.append(spot)
                 if needModules:
-                    if len(gene.family.modules) > 0:
+                    if gene.family.number_of_modules() > 0:
                         modules = ','.join(["module_" + str(module.ID) for module in gene.family.modules])
                     row.append(modules)
                 outfile.write("\t".join(map(str, row)) + "\n")
@@ -603,9 +603,9 @@ def write_parts(output: Path, soft_core: float = 0.95):
         part_sets[fam.named_partition].add(fam.name)
         if fam.partition.startswith("S"):
             part_sets[fam.partition].add(fam.name)
-        if len(fam.organisms) >= pan.number_of_organisms() * soft_core:
+        if fam.number_of_organisms() >= pan.number_of_organisms() * soft_core:
             part_sets["soft_core"].add(fam.name)
-            if len(fam.organisms) == pan.number_of_organisms():
+            if fam.number_of_organisms() == pan.number_of_organisms():
                 part_sets["exact_core"].add(fam.name)
             else:
                 part_sets["exact_accessory"].add(fam.name)
@@ -795,7 +795,7 @@ def write_org_modules(output: Path, compress: bool = False):
         for mod in pan.modules:
             mod_orgs = set()
             for fam in mod.families:
-                mod_orgs |= fam.organisms
+                mod_orgs |= set(fam.organisms)
             for org in mod_orgs:
                 completion = round((org.number_of_families() + len(mod.families)) / len(mod.families), 2)
                 fout.write(f"module_{mod.ID}\t{org.name}\t{completion}\n")

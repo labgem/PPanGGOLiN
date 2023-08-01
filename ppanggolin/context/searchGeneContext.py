@@ -7,6 +7,7 @@ import logging
 import tempfile
 import time
 from pathlib import Path
+from typing import Set
 
 # installed libraries
 from tqdm import tqdm
@@ -16,6 +17,7 @@ import pandas as pd
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
@@ -201,7 +203,7 @@ def fam2seq(seq_to_pan: dict) -> dict:
     return fam_2_seq
 
 
-def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, output: str):
+def export_to_dataframe(families: Set[GeneFamily], gene_contexts: Set[GeneContext], fam_to_seq: dict, output: str):
     """ Export the results into dataFrame
 
     :param families: Families related to the connected components
@@ -217,10 +219,10 @@ def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, out
         for family in gene_context.families:
             line = [gene_context.ID]
             if fam_to_seq is None or fam_to_seq.get(family.ID) is None:
-                line += [family.name, None, len(family.organisms), family.named_partition]
+                line += [family.name, None, family.number_of_organisms(), family.named_partition]
             else:
                 line += [family.name, ','.join(fam_to_seq.get(family.ID)),
-                         len(family.organisms), family.named_partition]
+                         family.number_of_organisms(), family.named_partition]
             lines.append(line)
     df = pd.DataFrame(lines,
                       columns=["GeneContext ID", "Gene family name", "Sequence ID", "Nb Genomes", "Partition"]

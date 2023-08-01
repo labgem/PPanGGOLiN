@@ -272,10 +272,11 @@ def write_nem_input_files(tmpdir: Path, organisms: set, sm_degree: int = 10) -> 
             index_org[org] = index
 
         for fam in pan.gene_families:
+            fam_organisms = set(fam.organisms)
             # could use bitarrays if this part is limiting?
-            if not organisms.isdisjoint(fam.organisms):
+            if not organisms.isdisjoint(fam_organisms):
                 curr_dat = list(default_dat)
-                curr_orgs = fam.organisms & organisms
+                curr_orgs = fam_organisms & organisms
                 for org in curr_orgs:
                     curr_dat[index_org[org]] = "1"
                 dat_file.write("\t".join(curr_dat) + "\n")

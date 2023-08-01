@@ -25,8 +25,8 @@ class Edge:
                             f"gene {target_gene.ID} did not have a gene family.")
         self.source = source_gene.family
         self.target = target_gene.family
-        self.source._edges[self.target] = self
-        self.target._edges[self.source] = self
+        self.source.set_edge(self.target, self)
+        self.target.set_edge(self.source, self)
         self.organisms = defaultdict(list)
         self.add_genes(source_gene, target_gene)
 

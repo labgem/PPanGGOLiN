@@ -84,13 +84,13 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         partitions_dict[fam.partition].append(fam)
         if fam.partition.startswith("S"):
             shell_subs.add(fam.partition)  # number of elements will tell the number of subpartitions
-    ordered_nodes_p = sorted(partitions_dict["P"], key=lambda n: len(n.organisms), reverse=True)
-    ordered_nodes_c = sorted(partitions_dict["C"], key=lambda n: len(n.organisms), reverse=True)
+    ordered_nodes_p = sorted(partitions_dict["P"], key=lambda n: n.number_of_organisms(), reverse=True)
+    ordered_nodes_c = sorted(partitions_dict["C"], key=lambda n: n.number_of_organisms(), reverse=True)
     sep_p = len(ordered_nodes_p) - 0.5
     separators = [sep_p]
     shell_na = None
     if len(shell_subs) == 1:
-        ordered_nodes_s = sorted(partitions_dict[shell_subs.pop()], key=lambda n: len(n.organisms), reverse=True)
+        ordered_nodes_s = sorted(partitions_dict[shell_subs.pop()], key=lambda n: n.number_of_organisms(), reverse=True)
         ordered_nodes = ordered_nodes_p + ordered_nodes_s + ordered_nodes_c
         separators.append(separators[len(separators) - 1] + len(ordered_nodes_s))
         separators.append(separators[len(separators) - 1] + len(ordered_nodes_c))
@@ -99,7 +99,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         for subpartition in sorted(shell_subs):
             if subpartition == "S_":
                 shell_na = len(separators) - 1
-            ordered_nodes_s = sorted(partitions_dict[subpartition], key=lambda n: len(n.organisms), reverse=True)
+            ordered_nodes_s = sorted(partitions_dict[subpartition], key=lambda n: n.number_of_organisms(), reverse=True)
             ordered_nodes += ordered_nodes_s
             separators.append(separators[len(separators) - 1] + len(ordered_nodes_s))
         ordered_nodes += ordered_nodes_c
@@ -109,7 +109,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     for node in ordered_nodes:
         fam_order.append('\u200c' + node.name)
         data = node.organisms
-        binary_data.append([len(node.get_genes_per_org(org)) if org in data else numpy.nan for org in order_organisms])
+        binary_data.append([len(list(node.get_genes_per_org(org))) if org in data else numpy.nan for org in order_organisms])
         text_data.append([("\n".join(map(str, node.get_genes_per_org(org))))
                           if org in data else numpy.nan for org in order_organisms])
 

@@ -89,7 +89,7 @@ def raref_nem(index: int, tmpdir: Path, beta: float = 2.5, sm_degree: int = 10,
                         validated.add(node)
 
         for fam in ppp.pan.gene_families:
-            if not samp.isdisjoint(fam.organisms):  # otherwise, useless to keep track of
+            if not samp.isdisjoint(set(fam.organisms)):  # otherwise, useless to keep track of
                 families.add(fam)
                 cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
 
