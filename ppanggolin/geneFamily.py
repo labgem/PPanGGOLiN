@@ -74,6 +74,9 @@ class GeneFamily(MetaFeatures):
         self._modules = set()
         self.bitarray = None
 
+    def __repr__(self):
+        return f"{self.ID}: {self.name}"
+
     @property
     def named_partition(self) -> str:
         """Reads the partition attribute and returns a meaningful name
@@ -99,8 +102,8 @@ class GeneFamily(MetaFeatures):
 
         :return: Neighbors
         """
-        for family in self._edges.keys():
-            yield family
+        for neighbor in self._edges.keys():
+            yield neighbor
 
     @property
     def edges(self) -> Generator[Edge, None, None]:
@@ -122,15 +125,10 @@ class GeneFamily(MetaFeatures):
 
         :return: Organisms that have this gene family
         """
-        try:
-            for org in self._genePerOrg.keys():
-                yield org
-        except AttributeError:  # then the genes have been added before they had organisms
-            for gene in self.genes:
-                self._genePerOrg[gene.organism].add(gene)
-            return self.organisms
-        except Exception:
-            raise Exception("An unexpected error occurs. Please report in our GitHub")
+        if len(self._genePerOrg) == 0:
+            _ = self.get_org_dict()
+        for org in self._genePerOrg.keys():
+            yield org
 
     @property
     def spots(self) -> Generator[Spot, None, None]:
@@ -142,7 +140,7 @@ class GeneFamily(MetaFeatures):
         for module in self._modules:
             yield module
     @property
-    def number_of_neighbor(self) -> int:
+    def number_of_neighbors(self) -> int:
         """Get the number of neighbor for the current gene family
         """
         return len(self._edges.keys())
@@ -163,6 +161,8 @@ class GeneFamily(MetaFeatures):
     def number_of_organisms(self) -> int:
         """Get the number of organisms for the current gene family
         """
+        if len(self._genePerOrg) == 0:
+            _ = self.get_org_dict()
         return len(self._genePerOrg.keys())
 
     @property
@@ -200,13 +200,19 @@ class GeneFamily(MetaFeatures):
             raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
         self._genes.add(gene)
         gene.family = self
-        if hasattr(gene, "organism"):
+        if gene.organism is not None:
             self._genePerOrg[gene.organism].add(gene)
 
     def add_spot(self, spot: Spot):
+        from ppanggolin.region import Spot   # prevent circular import error
+        if not isinstance(spot, Spot):
+            raise TypeError(f"A spot object is expected, you give a {type(spot)}")
         self._spots.add(spot)
 
     def add_module(self, module: Module):
+        from ppanggolin.region import Module   # prevent circular import error
+        if not isinstance(module, Module):
+            raise TypeError(f"A module object is expected, you give a {type(module)}")
         self._modules.add(module)
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
@@ -237,28 +243,23 @@ class GeneFamily(MetaFeatures):
 
         :return: a dictionnary of organism as key and set of genes as values
         """
-        try:
-            return self._genePerOrg
-        except AttributeError:
+        if len(self._genePerOrg) == 0:
             for gene in self.genes:
+                if gene.organism is None:
+                    raise AttributeError(f"Gene: {gene.name} is not fill with organism")
                 self._genePerOrg[gene.organism].add(gene)
-            return self._genePerOrg
-        except Exception:
-            raise Exception("An unexpected error occurs. Please report in our GitHub")
+        return self._genePerOrg
 
-    def get_genes_per_org(self, org: Organism) -> Set[Gene]:
+    def get_genes_per_org(self, org: Organism) -> Generator[Gene, None, None]:
         """Returns the genes belonging to the gene family in the given Organism
 
         :param org: Organism to look for
 
         :return: a set of gene(s)
         """
-        try:
-            for gene in self._genePerOrg[org]:
-                yield gene
-        except AttributeError:
-            for gene in self.genes:
-                self._genePerOrg[gene.organism].add(gene)
-            return self.get_genes_per_org(org)
-        except Exception:
-            raise Exception("An unexpected error occurs. Please report in our GitHub")
+        if len(self._genePerOrg) == 0:
+            _ = self.get_org_dict()
+        if org not in self._genePerOrg:
+            raise KeyError(f"Organism don't belong to the gene family: {self.name}")
+        for gene in self._genePerOrg[org]:
+            yield gene

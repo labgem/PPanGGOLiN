@@ -2,265 +2,291 @@
 
 import pytest
 from random import randint, sample
-
+from typing import Generator, Set
 from collections import defaultdict
+from itertools import combinations
 
 from ppanggolin.pangenome import Edge
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.genome import Gene
+from ppanggolin.genome import Gene, Organism, Contig
+from ppanggolin.region import Spot, Module
 
 
-def test_cstr():
-    identifier = 33
-    name = "33"
-    o_family = GeneFamily(identifier, name)
-    assert isinstance(o_family, GeneFamily)
-
-    for attr in "ID", "name", "genes", \
-                "removed", "sequence", "partition":
-        assert hasattr(o_family, attr)
-    assert o_family.ID == identifier
-    assert o_family.name == name
-    assert o_family.genes == set()
-    assert o_family.removed is False
-    assert o_family.sequence == ""
-    assert o_family.partition == ""
-
-
-@pytest.fixture()
-def o_family():
-    return GeneFamily(33, "trente-trois")
-
-
-def test_add_sequence(o_family):
-    seq = "un de troa"
-    o_family.add_sequence(seq)
-    assert o_family.sequence == seq
-
-
-def test_add_partition(o_family):
-    partition = "un de troa"
-    o_family.add_partition(partition)
-    assert o_family.partition == partition
-
-
-def test_named_partition_error(o_family):
-    with pytest.raises(Exception):
-        o_family.named_partition
-
-
-@pytest.mark.parametrize("partition, name",
-                         [
-                             ("P", "persistent"),
-                             ("Pp", "persistent"),
-                             ("P whatever, only first letter is important", "persistent"),
-                             ("C", "cloud"),
-                             ("C loud", "cloud"),
-                             ("C whatever, only first letter is important", "cloud"),
-                             ("S", "shell"),
-                             ("Shut", "shell"),
-                             ("S whatever, only first letter is important", "shell"),
-                             ("un de troa kvar", "undefined"),
-                             ("1", "undefined"),
-                             ("p", "undefined"),
-                             ("c", "undefined"),
-                             ("s", "undefined"),
-                         ])
-def test_named_partition(o_family, partition, name):
-    o_family.add_partition(partition)
-    assert o_family.named_partition == name
-
-
-@pytest.fixture()
-def lo_genes():
-    return [Gene(str(i)) for i in range(4)]
-
-
-def test_add_gene_error(o_family, lo_genes):
-    with pytest.raises(TypeError):
-        o_family.add_gene(33)
-
-
-def test_add_gene_solo(o_family, lo_genes):
-    o_gene = Gene(33)
-    o_family.add_gene(o_gene)
-    assert o_family.genes == {o_gene}
-    assert o_gene.family == o_family
-
-
-def test_add_gene_many(o_family, lo_genes):
-    """ fill the family with genes from the same organism"""
-    organism = "organism"
-    for o_gene in lo_genes * 4:  # *4 to assert duplicates are not considered
-        o_gene.fill_parents(organism, None)
-        o_family.add_gene(o_gene)
-        assert o_gene.family == o_family
-    assert o_family.genes == set(lo_genes)
-
-
-def test_mk_bitarray_no_org(o_family):
-    # index is meaningless
-    o_family.mk_bitarray(None)
-    assert o_family.bitarray == 0
-
-
-def test_mk_bitarray_with_org(o_family):
-    organism = "organism"
-    o_gene = Gene(33)
-    o_gene.fill_parents(organism, None)
-
-    o_family.add_gene(o_gene)
-
-    for i in 1, 3, 7, 12:
-        index = {organism: i}
-        o_family.mk_bitarray(index)
-        assert o_family.bitarray == 1 << i
-
-
-def test_get_org_dict_error(o_family):
-    with pytest.raises(AttributeError):
-        o_family.discard('_genePerOrg')
-        # I don't get how this can happen
-
-
-def test_get_org_dict_empty(o_family):
-    dd = o_family.get_org_dict()
-    assert isinstance(dd, defaultdict)
-    assert 0 == len(dd)
-
-
-def test_get_org_dict(o_family, lo_genes):
-    """ in lo_genes, none has organism.
-        I'll add one, several times, creating several sets."""
-    n_orgs = randint(2, 10)
-    for org in range(n_orgs):
-        for o_gene in lo_genes:
-            o_gene.fill_parents(org, None)
-            o_family.add_gene(o_gene)
-
-    dd = o_family.get_org_dict()
-    assert n_orgs == len(dd)
-    for org in dd:
-        assert dd[org] == set(lo_genes)
-
-    # Note: after integration, genes can be edited
-    #   which leads to inconsistent results.
-    #   here the same genes are refered to 2 orgs.
-    #   IMO this would be user pb as it is insane user behavior.
-
-
-def test_get_genes_per_org_error(o_family):
-    with pytest.raises(AttributeError):
-        o_family.discard('_genePerOrg')
-        # I don't get how this can happen
-
-
-def test_get_genes_per_org_no_gene(o_family):
-    org = "org"
-
-    s_genes = o_family.get_genes_per_org(org)
-    assert 0 == len(s_genes)
-
-
-def test_get_genes_per_org(o_family, lo_genes):
-    org = "org"
-    for o_gene in lo_genes:
-        o_gene.fill_parents(org, None)
-        o_family.add_gene(o_gene)
-    s_genes = o_family.get_genes_per_org(org)
-    assert s_genes == set(lo_genes)
-
-
-def test_organisms_error(o_family, lo_genes):
-    with pytest.raises(AttributeError):
-        o_family.discard('_genePerOrg')
-        # I don't get how this can happen
-
-
-def test_organisms_empty(o_family, lo_genes):
-    assert set() == o_family.organisms
-
-
-def test_organisms(o_family, lo_genes):
-    l_org = []
-    for o_gene in lo_genes:
-        org = randint(0, 5)
-        o_gene.fill_parents(org, None)
-        o_family.add_gene(o_gene)
-        l_org.append(org)
-
-    assert set(l_org) == o_family.organisms
-
-
-def test_neighbors_empty(o_family):
-    assert o_family.neighbors == set()
-
-
-@pytest.fixture
-def filled_families():
+class TestGeneFamily:
+    """Tests the gene family class
     """
-    return a list of families and genes.
-    there will be between 3 and 10 genes/families.
-    Each family has only one gene.
-    """
-    lo_genes = []
-    lo_fam = []
 
-    n_families = randint(3, 10)
-    for fam in range(n_families):
-        o_gene = Gene(fam)
-        o_gene.fill_parents(None, None)
+    def test_create_gene_family(self):
+        """Tests that a GeneFamily object can be created with valid family_id and name
+        """
+        family = GeneFamily(1, 'test')
+        assert isinstance(family, GeneFamily)
+        assert all(attr in ["ID", "name", "_edges", "_genePerOrg", "_genes", "removed", "sequence", "partition",
+                            "_spots", "_modules", "bitarray", "_metadataGetter"] for attr in
+                   family.__dict__)  # Check that no attribute was added else it should be tested
+        assert all(hasattr(family, attr) for attr in ["ID", "name", "_edges", "_genePerOrg", "_genes", "removed",
+                                                      "sequence", "partition", "_spots", "_modules",
+                                                      "bitarray"])  # Check that no attribute was removed else it should be tested
+        assert family.ID == 1
+        assert family.name == 'test'
+        assert family._edges == {}
+        assert family._genePerOrg == {}
+        assert family._genes == set()
+        assert not family.removed  # for the repeated family not added in the main graph
+        assert family.sequence == ""
+        assert family.partition == ""
+        assert family._spots == set()
+        assert family._modules == set()
+        assert family.bitarray is None
 
-        o_family = GeneFamily(fam, fam)
-        o_family.add_gene(o_gene)
+    @pytest.fixture
+    def family(self) -> Generator[GeneFamily, None, None]:
+        """Create a gene family for all tests"""
+        yield GeneFamily(1, "test")
 
-        lo_genes.append(o_gene)
-        lo_fam.append(o_family)
+    @pytest.mark.parametrize("partition, name",
+                             [
+                                 ("P", "persistent"),
+                                 ("Pp", "persistent"),
+                                 ("P whatever, only first letter is important", "persistent"),
+                                 ("C", "cloud"),
+                                 ("C loud", "cloud"),
+                                 ("C whatever, only first letter is important", "cloud"),
+                                 ("S", "shell"),
+                                 ("Shut", "shell"),
+                                 ("S whatever, only first letter is important", "shell"),
+                                 ("un de troa kvar", "undefined"),
+                                 ("1", "undefined"),
+                                 ("p", "undefined"),
+                                 ("c", "undefined"),
+                                 ("s", "undefined"),
+                             ])
+    def test_get_named_partition_of_gene_family_object(self, family, partition, name):
+        """Tests that the named partition of a GeneFamily object can be retrieved
+        """
+        family.partition = partition
+        assert family.named_partition == name
 
-    return lo_fam, lo_genes
+    def test_get_named_partition_error_partition_empty(self, family):
+        """Tests that if no partition given to gene family, raise a ValueError
+        """
+        with pytest.raises(ValueError):
+            _ = family.named_partition
 
+    def test_add_sequence_to_gene_family(self, family):
+        """Tests that a sequence can be added to a GeneFamily object
+        """
+        family.add_sequence('ATCG')
+        assert family.sequence == 'ATCG'
 
-def test_neighbors(filled_families):
-    lo_fam, lo_genes = filled_families
+    def test_add_gene_to_gene_family(self, family):
+        """Tests that a Gene object can be added to a GeneFamily object
+        """
+        family = GeneFamily(1, 'test')
+        gene = Gene('gene1')
+        family.add_gene(gene)
+        assert gene in family.genes
+        assert gene.family == family
 
-    # get several genes and make an edge
-    #   between them and the first of the list
-    n_genes = randint(2, len(lo_genes))
-    sample_genes = sample(lo_genes, n_genes)
-    for o_gene in sample_genes:
-        # it is strange to me to update family attribute from another class.
-        Edge(lo_genes[0], o_gene)
-    # we have 0->{*}
+    def test_add_gene_error(self, family):
+        """Tests that a non gene object can't be added to a GeneFamily as gene
+        """
+        with pytest.raises(TypeError):
+            family.add_gene(33)
 
-    # first gene belong to the first family
-    # let's get the family neighbors
-    # set because order is not guaranted
-    s = set(lo_fam[0].neighbors)
-    print(s)
-    assert n_genes == len(s)
+    @pytest.fixture
+    def genes(self) -> Generator[Set[Gene], None, None]:
+        """Creeate a set of genes to fill gene families
+        """
+        genes = set()
+        for i in range(1, randint(11, 20)):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10*(i-1) + 1, stop=10*i, strand='+', position=i, genetic_code=4)
+            genes.add(gene)
+        yield genes
 
-    xpected = {g.family for g in sample_genes}
-    assert xpected == s
+    def test_get_number_of_genes(self, family, genes):
+        """Tests that the number of genes can be retrieved
+        """
+        for gene in genes:
+            family.add_gene(gene)
+        assert isinstance(family.number_of_genes, int)
+        assert family.number_of_genes == len(genes)
 
+    @pytest.fixture
+    def organisms(self, genes) -> Generator[Set[Organism], None, None]:
+        """Create a set of organisms fill with genes to test edges
+        """
+        organisms = set()
+        genes = list(genes)
+        nb_organisms = randint(2, 10)
+        nb_genes_per_organisms = len(genes) // nb_organisms
+        idx_org = 1
+        while idx_org < nb_organisms:
+            organism = Organism(f"organism_{idx_org}")
+            contig = Contig(f"contig_{idx_org}")
+            organism.add_contig(contig)
+            idx_genes = 0
+            while idx_genes < nb_genes_per_organisms:
+                gene = genes[(idx_org - 1) * nb_genes_per_organisms + idx_genes]
+                gene.fill_parents(organism, contig)
+                contig[gene.start] = gene
+                idx_genes += 1
+            organisms.add(organism)
+            idx_org += 1
+        # last family fill with all the gene left
+        organism = Organism(f"organism_{idx_org}")
+        contig = Contig(f"contig_{idx_org}")
+        organism.add_contig(contig)
+        idx_genes = (idx_org - 1) * nb_genes_per_organisms
+        while idx_genes < len(genes):
+            gene = genes[idx_genes]
+            gene.fill_parents(organism, contig)
+            contig[gene.start] = gene
+            idx_genes += 1
+        organisms.add(organism)
+        yield organisms
 
-def test_edges_empty(o_family):
-    d = o_family.edges
-    assert 0 == len(d)
+    def test_get_org_dict(self, family, genes, organisms):
+        """"""
+        for gene in genes:
+            family.add_gene(gene)
+        org_dict = family.get_org_dict()
+        assert isinstance(org_dict, dict)
+        assert all(isinstance(org, Organism) for org in org_dict.keys())
+        assert all(isinstance(gene, Gene) for gene_set in org_dict.values() for gene in gene_set)
+        assert set(org_dict.keys()) == organisms
+        assert set([gene for gene_set in org_dict.values() for gene in gene_set]) == genes
 
+    def test_get_org_dict_with_no_organism_fill_to_genes(self, family, genes):
+        for gene in genes:
+            family.add_gene(gene)
+        with pytest.raises(AttributeError):
+            _ = family.get_org_dict()
 
-def test_edges(filled_families):
-    lo_fam, lo_genes = filled_families
+    def test_organisms(self, family, organisms, genes):
+        for gene in genes:
+            family.add_gene(gene)
+        assert set(family.organisms) == organisms
 
-    # get several genes and make an edge
-    #   between them and the first of the list
-    n_genes = randint(2, len(lo_genes))
-    sample_genes = sample(lo_genes, n_genes)
-    l_edges = []
-    for o_gene in sample_genes:
-        # it is strange to me to update family attribute from another class.
-        l_edges.append(Edge(lo_genes[0], o_gene))
-    # we have 0->{*}
+    def test_number_of_organism(self, family, organisms, genes):
+        for gene in genes:
+            family.add_gene(gene)
+        assert isinstance(family.number_of_organisms, int)
+        assert family.number_of_organisms == len(organisms)
 
-    edge_list = lo_fam[0].edges
-    # set because order is not guaranted
-    assert set(l_edges) == set(edge_list)
+    def test_get_genes_per_org(self, family, organisms, genes):
+        for gene in genes:
+            family.add_gene(gene)
+        for organism in organisms:
+            assert set(family.get_genes_per_org(organism)) == set(organism.genes)
+
+    def test_get_genes_per_org_if_org_not_in_family(self, family):
+        with pytest.raises(KeyError):
+            org = Organism("organism")
+            _ = set(family.get_genes_per_org(org))
+
+    @pytest.fixture
+    def families(self, genes) -> Generator[Set[GeneFamily], None, None]:
+        """Create a set of gene families fill with genes to test edges
+        """
+        families = set()
+        genes = list(genes)
+        nb_families = randint(2, 10)
+        nb_genes_per_family = len(genes) // nb_families
+        idx_fam = 1
+        while idx_fam < nb_families:
+            family = GeneFamily(idx_fam, f"family_{idx_fam}")
+            idx_genes = 0
+            while idx_genes < nb_genes_per_family:
+                gene = genes[(idx_fam - 1) * nb_genes_per_family + idx_genes]
+                family.add_gene(gene)
+                gene.family = family
+                idx_genes += 1
+            families.add(family)
+            idx_fam += 1
+        # last family fill with all the gene left
+        family = GeneFamily(idx_fam, f"family_{idx_fam}")
+        idx_genes = (idx_fam - 1) * nb_genes_per_family
+        while idx_genes < len(genes):
+            gene = genes[idx_genes]
+            family.add_gene(gene)
+            gene.family = family
+            idx_genes += 1
+        families.add(family)
+        yield families
+
+    @pytest.fixture
+    def edges(self, families, genes) -> Generator[Set[Edge], None, None]:
+        """Create a set of edges fill with genes and gene families to test edges
+        """
+        edges = {}
+        pair_genes = combinations(genes, 2)
+        for pair in pair_genes:
+            key = frozenset([pair[0].family, pair[1].family])
+            edge = edges.get(key)
+            if edge is None:
+                edge = Edge(pair[0], pair[1])
+                edges[key] = edge
+            else:
+                edge.add_genes(pair[0], pair[1])
+            pair[0].family.set_edge(pair[1].family, edge)
+            pair[1].family.set_edge(pair[0].family, edge)
+        yield set(edges.values())
+
+    def test_get_neighbors_of_gene_family(self, families, edges):
+        for family in families:
+            assert all(isinstance(neighbor, GeneFamily) for neighbor in family.neighbors)
+            expected_neighbors = set([edge.source for edge in edges
+                                      if edge.target == family]).union(set([edge.target for edge in edges
+                                                                            if edge.source == family]))
+            assert set(family.neighbors) == expected_neighbors
+
+    def test_get_number_of_neighbors(self, families, edges):
+        for family in families:
+            expected_neighbors = set([edge.source for edge in edges
+                                      if edge.target == family]).union(set([edge.target for edge in edges
+                                                                            if edge.source == family]))
+            assert isinstance(family.number_of_neighbors, int)
+            assert family.number_of_neighbors == len(expected_neighbors)
+
+    #  Tests that the edges of a GeneFamily object can be retrieved
+    def test_get_edges_of_gene_family(self, families, edges):
+        for family in families:
+            expected_edges = set([edge for edge in edges if edge.source == family or edge.target == family])
+            assert all(isinstance(edge, Edge) for edge in family.edges)
+            assert set(family.edges) == expected_edges
+
+    def test_get_number_of_edges(self, families, edges):
+        for family in families:
+            expected_edges = set([edge for edge in edges if edge.source == family or edge.target == family])
+            assert isinstance(family.number_of_edges, int)
+            assert family.number_of_neighbors == len(expected_edges)
+
+    def test_add_spot_to_gene_family(self, family):
+        """Tests that a Spot object can be added to a GeneFamily object
+        """
+        spot = Spot('spot1')
+        family.add_spot(spot)
+        assert spot in family.spots
+
+    def test_add_non_spot_as_spot_in_family(self, family):
+        """Tests that a non-spot object cannot be added to Gene Family
+        """
+        with pytest.raises(TypeError):
+            family.add_spot(323)
+
+    def test_add_module_to_gene_family(self, family):
+        """Tests that a Module object can be added to a GeneFamily object
+        """
+        module = Module('module1')
+        family.add_module(module)
+        assert module in family.modules
+
+    def test_add_non_module_as_module_in_family(self, family):
+        """Tests that a non-module object cannot be added to Gene Family
+        """
+        with pytest.raises(TypeError):
+            family.add_module(323)
+
+    # TODO test mk_bitarray

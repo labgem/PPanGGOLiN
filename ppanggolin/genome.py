@@ -150,6 +150,7 @@ class Feature(MetaFeatures):
         :param contig: Parent contig
         """
         if organism is not None:
+            # TODO test type
             self.organism = organism
             if contig is not None:
                 self.contig = contig
@@ -282,6 +283,7 @@ class Contig:
 
     def __init__(self, name: str, is_circular: bool = False):
         """Constructor method
+
         :param name: Name of the contig
         :param is_circular: save if the contig is circular
         """
@@ -341,7 +343,8 @@ class Contig:
         :return: list of gene in contig
         """
         for gene in self._genes_position:
-            yield gene
+            if gene is not None:
+                yield gene
 
     @property
     def organism(self) -> Organism:
@@ -438,7 +441,7 @@ class Organism(MetaFeatures):
         return len(self._families)
 
     @property
-    def genes(self) -> Iterator[Gene]:
+    def genes(self) -> Generator[Gene, None, None]:
         """ Generator to get genes in organism
 
         :return: Generator of genes in organism
