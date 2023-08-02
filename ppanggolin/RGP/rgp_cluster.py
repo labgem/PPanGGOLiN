@@ -5,7 +5,7 @@
 import logging
 import argparse
 import os
-from itertools import combinations
+from itertools import combinations, chain
 from collections.abc import Callable
 from collections import defaultdict
 from multiprocessing.pool import Pool
@@ -318,27 +318,27 @@ def compute_rgp_metric(rgp_pair: Tuple[int, int],
     rgp_b_fam = rgp_to_families[rgp_b]
 
     # Compute metrics between 2 rgp if they share at least one family
-    if rgp_a_fam & rgp_b_fam:
-        edge_metrics = {}
+    # if rgp_a_fam & rgp_b_fam:
+    edge_metrics = {}
 
-        # RGP at a contig border are seen as incomplete and min GRR is used instead of max GRR
-        if rgp_to_contigborder[rgp_a] or rgp_to_contigborder[rgp_b]:
-            edge_metrics["incomplete_aware_grr"] = compute_grr(
-                rgp_a_fam, rgp_b_fam, min)
-        else:
-            edge_metrics["incomplete_aware_grr"] = compute_grr(
-                rgp_a_fam, rgp_b_fam, max)
+    # RGP at a contig border are seen as incomplete and min GRR is used instead of max GRR
+    if rgp_to_contigborder[rgp_a] or rgp_to_contigborder[rgp_b]:
+        edge_metrics["incomplete_aware_grr"] = compute_grr(
+            rgp_a_fam, rgp_b_fam, min)
+    else:
+        edge_metrics["incomplete_aware_grr"] = compute_grr(
+            rgp_a_fam, rgp_b_fam, max)
 
-        # Compute max and min GRR metrics
-        edge_metrics['max_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, max)
-        edge_metrics['min_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, min)
+    # Compute max and min GRR metrics
+    edge_metrics['max_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, max)
+    edge_metrics['min_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, min)
 
-        # Number of shared families can be useful when visualising the graph
-        edge_metrics['shared_family'] = len(rgp_a_fam & rgp_b_fam)
+    # Number of shared families can be useful when visualising the graph
+    edge_metrics['shared_family'] = len(rgp_a_fam & rgp_b_fam)
 
-        # Only return the metrics if the GRR value is above the cutoff
-        if edge_metrics[grr_metric] >= grr_cutoff:
-            return (rgp_a, rgp_b, edge_metrics)
+    # Only return the metrics if the GRR value is above the cutoff
+    if edge_metrics[grr_metric] >= grr_cutoff:
+        return (rgp_a, rgp_b, edge_metrics)
 
 
 def launch_rgp_metric(pack: tuple) -> tuple:
@@ -488,14 +488,26 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str, cpu: i
     
     rgp_to_iscontigborder = {
         rgp.ID: rgp.is_contig_border for rgp in dereplicated_rgps}
+    
+    family2rgp = defaultdict(set)
+    for rgp in dereplicated_rgps:
+        for fam in rgp.families:
+            family2rgp[fam].add(rgp.ID)
+    
+    rgp_pairs = set()
+    for rgps in family2rgp.values():
+        rgp_pairs |= {tuple(sorted(rgp_pair)) for rgp_pair in combinations(rgps, 2)}
+    
+    pairs_count = len(rgp_pairs)
 
     # compute grr for all possible pair of rgp
-    pairs_count = int((rgp_count**2 - rgp_count)/2)
+    # pairs_count = int((rgp_count**2 - rgp_count)/2)
     logging.info(
         f'Computing GRR metric for {pairs_count:,} pairs of RGP using {cpu} cpus...')
 
     # use the ID of the rgp to make pair rather than their name to save memory
-    rgp_pairs = combinations(rgp_to_families.keys(), 2)
+    # rgp_pairs = combinations(rgp_to_families.keys(), 2)
+    
 
     optimal_chunk_size = 50000
     chunk_count = (pairs_count/optimal_chunk_size) + cpu
@@ -504,9 +516,12 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str, cpu: i
         f'Computing GRR metric in ~{chunk_count:.2f} chunks of {chunk_size} pairs')
 
     # create the argument iterator to use in parallell
-    arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder,
-                grr_cutoff, grr_metric) for rgp_pair in rgp_pairs)
+    # arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder,
+    #             grr_cutoff, grr_metric) for rgp_pair in rgp_pairs if rgp_to_families[rgp_pair[0]] & rgp_to_families[rgp_pair[1]])
 
+    arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder,
+            grr_cutoff, grr_metric) for rgp_pair in rgp_pairs)
+    
     pairs_of_rgps_metrics = []
     with Pool(processes=cpu) as p:
         for pair_metrics in tqdm(p.imap_unordered(launch_rgp_metric, arg_iter, chunksize=chunk_size),
