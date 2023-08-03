@@ -1015,14 +1015,14 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
     h5f = tables.open_file(filename, "a")
 
     if pangenome.status["geneSequences"] == "Computed":
-        logging.getLogger("PPanGGOLiN").info("writing the protein coding gene dna sequences")
+        logging.getLogger("PPanGGOLiN").info("writing the protein coding gene dna sequences in pangenome...")
         write_gene_sequences(pangenome, h5f, disable_bar=disable_bar)
         pangenome.status["geneSequences"] = "Loaded"
 
     if pangenome.status["genesClustered"] == "Computed":
-        logging.getLogger("PPanGGOLiN").info("Writing gene families and gene associations...")
+        logging.getLogger("PPanGGOLiN").info("Writing gene families and gene associations in pangenome...")
         write_gene_families(pangenome, h5f, force, disable_bar=disable_bar)
-        logging.getLogger("PPanGGOLiN").info("Writing gene families information...")
+        logging.getLogger("PPanGGOLiN").info("Writing gene families information in pangenome...")
         write_gene_fam_info(pangenome, h5f, force, disable_bar=disable_bar)
         if pangenome.status["genomesAnnotated"] in ["Loaded", "inFile"] and \
                 pangenome.status["defragmented"] == "Computed":
@@ -1031,7 +1031,7 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
             update_gene_fragments(pangenome, h5f, disable_bar=disable_bar)
         pangenome.status["genesClustered"] = "Loaded"
     if pangenome.status["neighborsGraph"] == "Computed":
-        logging.getLogger("PPanGGOLiN").info("Writing the edges...")
+        logging.getLogger("PPanGGOLiN").info("Writing the edges of neighbors graph in pangenome...")
         write_graph(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["neighborsGraph"] = "Loaded"
     if pangenome.status["partitioned"] == "Computed" and \
@@ -1040,17 +1040,17 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
         pangenome.status["partitioned"] = "Loaded"
 
     if pangenome.status['predictedRGP'] == "Computed":
-        logging.getLogger("PPanGGOLiN").info("Writing Regions of Genomic Plasticity...")
+        logging.getLogger("PPanGGOLiN").info("Writing Regions of Genomic Plasticity in pangenome...")
         write_rgp(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status['predictedRGP'] = "Loaded"
 
     if pangenome.status["spots"] == "Computed":
-        logging.getLogger("PPanGGOLiN").info("Writing Spots of Insertion...")
+        logging.getLogger("PPanGGOLiN").info("Writing Spots of Insertion in pangenome...")
         write_spots(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status['spots'] = "Loaded"
 
     if pangenome.status["modules"] == "Computed":
-        logging.getLogger("PPanGGOLiN").info("Writing Modules...")
+        logging.getLogger("PPanGGOLiN").info("Writing Modules in pangenome...")
         write_modules(pangenome, h5f, force, disable_bar=disable_bar)
         pangenome.status["modules"] = "Loaded"
 
