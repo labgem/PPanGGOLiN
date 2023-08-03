@@ -51,6 +51,7 @@ class GeneFamily(MetaFeatures):
     """
 
     def __init__(self, family_id: int, name: str):
+        # TODO edges as genes in contig to get and set
         """Constructor method
         :param family_id: The internal identifier to give to the gene family
         :type family_id: any

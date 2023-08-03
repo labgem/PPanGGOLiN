@@ -1,134 +1,113 @@
 #! /usr/bin/env python3
 
 import pytest
+from typing import Generator, Tuple
 
-from ppanggolin.genome import Gene
+from ppanggolin.genome import Gene, Organism
 from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
 
 
-def test_cstr_error():
-    o_src = Gene('source')
-    o_tgt = Gene('target')
-    # genes should have a family
-    with pytest.raises(Exception):
-        _ = Edge(o_src, o_tgt)
+class TestEdge:
+    """Test edge class
+    """
+    #  Tests that an Edge object can be created with two genes belonging to different families
 
-    o_family = GeneFamily(None, None)
-    o_family.add_gene(o_src)
-    # both genes sould have a family
-    with pytest.raises(Exception):
-        _ = Edge(o_src, o_tgt)
+    @pytest.fixture
+    def organism(self) -> Generator[Organism, None, None]:
+        yield Organism("organism")
 
-    # gene should belong to the same organism
-    o_family.add_gene(o_tgt)
-    o_src.fill_parents("", None)
-    o_tgt.fill_parents(None, None)
-    with pytest.raises(Exception):
-        _ = Edge(o_src, o_tgt)
+    @pytest.fixture
+    def families_pair(self) -> Generator[Tuple[GeneFamily, GeneFamily], None, None]:
+        yield GeneFamily(1, "family1"), GeneFamily(2, "family2")
 
+    @pytest.fixture
+    def genes_pair(self, organism, families_pair) -> Generator[Tuple[Gene, Gene], None, None]:
+        gene1, gene2 = Gene("gene1"), Gene("gene2")
+        gene1.fill_parents(organism, None)
+        gene2.fill_parents(organism, None)
+        gene1.family, gene2.family = GeneFamily(1, "family1"), GeneFamily(2, "family2")
+        yield gene1, gene2
 
-def test_cstr():
-    o_src = Gene('source')
-    o_tgt = Gene('target')
+    @pytest.fixture
+    def edge(self, genes_pair):
+        edge = Edge(*genes_pair)
+        yield edge
 
-    # set organism and contig to None.
-    o_src.fill_parents(None, None)
-    o_tgt.fill_parents(None, None)
+    def test_constructor(self, genes_pair, organism, families_pair):
+        gene1, gene2 = genes_pair
+        edge = Edge(gene1, gene2)
+        assert edge.source == gene1.family
+        assert edge.target == gene2.family
+        assert edge.source._edges[edge.target] == edge
+        assert edge.target._edges[edge.source] == edge
+        assert edge._organisms == {organism: [(gene1, gene2)]}
 
-    # define the None GeneFamily, and add the 2 genes to it.
-    o_family = GeneFamily(None, None)
-    o_family.add_gene(o_src)
-    o_family.add_gene(o_tgt)
+    def test_constructor_attribute_error(self):
+        """Tests that an AttributeError is raised when creating an Edge object
+         with a gene that does not belong to any family
+        """
+        gene1 = Gene('gene1')
+        gene1.family = GeneFamily(0, 'test')
+        gene2 = Gene('gene2')
+        with pytest.raises(AttributeError):
+            # Test target attribute error
+            Edge(gene1, gene2)
+        with pytest.raises(AttributeError):
+            # Test source attribute error
+            Edge(gene2, gene1)
 
-    o_edge = Edge(o_src, o_tgt)
-    assert isinstance(o_edge, Edge)
+    def test_gene_pairs(self, edge, genes_pair):
+        assert set(edge.gene_pairs) == {genes_pair}
 
-    assert o_edge.source == o_src.family
-    assert o_edge.target == o_tgt.family
-    assert dict(o_edge.organisms) == {None: [(o_src, o_tgt)]}
+    def test_get_organisms(self, edge, organism):
+        assert set(edge.organisms) == {organism}
 
+    def test_get_number_of_organisms(self, edge):
+        assert isinstance(edge.number_of_organisms, int)
+        assert edge.number_of_organisms == 1
 
-@pytest.fixture()
-def make_gene_pair():
-    def _make_gene_pair(org, gene_id1, gene_id2):
-        """create 2 genes from org.
-            each gene belong to its own family."""
-        lo_genes = []
-        for k in gene_id1, gene_id2:
-            o_gene = Gene(k)
-            o_gene.fill_parents(org, None)
+    def test_get_organisms_dict(self, edge, organism, genes_pair):
+        assert edge.get_organisms_dict() == {organism: [genes_pair]}
 
-            lo_genes.append(o_gene)
+    def test_get_organism_genes_pairs(self, edge, organism, genes_pair):
+        assert edge.get_organism_genes_pairs(organism) == [genes_pair]
 
-            o_family = GeneFamily(k, k)
-            o_family.add_gene(o_gene)
+    def test_edge_add_genes_same_organism(self, edge, genes_pair, organism):
+        """Tests that genes can be added to the edge that are on the same organism
+        """
+        gene1, gene2, gene3, gene4 = *genes_pair, Gene('gene3'), Gene('gene4')
+        gene3.fill_parents(organism, None)
+        gene4.fill_parents(organism, None)
+        edge.add_genes(gene3, gene4)
+        assert edge.get_organism_genes_pairs(organism) == [(gene1, gene2), (gene3, gene4)]
 
-        return tuple(lo_genes)
+    def test_edge_add_genes_different_organisms(self, edge, organism):
+        """Tests that an Exception is raised when adding genes to the edge that are not on the same organism
+        """
+        gene1, gene2 = Gene('gene3'), Gene('gene4')
+        gene1.fill_parents(organism, None)
+        org = Organism("org")
+        gene2.fill_parents(org, None)
+        with pytest.raises(Exception):
+            edge.add_genes(gene1, gene2)
 
-    return _make_gene_pair
+    def test_edge_add_genes_one_none_gene(self, edge, organism):
+        """Tests that a TypeError is raised when adding genes to the edge where one gene is None
+        """
+        gene1 = Gene('gene1')
+        gene1.fill_parents(organism, None)
+        with pytest.raises(TypeError):
+            edge.add_genes(gene1, None)
+        with pytest.raises(TypeError):
+            edge.add_genes(None, gene1)
 
-
-@pytest.fixture()
-def o_edge(make_gene_pair):
-    p = make_gene_pair("org", "src", "tgt")
-    return Edge(*p)
-
-
-def test_add_enes(make_gene_pair):
-    p1 = make_gene_pair("org1", "s1", "t1")
-    p2 = make_gene_pair("org1", "s2", "t1")
-    p3 = make_gene_pair("org2", "s1", "t2")
-    p4 = make_gene_pair("org2", "s1", "s2")
-    # org1: s1,s2 -- t1
-    # org2: s1 -- t2,s2
-
-    o_edge = Edge(*p1)
-    o_edge.add_genes(*p2)
-    o_edge.add_genes(*p3)
-    o_edge.add_genes(*p4)
-    assert set(o_edge.organisms.keys()) == {"org1", "org2"}
-    assert o_edge.organisms["org1"] == [p1, p2]
-    assert o_edge.organisms["org2"] == [p3, p4]
-
-
-@pytest.fixture()
-def filled_edge(make_gene_pair):
-    # Note that the same edge here links 4 families.
-    p1 = make_gene_pair("org1", "s1", "t1")
-    p2 = make_gene_pair("org1", "s2", "t1")
-    p3 = make_gene_pair("org2", "s1", "t2")
-    p4 = make_gene_pair("org2", "s1", "s2")
-    # org1: s1,s2 -- t1
-    # org2: s1 -- t2,s2
-
-    o_edge = Edge(*p1)
-    o_edge.add_genes(*p2)
-    o_edge.add_genes(*p3)
-    o_edge.add_genes(*p4)
-
-    return o_edge
-
-
-def test_get_org_dict(o_edge, filled_edge):
-    assert o_edge.get_org_dict() == o_edge.organisms
-    assert filled_edge.get_org_dict() == filled_edge.organisms
-
-
-def test_gene_pairs(make_gene_pair):
-    # cannot use filled_edge because I need access to pair.
-    p1 = make_gene_pair("org1", "s1", "t1")
-    p2 = make_gene_pair("org1", "s2", "t1")
-    p3 = make_gene_pair("org2", "s1", "t2")
-    p4 = make_gene_pair("org2", "s1", "s2")
-    # org1: s1,s2 -- t1
-    # org2: s1 -- t2,s2
-
-    o_edge = Edge(*p1)
-    o_edge.add_genes(*p2)
-    o_edge.add_genes(*p3)
-    o_edge.add_genes(*p4)
-
-    # 'set' because the order is not guaranted due to '.values()'.
-    l_pairs = o_edge.gene_pairs
-    assert set(l_pairs) == {p1, p2, p3, p4}
+    def test_edge_add_genes_without_organisms(self, edge, organism):
+        """Tests that a ValueError is raised when adding genes not filled with organism
+        """
+        gene1, gene2 = Gene('gene1'), Gene('gene2')
+        gene1.fill_parents(organism, None)
+        with pytest.raises(ValueError):
+            edge.add_genes(gene1, gene2)
+        with pytest.raises(ValueError):
+            edge.add_genes(gene2, gene1)

@@ -463,11 +463,10 @@ def write_graph(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
                                   expectedrows=pangenome.number_of_edges())
     edge_row = edge_table.row
     for edge in tqdm(pangenome.edges, total=pangenome.number_of_edges(), unit="edge", disable=disable_bar):
-        for gene_pairs in edge.organisms.values():
-            for gene1, gene2 in gene_pairs:
-                edge_row["geneTarget"] = gene1.ID
-                edge_row["geneSource"] = gene2.ID
-                edge_row.append()
+        for gene1, gene2 in edge.gene_pairs:
+            edge_row["geneTarget"] = gene1.ID
+            edge_row["geneSource"] = gene2.ID
+            edge_row.append()
     edge_table.flush()
 
 

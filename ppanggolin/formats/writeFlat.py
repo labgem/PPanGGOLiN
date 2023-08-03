@@ -125,12 +125,12 @@ def write_json_edge(edge: Edge, json: TextIO):
     json.write(f'"weight": {len(edge.gene_pairs)}, "source": "{edge.source.name}", "target": "{edge.target.name}"')
     json.write(', "organisms": {')
     orgstr = []
-    for org in edge.get_org_dict():
+    for org in edge.organisms:
         orgstr.append('"' + org.name + '": [')
         genepairstr = []
-        for genepair in edge.get_org_dict()[org]:
-            genepairstr.append('{"source": "' + genepair[0].ID + '", "target": "' + genepair[
-                1].ID + f'", "length": {genepair[0].start - genepair[1].stop}' + '}')
+        for gene_pair in edge.get_organism_genes_pairs(org):
+            genepairstr.append('{"source": "' + gene_pair[0].ID + '", "target": "' + gene_pair[
+                1].ID + f'", "length": {gene_pair[0].start - gene_pair[1].stop}' + '}')
         orgstr[-1] += ', '.join(genepairstr) + ']'
     json.write(', '.join(orgstr) + "}}")
 
@@ -271,13 +271,14 @@ def write_gexf_edges(gexf: TextIO, light: bool = True):
 
     for edge in pan.edges:
         gexf.write(f'      <edge id="{edgeids}" source="'
-                   f'{edge.source.ID}" target="{edge.target.ID}" weight="{len(edge.organisms)}">\n')
-        gexf.write(f'        <viz:thickness value="{len(edge.organisms)}" />\n')
+                   f'{edge.source.ID}" target="{edge.target.ID}" weight="{edge.number_of_organisms}">\n')
+        gexf.write(f'        <viz:thickness value="{edge.number_of_organisms}" />\n')
         gexf.write('        <attvalues>\n')
         gexf.write(f'          <attribute id="11" value="{len(edge.gene_pairs)}" />\n')
         if not light:
-            for org, genes in edge.get_org_dict().items():
-                gexf.write(f'          <attvalue for="{index[org] + len(index) + 12}" value="{len(genes)}" />\n')
+            print(edge.get_organisms_dict())
+            for org, genes_pairs in edge.get_organisms_dict().items():
+                gexf.write(f'          <attvalue for="{index[org] + len(index) + 12}" value="{len(genes_pairs)}" />\n')
         gexf.write('        </attvalues>\n')
         gexf.write('      </edge>\n')
         edgeids += 1
