@@ -7,6 +7,7 @@ import argparse
 import time
 import os
 from pathlib import Path
+from typing import List
 
 # installed libraries
 import networkx as nx
@@ -70,20 +71,18 @@ def check_sim(pair_border1: list, pair_border2: list, overlapping_match: int = 2
     return False
 
 
-def make_spot_graph(rgps: list, multigenics: set, output: Path, spot_graph: bool = False, overlapping_match: int = 2,
-                    set_size: int = 3, exact_match: int = 1) -> list:
+def make_spot_graph(rgps: list, multigenics: set, overlapping_match: int = 2,
+                    set_size: int = 3, exact_match: int = 1) -> nx.Graph:
     """
     Create a spot graph from pangenome RGP
 
     :param rgps: list of pangenome RGP
     :param multigenics: pangenome graph multigenic persistent families
-    :param output: Output directory to save the spot graph
-    :param spot_graph: Writes gexf graph of pairs of blocks of single copy markers flanking RGPs from same hotspot
     :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes
     :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation
     :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
 
-    :return: list of computed spot
+    :return: spot graph
     """
 
     def add_new_node(g: nx.Graph, region: Region, borders: list):
@@ -128,24 +127,31 @@ def make_spot_graph(rgps: list, multigenics: set, output: Path, spot_graph: bool
             if check_sim([node_obj_i["border0"], node_obj_i["border1"]], [node_obj_j["border0"], node_obj_j["border1"]],
                          overlapping_match, set_size, exact_match):
                 graph_spot.add_edge(nodei, nodej)
-    spots = []
-    spot_id = 0
-    for comp in nx.algorithms.components.connected_components(graph_spot):
-        curr_spot = Spot(spot_id)
-        spots.append(curr_spot)
-        for node in comp:
-            curr_spot.add_regions(graph_spot.nodes[node]["rgp"])
-        spot_id += 1
 
-    if spot_graph:
+    return graph_spot
+
+def write_spot_graph(graph_spot, outdir, graph_formats):
+        
         for node in graph_spot.nodes:
-            del graph_spot.nodes[node]["border0"]
-            del graph_spot.nodes[node]["border1"]
-            del graph_spot.nodes[node]["rgp"]
 
-        nx.readwrite.gexf.write_gexf(graph_spot, output / "spotGraph.gexf")
-        nx.readwrite.graphml.write_graphml(graph_spot, output / "spotGraph.graphml")
-    return spots
+            graph_spot.nodes[node]["border0"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border0"]])
+            graph_spot.nodes[node]["border1"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border1"]])
+            # del graph_spot.nodes[node]["border0"]
+            # del graph_spot.nodes[node]["border1"]
+
+            graph_spot.nodes[node]["organisms"] = ';'.join({rgp.organism.name for rgp in graph_spot.nodes[node]["rgp"]})
+            
+            graph_spot.nodes[node]["rgp"] = ';'.join([rgp.name for rgp in graph_spot.nodes[node]["rgp"]])
+
+
+        if "gexf" in graph_formats:
+            outfile = outdir / "spotGraph.gexf"
+            logging.info(f'Writing spot graph in {outfile}')
+            nx.readwrite.gexf.write_gexf(graph_spot, outdir / "spotGraph.gexf")
+        if "graphml" in graph_formats:
+            outfile = outdir / "spotGraph.graphml"
+            logging.info(f'Writing spot graph in {outfile}')
+            nx.readwrite.graphml.write_graphml(graph_spot, outdir / "spotGraph.graphml")
 
 
 def check_pangenome_former_spots(pangenome: Pangenome, force: bool = False):
@@ -162,14 +168,15 @@ def check_pangenome_former_spots(pangenome: Pangenome, force: bool = False):
         erase_pangenome(pangenome, spots=True)
 
 
-def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = False, overlapping_match: int = 2,
+def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = False, graph_formats: List[str] = ['gexf'], overlapping_match: int = 2,
                      set_size: int = 3, exact_match: int = 1, force: bool = False, disable_bar: bool = False):
     """
     Main function to predict hotspot
 
     :param pangenome: Blank pangenome object
     :param output: Output directory to save the spot graph
-    :param spot_graph: Writes gexf graph of pairs of blocks of single copy markers flanking RGPs from same hotspot
+    :param spot_graph: Writes graph of pairs of blocks of single copy markers flanking RGPs from same hotspot
+    :param graph_formats: Set of graph file formats to save the output
     :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes
     :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation
     :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
@@ -195,9 +202,22 @@ def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = Fals
 
     logging.getLogger("PPanGGOLiN").info("Detecting hotspots in the pangenome...")
 
-    # predict spots
-    spots = make_spot_graph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size,
+    # make spots
+    graph_spot = make_spot_graph(pangenome.regions, multigenics, overlapping_match, set_size,
                             exact_match)
+    
+    spots = []
+    for spot_id, comp in enumerate(nx.algorithms.components.connected_components(graph_spot)):
+        curr_spot = Spot(spot_id)
+        spots.append(curr_spot)
+
+        for node in comp:
+            curr_spot.add_regions(graph_spot.nodes[node]["rgp"])
+            if spot_graph:
+                graph_spot.nodes[node]["spot_id"] = f"spot_{spot_id}"
+
+    if spot_graph:
+        write_spot_graph(graph_spot, output, graph_formats)
 
     if len(spots) == 0:
         logging.getLogger("PPanGGOLiN").warning("No spots were detected.")
@@ -222,9 +242,10 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     if args.spot_graph:
         mk_outdir(args.output, args.force)
-    predict_hotspots(pangenome, args.output, force=args.force, spot_graph=args.spot_graph,
+    predict_hotspots(pangenome, args.output, force=args.force, 
+                     spot_graph=args.spot_graph, graph_formats=args.graph_formats,
                      overlapping_match=args.overlapping_match, set_size=args.set_size,
-                     exact_match=args.exact_match_size, disable_bar=args.disable_prog_bar)
+                     exact_match=args.exact_match_size, disable_bar=args.disable_prog_bar, )
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
 
@@ -256,7 +277,7 @@ def parser_spot(parser: argparse.ArgumentParser):
                                        f"_PID{str(os.getpid())}"),
                           help="Output directory")
     optional.add_argument("--spot_graph", required=False, action="store_true",
-                          help="Writes a graph in .gexf format of pairs of blocks of single copy markers flanking RGPs,"
+                          help="Writes a graph of pairs of blocks of single copy markers flanking RGPs,"
                                " supposedly belonging to the same hotspot")
     optional.add_argument("--overlapping_match", required=False, type=int, default=2,
                           help="The number of 'missing' persistent genes allowed when comparing flanking genes during "
@@ -268,7 +289,8 @@ def parser_spot(parser: argparse.ArgumentParser):
                           help="Number of perfectly matching flanking single copy markers required to associate RGPs "
                                "during hotspot computation (Ex: If set to 1, two RGPs are in the same hotspot "
                                "if both their 1st flanking genes are the same)")
-
+    optional.add_argument('--graph_formats', required=False, type=str, choices=['gexf', "graphml"], nargs="+",
+                          default=['gexf'], help="Format of the output graph.")    
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
