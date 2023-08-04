@@ -276,7 +276,6 @@ def write_gexf_edges(gexf: TextIO, light: bool = True):
         gexf.write('        <attvalues>\n')
         gexf.write(f'          <attribute id="11" value="{len(edge.gene_pairs)}" />\n')
         if not light:
-            print(edge.get_organisms_dict())
             for org, genes_pairs in edge.get_organisms_dict().items():
                 gexf.write(f'          <attvalue for="{index[org] + len(index) + 12}" value="{len(genes_pairs)}" />\n')
         gexf.write('        </attvalues>\n')
@@ -651,10 +650,11 @@ def write_regions(output: Path, compress: bool = False):
     fname = output / "plastic_regions.tsv"
     with write_compressed_or_not(fname, compress) as tab:
         tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
-        regions = sorted(pan.regions, key=lambda x: (x.organism.name, x.contig.name, x.start))
+        regions = sorted(pan.regions, key=lambda x: (x.organism.name, x.contig.name, x.starter.start))
         for region in regions:
-            tab.write('\t'.join(map(str, [region.name, region.organism, region.contig, region.start, region.stop,
-                                          len(region.genes), region.is_contig_border, region.is_whole_contig])) + "\n")
+            tab.write('\t'.join(map(str, [region.name, region.organism, region.contig, region.starter.start,
+                                          region.stopper.stop, len(region), region.is_contig_border,
+                                          region.is_whole_contig])) + "\n")
 
 
 def summarize_spots(spots: set, output: Path, compress: bool = False):

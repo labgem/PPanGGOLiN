@@ -7,7 +7,7 @@ import logging
 from collections.abc import Iterable
 
 # installed libraries
-from typing import Dict, Set
+from typing import Dict, Generator, Set
 
 import gmpy2
 
@@ -20,15 +20,22 @@ from ppanggolin.metadata import MetaFeatures
 class Region(MetaFeatures):
     """
     This class represent a region of genomic plasticity.
-
-    :param region_id: identifier of the region
     """
 
     def __init__(self, region_id: str):
+        """Constructor method
+
+        :param region_id: identifier of the region
+        """
         super().__init__()
-        self.genes = []
+        self._genes_getter = {}
         self.name = region_id
         self.score = 0
+        self.starter = None
+        self.stopper = None
+
+    def __repr__(self):
+        return f"RGP name:{self.name}"
 
     def __hash__(self):
         return id(self)
@@ -45,71 +52,50 @@ class Region(MetaFeatures):
             raise TypeError(f"'Region' type object was expected, but '{type(other)}' type object was provided.")
         if [gene.family for gene in self.genes] == [gene.family for gene in other.genes]:
             return True
-        if [gene.family for gene in self.genes] == [gene.family for gene in other.genes[::-1]]:
+        if [gene.family for gene in self.genes] == [gene.family for gene in list(other.genes)[::-1]]:
             return True
         return False
 
     def __len__(self):
-        return len(self.genes)
+        return len(self._genes_getter)
 
-    def __getitem__(self, index):
-        return self.genes[index]
-
-    def append(self, gene: Gene):
-        # TODO change name foir add_gene
-        """allowing only gene-class objects in a region
-
-        :param gene: gene which will be added
-
-        :raise TypeError: If gene is not Gene type raise TypeError
-        """
-
-        if isinstance(gene, Gene):
-            self.genes.append(gene)
-            gene.RGP = self
-        else:
+    def __setitem__(self, position, gene):
+        if not isinstance(gene, Gene):
             raise TypeError(f"Unexpected class / type for {type(gene)} "
                             f"when adding it to a region of genomic plasticity")
+        if len(self) > 0 and gene.organism != self.organism:
+            raise Exception(f"Gene {gene.name} is from a different organism than the first defined in RGP. "
+                            f"That's not possible")
+        self._genes_getter[position] = gene
+        self.starter = self._genes_getter[min(self._genes_getter.keys())]
+        self.stopper = self._genes_getter[max(self._genes_getter.keys())]
+        gene.RGP = self
+
+    def __getitem__(self, position):
+        return self._genes_getter[position]
+
+    def __delitem__(self, position):
+        del self._genes_getter[position]
 
     @property
-    def families(self) -> Set[GeneFamily]:
+    def genes(self) -> Generator[Gene, None, None]:
+        """Generate the gene as they are ordered in contigs
+        """
+        for gene in sorted(self._genes_getter.values(), key=lambda x: x.position):
+            yield gene
+
+    @property
+    def families(self) -> Generator[GeneFamily, None, None]:
         """Get the gene families in the RGP
 
         :return: Set of gene families
         """
-        return {gene.family for gene in self.genes}
+        for gene in self.genes:
+            yield gene.family
 
     @property
-    def start(self) -> int:
-        """ Get RGP starting position
-
-        :return: Start position
-        """
-        return min(self.genes, key=lambda x: x.start).start
-
-    @property  # TODO try to change start with this method
-    def start_gene(self) -> Gene:
-        """ Get RGP starting gene
-
-        :return: Start gene
-        """
-        return min(self.genes, key=lambda x: x.position)
-
-    @property
-    def stop_gene(self) -> Gene:
-        """ Get RGP stoping position
-
-        :return: Stoping position
-        """
-        return max(self.genes, key=lambda x: x.position)
-
-    @property
-    def stop(self):
-        """ Get RGP stoping position
-
-        :return: Stop position
-        """
-        return max(self.genes, key=lambda x: x.stop).stop
+    def lenght(self):
+        return self.stopper.stop - self.starter.start
 
     @property
     def organism(self) -> Organism:
@@ -117,15 +103,15 @@ class Region(MetaFeatures):
 
         :return: Organism
         """
-        return self.genes[0].organism
+        return self.starter.organism
 
     @property
     def contig(self) -> Contig:
-        """ Get the Contig link to RGP
+        """ Get the starter contig link to RGP
 
         :return: Contig
         """
-        return self.genes[0].contig
+        return self.starter.contig
 
     @property
     def is_whole_contig(self) -> bool:
@@ -133,7 +119,7 @@ class Region(MetaFeatures):
 
         :return: True if whole contig
         """
-        if self.start_gene.position == 0 and self.stop_gene.position == len(self.contig) - 1:
+        if self.starter.position == 0 and self.stopper.position == len(self.contig) - 1:
             return True
         return False
 
@@ -143,10 +129,10 @@ class Region(MetaFeatures):
 
         :return: True if bordering
         """
-        if len(self.genes) == 0:
+        if len(self) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")
-        if (self.start_gene.position == 0 and not self.contig.is_circular) or \
-                (self.stop_gene.position == len(self.contig) - 1 and not self.contig.is_circular):
+        if (self.starter.position == 0 and not self.contig.is_circular) or \
+                (self.stopper.position == len(self.contig) - 1 and not self.contig.is_circular):
             return True
         return False
 
@@ -157,7 +143,7 @@ class Region(MetaFeatures):
         """
         rnas = set()
         for rna in self.contig.RNAs:
-            if self.start < rna.start < self.stop:
+            if self.starter.start < rna.start < self.stopper.stop:
                 rnas.add(rna)
         return rnas
 
@@ -170,7 +156,7 @@ class Region(MetaFeatures):
         :return: A list of bordering gene in start and stop position List[List[Start Gene], [Stop Gene]]
         """
         border = [[], []]
-        pos = self.start_gene.position
+        pos = self.starter.position
         init = pos
         while len(border[0]) < n and (pos != 0 or self.contig.is_circular):
             curr_gene = None
@@ -187,7 +173,7 @@ class Region(MetaFeatures):
                 pos = len(self.contig)
             if pos == init:
                 break  # looped around the contig
-        pos = self.stop_gene.position
+        pos = self.stopper.position
         init = pos
         while len(border[1]) < n and (pos != len(self.contig) - 1 or self.contig.is_circular):
             curr_gene = None

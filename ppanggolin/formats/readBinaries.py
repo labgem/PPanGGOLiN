@@ -386,10 +386,8 @@ def read_rgp(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
         except KeyError:
             region = Region(row["RGP"].decode())
             pangenome.add_region(region)
-        region.append(pangenome.get_gene(row["gene"].decode()))
-    # order the genes properly in the regions
-    for region in pangenome.regions:
-        region.genes = sorted(region.genes, key=lambda x: x.position)  # order the same way as on the contig
+        gene = pangenome.get_gene(row["gene"].decode())
+        region[gene.position] = gene
     pangenome.status["predictedRGP"] = "Loaded"
 
 

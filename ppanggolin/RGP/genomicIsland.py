@@ -41,7 +41,7 @@ def extract_rgp(contig, node, rgp_id, naming) -> Region:
     elif naming == "organism":
         new_region = Region(node.gene.organism.name + "_" + contig.name + "_RGP_" + str(rgp_id))
     while node.state:
-        new_region.append(node.gene)
+        new_region[node.gene.position] = node.gene
         node.state = 0
         node.score = 0
         node = node.prev
@@ -184,7 +184,7 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
     while val >= min_score:
         new_region = extract_rgp(contig, matrix[index], len(contig_regions), naming)
         new_region.score = val
-        if (new_region[0].stop - new_region[-1].start) > min_length:
+        if new_region.lenght > min_length:
             contig_regions.add(new_region)
         rewrite_matrix(contig, matrix, index, persistent, continuity, multi)
         val, index = max_index_node(matrix)

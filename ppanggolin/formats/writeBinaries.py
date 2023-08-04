@@ -518,7 +518,7 @@ def write_rgp(pangenome: Pangenome, h5f: tables.File, force: bool = False, disab
         h5f.remove_node('/', 'RGP')
 
     rgp_table = h5f.create_table('/', 'RGP', rgp_desc(*get_rgp_len(pangenome)),
-                                 expectedrows=sum([len(region.genes) for region in pangenome.regions]))
+                                 expectedrows=sum([len(region) for region in pangenome.regions]))
     rgp_row = rgp_table.row
     for region in tqdm(pangenome.regions, total=pangenome.number_of_rgp(), unit="region", disable=disable_bar):
         for gene in region.genes:

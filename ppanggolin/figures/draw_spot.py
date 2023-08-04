@@ -174,7 +174,7 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
             minpos = min([gene.position for border in borders for gene in border])
             maxpos = max([gene.position for border in borders for gene in border])
         else:
-            minpos = rgp.start_gene.position
+            minpos = rgp.starter.position
             maxpos = rgp.stop_gene.position
         gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
         prev = None
