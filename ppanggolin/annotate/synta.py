@@ -241,12 +241,12 @@ def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, tmpdir: str, n
     return genes
 
 
-def overlap_filter(all_genes: defaultdict, overlap: bool = True) -> defaultdict:
+def overlap_filter(all_genes: defaultdict, overlap: bool = False) -> defaultdict:
     """
     Removes the CDS that overlap with RNA genes.
 
     :param all_genes: Dictionary with complete list of genes
-    :param overlap: Allow to filter overlap
+    :param overlap: Use to not remove genes overlapping with RNA features
 
     :return: Dictionary with genes filtered
     """
@@ -255,7 +255,7 @@ def overlap_filter(all_genes: defaultdict, overlap: bool = True) -> defaultdict:
     for key, genes in all_genes.items():
         tmp_genes = sorted(genes, key=lambda x: x.start)
         rm_genes = set()
-        if overlap:
+        if not overlap:
             for i, gene_i in enumerate(tmp_genes):
                 if i + 1 < len(tmp_genes):
                     gene_j = tmp_genes[i + 1]
@@ -292,7 +292,7 @@ def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
 
 def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: str,
                       code: int = 11, norna: bool = False, kingdom: str = "bacteria",
-                      overlap: bool = True, procedure: str = None) -> Organism:
+                      overlap: bool = False, procedure: str = None) -> Organism:
     """
     Function to annotate a single organism
 

@@ -539,7 +539,7 @@ def launch_annotate_organism(pack: tuple) -> Organism:
 
 
 def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu: int = 1, translation_table: int = 11,
-                       kingdom: str = "bacteria", norna: bool = False, overlap: bool = True, procedure: str = None,
+                       kingdom: str = "bacteria", norna: bool = False, overlap: bool = False, procedure: str = None,
                        disable_bar: bool = False):
     """
     Main function to annotate a pangenome
