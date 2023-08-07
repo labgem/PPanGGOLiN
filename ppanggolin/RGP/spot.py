@@ -70,6 +70,28 @@ def check_sim(pair_border1: list, pair_border2: list, overlapping_match: int = 2
         return True
     return False
 
+def add_new_node_in_spot_graph(g: nx.Graph, region: Region, borders: list) -> str:
+    """
+    Add bordering region as node to graph
+
+    :param g: spot graph
+    :param region: region in spot
+    :param borders: bordering families in spot
+    :return blocks: name of the node that has been added
+    """
+    blocks = str(sorted([[gene.family.ID for gene in borders[0]], [gene.family.ID for gene in borders[1]]],
+                        key=lambda x: x[0]))
+    g.add_node(blocks)
+    try:
+        g.nodes[blocks]["nb_rgp"] += 1
+        g.nodes[blocks]["rgp"].add(region)
+    except KeyError:
+        g.nodes[blocks]["nb_rgp"] = 1
+        g.nodes[blocks]["border1"] = [gene.family for gene in borders[1]]
+        g.nodes[blocks]["border0"] = [gene.family for gene in borders[0]]
+        g.nodes[blocks]["rgp"] = {region}
+        
+    return blocks
 
 def make_spot_graph(rgps: list, multigenics: set, overlapping_match: int = 2,
                     set_size: int = 3, exact_match: int = 1) -> nx.Graph:
@@ -85,26 +107,6 @@ def make_spot_graph(rgps: list, multigenics: set, overlapping_match: int = 2,
     :return: spot graph
     """
 
-    def add_new_node(g: nx.Graph, region: Region, borders: list):
-        """
-        Add bordering region as node to graph
-
-        :param g: spot graph
-        :param region: region in spot
-        :param borders: bordering families in spot
-        """
-        blocks = str(sorted([[gene.family.ID for gene in borders[0]], [gene.family.ID for gene in borders[1]]],
-                            key=lambda x: x[0]))
-        g.add_node(blocks)
-        try:
-            g.nodes[blocks]["nb_rgp"] += 1
-            g.nodes[blocks]["rgp"].add(region)
-        except KeyError:
-            g.nodes[blocks]["nb_rgp"] = 1
-            g.nodes[blocks]["border1"] = [gene.family for gene in borders[1]]
-            g.nodes[blocks]["border0"] = [gene.family for gene in borders[0]]
-            g.nodes[blocks]["rgp"] = {region}
-
     graph_spot = nx.Graph()
     lost = 0
     used = 0
@@ -114,7 +116,7 @@ def make_spot_graph(rgps: list, multigenics: set, overlapping_match: int = 2,
             lost += 1
         else:
             used += 1
-            add_new_node(graph_spot, rgp, border)
+            add_new_node_in_spot_graph(graph_spot, rgp, border)
     logging.getLogger("PPanGGOLiN").info(f"{lost} RGPs were not used as they are on a contig border (or have "
                                          f"less than {set_size} persistent gene families until the contig border)")
     logging.getLogger("PPanGGOLiN").info(f"{used} RGPs are being used to predict spots of insertion")
@@ -130,28 +132,23 @@ def make_spot_graph(rgps: list, multigenics: set, overlapping_match: int = 2,
 
     return graph_spot
 
-def write_spot_graph(graph_spot, outdir, graph_formats):
-        
+def write_spot_graph(graph_spot, outdir, graph_formats, file_basename="spotGraph"):
         for node in graph_spot.nodes:
-
             graph_spot.nodes[node]["border0"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border0"]])
             graph_spot.nodes[node]["border1"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border1"]])
-            # del graph_spot.nodes[node]["border0"]
-            # del graph_spot.nodes[node]["border1"]
 
             graph_spot.nodes[node]["organisms"] = ';'.join({rgp.organism.name for rgp in graph_spot.nodes[node]["rgp"]})
-            
             graph_spot.nodes[node]["rgp"] = ';'.join([rgp.name for rgp in graph_spot.nodes[node]["rgp"]])
 
-
         if "gexf" in graph_formats:
-            outfile = outdir / "spotGraph.gexf"
-            logging.info(f'Writing spot graph in {outfile}')
-            nx.readwrite.gexf.write_gexf(graph_spot, outdir / "spotGraph.gexf")
+            outfile = outdir / f"{file_basename}.gexf"
+            logging.getLogger("PPanGGOLiN").info(f'Writing spot graph in {outfile}')
+            nx.readwrite.gexf.write_gexf(graph_spot, outfile)
+                                         
         if "graphml" in graph_formats:
-            outfile = outdir / "spotGraph.graphml"
-            logging.info(f'Writing spot graph in {outfile}')
-            nx.readwrite.graphml.write_graphml(graph_spot, outdir / "spotGraph.graphml")
+            outfile = outdir / f"{file_basename}.graphml"
+            logging.getLogger("PPanGGOLiN").info(f'Writing spot graph in {outfile}')
+            nx.readwrite.graphml.write_graphml(graph_spot, outfile)
 
 
 def check_pangenome_former_spots(pangenome: Pangenome, force: bool = False):

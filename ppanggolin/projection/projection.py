@@ -10,10 +10,12 @@ import time
 from pathlib import Path
 import tempfile
 from typing import Tuple, Set, Dict, Iterator, Optional, List
-# installed libraries
-from tqdm import tqdm
+from itertools import combinations
 from collections import defaultdict
 
+# installed libraries
+from tqdm import tqdm
+import networkx as nx
 
 # # local libraries
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
@@ -28,10 +30,10 @@ from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotati
 from ppanggolin.formats.readBinaries import get_pangenome_parameters, check_pangenome_info
 # from ppanggolin.formats import write_pangenome
 from ppanggolin.RGP.genomicIsland import naming_scheme, compute_org_rgp
-from ppanggolin.RGP.spot import make_spot_graph
+from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot_graph, write_spot_graph
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.region import Region
+from ppanggolin.region import Region, Spot
 from ppanggolin.formats.writeFlat import write_flat_files
 
 def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  output, cpu,  no_defrag, identity, coverage, tmpdir,
@@ -40,6 +42,8 @@ def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  out
     """
 
     """
+
+
 
     seq_fasta_file = output / f"{input_organism.name}.fasta"
 
@@ -263,7 +267,6 @@ def launch(args: argparse.Namespace):
                     
         annotate_params =  manage_annotate_param(annotate_param_names, pangenome_params.annotate, args.config)
 
-
         input_organism = annotate_organism(org_name=args.organism_name, file_name = args.fasta_file, circular_contigs=[], tmpdir=args.tmpdir,
                       code = args.translation_table, norna=annotate_params.norna, kingdom = annotate_params.kingdom,
                       overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure)
@@ -290,42 +293,161 @@ def launch(args: argparse.Namespace):
                                     min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, 
                                     disable_bar=args.disable_prog_bar)
         
-        all_rgps = list(input_org_rgps) + pangenome.regions
+        # all_rgps = list(input_org_rgps) + pangenome.regions
         
         write_predicted_regions(input_org_rgps, output=output_dir)
 
-        spots = predict_spots(all_rgps, multigenics, output=output_dir, spot_graph=False,#args.spot.spot_graph, 
-                              overlapping_match=pangenome_params.spot.overlapping_match, set_size=pangenome_params.spot.set_size,
-                              exact_match=pangenome_params.spot.exact_match_size)
+        input_org_rgp_to_spots = predict_spots_in_input_organism(initial_spots=pangenome.spots,
+                                                                initial_regions=pangenome.regions, 
+                                                                input_org_rgps=input_org_rgps,
+                                                                multigenics=multigenics, output=output_dir,
+                                                                write_graph_flag=True, graph_formats=['graphml'],
+                                                                overlapping_match=pangenome_params.spot.overlapping_match,
+                                                                set_size=pangenome_params.spot.set_size,
+                                                                exact_match=pangenome_params.spot.exact_match_size)
+        
+        project_and_write_modules(pangenome, input_organism, output_dir)
         
 
-    if project_modules:
-        projetc_and_write_modules(pangenome, input_organism, output_dir)
-        
-    # write_flat_files_for_input_genome(input_organism)
-
-
-def predict_spots(rgps: list, multigenics: set, output: str,
-    spot_graph: bool = False, overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1):
+def check_spots_congruency(graph_spot: nx.Graph, spots: List[Spot]) -> None:
     """
-    Create a spot graph from pangenome RGP
+    Check congruency of spots in the spot graph with the original spots.
 
-    :param rgps: list of pangenome RGP
-    :param multigenics: pangenome graph multigenic persistent families
-    :param output: Output directory to save the spot graph
-    :param spot_graph: Writes gexf graph of pairs of blocks of single copy markers flanking RGPs from same hotspot
-    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes
-    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation
-    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs
+    :param graph_spot: The spot graph containing the connected components representing the spots.
+    :param spots: List of original spots in the pangenome.
+    :return: None.
+    """
+    rgp_to_spot = {region: spot for spot in spots for region in spot.regions}
 
-    :return: list of computed spots
+    spots = []
+    for cc in nx.algorithms.components.connected_components(graph_spot):
+        # one connected component is a spot
+        regions_in_cc = set()
+        for node in cc:
+            regions_in_cc |= graph_spot.nodes[node]["rgp"]
+            
+        # check that region in cc are the regions of a spot
+        spot_in_cc = {rgp_to_spot[rgp] for rgp in regions_in_cc}
+        assert len(spot_in_cc) == 1, "More than one spot in a connected_components. Something went wrong when recomputing spots."
+        current_spot = spot_in_cc.pop()
+        # Add spot id to the graph
+        for node in cc:
+            graph_spot.nodes[node]["spot_id"] = f"{current_spot}"
+
+
+
+def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: List[Region], 
+                                    input_org_rgps: List, multigenics: Set, output: str, 
+                                    write_graph_flag: bool = False, graph_formats: List[str] = ['gexf'], 
+                                    overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1) -> Dict:
+    """
+    Create a spot graph from pangenome RGP and predict spots for input organism RGPs.
+
+    :param initial_spots: List of original spots in the pangenome.
+    :param initial_regions: List of original regions in the pangenome.
+    :param input_org_rgps: List of RGPs from the input organism to be associated with spots.
+    :param multigenics: Set of pangenome graph multigenic persistent families.
+    :param output: Output directory to save the spot graph.
+    :param write_graph_flag: If True, writes the spot graph in the specified formats.
+    :param graph_formats: List of graph formats to write (default is ['gexf']).
+    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes.
+    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation.
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs.
+
+    :return: A dictionary mapping input organism RGPs to their predicted spots.
     """
 
-    spots = make_spot_graph(rgps=rgps, multigenics=multigenics, output=output, spot_graph=True,
+    logging.getLogger("PPanGGOLiN").info(f"Rebuilding spot graph.")
+    graph_spot = make_spot_graph(rgps=initial_regions, multigenics=multigenics,
                     overlapping_match=overlapping_match, set_size=set_size, exact_match=exact_match)
+    
+    original_nodes = set(graph_spot.nodes)
+
+    # Check congruency with already computed spot and add spot id in node attributes
+    check_spots_congruency(graph_spot, initial_spots)
+
+    
+    # Check which input RGP has a spot 
+    lost = 0
+    used = 0
+
+    input_org_node_to_rgps = defaultdict(set)
+
+    for rgp in input_org_rgps:
+        border = rgp.get_bordering_genes(set_size, multigenics)
+        if len(border[0]) < set_size or len(border[1]) < set_size:
+            lost += 1
+        else:
+            used += 1
+            border_node = add_new_node_in_spot_graph(graph_spot, rgp, border)
+            input_org_node_to_rgps[border_node].add(rgp)
+    
+    if len(input_org_node_to_rgps) == 0:
+        logging.getLogger("PPanGGOLiN").info(f"No RGPs of the input organism will be associated with any spot of insertion "
+                                            "as they are on a contig border (or have "
+                                            f"less than {set_size} persistent gene families until the contig border). "
+                                            "Projection of spots stops here")
+        return {}
+
+    # remove node that were already in the graph 
+    new_nodes = set(input_org_node_to_rgps) - original_nodes 
+    
+    logging.getLogger("PPanGGOLiN").info(f"{lost} RGPs of the input organism won't be associated with any spot of insertion "
+                                         "as they are on a contig border (or have "
+                                         f"less than {set_size} persistent gene families until the contig border)")
+    
+    logging.getLogger("PPanGGOLiN").info(f"{used} RGPs of the input organism will be associated to a spot of insertion")
+
+    # add potential edges from new nodes to the rest of the nodes
+    all_nodes = list(graph_spot.nodes) 
+    for nodei in new_nodes:
+        for nodej in all_nodes:
+            if nodei == nodej:
+                continue
+            node_obj_i = graph_spot.nodes[nodei]
+            node_obj_j = graph_spot.nodes[nodej]
+            if check_sim([node_obj_i["border0"], node_obj_i["border1"]], 
+                         [node_obj_j["border0"], node_obj_j["border1"]],
+                         overlapping_match, set_size, exact_match):
+                graph_spot.add_edge(nodei, nodej)
+    
+    input_rgp_to_spots = {}
+    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1 
+    # determine spot ids of the new nodes and by extension to their rgps
+    for comp in nx.algorithms.components.connected_components(graph_spot):
+        # in very rare case one cc can have several original spots
+        # that would mean a new nodes from the input organism have connected two old cc
+        # in this case we report the two spots in the output
+        spots_of_the_cc = {graph_spot.nodes[n]["spot_id"] for n in comp if 'spot_id' in graph_spot.nodes[n]}
+        if len(spots_of_the_cc) == 0:
+            # no spot associated with any node of the cc
+            # that means this cc is only composed of new nodes
+            # let's add a new spot id
+            spots_of_the_cc = {f"new_spot_{new_spot_id_counter}"} 
+            new_spot_id_counter += 1
+        elif len(spots_of_the_cc) > 1:
+            # more than one spot in the cc 
+            logging.getLogger("PPanGGOLiN").info('Some RGPs of the input organism '
+                                                 f"are connected to {len(spots_of_the_cc)} original spots of the pangenome.")
+        
+        input_rgps_of_the_cc = set()
+        for node in comp:
+            if node in input_org_node_to_rgps:
+                input_rgps_of_the_cc |= input_org_node_to_rgps[node]
+
+                if write_graph_flag:
+                    graph_spot.nodes[node]["projected_spot_id"] = ';'.join(spots_of_the_cc)
+                    graph_spot.nodes[node]["node_with_input_org_RGPs"] = True
+        
+        input_rgp_to_spots.update({rgp:spots_of_the_cc for rgp in input_rgps_of_the_cc})
+    
+    if write_graph_flag:
+        write_spot_graph(graph_spot, output, graph_formats, file_basename='projected_spotGraph')
+
+    return input_rgp_to_spots
 
 
-def projetc_and_write_modules(pangenome, input_organism, output, compress=False):
+def project_and_write_modules(pangenome, input_organism, output, compress=False):
     """
     Write a tsv file providing association between modules and the input organism
 
