@@ -34,7 +34,19 @@ from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot
-from ppanggolin.formats.writeFlat import write_flat_files
+from ppanggolin.formats.writeFlat import write_flat_files, spot2rgp, summarize_spots
+
+
+
+class NewSpot(Spot):
+    """
+    This class represent a hotspot specifically 
+    created for the projected genome.
+    """
+
+    def __str__(self):
+        return f'new_spot_{str(self.ID)}'
+
 
 def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  output, cpu,  no_defrag, identity, coverage, tmpdir,
                                         disable_bar, translation_table, ):
@@ -101,11 +113,11 @@ def predict_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penal
     rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
                     min_score, naming=name_scheme, disable_bar=disable_bar)
 
-    logging.getLogger().info(f"{len(rgps)} RGPs have been predicted the input genomes.")
+    logging.getLogger().info(f"{len(rgps)} RGPs have been predicted in the input genomes.")
     return rgps
 
 
-def write_predicted_regions(regions : Set[Region], output:Path, compress=False):
+def write_predicted_regions(regions : Set[Region], input_org_rgp_to_spots:Dict[Region, Set[Spot]], output:Path, compress=False):
     """
     Write the file providing information about RGP content
 
@@ -114,11 +126,15 @@ def write_predicted_regions(regions : Set[Region], output:Path, compress=False):
     """
     fname = output / "plastic_regions.tsv"
     with write_compressed_or_not(fname, compress) as tab:
-        tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
+        tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\tspot_id\n")
         regions = sorted(regions, key=lambda x: (x.organism.name, x.contig.name, x.start))
         for region in regions:
+
+            spots = input_org_rgp_to_spots.get(region, {"No_spot"})
+            spots_str = ';'.join([str(spot) for spot in spots])
+
             tab.write('\t'.join(map(str, [region.name, region.organism, region.contig, region.start, region.stop,
-                                          len(region.genes), region.is_contig_border, region.is_whole_contig])) + "\n")
+                                          len(region.genes), region.is_contig_border, region.is_whole_contig, spots_str])) + "\n")
             
 
 def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
@@ -220,6 +236,11 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
 
+
+    output_dir = Path(args.output)
+    mk_outdir(output_dir, args.force)
+
+
     # For the moment this element of the pangenome are predicted by default
     project_modules = True
     predict_rgp = True
@@ -237,15 +258,11 @@ def launch(args: argparse.Namespace):
     logging.getLogger().info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(**{step:argparse.Namespace(**k_v)  for step, k_v in pangenome.parameters.items()})
 
-    output_dir = Path(args.output)
-    mk_outdir(output_dir, args.force)
     
     # TODO check that the provided input_organism name is not found in pangenome 
     # if so add a warning or error
 
-    # TODO some params are no keep in pangenome... like use_pseudo. what to do?
-    # with tables.open_file(pangenome, "r+"):
-    #     pangenome_parameter = get_pangenome_parameters(h5f)
+
     
     if args.annot_file is not None:
 
@@ -275,7 +292,7 @@ def launch(args: argparse.Namespace):
         raise Exception("At least one of --fasta_file or --anno_file must be given")
 
 
-    # Add input organism in pangenome. This temporary as pangenome is not going to be written.
+    # Add input organism in pangenome. This is temporary as the pangenome object is not going to be written.
     pangenome.add_organism(input_organism)
 
     annotate_input_genes_with_pangenome_families(pangenome, input_organism=input_organism, output=output_dir, cpu=args.cpu, 
@@ -293,21 +310,23 @@ def launch(args: argparse.Namespace):
                                     min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, 
                                     disable_bar=args.disable_prog_bar)
         
-        # all_rgps = list(input_org_rgps) + pangenome.regions
         
-        write_predicted_regions(input_org_rgps, output=output_dir)
+        if len(input_org_rgps) > 0:
+            input_org_rgp_to_spots = predict_spots_in_input_organism(initial_spots=pangenome.spots,
+                                                                    initial_regions=pangenome.regions, 
+                                                                    input_org_rgps=input_org_rgps,
+                                                                    multigenics=multigenics, output=output_dir,
+                                                                    write_graph_flag=args.spot_graph, graph_formats=args.graph_formats,
+                                                                    overlapping_match=pangenome_params.spot.overlapping_match,
+                                                                    set_size=pangenome_params.spot.set_size,
+                                                                    exact_match=pangenome_params.spot.exact_match_size)
+            
+            write_predicted_regions(input_org_rgps, input_org_rgp_to_spots, output=output_dir, compress=False)
+        else:
+            logging.getLogger('PPanGGOLiN').info('No RGPs have been predicted in the input genomes. Spot prediction and RGP output are skipped.')
 
-        input_org_rgp_to_spots = predict_spots_in_input_organism(initial_spots=pangenome.spots,
-                                                                initial_regions=pangenome.regions, 
-                                                                input_org_rgps=input_org_rgps,
-                                                                multigenics=multigenics, output=output_dir,
-                                                                write_graph_flag=True, graph_formats=['graphml'],
-                                                                overlapping_match=pangenome_params.spot.overlapping_match,
-                                                                set_size=pangenome_params.spot.set_size,
-                                                                exact_match=pangenome_params.spot.exact_match_size)
-        
         project_and_write_modules(pangenome, input_organism, output_dir)
-        
+
 
 def check_spots_congruency(graph_spot: nx.Graph, spots: List[Spot]) -> None:
     """
@@ -332,7 +351,8 @@ def check_spots_congruency(graph_spot: nx.Graph, spots: List[Spot]) -> None:
         current_spot = spot_in_cc.pop()
         # Add spot id to the graph
         for node in cc:
-            graph_spot.nodes[node]["spot_id"] = f"{current_spot}"
+            graph_spot.nodes[node]["spot_id"] = str(current_spot)
+            graph_spot.nodes[node]["spots"] = {current_spot}
 
 
 
@@ -412,19 +432,27 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
                 graph_spot.add_edge(nodei, nodej)
     
     input_rgp_to_spots = {}
+    new_spots = []
     new_spot_id_counter = max((s.ID for s in initial_spots)) + 1 
     # determine spot ids of the new nodes and by extension to their rgps
     for comp in nx.algorithms.components.connected_components(graph_spot):
         # in very rare case one cc can have several original spots
         # that would mean a new nodes from the input organism have connected two old cc
         # in this case we report the two spots in the output
-        spots_of_the_cc = {graph_spot.nodes[n]["spot_id"] for n in comp if 'spot_id' in graph_spot.nodes[n]}
+        spots_of_the_cc = set()
+        for node in comp:
+            if "spots" in graph_spot.nodes[node]:
+                spots_of_the_cc |= {spot for spot in graph_spot.nodes[node]["spots"]}
+
         if len(spots_of_the_cc) == 0:
             # no spot associated with any node of the cc
             # that means this cc is only composed of new nodes
             # let's add a new spot id
-            spots_of_the_cc = {f"new_spot_{new_spot_id_counter}"} 
+            new_spot = NewSpot(new_spot_id_counter)
+            new_spots.append(new_spot)
+            spots_of_the_cc = {new_spot} # {f"new_spot_{new_spot_id_counter}"} 
             new_spot_id_counter += 1
+
         elif len(spots_of_the_cc) > 1:
             # more than one spot in the cc 
             logging.getLogger("PPanGGOLiN").info('Some RGPs of the input organism '
@@ -434,15 +462,30 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
         for node in comp:
             if node in input_org_node_to_rgps:
                 input_rgps_of_the_cc |= input_org_node_to_rgps[node]
-
+                
                 if write_graph_flag:
-                    graph_spot.nodes[node]["projected_spot_id"] = ';'.join(spots_of_the_cc)
-                    graph_spot.nodes[node]["node_with_input_org_RGPs"] = True
-        
+                    graph_spot.nodes[node]["spots"] = spots_of_the_cc
+
+                    graph_spot.nodes[node]["spot_id"] = ';'.join((str(spot) for spot in spots_of_the_cc))
+                    graph_spot.nodes[node]["includes_RGPs_from_the_input_organism"] = True
+
+        for spot in spots_of_the_cc:
+            spot.add_regions(input_rgps_of_the_cc)
+
         input_rgp_to_spots.update({rgp:spots_of_the_cc for rgp in input_rgps_of_the_cc})
     
     if write_graph_flag:
+        for node in graph_spot.nodes:
+            del graph_spot.nodes[node]["spots"]
+
         write_spot_graph(graph_spot, output, graph_formats, file_basename='projected_spotGraph')
+
+    
+    spot_with_new_rgp = {spot for spots in input_rgp_to_spots.values() for spot in spots}
+
+    spot2rgp(spot_with_new_rgp, output=output, compress = False)
+
+    summarize_spots(spot_with_new_rgp, output, compress = False)
 
     return input_rgp_to_spots
 
@@ -521,13 +564,6 @@ def parser_projection(parser: argparse.ArgumentParser):
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
     
-    # optional.add_argument('--rgp', required=False, action='store_true', default=False,
-    #                       help="Predict RGPs and hot spots on the input genome.")
-    # optional.add_argument('--module', required=False, action='store_true', default=False,
-    #                       help="Project pangenome modules to the input genome.")
-    # optional.add_argument('--spots', required=False, action='store_true', default=False,
-    #                       help="Project pangenome spots to the input genome.")
-    
     optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                         help="directory for storing temporary files")
     
@@ -548,5 +584,11 @@ def parser_projection(parser: argparse.ArgumentParser):
                           help="In the context of provided annotation, use this option to read pseudogenes. "
                                "(Default behavior is to ignore them)")
     
-    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("--spot_graph", required=False, action="store_true",
+                        help="Write the spot graph to a file, with pairs of blocks of single copy markers flanking RGPs "
+                            "as nodes. This graph can be used to visualize nodes that have RGPs from the input organism.")
     
+    optional.add_argument('--graph_formats', required=False, type=str, choices=['gexf', "graphml"], nargs="+",
+                          default=['gexf'], help="Format of the output graph.")  
+    
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")

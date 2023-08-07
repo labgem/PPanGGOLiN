@@ -90,7 +90,7 @@ def add_new_node_in_spot_graph(g: nx.Graph, region: Region, borders: list) -> st
         g.nodes[blocks]["border1"] = [gene.family for gene in borders[1]]
         g.nodes[blocks]["border0"] = [gene.family for gene in borders[0]]
         g.nodes[blocks]["rgp"] = {region}
-        
+
     return blocks
 
 def make_spot_graph(rgps: list, multigenics: set, overlapping_match: int = 2,
@@ -211,7 +211,7 @@ def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = Fals
         for node in comp:
             curr_spot.add_regions(graph_spot.nodes[node]["rgp"])
             if spot_graph:
-                graph_spot.nodes[node]["spot_id"] = f"spot_{spot_id}"
+                graph_spot.nodes[node]["spot_id"] = str(curr_spot)
 
     if spot_graph:
         write_spot_graph(graph_spot, output, graph_formats)
