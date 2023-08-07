@@ -117,3 +117,11 @@ jobs:
         cd testingDataset
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
         ppanggolin panrgp  --anno organisms.gbff.list --cluster clusters.tsv -o test_config --config panrgp_default_config.yaml
+        cd -
+    - name: testing projection cmd
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        ppanggolin projection --pangenome myannopang/pangenome.h5  -o projection_from_gbff --organism_name trotro --annot GBFF/GCF_000026905.1_ASM2690v1_genomic.gbff.gz --spot_graph 
+        ppanggolin projection --pangenome myannopang/pangenome.h5  -o projection_from_fasta --organism_name trotro --fasta FASTA/GCF_000026905.1_ASM2690v1_genomic.fna.gz --spot_graph --graph_formats graphml
+      
