@@ -175,7 +175,7 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
             maxpos = max([gene.position for border in borders for gene in border])
         else:
             minpos = rgp.starter.position
-            maxpos = rgp.stop_gene.position
+            maxpos = rgp.stopper.position
         gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
         prev = None
         for gene in gene_list:
@@ -201,7 +201,7 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
                 try:
                     g[gene.family.name][prev]["rgp"].add(rgp)
                 except KeyError:
-                    g[gene.family.name][prev]["rgp"] = set(rgp)
+                    g[gene.family.name][prev]["rgp"] = {rgp}
             prev = gene.family.name
     for node1, node2 in g.edges:
         g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot.regions)

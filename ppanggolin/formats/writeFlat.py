@@ -679,8 +679,8 @@ def summarize_spots(spots: set, output: Path, compress: bool = False):
             len_uniq_content = len(spot.get_uniq_content())
             size_list = []
             for rgp in spot.regions:
-                tot_fams |= rgp.families
-                size_list.append(len(rgp.genes))
+                tot_fams |= set(rgp.families)
+                size_list.append(len(rgp))
             mean_size = mean(size_list)
             stdev_size = stdev(size_list) if len(size_list) > 1 else 0
             max_size = max(size_list)

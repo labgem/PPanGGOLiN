@@ -63,9 +63,13 @@ class Region(MetaFeatures):
         if not isinstance(gene, Gene):
             raise TypeError(f"Unexpected class / type for {type(gene)} "
                             f"when adding it to a region of genomic plasticity")
-        if len(self) > 0 and gene.organism != self.organism:
-            raise Exception(f"Gene {gene.name} is from a different organism than the first defined in RGP. "
-                            f"That's not possible")
+        if len(self) > 0:
+            if gene.organism != self.organism:
+                raise Exception(f"Gene {gene.name} is from a different organism than the first defined in RGP. "
+                                f"That's not possible")
+            if gene.contig != self.contig:
+                raise Exception(f"Gene {gene.name} is from a different contig than the first defined in RGP. "
+                                f"That's not possible")
         self._genes_getter[position] = gene
         self.starter = self._genes_getter[min(self._genes_getter.keys())]
         self.stopper = self._genes_getter[max(self._genes_getter.keys())]
@@ -94,7 +98,9 @@ class Region(MetaFeatures):
             yield gene.family
 
     @property
-    def lenght(self):
+    def length(self):
+        """Get the length of the region
+        """
         return self.stopper.stop - self.starter.start
 
     @property
@@ -216,7 +222,7 @@ class Spot(MetaFeatures):
 
         union = set()
         for region in self.regions:
-            union |= region.families
+            union |= set(region.families)
         return union
 
     def add_regions(self, regions):

@@ -185,7 +185,7 @@ def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) \
         fams = set()
         fams_border = set()
         for rgp in spot.regions:
-            fams |= rgp.families
+            fams |= set(rgp.families)
             fams_border |= set([gene.family for border in  # Set of families in border of spot
                                 rgp.get_bordering_genes(pangenome.parameters["spots"]["set_size"], multigenics)
                                 for gene in border])

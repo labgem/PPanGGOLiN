@@ -184,7 +184,7 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
     while val >= min_score:
         new_region = extract_rgp(contig, matrix[index], len(contig_regions), naming)
         new_region.score = val
-        if new_region.lenght > min_length:
+        if new_region.length > min_length:
             contig_regions.add(new_region)
         rewrite_matrix(contig, matrix, index, persistent, continuity, multi)
         val, index = max_index_node(matrix)
