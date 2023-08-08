@@ -306,7 +306,7 @@ def launch(args: argparse.Namespace):
 
     annotate_input_genes_with_pangenome_families(pangenome, input_organism=input_organism, output=output_dir, cpu=args.cpu, 
                                                  no_defrag = args.no_defrag, identity = args.identity, coverage = args.coverage, tmpdir=args.tmpdir,
-                                                 disable_bar=args.disable_prog_bar, translation_table = args.translation_table)
+                                                 translation_table = args.translation_table)
     
     if predict_rgp:
         logging.getLogger().info('Detecting rgp in input genome.')
@@ -567,22 +567,22 @@ def parser_projection(parser: argparse.ArgumentParser):
 
 
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument('-o', '--output', required=False, type=str,
+    optional.add_argument('-o', '--output', required=False, type=Path,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
     
-    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+    optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                         help="directory for storing temporary files")
     
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
     
-    optional.add_argument('--identity', required=False, type=float, default=0.5,
+    optional.add_argument('--identity', required=False, type=restricted_float, default=0.5,
                           help="min identity percentage threshold")
     
-    optional.add_argument('--coverage', required=False, type=float, default=0.8,
+    optional.add_argument('--coverage', required=False, type=restricted_float, default=0.8,
                           help="min coverage percentage threshold")
     
     optional.add_argument("--translation_table", required=False, default="11",
