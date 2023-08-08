@@ -46,48 +46,57 @@ class NewSpot(Spot):
 
     def __str__(self):
         return f'new_spot_{str(self.ID)}'
+from pathlib import Path
+import tempfile
+import logging
+from typing import Optional
 
 
-def annotate_input_genes_with_pangenome_families(pangenome, input_organism,  output, cpu,  no_defrag, identity, coverage, tmpdir,
-                                        disable_bar, translation_table, ):
-    
+def annotate_input_genes_with_pangenome_families(pangenome, input_organism, output: Path, cpu: int, no_defrag: bool,
+                                                  identity: float, coverage: float, tmpdir: Path,
+                                                  translation_table: int):
     """
+    Annotate input genes with pangenome gene families and perform clustering.
 
+    :param pangenome: Pangenome object.
+    :param input_organism: Input organism object.
+    :param output: Output directory for generated files.
+    :param cpu: Number of CPU cores to use.
+    :param no_defrag: Whether to use defragmentation.
+    :param identity: Minimum identity threshold for gene clustering.
+    :param coverage: Minimum coverage threshold for gene clustering.
+    :param tmpdir: Temporary directory for intermediate files.
+    :param disable_bar: Whether to disable progress bar.
+    :param translation_table: Translation table ID for nucleotide sequences.
+
+    :return: None
     """
-
-
 
     seq_fasta_file = output / f"{input_organism.name}.fasta"
 
     with open(seq_fasta_file, "w") as fh_out_faa:
-        write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa,
-                                            disable_bar=True) # this progress bar is useless here.. so I disable it. 
-    # get corresponding gene families
-    with tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_") as new_tmpdir:
-        seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, Path(new_tmpdir), cpu, no_defrag, identity=identity,
-                                    coverage=coverage, is_nucleotide=True, translation_table=translation_table)
+        write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa, disable_bar=True)
     
-    # this function only write the seqid and partition associated in a file
+    with tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_") as new_tmpdir:
+        seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, Path(new_tmpdir),
+                                                        cpu, no_defrag, identity=identity, coverage=coverage,
+                                                        is_nucleotide=True, translation_table=translation_table)
+    
     project_and_write_partition(seqid_to_gene_family, seq_set, output)
 
-    # Add gene of the input organism in the associated gene family
-    # when a gene is not associated with any gene family, a new family is created.
     lonely_gene = 0
     for gene in input_organism.genes:
         try:
             gene_family = seqid_to_gene_family[gene.ID]
             gene_family.add_gene(gene)
-
         except KeyError:
-            # add a new gene family
             new_gene_family = pangenome.add_gene_family(gene.ID)
             new_gene_family.add_gene(gene)
             new_gene_family.add_partition("Cloud")
             lonely_gene += 1
 
-    logging.getLogger().info(f"The input organisms have {lonely_gene}/{input_organism.number_of_genes()} " 
-                             "genes that do not cluster with any of the gene families of the pangenome.")
-
+    logging.getLogger().info(f"The input organism has {lonely_gene}/{input_organism.number_of_genes()} " 
+                             "genes that do not cluster with any of the gene families in the pangenome.")
 
 def predict_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penalty: int, variable_gain: int,
                 min_length: int, min_score: int, multigenics: float,
