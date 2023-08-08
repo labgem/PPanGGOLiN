@@ -267,7 +267,7 @@ def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bo
     seq2seqid = {}
     id_counter = 0
     gene_row = gene_seq.row
-    for gene in tqdm(pangenome.genes, total=pangenome.number_of_gene(), unit="gene", disable=disable_bar):
+    for gene in tqdm(sorted(pangenome.genes, key=lambda x: x.ID), total=pangenome.number_of_gene(), unit="gene", disable=disable_bar):
         curr_seq_id = seq2seqid.get(gene.dna)
         if curr_seq_id is None:
             curr_seq_id = id_counter
