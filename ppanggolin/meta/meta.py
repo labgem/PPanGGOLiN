@@ -165,7 +165,7 @@ def parser_meta(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="All of the following arguments are required :")
-    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     required.add_argument('-m', '--metadata', required=False, type=Path, nargs='?',
                           help='Metadata in TSV file. See our github for more detail about format')
     required.add_argument("-s", "--source", required=False, type=str, nargs="?",
