@@ -215,7 +215,6 @@ def launch_default_config(args: argparse.Namespace):
         arg_lines.append(f"\n{sub_command}:")
         arg_lines += get_default_argument_lines(specific_actions)
 
-    mk_outdir(args.output.parent, args.force)
     logging.getLogger("PPanGGOLiN").info(f'Writting default config in {args.output}')
     with open(args.output, 'w') as fl:
         fl.write('\n'.join(arg_lines) + '\n')
