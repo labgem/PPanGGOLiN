@@ -306,6 +306,8 @@ class Contig:
         :param start: Start position of the gene
         :param gene: Gene object to add
         """
+        # TODO look at change start for position
+
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if start in self._genes_getter:
@@ -323,6 +325,8 @@ class Contig:
         if not isinstance(index, int):
             raise TypeError(f"Expected type is int, given type was '{type(index)}'")
         return self._genes_position[index]
+
+    # TODO define delitem
 
     def get_genes(self, begin: int, end: int):
         """Gets a list of genes within a range

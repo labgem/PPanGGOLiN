@@ -12,14 +12,30 @@ from typing import Dict, Generator, Set
 import gmpy2
 
 # local libraries
-from ppanggolin.genome import Gene, Organism, Contig
+from ppanggolin.genome import Gene, Organism, Contig, RNA
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.metadata import MetaFeatures
 
 
 class Region(MetaFeatures):
     """
-    This class represent a region of genomic plasticity.
+    The 'Region' class represents a region of genomic plasticity.
+    Methods:
+        - 'genes': the property that generates the genes in the region as they are ordered in contigs.
+        - 'families': the property that generates the gene families in the region.
+        - 'length': the property that gets the length of the region.
+        - 'organism': the property that gets the organism linked to the region.
+        - 'contig': the property that gets the starter contig linked to the region.
+        - 'is_whole_contig': the property that indicates if the region is an entire contig.
+        - 'is_contig_border': the property that indicates if the region is bordering a contig.
+        - 'get_rnas(self) -> set': the method that gets the RNA in the region.
+        - 'get_bordering_genes(self, n: int, multigenics: set) -> list': the method that gets the bordered genes in the region.
+
+    Fields:
+        - 'name': the name of the region.
+        - 'score': the score of the region.
+        - 'starter': the first gene in the region.
+        - 'stopper': the last gene in the region.
     """
 
     def __init__(self, region_id: str):
@@ -70,13 +86,18 @@ class Region(MetaFeatures):
             if gene.contig != self.contig:
                 raise Exception(f"Gene {gene.name} is from a different contig than the first defined in RGP. "
                                 f"That's not possible")
+        if position in self._genes_getter and self[position] != gene:
+            raise ValueError("Another gene already exist at this position")
         self._genes_getter[position] = gene
         self.starter = self._genes_getter[min(self._genes_getter.keys())]
         self.stopper = self._genes_getter[max(self._genes_getter.keys())]
         gene.RGP = self
 
     def __getitem__(self, position):
-        return self._genes_getter[position]
+        try:
+            return self._genes_getter[position]
+        except KeyError:
+            raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
 
     def __delitem__(self, position):
         del self._genes_getter[position]
@@ -96,6 +117,11 @@ class Region(MetaFeatures):
         """
         for gene in self.genes:
             yield gene.family
+
+    def number_of_families(self) -> int:
+        """Get the number of different gene families in the region
+        """
+        return len(set(self.families))
 
     @property
     def length(self):
@@ -137,21 +163,12 @@ class Region(MetaFeatures):
         """
         if len(self) == 0:
             raise Exception("Your region has no genes. Something wrong happenned.")
-        if (self.starter.position == 0 and not self.contig.is_circular) or \
-                (self.stopper.position == len(self.contig) - 1 and not self.contig.is_circular):
-            return True
+        min_pos = min(self.contig.genes, key=lambda x: x.position).position
+        max_pos = max(self.contig.genes, key=lambda x: x.position).position
+        if not self.contig.is_circular:
+            if self.starter.position == min_pos or self.stopper.position == max_pos:
+                return True
         return False
-
-    def get_rnas(self) -> set:
-        """ Get RNA in region
-
-        :return: Set of RNA
-        """
-        rnas = set()
-        for rna in self.contig.RNAs:
-            if self.starter.start < rna.start < self.stopper.stop:
-                rnas.add(rna)
-        return rnas
 
     def get_bordering_genes(self, n: int, multigenics: set) -> list:
         """ Get the bordered genes in the region
@@ -161,12 +178,13 @@ class Region(MetaFeatures):
 
         :return: A list of bordering gene in start and stop position List[List[Start Gene], [Stop Gene]]
         """
+        # TODO add Exception
         border = [[], []]
         pos = self.starter.position
         init = pos
         while len(border[0]) < n and (pos != 0 or self.contig.is_circular):
             curr_gene = None
-            if pos == 0:
+            if pos == 0:  # TODO change for variable to be more flexible
                 if self.contig.is_circular:
                     curr_gene = self.contig[pos - 1]
             else:
