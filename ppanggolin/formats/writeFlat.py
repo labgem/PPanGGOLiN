@@ -691,20 +691,24 @@ def write_regions(output: Path, compress: bool = False):
                                           len(region.genes), region.is_contig_border, region.is_whole_contig])) + "\n")
 
 
-def summarize_spots(spots: set, output: Path, compress: bool = False):
+def summarize_spots(spots: set, output: Path, compress: bool = False, file_name="summarize_spots.tsv"):
     """
     Write a file providing summarize information about hotspots
 
     :param spots: set of spots in pangenome
     :param output: Path to output directory
     :param compress: Compress the file in .gz
+    :patam file_name: Name of the output file
     """
 
     def r_and_s(value: float):
         """rounds to dp figures and returns a str of the provided value"""
         return str(round(value, 3)) if isinstance(value, float) else str(value)
 
-    with write_compressed_or_not(output / "summarize_spots.tsv", compress) as fout:
+    
+    file_path = output / file_name
+
+    with write_compressed_or_not(file_path, compress) as fout:
         fout.write("spot\tnb_rgp\tnb_families\tnb_unique_family_sets\tmean_nb_genes\t"
                    "stdev_nb_genes\tmax_nb_genes\tmin_nb_genes\n")
         for spot in sorted(spots, key=lambda x: len(x.regions), reverse=True):
@@ -721,7 +725,7 @@ def summarize_spots(spots: set, output: Path, compress: bool = False):
             min_size = min(size_list)
             fout.write("\t".join(map(r_and_s, [f"{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content,
                                                mean_size, stdev_size, max_size, min_size])) + "\n")
-    logging.getLogger("PPanGGOLiN").info(f"Done writing spots in : '{output.as_posix() + '/summarize_spots.tsv'}'")
+    logging.getLogger("PPanGGOLiN").info(f"Done writing spots in '{file_path}'")
 
 
 def spot2rgp(spots: set, output: Path, compress: bool = False):

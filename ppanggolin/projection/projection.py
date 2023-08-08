@@ -322,6 +322,12 @@ def launch(args: argparse.Namespace):
                                                                     exact_match=pangenome_params.spot.exact_match_size)
             
             write_predicted_regions(input_org_rgps, input_org_rgp_to_spots, output=output_dir, compress=False)
+                
+            new_spots = {spot for spots in input_org_rgp_to_spots.values() for spot in spots if type(spot) == NewSpot}
+            if new_spots:
+                logging.getLogger('PPanGGOLiN').info(f'{len(new_spots)} new spots have been created for the input genome.')
+                summarize_spots(new_spots, output_dir, compress = False, file_name="New_spots_summary.tsv")
+            
         else:
             logging.getLogger('PPanGGOLiN').info('No RGPs have been predicted in the input genomes. Spot prediction and RGP output are skipped.')
 
@@ -479,13 +485,6 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
             del graph_spot.nodes[node]["spots"]
 
         write_spot_graph(graph_spot, output, graph_formats, file_basename='projected_spotGraph')
-
-    
-    spot_with_new_rgp = {spot for spots in input_rgp_to_spots.values() for spot in spots}
-
-    spot2rgp(spot_with_new_rgp, output=output, compress = False)
-
-    summarize_spots(spot_with_new_rgp, output, compress = False)
 
     return input_rgp_to_spots
 
