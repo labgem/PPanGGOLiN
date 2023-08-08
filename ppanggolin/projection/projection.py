@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 import tempfile
 from typing import Tuple, Set, Dict, Iterator, Optional, List
-from itertools import combinations
 from collections import defaultdict
 
 # installed libraries
@@ -22,19 +21,18 @@ from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_seq
 from ppanggolin.annotate.annotate import read_anno_file
 from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.cluster.cluster import infer_singletons
 # from ppanggolin.genome import input_organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, write_compressed_or_not, mk_file_name, min_one, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args
+from ppanggolin.utils import read_compressed_or_not, write_compressed_or_not, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args
 from ppanggolin.align.alignOnPang import get_seq2pang, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
-from ppanggolin.formats.readBinaries import get_pangenome_parameters, check_pangenome_info
+from ppanggolin.formats.readBinaries import check_pangenome_info
 # from ppanggolin.formats import write_pangenome
 from ppanggolin.RGP.genomicIsland import naming_scheme, compute_org_rgp
 from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot_graph, write_spot_graph
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot
-from ppanggolin.formats.writeFlat import write_flat_files, spot2rgp, summarize_spots
+from ppanggolin.formats.writeFlat import summarize_spots
 
 
 
@@ -52,7 +50,7 @@ import logging
 from typing import Optional
 
 
-def annotate_input_genes_with_pangenome_families(pangenome, input_organism, output: Path, cpu: int, no_defrag: bool,
+def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organism: Organism, output: Path, cpu: int, no_defrag: bool,
                                                   identity: float, coverage: float, tmpdir: Path,
                                                   translation_table: int):
     """
@@ -372,7 +370,7 @@ def check_spots_congruency(graph_spot: nx.Graph, spots: List[Spot]) -> None:
 
 
 def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: List[Region], 
-                                    input_org_rgps: List, multigenics: Set, output: str, 
+                                    input_org_rgps: List[Region], multigenics: Set[GeneFamily], output: str, 
                                     write_graph_flag: bool = False, graph_formats: List[str] = ['gexf'], 
                                     overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1) -> Dict:
     """
@@ -498,7 +496,7 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
     return input_rgp_to_spots
 
 
-def project_and_write_modules(pangenome, input_organism, output, compress=False):
+def project_and_write_modules(pangenome:Pangenome, input_organism: Organism, output:Path, compress:bool=False):
     """
     Write a tsv file providing association between modules and the input organism
 
