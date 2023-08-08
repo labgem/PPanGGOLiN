@@ -335,7 +335,7 @@ def launch(args: argparse.Namespace):
             new_spots = {spot for spots in input_org_rgp_to_spots.values() for spot in spots if type(spot) == NewSpot}
             if new_spots:
                 logging.getLogger('PPanGGOLiN').info(f'{len(new_spots)} new spots have been created for the input genome.')
-                summarize_spots(new_spots, output_dir, compress = False, file_name="New_spots_summary.tsv")
+                summarize_spots(new_spots, output_dir, compress = False, file_name="new_spots_summary.tsv")
             
         else:
             logging.getLogger('PPanGGOLiN').info('No RGPs have been predicted in the input genomes. Spot prediction and RGP output are skipped.')
