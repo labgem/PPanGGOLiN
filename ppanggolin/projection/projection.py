@@ -11,6 +11,7 @@ from pathlib import Path
 import tempfile
 from typing import Tuple, Set, Dict, Iterator, Optional, List
 from collections import defaultdict
+import csv
 
 # installed libraries
 from tqdm import tqdm
@@ -44,10 +45,6 @@ class NewSpot(Spot):
 
     def __str__(self):
         return f'new_spot_{str(self.ID)}'
-from pathlib import Path
-import tempfile
-import logging
-from typing import Optional
 
 
 def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organism: Organism, output: Path, cpu: int, no_defrag: bool,
@@ -124,25 +121,65 @@ def predict_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penal
     return rgps
 
 
-def write_predicted_regions(regions : Set[Region], input_org_rgp_to_spots:Dict[Region, Set[Spot]], output:Path, compress=False):
+def write_predicted_regions(regions: Set[Region],
+                            output: Path, compress: bool = False):
     """
-    Write the file providing information about RGP content
+    Write the file providing information about predicted regions.
 
-    :param output: Path to output directory
-    :param compress: Compress the file in .gz
+    :param regions: Set of Region objects representing predicted regions.
+    :param output: Path to the output directory.
+    :param compress: Whether to compress the file in .gz format.
     """
     fname = output / "plastic_regions.tsv"
     with write_compressed_or_not(fname, compress) as tab:
-        tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\tspot_id\n")
+        fieldnames = ["region", "organism", "contig", "start", "stop", "genes", "contigBorder", "wholeContig"]
+
+        writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
+        writer.writeheader()
+
         regions = sorted(regions, key=lambda x: (x.organism.name, x.contig.name, x.start))
         for region in regions:
+            row = {
+                "region": region.name,
+                "organism": region.organism,
+                "contig": region.contig,
+                "start": region.start,
+                "stop": region.stop,
+                "genes": len(region.genes),
+                "contigBorder": region.is_contig_border,
+                "wholeContig": region.is_whole_contig
+            }
 
-            spots = input_org_rgp_to_spots.get(region, {"No_spot"})
-            spots_str = ';'.join([str(spot) for spot in spots])
+            writer.writerow(row)
 
-            tab.write('\t'.join(map(str, [region.name, region.organism, region.contig, region.start, region.stop,
-                                          len(region.genes), region.is_contig_border, region.is_whole_contig, spots_str])) + "\n")
-            
+
+def write_rgp_to_spot_table(rgp_to_spots: Dict[Region, Set[str]], output: Path, filename: str, compress: bool = False):
+    """
+    Write a table mapping RGPs to corresponding spot IDs.
+
+    :param rgp_to_spots: A dictionary mapping RGPs to spot IDs.
+    :param output: Path to the output directory.
+    :param filename: Name of the file to write.
+    :param compress: Whether to compress the file.
+    """
+    fname = output / filename
+    logging.getLogger('PPanGGOLiN').info(f'Writing RGPs to spot table in {fname}')
+    
+    with write_compressed_or_not(fname, compress) as tab:
+        fieldnames = ["region", "spot_id"]
+
+        writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
+        writer.writeheader()
+
+        regions = sorted(rgp_to_spots.keys(), key=lambda x: (x.organism.name, x.contig.name, x.start))
+        for region in regions:
+            row = {
+                "region": region.name,
+                "spot_id": ';'.join(map(str, rgp_to_spots[region]))
+            }
+
+            writer.writerow(row)
+
 
 def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
     """
@@ -252,11 +289,32 @@ def launch(args: argparse.Namespace):
     project_modules = True
     predict_rgp = True
     project_spots = True
-    # TODO : check that the different elements have been predicted in the pangenome. if not need to define a behavior... 
-    # load pangenome
 
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
+
+    if pangenome.status["partitioned"] not in ["Computed", "Loaded", "inFile"]:
+        raise NameError(f"The provided pangenome has not been partitioned. "
+                        "Annotation of an external genome is therefore not possible. "
+                        "See the 'partition' subcommands.")
+    
+    if pangenome.status["predictedRGP"] not in ["Computed", "Loaded", "inFile"]:
+        logging.getLogger().info("RGPs have not been predicted in the provided pangenome. "
+                                    "Projection of RGPs into the provided genome will not be performed.")
+        predict_rgp = False
+
+    if pangenome.status["spots"] not in ["Computed", "Loaded", "inFile"]:
+        logging.getLogger().info("Spots have not been predicted in the provided pangenome. "
+                                    "Projection of spots into the provided genome will not be performed.")
+        project_spots = False
+
+
+    if pangenome.status["modules"] not in ["Computed", "Loaded", "inFile"]:
+        logging.getLogger().info("Modules have not been predicted in the provided pangenome. "
+                                    "Projection of modules into the provided genome will not be performed.")
+        
+        project_modules = False
+
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar, 
                          need_rgp=predict_rgp, need_modules=project_modules,
@@ -266,13 +324,10 @@ def launch(args: argparse.Namespace):
     pangenome_params = argparse.Namespace(**{step:argparse.Namespace(**k_v)  for step, k_v in pangenome.parameters.items()})
 
     
-    # TODO check that the provided input_organism name is not found in pangenome 
-    # if so add a warning or error
-
-
+    if args.organism_name in [org.name for org in pangenome.organisms]:
+        raise NameError(f"The provided organism name '{args.organism_name}' already exists in the given pangenome.")
     
     if args.annot_file is not None:
-
         # read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         input_organism, has_sequence = read_anno_file(organism_name = args.organism_name, 
                        filename=args.annot_file,
@@ -316,28 +371,29 @@ def launch(args: argparse.Namespace):
         input_org_rgps = predict_RGP(pangenome, input_organism,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
                                     min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, 
                                     disable_bar=args.disable_prog_bar)
-        
-        
-        if len(input_org_rgps) > 0:
-            input_org_rgp_to_spots = predict_spots_in_input_organism(initial_spots=pangenome.spots,
-                                                                    initial_regions=pangenome.regions, 
-                                                                    input_org_rgps=input_org_rgps,
-                                                                    multigenics=multigenics, output=output_dir,
-                                                                    write_graph_flag=args.spot_graph, graph_formats=args.graph_formats,
-                                                                    overlapping_match=pangenome_params.spot.overlapping_match,
-                                                                    set_size=pangenome_params.spot.set_size,
-                                                                    exact_match=pangenome_params.spot.exact_match_size)
+        if len(input_org_rgps) == 0:
+
+            logging.getLogger('PPanGGOLiN').info("No RGPs have been found in the input organisms. "
+                                    "As a result, spot prediction and RGP output will be skipped.")
             
-            write_predicted_regions(input_org_rgps, input_org_rgp_to_spots, output=output_dir, compress=False)
-                
-            new_spots = {spot for spots in input_org_rgp_to_spots.values() for spot in spots if type(spot) == NewSpot}
-            if new_spots:
-                logging.getLogger('PPanGGOLiN').info(f'{len(new_spots)} new spots have been created for the input genome.')
-                summarize_spots(new_spots, output_dir, compress = False, file_name="new_spots_summary.tsv")
             
         else:
-            logging.getLogger('PPanGGOLiN').info('No RGPs have been predicted in the input genomes. Spot prediction and RGP output are skipped.')
 
+            write_predicted_regions(input_org_rgps, output=output_dir, compress=False)
+
+            if project_spots and len(input_org_rgps) > 0:
+                predict_spots_in_input_organism(initial_spots=pangenome.spots,
+                                                                        initial_regions=pangenome.regions, 
+                                                                        input_org_rgps=input_org_rgps,
+                                                                        multigenics=multigenics, output=output_dir,
+                                                                        write_graph_flag=args.spot_graph, graph_formats=args.graph_formats,
+                                                                        overlapping_match=pangenome_params.spot.overlapping_match,
+                                                                        set_size=pangenome_params.spot.set_size,
+                                                                        exact_match=pangenome_params.spot.exact_match_size)
+
+                    
+
+            
         project_and_write_modules(pangenome, input_organism, output_dir)
 
 
@@ -493,6 +549,17 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
 
         write_spot_graph(graph_spot, output, graph_formats, file_basename='projected_spotGraph')
 
+    
+    write_rgp_to_spot_table(input_rgp_to_spots, output=output, filename='input_organism_rgp_to_spot.tsv')
+
+
+    new_spots = {spot for spots in input_rgp_to_spots.values() for spot in spots if type(spot) == NewSpot}
+
+    if new_spots:
+        logging.getLogger('PPanGGOLiN').info(f'{len(new_spots)} new spots have been created for the input genome.')
+        summarize_spots(new_spots, output, compress = False, file_name="new_spots_summary.tsv")
+
+
     return input_rgp_to_spots
 
 
@@ -505,8 +572,6 @@ def project_and_write_modules(pangenome:Pangenome, input_organism: Organism, out
     """
 
     output_file = output / "modules_in_input_organism.tsv"
-
-    logging.getLogger().info("Writing modules to organisms associations...")
 
     input_organism_families = input_organism.families
     counter = 0
@@ -525,7 +590,7 @@ def project_and_write_modules(pangenome:Pangenome, input_organism: Organism, out
     logging.getLogger().info(f"{counter} modules have been projected to the input genomes.")
 
     logging.getLogger().info(
-        f"Writing projected modules to input organism : '{output_file}'")
+        f"Projected modules have been written in: '{output_file}'")
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -551,20 +616,19 @@ def parser_projection(parser: argparse.ArgumentParser):
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome.h5 file")
     
-    required.add_argument('--organism_name', required=False, type=str,
+    required.add_argument("-n", '--organism_name', required=False, type=str,
                         help="Name of the input_organism whose genome is being annotated with the provided pangenome.")
     
     required.add_argument('--fasta_file', required=False, type=Path,
-                        help="The filepath of the genomic sequence(s) in FASTA format for the projected genome. "
+                        help="The filepath of the genomic sequence(s) in FASTA format if the genome to annotate. "
                         "(Fasta file can be compressed with gzip)")
 
     required.add_argument('--annot_file', required=False, type=Path,
-                        help="The filepath of the annotations in GFF/GBFF format for the projected genome. "
+                        help="The filepath of the annotations in GFF/GBFF format for the genome to annotate with the provided pangenome. "
                         "(Annotation file can be compressed with gzip)")
 
-
-
     optional = parser.add_argument_group(title="Optional arguments")
+
     optional.add_argument('-o', '--output', required=False, type=Path,
                           default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
