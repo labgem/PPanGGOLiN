@@ -72,7 +72,7 @@ jobs:
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --info_modules --no_print_info -f --log metrics.log
-        cd -
+        cd - 
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
       run: |
@@ -123,5 +123,5 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_gbff --organism_name trotro --annot GBFF/GCF_000026905.1_ASM2690v1_genomic.gbff.gz --spot_graph 
-        ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_fasta --organism_name trotro --fasta FASTA/GCF_000026905.1_ASM2690v1_genomic.fna.gz --spot_graph --graph_formats graphml
+        ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_fasta --organism_name trotro --fasta_file FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz --spot_graph --graph_formats graphml
       
