@@ -204,7 +204,7 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
                     g[gene.family.name][prev]["rgp"] = {rgp}
             prev = gene.family.name
     for node1, node2 in g.edges:
-        g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot.regions)
+        g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot)
         del g[node1][node2]["rgp"]
     for node in g.nodes:
         if "name" in g.nodes[node]:

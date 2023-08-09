@@ -406,7 +406,8 @@ def read_spots(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False
         if curr_spot is None:
             curr_spot = Spot(row["spot"])
             spots[row["spot"]] = curr_spot
-        curr_spot.add_region(pangenome.get_region(row["RGP"].decode()))
+        region = pangenome.get_region(row["RGP"].decode())
+        curr_spot[region.name] = region
         curr_spot.spot_2_families()
     for spot in spots.values():
         pangenome.add_spot(spot)

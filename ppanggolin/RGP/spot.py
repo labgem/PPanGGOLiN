@@ -134,7 +134,8 @@ def make_spot_graph(rgps: list, multigenics: set, output: Path, spot_graph: bool
         curr_spot = Spot(spot_id)
         spots.append(curr_spot)
         for node in comp:
-            curr_spot.add_regions(graph_spot.nodes[node]["rgp"])
+            for region in graph_spot.nodes[node]["rgp"]:
+                curr_spot[region.name] = region
         spot_id += 1
 
     if spot_graph:

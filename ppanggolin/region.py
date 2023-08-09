@@ -7,7 +7,7 @@ import logging
 from collections.abc import Iterable
 
 # installed libraries
-from typing import Dict, Generator, Set
+from typing import Dict, Generator, List, Set
 
 import gmpy2
 
@@ -23,9 +23,9 @@ class Region(MetaFeatures):
     Methods:
         - 'genes': the property that generates the genes in the region as they are ordered in contigs.
         - 'families': the property that generates the gene families in the region.
-        - 'length': the property that gets the length of the region.
+        - 'Length': the property that gets the length of the region.
         - 'organism': the property that gets the organism linked to the region.
-        - 'contig': the property that gets the starter contig linked to the region.
+        - 'Contig': the property that gets the starter contig linked to the region.
         - 'is_whole_contig': the property that indicates if the region is an entire contig.
         - 'is_contig_border': the property that indicates if the region is bordering a contig.
         - 'get_rnas(self) -> set': the method that gets the RNA in the region.
@@ -34,7 +34,7 @@ class Region(MetaFeatures):
     Fields:
         - 'name': the name of the region.
         - 'score': the score of the region.
-        - 'starter': the first gene in the region.
+        - 'Starter': the first gene in the region.
         - 'stopper': the last gene in the region.
     """
 
@@ -170,13 +170,13 @@ class Region(MetaFeatures):
                 return True
         return False
 
-    def get_bordering_genes(self, n: int, multigenics: set) -> list:
+    def get_bordering_genes(self, n: int, multigenics: set) -> List[List[Gene], List[Gene]]:
         """ Get the bordered genes in the region
 
         :param n: number of genes to get
         :param multigenics: pangenome graph multigenic persistent families
 
-        :return: A list of bordering gene in start and stop position List[List[Start Gene], [Stop Gene]]
+        :return: A list of bordering gene in start and stop position
         """
         # TODO add Exception
         border = [[], []]
@@ -218,59 +218,73 @@ class Region(MetaFeatures):
 
 class Spot(MetaFeatures):
     """
-    This class represent a hotspot.
+    The 'Spot' class represents a region of genomic plasticity.
+    Methods:
+        - 'regions': the property that generates the regions in the spot.
+        - 'families': the property that generates the gene families in the spot.
+        - 'spot_2_families': add to Gene Families a link to spot.
+        - 'borders': Extracts all the borders of all RGPs belonging to the spot
+        - 'get_uniq_to_rgp': Get dictionnary with a representing RGP as key, and all identical RGPs as value
+        - 'get_uniq_ordered_set': Get an Iterable of all the unique syntenies in the spot
+        - 'get_uniq_content': Get an Iterable of all the unique rgp (in terms of gene family content) in the spot
+        - 'count_uniq_content':  Get a counter of uniq RGP and number of identical RGP (in terms of gene family content)
+        - 'count_uniq_ordered_set': Get a counter of uniq RGP and number of identical RGP (in terms of synteny content)
 
-    :param spot_id: identifier of the spot
+    Fields:
+        - 'ID': Identifier of the spot
     """
-    def __init__(self, spot_id):
+    def __init__(self, spot_id: int):
+        """Constructor method
+
+        :param spot_id: identifier of the spot
+        """
         super().__init__()
         self.ID = spot_id
-        self.regions = set()
+        self._region_getter = {}
         self._uniqOrderedSet = {}
-        self._compOrderedSet = False
         self._uniqContent = {}
-        self._compContent = False
+
+    def __setitem__(self, name, region):
+        if not isinstance(region, Region):
+            raise TypeError(f"A Region object is expected to be added to the spot. find type is {type(region)}")
+        if name in self._region_getter:
+            raise KeyError("A Region with the same name already exist in spot")
+        self._region_getter[name] = region
+
+    def __getitem__(self, name):
+        return self._region_getter[name]
+
+    def __delitem__(self, name):
+        del self._region_getter[name]
+
+    def __len__(self):
+        return len(self._region_getter)
 
     @property
-    def families(self) -> set:
+    def regions(self) -> Generator[Region, None, None]:
+        """Generates the regions in the spot
+        """
+        for region in self._region_getter.values():
+            yield region
+
+    @property
+    def families(self) -> Generator[GeneFamily, None, None]:
         """Get the gene families in the RGP
-
-        :return: Set of gene families
         """
-
-        union = set()
+        families = set()
         for region in self.regions:
-            union |= set(region.families)
-        return union
-
-    def add_regions(self, regions):
-        """
-        Adds region(s) contained in an Iterable to the spot which all have the same bordering persistent genes
-        provided with 'borders'
-
-        :param regions: Iterable list of RGP to add to spot
-        """
-        if isinstance(regions, Iterable):
-            for region in regions:
-                self.add_region(region)
-        else:
-            raise Exception("The provided 'regions' variable was not an Iterable")
-
-    def add_region(self, region):
-        """
-        Add one RGP to the spot
-
-        :param region: RGP to add to spot
-        """
-        if isinstance(region, Region):
-            self.regions.add(region)
+            for family in region.families:
+                if family not in families:
+                    families.add(family)
+                    yield family
 
     def spot_2_families(self):
-        """Add to Gene Families a link to spot"""
+        """Add to Gene Families a link to spot
+        """
         for family in self.families:
             family.add_spot(self)
 
-    def borders(self, set_size: int, multigenics):
+    def borders(self, set_size: int, multigenics) -> List[List[int, List[GeneFamily], List[GeneFamily]]]:
         """ Extracts all the borders of all RGPs belonging to the spot
 
         :param set_size: number of genes to get
@@ -323,9 +337,8 @@ class Spot(MetaFeatures):
 
         :return: RGP groups that have identical gene content
         """
-        if not self._compContent:
+        if len(self._uniqContent) == 0:
             self._mk_uniq_content()
-            self._compContent = True
         return self._uniqContent
 
     def _get_ordered_set(self):
@@ -333,9 +346,8 @@ class Spot(MetaFeatures):
 
         :return: RGP groups that have an identical synteny
         """
-        if not self._compOrderedSet:
+        if len(self._uniqOrderedSet) == 0:
             self._mk_uniq_ordered_set_obj()
-            self._compOrderedSet = True
         return self._uniqOrderedSet
 
     def get_uniq_to_rgp(self) -> dict:
@@ -345,14 +357,14 @@ class Spot(MetaFeatures):
         """
         return self._get_ordered_set()
 
-    def get_uniq_ordered_set(self):
+    def get_uniq_ordered_set(self) -> Set[Region]:
         """Get an Iterable of all the unique syntenies in the spot
 
         :return: Iterable of all the unique syntenies in the spot
         """
         return set(self._get_ordered_set().keys())
 
-    def get_uniq_content(self):
+    def get_uniq_content(self) -> Set[Region]:
         """ Get an Iterable of all the unique rgp (in terms of gene family content) in the spot
 
         :return: Iterable of all the unique rgp (in terms of gene family content) in the spot

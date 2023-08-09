@@ -673,9 +673,8 @@ def summarize_spots(spots: set, output: Path, compress: bool = False):
     with write_compressed_or_not(output / "summarize_spots.tsv", compress) as fout:
         fout.write("spot\tnb_rgp\tnb_families\tnb_unique_family_sets\tmean_nb_genes\t"
                    "stdev_nb_genes\tmax_nb_genes\tmin_nb_genes\n")
-        for spot in sorted(spots, key=lambda x: len(x.regions), reverse=True):
+        for spot in sorted(spots, key=lambda x: len(x), reverse=True):
             tot_fams = set()
-            rgp_list = list(spot.regions)
             len_uniq_content = len(spot.get_uniq_content())
             size_list = []
             for rgp in spot.regions:
@@ -685,7 +684,7 @@ def summarize_spots(spots: set, output: Path, compress: bool = False):
             stdev_size = stdev(size_list) if len(size_list) > 1 else 0
             max_size = max(size_list)
             min_size = min(size_list)
-            fout.write("\t".join(map(r_and_s, [f"spot_{spot.ID}", len(rgp_list), len(tot_fams), len_uniq_content,
+            fout.write("\t".join(map(r_and_s, [f"spot_{spot.ID}", len(spot), len(tot_fams), len_uniq_content,
                                                mean_size, stdev_size, max_size, min_size])) + "\n")
     logging.getLogger("PPanGGOLiN").info(f"Done writing spots in : '{output.as_posix() + '/summarize_spots.tsv'}'")
 
@@ -726,7 +725,7 @@ def write_borders(output: Path, dup_margin: float = 0.05, compress: bool = False
     all_fams = set()
     with write_compressed_or_not(output / "spot_borders.tsv", compress) as fout:
         fout.write("spot_id\tnumber\tborder1\tborder2\n")
-        for spot in sorted(pan.spots, key=lambda x: len(x.regions), reverse=True):
+        for spot in sorted(pan.spots, key=lambda x: len(x), reverse=True):
             curr_borders = spot.borders(pan.parameters["spots"]["set_size"], multigenics)
             for c, border in curr_borders:
                 famstring1 = ",".join([fam.name for fam in border[0]])

@@ -572,7 +572,7 @@ def write_spots(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
         h5f.remove_node("/", "spots")
 
     spot_table = h5f.create_table("/", "spots", spot_desc(get_spot_desc(pangenome)),
-                                  expectedrows=sum([len(spot.regions) for spot in pangenome.spots]))
+                                  expectedrows=sum([len(spot) for spot in pangenome.spots]))
     spot_row = spot_table.row
     for spot in tqdm(pangenome.spots, total=pangenome.number_of_spots(), unit="spot", disable=disable_bar):
         for region in spot.regions:
