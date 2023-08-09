@@ -238,21 +238,32 @@ class Spot(MetaFeatures):
 
         :param spot_id: identifier of the spot
         """
+        if not isinstance(spot_id, int):
+            raise TypeError(f"Spot identifier must be an integer. Given type is {type(spot_id)}")
         super().__init__()
         self.ID = spot_id
         self._region_getter = {}
         self._uniqOrderedSet = {}
         self._uniqContent = {}
 
+    def __repr__(self):
+        return f"Spot {self.ID} - #RGP: {len(self)}"
+
+    def __str__(self):
+        return f"spot_{self.ID}"
+
     def __setitem__(self, name, region):
         if not isinstance(region, Region):
             raise TypeError(f"A Region object is expected to be added to the spot. find type is {type(region)}")
-        if name in self._region_getter:
+        if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
         self._region_getter[name] = region
 
     def __getitem__(self, name):
-        return self._region_getter[name]
+        try:
+            return self._region_getter[name]
+        except KeyError:
+            raise KeyError(f"Region with {name} does not exist in spot")
 
     def __delitem__(self, name):
         del self._region_getter[name]
@@ -277,6 +288,11 @@ class Spot(MetaFeatures):
                 if family not in families:
                     families.add(family)
                     yield family
+
+    def number_of_families(self) -> int:
+        """Return the number of different families in the spot
+        """
+        return len({family for region in self.regions for family in region.families})
 
     def spot_2_families(self):
         """Add to Gene Families a link to spot
@@ -321,6 +337,29 @@ class Spot(MetaFeatures):
             if z:
                 self._uniqOrderedSet[rgp] = {rgp}
 
+    def _get_ordered_set(self):
+        """ Creates the _uniqSyn object if it was never computed. Return it in any case
+
+        :return: RGP groups that have an identical synteny
+        """
+        if len(self._uniqOrderedSet) == 0:
+            self._mk_uniq_ordered_set_obj()
+        return self._uniqOrderedSet
+
+    def get_uniq_to_rgp(self) -> Dict[Region, Set[Region]]:
+        """ Get dictionnary with a representing RGP as key, and all identical RGPs as value
+
+        :return: Dictionnary with a representing RGP as key, and set of identical RGPs as value
+        """
+        return self._get_ordered_set()
+
+    def get_uniq_ordered_set(self) -> Set[Region]:
+        """Get an Iterable of all the unique syntenies in the spot
+
+        :return: Iterable of all the unique syntenies in the spot
+        """
+        return set(self._get_ordered_set().keys())
+
     def _mk_uniq_content(self):
         """cluster RGP into groups that have identical gene content"""
         for rgp in self.regions:
@@ -333,36 +372,13 @@ class Spot(MetaFeatures):
                 self._uniqContent[rgp] = {rgp}
 
     def _get_content(self):
-        """Creates the _uniqContent object if it was never computed. Return it in any case
+        """Creates the _uniqContent object if it was never computed.
 
         :return: RGP groups that have identical gene content
         """
         if len(self._uniqContent) == 0:
             self._mk_uniq_content()
         return self._uniqContent
-
-    def _get_ordered_set(self):
-        """ Creates the _uniqSyn object if it was never computed. Return it in any case
-
-        :return: RGP groups that have an identical synteny
-        """
-        if len(self._uniqOrderedSet) == 0:
-            self._mk_uniq_ordered_set_obj()
-        return self._uniqOrderedSet
-
-    def get_uniq_to_rgp(self) -> dict:
-        """ Get dictionnary with a representing RGP as key, and all identical RGPs as value
-
-        :return: Dictionnary with a representing RGP as key, and all identical RGPs as value
-        """
-        return self._get_ordered_set()
-
-    def get_uniq_ordered_set(self) -> Set[Region]:
-        """Get an Iterable of all the unique syntenies in the spot
-
-        :return: Iterable of all the unique syntenies in the spot
-        """
-        return set(self._get_ordered_set().keys())
 
     def get_uniq_content(self) -> Set[Region]:
         """ Get an Iterable of all the unique rgp (in terms of gene family content) in the spot

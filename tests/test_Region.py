@@ -1,12 +1,56 @@
 #! /usr/bin/env python3
+import re
 
 import pytest
 from typing import Generator, Set
 from random import randint
 
-from ppanggolin.region import Region
+from ppanggolin.region import Region, Spot
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Contig, Organism
+
+
+@pytest.fixture
+def genes() -> Generator[Set[Gene], None, None]:
+    """Create a set of genes to fill gene families
+    """
+    genes = set()
+    for i in range(0, randint(11, 20)):
+        gene = Gene(f"gene_{str(i)}")
+        gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+        genes.add(gene)
+    yield genes
+
+
+@pytest.fixture
+def families(genes) -> Generator[Set[GeneFamily], None, None]:
+    """Create a set of gene families fill with genes to test edges
+    """
+    families = set()
+    genes = list(genes)
+    nb_families = randint(2, 10)
+    nb_genes_per_family = len(genes) // nb_families
+    idx_fam = 1
+    while idx_fam < nb_families:
+        family = GeneFamily(idx_fam, f"family_{idx_fam}")
+        idx_genes = 0
+        while idx_genes < nb_genes_per_family:
+            gene = genes[(idx_fam - 1) * nb_genes_per_family + idx_genes]
+            family.add_gene(gene)
+            gene.family = family
+            idx_genes += 1
+        families.add(family)
+        idx_fam += 1
+    # last family fill with all the gene left
+    family = GeneFamily(idx_fam, f"family_{idx_fam}")
+    idx_genes = (idx_fam - 1) * nb_genes_per_family
+    while idx_genes < len(genes):
+        gene = genes[idx_genes]
+        family.add_gene(gene)
+        gene.family = family
+        idx_genes += 1
+    families.add(family)
+    yield families
 
 
 class TestRegion:
@@ -195,17 +239,6 @@ class TestRegion:
         region[starter.position], region[stopper.position] = starter, stopper
         assert region.is_contig_border is False
 
-    @pytest.fixture
-    def genes(self) -> Generator[Set[Gene], None, None]:
-        """Create a set of genes to fill gene families
-        """
-        genes = set()
-        for i in range(0, randint(11, 20)):
-            gene = Gene(f"gene_{str(i)}")
-            gene.fill_annotations(start=10*i + 1, stop=10*(i+1), strand='+', position=i, genetic_code=4)
-            genes.add(gene)
-        yield genes
-
     def test_len(self, region, genes):
         for gene in genes:
             region[gene.position] = gene
@@ -237,36 +270,6 @@ class TestRegion:
         with pytest.raises(TypeError):
             assert region == 4
 
-    @pytest.fixture
-    def families(self, genes) -> Generator[Set[GeneFamily], None, None]:
-        """Create a set of gene families fill with genes to test edges
-        """
-        families = set()
-        genes = list(genes)
-        nb_families = randint(2, 10)
-        nb_genes_per_family = len(genes) // nb_families
-        idx_fam = 1
-        while idx_fam < nb_families:
-            family = GeneFamily(idx_fam, f"family_{idx_fam}")
-            idx_genes = 0
-            while idx_genes < nb_genes_per_family:
-                gene = genes[(idx_fam - 1) * nb_genes_per_family + idx_genes]
-                family.add_gene(gene)
-                gene.family = family
-                idx_genes += 1
-            families.add(family)
-            idx_fam += 1
-        # last family fill with all the gene left
-        family = GeneFamily(idx_fam, f"family_{idx_fam}")
-        idx_genes = (idx_fam - 1) * nb_genes_per_family
-        while idx_genes < len(genes):
-            gene = genes[idx_genes]
-            family.add_gene(gene)
-            gene.family = family
-            idx_genes += 1
-        families.add(family)
-        yield families
-
     def test_get_gene_families(self, region, genes, families):
         """Tests that gene families can be retrieved from the region
         """
@@ -292,3 +295,191 @@ class TestRegion:
     #         region[gene.position] = gene
     #     min_gene, max_gene = min(genes, key=lambda gene: gene.position), max(genes, key=lambda gene: gene.position)
     #     assert region.get_bordering_genes(1, {}) == [[min_gene], [max_gene]]
+
+
+class TestSpot:
+    @pytest.fixture
+    def spot(self) -> Generator[Spot, None, None]:
+        """Generate a spot for test
+        """
+        yield Spot(0)
+
+    def test_cstr(self, spot):
+        assert spot.ID == 0
+        assert isinstance(spot._region_getter, dict) and len(spot._region_getter) == 0
+        assert isinstance(spot._uniqOrderedSet, dict) and len(spot._uniqOrderedSet) == 0
+        assert isinstance(spot._uniqContent, dict) and len(spot._uniqContent) == 0
+
+    def test_cstr_assert_error(self):
+        with pytest.raises(TypeError):
+            Spot("spot_0")
+
+    def test_repr(self, spot):
+        """Test that the canonical string representing a spot does not change
+        """
+        assert repr(spot) == "Spot 0 - #RGP: 0"
+
+    def test_str(self, spot):
+        """Test that the writing spot method does not change
+        """
+        assert str(spot) == "spot_0"
+
+    @pytest.fixture
+    def region(self) -> Generator[Region, None, None]:
+        """Create a region for test
+        """
+        yield Region("RGP_0")
+
+    def test_add_region(self, spot, region):
+        """Tests that adding a Region object to the Spot object works as expected
+        """
+        spot[region.name] = region
+        assert region == spot._region_getter[region.name]
+
+    def test_add_not_instance_region(self, spot):
+        with pytest.raises(TypeError):
+            spot["spot"] = "spot"
+
+    def test_add_different_region_with_same_name(self, spot):
+        """Test that adding a new Region same name than another in the spot return a KeyError
+        """
+        region_1, region_2 = Region("RGP"), Region("RGP")
+        gene_1, gene_2 = Gene("gene_1"), Gene("gene_2")
+        gene_1.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene_2.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene_1.family, gene_2.family = GeneFamily(0, "Fam_0"), GeneFamily(1, "Fam_1")
+        region_1[0], region_2[0] = gene_1, gene_2
+        spot[region_1.name] = region_1
+        with pytest.raises(KeyError):
+            spot[region_2.name] = region_2
+
+    def test_add_two_time_the_same_region(self, spot, region):
+        """Test that adding a new Region same name than another in the spot return a KeyError
+        """
+        gene = Gene("gene")
+        gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene.family = GeneFamily(0, "Fam")
+        region[0] = gene
+        spot[region.name] = region
+        assert region in spot._region_getter.values()
+        spot[region.name] = region
+        assert region in spot._region_getter.values()
+
+    def test_get_region(self, spot, region):
+        """Tests that getting the region in the Spot object works as expected
+        """
+        spot[region.name] = region
+        assert spot[region.name] == region
+
+    def test_get_region_not_in_spot(self, spot):
+        with pytest.raises(KeyError):
+            _ = spot["rgp"]
+
+    def test_delete_region_in_spot(self, spot, region):
+        spot[region.name] = region
+        del spot[region.name]
+        assert region.name not in spot._region_getter
+
+    def test_len(self, spot, region):
+        assert isinstance(len(spot), int)
+        assert len(spot) == 0
+        spot[region.name] = region
+        assert len(spot) == 1
+
+    @pytest.fixture
+    def regions(self, genes):
+        regions = set()
+        genes = sorted(list(genes), key=lambda x: x.position)
+        nb_regions = randint(2, len(genes))
+        nb_genes_per_region = len(genes) // nb_regions
+        idx_region = 1
+        while idx_region < nb_regions:
+            region = Region(f"RGP_{idx_region}")
+            genes_counter = 0
+            while genes_counter < nb_genes_per_region:
+                gene = genes.pop(0)
+                region[gene.position] = gene
+                gene.RGP = region
+                genes_counter += 1
+            regions.add(region)
+            idx_region += 1
+        # last region fill with all the gene left
+        region = Region(f"RGP_{idx_region}")
+        while len(genes) > 0:
+            gene = genes.pop(0)
+            region[gene.position] = gene
+            gene.RGP = region
+        regions.add(region)
+        yield regions
+
+    def test_get_all_regions(self, spot, regions):
+        """Tests that getting all the region in the spot works as expected
+        """
+        for region in regions:
+            spot[region.name] = region
+        assert len(spot) == len(regions)
+        assert all(type(region) == Region for region in spot.regions)
+        assert regions == set(spot.regions)
+
+    def test_get_families(self, spot, regions, families):
+        """Tests that getting the gene families in the Spot object works as expected
+        """
+        for region in regions:
+            spot[region.name] = region
+        assert set(spot.families) == families
+
+    def test_number_of_families(self, spot, regions, families):
+        """Tests that getting the number of families in the spot works as expected
+        """
+        for region in regions:
+            spot[region.name] = region
+        assert spot.number_of_families() == len(families)
+
+    def test_add_spot_to_families(self, spot, regions, families):
+        """Tests that adding spot to families works as expected
+        """
+        for region in regions:
+            spot[region.name] = region
+        spot.spot_2_families()
+        assert all(set(family.spots) == {spot} for family in spot.families)
+
+    @pytest.fixture
+    def srgps(self, regions):
+        """Create a random number of same rgp for all regions
+        """
+        srgps = set()
+        for region in regions:
+            nb_sim_rgp = randint(1, 3)
+            for idx_sim_rgp in range(1, nb_sim_rgp + 1):
+                sim_rgp = Region(f"s{region.name}.{idx_sim_rgp}")
+                for gene in region.genes:
+                    sim_rgp[gene.position] = gene
+                srgps.add(sim_rgp)
+        yield srgps
+
+    def test_get_uniq_rgp_set(self, spot, regions, families, srgps):
+        """Tests that getting identical rgp in the Spot object works as expected
+        """
+        for region in list(regions) + list(srgps):  # With lists provide sRGP to be key RGP in dict
+            spot[region.name] = region
+        assert len(spot) == len(regions) + len(srgps)
+        uniq2rgp = spot.get_uniq_to_rgp()
+        for region, sim_rgps in uniq2rgp.items():
+            assert region in regions
+            assert set(region.families) == set.union(*[set(srgp.families) for srgp in sim_rgps])
+
+    def test_get_uniq_ordered_set(self, spot, regions, families, srgps):
+        """Tests that getting the unique synteny in the Spot object works as expected
+        """
+        for region in list(regions) + list(srgps):  # With lists provide sRGP to be key RGP in dict
+            spot[region.name] = region
+        assert len(spot) == len(regions) + len(srgps)
+        assert spot.get_uniq_ordered_set().issubset(regions)
+
+    def test_get_uniq_content(self, spot, regions, families, srgps):
+        """Tests that getting the unique RGP in the Spot object works as expected
+        """
+        for region in list(regions) + list(srgps):  # With lists provide sRGP to be key RGP in dict
+            spot[region.name] = region
+        assert len(spot) == len(regions) + len(srgps)
+        assert spot.get_uniq_ordered_set().issubset(regions)

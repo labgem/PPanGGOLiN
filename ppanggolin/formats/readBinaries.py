@@ -402,9 +402,9 @@ def read_spots(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False
     table = h5f.root.spots
     spots = {}
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="spot", disable=disable_bar):
-        curr_spot = spots.get(row["spot"])
+        curr_spot = spots.get(int(row["spot"]))
         if curr_spot is None:
-            curr_spot = Spot(row["spot"])
+            curr_spot = Spot(int(row["spot"]))
             spots[row["spot"]] = curr_spot
         region = pangenome.get_region(row["RGP"].decode())
         curr_spot[region.name] = region
