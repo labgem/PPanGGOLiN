@@ -626,7 +626,7 @@ def write_modules(pangenome: Pangenome, h5f: tables.File, force: bool = False, d
         h5f.remove_node("/", "modules")
 
     mod_table = h5f.create_table('/', 'modules', mod_desc(get_mod_desc(pangenome)),
-                                 expectedrows=sum([len(mod.families) for mod in pangenome.modules]))
+                                 expectedrows=sum([len(mod) for mod in pangenome.modules]))
     mod_row = mod_table.row
 
     for mod in tqdm(pangenome.modules, total=pangenome.number_of_modules(), unit="modules", disable=disable_bar):
@@ -760,7 +760,7 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
         info_group._v_attrs.numberOfSpots = pangenome.number_of_spots()
     if pangenome.status["modules"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfModules = pangenome.number_of_modules()
-        info_group._v_attrs.numberOfFamiliesInModules = sum([len(mod.families) for mod in pangenome.modules])
+        info_group._v_attrs.numberOfFamiliesInModules = sum([len(mod) for mod in pangenome.modules])
 
     info_group._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters
 

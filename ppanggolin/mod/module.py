@@ -122,7 +122,7 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
 
     fams = set()
     for mod in modules:
-        fams |= mod.families
+        fams |= set(mod.families)
         pangenome.add_module(mod)
 
     logging.getLogger("PPanGGOLiN").info(f"There are {len(fams)} families among {len(modules)} modules")

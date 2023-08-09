@@ -417,20 +417,39 @@ class Module(MetaFeatures):
         'associated_families' are gene families that you believe are associated to the module in some way,
         but do not define it.
         """
+        if not isinstance(module_id, int):
+            raise TypeError(f"Module identifier must be an integer. Given type is {type(module_id)}")
         super().__init__()
         self.ID = module_id
         self._families = set()
-        if families is not None:
-            if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception("You provided elements that were not GeneFamily object. "
-                                "Modules are only made of GeneFamily")
-            self._families |= set(families)
+        self._families_getter = {}
+        [self.add_family(family) for family in families] if families is not None else None
         self.bitarray = None
 
+    def __setitem__(self, name, family):
+        if not isinstance(family, GeneFamily):
+            raise TypeError(f"A gene family is expected to be added to module. Given type was {type(family)}")
+        if name in self._families_getter and self[name] != family:
+            raise KeyError("A different gene family with the same name already exist in the module")
+        self._families_getter[name] = family
+        family.add_module(self)
+
+    def __getitem__(self, name) -> GeneFamily:
+        try:
+            return self._families_getter[name]
+        except KeyError:
+            raise KeyError(f"There isn't gene family with the name {name} in the module")
+
+    def __delitem__(self, name):
+        del self._families_getter[name]
+
+    def __len__(self):
+        return len(self._families_getter)
+
     @property
-    def families(self) -> Set[GeneFamily]:
-        # TODO made as generator
-        return self._families
+    def families(self) -> Generator[GeneFamily, None, None]:
+        for family in self._families_getter.values():
+            yield family
 
     def add_family(self, family: GeneFamily):
         """
@@ -438,10 +457,7 @@ class Module(MetaFeatures):
 
         :param family: the family that will ba added to the module
         """
-        if not isinstance(family, GeneFamily):
-            raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
-        family.add_module(self)
-        self._families.add(family)
+        self._families_getter[family.name] = family
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index

@@ -758,8 +758,8 @@ def write_module_summary(output: Path, compress: bool = False):
                 for gene in family.genes:
                     org_dict[gene.organism].add(gene)
             fout.write(
-                f"module_{mod.ID}\t{len(mod.families)}\t{len(org_dict)}\t{partition_counter.most_common(1)[0][0]}\t"
-                f"{round((sum([len(genes) for genes in org_dict.values()]) / len(org_dict)) / len(mod.families), 3)}\n")
+                f"module_{mod.ID}\t{len(mod)}\t{len(org_dict)}\t{partition_counter.most_common(1)[0][0]}\t"
+                f"{round((sum([len(genes) for genes in org_dict.values()]) / len(org_dict)) / len(mod), 3)}\n")
         fout.close()
 
     logging.getLogger("PPanGGOLiN").info(f"Done writing module summary: '{output.as_posix() + '/modules_summary.tsv'}'")
@@ -797,7 +797,7 @@ def write_org_modules(output: Path, compress: bool = False):
             for fam in mod.families:
                 mod_orgs |= set(fam.organisms)
             for org in mod_orgs:
-                completion = round((org.number_of_families() + len(mod.families)) / len(mod.families), 2)
+                completion = round((org.number_of_families() + len(mod)) / len(mod), 2)
                 fout.write(f"module_{mod.ID}\t{org.name}\t{completion}\n")
         fout.close()
     logging.getLogger("PPanGGOLiN").info(

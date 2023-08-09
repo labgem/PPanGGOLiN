@@ -427,9 +427,9 @@ def read_modules(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = Fal
     table = h5f.root.modules
     modules = {}  # id2mod
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="module", disable=disable_bar):
-        curr_module = modules.get(row['module'])
+        curr_module = modules.get(int(row['module']))
         if curr_module is None:
-            curr_module = Module(row['module'])
+            curr_module = Module(int(row['module']))
             modules[row["module"]] = curr_module
         curr_module.add_family(pangenome.get_gene_family(row['geneFam'].decode()))
     for module in modules.values():
