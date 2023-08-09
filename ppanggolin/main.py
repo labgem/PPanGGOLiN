@@ -127,19 +127,33 @@ def cmd_line() -> argparse.Namespace:
         set_verbosity_level(args)
 
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        parser.error("You must provide at least a file with the --fasta option to annotate from sequences, "
-                     "or a file with the --gff option to load annotations through the command line or the config file.")
+        parser.error("Please provide either a sequence file using the --fasta option or an annotation file using the --anno option "
+                    "to enable annotation. Use the command line or the config file.")
 
     cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
                                "context", "write", "msa", "draw", "partition",
                                "rarefaction", "spot", "fasta", "metrics", "rgp", "projection", "metadata"]
     if args.subcommand in cmds_pangenome_required and args.pangenome is None:
-        parser.error("You must provide a pangenome file with the --pangenome "
-                     "argument through the command line or the config file.")
+        parser.error("Please specify a pangenome file using the --pangenome argument, "
+                     "either through the command line or the config file.")
+
 
     if args.subcommand == "align" and args.sequences is None:
-        parser.error("You must provide sequences (nucleotides or amino acids) to align on the pangenome gene families "
-                     "with the --sequences argument through the command line or the config file.")
+        parser.error("Please provide sequences (nucleotides or amino acids) for alignment with the pangenome gene families "
+                    "using the --sequences argument, either through the command line or the config file.")
+
+        
+    if args.subcommand == "projection" and args.organism_name is None:
+        parser.error("Please specify the name of the input organism you want to annotate using the provided pangenome. "
+                    "You can use the --organism_name argument either through the command line or the config file.")
+        
+    if args.subcommand == "projection" and args.fasta_file is None and args.annot_file is None:
+        parser.error("Please provide either a sequence file using the --fasta_file option or an annotation file (GFF/GBFF) "
+                     "using the --annot_file option for the input organism, either through the command line or the config file, "
+                     "to enable annotation with the provided pangenome.")
+
+        
+        
 
     return args
 
