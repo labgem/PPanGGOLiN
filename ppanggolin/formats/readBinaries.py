@@ -431,7 +431,8 @@ def read_modules(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = Fal
         if curr_module is None:
             curr_module = Module(int(row['module']))
             modules[row["module"]] = curr_module
-        curr_module.add_family(pangenome.get_gene_family(row['geneFam'].decode()))
+        family = pangenome.get_gene_family(row['geneFam'].decode())
+        curr_module[family.name] = family
     for module in modules.values():
 	    pangenome.add_module(module)
     pangenome.status["modules"] = "Loaded"

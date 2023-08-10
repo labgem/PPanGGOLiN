@@ -405,26 +405,51 @@ class Spot(MetaFeatures):
 
 
 class Module(MetaFeatures):
-    """
-    This class represent a hotspot.
+    """The `Module` class represents a module in a pangenome analysis.
 
-    :param module_id: identifier of the module
-    :param families: Set of families which define the module
+    The `Module` class has the following attributes:
+    - `ID`: An integer identifier for the module.
+    - `bitarray`: A bitarray representing the presence/absence of the gene families in an organism.
+
+    The `Module` class has the following methods:
+    - `families`: Returns a generator that yields the gene families in the module.
+    - `mk_bitarray`: Generates a bitarray representing the presence/absence of the gene families in an organism using the provided index.
     """
     def __init__(self, module_id: int, families: set = None):
-        """
-        'core' are gene families that define the module.
-        'associated_families' are gene families that you believe are associated to the module in some way,
-        but do not define it.
+        """Constructor method
+
+        :param module_id: Module identifier
+        :param families: Set of families which define the module
         """
         if not isinstance(module_id, int):
             raise TypeError(f"Module identifier must be an integer. Given type is {type(module_id)}")
         super().__init__()
         self.ID = module_id
-        self._families = set()
         self._families_getter = {}
-        [self.add_family(family) for family in families] if families is not None else None
+        if families is not None:
+            for family in families:
+                self[family.name] = family
         self.bitarray = None
+
+    def __repr__(self):
+        return f"Module {self.ID} - #Families: {len(self)}"
+
+    def __str__(self):
+        return f"module_{self.ID}"
+
+    def __hash__(self):
+        return id(self)
+
+    def __len__(self):
+        return len(self._families_getter)
+
+    def __eq__(self, other: Module):
+        if not isinstance(other, Module):
+            raise TypeError(f"Another module is expected to be compared to the first one. You give a {type(other)}")
+        if set(self.families) == set(other.families):
+            return True
+        else:
+            return False
 
     def __setitem__(self, name, family):
         if not isinstance(family, GeneFamily):
@@ -441,53 +466,15 @@ class Module(MetaFeatures):
             raise KeyError(f"There isn't gene family with the name {name} in the module")
 
     def __delitem__(self, name):
-        del self._families_getter[name]
-
-    def __len__(self):
-        return len(self._families_getter)
+        try:
+            del self._families_getter[name]
+        except KeyError:
+            raise KeyError(f"There isn't gene family with the name {name} in the module")
 
     @property
     def families(self) -> Generator[GeneFamily, None, None]:
         for family in self._families_getter.values():
             yield family
-
-    def add_family(self, family: GeneFamily):
-        """
-        Add a family to the module
-
-        :param family: the family that will ba added to the module
-        """
-        self._families_getter[family.name] = family
-
-    def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
-        """Produces a bitarray representing the presence / absence of families in the organism using the provided index
-        The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
-
-        :param partition: filter module by partition
-        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
-        """
-        self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
-        if partition == 'all':
-            logging.getLogger("PPanGGOLiN").debug("all")
-            for fam in self.families:
-                self.bitarray[index[fam]] = 1
-        elif partition == 'persistent':
-            logging.getLogger("PPanGGOLiN").debug("persistent")
-            for fam in self.families:
-                if fam.named_partition in ['persistent']:
-                    self.bitarray[index[fam]] = 1
-        elif partition in ['shell', 'cloud']:
-            logging.getLogger("PPanGGOLiN").debug("shell, cloud")
-            for fam in self.families:
-                if fam.named_partition == partition:
-                    self.bitarray[index[fam]] = 1
-        elif partition == 'accessory':
-            logging.getLogger("PPanGGOLiN").debug("accessory")
-            for fam in self.families:
-                if fam.named_partition in ['shell', 'cloud']:
-                    self.bitarray[index[fam]] = 1
-        else:
-            raise Exception("There is not any partition corresponding please report a github issue")
 
 
 class GeneContext:

@@ -4,8 +4,9 @@ import re
 import pytest
 from typing import Generator, Set
 from random import randint
+import gmpy2
 
-from ppanggolin.region import Region, Spot
+from ppanggolin.region import Region, Spot, Module
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Contig, Organism
 
@@ -51,6 +52,36 @@ def families(genes) -> Generator[Set[GeneFamily], None, None]:
         idx_genes += 1
     families.add(family)
     yield families
+
+@pytest.fixture
+def organisms(genes) -> Generator[Set[Organism], None, None]:
+    """Create a set of organism object for test
+
+    :return: Generator with set of organism object
+    """
+    orgs = set()
+    genes = list(genes)
+    nb_organisms = randint(2, 10)
+    nb_genes_per_organism = len(genes) // nb_organisms
+    idx_org = 1
+    while idx_org < nb_organisms:
+        org = Organism(f"organism_{idx_org}")
+        idx_genes = 0
+        while idx_genes < nb_genes_per_organism:
+            gene = genes[(idx_org - 1) * nb_genes_per_organism + idx_genes]
+            gene.fill_parents(organism=org)
+            idx_genes += 1
+        orgs.add(org)
+        idx_org += 1
+    # last organism fill with all the gene left
+    org = Organism(f"organism_{idx_org}")
+    idx_genes = (idx_org - 1) * nb_genes_per_organism
+    while idx_genes < len(genes):
+        gene = genes[idx_genes]
+        gene.fill_parents(organism=org)
+        idx_genes += 1
+    orgs.add(org)
+    yield orgs
 
 
 class TestRegion:
@@ -310,7 +341,7 @@ class TestSpot:
         assert isinstance(spot._uniqOrderedSet, dict) and len(spot._uniqOrderedSet) == 0
         assert isinstance(spot._uniqContent, dict) and len(spot._uniqContent) == 0
 
-    def test_cstr_assert_error(self):
+    def test_cstr_type_error(self):
         with pytest.raises(TypeError):
             Spot("spot_0")
 
@@ -354,7 +385,7 @@ class TestSpot:
             spot[region_2.name] = region_2
 
     def test_add_two_time_the_same_region(self, spot, region):
-        """Test that adding a new Region same name than another in the spot return a KeyError
+        """Test that adding a two time the same region is working as expected
         """
         gene = Gene("gene")
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
@@ -483,3 +514,111 @@ class TestSpot:
             spot[region.name] = region
         assert len(spot) == len(regions) + len(srgps)
         assert spot.get_uniq_ordered_set().issubset(regions)
+
+
+class TestModule:
+    @pytest.fixture
+    def module(self):
+        yield Module(0)
+
+    def test_cstr(self, module):
+        """Test that a module is construct as expected
+        """
+        assert module.ID == 0
+        assert isinstance(module._families_getter, dict) and module._families_getter == {}
+        assert module.bitarray is None
+
+    def test_cstr_type_error(self):
+        """Test that if the identifier is not an integer it raises a TypeError
+        """
+        with pytest.raises(TypeError):
+            Spot("mod_0")
+
+    def test_repr(self, module):
+        """Test that the canonical string representing a module does not change
+        """
+        assert repr(module) == "Module 0 - #Families: 0"
+
+    def test_str(self, module):
+        """Test that the writing spot method does not change
+        """
+        assert str(module) == "module_0"
+
+    def test_hash(self, module):
+        """Test that len method work as expected
+        """
+        assert isinstance(hash(module), int)
+
+    def test_len(self, module):
+        """Test that len method work as expected
+        """
+        module._families_getter["fam"] = GeneFamily(randint(1,5), "fam")
+        assert isinstance(len(module), int)
+        assert len(module) == 1
+
+    def test_eq(self, families):
+        module1, module2, module3 = Module(1), Module(2), Module(3)
+        for family in families:
+            module1[family.name] = family
+            module2[family.name] = family
+        assert module1 == module2
+        assert module1 != module3
+
+    def test_eq_with_is_not_instance_module(self, module):
+        with pytest.raises(TypeError):
+            module == 4
+
+    @pytest.fixture
+    def family(self) -> Generator[GeneFamily, None, None]:
+        """Create a basic gene family for test
+        """
+        yield GeneFamily(0, 'family')
+
+    def test_add_family(self, module, family):
+        """Tests that a gene family can be added to the module
+        """
+        module[family.name] = family
+        assert len(module._families_getter) == 1
+        assert module._families_getter['family'] == family
+
+    def test_add_different_families_with_same_name(self, module):
+        """Test that adding a new family with same name than another in the module return a KeyError
+        """
+        family_1, family_2 = GeneFamily(1, 'family_1'), GeneFamily(1, 'family_1')
+        module[family_1.name] = family_1
+        with pytest.raises(KeyError):
+            module[family_2.name] = family_2
+
+    def test_add_two_time_the_same_family(self, module, family):
+        """Test that adding a two time the same family is working as expected
+        """
+        module[family.name] = family
+        assert family in module._families_getter.values()
+        module[family.name] = family
+        assert family in module._families_getter.values()
+
+    def test_get_family(self, module, family):
+        """Tests that a gene family can be retrieved from the module
+        """
+        module[family.name] = family
+        assert module['family'] == family
+
+    def test_get_family_which_does_not_exist(self, module):
+        """Tests that if a gene family does not exist it raises a KeyError"""
+        fam = GeneFamily(randint(1, 20), f"fam{randint(1, 20)}")
+        with pytest.raises(KeyError):
+            _ = module[fam.name]
+
+    def test_delete_family(self, module, family):
+        """Tests that a gene family can be deleted from the module
+        """
+        module[family.name] = family
+        del module['family']
+        assert len(module) == 0
+
+    def test_delete_family_which_does_not_exist(self, module):
+        """Tests that if a gene family does not exist it raises a KeyError
+        """
+        fam = GeneFamily(randint(1, 20), f"fam{randint(1, 20)}")
+        with pytest.raises(KeyError):
+            del module[fam.name]

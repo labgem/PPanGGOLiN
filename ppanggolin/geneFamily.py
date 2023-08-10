@@ -78,6 +78,8 @@ class GeneFamily(MetaFeatures):
     def __repr__(self):
         return f"{self.ID}: {self.name}"
 
+    #TODO define __eq__
+
     @property
     def named_partition(self) -> str:
         """Reads the partition attribute and returns a meaningful name
