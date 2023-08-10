@@ -232,9 +232,13 @@ def read_org_gbff(organism: str, gbff_file_path: str, circular_contigs: list, ps
         while not line.startswith('//'):
             sequence += line[10:].replace(" ", "").strip().upper()
             line = lines.pop()
+        
+        contig.add_contig_length(len(sequence))
+
         # get each gene's sequence.
         for gene in contig.genes:
             gene.add_dna(get_dna_sequence(sequence, gene))
+
     return org, True
 
 
@@ -364,7 +368,11 @@ def read_org_gff(organism: str, gff_file_path: str, circular_contigs, pseudo: bo
     # GET THE FASTA SEQUENCES OF THE GENES
     if has_fasta and fasta_string != "":
         contig_sequences, _ = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
+
         for contig in org.contigs:
+
+            contig.add_contig_length(len(contig_sequences[contig.name]))
+
             for gene in contig.genes:
                 gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
             for rna in contig.RNAs:

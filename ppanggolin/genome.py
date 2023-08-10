@@ -155,6 +155,7 @@ class Contig:
         self.RNAs = set()  # saving the rna annotations. We're not using them in the vast majority of cases.
         self._genes_start = {}
         self._genes_position = []
+        self.length = None
 
     @property
     def genes(self) -> list:
@@ -203,6 +204,19 @@ class Contig:
             self._genes_position.append(None)
         self._genes_position[gene.position] = gene
         self._genes_start[gene.start] = gene
+
+    def add_contig_length(self, contig_length: int):
+        """
+        Add contig length to Contig object.
+
+        :param contig_length: Length of the contig.
+        :raises ValueError: If trying to define a contig length different than previously defined.
+        """
+        if self.length is None:
+            self.length = contig_length
+
+        elif self.length != contig_length:
+            raise ValueError('Attempting to define a contig length different from the previously defined value.')
 
 
 class Organism(MetaFeatures):
@@ -294,3 +308,4 @@ class Organism(MetaFeatures):
                     self.bitarray[index[fam]] = 1
         else:
             raise Exception("There is not any partition corresponding please report a github issue")
+        

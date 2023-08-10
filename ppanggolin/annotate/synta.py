@@ -328,6 +328,8 @@ def annotate_organism(org_name: str, file_name: str, circular_contigs, tmpdir: s
 
     for contigName, genes in genes.items():
         contig = org.get_contig(contigName)
+        contig.add_contig_length(len(contig_sequences[contig.name]))
+
         if contig.name in circular_contigs:
             contig.is_circular = True
         for gene in genes:
