@@ -15,7 +15,8 @@ import os
 # local libraries
 from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.genome import Organism
+from ppanggolin.genome import Organism, Gene, Contig, RNA
+from ppanggolin.region import Region, Spot
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float
 from ppanggolin.formats.readBinaries import check_pangenome_info
@@ -618,6 +619,117 @@ def write_projections(output: str, compress: bool = False):
         write_org_file(org, outdir, compress)
     logging.getLogger().info("Done writing the projection files")
 
+def write_gff(output: str, compress: bool = False):
+    """
+    Write the gff files for all organisms
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
+    logging.getLogger().info("Writing the gff files...")
+    outdir = output + "/gff"
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    contig_to_rgp = defaultdict(list)
+    for rgp in pan.regions:
+        contig_to_rgp[rgp.contig].append(rgp)
+    
+    rgp_to_spot = {rgp:spot for spot in pan.spots for rgp in spot.rgp}
+    
+    for org in pan.organisms:
+        print(org)
+        write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot)
+        break
+    logging.getLogger().info("Done writing the gff files")
+
+def write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot):
+    """
+    Write the gff file of the provided organism.
+
+    :param org:  Organism to write the gff
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
+
+
+    # regions = sorted(pan.regions, key=lambda x: (x.organism.name, x.contig.name, x.start))
+
+    # TODO: decide if we want to keep source information when parsing
+    # gff/gbff to be able to reinject it in the gff output
+
+    with write_compressed_or_not(outdir + "/" + org.name + ".gff", compress) as outfile:
+        # write gff header
+        outfile.write('##gff-version 3\n')
+        for contig in org.contigs:
+            if contig.length is None:
+                raise AttributeError(f'Contig {contig.name} has no length defined.')
+
+            outfile.write(f'##sequence-region {contig.name} 1 {contig.length}\n')
+
+        for contig in org.contigs:
+            contig_elements = sorted(contig_to_rgp[contig] + contig.genes + list(contig.RNAs), key=lambda x: (x.start))
+
+            for feature in contig_elements:
+                
+                if type(feature) in [Gene, RNA]:
+                    feat_type = feature.type
+
+                    strand = feature.strand
+                    
+                    strand = feature.strand
+
+                    attributes = [("ID", feature.ID), 
+                                  ("Name", feature.name),
+                                  ("product", feature.product),
+                                ]
+                    
+                    score = '.'
+                    
+                    if type(feature) == Gene:
+                        attributes += [
+                            ("Family", feature.family.name),
+                            ("Partition", feature.family.named_partition),
+                            ('RGP', ','.join((rgp.name for rgp in feature.RGP))),
+                            ('Module', ','.join((f"module_{module.ID}" for module in feature.family.modules)) ) 
+                        ]
+                        # TODO understand why RGP attribute is a set of RGP rather than an uniq RGP
+                        # Does gene can have more than one RGP?
+                        
+                
+                elif type(feature) == Region:
+                    feat_type = "region"
+                    strand = "."
+                    score = feature.score # TODO is RGP score make sens and do we want it in gff file?
+                    attributes = [
+                            ("Name", feature.name),
+                            ("Spot", rgp_to_spot.get(feature.name, "No_spot"))
+                    ]
+
+                
+                else:
+                    raise TypeError(f'The feature to write in gff file does not have an expected types. {type(feature)}')
+
+
+                attributes_str = ';'.join([f"{k}={v}" for k,v in attributes if v != "" and v is not None])
+
+                line = [contig.name,
+                        ".", # Source
+                        feat_type,
+                        feature.start,
+                        feature.stop,
+                        score,
+                        strand,
+                        ".",
+                        attributes_str,
+                        ]
+                line_str = '\t'.join(map(str, line))
+                outfile.write(line_str + "\n")
+
+
+
+
+    
 
 def write_parts(output: str, soft_core: float = 0.95):
     """
@@ -914,7 +1026,7 @@ def write_rgp_modules(output, compress):
 
 def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core: float = 0.95, dup_margin: float = 0.05,
                      csv: bool = False, gene_pa: bool = False, gexf: bool = False, light_gexf: bool = False,
-                     projection: bool = False, stats: bool = False, json: bool = False, partitions: bool = False,
+                     projection: bool = False, gff: bool = False, stats: bool = False, json: bool = False, partitions: bool = False,
                      regions: bool = False, families_tsv: bool = False, spots: bool = False, borders: bool = False,
                      modules: bool = False, spot_modules: bool = False, compress: bool = False,
                      disable_bar: bool = False):
@@ -931,6 +1043,7 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
     :param gexf: write pangenome graph in gexf format
     :param light_gexf: write pangenome graph with only gene families
     :param projection: write projection of pangenome for organisms
+    :param gff: write a gff file with pangenome annotation for each organisms
     :param stats: write statistics about pangenome
     :param json: write pangenome graph in json file
     :param partitions: write the gene families for each partition
@@ -944,7 +1057,7 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
     :param disable_bar: Disable progress bar
     """
     # TODO Add force parameter to check if output already exist
-    if not any(x for x in [csv, gene_pa, gexf, light_gexf, projection, stats, json, partitions, regions, spots, borders,
+    if not any(x for x in [csv, gene_pa, gexf, light_gexf, projection, gff, stats, json, partitions, regions, spots, borders,
                            families_tsv, modules, spot_modules]):
         raise Exception("You did not indicate what file you wanted to write.")
 
@@ -964,10 +1077,10 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
     pan = pangenome
 
     if csv or gene_pa or gexf or light_gexf or projection or stats or json or partitions or regions or spots or \
-            families_tsv or borders or modules or spot_modules:
+            families_tsv or borders or modules or spot_modules or gff:
         needAnnotations = True
         needFamilies = True
-    if projection or stats or partitions or regions or spots or borders:
+    if projection or stats or partitions or regions or spots or borders or gff:
         needPartitions = True
     if gexf or light_gexf or json:
         needGraph = True
@@ -978,7 +1091,7 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
             metatype = "families"
         else:
             needMetadata = False
-    if regions or spots or borders or spot_modules:
+    if regions or spots or borders or spot_modules or gff:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
         needSpots = True
@@ -1004,6 +1117,8 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
             processes.append(p.apply_async(func=write_gexf, args=(output, True, soft_core)))
         if projection:
             processes.append(p.apply_async(func=write_projections, args=(output, compress)))
+        if gff:
+            processes.append(p.apply_async(func=write_gff, args=(output, compress)))
         if stats:
             processes.append(p.apply_async(func=write_stats, args=(output, soft_core, dup_margin, compress)))
         if json:
@@ -1040,7 +1155,7 @@ def launch(args: argparse.Namespace):
     global pan
     pan.add_file(args.pangenome)
     write_flat_files(pan, args.output, cpu=args.cpu, soft_core=args.soft_core, dup_margin=args.dup_margin, csv=args.csv,
-                     gene_pa=args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection,
+                     gene_pa=args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, gff=args.gff,
                      stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions,
                      families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, modules=args.modules,
                      spot_modules=args.spot_modules, compress=args.compress, disable_bar=args.disable_prog_bar)
@@ -1088,6 +1203,8 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--projection", required=False, action="store_true",
                           help="a csv file for each organism providing information on the projection of the graph "
                                "on the organism")
+    optional.add_argument("--gff", required=False, action="store_true",
+                        help="Generate a gff file for each organism containing pangenome annotations.")
     optional.add_argument("--stats", required=False, action="store_true",
                           help="tsv files with some statistics for each organism and for each gene family")
     optional.add_argument("--partitions", required=False, action="store_true",
