@@ -635,15 +635,15 @@ def write_gff(output: str, compress: bool = False):
     for rgp in pan.regions:
         contig_to_rgp[rgp.contig].append(rgp)
     
-    rgp_to_spot = {rgp:spot for spot in pan.spots for rgp in spot.rgp}
-    
+    rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in pan.spots for rgp in spot.regions}
+
     for org in pan.organisms:
         print(org)
-        write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot)
+        write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot_id)
         break
     logging.getLogger().info("Done writing the gff files")
 
-def write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot):
+def write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spotid):
     """
     Write the gff file of the provided organism.
 
@@ -677,7 +677,7 @@ def write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot):
 
                     strand = feature.strand
                     
-                    strand = feature.strand
+                    source = "."
 
                     attributes = [("ID", feature.ID), 
                                   ("Name", feature.name),
@@ -699,11 +699,13 @@ def write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot):
                 
                 elif type(feature) == Region:
                     feat_type = "region"
+                    source = "ppanggolin"
                     strand = "."
                     score = feature.score # TODO is RGP score make sens and do we want it in gff file?
                     attributes = [
                             ("Name", feature.name),
-                            ("Spot", rgp_to_spot.get(feature.name, "No_spot"))
+                            ("Spot", rgp_to_spotid.get(feature, "No_spot")),
+                            ("Note", "Region of Genomic Plasticity (RGP)")
                     ]
 
                 
@@ -714,7 +716,7 @@ def write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot):
                 attributes_str = ';'.join([f"{k}={v}" for k,v in attributes if v != "" and v is not None])
 
                 line = [contig.name,
-                        ".", # Source
+                        source, # Source
                         feat_type,
                         feature.start,
                         feature.stop,
@@ -1091,13 +1093,13 @@ def write_flat_files(pangenome: Pangenome, output: str, cpu: int = 1, soft_core:
             metatype = "families"
         else:
             needMetadata = False
-    if regions or spots or borders or spot_modules or gff:
+    if regions or spots or borders or spot_modules:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
         needSpots = True
     if modules or spot_modules:  # or projection:
         needModules = True
-    if projection:
+    if projection or gff:
         needRegions = True if pan.status["predictedRGP"] == "inFile" else False
         needSpots = True if pan.status["spots"] == "inFile" else False
         needModules = True if pan.status["modules"] == "inFile" else False
