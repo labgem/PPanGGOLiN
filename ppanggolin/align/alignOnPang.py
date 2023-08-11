@@ -63,28 +63,27 @@ def align_seq_to_pang(pang_file: IO, seq_file: TextIOWrapper, output: Path,
        cov_mode = "0"  # coverage of query and target
 
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file") as aln_db:
-        cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.name, "-a", "--min-seq-id", str(identity),
+        cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.as_posix(), "-a", "--min-seq-id", str(identity),
             "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)]
         if is_nucleotid:
             logging.getLogger().debug(f"Input sequences will be translated by mmseqs with translation table {translation_table}")
             cmd += ["--translation-table", f"{translation_table}", "--translate", "0" ]
     
-    
-    logging.getLogger().info("Aligning sequences to cluster representatives...")
-    logging.getLogger().debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-
-    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.name, prefix="aln_result_db_file", suffix = ".tsv", delete=False) as outfile:
-        cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile.name, "--format-mode", "2"]
-
-        logging.getLogger().info("Extracting alignments...")
+        
+        logging.getLogger().info("Aligning sequences to cluster representatives...")
         logging.getLogger().debug(" ".join(cmd))
         subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+
+        with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, prefix="aln_result_db_file", suffix = ".tsv", delete=False) as outfile:
+            cmd = ["mmseqs", "convertalis", seq_db.name, pang_db.name, aln_db.name, outfile.name, "--format-mode", "2"]
+
+            logging.getLogger().info("Extracting alignments...")
+            logging.getLogger().debug(" ".join(cmd))
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
 
 
     pang_db.close()
     seq_db.close()
-    aln_db.close()
 
     return outfile.name
 
@@ -310,8 +309,8 @@ def get_seq2pang(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir
 
     :return: sequence set, blast-tab result file string, and sequences aligned with families
     """
-    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), delete=False, suffix=".faa") as tmp_pang_file:
 
+    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), delete=False, suffix=".faa") as tmp_pang_file:
         write_gene_fam_sequences(pangenome, tmp_pang_file, add="ppanggolin_")
 
         with read_compressed_or_not(sequence_file) as seqFileObj:

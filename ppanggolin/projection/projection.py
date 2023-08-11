@@ -254,8 +254,12 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     with open(seq_fasta_file, "w") as fh_out_faa:
         write_gene_sequences_from_annotations(
             input_organism.genes, fh_out_faa, disable_bar=True)
+        
+    # create tmpdir
+    mk_outdir(tmpdir, force=True)
 
     with tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_") as new_tmpdir:
+
         seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, Path(new_tmpdir),
                                                         cpu, no_defrag, identity=identity, coverage=coverage,
                                                         is_nucleotide=True, translation_table=translation_table)
