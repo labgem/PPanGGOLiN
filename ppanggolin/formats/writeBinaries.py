@@ -20,12 +20,12 @@ from ppanggolin.genome import Feature
 from ppanggolin.formats.readBinaries import read_genedata, Genedata
 
 
-def gene_desc(org_len, contig_len, id_len, max_local_id) -> dict:
+def gene_desc(org_len, contig_name_len, id_len, max_local_id) -> dict:
     """
     Create a table to save gene-related information
 
     :param org_len: Maximum size of organism
-    :param contig_len: Maximum size of contigs
+    :param contig_name_len: Maximum size of contigs name
     :param id_len: Maximum size of gene ID
 
     :param max_local_id: Maximum size of gene local identifier
@@ -35,8 +35,9 @@ def gene_desc(org_len, contig_len, id_len, max_local_id) -> dict:
     return {
         'organism': tables.StringCol(itemsize=org_len),
         "contig": {
-            'name': tables.StringCol(itemsize=contig_len),
-            "is_circular": tables.BoolCol(dflt=False)
+            'name': tables.StringCol(itemsize=contig_name_len),
+            "is_circular": tables.BoolCol(dflt=False),
+            "length": tables.UInt32Col(),
         },
         "gene": {
             'ID': tables.StringCol(itemsize=id_len),
@@ -169,6 +170,7 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
                 gene_row["organism"] = org.name
                 gene_row["contig/name"] = contig.name
                 gene_row["contig/is_circular"] = contig.is_circular
+                gene_row["contig/length"] = contig.length
                 gene_row["gene/ID"] = gene.ID
                 gene_row["gene/is_fragment"] = gene.is_fragment
                 if gene.type == "CDS":

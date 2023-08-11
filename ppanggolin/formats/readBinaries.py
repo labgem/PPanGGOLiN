@@ -225,7 +225,7 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
     h5f.close()
 
 
-def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, genedata_dict: dict,
+def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, contig_to_length, genedata_dict: dict,
                   link: bool = False):
     """
     Read information from pangenome to assign to organism object
@@ -240,6 +240,8 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
     gene, gene_type = (None, None)
     for contigName, geneList in contig_dict.items():
         contig = org.get_contig(contigName, is_circular=circular_contigs[contigName])
+        contig.add_contig_length(contig_to_length[contigName])
+
         for row in geneList:
             if link:  # if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.get_gene(row["ID"].decode())
@@ -436,6 +438,7 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = 
     table = annotations.genes
     pangenome_dict = {}
     circular_contigs = {}
+    contig_lengths = {}
 
     genedata_dict = read_genedata(h5f)
 
@@ -449,16 +452,18 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = 
                 # new contig, seen org
                 pangenome_dict[decode_org][row["contig"]["name"].decode()] = [row["gene"]]
                 circular_contigs[decode_org][row["contig"]["name"].decode()] = row["contig"]["is_circular"]
+                contig_lengths[decode_org][row["contig"]["name"].decode()] = row["contig"]["length"]
             except KeyError:
                 # new org
                 pangenome_dict[sys.intern(decode_org)] = {row["contig"]["name"].decode(): [row["gene"]]}
                 circular_contigs[decode_org] = {row["contig"]["name"].decode(): row["contig"]["is_circular"]}
+                contig_lengths[decode_org] = {row["contig"]["name"].decode(): row["contig"]["length"]}
 
     link = True if pangenome.status["genesClustered"] in ["Computed", "Loaded"] else False
 
     for orgName, contigDict in tqdm(pangenome_dict.items(), total=len(pangenome_dict),
                                     unit="organism", disable=disable_bar):
-        read_organism(pangenome, orgName, contigDict, circular_contigs[orgName], genedata_dict, link)
+        read_organism(pangenome, orgName, contigDict, circular_contigs[orgName], contig_lengths[orgName], genedata_dict, link)
     pangenome.status["genomesAnnotated"] = "Loaded"
 
 
