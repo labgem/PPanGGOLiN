@@ -204,7 +204,8 @@ def compute_org_rgp( organism: Organism, multigenics: set,
     :param min_score: Minimum score threshold for considering a region as RGP (default: 4).
     :param naming: Naming scheme for the regions, either "contig" or "organism" (default: "contig").
     :param disable_bar: Whether to disable the progress bar. It is recommended to disable it when calling this function in a loop on multiple organisms (default: True).
-    :return: A set of organization regions representing the predicted RGPs.
+    
+    :return: A set of RGPs of the provided organism.
     """
     org_regions = set()
     for contig in tqdm(organism.contigs, total=len(organism.contigs), unit="contig", disable=disable_bar): 

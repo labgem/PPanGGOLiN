@@ -157,15 +157,20 @@ def launch(args: argparse.Namespace):
             write_predicted_regions(
                 input_org_rgps, output=output_dir, compress=False)
 
-            if project_spots and len(input_org_rgps) > 0:
+        if predict_rgp and project_spots:
+            if len(input_org_rgps) == 0:
+                # if rgp and spot flag are on but no RGP has been found 
+                # then no spot will be found
+                input_org_spots = {}
+            else:
                 input_org_spots = predict_spots_in_input_organism(initial_spots=pangenome.spots,
-                                                initial_regions=pangenome.regions,
-                                                input_org_rgps=input_org_rgps,
-                                                multigenics=multigenics, output=output_dir,
-                                                write_graph_flag=args.spot_graph, graph_formats=args.graph_formats,
-                                                overlapping_match=pangenome_params.spot.overlapping_match,
-                                                set_size=pangenome_params.spot.set_size,
-                                                exact_match=pangenome_params.spot.exact_match_size)
+                                            initial_regions=pangenome.regions,
+                                            input_org_rgps=input_org_rgps,
+                                            multigenics=multigenics, output=output_dir,
+                                            write_graph_flag=args.spot_graph, graph_formats=args.graph_formats,
+                                            overlapping_match=pangenome_params.spot.overlapping_match,
+                                            set_size=pangenome_params.spot.set_size,
+                                            exact_match=pangenome_params.spot.exact_match_size)
 
     if project_modules:
         input_org_modules = project_and_write_modules(pangenome, input_organism, output_dir)
@@ -255,7 +260,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
         write_gene_sequences_from_annotations(
             input_organism.genes, fh_out_faa, disable_bar=True)
         
-    # create tmpdir
+    # create tmpdir in case it does not exists
     mk_outdir(tmpdir, force=True)
 
     with tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_") as new_tmpdir:
@@ -297,7 +302,7 @@ def predict_RGP(pangenome: Pangenome, input_organism: Organism, persistent_penal
     :param multigenics: multigenic families.
     :param disable_bar: Flag to disable the progress bar.
 
-    :return: None
+    :return: Set of RGPs
     """
 
     logging.getLogger().info("Computing Regions of Genomic Plasticity...")
