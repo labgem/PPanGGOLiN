@@ -58,7 +58,19 @@ class IdenticalRegions:
             return NotImplemented
 
         return self.families == other.families and self.rgps == other.rgps and self.is_contig_border == other.is_contig_border
+        
+    def __str__(self):
+        return self.name
 
+    def __hash__(self):
+        return id(self)
+    
+    def __lt__(self, obj):
+        return ((self.ID) < (obj.ID))
+  
+    def __gt__(self, obj):
+        return ((self.ID) > (obj.ID))
+    
     
 def compute_grr(rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily], mode: Callable) -> float:
     """
@@ -253,7 +265,7 @@ def add_edges_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: Lis
 
 def dereplicate_rgp(rgps: List[Union[Region, IdenticalRegions]], disable_bar: bool = False) -> List[Union[Region, IdenticalRegions]]:
     """
-    Dereplicate Region Group Patterns (RGPs) that have the same families.
+    Dereplicate RGPs that have the same families.
 
     Given a list of Region or IdenticalRegions objects representing RGPs, this function groups together
     RGPs with the same families into IdenticalRegions objects and returns a list of dereplicated RGPs.
@@ -293,73 +305,40 @@ def dereplicate_rgp(rgps: List[Union[Region, IdenticalRegions]], disable_bar: bo
     return dereplicated_rgps
 
 
-def compute_rgp_metric(rgp_pair: Tuple[int, int],
-                       rgp_to_families: Dict[int, set],
-                       rgp_to_contigborder: Dict[int, bool],
+def compute_rgp_metric(rgp_a: Region,
+                       rgp_b: Region,
                        grr_cutoff: float,
                        grr_metric: str) -> Tuple[int, int, dict]:
     """
     Compute GRR metric between two RGPs.
 
-    :param rgp_pair: Pair of RGP IDs to compute the metric for
-    :param rgp_to_families: Mapping of RGP ID to set of families it contains
-    :param rgp_to_contigborder: Mapping of RGP ID to whether it is at a contig border or not
-    :param grr_cutoff: Minimum GRR value required for the RGP pair to be considered
+    :param rgp_a: a rgp
+    :param rgp_b: another rgp
     :param grr_metric: grr mode between min_grr, max_grr and incomplete_aware_grr
 
     :returns: Tuple containing the IDs of the two RGPs and the computed metrics as a dictionary
     """
 
-    # Unpack RGP pair
-    rgp_a, rgp_b = rgp_pair
-
-    # Get families for each RGP
-    rgp_a_fam = rgp_to_families[rgp_a]
-    rgp_b_fam = rgp_to_families[rgp_b]
-
-    # Compute metrics between 2 rgp if they share at least one family
-    # if rgp_a_fam & rgp_b_fam:
     edge_metrics = {}
 
     # RGP at a contig border are seen as incomplete and min GRR is used instead of max GRR
-    if rgp_to_contigborder[rgp_a] or rgp_to_contigborder[rgp_b]:
+    if rgp_a.is_contig_border or rgp_b.is_contig_border:
         edge_metrics["incomplete_aware_grr"] = compute_grr(
-            rgp_a_fam, rgp_b_fam, min)
+            rgp_a.families, rgp_b.families, min)
     else:
         edge_metrics["incomplete_aware_grr"] = compute_grr(
-            rgp_a_fam, rgp_b_fam, max)
+            rgp_a.families, rgp_b.families, max)
 
     # Compute max and min GRR metrics
-    edge_metrics['max_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, max)
-    edge_metrics['min_grr'] = compute_grr(rgp_a_fam, rgp_b_fam, min)
+    edge_metrics['max_grr'] = compute_grr(rgp_a.families, rgp_b.families, max)
+    edge_metrics['min_grr'] = compute_grr(rgp_a.families, rgp_b.families, min)
 
     # Number of shared families can be useful when visualising the graph
-    edge_metrics['shared_family'] = len(rgp_a_fam & rgp_b_fam)
+    edge_metrics['shared_family'] = len(rgp_a.families & rgp_b.families)
 
     # Only return the metrics if the GRR value is above the cutoff
     if edge_metrics[grr_metric] >= grr_cutoff:
-        return (rgp_a, rgp_b, edge_metrics)
-
-
-def launch_rgp_metric(pack: tuple) -> tuple:
-    """ 
-    Allow to launch in multiprocessing the rgp metric
-
-    :param pack: Pack of argument for rgp metrics
-
-    :return: edge metrics 
-    """
-    return compute_rgp_metric(*pack)
-
-
-def get_rgp_family_ids(rgp: Region) -> dict:
-    """
-    Get the set of family IDs contained within an RGP.
-
-    :param rgp: The RGP object to get family IDs from.
-    :return: A set of family IDs contained within the RGP.
-    """
-    return {f.ID for f in rgp.families}
+        return (rgp_a.ID, rgp_b.ID, edge_metrics)
 
 
 def cluster_rgp_on_grr(G: nx.Graph, clustering_attribute: str = "grr"):
@@ -426,7 +405,7 @@ def write_rgp_cluster_table(outfile: str, grr_graph: nx.Graph,
     df.to_csv(outfile, sep='\t', index=False)
 
 
-def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str, cpu: int, 
+def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
                 ignore_incomplete_rgp: bool, unmerge_identical_rgps: bool, grr_metric: str,
                 disable_bar: bool, graph_formats: Set[str]):
     """
@@ -436,7 +415,6 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str, cpu: i
     :param grr_cutoff: GRR cutoff value for clustering
     :param output: Directory where the output files will be saved
     :param basename: Basename for the output files
-    :param cpu: Number of CPU cores to use for computation
     :param ignore_incomplete_rgp: Whether to ignore incomplete RGPs located at a contig border
     :param unmerge_identical_rgps: Whether to unmerge identical RGPs into separate nodes in the graph
     :param grr_metric: GRR metric to use for clustering
@@ -458,41 +436,34 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str, cpu: i
         raise Exception(
             "The pangenome has no RGPs. The clustering of RGP is then not possible.")
 
-    grr_graph = nx.Graph()
-
     # add all rgp as node
     if ignore_incomplete_rgp:
         valid_rgps = [
             rgp for rgp in pangenome.regions if not rgp.is_contig_border]
+        
         ignored_rgp_count = len(pangenome.regions) - len(valid_rgps)
         total_rgp_count = len(pangenome.regions)
+
         logging.info(f'Ignoring {ignored_rgp_count}/{total_rgp_count} ({100*(ignored_rgp_count)/total_rgp_count:.2f}%) '
                      'RGPs that are located at a contig border and are likely incomplete.')
+        
         if len(valid_rgps) == 0:
             raise Exception(
                 "The pangenome has no complete RGPs. The clustering of RGP is then not possible.")
     else:
         valid_rgps = pangenome.regions
 
-    dereplicated_rgps = dereplicate_rgp(
-        valid_rgps, disable_bar=disable_bar)
+    dereplicated_rgps = dereplicate_rgp(valid_rgps, disable_bar=disable_bar)
 
-    rgp_count = len(dereplicated_rgps)
+    grr_graph = nx.Graph()
+    grr_graph.add_nodes_from((rgp.ID for rgp in dereplicated_rgps))
 
-    grr_graph.add_nodes_from(
-        (rgp.ID for rgp in dereplicated_rgps))
+    # Get all pairs of RGP that share at least one family
 
-    # Creating dictonnaries paring rgp ID with their families ids
-    rgp_to_families = {rgp.ID: get_rgp_family_ids(
-        rgp) for rgp in dereplicated_rgps}
-    
-    rgp_to_iscontigborder = {
-        rgp.ID: rgp.is_contig_border for rgp in dereplicated_rgps}
-    
     family2rgp = defaultdict(set)
     for rgp in dereplicated_rgps:
         for fam in rgp.families:
-            family2rgp[fam].add(rgp.ID)
+            family2rgp[fam].add(rgp)
     
     rgp_pairs = set()
     for rgps in family2rgp.values():
@@ -500,34 +471,34 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str, cpu: i
     
     pairs_count = len(rgp_pairs)
 
-    # compute grr for all possible pair of rgp
-    # pairs_count = int((rgp_count**2 - rgp_count)/2)
     logging.info(
-        f'Computing GRR metric for {pairs_count:,} pairs of RGP using {cpu} cpus...')
+        f'Computing GRR metric for {pairs_count:,} pairs of RGP.')
 
     # use the ID of the rgp to make pair rather than their name to save memory
     # rgp_pairs = combinations(rgp_to_families.keys(), 2)
-    
-
-    optimal_chunk_size = 50000
-    chunk_count = (pairs_count/optimal_chunk_size) + cpu
-    chunk_size = int(pairs_count/chunk_count)+1
-    logging.debug(
-        f'Computing GRR metric in ~{chunk_count:.2f} chunks of {chunk_size} pairs')
 
     # create the argument iterator to use in parallell
     # arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder,
     #             grr_cutoff, grr_metric) for rgp_pair in rgp_pairs if rgp_to_families[rgp_pair[0]] & rgp_to_families[rgp_pair[1]])
 
-    arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder,
-            grr_cutoff, grr_metric) for rgp_pair in rgp_pairs)
-    
     pairs_of_rgps_metrics = []
-    with Pool(processes=cpu) as p:
-        for pair_metrics in tqdm(p.imap_unordered(launch_rgp_metric, arg_iter, chunksize=chunk_size),
-                                 unit="pair of RGPs", total=pairs_count, disable=disable_bar):
-            if pair_metrics:
-                pairs_of_rgps_metrics.append(pair_metrics)
+
+    for rgp_a, rgp_b in rgp_pairs:
+
+        pair_metrics = compute_rgp_metric(rgp_a, rgp_b, grr_cutoff, grr_metric)
+
+        if pair_metrics:
+            pairs_of_rgps_metrics.append(pair_metrics)
+
+    # arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder,
+    #         grr_cutoff, grr_metric) for rgp_pair in rgp_pairs)
+    
+    # pairs_of_rgps_metrics = []
+    # with Pool(processes=cpu) as p:
+    #     for pair_metrics in tqdm(p.imap_unordered(launch_rgp_metric, arg_iter, chunksize=chunk_size),
+    #                              unit="pair of RGPs", total=pairs_count, disable=disable_bar):
+    #         if pair_metrics:
+    #             pairs_of_rgps_metrics.append(pair_metrics)
 
     grr_graph.add_edges_from(pairs_of_rgps_metrics)
 
@@ -595,7 +566,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
 
     cluster_rgp(pangenome, grr_cutoff=args.grr_cutoff, output=args.output,
-                basename=args.basename, cpu=args.cpu, ignore_incomplete_rgp=args.ignore_incomplete_rgp,
+                basename=args.basename, ignore_incomplete_rgp=args.ignore_incomplete_rgp,
                 unmerge_identical_rgps=args.no_identical_rgp_merging,
                 grr_metric=args.grr_metric, disable_bar=args.disable_prog_bar, graph_formats=args.graph_formats)
 
@@ -644,7 +615,6 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
     optional.add_argument('--no_identical_rgp_merging', required=False, action="store_true",
                           help="Do not merge in one node identical RGP (i.e. having the same family content) before clustering.")
 
-    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
     optional.add_argument("--basename", required=False,
                           default="rgp_cluster", help="basename for the output file")

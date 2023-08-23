@@ -38,6 +38,12 @@ class Region(MetaFeatures):
 
     def __hash__(self):
         return id(self)
+    
+    def __lt__(self, obj):
+        return ((self.ID) < (obj.ID))
+  
+    def __gt__(self, obj):
+        return ((self.ID) > (obj.ID))
 
     def __eq__(self, other: Region) -> bool:
         """
