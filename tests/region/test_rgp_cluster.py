@@ -26,9 +26,20 @@ def identical_rgps(l_genes):
 
 @pytest.fixture
 def RGP_a(l_genes):
+    # rgp_a has 8 families and is at contig border
     rgp = Region("A")
     
     for g in l_genes[:8]:
+        rgp.append(g)
+
+    return rgp
+
+@pytest.fixture
+def RGP_b(l_genes):
+    # rgp_b has 2 families and is not at contig border
+    rgp = Region("B")
+    
+    for g in l_genes[5:7]:
         rgp.append(g)
 
     return rgp
@@ -58,29 +69,27 @@ def test_dereplicate_rgp(identical_rgps):
     assert rgp_cluster.dereplicate_rgp(identical_rgps)[0] == identical_region_obj
 
 
-def test_compute_rgp_metric():
-    
-    rgp_pair = (1, 2)
-    rgp_to_families = {1: {"A", 'B'},
-                       2: {"A", "B", 'C'} }
-    rgp_to_contigborder = {1: True,
-                           2: False }
+def test_compute_rgp_metric(RGP_a, RGP_b):
+
+
+    assert RGP_a.is_contig_border == True
+    assert RGP_b.is_contig_border == False
+
     # min_grr
-    min_result = rgp_cluster.compute_rgp_metric(rgp_pair, rgp_to_families, rgp_to_contigborder, 0.8, "min_grr")
-    expected_min_grr = (1,2, {'incomplete_aware_grr':2/2, 
+    min_result = rgp_cluster.compute_rgp_metric(RGP_a, RGP_b, 0.8, "min_grr")
+    expected_min_grr = (RGP_a.ID, RGP_b.ID, {'incomplete_aware_grr':2/2, 
                             "min_grr":2/2, 
-                            'max_grr':2/3,
+                            'max_grr':2/8,
                             'shared_family':2})
     assert min_result == expected_min_grr
 
     # incomplete_aware_grr: same as min grr as rgp1 is incomplete 
-    incomplete_aware_result = rgp_cluster.compute_rgp_metric(rgp_pair, rgp_to_families, rgp_to_contigborder, 0.8, "incomplete_aware_grr")
+    incomplete_aware_result = rgp_cluster.compute_rgp_metric(RGP_a, RGP_b, 0.8, "incomplete_aware_grr")
 
     assert incomplete_aware_result == expected_min_grr
 
-
     # max grr is below cutoff so None is returned
-    assert rgp_cluster.compute_rgp_metric(rgp_pair, rgp_to_families, rgp_to_contigborder, 0.8, "max_grr") == None
+    assert rgp_cluster.compute_rgp_metric(RGP_a, RGP_b, 0.8, "max_grr") == None
 
 
 def add_info_to_rgp_nodes(RGP_a):
