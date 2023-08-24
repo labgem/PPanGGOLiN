@@ -104,6 +104,9 @@ def launch(args: argparse.Namespace):
                                                       filename=args.annot_file,
                                                       circular_contigs=[],
                                                       pseudo=args.use_pseudo)
+        if input_organism.number_of_genes() == 0:
+            raise ValueError("The input organism lacks gene annotations. "
+                             f"Please verify the provided annotation file: {args.annot_file}")
 
         if not has_sequence:
             if args.fasta_file:
@@ -123,7 +126,9 @@ def launch(args: argparse.Namespace):
         input_organism = annotate_organism(org_name=args.organism_name, file_name=args.fasta_file, circular_contigs=[], tmpdir=args.tmpdir,
                                            code=args.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
                                            overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure)
-
+        if input_organism.number_of_genes() == 0:
+            raise ValueError("No genes have been predicted in the input organism's FASTA file, making projection impossible.")
+ 
     else:
         raise Exception(
             "At least one of --fasta_file or --anno_file must be given")
@@ -256,6 +261,8 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
     seq_fasta_file = output / f"{input_organism.name}.fasta"
 
+    logging.info(f'The input organism has {input_organism.number_of_genes()} genes. Writting them in {seq_fasta_file}')
+
     with open(seq_fasta_file, "w") as fh_out_faa:
         write_gene_sequences_from_annotations(
             input_organism.genes, fh_out_faa, disable_bar=True)
@@ -273,11 +280,13 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
     lonely_gene = 0
     for gene in input_organism.genes:
+        gene_id = gene.ID if gene.local_identifier == "" else gene.local_identifier
+
         try:
-            gene_family = seqid_to_gene_family[gene.ID]
+            gene_family = seqid_to_gene_family[gene_id]
             gene_family.add_gene(gene)
         except KeyError:
-            new_gene_family = pangenome.add_gene_family(gene.ID)
+            new_gene_family = pangenome.add_gene_family(gene_id)
             new_gene_family.add_gene(gene)
             new_gene_family.add_partition("Cloud")
             lonely_gene += 1
@@ -735,7 +744,7 @@ def parser_projection(parser: argparse.ArgumentParser):
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
 
-    optional.add_argument('--identity', required=False, type=restricted_float, default=0.5,
+    optional.add_argument('--identity', required=False, type=restricted_float, default=0.8,
                           help="min identity percentage threshold")
 
     optional.add_argument('--coverage', required=False, type=restricted_float, default=0.8,

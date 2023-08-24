@@ -338,9 +338,14 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
     logging.getLogger("PPanGGOLiN").info(txt)
     outname = output / f"pangenomeGraph{'_light' if light else ''}.gexf"
     with write_compressed_or_not(outname, compress) as gexf:
+        graph_type = 'ligth gexf' if light else 'gexf'
+        logging.getLogger("PPanGGOLiN").debug(f"Writing the {graph_type} header...")
         write_gexf_header(gexf, light)
+        logging.getLogger("PPanGGOLiN").debug(f"Writing the {graph_type} nodes...")
         write_gexf_nodes(gexf, light)
+        logging.getLogger("PPanGGOLiN").debug(f"Writing the {graph_type} edges...")
         write_gexf_edges(gexf, light)
+        logging.getLogger("PPanGGOLiN").debug(f"Writing the {graph_type} ends...")
         write_gexf_end(gexf)
     logging.getLogger("PPanGGOLiN").info(f"Done writing the gexf file : '{outname.as_posix()}'")
 
