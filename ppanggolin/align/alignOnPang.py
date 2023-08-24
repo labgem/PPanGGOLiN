@@ -129,7 +129,7 @@ def get_seq(seq_file: TextIOWrapper) -> Set[str]:
     seqset = set()
     for line in seq_file:
         if line.startswith(">"):
-            seqset.add(line[1:])
+            seqset.add(line[1:].split()[0].strip())
     return seqset
 
 
@@ -162,7 +162,7 @@ def project_and_write_partition(seqid_to_gene_family: Dict[str, GeneFamily], seq
     with open(partition_proj, "w") as partProjFile:
         for input_seq, pangFam in seqid_to_gene_family.items():
             partProjFile.write(input_seq + "\t" + pangFam.named_partition + "\n")
-        for remainingSeq in (seqid_to_gene_family.keys() & seq_set):
+        for remainingSeq in  seq_set - seqid_to_gene_family.keys():
             partProjFile.write(remainingSeq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
     return partition_proj
 
