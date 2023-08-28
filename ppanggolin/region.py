@@ -425,11 +425,7 @@ class Module(MetaFeatures):
             raise TypeError(f"Module identifier must be an integer. Given type is {type(module_id)}")
         super().__init__()
         self.ID = module_id
-        self._families_getter = {}
-        if families is not None:
-            for family in families:
-                self[family.name] = family
-        self.bitarray = None
+        self._families_getter = {family.name: family for family in families} if families is not None else {}
 
     def __repr__(self):
         return f"Module {self.ID} - #Families: {len(self)}"
@@ -446,10 +442,7 @@ class Module(MetaFeatures):
     def __eq__(self, other: Module):
         if not isinstance(other, Module):
             raise TypeError(f"Another module is expected to be compared to the first one. You give a {type(other)}")
-        if set(self.families) == set(other.families):
-            return True
-        else:
-            return False
+        return set(self.families) == set(other.families)
 
     def __setitem__(self, name, family):
         if not isinstance(family, GeneFamily):
@@ -467,38 +460,79 @@ class Module(MetaFeatures):
 
     def __delitem__(self, name):
         try:
-            del self._families_getter[name]
+            fam = self._families_getter[name]
         except KeyError:
             raise KeyError(f"There isn't gene family with the name {name} in the module")
+        else:
+            del self._families_getter[name]
+            fam._modules.remove(self)
 
     @property
     def families(self) -> Generator[GeneFamily, None, None]:
-        for family in self._families_getter.values():
-            yield family
+        """Generator of the family in the module
+        """
+        yield from self._families_getter.values()
 
 
 class GeneContext:
-    """
-    A class used to represent a gene context
+    """Summary
+    The GeneContext class represents a gene context, which is a collection of gene families related to a specific genomic context.
 
-    :param gc_id : identifier of the Gene context
-    :param families: Gene families related to the GeneContext
-    """
+    Methods
+    families: Generator that yields all the gene families in the gene context.
 
+    Fields
+    ID: The identifier of the gene context.
+    """
     def __init__(self, gc_id: int, families: set = None):
-        self.ID = gc_id
-        self.families = set()
-        if families is not None:
-            if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception("You provided elements that were not GeneFamily object."
-                                " GeneContext are only made of GeneFamily")
-            self.families |= set(families)
+        """Constructor method
 
-    def add_family(self, family: GeneFamily):
+        :param gc_id : identifier of the Gene context
+        :param families: Gene families related to the GeneContext
         """
-        Allow to add one family in the GeneContext
-        :param family: family to add
-        """
+        if not isinstance(gc_id, int):
+            raise TypeError(f"Gene context identifier must be an integer. Given type is {type(gc_id)}")
+        self.ID = gc_id
+        self._families_getter = {family.name: family for family in families} if families is not None else {}
+
+    def __repr__(self):
+        return f"Context {self.ID} - #Families: {len(self)}"
+
+    def __str__(self):
+        return f"context_{self.ID}"
+
+    def __hash__(self):
+        return id(self)
+
+    def __len__(self):
+        return len(self._families_getter)
+
+    def __eq__(self, other: GeneContext):
+        if not isinstance(other, GeneContext):
+            raise TypeError(f"Another context is expected to be compared to the first one. You give a {type(other)}")
+        return set(self.families) == set(other.families)
+
+    def __setitem__(self, name, family):
         if not isinstance(family, GeneFamily):
-            raise Exception("You did not provide a GenFamily object. Modules are only made of GeneFamily")
-        self.families.add(family)
+            raise TypeError(f"A gene family is expected to be added to gene context. Given type was {type(family)}")
+        if name in self._families_getter and self[name] != family:
+            raise KeyError("A different gene family with the same name already exist in the gene context")
+        self._families_getter[name] = family
+
+    def __getitem__(self, name) -> GeneFamily:
+        try:
+            return self._families_getter[name]
+        except KeyError:
+            raise KeyError(f"There isn't gene family with the name {name} in the gene context")
+
+    def __delitem__(self, name):
+        try:
+            del self._families_getter[name]
+        except KeyError:
+            raise KeyError(f"There isn't gene family with the name {name} in the gene context")
+
+    @property
+    def families(self):
+        """Generator of the family in the context
+        """
+        yield from self._families_getter.values()

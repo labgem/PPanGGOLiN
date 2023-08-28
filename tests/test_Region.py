@@ -6,7 +6,7 @@ from typing import Generator, Set
 from random import randint
 import gmpy2
 
-from ppanggolin.region import Region, Spot, Module
+from ppanggolin.region import Region, Spot, Module, GeneContext
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Contig, Organism
 
@@ -526,7 +526,6 @@ class TestModule:
         """
         assert module.ID == 0
         assert isinstance(module._families_getter, dict) and module._families_getter == {}
-        assert module.bitarray is None
 
     def test_cstr_type_error(self):
         """Test that if the identifier is not an integer it raises a TypeError
@@ -622,3 +621,110 @@ class TestModule:
         fam = GeneFamily(randint(1, 20), f"fam{randint(1, 20)}")
         with pytest.raises(KeyError):
             del module[fam.name]
+
+
+class TestGeneContext:
+    @pytest.fixture
+    def context(self):
+        yield GeneContext(0)
+
+    def test_cstr(self, context):
+        """Test that a gene context is construct as expected
+        """
+        assert context.ID == 0
+        assert isinstance(context._families_getter, dict) and context._families_getter == {}
+
+    def test_cstr_type_error(self):
+        """Test that if the identifier is not an integer it raises a TypeError
+        """
+        with pytest.raises(TypeError):
+            Spot("gc_0")
+
+    def test_repr(self, context):
+        """Test that the canonical string representing a context does not change
+        """
+        assert repr(context) == "Context 0 - #Families: 0"
+
+    def test_str(self, context):
+        """Test that the writing spot method does not change
+        """
+        assert str(context) == "context_0"
+
+    def test_hash(self, context):
+        """Test that len method work as expected
+        """
+        assert isinstance(hash(context), int)
+
+    def test_len(self, context):
+        """Test that len method work as expected
+        """
+        context._families_getter["fam"] = GeneFamily(randint(1, 5), "fam")
+        assert isinstance(len(context), int)
+        assert len(context) == 1
+
+    def test_eq(self, families):
+        context1, context2, context3 = GeneContext(1), GeneContext(2), GeneContext(3)
+        for family in families:
+            context1[family.name] = family
+            context2[family.name] = family
+        assert context1 == context2
+        assert context1 != context3
+
+    def test_eq_with_is_not_instance_context(self, context):
+        with pytest.raises(TypeError):
+            context == 4
+
+    @pytest.fixture
+    def family(self) -> Generator[GeneFamily, None, None]:
+        """Create a basic gene family for test
+        """
+        yield GeneFamily(0, 'family')
+
+    def test_add_family(self, context, family):
+        """Tests that a gene family can be added to the context
+        """
+        context[family.name] = family
+        assert len(context._families_getter) == 1
+        assert context._families_getter['family'] == family
+
+    def test_add_different_families_with_same_name(self, context):
+        """Test that adding a new family with same name than another in the context return a KeyError
+        """
+        family_1, family_2 = GeneFamily(1, 'family_1'), GeneFamily(1, 'family_1')
+        context[family_1.name] = family_1
+        with pytest.raises(KeyError):
+            context[family_2.name] = family_2
+
+    def test_add_two_time_the_same_family(self, context, family):
+        """Test that adding a two time the same family is working as expected
+        """
+        context[family.name] = family
+        assert family in context._families_getter.values()
+        context[family.name] = family
+        assert family in context._families_getter.values()
+
+    def test_get_family(self, context, family):
+        """Tests that a gene family can be retrieved from the context
+        """
+        context[family.name] = family
+        assert context['family'] == family
+
+    def test_get_family_which_does_not_exist(self, context):
+        """Tests that if a gene family does not exist it raises a KeyError"""
+        fam = GeneFamily(randint(1, 20), f"fam{randint(1, 20)}")
+        with pytest.raises(KeyError):
+            _ = context[fam.name]
+
+    def test_delete_family(self, context, family):
+        """Tests that a gene family can be deleted from the context
+        """
+        context[family.name] = family
+        del context['family']
+        assert len(context) == 0
+
+    def test_delete_family_which_does_not_exist(self, context):
+        """Tests that if a gene family does not exist it raises a KeyError
+        """
+        fam = GeneFamily(randint(1, 20), f"fam{randint(1, 20)}")
+        with pytest.raises(KeyError):
+            del context[fam.name]

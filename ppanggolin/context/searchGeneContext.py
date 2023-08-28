@@ -82,7 +82,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
     families = set()
     for gene_context in common_components:
-        families |= gene_context.families
+        families |= set(gene_context.families)
 
     if len(families) != 0:
         export_to_dataframe(families, common_components, fam_2_seq, output)
