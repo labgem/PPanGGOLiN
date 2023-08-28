@@ -151,8 +151,7 @@ def launch_default_config(args: argparse.Namespace):
         commands = [initial_command] + [sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if
                                         sub_cmd in workflow_dependencies]
     elif initial_command == "projection":
-        commands = [initial_command] + [sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if
-                                        sub_cmd not in ["write", "draw"]]
+        commands = [initial_command] + ['annotate']
      
     else:
         commands = [initial_command]
