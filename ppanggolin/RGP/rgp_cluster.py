@@ -474,13 +474,6 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
     logging.info(
         f'Computing GRR metric for {pairs_count:,} pairs of RGP.')
 
-    # use the ID of the rgp to make pair rather than their name to save memory
-    # rgp_pairs = combinations(rgp_to_families.keys(), 2)
-
-    # create the argument iterator to use in parallell
-    # arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder,
-    #             grr_cutoff, grr_metric) for rgp_pair in rgp_pairs if rgp_to_families[rgp_pair[0]] & rgp_to_families[rgp_pair[1]])
-
     pairs_of_rgps_metrics = []
 
     for rgp_a, rgp_b in rgp_pairs:
@@ -489,16 +482,6 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
 
         if pair_metrics:
             pairs_of_rgps_metrics.append(pair_metrics)
-
-    # arg_iter = ((rgp_pair, rgp_to_families, rgp_to_iscontigborder,
-    #         grr_cutoff, grr_metric) for rgp_pair in rgp_pairs)
-    
-    # pairs_of_rgps_metrics = []
-    # with Pool(processes=cpu) as p:
-    #     for pair_metrics in tqdm(p.imap_unordered(launch_rgp_metric, arg_iter, chunksize=chunk_size),
-    #                              unit="pair of RGPs", total=pairs_count, disable=disable_bar):
-    #         if pair_metrics:
-    #             pairs_of_rgps_metrics.append(pair_metrics)
 
     grr_graph.add_edges_from(pairs_of_rgps_metrics)
 
@@ -521,10 +504,6 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
     if not unmerge_identical_rgps:
         logging.info(f"Add info on identical RGPs merged in the graph")
         add_info_to_identical_rgps(grr_graph, identical_rgps_objects, rgp_to_spot)
-
-        # differentiate_spot_in_identical_rgps(
-        #     grr_graph, identical_rgps_objects, rgp_to_spot)
-
 
     rgps_in_graph = rgp_objects_in_graph if unmerge_identical_rgps else dereplicated_rgps
 
