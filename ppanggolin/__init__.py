@@ -12,6 +12,7 @@ import ppanggolin.RGP
 import ppanggolin.mod
 import ppanggolin.context
 import ppanggolin.workflow
+import ppanggolin.meta
 # import ppanggolin.utility
 import ppanggolin.meta
 
@@ -35,6 +36,6 @@ SUBCOMMAND_TO_SUBPARSER = {
     "spot": ppanggolin.RGP.spot.subparser,
     "module": ppanggolin.mod.subparser,
     "context": ppanggolin.context.subparser,
-    # "info":ppanggolin.info.subparser, "default_config":ppanggolin.utility.default_config.subparser
+    "rgp_cluster":ppanggolin.RGP.rgp_cluster.subparser,
     "metadata": ppanggolin.meta.subparser
 }

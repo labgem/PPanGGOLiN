@@ -23,18 +23,27 @@ class Region(MetaFeatures):
 
     :param region_id: identifier of the region
     """
+    id_counter = 0
 
     def __init__(self, region_id: str):
         super().__init__()
         self.genes = []
         self.name = region_id
         self.score = 0
+        self.ID = Region.id_counter
+        Region.id_counter += 1
 
     def __str__(self):
         return self.name
 
     def __hash__(self):
         return id(self)
+    
+    def __lt__(self, obj):
+        return ((self.ID) < (obj.ID))
+  
+    def __gt__(self, obj):
+        return ((self.ID) > (obj.ID))
 
     def __eq__(self, other: Region) -> bool:
         """
