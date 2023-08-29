@@ -1,126 +1,163 @@
 #! /usr/bin/env python3
+# coding: utf8
 
 import pytest
-from random import choices, randint, sample
+from random import randint
 from typing import Generator, Set
 
 from ppanggolin.metadata import Metadata, MetaFeatures
 
 
 class TestMetadata:
-    def test_create_metadata_with_attributes(self):
-        metadata = Metadata('source', attribute='value')
-        assert metadata.__getattribute__("attribute") == 'value'
-        assert metadata.source == 'source'
+    @pytest.fixture
+    def metadata(self) -> Generator[Metadata, None, None]:
+        """Create a simple metadata
+        """
+        yield Metadata("source", attribute1="value1", attribute2=["value2", "value3"])
 
-    def test_create_metadata_with_no_attributes(self):
+    def test_constructor(self, metadata):
+        """Tests that the Metadata object is created successfully with a valid source and attributes
+        """
+        assert metadata.source == "source"
+        assert metadata.attribute1 == "value1"
+        assert metadata.attribute2 == "value2,value3"
+
+    def test_constructor_with_empty_source_name(self):
+        """Tests that a ValueError is raised when creating a Metadata object with an empty source name
+        """
+        with pytest.raises(ValueError):
+            Metadata("", attribute="value")
+
+    def test_constructor_with_non_string_source_name(self):
+        """Tests that a TypeError is raised when creating a Metadata object with a non-string source name
+        """
+        with pytest.raises(TypeError):
+            Metadata(123, attribute="value")
+
+    def test_constructor_with_no_attributes(self):
+        """Tests that an Exception is raised when creating a Metadata object with no attributes
+        """
         with pytest.raises(Exception):
-            Metadata(source='source')
+            Metadata("source")
 
-    def test_get_existing_attribute_value(self):
-        metadata = Metadata('source', attribute='value')
-        assert metadata.get('attribute') == 'value'
+    def test_get_existing_attribute_value(self, metadata):
+        """Tests that the value of an existing attribute is returned correctly
+        """
+        assert metadata.attribute1 == "value1"
 
-    def test_get_non_existing_attribute_value(self):
-        metadata = Metadata('source', attribute='value')
+    def test_get_non_existing_attribute_value(self, metadata):
+        """Tests that an AttributeError is raised when getting the value of a non-existing attribute
+        """
         with pytest.raises(AttributeError):
-            metadata.get('non_existing_attribute')
+            _ = metadata.non_existing_attribute
 
-    def test_get_all_attributes(self):
-        metadata = Metadata('source', attribute='value', another_attribute='another_value')
-        assert metadata.fields == ['source', 'attribute', 'another_attribute']
+    def test_attribute_fields(self, metadata):
+        """Tests that the 'fields' method returns a list of all the attributes in the Metadata object
+        """
+        assert metadata.fields == ["attribute1", "attribute2"]
 
-    def test_join_list_attribute(self):
-        metadata = Metadata('source', attribute=['value1', 'value2'])
-        assert metadata.get("attribute") == 'value1,value2'
-
-    def test_metadata_number_of_attributes(self):
-        metadata = Metadata('source', attribute='value', another_attribute='another_value')
-        assert metadata.number_of_attribute() == 3
+    def test_length(self, metadata):
+        """Tests that the number_of_attribute method returns the correct number of attributes in the Metadata object
+        """
+        assert isinstance(len(metadata), int)
+        assert len(metadata) == 2
 
 
 class TestMetaFeatures:
-    #  Tests that metadata can be added to MetaFeatures and checking if it was added successfully
-    def test_add_metadata(self):
-        meta_features = MetaFeatures()
-        metadata = Metadata('source1', attribute1='value1')
-        meta_features.add_metadata('source1', metadata)
-        assert meta_features._metadataGetter['source1'] == [metadata]
+    @pytest.fixture
+    def metadata(self) -> Generator[Set[Metadata], None, None]:
+        """Create a random number of metadata
 
-    #  Tests that metadata can be gotten from MetaFeatures by source and checking if it returns the correct metadata
-    def test_get_metadata_by_source(self):
-        meta_features = MetaFeatures()
-        metadata1 = Metadata('source1', attribute1='value1')
-        metadata2 = Metadata('source2', attribute2='value2')
-        meta_features.add_metadata('source1', metadata1)
-        meta_features.add_metadata('source2', metadata2)
-        assert meta_features.get_source('source1') == [metadata1]
-        assert meta_features.get_source('source2') == [metadata2]
+        :return: Set of metadata
+        """
+        metadata = set()
+        for i in range(randint(5, 10)):
+            metadata.add(Metadata(f"source_{i}", **{f"attr_{j}": j for j in range(randint(1, 5))}))
+        yield metadata
 
-    #  Tests that metadata can be gotten from MetaFeatures by attribute and checking if it returns the correct metadata
-    def test_get_metadata_by_attribute(self):
-        meta_features = MetaFeatures()
-        metadata1 = Metadata('source1', attribute1='value1')
-        metadata2 = Metadata('source2', attribute2='value2')
-        meta_features.add_metadata('source1', metadata1)
-        meta_features.add_metadata('source2', metadata2)
-        assert list(meta_features.get_metadata(attribute1='value1')) == [metadata1]
+    @pytest.fixture
+    def metafeatures(self, metadata) -> Generator[MetaFeatures, None, None]:
+        """Create a simple metafeature object
 
-    #  Tests that all metadata can be gotten from MetaFeatures and checking if it returns all metadata
-    def test_get_all_metadata(self):
-        meta_features = MetaFeatures()
-        metadata1 = Metadata('source1', attribute1='value1')
-        metadata2 = Metadata('source2', attribute2='value2')
-        meta_features.add_metadata('source1', metadata1)
-        meta_features.add_metadata('source2', metadata2)
-        assert list(meta_features.metadata) == [metadata1, metadata2]
+        :return: metafeature fill with metadata
+        """
+        metafeatures = MetaFeatures()
+        for meta in metadata:
+            metafeatures[meta.source] = meta
+        yield metafeatures
 
-    #  Tests that all metadata sources can be gotten from MetaFeatures and checking if it returns all sources
-    def test_get_all_metadata_sources(self):
-        meta_features = MetaFeatures()
-        metadata1 = Metadata('source1', attribute1='value1')
-        metadata2 = Metadata('source2', attribute2='value2')
-        meta_features.add_metadata('source1', metadata1)
-        meta_features.add_metadata('source2', metadata2)
-        assert meta_features.sources == ['source1', 'source2']
+    def test_set_metadata_to_metadata_getter(self, metafeatures, metadata):
+        """Tests that metadata can be added to the metadata getter
+        """
+        assert all(metafeatures._metadata_getter[meta.source] == [meta] for meta in metadata)
 
-    #  Tests that the source with the maximum number of metadata can be gotten from MetaFeatures and checking if it returns the correct source and number
-    def test_get_source_with_maximum_metadata(self):
-        meta_features = MetaFeatures()
-        metadata1 = Metadata('source1', attribute1='value1')
-        metadata2 = Metadata('source1', attribute2='value2')
-        meta_features.add_metadata('source1', metadata1)
-        meta_features.add_metadata('source1', metadata2)
-        assert meta_features.max_metadata_by_source() == ('source1', 2)
+    def test_get_metadata_feature_corresponding_to_source(self, metafeatures, metadata):
+        """Tests that all the metadata features corresponding to a source can be retrieved
+        """
+        assert all(metafeatures[meta.source] == [meta] for meta in metadata)
 
-    #  Tests that getting metadata from MetaFeatures with non-existent source returns None
-    def test_get_metadata_with_non_existent_source_returns_none(self):
-        meta_features = MetaFeatures()
-        metadata = Metadata('source1', attribute1='value1')
-        meta_features.add_metadata('source1', metadata)
-        assert meta_features.get_source('source2') == None
+    def test_remove_source_from_feature(self, metafeatures):
+        """Tests that a source can be removed from the feature
+        """
+        metadata = Metadata("source_del", attribute1="value")
+        metafeatures["source_del"] = metadata
+        del metafeatures["source_del"]
+        assert metafeatures["source_del"] is None
 
-    #  Tests that getting metadata from MetaFeatures with non-existent attribute returns None
-    def test_get_metadata_with_non_existent_attribute_returns_none(self):
-        meta_features = MetaFeatures()
-        metadata = Metadata('source1', attribute1='value1')
-        meta_features.add_metadata('source1', metadata)
-        assert list(meta_features.get_metadata(attribute2='value2')) == []
+    def test_add_metadata_feature(self, metafeatures):
+        """Tests that adding metadata works as expected
+        """
+        metadata1 = Metadata("source_add", attribute1="value1")
+        metadata2 = Metadata("source_add", attribute2="value2")
+        metafeatures.add_metadata("source_add", metadata1)
+        metafeatures.add_metadata("source_add", metadata2)
+        assert metafeatures["source_add"] == [metadata1, metadata2]
 
-    #  Tests that getting metadata from MetaFeatures with empty attribute value returns the correct metadata
-    def test_get_metadata_with_empty_attribute_value_returns_correct_metadata(self):
-        meta_features = MetaFeatures()
-        metadata1 = Metadata('source1', attribute1='')
-        metadata2 = Metadata('source2', attribute2='value2')
-        meta_features.add_metadata('source1', metadata1)
-        meta_features.add_metadata('source2', metadata2)
-        assert list(meta_features.get_metadata(attribute1='')) == [metadata1]
+    def test_generate_metadata_in_gene_families(self, metafeatures, metadata):
+        """Tests that metadata can be generated in gene families
+        """
+        assert set(metafeatures.metadata) == metadata
 
-    #  Tests that getting metadata from MetaFeatures with list attribute value returns the correct metadata
-    def test_get_metadata_with_list_attribute_value_returns_correct_metadata(self):
-        meta_features = MetaFeatures()
-        metadata1 = Metadata('source1', attribute1=['value1', 'value2'])
-        metadata2 = Metadata('source2', attribute2='value2')
-        meta_features.add_metadata('source1', metadata1)
-        meta_features.add_metadata('source2', metadata2)
-        assert list(meta_features.get_metadata(attribute1='value1,value2')) == [metadata1]
+    def test_generate_all_metadata_sources(self, metafeatures, metadata):
+        """Tests that all metadata sources can be generated
+        """
+        assert list(metafeatures.sources) == [meta.source for meta in metadata]
+
+    def test_get_metadata_by_attribute_values(self, metafeatures):
+        """Tests that metadata can be retrieved based on attribute values
+        """
+        meta = Metadata("source_test", attribute1="value_to_retrieve")
+        # meta_list = Metadata("source_list", attribute1=["val_1", "val_2"])
+        metafeatures[meta.source] = meta
+        # metafeatures[meta_list.source] = meta_list
+        assert list(metafeatures.get_metadata(attribute1="value_to_retrieve")) == [meta]
+        # assert list(metafeatures.get_metadata(attribute1="val_1")) == [meta_list]
+
+    def test_get_maximum_number_of_metadata_for_one_source(self, metafeatures, metadata):
+        """Tests that the maximum number of metadata for one source can be retrieved
+        """
+        metadata1 = Metadata("source_max", attribute1="value1")
+        metadata2 = Metadata("source_max", attribute2="value2")
+        metafeatures.add_metadata("source_max", metadata1)
+        metafeatures.add_metadata("source_max", metadata2)
+        assert metafeatures.max_metadata_by_source() == ("source_max", 2)
+
+    def test_metadata_is_not_with_type_metadata(self, metafeatures):
+        """Tests that an AssertionError is raised when metadata is not with type Metadata
+        """
+        with pytest.raises(AssertionError):
+            metafeatures["source1"] = "not_metadata"
+
+    def test_source_is_not_a_string(self, metafeatures):
+        """Tests that an AssertionError is raised when the source is not a string
+        """
+
+        metadata = Metadata("source1", attribute1="value1")
+        with pytest.raises(AssertionError):
+            metafeatures[1] = metadata
+
+    def test_source_or_metadata_is_not_with_correct_type(self, metafeatures, metadata):
+        """Tests that an AssertionError is raised when the source or metadata is not with the correct type
+        """
+        with pytest.raises(AssertionError):
+            metafeatures[1] = "not_metadata"

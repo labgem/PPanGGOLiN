@@ -22,7 +22,7 @@ class TestGeneFamily:
         family = GeneFamily(1, 'test')
         assert isinstance(family, GeneFamily)
         assert all(attr in ["ID", "name", "_edges", "_genePerOrg", "_genes", "removed", "sequence", "partition",
-                            "_spots", "_modules", "bitarray", "_metadataGetter"] for attr in
+                            "_spots", "_modules", "bitarray", "_metadata_getter"] for attr in
                    family.__dict__)  # Check that no attribute was added else it should be tested
         assert all(hasattr(family, attr) for attr in ["ID", "name", "_edges", "_genePerOrg", "_genes", "removed",
                                                       "sequence", "partition", "_spots", "_modules",

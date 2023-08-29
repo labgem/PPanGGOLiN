@@ -660,5 +660,5 @@ class Pangenome:
         """
         assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
         for elem in self.select_elem(metatype):
-            if elem.get_source(source) is not None:
+            if elem[source] is not None:
                 yield elem
