@@ -1,9 +1,8 @@
 #! /usr/bin/env python3
 
 import pytest
-from random import randint, sample
+from random import randint
 from typing import Generator, Set
-from collections import defaultdict
 from itertools import combinations
 
 from ppanggolin.pangenome import Edge
@@ -15,11 +14,15 @@ from ppanggolin.region import Spot, Module
 class TestGeneFamily:
     """Tests the gene family class
     """
+    @pytest.fixture
+    def family(self) -> Generator[GeneFamily, None, None]:
+        """Create a gene family for all tests
+        """
+        yield GeneFamily(1, "test")
 
-    def test_create_gene_family(self):
+    def test_construct_gene_family(self, family):
         """Tests that a GeneFamily object can be created with valid family_id and name
         """
-        family = GeneFamily(1, 'test')
         assert isinstance(family, GeneFamily)
         assert all(attr in ["ID", "name", "_edges", "_genePerOrg", "_genes", "removed", "sequence", "partition",
                             "_spots", "_modules", "bitarray", "_metadata_getter"] for attr in
@@ -38,11 +41,6 @@ class TestGeneFamily:
         assert family._spots == set()
         assert family._modules == set()
         assert family.bitarray is None
-
-    @pytest.fixture
-    def family(self) -> Generator[GeneFamily, None, None]:
-        """Create a gene family for all tests"""
-        yield GeneFamily(1, "test")
 
     @pytest.mark.parametrize("partition, name",
                              [
@@ -82,14 +80,13 @@ class TestGeneFamily:
     def test_add_gene_to_gene_family(self, family):
         """Tests that a Gene object can be added to a GeneFamily object
         """
-        family = GeneFamily(1, 'test')
         gene = Gene('gene1')
         family.add_gene(gene)
         assert gene in family.genes
         assert gene.family == family
 
     def test_add_gene_error(self, family):
-        """Tests that a non gene object can't be added to a GeneFamily as gene
+        """Tests that a non-gene object can't be added to a GeneFamily as gene
         """
         with pytest.raises(TypeError):
             family.add_gene(33)
@@ -148,7 +145,8 @@ class TestGeneFamily:
         yield organisms
 
     def test_get_org_dict(self, family, genes, organisms):
-        """"""
+        """Tests that all organisms and genes are retrieved as expected
+        """
         for gene in genes:
             family.add_gene(gene)
         org_dict = family.get_org_dict()
@@ -159,29 +157,39 @@ class TestGeneFamily:
         assert set([gene for gene_set in org_dict.values() for gene in gene_set]) == genes
 
     def test_get_org_dict_with_no_organism_fill_to_genes(self, family, genes):
+        """Tests that if genes are not fill with organism an AttributeError is returned
+        """
         for gene in genes:
             family.add_gene(gene)
         with pytest.raises(AttributeError):
             _ = family.get_org_dict()
 
     def test_organisms(self, family, organisms, genes):
+        """Tests that all organisms are retrieved as expected
+        """
         for gene in genes:
             family.add_gene(gene)
         assert set(family.organisms) == organisms
 
     def test_number_of_organism(self, family, organisms, genes):
+        """Tests that the expected number of organisms is found
+        """
         for gene in genes:
             family.add_gene(gene)
         assert isinstance(family.number_of_organisms, int)
         assert family.number_of_organisms == len(organisms)
 
     def test_get_genes_per_org(self, family, organisms, genes):
+        """Tests that for a giver organism, all the genes are retrieved as expected
+        """
         for gene in genes:
             family.add_gene(gene)
         for organism in organisms:
             assert set(family.get_genes_per_org(organism)) == set(organism.genes)
 
     def test_get_genes_per_org_if_org_not_in_family(self, family):
+        """Test that a KeyError is generated if an organism not belonging to the family is given
+        """
         with pytest.raises(KeyError):
             org = Organism("organism")
             _ = set(family.get_genes_per_org(org))
@@ -235,6 +243,8 @@ class TestGeneFamily:
         yield set(edges.values())
 
     def test_get_neighbors_of_gene_family(self, families, edges):
+        """Tests get all the expected neighbor of the family in the graph
+        """
         for family in families:
             assert all(isinstance(neighbor, GeneFamily) for neighbor in family.neighbors)
             expected_neighbors = set([edge.source for edge in edges
@@ -243,6 +253,8 @@ class TestGeneFamily:
             assert set(family.neighbors) == expected_neighbors
 
     def test_get_number_of_neighbors(self, families, edges):
+        """Tests that the expected number of neighbors is found
+        """
         for family in families:
             expected_neighbors = set([edge.source for edge in edges
                                       if edge.target == family]).union(set([edge.target for edge in edges
@@ -252,12 +264,16 @@ class TestGeneFamily:
 
     #  Tests that the edges of a GeneFamily object can be retrieved
     def test_get_edges_of_gene_family(self, families, edges):
+        """Tests that all the edges belonging to the family are retrieved
+        """
         for family in families:
             expected_edges = set([edge for edge in edges if edge.source == family or edge.target == family])
             assert all(isinstance(edge, Edge) for edge in family.edges)
             assert set(family.edges) == expected_edges
 
     def test_get_number_of_edges(self, families, edges):
+        """Tests that the expected number of edges is found
+        """
         for family in families:
             expected_edges = set([edge for edge in edges if edge.source == family or edge.target == family])
             assert isinstance(family.number_of_edges, int)

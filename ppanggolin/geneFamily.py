@@ -38,7 +38,7 @@ class GeneFamily(MetaFeatures):
         - add_gene: adds a gene to the gene family and sets the gene's family accordingly.
         - add_spot: adds a spot to the gene family.
         - add_module: adds a module to the gene family.
-        - mk_bitarray: produces a bitarray representing the presence/absence of the family in the pangenome using the provided index.
+        - Mk_bitarray: produces a bitarray representing the presence/absence of the family in the pangenome using the provided index.
         - get_org_dict: returns a dictionary of organisms as keys and sets of genes as values.
         - get_genes_per_org: returns the genes belonging to the gene family in the given organism.
 
@@ -47,7 +47,7 @@ class GeneFamily(MetaFeatures):
         - ID: the internal identifier of the gene family.
         - removed: a boolean indicating whether the family has been removed from the main graph.
         - sequence: the protein sequence associated with the family.
-        - partition: the partition associated with the family.
+        - Partition: the partition associated with the family.
     """
 
     def __init__(self, family_id: int, name: str):
@@ -75,7 +75,9 @@ class GeneFamily(MetaFeatures):
         self._modules = set()
         self.bitarray = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Family representation
+        """
         return f"{self.ID}: {self.name}"
 
     #TODO define __eq__
@@ -84,7 +86,7 @@ class GeneFamily(MetaFeatures):
     def named_partition(self) -> str:
         """Reads the partition attribute and returns a meaningful name
 
-        :return: the partition name of the gene family
+        :return: The partition name of the gene family
 
         :raises ValueError: If the gene family has no partition assigned
         """
@@ -119,6 +121,10 @@ class GeneFamily(MetaFeatures):
 
     @property
     def genes(self):
+        """Return all the genes belonging to the family
+
+        :return: Generator of genes
+        """
         for gene in self._genes:
             yield gene
 
@@ -135,11 +141,19 @@ class GeneFamily(MetaFeatures):
 
     @property
     def spots(self) -> Generator[Spot, None, None]:
+        """Return all the spots belonging to the family
+
+        :return: Generator of spots
+        """
         for spot in self._spots:
             yield spot
 
     @property
     def modules(self) -> Generator[Module, None, None]:
+        """Return all the modules belonging to the family
+
+        :return: Generator of modules
+        """
         for module in self._modules:
             yield module
     @property
@@ -181,12 +195,17 @@ class GeneFamily(MetaFeatures):
         return len(self._modules)
 
     def set_edge(self, target: GeneFamily, edge: Edge):
+        """Set the edge between the gene family and another one
+
+        :param target: Neighbor family
+        :param edge: Edge connecting families
+        """
         self._edges[target] = edge
 
     def add_sequence(self, seq: str):
         """Assigns a protein sequence to the gene family.
 
-        :param seq: the sequence to add to the gene family
+        :param seq: The sequence to add to the gene family
         """
         assert isinstance(seq, str), "Sequence must be a string"
 
@@ -195,7 +214,7 @@ class GeneFamily(MetaFeatures):
     def add_gene(self, gene: Gene):
         """Add a gene to the gene family, and sets the gene's :attr:family accordingly.
 
-        :param gene: the gene to add
+        :param gene: The gene to add
 
         :raises TypeError: If the provided `gene` is of the wrong type
         """
@@ -207,12 +226,20 @@ class GeneFamily(MetaFeatures):
             self._genePerOrg[gene.organism].add(gene)
 
     def add_spot(self, spot: Spot):
+        """Add the given spot to the family
+
+        :param spot: Spot belonging to the family
+        """
         from ppanggolin.region import Spot   # prevent circular import error
         if not isinstance(spot, Spot):
             raise TypeError(f"A spot object is expected, you give a {type(spot)}")
         self._spots.add(spot)
 
     def add_module(self, module: Module):
+        """Add the given module to the family
+
+        :param module: Module belonging to the family
+        """
         from ppanggolin.region import Module   # prevent circular import error
         if not isinstance(module, Module):
             raise TypeError(f"A module object is expected, you give a {type(module)}")
@@ -244,7 +271,7 @@ class GeneFamily(MetaFeatures):
     def get_org_dict(self) -> Dict[Organism, Set[Gene]]:
         """Returns the organisms and the genes belonging to the gene family
 
-        :return: a dictionnary of organism as key and set of genes as values
+        :return: A dictionnary of organism as key and set of genes as values
         """
         if len(self._genePerOrg) == 0:
             for gene in self.genes:
@@ -258,7 +285,7 @@ class GeneFamily(MetaFeatures):
 
         :param org: Organism to look for
 
-        :return: a set of gene(s)
+        :return: A set of gene(s)
         """
         if len(self._genePerOrg) == 0:
             _ = self.get_org_dict()
