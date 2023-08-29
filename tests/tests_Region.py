@@ -1,10 +1,9 @@
 #! /usr/bin/env python3
-import re
+# coding: utf8
 
 import pytest
 from typing import Generator, Set
 from random import randint
-import gmpy2
 
 from ppanggolin.region import Region, Spot, Module, GeneContext
 from ppanggolin.geneFamily import GeneFamily
@@ -53,11 +52,12 @@ def families(genes) -> Generator[Set[GeneFamily], None, None]:
     families.add(family)
     yield families
 
+
 @pytest.fixture
 def organisms(genes) -> Generator[Set[Organism], None, None]:
     """Create a set of organism object for test
 
-    :return: Generator with set of organism object
+    :return: Generator with a set of organism object
     """
     orgs = set()
     genes = list(genes)
@@ -73,7 +73,7 @@ def organisms(genes) -> Generator[Set[Organism], None, None]:
             idx_genes += 1
         orgs.add(org)
         idx_org += 1
-    # last organism fill with all the gene left
+    # The last organism fill with all the gene left
     org = Organism(f"organism_{idx_org}")
     idx_genes = (idx_org - 1) * nb_genes_per_organism
     while idx_genes < len(genes):
@@ -96,6 +96,8 @@ class TestRegion:
         yield Region("RGP")
 
     def test_cstr(self, region: Region):
+        """Tests that region is constructed as expected
+        """
         assert isinstance(region, Region)
         assert region.name == "RGP"
         assert isinstance(region._genes_getter, dict)
@@ -126,7 +128,7 @@ class TestRegion:
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
         region[0] = gene
-        with pytest.raises(ValueError):
+        with pytest.raises(KeyError):
             gene = Gene('gene')
             gene.fill_annotations(start=4, stop=12, strand='-', position=0)
             region[0] = gene
@@ -164,6 +166,8 @@ class TestRegion:
         assert region[0] == gene
 
     def test_get_genes_with_position_not_in_region(self, region):
+        """Tests that getting a gene at position not belonging in the region return a KeyError
+        """
         with pytest.raises(KeyError):
             _ = region[randint(0, 20)]
 
@@ -201,12 +205,12 @@ class TestRegion:
         """
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
-        gene.fill_parents(None, Contig("contig"))
+        gene.fill_parents(contig=Contig("contig"))
         region[0] = gene
         assert region.contig.name == 'contig'
 
     def test_is_whole_contig_true(self, region):
-        """Tests that the property is_whole_contig return True if region is same length as contig
+        """Tests that the property is_whole_contig return True if the region has the same length as contig
         """
         starter, stopper = Gene('starter'), Gene('stopper')
         starter.fill_annotations(start=0, stop=10, strand='+', position=0)
@@ -218,7 +222,7 @@ class TestRegion:
         assert region.is_whole_contig is True
 
     def test_is_whole_contig_false(self, region):
-        """Tests that the property is_whole_contig return False if region is not same length as contig
+        """Tests that the property is_whole_contig return False if the region has not the same length as contig
         """
         before, starter, stopper, after = Gene('before'), Gene('starter'), Gene('stopper'), Gene('after')
         before.fill_annotations(start=0, stop=10, strand='+', position=0)
@@ -255,7 +259,7 @@ class TestRegion:
         assert region.is_contig_border is True
 
     def test_is_contig_border_false(self, region):
-        """Tests that the property is_contig_border return False if region is not bordering the contig
+        """Tests that the property is_contig_border return False if the region is not bordering the contig
         """
         before, starter, stopper, after = Gene('before'), Gene('starter'), Gene('stopper'), Gene('after')
         before.fill_annotations(start=0, stop=10, strand='+', position=0)
@@ -270,7 +274,15 @@ class TestRegion:
         region[starter.position], region[stopper.position] = starter, stopper
         assert region.is_contig_border is False
 
+    def test_is_contig_border_assertion_error_if_no_gene(self, region):
+        """Tests that an AssertionError is returned if there is no gene in the region
+        """
+        with pytest.raises(AssertionError):
+            _ = region.is_contig_border
+
     def test_len(self, region, genes):
+        """Tests that the expected number of genes is retrieved in the region
+        """
         for gene in genes:
             region[gene.position] = gene
         assert isinstance(len(region), int)
@@ -336,12 +348,16 @@ class TestSpot:
         yield Spot(0)
 
     def test_cstr(self, spot):
+        """Tests that spot is constructed as expected
+        """
         assert spot.ID == 0
         assert isinstance(spot._region_getter, dict) and len(spot._region_getter) == 0
         assert isinstance(spot._uniqOrderedSet, dict) and len(spot._uniqOrderedSet) == 0
         assert isinstance(spot._uniqContent, dict) and len(spot._uniqContent) == 0
 
     def test_cstr_type_error(self):
+        """Tests that TypeError is returned if identifier is not an integer
+        """
         with pytest.raises(TypeError):
             Spot("spot_0")
 
@@ -368,6 +384,8 @@ class TestSpot:
         assert region == spot._region_getter[region.name]
 
     def test_add_not_instance_region(self, spot):
+        """Tests that a TypeError is returned if a non-region type is trying to be added
+        """
         with pytest.raises(TypeError):
             spot["spot"] = "spot"
 
@@ -403,15 +421,21 @@ class TestSpot:
         assert spot[region.name] == region
 
     def test_get_region_not_in_spot(self, spot):
+        """Tests that a KeyError is raised when the name of the region does not exist in the spot
+        """
         with pytest.raises(KeyError):
             _ = spot["rgp"]
 
     def test_delete_region_in_spot(self, spot, region):
+        """Tests that remove a region from the spot work as expected
+        """
         spot[region.name] = region
         del spot[region.name]
         assert region.name not in spot._region_getter
 
     def test_len(self, spot, region):
+        """Tests that getting the number of regions work as expected
+        """
         assert isinstance(len(spot), int)
         assert len(spot) == 0
         spot[region.name] = region
@@ -419,6 +443,8 @@ class TestSpot:
 
     @pytest.fixture
     def regions(self, genes):
+        """Create a random number of regions fill with genes
+        """
         regions = set()
         genes = sorted(list(genes), key=lambda x: x.position)
         nb_regions = randint(2, len(genes))
@@ -519,6 +545,8 @@ class TestSpot:
 class TestModule:
     @pytest.fixture
     def module(self):
+        """Create a basic module
+        """
         yield Module(0)
 
     def test_cstr(self, module):
@@ -556,6 +584,8 @@ class TestModule:
         assert len(module) == 1
 
     def test_eq(self, families):
+        """Test equality between modules
+        """
         module1, module2, module3 = Module(1), Module(2), Module(3)
         for family in families:
             module1[family.name] = family
@@ -564,8 +594,10 @@ class TestModule:
         assert module1 != module3
 
     def test_eq_with_is_not_instance_module(self, module):
+        """Test comparison between a module and another object raise a TypeError
+        """
         with pytest.raises(TypeError):
-            module == 4
+            assert module == 4
 
     @pytest.fixture
     def family(self) -> Generator[GeneFamily, None, None]:
@@ -581,7 +613,7 @@ class TestModule:
         assert module._families_getter['family'] == family
 
     def test_add_different_families_with_same_name(self, module):
-        """Test that adding a new family with same name than another in the module return a KeyError
+        """Test that adding a new family with the same name as another in the module return a KeyError
         """
         family_1, family_2 = GeneFamily(1, 'family_1'), GeneFamily(1, 'family_1')
         module[family_1.name] = family_1
@@ -626,6 +658,8 @@ class TestModule:
 class TestGeneContext:
     @pytest.fixture
     def context(self):
+        """Generate a basic context
+        """
         yield GeneContext(0)
 
     def test_cstr(self, context):
@@ -663,6 +697,8 @@ class TestGeneContext:
         assert len(context) == 1
 
     def test_eq(self, families):
+        """Test equality between two contexts
+        """
         context1, context2, context3 = GeneContext(1), GeneContext(2), GeneContext(3)
         for family in families:
             context1[family.name] = family
@@ -671,8 +707,10 @@ class TestGeneContext:
         assert context1 != context3
 
     def test_eq_with_is_not_instance_context(self, context):
+        """Test comparison between a context and another object raise a TypeError
+        """
         with pytest.raises(TypeError):
-            context == 4
+            assert context == 4
 
     @pytest.fixture
     def family(self) -> Generator[GeneFamily, None, None]:
@@ -688,7 +726,7 @@ class TestGeneContext:
         assert context._families_getter['family'] == family
 
     def test_add_different_families_with_same_name(self, context):
-        """Test that adding a new family with same name than another in the context return a KeyError
+        """Test that adding a new family with the same name as another in the context return a KeyError
         """
         family_1, family_2 = GeneFamily(1, 'family_1'), GeneFamily(1, 'family_1')
         context[family_1.name] = family_1
