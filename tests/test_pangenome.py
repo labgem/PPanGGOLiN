@@ -205,8 +205,8 @@ class TestPangenomeOrganism(TestPangenome):
         :param pangenome: Pangenome object to test method
         :param organisms: Set of organisms to add to pangenome
         """
-        assert isinstance(pangenome.number_of_organisms(), int)
-        assert pangenome.number_of_organisms() == len(organisms)
+        assert isinstance(pangenome.number_of_organisms, int)
+        assert pangenome.number_of_organisms == len(organisms)
 
 
 class TestPangenomeGeneFamilies(TestPangenome):
@@ -306,8 +306,8 @@ class TestPangenomeGeneFamilies(TestPangenome):
         :param pangenome: pangenome object to test method
         :param families: set of families to add to pangenome
         """
-        assert isinstance(pangenome.number_of_gene_families(), int)
-        assert pangenome.number_of_gene_families() == len(families)
+        assert isinstance(pangenome.number_of_gene_families, int)
+        assert pangenome.number_of_gene_families == len(families)
 
 
 class TestPangenomeGene(TestPangenome):
@@ -427,8 +427,8 @@ class TestPangenomeGene(TestPangenome):
         """
         organism, genes = organism_genes
         pangenome.add_organism(organism)
-        assert isinstance(pangenome.number_of_genes(), int)
-        assert pangenome.number_of_genes() == len(genes)
+        assert isinstance(pangenome.number_of_genes, int)
+        assert pangenome.number_of_genes == len(genes)
 
     def test_get_multigenic(self, pangenome):
         # TODO make a better test
@@ -507,8 +507,8 @@ class TestPangenomeEdge(TestPangenome):
         :param gene_pair: Pair of gene coding for the edge
         """
         pangenome.add_edge(*gene_pair)
-        assert isinstance(pangenome.number_of_edges(), int)
-        assert pangenome.number_of_edges() == 1
+        assert isinstance(pangenome.number_of_edges, int)
+        assert pangenome.number_of_edges == 1
 
 
 class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
@@ -649,8 +649,8 @@ class TestPangenomeRGP(TestPangenome):
         """
         rgp = Region(region_id="rgp")
         pangenome.add_region(rgp)
-        assert isinstance(pangenome.number_of_rgp(), int)
-        assert pangenome.number_of_rgp() == 1
+        assert isinstance(pangenome.number_of_rgp, int)
+        assert pangenome.number_of_rgp == 1
 
 
 class TestPangenomeSpot(TestPangenome):
@@ -718,8 +718,8 @@ class TestPangenomeSpot(TestPangenome):
         """
         spot = Spot(spot_id=0)
         pangenome.add_spot(spot)
-        assert isinstance(pangenome.number_of_spots(), int)
-        assert pangenome.number_of_spots() == 1
+        assert isinstance(pangenome.number_of_spots, int)
+        assert pangenome.number_of_spots == 1
 
 
 class TestPangenomeModule(TestPangenome):
@@ -787,8 +787,8 @@ class TestPangenomeModule(TestPangenome):
         """
         module = Module(module_id=0)
         pangenome.add_module(module)
-        assert isinstance(pangenome.number_of_modules(), int)
-        assert pangenome.number_of_modules() == 1
+        assert isinstance(pangenome.number_of_modules, int)
+        assert pangenome.number_of_modules == 1
 
 
 class TestPangenomeMetadata(TestPangenome):

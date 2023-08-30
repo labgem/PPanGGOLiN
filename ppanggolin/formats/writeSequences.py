@@ -35,13 +35,10 @@ def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO
     :param add: Add prefix to gene ID
     :param disable_bar: Disable progress bar
     """
-    counter = 0  # TODO remove ?
-    if list_cds is None:
-        list_cds = pangenome.genes
     logging.getLogger("PPanGGOLiN").info("Writing all of the CDS sequences...")
-    for gene in tqdm(list_cds, unit="gene", disable=disable_bar):
+    for gene in tqdm(sorted(list_cds if list_cds is not None else pangenome.genes, key=lambda x: x.ID),
+                     unit="gene", disable=disable_bar):
         if gene.type == "CDS":
-            counter += 1
             file_obj.write('>' + add + gene.ID + "\n")
             file_obj.write(gene.dna + "\n")
     file_obj.flush()
@@ -110,14 +107,14 @@ def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_c
     elif partition == "softcore":
         logging.getLogger("PPanGGOLiN").info(
             f"Writing the {type_name} in {partition} genome, that are present in more than {soft_core} of genomes")
-        threshold = pangenome.number_of_organisms() * soft_core
+        threshold = pangenome.number_of_organisms * soft_core
         for fam in pangenome.gene_families:
-            if fam.number_of_organisms() >= threshold:
+            if fam.number_of_organisms >= threshold:
                 genefams.add(fam)
     elif partition == "core":
         logging.getLogger("PPanGGOLiN").info(f"Writing the representative {type_name} of the {partition} gene families...")
         for fam in pangenome.gene_families:
-            if fam.number_of_organisms() == pangenome.number_of_organisms():
+            if fam.number_of_organisms == pangenome.number_of_organisms:
                 genefams.add(fam)
     elif "module_" in partition:
         logging.getLogger("PPanGGOLiN").info(f"Writing the representation {type_name} of {partition} gene families...")

@@ -157,15 +157,15 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
     """
     annotation = h5f.create_group("/", "annotations", "Annotations of the pangenome organisms")
     gene_table = h5f.create_table(annotation, "genes", gene_desc(*get_max_len_annotations(pangenome)),
-                                  expectedrows=pangenome.number_of_genes())
+                                  expectedrows=pangenome.number_of_genes)
 
-    logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_genes()} genes")
+    logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_genes} genes")
 
     genedata2gene = {}
     genedata_counter = 0
 
     gene_row = gene_table.row
-    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genome", disable=disable_bar):
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
         for contig in org.contigs:
             for gene in list(contig.genes) + list(contig.RNAs):
                 gene_row["organism"] = org.name
@@ -267,12 +267,12 @@ def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bo
     :param disable_bar: Disable progress bar
     """
     gene_seq = h5f.create_table("/", "geneSequences", gene_sequences_desc(*get_gene_sequences_len(pangenome)),
-                                expectedrows=pangenome.number_of_genes())
+                                expectedrows=pangenome.number_of_genes)
     # process sequences to save them only once
     seq2seqid = {}
     id_counter = 0
     gene_row = gene_seq.row
-    for gene in tqdm(pangenome.genes, total=pangenome.number_of_genes(), unit="gene", disable=disable_bar):
+    for gene in tqdm(sorted(pangenome.genes, key=lambda x: x.ID), total=pangenome.number_of_genes, unit="gene", disable=disable_bar):
         curr_seq_id = seq2seqid.get(gene.dna)
         if curr_seq_id is None:
             curr_seq_id = id_counter
@@ -346,10 +346,10 @@ def write_gene_fam_info(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
         logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed gene family representative sequences...")
         h5f.remove_node('/', 'geneFamiliesInfo')  # erasing the table, and rewriting a new one.
     gene_fam_seq = h5f.create_table("/", "geneFamiliesInfo", gene_fam_desc(*get_gene_fam_len(pangenome)),
-                                    expectedrows=pangenome.number_of_gene_families())
+                                    expectedrows=pangenome.number_of_gene_families)
 
     row = gene_fam_seq.row
-    for fam in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families(),
+    for fam in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families,
                     unit="gene family", disable=disable_bar):
         row["name"] = fam.name
         row["protein"] = fam.sequence
@@ -406,7 +406,7 @@ def write_gene_families(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
         h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
     gene_families = h5f.create_table("/", "geneFamilies", gene_to_fam_desc(*get_gene_to_fam_len(pangenome)))
     gene_row = gene_families.row
-    for family in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families(), unit="gene family",
+    for family in tqdm(pangenome.gene_families, total=pangenome.number_of_gene_families, unit="gene family",
                        disable=disable_bar):
         for gene in family.genes:
             gene_row["gene"] = gene.ID
@@ -460,9 +460,9 @@ def write_graph(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
         logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed edges")
         h5f.remove_node("/", "edges")
     edge_table = h5f.create_table("/", "edges", graph_desc(get_gene_id_len(pangenome)),
-                                  expectedrows=pangenome.number_of_edges())
+                                  expectedrows=pangenome.number_of_edges)
     edge_row = edge_table.row
-    for edge in tqdm(pangenome.edges, total=pangenome.number_of_edges(), unit="edge", disable=disable_bar):
+    for edge in tqdm(pangenome.edges, total=pangenome.number_of_edges, unit="edge", disable=disable_bar):
         for gene1, gene2 in edge.gene_pairs:
             edge_row["geneTarget"] = gene1.ID
             edge_row["geneSource"] = gene2.ID
@@ -520,7 +520,7 @@ def write_rgp(pangenome: Pangenome, h5f: tables.File, force: bool = False, disab
     rgp_table = h5f.create_table('/', 'RGP', rgp_desc(*get_rgp_len(pangenome)),
                                  expectedrows=sum([len(region) for region in pangenome.regions]))
     rgp_row = rgp_table.row
-    for region in tqdm(pangenome.regions, total=pangenome.number_of_rgp(), unit="region", disable=disable_bar):
+    for region in tqdm(pangenome.regions, total=pangenome.number_of_rgp, unit="region", disable=disable_bar):
         for gene in region.genes:
             rgp_row["RGP"] = region.name
             rgp_row["gene"] = gene.ID
@@ -574,7 +574,7 @@ def write_spots(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
     spot_table = h5f.create_table("/", "spots", spot_desc(get_spot_desc(pangenome)),
                                   expectedrows=sum([len(spot) for spot in pangenome.spots]))
     spot_row = spot_table.row
-    for spot in tqdm(pangenome.spots, total=pangenome.number_of_spots(), unit="spot", disable=disable_bar):
+    for spot in tqdm(pangenome.spots, total=pangenome.number_of_spots, unit="spot", disable=disable_bar):
         for region in spot.regions:
             spot_row["spot"] = spot.ID
             spot_row["RGP"] = region.name
@@ -629,7 +629,7 @@ def write_modules(pangenome: Pangenome, h5f: tables.File, force: bool = False, d
                                  expectedrows=sum([len(mod) for mod in pangenome.modules]))
     mod_row = mod_table.row
 
-    for mod in tqdm(pangenome.modules, total=pangenome.number_of_modules(), unit="modules", disable=disable_bar):
+    for mod in tqdm(pangenome.modules, total=pangenome.number_of_modules, unit="modules", disable=disable_bar):
         for fam in mod.families:
             mod_row["geneFam"] = fam.name
             mod_row["module"] = mod.ID
@@ -720,12 +720,12 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
     else:
         info_group = h5f.create_group("/", "info", "Informations about the pangenome content")
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
-        info_group._v_attrs.numberOfGenes = pangenome.number_of_genes()
-        info_group._v_attrs.numberOfOrganisms = pangenome.number_of_organisms()
+        info_group._v_attrs.numberOfGenes = pangenome.number_of_genes
+        info_group._v_attrs.numberOfOrganisms = pangenome.number_of_organisms
     if pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
-        info_group._v_attrs.numberOfClusters = pangenome.number_of_gene_families()
+        info_group._v_attrs.numberOfClusters = pangenome.number_of_gene_families
     if pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:
-        info_group._v_attrs.numberOfEdges = pangenome.number_of_edges()
+        info_group._v_attrs.numberOfEdges = pangenome.number_of_edges
     if pangenome.status["partitioned"] in ["Computed", "Loaded"]:
         named_part_counter = Counter()
         subpart_counter = Counter()
@@ -733,7 +733,7 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
         part_set = set()
         for fam in pangenome.gene_families:
             named_part_counter[fam.named_partition] += 1
-            part_distribs[fam.named_partition].append(fam.number_of_organisms / pangenome.number_of_organisms())
+            part_distribs[fam.named_partition].append(fam.number_of_organisms / pangenome.number_of_organisms)
             if fam.named_partition == "shell":
                 subpart_counter[fam.partition] += 1
             if fam.partition != "S_":
@@ -755,11 +755,11 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
         info_group._v_attrs.numberOfPartitions = len(part_set)
         info_group._v_attrs.numberOfSubpartitions = subpart_counter
     if pangenome.status["predictedRGP"] in ["Computed", "Loaded"]:
-        info_group._v_attrs.numberOfRGP = pangenome.number_of_rgp()
+        info_group._v_attrs.numberOfRGP = pangenome.number_of_rgp
     if pangenome.status["spots"] in ["Computed", "Loaded"]:
-        info_group._v_attrs.numberOfSpots = pangenome.number_of_spots()
+        info_group._v_attrs.numberOfSpots = pangenome.number_of_spots
     if pangenome.status["modules"] in ["Computed", "Loaded"]:
-        info_group._v_attrs.numberOfModules = pangenome.number_of_modules()
+        info_group._v_attrs.numberOfModules = pangenome.number_of_modules
         info_group._v_attrs.numberOfFamiliesInModules = sum([len(mod) for mod in pangenome.modules])
 
     info_group._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters

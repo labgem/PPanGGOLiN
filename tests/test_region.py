@@ -682,7 +682,7 @@ class TestGeneContext:
     def test_str(self, context):
         """Test that the writing spot method does not change
         """
-        assert str(context) == "context_0"
+        assert str(context) == "GC_0"
 
     def test_hash(self, context):
         """Test that len method work as expected

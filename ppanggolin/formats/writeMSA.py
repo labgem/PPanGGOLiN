@@ -55,7 +55,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
     :return: set of families unique to one partition
     """
     families = set()
-    nb_org = pangenome.number_of_organisms()
+    nb_org = pangenome.number_of_organisms
 
     if partition_filter == "all":
         return pangenome.gene_families

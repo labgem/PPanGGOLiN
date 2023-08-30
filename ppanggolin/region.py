@@ -33,6 +33,7 @@ class Region(MetaFeatures):
         - 'Starter': the first gene in the region.
         - 'stopper': the last gene in the region.
     """
+    id_counter = 0
 
     def __init__(self, region_id: str):
         """Constructor method
@@ -45,6 +46,11 @@ class Region(MetaFeatures):
         self.score = 0
         self.starter = None
         self.stopper = None
+        self.ID = Region.id_counter
+        Region.id_counter += 1
+
+    def __str__(self):
+        return self.name
 
     def __repr__(self) -> str:
         """Region representation
@@ -55,6 +61,12 @@ class Region(MetaFeatures):
         """Create a hash value for the region
         """
         return id(self)
+    
+    def __lt__(self, obj):
+        return self.ID < obj.ID
+  
+    def __gt__(self, obj):
+        return self.ID > obj.ID
 
     def __eq__(self, other: Region) -> bool:
         """
@@ -603,7 +615,6 @@ class GeneContext:
     """
     def __init__(self, gc_id: int, families: set = None):
         """Constructor method
-
         :param gc_id : Identifier of the Gene context
         :param families: Gene families related to the GeneContext
         """
@@ -620,7 +631,7 @@ class GeneContext:
     def __str__(self) -> str:
         """String representation of the gene context
         """
-        return f"context_{self.ID}"
+        return f'GC_{str(self.ID)}'
 
     def __hash__(self) -> int:
         """Create a hash value for the region

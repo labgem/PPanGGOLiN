@@ -29,6 +29,8 @@ needPartitions = False
 needSpots = False
 needRegions = False
 needModules = False
+needMetadata = False
+metatype = False
 ignore_err = False
 
 
@@ -189,16 +191,27 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
     gexf.write('      <attribute id="8" title="length_avg" type="double" />\n')
     gexf.write('      <attribute id="9" title="length_med" type="long" />\n')
     gexf.write('      <attribute id="10" title="nb_organisms" type="long" />\n')
+
+    if pan.number_of_spots > 0:
+        gexf.write('      <attribute id="12" title="spot" type="string" />\n')
+    if pan.number_of_modules > 0:
+        gexf.write('      <attribute id="13" title="module" type="string" />\n')
+    shift = 14
+
+    source_fields = {m.source: m.fields for f in pan.gene_families if len(list(f.metadata)) > 0 for m in f.metadata}
+    for source_metadata_families in pan.metadata_sources("families"):
+        for field in source_fields[source_metadata_families]:
+            gexf.write(f'      <attribute id="{shift}" title="{source_metadata_families}_{field}" type="string" />\n')
+            shift += 1
     if not light:
         for org, org_idx in index.items():
-            gexf.write(f'      <attribute id="{org_idx + 12}" title="{org.name}" type="string" />\n')
-
+            gexf.write(f'      <attribute id="{org_idx + shift}" title="{org.name}" type="string" />\n')
     gexf.write('    </attributes>\n')
     gexf.write('    <attributes class="edge" mode="static">\n')
     gexf.write('      <attribute id="11" title="nb_genes" type="long" />\n')
     if not light:
         for org, org_idx in index.items():
-            gexf.write(f'      <attribute id="{org_idx + len(index) + 12}" title="{org.name}" type="long" />\n')
+            gexf.write(f'      <attribute id="{org_idx + len(index) + shift}" title="{org.name}" type="long" />\n')
     gexf.write('    </attributes>\n')
     gexf.write('    <meta>\n')
     gexf.write(f'      <creator>PPanGGOLiN {pkg_resources.get_distribution("ppanggolin").version}</creator>\n')
@@ -241,18 +254,36 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
         gexf.write(f'          <attvalue for="4" value="{fam.named_partition}" />\n')
         gexf.write(f'          <attvalue for="5" value="{fam.partition}" />\n')
         gexf.write(f'          <attvalue for="6" value="'
-                   f'{"exact_accessory" if fam.number_of_organisms != pan.number_of_organisms() else "exact_core"}" />\n')
+                   f'{"exact_accessory" if fam.number_of_organisms != pan.number_of_organisms else "exact_core"}" />\n')
         gexf.write(f'          <attvalue for="7" value="'
-                   f'{"soft_core" if fam.number_of_organisms >= (pan.number_of_organisms() * soft_core) else "soft_accessory"}"'
+                   f'{"soft_core" if fam.number_of_organisms >= (pan.number_of_organisms * soft_core) else "soft_accessory"}"'
                    f' />\n')
         gexf.write(f'          <attvalue for="8" value="{round(sum(lis) / len(lis), 2)}" />\n')
         gexf.write(f'          <attvalue for="9" value="{int(median(lis))}" />\n')
         gexf.write(f'          <attvalue for="10" value="{fam.number_of_organisms}" />\n')
+        if pan.number_of_spots > 0:
+            str_spot = "|".join([str(s) for s in list(fam.spots)])
+            gexf.write(f'      <attvalue for="12" value="{str_spot}"/>\n')
+        if pan.number_of_modules > 0:
+            str_module = "|".join([str(m) for m in list(fam.modules)])
+            gexf.write(f'      <attvalue for="13" value="{str_module}"/>\n')
+        shift = 14
+        source_fields = {m.source: m.fields for f in pan.gene_families if len(list(f.metadata)) > 0 for m in f.metadata}
+        for source_metadata_families in pan.metadata_sources("families"):
+            to_concat = defaultdict(list)
+            for m in fam.metadata:
+                if m.source == source_metadata_families:
+                    for field in m.fields:
+                        to_concat[field].append(str(m.get(field)))
+            for field in source_fields[source_metadata_families]:
+                concatenated_fields = '|'.join(to_concat[field])
+                gexf.write(f'      <attvalue for="{shift}" value="{concatenated_fields}"/>\n')
+                shift += 1
         if not light:
             for org, genes in fam.get_org_dict().items():
                 gexf.write(
                     f'          <attvalue for="'
-                    f'{index[org] + 12}" '
+                    f'{index[org] + shift}" '
                     f'value="{"|".join([gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in genes])}" />\n')
         gexf.write('        </attvalues>\n')
         gexf.write('      </node>\n')
@@ -274,10 +305,11 @@ def write_gexf_edges(gexf: TextIO, light: bool = True):
                    f'{edge.source.ID}" target="{edge.target.ID}" weight="{edge.number_of_organisms}">\n')
         gexf.write(f'        <viz:thickness value="{edge.number_of_organisms}" />\n')
         gexf.write('        <attvalues>\n')
-        gexf.write(f'          <attribute id="11" value="{len(edge.gene_pairs)}" />\n')
+        gexf.write(f'          <attvalue for="11" value="{len(edge.gene_pairs)}" />\n')
         if not light:
             for org, genes_pairs in edge.get_organisms_dict().items():
-                gexf.write(f'          <attvalue for="{index[org] + len(index) + 12}" value="{len(genes_pairs)}" />\n')
+                gexf.write(
+                    f'          <attvalue for="{index[org] + len(index) + len(pan.metadata_sources("families")) + 2}" value="{len(genes_pairs)}" />\n')
         gexf.write('        </attvalues>\n')
         gexf.write('      </edge>\n')
         edgeids += 1
@@ -349,7 +381,7 @@ def write_matrix(output: Path, sep: str = ',', ext: str = 'csv', compress: bool 
                                '"Max group size nuc"',  # 13
                                '"Avg group size nuc"']  # 14
                               + ['"' + str(org) + '"' for org in pan.organisms]) + "\n")  # 15
-        default_genes = ['""'] * pan.number_of_organisms() if gene_names else ["0"] * pan.number_of_organisms()
+        default_genes = ['""'] * pan.number_of_organisms if gene_names else ["0"] * pan.number_of_organisms
         org_index = pan.get_org_index()  # should just return things
         for fam in pan.gene_families:
             genes = default_genes.copy()
@@ -406,7 +438,7 @@ def write_gene_presence_absence(output: Path, compress: bool = False):
 
         matrix.write('\t'.join(['Gene'] +  # 14
                                [str(org) for org in pan.organisms]) + "\n")  # 15
-        default_genes = ["0"] * pan.number_of_organisms()
+        default_genes = ["0"] * pan.number_of_organisms
         org_index = pan.get_org_index()  # should just return things
         for fam in pan.gene_families:
             genes = default_genes.copy()
@@ -455,9 +487,9 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
     soft = set()  # could use bitarrays if speed is needed
     core = set()
     for fam in pan.gene_families:
-        if fam.number_of_organisms >= pan.number_of_organisms() * soft_core:
+        if fam.number_of_organisms >= pan.number_of_organisms * soft_core:
             soft.add(fam)
-        if fam.number_of_organisms == pan.number_of_organisms():
+        if fam.number_of_organisms == pan.number_of_organisms:
             core.add(fam)
 
     with write_compressed_or_not(output / "organisms_statistics.tsv", compress) as outfile:
@@ -603,9 +635,9 @@ def write_parts(output: Path, soft_core: float = 0.95):
         part_sets[fam.named_partition].add(fam.name)
         if fam.partition.startswith("S"):
             part_sets[fam.partition].add(fam.name)
-        if fam.number_of_organisms >= pan.number_of_organisms() * soft_core:
+        if fam.number_of_organisms >= pan.number_of_organisms * soft_core:
             part_sets["soft_core"].add(fam.name)
-            if fam.number_of_organisms == pan.number_of_organisms():
+            if fam.number_of_organisms == pan.number_of_organisms:
                 part_sets["exact_core"].add(fam.name)
             else:
                 part_sets["exact_accessory"].add(fam.name)
@@ -684,7 +716,7 @@ def summarize_spots(spots: set, output: Path, compress: bool = False):
             stdev_size = stdev(size_list) if len(size_list) > 1 else 0
             max_size = max(size_list)
             min_size = min(size_list)
-            fout.write("\t".join(map(r_and_s, [f"spot_{spot.ID}", len(spot), len(tot_fams), len_uniq_content,
+            fout.write("\t".join(map(r_and_s, [f"{str(spot)}", len(spot), len(tot_fams), len_uniq_content,
                                                mean_size, stdev_size, max_size, min_size])) + "\n")
     logging.getLogger("PPanGGOLiN").info(f"Done writing spots in : '{output.as_posix() + '/summarize_spots.tsv'}'")
 
@@ -709,7 +741,7 @@ def write_spots(output: Path, compress: bool = False):
     :param output: Path to output directory
     :param compress: Compress the file in .gz
     """
-    if pan.number_of_spots() > 0:
+    if pan.number_of_spots > 0:
         spot2rgp(pan.spots, output, compress)
         summarize_spots(pan.spots, output, compress)
 
@@ -927,6 +959,8 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
     global needSpots
     global needRegions
     global needModules
+    global needMetadata
+    global metatype
     global ignore_err
 
     pan = pangenome
@@ -939,6 +973,13 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
         needPartitions = True
     if gexf or light_gexf or json:
         needGraph = True
+        needSpots = True if pan.status["spots"] == "inFile" else False
+        needModules = True if pan.status["modules"] == "inFile" else False
+        if pangenome.status["metadata"]["families"] == "inFile":
+            needMetadata = True
+            metatype = "families"
+        else:
+            needMetadata = False
     if regions or spots or borders or spot_modules:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
@@ -952,8 +993,8 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
 
     check_pangenome_info(pangenome, need_annotations=needAnnotations, need_families=needFamilies, need_graph=needGraph,
                          need_partitions=needPartitions, need_rgp=needRegions, need_spots=needSpots,
-                         need_modules=needModules, disable_bar=disable_bar)
-
+                         need_modules=needModules, need_metadata=needMetadata, metatype=metatype, sources=None,
+                         disable_bar=disable_bar)
     pan.get_org_index()  # make the index because it will be used most likely
     with get_context('fork').Pool(processes=cpu) as p:
         if csv:

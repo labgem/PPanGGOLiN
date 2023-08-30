@@ -42,7 +42,7 @@ def compute_mod_graph(pangenome: Pangenome, t: int = 1, disable_bar: bool = Fals
     """
 
     g = nx.Graph()
-    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genome", disable=disable_bar):
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
         for contig in org.contigs:
             if len(contig) > 0:
                 start_gene = contig[0]

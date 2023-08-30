@@ -185,8 +185,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
             spot_time += time.time() - start_spot_drawing
 
         if args.draw.tile_plot:
-            if 1 < pangenome.number_of_organisms() < 5000:
-                nocloud = args.draw.nocloud if pangenome.number_of_organisms() < 500 else True
+            if 1 < pangenome.number_of_organisms < 5000:
+                nocloud = args.draw.nocloud if pangenome.number_of_organisms < 500 else True
                 draw_tile_plot(pangenome, args.output, nocloud=nocloud, disable_bar=args.disable_prog_bar)
             else:
                 logging.getLogger("PPanGGOLiN").warning(

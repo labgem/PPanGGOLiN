@@ -87,12 +87,12 @@ class Pangenome:
         
         :return: gene generator
         """
-        if self.number_of_organisms() > 0:  # if we have organisms, they're supposed to have genes
+        if self.number_of_organisms > 0:  # if we have organisms, they're supposed to have genes
             for org in self.organisms:
                 for contig in org.contigs:
                     for gene in contig.genes:
                         yield gene
-        elif self.number_of_gene_families() > 0:
+        elif self.number_of_gene_families > 0:
             # we might have no organism loaded, in that case there are gene families.
             for gene_fam in self.gene_families:
                 for gene in gene_fam.genes:
@@ -134,6 +134,7 @@ class Pangenome:
         except KeyError:
             raise KeyError(f"{gene_id} does not exist in the pangenome.")
 
+    @property
     def number_of_genes(self) -> int:
         """Returns the number of gene present in the pangenome
 
@@ -169,6 +170,7 @@ class Pangenome:
         for family in self._famGetter.values():
             yield family
 
+    @property
     def number_of_gene_families(self) -> int:
         """Returns the number of gene families present in the pangenome
 
@@ -253,6 +255,7 @@ class Pangenome:
             edge.add_genes(gene1, gene2)
         return edge
 
+    @property
     def number_of_edges(self) -> int:
         """Returns the number of edge present in the pangenome
 
@@ -270,6 +273,7 @@ class Pangenome:
         for organism in self._orgGetter.values():
             yield organism
 
+    @property
     def number_of_organisms(self) -> int:
         """Returns the number of organisms present in the pangenome
         
@@ -444,6 +448,7 @@ class Pangenome:
         else:
             raise KeyError(f"A RGP with this name ({region.name} already exist in pangenome")
 
+    @property
     def number_of_rgp(self) -> int:
         """Returns the number of gene families present in the pangenome
 
@@ -505,6 +510,7 @@ class Pangenome:
         else:
             raise KeyError("Spot already exist")
 
+    @property
     def number_of_spots(self) -> int:
         """Returns the number of gene families present in the pangenome
 
@@ -514,7 +520,7 @@ class Pangenome:
 
     """Modules methods"""
     @property
-    def modules(self) -> Module:
+    def modules(self) -> Generator[Module, None, None]:
         """Generate modules in the pangenome
         """
         yield from self._moduleGetter.values()
@@ -586,6 +592,7 @@ class Pangenome:
         # case where there is an index but the bitarrays have not been computed???
         return self._fam_index
 
+    @property
     def number_of_modules(self) -> int:
         """Returns the number of modules present in the pangenome
 
