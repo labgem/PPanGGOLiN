@@ -335,7 +335,8 @@ class TestPangenomeGene(TestPangenome):
         genes = set()
         organism = Organism(name="organism")
         for contig_id in range(randint(2, 10)):
-            contig = organism.get_contig("k_{}".format(contig_id))
+            contig = Contig("k_{}".format(contig_id))
+            organism.add_contig(contig)
             for gene_idx in range(randint(2, 10)):
                 gene = Gene(gene_id=f"{organism.name}.{contig_id}.{gene_idx}")
                 gene.position = gene_idx
@@ -806,7 +807,8 @@ class TestPangenomeMetadata(TestPangenome):
         pangenome.add_gene_family(family)
         org = Organism("Org")
         org.add_metadata(source=metadata.source, metadata=metadata)
-        ctg = org.get_contig("Ctg")
+        ctg = Contig("Ctg")
+        org.add_contig(ctg)
         gene = Gene("Gene")
         gene.position, gene.start = (0, 0)
         gene.add_metadata(source=metadata.source, metadata=metadata)

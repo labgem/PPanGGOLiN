@@ -656,7 +656,7 @@ class Pangenome:
         :return: Metadata element
         """
         for elem in self.select_elem(metatype):
-            if len(list(elem.get_metadata(**kwargs))) > 0:
+            if len(list(elem.get_metadata_by_attribute(**kwargs))) > 0:
                 yield elem
 
     def get_elem_by_sources(self, source: List[str], metatype: str) -> Generator[
@@ -669,5 +669,5 @@ class Pangenome:
         """
         assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
         for elem in self.select_elem(metatype):
-            if elem[source] is not None:
+            if elem.get_metadata_by_source(source) is not None:
                 yield elem

@@ -114,7 +114,7 @@ def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, 
         else:
             raise Exception("Unexpected attribute. A recent change could create this error."
                             " Please report the error on our github.")
-        for metadata in element[source]:
+        for metadata in element.get_metadata_by_source(source):
             for attr, value in ((k, v) for k, v in metadata.__dict__.items() if k != "source"):
                 if isinstance(value, bytes):
                     value = value.decode('UTF-8')
@@ -160,7 +160,7 @@ def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
     source_table = h5f.create_table(metatype_group, source, desc_metadata(*meta_len[:-1]), expectedrows=meta_len[-1])
     meta_row = source_table.row
     for element in tqdm(select_elements, unit=metatype, desc=f'Source = {source}', disable=disable_bar):
-        for metadata in element[source]:
+        for metadata in element.get_metadata_by_source(source):
             for desc in source_table.colnames:
                 if desc == "ID":
                     if hasattr(element, 'name') and len(element.name) > 0:

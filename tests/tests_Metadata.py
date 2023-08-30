@@ -83,10 +83,10 @@ class TestMetaFeatures:
         """
         metafeatures = MetaFeatures()
         for meta in metadata:
-            metafeatures[meta.source] = meta
+            metafeatures.add_metadata(meta.source, meta)
         yield metafeatures
 
-    def test_set_metadata_to_metadata_getter(self, metafeatures, metadata):
+    def test_add_metadata(self, metafeatures, metadata):
         """Tests that metadata can be added to the metadata getter
         """
         assert all(metafeatures._metadata_getter[meta.source] == [meta] for meta in metadata)
@@ -94,29 +94,15 @@ class TestMetaFeatures:
     def test_get_metadata_feature_corresponding_to_source(self, metafeatures, metadata):
         """Tests that all the metadata features corresponding to a source can be retrieved
         """
-        assert all(metafeatures[meta.source] == [meta] for meta in metadata)
+        assert all(metafeatures.get_metadata_by_source(meta.source) == [meta] for meta in metadata)
 
     def test_remove_source_from_feature(self, metafeatures):
         """Tests that a source can be removed from the feature
         """
         metadata = Metadata("source_del", attribute1="value")
-        metafeatures["source_del"] = metadata
-        del metafeatures["source_del"]
-        assert metafeatures["source_del"] is None
-
-    def test_add_metadata_feature(self, metafeatures):
-        """Tests that adding metadata works as expected
-        """
-        metadata1 = Metadata("source_add", attribute1="value1")
-        metadata2 = Metadata("source_add", attribute2="value2")
-        metafeatures.add_metadata("source_add", metadata1)
-        metafeatures.add_metadata("source_add", metadata2)
-        assert metafeatures["source_add"] == [metadata1, metadata2]
-
-    def test_generate_metadata_in_gene_families(self, metafeatures, metadata):
-        """Tests that metadata can be generated in gene families
-        """
-        assert set(metafeatures.metadata) == metadata
+        metafeatures.add_metadata("source_del", metadata)
+        metafeatures.del_metadata_by_source("source_del")
+        assert metafeatures.get_metadata_by_source("source_del") is None
 
     def test_generate_all_metadata_sources(self, metafeatures, metadata):
         """Tests that all metadata sources can be generated
@@ -128,9 +114,9 @@ class TestMetaFeatures:
         """
         meta = Metadata("source_test", attribute1="value_to_retrieve")
         # meta_list = Metadata("source_list", attribute1=["val_1", "val_2"])
-        metafeatures[meta.source] = meta
+        metafeatures.add_metadata(meta.source, meta)
         # metafeatures[meta_list.source] = meta_list
-        assert list(metafeatures.get_metadata(attribute1="value_to_retrieve")) == [meta]
+        assert list(metafeatures.get_metadata_by_attribute(attribute1="value_to_retrieve")) == [meta]
         # assert list(metafeatures.get_metadata(attribute1="val_1")) == [meta_list]
 
     def test_get_maximum_number_of_metadata_for_one_source(self, metafeatures, metadata):
@@ -146,7 +132,7 @@ class TestMetaFeatures:
         """Tests that an AssertionError is raised when metadata is not with type Metadata
         """
         with pytest.raises(AssertionError):
-            metafeatures["source1"] = "not_metadata"
+            metafeatures.add_metadata("source1", "not_metadata")
 
     def test_source_is_not_a_string(self, metafeatures):
         """Tests that an AssertionError is raised when the source is not a string
@@ -154,10 +140,10 @@ class TestMetaFeatures:
 
         metadata = Metadata("source1", attribute1="value1")
         with pytest.raises(AssertionError):
-            metafeatures[1] = metadata
+            metafeatures.add_metadata(1, metadata)
 
     def test_source_or_metadata_is_not_with_correct_type(self, metafeatures, metadata):
         """Tests that an AssertionError is raised when the source or metadata is not with the correct type
         """
         with pytest.raises(AssertionError):
-            metafeatures[1] = "not_metadata"
+            metafeatures.add_metadata(1, "not_metadata")

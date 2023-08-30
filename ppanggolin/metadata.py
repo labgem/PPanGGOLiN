@@ -2,7 +2,9 @@
 # coding: utf8
 
 # default libraries
+import logging
 from typing import Generator, List, Tuple, Union, Any
+from collections import defaultdict
 
 # installed libraries
 from pandas import isna
@@ -94,57 +96,7 @@ class MetaFeatures:
     def __init__(self):
         """Constructor method
         """
-        self._metadata_getter = {}
-
-    def __setitem__(self, source: str, metadata: Metadata):
-        """Add metadata to metadata getter
-
-        :param source: Name of the metadata source
-        :param metadata: metadata value to add for the source
-
-        :raises AssertionError: Source or metadata is not with the correct type
-        """
-        assert isinstance(metadata, Metadata), f"Metadata is not with type Metadata but with {type(metadata)}"
-        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
-
-        self._metadata_getter[source] = [metadata]
-
-    def __getitem__(self, source: str) -> Union[List[Metadata], None]:
-        """Get all the metadata feature corresponding to the source
-
-        :param source: Name of the source to get
-
-        :return: List of metadata corresponding to the source
-
-        :raises AssertionError: Source is not with the correct type
-        """
-        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
-        return self._metadata_getter.get(source)  # if source in _metadata_getter return value else None
-
-    def __delitem__(self, source: str):
-        """Remove a source from the feature
-
-        :param source: Name of the source to delete
-
-        :raises AssertionError: Source is not with the correct type
-        :raises KeyError: Source does not belong in the MetaFeature
-        """
-        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
-        try:
-            del self._metadata_getter[source]
-        except KeyError:
-            raise KeyError(f"Given source: {source} is not in {type(self)}")
-
-    def add_metadata(self, source, metadata):
-        """Add metadata to metadata getter
-
-        :param source: Name of the metadata source
-        :param metadata: metadata value to add for the source
-        """
-        if self[source] is None:
-            self[source] = metadata
-        else:
-            self[source].append(metadata)
+        self._metadata_getter = defaultdict(list)
 
     @property
     def metadata(self) -> Generator[Metadata, None, None]:
@@ -165,7 +117,32 @@ class MetaFeatures:
         """
         yield from self._metadata_getter.keys()
 
-    def get_metadata(self, **kwargs) -> Generator[Metadata, None, None]:
+    def add_metadata(self, source, metadata):
+        """Add metadata to metadata getter
+
+        :param source: Name of the metadata source
+        :param metadata: metadata value to add for the source
+
+        :raises AssertionError: Source or metadata is not with the correct type
+        """
+        assert isinstance(metadata, Metadata), f"Metadata is not with type Metadata but with {type(metadata)}"
+        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
+
+        self._metadata_getter[source].append(metadata)
+
+    def get_metadata_by_source(self, source: str) -> Union[List[Metadata], None]:
+        """Get all the metadata feature corresponding to the source
+
+        :param source: Name of the source to get
+
+        :return: List of metadata corresponding to the source
+
+        :raises AssertionError: Source is not with the correct type
+        """
+        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
+        return self._metadata_getter.get(source)  # if source in _metadata_getter return value else None
+
+    def get_metadata_by_attribute(self, **kwargs) -> Generator[Metadata, None, None]:
         """Get metadata by one or more attribute
 
         :return: Metadata searched
@@ -177,6 +154,31 @@ class MetaFeatures:
                     # It would be better to keep a list and change in writing and reading metadata to join the list
                     if getattr(metadata, attr, None) in value or getattr(metadata, attr, None) == value:
                         yield metadata
+
+    def del_metadata_by_source(self, source: str):
+        """Remove a source from the feature
+
+        :param source: Name of the source to delete
+
+        :raises AssertionError: Source is not with the correct type
+        :raises KeyError: Source does not belong in the MetaFeature
+        """
+        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
+        if self._metadata_getter.pop(source, None) is None:
+            logging.getLogger("PPanGGOLiN").warning("The source to remove does not exist")
+
+    def del_metadata_by_attribute(self, **kwargs):
+        """Remove a source from the feature
+
+        :param source: Name of the source to delete
+        """
+        for source, metadata in self._metadata_getter.items():
+            for attr, value in kwargs.items():
+                if hasattr(metadata, attr):
+                    # BUG If value is a list, the join block detection.
+                    # It would be better to keep a list and change in writing and reading metadata to join the list
+                    if getattr(metadata, attr, None) in value or getattr(metadata, attr, None) == value:
+                        self._metadata_getter[source].remove(metadata)
 
     def max_metadata_by_source(self) -> Tuple[str, int]:
         """Get the maximum number of metadata for one source

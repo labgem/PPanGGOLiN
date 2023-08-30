@@ -3,7 +3,7 @@
 import pytest
 from random import randint
 from typing import Generator, Set
-from itertools import combinations
+from itertools import combinations_with_replacement
 
 from ppanggolin.pangenome import Edge
 from ppanggolin.geneFamily import GeneFamily
@@ -225,11 +225,12 @@ class TestGeneFamily:
         yield families
 
     @pytest.fixture
-    def edges(self, families, genes) -> Generator[Set[Edge], None, None]:
+    def edges(self, families, genes, organisms) -> Generator[Set[Edge], None, None]:
         """Create a set of edges fill with genes and gene families to test edges
         """
         edges = {}
-        pair_genes = combinations(genes, 2)
+        pair_genes = filter(lambda x: x[0] != x[1] and x[0].organism == x[1].organism,
+                            combinations_with_replacement(genes, 2))
         for pair in pair_genes:
             key = frozenset([pair[0].family, pair[1].family])
             edge = edges.get(key)
@@ -282,7 +283,7 @@ class TestGeneFamily:
     def test_add_spot_to_gene_family(self, family):
         """Tests that a Spot object can be added to a GeneFamily object
         """
-        spot = Spot('spot1')
+        spot = Spot(1)
         family.add_spot(spot)
         assert spot in family.spots
 
@@ -295,7 +296,7 @@ class TestGeneFamily:
     def test_add_module_to_gene_family(self, family):
         """Tests that a Module object can be added to a GeneFamily object
         """
-        module = Module('module1')
+        module = Module(1)
         family.add_module(module)
         assert module in family.modules
 
