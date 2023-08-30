@@ -106,7 +106,7 @@ class Pangenome:
 
         Since the genes are never explicitly 'added' to a pangenome (but rather to a gene family, or a contig),
         the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
-        if at some point we want to extract genes from a pangenome we'll create a geneGetter.
+        If at some point we want to extract genes from a pangenome we'll create a geneGetter.
         The assumption behind this is that the pangenome has been filled and no more gene will be added.
         """
         self._geneGetter = {}
@@ -114,11 +114,11 @@ class Pangenome:
             self._geneGetter[gene.ID] = gene
 
     def get_gene(self, gene_id: str) -> Gene:
-        """returns the gene that has the given gene ID
+        """Returns the gene that has the given gene ID
 
         :param gene_id: The gene ID to look for
 
-        :return: returns the gene that has the ID `gene_id`
+        :return: Returns the gene that has the ID `gene_id`
 
         :raises AssertionError: If the `gene_id` is not an integer
         :raises KeyError: If the `gene_id` is not in the pangenome
@@ -130,14 +130,14 @@ class Pangenome:
         except AttributeError:
             # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
             self._mk_gene_getter()  # make it
-            return self.get_gene(gene_id)  # return what was expected. If geneID does not exist it will raise an error.
+            return self.get_gene(gene_id)  # Return what was expected. If geneID does not exist it will raise an error.
         except KeyError:
             raise KeyError(f"{gene_id} does not exist in the pangenome.")
 
     def number_of_genes(self) -> int:
         """Returns the number of gene present in the pangenome
 
-        :return: the number of genes
+        :return: The number of genes
         """
         try:
             return len(self._geneGetter)
@@ -148,15 +148,21 @@ class Pangenome:
     """Gene families methods"""
     @property
     def max_fam_id(self):
+        """Get the last family identifier
+        """
         return self._max_fam_id
 
     @max_fam_id.setter
     def max_fam_id(self, value):
+        """Set the last family identifier
+
+        :param value: value of the maximum family identifer
+        """
         self._max_fam_id = value
 
     @property
     def gene_families(self) -> Generator[GeneFamily, None, None]:
-        """returns all the gene families in the pangenome
+        """Returns all the gene families in the pangenome
         
         :return: Generator of gene families
         """
@@ -166,16 +172,16 @@ class Pangenome:
     def number_of_gene_families(self) -> int:
         """Returns the number of gene families present in the pangenome
 
-        :return: the number of gene families
+        :return: The number of gene families
         """
         return len(self._famGetter)
 
     def get_gene_family(self, name: str) -> GeneFamily:
-        """returns the gene family that has the given `name`
+        """Returns the gene family that has the given `name`
 
         :param name: The gene family name to look for
 
-        :return: returns the gene family that has the name `name`
+        :return: Returns the gene family that has the name `name`
 
         :raises AssertionError: If the `name` is not an integer
         :raises KeyError: If the `name` is not corresponding to any family in the pangenome
@@ -213,7 +219,7 @@ class Pangenome:
     """Graph methods"""
     @property
     def edges(self) -> Generator[Edge, None, None]:
-        """returns all the edges in the pangenome graph
+        """Returns all the edges in the pangenome graph
         
         :return: Generator of edge
         """
@@ -227,7 +233,7 @@ class Pangenome:
         :param gene1: The first gene
         :param gene2: The second gene
 
-        :return: the created Edge
+        :return: The created Edge
 
         :raises AssertionError: Genes object are expected
         :raises AttributeError: Genes are not associated to any families
@@ -250,14 +256,14 @@ class Pangenome:
     def number_of_edges(self) -> int:
         """Returns the number of edge present in the pangenome
 
-        :return: the number of gene families
+        :return: The number of gene families
         """
         return len(self._edgeGetter)
 
     """Organism methods"""
     @property
     def organisms(self) -> Generator[Organism, None, None]:
-        """returns all the organisms in the pangenome
+        """Returns all the organisms in the pangenome
         
         :return: Generator :class:`ppanggolin.genome.Organism`
         """
@@ -267,7 +273,7 @@ class Pangenome:
     def number_of_organisms(self) -> int:
         """Returns the number of organisms present in the pangenome
         
-        :return: the number of organism
+        :return: The number of organism
         """
         return len(self._orgGetter)
 
@@ -291,7 +297,7 @@ class Pangenome:
 
     def add_organism(self, organism: Organism):
         """
-        adds an organism that did not exist previously in the pangenome if an Organism object is provided.
+        Adds an organism that did not exist previously in the pangenome if an Organism object is provided.
         If an organism with the same name exists it will raise an error.
         If a str object is provided, will return the corresponding organism that has this name
         OR create a new one if it does not exist.
@@ -330,7 +336,7 @@ class Pangenome:
 
         :param part: Filter the organism in function of the given partition
 
-        :return: the index of organisms in pangenome
+        :return: The index of organisms in pangenome
         """
         if self._org_index is None:
             # then the bitarrays don't exist yet, since the org index does not exist either.
@@ -404,10 +410,10 @@ class Pangenome:
         Returns the multigenic persistent families of the pangenome graph. A family will be considered multigenic
         if it is duplicated in more than `dup_margin` of the genomes where it is present.
 
-        :param dup_margin: the ratio of presence in multicopy above which a gene family is considered multigenic
+        :param dup_margin: The ratio of presence in multicopy above which a gene family is considered multigenic
         :param persistent: if we consider only the persistent genes
 
-        :return: set of gene families considered multigenic
+        :return: Set of gene families considered multigenic
         """
         assert isinstance(dup_margin, float), "Dup margin should be a float"
         assert isinstance(persistent, bool), "persistent should be a boolean"
@@ -441,15 +447,17 @@ class Pangenome:
     def number_of_rgp(self) -> int:
         """Returns the number of gene families present in the pangenome
 
-        :return: the number of gene families
+        :return: The number of gene families
         """
         return len(self._regionGetter)
 
     """Spot methods"""
     @property
     def spots(self) -> Generator[Spot, None, None]:
-        for spot in self._spotGetter.values():
-            yield spot
+        """Generate spots in the pangenome
+
+        :return: Spot generator"""
+        yield from self._spotGetter.values()
 
     def get_spot(self, spot_id: Union[int, str]) -> Spot:
         # TODO Change for only str or only int
@@ -482,7 +490,7 @@ class Pangenome:
     def add_spot(self, spot: Spot):
         """Adds the given iterable of spots to the pangenome.
 
-        :param spot: spot which should be added
+        :param spot: Spot which should be added
 
         :raise AssertionError: Error if spot is not a Spot object
         :raise KeyError: Error if another Spot exist in pangenome with the same identifier
@@ -500,15 +508,16 @@ class Pangenome:
     def number_of_spots(self) -> int:
         """Returns the number of gene families present in the pangenome
 
-        :return: the number of gene families
+        :return: The number of gene families
         """
         return len(self._spotGetter)
 
     """Modules methods"""
     @property
     def modules(self) -> Module:
-        for module in self._moduleGetter.values():
-            yield module
+        """Generate modules in the pangenome
+        """
+        yield from self._moduleGetter.values()
 
     def get_module(self, module_id: Union[int, str]) -> Module:
         # TODO Change for only str or only int
@@ -543,7 +552,7 @@ class Pangenome:
     def add_module(self, module: Module):
         """Add the given module to the pangenome
 
-        :param module: module to add in pangenome
+        :param module: Module to add in pangenome
 
         :raise AssertionError: Error if module is not a Module object
         :raise KeyError: Error if another module exist in pangenome with the same name
@@ -580,7 +589,7 @@ class Pangenome:
     def number_of_modules(self) -> int:
         """Returns the number of modules present in the pangenome
 
-        :return: the number of modules
+        :return: The number of modules
         """
         return len(self._moduleGetter)
 
@@ -588,7 +597,7 @@ class Pangenome:
     def select_elem(self, metatype: str):
         """Get all the element for the given metatype
 
-        :param metatype: name of pangenome component that will be get
+        :param metatype: Name of pangenome component that will be get
 
         :return: All elements from pangenome for the metatype
 
@@ -613,11 +622,11 @@ class Pangenome:
             raise KeyError("Given metatype is not allowed")
 
     def metadata_sources(self, metatype: str) -> Set[str]:
-        """returns all the metadata source in the pangenomes
+        """Returns all the metadata source in the pangenomes
 
-        :param metatype: select to which pangenome element metadata should be searched
+        :param metatype: Select to which pangenome element metadata should be searched
 
-        :return: set of metadata source
+        :return: Set of metadata source
 
         :raise AssertionError: Error if metatype is not a string
         """
@@ -630,9 +639,9 @@ class Pangenome:
     def metadata(self, metatype: str) -> Generator[Metadata, None, None]:
         """Create a generator with all metadatas in the pangenome
 
-		:param metatype: select to which pangenome element metadata should be generate
+		:param metatype: Select to which pangenome element metadata should be generate
 
-        :return: set of metadata source
+        :return: Set of metadata source
         """
         for elem in self.select_elem(metatype):
             yield elem.metadata
@@ -641,10 +650,10 @@ class Pangenome:
         Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
         """Get element in pangenome with metadata attribute expected
 
-        :param metatype: select to which pangenome element metadata
+        :param metatype: Select to which pangenome element metadata
         :param kwargs: attributes to identify metadata
 
-        :return: metadata element
+        :return: Metadata element
         """
         for elem in self.select_elem(metatype):
             if len(list(elem.get_metadata(**kwargs))) > 0:

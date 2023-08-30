@@ -1,9 +1,8 @@
 #! /usr/bin/env python3
 
 import pytest
-from random import choices, randint, sample
+from random import choices, randint
 from typing import Generator, Set, Tuple, Union
-from pathlib import Path
 
 from ppanggolin.genome import Gene, Organism, Contig
 from ppanggolin.pangenome import Pangenome
@@ -15,7 +14,7 @@ from ppanggolin.metadata import Metadata
 
 class TestPangenome:
     """This class tests methods in pangenome class associated to pangenome direclty.
-    For pangenome components, there are subclass to test each component.
+    For pangenome components, there are subclasses to test each component.
     This class also generate a pangenome for all the test
     """
 
@@ -23,7 +22,7 @@ class TestPangenome:
     def pangenome(self) -> Generator[Pangenome, None, None]:
         """Create a pangenomes object for test
 
-        :return: Generator with pangenomes object
+        :return: Generator with the pangenome object
         """
         pangenome = Pangenome()
         yield pangenome
@@ -38,19 +37,19 @@ class TestPangenome:
         :return: A pangenome object
         """
         pangenome_attr_type = {
-                "file": type(None),
-                "_famGetter": dict,
-                "_org_index": type(None),
-                "_fam_index": type(None),
-                "_max_fam_id": int,
-                "_orgGetter": dict,
-                "_edgeGetter": dict,
-                "_regionGetter": dict,
-                "_spotGetter": dict,
-                "_moduleGetter": dict,
-                "status": dict,
-                "parameters": dict
-            }
+            "file": type(None),
+            "_famGetter": dict,
+            "_org_index": type(None),
+            "_fam_index": type(None),
+            "_max_fam_id": int,
+            "_orgGetter": dict,
+            "_edgeGetter": dict,
+            "_regionGetter": dict,
+            "_spotGetter": dict,
+            "_moduleGetter": dict,
+            "status": dict,
+            "parameters": dict
+        }
         status_keys = [
             'genomesAnnotated',
             'geneSequences',
@@ -98,7 +97,7 @@ class TestPangenome:
         This test is important because it ensures that the class name does not change and that we are working
         with a Pangenome object, and not some other type of object.
 
-        :param pangenome: object to test if is an instance of the pangenome class
+        :param pangenome: Object to test if is an instance of the pangenome class
 
         :raise AssertionError: If pangenome is not an instance of the pangenome class
         """
@@ -107,7 +106,7 @@ class TestPangenome:
     def test_add_file_is_not_path(self, pangenome):
         """Tests that the add_file method raises an AssertionError if a file is not an instance of the Path class
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         with pytest.raises(AssertionError):
             pangenome.add_file("pangenome.h5")
@@ -119,14 +118,15 @@ class TestPangenomeOrganism(TestPangenome):
 
     @pytest.fixture
     def organism(self) -> Generator[Organism, None, None]:
-        organism = Organism(name="organism")
-        yield organism
+        """Create a basic organism
+        """
+        yield Organism(name="organism")
 
     def test_add_organism(self, pangenome, organism):
         """Tests the add_organism method of the Pangenome class.
 
-		:param pangenome: pangenome object to test method
-		:param organism: organism object to test method
+        :param pangenome: Pangenome object to test method
+        :param organism: organism object to test method
         """
         pangenome.add_organism(organism)
         assert set(pangenome.organisms) == {organism}
@@ -134,8 +134,8 @@ class TestPangenomeOrganism(TestPangenome):
     def test_add_organism_already_in_pangenome(self, pangenome, organism):
         """Tests that adding organism that already exist return a KeyError.
 
-		:param pangenome: pangenome object to test method
-		:param organism: organism object to test method
+        :param pangenome: Pangenome object to test method
+        :param organism: organism object to test method
         """
         pangenome.add_organism(organism)
         with pytest.raises(KeyError):
@@ -144,7 +144,7 @@ class TestPangenomeOrganism(TestPangenome):
     def test_add_organism_not_instance_organism(self, pangenome):
         """Ensure that it raises an AssertionError when a non-Organism object is passed as an argument.
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         with pytest.raises(AssertionError):
             pangenome.add_organism("org")
@@ -152,8 +152,8 @@ class TestPangenomeOrganism(TestPangenome):
     def test_get_organism(self, pangenome, organism):
         """Tests the get_organism method of the Pangenome class.
 
-		:param pangenome: pangenome object to test method
-		:param organism: organism object to test method
+        :param pangenome: Pangenome object to test method
+        :param organism: organism object to test method
         """
         pangenome.add_organism(organism)
         get_org = pangenome.get_organism("organism")
@@ -163,7 +163,7 @@ class TestPangenomeOrganism(TestPangenome):
     def test_get_organism_not_in_pangenome(self, pangenome):
         """Ensure that it raises a KeyError when an Organism is not in the pangenome.
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         with pytest.raises(KeyError):
             pangenome.get_organism('org')
@@ -171,7 +171,7 @@ class TestPangenomeOrganism(TestPangenome):
     def test_get_organism_with_name_not_instance_string(self, pangenome):
         """Ensure that it raises an AssertionError when a non-string name is passed as organism name.
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         with pytest.raises(AssertionError):
             pangenome.get_organism(33)
@@ -180,7 +180,7 @@ class TestPangenomeOrganism(TestPangenome):
     def organisms(self) -> Generator[Set[Organism], None, None]:
         """Create a set of organism object for test
 
-        :return: Generator with set of organism object
+        :return: Generator with the set of organism object
         """
         orgs = set()
         for i in range(randint(5, 20)):
@@ -190,10 +190,10 @@ class TestPangenomeOrganism(TestPangenome):
 
     @pytest.fixture
     def add_organisms(self, pangenome, organisms):
-        """Add set of organims to pangenome
+        """Add the set of organims to pangenome
 
-        :param pangenome: pangenome object to test method
-        :param orgs: set of organisms to add to pangenome
+        :param pangenome: Pangenome object to test method
+        :param organisms: Set of organisms to add to pangenome
         """
         for org in organisms:
             pangenome.add_organism(org)
@@ -201,9 +201,9 @@ class TestPangenomeOrganism(TestPangenome):
     def test_number_of_organisms(self, add_organisms, pangenome, organisms):
         """Tests the number_of_organisms method of the pangenome class.
 
-        :param add_organisms: method to add organisms to pangenome
-        :param pangenome: pangenome object to test method
-        :param orgs: set of organisms to add to pangenome
+        :param add_organisms: Method to add organisms
+        :param pangenome: Pangenome object to test method
+        :param organisms: Set of organisms to add to pangenome
         """
         assert isinstance(pangenome.number_of_organisms(), int)
         assert pangenome.number_of_organisms() == len(organisms)
@@ -212,6 +212,7 @@ class TestPangenomeOrganism(TestPangenome):
 class TestPangenomeGeneFamilies(TestPangenome):
     """This class tests methods in pangenome class associated to gene families.
     """
+
     @pytest.fixture
     def family(self) -> Generator[GeneFamily, None, None]:
         """Create a Gene Family object
@@ -224,7 +225,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
     def test_max_fam_id_is_instance_int_and_egal_zero(self, pangenome):
         """Tests that the max_fam_id attribute is corretly set
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         assert isinstance(pangenome.max_fam_id, int)
         assert pangenome.max_fam_id == 0
@@ -232,8 +233,8 @@ class TestPangenomeGeneFamilies(TestPangenome):
     def test_add_gene_family(self, pangenome, family):
         """Tests the add_gene_family method of the Pangenome class.
 
-		:param pangenome: pangenome object to test method
-		:param family: gene family object to test method
+        :param pangenome: Pangenome object to test method
+        :param family: gene family object to test method
         """
         pangenome.add_gene_family(family)
         assert 1 == pangenome.max_fam_id
@@ -242,7 +243,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
     def test_add_gene_family_already_in_pangenome(self, pangenome, family):
         """Tests that adding gene family that already exist return a KeyError.
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         :param family: gene family object to test method
         """
         pangenome.add_gene_family(family)
@@ -252,7 +253,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
     def test_get_gene_family(self, pangenome, family):
         """Tests that get_gene_family return a gene family object corresponding to the requested gene family
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         :param family: gene family object to test method
         """
         pangenome.add_gene_family(family)
@@ -262,7 +263,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
     def test_get_gene_family_not_in_pangenome(self, pangenome, family):
         """Tests that return a KeyError if family does not exist in pangenome
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         :param family: gene family object to test method
         """
         with pytest.raises(KeyError):
@@ -271,7 +272,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
     def test_get_gene_family_with_name_not_isinstance_string(self, pangenome):
         """Tests that return an AssertionError if family name used to get family is not string
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         with pytest.raises(AssertionError):
             pangenome.get_gene_family(3)
@@ -280,7 +281,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
     def families(self) -> Generator[Set[GeneFamily], None, None]:
         """Create a set of Gene Family object for test
 
-        :return: Generator with set of organism object
+        :return: Generator with the set of organism object
         """
         families = set()
         for i in range(randint(5, 20)):
@@ -290,10 +291,10 @@ class TestPangenomeGeneFamilies(TestPangenome):
 
     @pytest.fixture
     def add_families(self, pangenome, families):
-        """Add set of gene families to pangenome
+        """Add the set of gene families to pangenome
 
         :param pangenome: pangenome object to test method
-        :param orgs: set of gene families to add to pangenome
+        :param families: set of gene families to add to pangenome
         """
         for family in families:
             pangenome.add_gene_family(family)
@@ -301,7 +302,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
     def test_number_of_gene_families_empty(self, add_families, pangenome, families):
         """Tests the number_of_gene_families method of the pangenome class.
 
-        :param add_organisms: method to add gene families to pangenome
+        :param add_families: Method to add gene families
         :param pangenome: pangenome object to test method
         :param families: set of families to add to pangenome
         """
@@ -312,11 +313,12 @@ class TestPangenomeGeneFamilies(TestPangenome):
 class TestPangenomeGene(TestPangenome):
     """This class tests methods in pangenome class associated to Gene.
     """
+
     @pytest.fixture
-    def genes(self)-> Generator[Set[Gene], None, None]:
+    def genes(self) -> Generator[Set[Gene], None, None]:
         """Create a set of Gene object for test
 
-        :return: Generator with set of organism object
+        :return: Generator with the set of organism object
         """
         genes = set()
         for i in range(randint(5, 20)):
@@ -338,7 +340,7 @@ class TestPangenomeGene(TestPangenome):
                 gene = Gene(gene_id=f"{organism.name}.{contig_id}.{gene_idx}")
                 gene.position = gene_idx
                 gene.start = gene_idx
-                contig.add_gene(gene)
+                contig[gene.start] = gene
                 genes.add(gene)
         yield organism, genes
 
@@ -359,10 +361,10 @@ class TestPangenomeGene(TestPangenome):
         yield family, genes
 
     def test_genes_generator_from_organism(self, pangenome, organism_genes):
-        """Tests genes generator from organism in pangenome object
+        """Tests genes generator from organism in the pangenome object
 
-		:param pangenome: pangenome object to test method
-        :param organism_genes: method to get an organism object fill with genes
+        :param pangenome: Pangenome object
+        :param organism_genes: method to get an organism object filled with genes
         """
         organism, genes = organism_genes
         pangenome.add_organism(organism)
@@ -371,8 +373,8 @@ class TestPangenomeGene(TestPangenome):
     def test_get_gene_with_organism(self, pangenome, organism_genes):
         """Tests get genes from organism in pangenome object
 
-        :param pangenome: pangenome object to test method
-        :param organism_genes: method to get an organism object fill with genes
+        :param pangenome: Pangenome object
+        :param organism_genes: Method to get an organism object filled with genes
         """
         organism, genes = organism_genes
         pangenome.add_organism(organism)
@@ -382,8 +384,8 @@ class TestPangenomeGene(TestPangenome):
     def test_genes_generator_from_gene_families(self, family_genes, pangenome):
         """Tests genes generator from gene families in pangenome object
 
-		:param pangenome: pangenome object to test method
-        :param family_genes: method to get a gene family object fill with genes
+        :param pangenome: Pangenome object to test method
+        :param family_genes: method to get a gene family object filled with genes
         """
         family, genes = family_genes
         pangenome.add_gene_family(family)
@@ -392,8 +394,8 @@ class TestPangenomeGene(TestPangenome):
     def test_get_with_gene_family(self, pangenome, family_genes):
         """Tests genes generator from gene families in pangenome object
 
-        :param pangenome: pangenome object to test method
-        :param family_genes: method to get a gene family object fill with genes
+        :param pangenome: Pangenome object to test method
+        :param family_genes: method to get a gene family object filled with genes
         """
         family, genes = family_genes
         pangenome.add_gene_family(family)
@@ -403,7 +405,7 @@ class TestPangenomeGene(TestPangenome):
     def test_get_gene_not_in_pangenome(self, pangenome):
         """Tests that return a KeyError if gene does not exist in pangenome
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         with pytest.raises(KeyError):
             pangenome.get_gene("12151405613024")
@@ -411,7 +413,7 @@ class TestPangenomeGene(TestPangenome):
     def test_get_gene_with_id_not_string(self, pangenome):
         """Tests that return an AssertionError if gene identifier is not a string
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         with pytest.raises(AssertionError):
             pangenome.get_gene(gene_id=4)
@@ -440,9 +442,10 @@ class TestPangenomeGene(TestPangenome):
 class TestPangenomeEdge(TestPangenome):
     """This class tests methods in pangenome class associated to Edge.
     """
+
     @staticmethod
     def make_gene_pair(gene_id_1: int = 1, gene_id_2: int = 2) -> Tuple[Gene, Gene]:
-        """create a pair of genes that belong to the same organism in 2 different families
+        """Create a pair of genes that belong to the same organism in two different families
 
         :return: Two genes linked to contigs, organism and gene families
         """
@@ -461,7 +464,7 @@ class TestPangenomeEdge(TestPangenome):
 
     @pytest.fixture
     def gene_pair(self) -> Generator[Tuple[Gene, Gene], None, None]:
-        """Call method to create a pair of genes that belong to the same organism in 2 different families
+        """Call method to create a pair of genes that belong to the same organism in two different families
 
         :return: Two genes linked to contigs, organism and gene families
         """
@@ -470,7 +473,7 @@ class TestPangenomeEdge(TestPangenome):
     def test_add_edge(self, pangenome, gene_pair):
         """Tests the add_edge method of the Pangenome class.
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         :param gene_pair: Pair of gene coding for the edge
         """
         gene1, gene2 = gene_pair
@@ -479,9 +482,9 @@ class TestPangenomeEdge(TestPangenome):
         assert set(pangenome.edges) == {edge}
 
     def test_add_edge_already_in_pangenome(self, pangenome, gene_pair):
-        """Tests that adding the same pair of gene as edge return the edge.
+        """Tests that adding the same pair of genes as edge return the edge.
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         :param gene_pair: Pair of gene coding for the edge
         """
         gene1, gene2 = gene_pair
@@ -491,7 +494,7 @@ class TestPangenomeEdge(TestPangenome):
     def test_add_edge_with_gene_not_isinstance_gene(self, pangenome):
         """Tests that return an AssertionError if genes are not Gene objects
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         """
         with pytest.raises(AssertionError):
             pangenome.add_edge("gene1", "gene2")
@@ -499,7 +502,7 @@ class TestPangenomeEdge(TestPangenome):
     def test_number_of_edges(self, pangenome, gene_pair):
         """Tests the number_of_edges method of the Pangenome class.
 
-        :param pangenome: pangenome object to test method
+        :param pangenome: Pangenome object to test method
         :param gene_pair: Pair of gene coding for the edge
         """
         pangenome.add_edge(*gene_pair)
@@ -510,7 +513,8 @@ class TestPangenomeEdge(TestPangenome):
 class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
     """This class tests methods in pangenome class associated to binary methods.
     """
-    #TODO Better test for this part
+
+    # TODO Better test for this part
     def test_get_org_index(self, add_organisms, pangenome):
         """Tests the get_org_index function in pangenome class
 
@@ -583,11 +587,12 @@ class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
 class TestPangenomeRGP(TestPangenome):
     """This class tests methods in pangenome class associated to Region
     """
+
     def test_add_region(self, pangenome):
         """Tests the add_region method in the Pangenome class.
 
-    	:param pangenome: Access the pangenome object
-	    """
+        :param pangenome: Access the pangenome object
+        """
         rgp = Region(region_id="rgp")
         pangenome.add_region(rgp)
         assert len(pangenome._regionGetter) == 1
@@ -621,7 +626,7 @@ class TestPangenomeRGP(TestPangenome):
         assert pangenome.get_region("rgp") == rgp
 
     def test_get_region_not_in_pangenome(self, pangenome):
-        """Tests get region not in pangenome return a KeyError.
+        """Tests get the region not in pangenome return a KeyError.
 
         :param pangenome: Access the pangenome object
         """
@@ -650,6 +655,7 @@ class TestPangenomeRGP(TestPangenome):
 class TestPangenomeSpot(TestPangenome):
     """This class tests methods in pangenome class associated to Spot.
     """
+
     def test_add_spot(self, pangenome):
         """Tests the add_spot method in the Pangenome class.
 
@@ -718,6 +724,7 @@ class TestPangenomeSpot(TestPangenome):
 class TestPangenomeModule(TestPangenome):
     """This class tests methods in pangenome class associated to Modules.
     """
+
     def test_add_module(self, pangenome):
         """Tests the add_module method in the Pangenome class.
 
@@ -739,7 +746,7 @@ class TestPangenomeModule(TestPangenome):
             pangenome.add_module(module)
 
     def test_add_module_with_isinstance_not_region(self, pangenome):
-        """Tests that adding  an object with not Module type return an AssertionError.
+        """Tests that adding an object with not Module type return an AssertionError.
 
         :param pangenome: Access the pangenome object
         """
@@ -782,15 +789,17 @@ class TestPangenomeModule(TestPangenome):
         assert isinstance(pangenome.number_of_modules(), int)
         assert pangenome.number_of_modules() == 1
 
+
 class TestPangenomeMetadata(TestPangenome):
     """This class tests methods in pangenome class associated to Metadata.
     """
+
     @pytest.fixture
     def add_element_to_pangenome(self, pangenome):
-        """Adds a metadata element to each elements of pangenome
+        """Adds a metadata element to each element of pangenome
 
-    	:param pangenome: Access the pangenome object
-		"""
+        :param pangenome: Access the pangenome object
+        """
         metadata = Metadata(source="source", attribute="attr")
         family = GeneFamily(family_id=pangenome.max_fam_id, name="Fam")
         family.add_metadata(source=metadata.source, metadata=metadata)
@@ -801,7 +810,7 @@ class TestPangenomeMetadata(TestPangenome):
         gene = Gene("Gene")
         gene.position, gene.start = (0, 0)
         gene.add_metadata(source=metadata.source, metadata=metadata)
-        ctg.add_gene(gene)
+        ctg[gene.start] = gene
         pangenome.add_organism(org)
         rgp = Region("RGP")
         rgp.add_metadata(source=metadata.source, metadata=metadata)
@@ -817,7 +826,7 @@ class TestPangenomeMetadata(TestPangenome):
         """Tests the select_elem method of the Pangenome class.
 
         :param add_element_to_pangenome: Add elements to the pangenome
-    	:param pangenome: Access the pangenome object
+        :param pangenome: Access the pangenome object
         """
         assert all(isinstance(elem, GeneFamily) for elem in set(pangenome.select_elem("families")))
         assert all(isinstance(elem, Organism) for elem in set(pangenome.select_elem("genomes")))
@@ -832,7 +841,7 @@ class TestPangenomeMetadata(TestPangenome):
         """Tests the metadata_sources method of the Pangenome class.
 
         :param add_element_to_pangenome: Add elements to the pangenome
-    	:param pangenome: Access the pangenome object
+        :param pangenome: Access the pangenome object
         """
         for metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]:
             assert isinstance(pangenome.metadata_sources(metatype), set)
