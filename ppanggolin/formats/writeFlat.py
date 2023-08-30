@@ -7,7 +7,7 @@ import pdb
 from multiprocessing import get_context
 from collections import Counter, defaultdict
 import logging
-from typing import TextIO
+from typing import TextIO, Dict
 import pkg_resources
 from statistics import median, mean, stdev
 import os
@@ -631,32 +631,40 @@ def write_gff(output: str, compress: bool = False):
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    if pan.parameters["annotation"]["read_annotations_from_file"]:
+        annotation_sources = {"rRNA": "external",
+                              "tRNA": "external",
+                              "CDS":"external"}
+    else:
+        annotation_sources = {}
+
     contig_to_rgp = defaultdict(list)
     for rgp in pan.regions:
         contig_to_rgp[rgp.contig].append(rgp)
-    
+        
     rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in pan.spots for rgp in spot.regions}
 
     for org in pan.organisms:
-        print(org)
-        write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spot_id)
-        break
+        write_gff_file(org,  contig_to_rgp, rgp_to_spot_id, outdir, compress, annotation_sources)
+
     logging.getLogger().info("Done writing the gff files")
 
-def write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spotid):
+
+def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region], 
+                   rgp_to_spotid: Dict[Region, str], outdir: str, compress: bool,
+                   annotation_sources: Dict[str, str]):
     """
-    Write the gff file of the provided organism.
+    Write the GFF file of the provided organism.
 
-    :param org:  Organism to write the gff
-    :param output: Path to output directory
-    :param compress: Compress the file in .gz
+    :param org: Organism object for which the GFF file is being written.
+    :param contig_to_rgp: Dictionary mapping Contig objects to their corresponding Region objects.
+    :param rgp_to_spotid: Dictionary mapping Region objects to their corresponding spot IDs.
+    :param outdir: Path to the output directory where the GFF file will be written.
+    :param compress: If True, compress the output GFF file using .gz format.
+    :param annotation_sources: A dictionary that maps types of features to their source information.
+    :type annotation_sources: Dict[str, str]
     """
 
-
-    # regions = sorted(pan.regions, key=lambda x: (x.organism.name, x.contig.name, x.start))
-
-    # TODO: decide if we want to keep source information when parsing
-    # gff/gbff to be able to reinject it in the gff output
 
     with write_compressed_or_not(outdir + "/" + org.name + ".gff", compress) as outfile:
         # write gff header
@@ -677,8 +685,7 @@ def write_gff_file(org, outdir, compress, contig_to_rgp, rgp_to_spotid):
 
                     strand = feature.strand
                     
-                    source = "."
-
+                    source = annotation_sources.get(feat_type, "external")
                     attributes = [("ID", feature.ID), 
                                   ("Name", feature.name),
                                   ("product", feature.product),
