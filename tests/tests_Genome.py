@@ -19,7 +19,7 @@ class TestFeature:
 		yield Feature('test_id')
 
 	def test_creation(self, feature):
-		"""Tests that 'Feature' object is created successfully with the given identifier
+		"""Tests that 'Feature' is created successfully with the given identifier
 		"""
 		assert feature.ID == 'test_id'
 		assert not feature.is_fragment
@@ -64,7 +64,7 @@ class TestFeature:
 		assert feature.local_identifier == 'local_id'
 
 	def test_fill_annotations_type_error(self, feature):
-		"""Tests that 'fill_annotations' method raises a TypeError if attribute value is not with correct type
+		"""Tests that 'fill_annotations' method raises a TypeError if attribute value is not with the correct type
 		"""
 		with pytest.raises(TypeError):
 			feature.fill_annotations('1', 10, '+', 'gene_type', 'name', 'product', 'local_id')
@@ -115,27 +115,27 @@ class TestFeature:
 			feature.fill_parents()
 
 	def test_set_organism(self, feature):
-		"""Tests that organism setter sets organism with valid type
+		"""Tests that organism setter sets organism with the valid type
 		"""
 		organism = Organism('organism')
 		feature.organism = organism
 		assert feature.organism == organism
 
 	def test_set_organism_not_isinstance_organism(self, feature):
-		"""Tests that organism setter return TypeError if sets organism with invalid type
+		"""Tests that organism setter return TypeError if sets organism with the invalid type
 		"""
 		with pytest.raises(TypeError):
 			feature.organism = 4
 
 	def test_set_contig(self, feature):
-		"""Tests that contig setter sets contig with valid type
+		"""Tests that contig setter sets contig with the valid type
 		"""
 		contig = Contig('contig')
 		feature.contig = contig
 		assert feature.contig == contig
 
 	def test_set_contig_not_isinstance_contig(self, feature):
-		"""Tests that contig setter return TypeError if sets contig with invalid type
+		"""Tests that contig setter return TypeError if sets contig with the invalid type
 		"""
 		with pytest.raises(TypeError):
 			feature.contig = 4
@@ -234,7 +234,7 @@ class TestGene:
 			gene.add_protein(123)
 
 	def test_set_family(self, gene):
-		"""Tests that family setter sets family with valid type
+		"""Tests that family setter sets family with the valid type
 		"""
 		family = GeneFamily(0, 'family')
 		gene.family = family
@@ -247,7 +247,7 @@ class TestGene:
 			gene.family = 4
 
 	def test_set_rgp(self, gene):
-		"""Tests that RGP setter sets family with valid type
+		"""Tests that RGP setter sets family with the valid type
 		"""
 		region = Region(0)
 		gene.RGP = region
@@ -279,7 +279,7 @@ class TestContig:
 
 	@pytest.fixture
 	def genes(self) -> Generator[Tuple[Gene, Gene, Gene], None, None]:
-		"""Generate 3 basic genes for tests
+		"""Generate three basic genes for tests
 		"""
 		gene1 = Gene('test_gene1')
 		gene1.fill_annotations(start=1, stop=10, strand='+', position=0, genetic_code=4)
@@ -294,7 +294,7 @@ class TestContig:
 		"""
 		assert contig.name == "contig"
 		assert not contig.is_circular
-		assert contig._rna_getter == set()  # saving the rna annotations. We're not using them in the vast majority of cases.
+		assert contig._rna_getter == set()  # Saving the rna annotations. We're not using them in the vast majority of cases.
 		assert contig._genes_getter == {}
 		assert contig._genes_position == []
 		assert contig._organism is None
@@ -324,13 +324,13 @@ class TestContig:
 		assert contig._genes_position[1:6] == [None]*5
 
 	def test_add_gene_not_instance_gene(self, contig):
-		"""Tests that the contig cannot be fill with a non gene object
+		"""Tests that the contig cannot be fill with a non-gene object
 		"""
 		with pytest.raises(TypeError):
 			contig[1] = "4"
 
 	def test_add_gene_with_start_already_taken(self, contig, gene):
-		"""Tests that the contig cannot be fill with a non gene object
+		"""Tests that the contig cannot be fill with a non-gene object
 		"""
 		contig[gene.start] = gene
 		with pytest.raises(ValueError):
@@ -339,6 +339,8 @@ class TestContig:
 			contig[new_gene.start] = new_gene
 
 	def test_add_gene_without_position(self, contig):
+		"""Test that adding a gene not fill with position raise an AttributeError
+		"""
 		with pytest.raises(AttributeError):
 			gene = Gene('test_gene')
 			contig[gene.start] = gene
@@ -422,7 +424,7 @@ class TestContig:
 		assert contig.organism == organism
 
 	def test_set_organism_with_not_instance_organism(self, contig):
-		"""Tests that the contig cannot be fill with a non organism object
+		"""Tests that the contig cannot be fill with a non-organism object
 		"""
 		with pytest.raises(TypeError):
 			contig.organism = 4

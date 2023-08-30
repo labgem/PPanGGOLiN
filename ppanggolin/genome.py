@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # installed libraries
 import logging
-from typing import Dict, Iterator, Generator
+from typing import Dict, Generator, List
 
 import gmpy2
 
@@ -17,9 +17,9 @@ class Feature(MetaFeatures):
     """This is a general class representation of Gene, RNA
 
     Methods:
-    - fill_annotations(): fills general annotation for child classes.
-    - fill_parents(): associates the object to an organism and a contig.
-    - add_dna(): adds DNA sequence to the feature.
+    - fill_annotations: fills general annotation for child classes.
+    - fill_parents: associates the object to an organism and a contig.
+    - Add_sequence: adds a sequence to the feature.
 
     Fields:
     - ID: Identifier of the feature given by PPanGGOLiN.
@@ -38,7 +38,7 @@ class Feature(MetaFeatures):
     def __init__(self, identifier: str):
         """Constructor Method
 
-        :param identifier: identifier of the feature
+        :param identifier: Identifier of the feature
         """
         assert isinstance(identifier, str), "Expected identifier should be a string"
         if identifier == '':
@@ -85,6 +85,10 @@ class Feature(MetaFeatures):
 
     @organism.setter
     def organism(self, organism: Organism):
+        """Set the organism to the Feature
+
+        :param organism: Organism belonging to the feature
+        """
         if not isinstance(organism, Organism):
             raise TypeError(f'Expected type Organism, got {type(organism)}')
         self._organism = organism
@@ -99,6 +103,10 @@ class Feature(MetaFeatures):
 
     @contig.setter
     def contig(self, contig: Contig):
+        """Set the contig to the Feature
+
+        :param contig: Contig linked to the feature
+        """
         if not isinstance(contig, Contig):
             raise TypeError(f'Expected type Contig, got {type(contig)}')
         self._contig = contig
@@ -116,7 +124,7 @@ class Feature(MetaFeatures):
         :param product: Associated product
         :param local_identifier: Identifier provided by the original file
 
-        :raises TypeError: If attribute value not correspond to expected type
+        :raises TypeError: If attribute value does not correspond to the expected type
         :raises ValueError: If strand is not '+' or '-'
         """
         if not isinstance(start, int):
@@ -161,11 +169,11 @@ class Feature(MetaFeatures):
                 raise AssertionError("You should provide at least organism or contig")
 
     def add_sequence(self, sequence):
-        """ Add DNA sequence to feature
+        """Add a sequence to feature
 
-        :param sequence: DNA sequence
+        :param sequence: Sequence corresponding to the feature
 
-        :raise TypeError: DNA sequence must be a string
+        :raise AssertionError: Sequence must be a string
         """
         assert isinstance(sequence, str), f"'str' type was expected but you provided a '{type(sequence)}' type object"
         self.dna = sequence
@@ -182,19 +190,19 @@ class RNA(Feature):
 
 
 class Gene(Feature):
-    """Save gene from genome as an Object with some information for Pangenome
+    """Save gene from the genome as an Object with some information for Pangenome
 
     Methods:
-    - fill_annotations(): fills general annotation for the gene object and adds additional attributes such as
+    - fill_annotations: fills general annotation for the gene object and adds additional attributes such as
     position and genetic code.
-    - add_protein(): adds the protein sequence corresponding to the translated gene to the object.
+    - Add_protein: adds the protein sequence corresponding to the translated gene to the object.
 
     Fields:
     - position: the position of the gene in the genome.
     - family: the family that the gene belongs to.
     - RGP: a set of resistance gene profiles associated with the gene.
     - genetic_code: the genetic code associated with the gene.
-    - protein: the protein sequence corresponding to the translated gene.
+    - Protein: the protein sequence corresponding to the translated gene.
     """
     def __init__(self, gene_id: str):
         """Constructor method
@@ -219,6 +227,10 @@ class Gene(Feature):
 
     @family.setter
     def family(self, family):
+        """Set the GeneFamily blonging to the gene
+
+        :param family: Gene family linked to the gene
+        """
         from ppanggolin.geneFamily import GeneFamily
         if not isinstance(family, GeneFamily):
             raise TypeError(f'Expected type Organism, got {type(family)}')
@@ -234,18 +246,24 @@ class Gene(Feature):
         return self._RGP
 
     @RGP.setter
-    def RGP(self, RGP):
+    def RGP(self, region):
+        """Set the Region blonging to the gene
+
+        :param region: Region linked to the gene
+        """
         from ppanggolin.region import Region
-        if not isinstance(RGP, Region):
-            raise TypeError(f'Expected type Organism, got {type(RGP)}')
-        self._RGP = RGP
+        if not isinstance(region, Region):
+            raise TypeError(f'Expected type Organism, got {type(region)}')
+        self._RGP = region
 
     def fill_annotations(self, position: int = None, genetic_code: int = 11, **kwargs):
         """Fill Gene annotation provide by PPanGGOLiN dependencies
 
-        :param position: Gene localisation in genome
+        :param position: Gene localization in genome
         :param genetic_code: Genetic code associated to gene
         :param kwargs: look at Feature.fill_annotations methods
+
+        :raises TypeError: If position or genetic code value is not instance integers
         """
         super().fill_annotations(**kwargs)
         if position is not None and not isinstance(position, int):
@@ -256,7 +274,7 @@ class Gene(Feature):
         self.genetic_code = genetic_code
 
     def add_protein(self, protein: str):
-        """Add protein sequence corresponding to translated gene
+        """Add a protein sequence corresponding to translated gene
 
         :param protein: Protein sequence
 
@@ -271,9 +289,9 @@ class Contig:
     """
     Describe the contig content and some information
     Methods:
-    - genes(self) -> list: Returns a list of gene objects present in the contig.
-    - add_rna(self, rna: RNA): Adds an RNA object to the contig.
-    - add_gene(self, gene: Gene): Adds a gene object to the contig.
+    - genes: Returns a list of gene objects present in the contig.
+    - add_rna: Adds an RNA object to the contig.
+    - add_gene: Adds a gene object to the contig.
 
     Fields:
     - name: Name of the contig.
@@ -285,11 +303,11 @@ class Contig:
         """Constructor method
 
         :param name: Name of the contig
-        :param is_circular: save if the contig is circular
+        :param is_circular: saves if the contig is circular
         """
         self.name = name
         self.is_circular = is_circular
-        self._rna_getter = set()  # saving the rna annotations. We're not using them in the vast majority of cases.
+        self._rna_getter = set()  # Saving the rna annotations. We're not using them in the vast majority of cases.
         self._genes_getter = {}
         self._genes_position = []
         self._organism = None
@@ -297,7 +315,7 @@ class Contig:
     def __str__(self) -> str:
         return self.name
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._genes_position)
 
     def __setitem__(self, start: int, gene: Gene):
@@ -305,6 +323,10 @@ class Contig:
 
         :param start: Start position of the gene
         :param gene: Gene object to add
+
+        :raises TypeError: If the gene is not instance Gene
+        :raises ValueError: If a gene in getter already exists at the start
+        :raises AttributeError: If the gene position in the contig is not fill
         """
         # TODO look at change start for position
 
@@ -314,24 +336,39 @@ class Contig:
             raise ValueError(f"Gene with start position {start} already exists in the contig")
         if gene.position is None:
             raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
-        # adding empty values. They should be filled by the end of the parsing.
+        # Adding empty values.
+        # They should be filled by the end of the parsing.
         # Doing this because genes are not always met in order.
         self._genes_position.extend([None] * (gene.position - len(self._genes_position) + 1))
         self._genes_position[gene.position] = gene
         self._genes_getter[gene.start] = gene
 
     # retrieve gene by start position
-    def __getitem__(self, index: int) -> Gene:
-        if not isinstance(index, int):
-            raise TypeError(f"Expected type is int, given type was '{type(index)}'")
-        return self._genes_position[index]
+    def __getitem__(self, position: int) -> Gene:
+        """Get the gene for the given position
+
+        :param position: Position of the gene in the contig
+
+        :return:  Wanted gene for the position
+
+        :raises TypeError: If position is not an integer
+        """
+        if not isinstance(position, int):
+            raise TypeError(f"Expected type is int, given type was '{type(position)}'")
+        return self._genes_position[position]
 
     # TODO define delitem
 
-    def get_genes(self, begin: int, end: int):
+    def get_genes(self, begin: int, end: int) -> List[Gene]:
         """Gets a list of genes within a range
-        :param begin: Position of first gene to retrieve
-        :param end: Position of last gene to not retrieve
+
+        :param begin: Position of the first gene to retrieve
+        :param end: Position of the last gene to not retrieve
+
+        :return: List of genes between begin and end position
+
+        :raises TypeError: If begin or end is not an integer
+        :raises ValueError: If begin position is greater than end positon
         """
         if not isinstance(begin, int) or not isinstance(end, int):
             raise TypeError(f"Expected type is int, given type was '{type(begin)}, {type(end)}'")
@@ -341,10 +378,10 @@ class Contig:
             return self._genes_position[begin: end]
 
     @property
-    def genes(self) -> list:
+    def genes(self) -> Generator[Gene, None, None]:
         """ Give the gene content of the contig
 
-        :return: list of gene in contig
+        :return: Generator of genes in contig
         """
         for gene in self._genes_position:
             if gene is not None:
@@ -360,6 +397,12 @@ class Contig:
 
     @organism.setter
     def organism(self, organism: Organism):
+        """Set the organism belonging to the contig
+
+        :param organism: Organism to set
+
+        :raises TypeError: Given organism is not an instance Organism
+        """
         if not isinstance(organism, Organism):
             raise TypeError(f'Expected type Organism, got {type(organism)}')
         self._organism = organism
@@ -368,6 +411,9 @@ class Contig:
         """ Add RNA to contig
 
         :param rna: RNA object to add
+
+        :raises TypeError: RNA is not instance RNA
+        :raises KeyError: Another RNA with the same ID already exists in the contig
         """
         if not isinstance(rna, RNA):
             raise TypeError(f"'RNA' type was expected but you provided a '{type(rna)}' type object")
@@ -381,8 +427,7 @@ class Contig:
 
         :return: Generator of RNA
         """
-        for rna in self._rna_getter:
-            yield rna
+        yield from self._rna_getter
 
 
 class Organism(MetaFeatures):
@@ -390,13 +435,13 @@ class Organism(MetaFeatures):
     Describe the Genome content and some information
 
     Methods:
-    - `families(self) -> set`: Returns a set of gene families present in the organism.
-    - `genes(self) -> Iterator[Gene]`: Returns a generator to get genes in the organism.
-    - `number_of_genes(self) -> int`: Returns the number of genes in the organism.
-    - `contigs(self) -> dict.values`: Returns the values in the contig dictionary from the organism.
-    - `get_contig(self, contig_id: str, is_circular: bool = False)`: Gets the contig with the given identifier in the organism, adding it if it does not exist.
-    - `_create_contig(self, contig_id: str, is_circular: bool = False)`: Creates a new contig object and adds it to the contig dictionary.
-    - `mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all')`: Produces a bitarray representing the presence/absence of gene families in the organism using the provided index.
+    - `families`: Returns a set of gene families present in the organism.
+    - `genes`: Returns a generator to get genes in the organism.
+    - `number_of_genes`: Returns the number of genes in the organism.
+    - `contigs`: Returns the values in the contig dictionary from the organism.
+    - `get_contig`: Gets the contig with the given identifier in the organism, adding it if it does not exist.
+    - `_create_contig`: Creates a new contig object and adds it to the contig dictionary.
+    - `mk_bitarray`: Produces a bitarray representing the presence/absence of gene families in the organism using the provided index.
 
     Fields:
     - `name`: Name of the organism.
@@ -405,6 +450,7 @@ class Organism(MetaFeatures):
 
     def __init__(self, name: str):
         """Constructor Method
+
         :param name: Name of the genome
         """
         assert isinstance(name, str), "Organism name should be a string"
@@ -419,56 +465,54 @@ class Organism(MetaFeatures):
     def __str__(self):
         return self.name
 
-    def _get_families(self) -> set:
-        """Get the set of gene families belonging to organism"""
+    def _set_families(self):
+        """Set the set of gene families belonging to organism
+        """
         self._families = {gene.family for gene in self.genes}
 
     @property
     def families(self):
-        """returns the gene families present in the organism
+        """Return the gene families present in the organism
 
-        :return: Generator of gene families in organism
+        :return: Generator of gene families
         :rtype: Generator[GeneFamily, None, None]
         """
         if self._families is None:
-            self._get_families()
-        for fam in self._families:
-            yield fam
+            self._set_families()
+        yield from self._families
 
     def number_of_families(self) -> int:
-        """Return number of gene families in organism
+        """Get the number of gene families in the organism
 
-        :return: Number of gene families in organism
+        :return: Number of gene families
         """
         if self._families is None:
-            self._get_families()
+            self._set_families()
         return len(self._families)
 
     @property
     def genes(self) -> Generator[Gene, None, None]:
-        """ Generator to get genes in organism
+        """Generator to get genes in the organism
 
-        :return: Generator of genes in organism
+        :return: Generator of genes
         """
         for contig in self.contigs:
-            for gene in contig.genes:
-                yield gene
+            yield from contig.genes
 
     def number_of_genes(self) -> int:
-        """ Get number of genes in organism
+        """ Get number of genes in the organism
 
-        :return: Number of genes in organism
+        :return: Number of genes
         """
         return sum([len(contig) for contig in self.contigs])
 
     @property
     def contigs(self) -> Generator[Contig, None, None]:
-        """ Get contigs in organism
+        """ Generator of contigs in the organism
 
-        :return: values in contig dictionary from organism
+        :return: Values in contig dictionary from organism
         """
-        for contig in self._contigs_getter.values():
-            yield contig
+        yield from self._contigs_getter.values()
 
     def number_of_contigs(self) -> int:
         """ Get number of contigs in organism
@@ -483,23 +527,26 @@ class Organism(MetaFeatures):
 
         :param name: Contig identifier
 
-        :return: the contig with the given identifier
+        :return: The contig with the given identifier
+
+        :raises KeyError: Contig with the given name does not exist in the organism
         """
         assert isinstance(name, str), f"To get a contig, name with string type is expected. Given type: {type(name)}"
         try:
-            contig = self._contigs_getter[name]
+            return self._contigs_getter[name]
         except KeyError:
             raise KeyError(f"Contig {name} does not belong to organism {self.name}")
-        else:
-            return contig
 
     def add_contig(self, contig: Contig):
         """Add a contig to organism
-        :param: contig to add in organism
+
+        :param: Contig to add in organism
+
+        :raises KeyError: Contig with the given name already exist in the organism
         """
         assert isinstance(contig, Contig), f"Contig object is expected, given type was {type(contig)}"
         try:
-            contig = self.get_contig(contig.name)
+            _ = self.get_contig(contig.name)
         except KeyError:
             self._contigs_getter[contig.name] = contig
             contig.organism = self
@@ -510,8 +557,10 @@ class Organism(MetaFeatures):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
-        :param partition: Filter partition
+        :param partition: Filters partition
         :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
+
+        :raises Exception: Partition is not recognized
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
