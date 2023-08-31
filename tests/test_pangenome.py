@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+# coding: utf8
 
 import pytest
 from random import choices, randint
