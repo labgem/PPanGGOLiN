@@ -90,7 +90,7 @@ def parser_draw(parser: argparse.ArgumentParser):
     optional.add_argument("--draw_spots", required=False, default=False,action="store_true",
                           help="draw plots for spots of the pangenome")
     optional.add_argument("--spots", required=False, default='all', nargs='+',
-                          help="a comma-separated list of spots to draw (or 'all' to draw all spots).")
+                          help="a comma-separated list of spots to draw (or 'all' to draw all spots, or 'synteny' to draw spots with different RGP syntenies).")
 
 
 if __name__ == '__main__':
