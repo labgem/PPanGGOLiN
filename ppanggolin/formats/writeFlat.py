@@ -592,10 +592,10 @@ def write_org_file(org: Organism, output: str, compress: bool = False):
                     if gene.RGP is not None:
                         rgp = gene.RGP.name
                     row.append(rgp)
-                    if needSpots:
-                        if gene.RGP.spot is not None:
-                            spot = gene.RGP.spot.ID
-                        row.append(spot)
+                if needSpots:
+                    if gene.RGP is not None and gene.RGP.spot is not None:
+                        spot = gene.RGP.spot.ID
+                    row.append(spot)
                 if needModules:
                     if len(gene.family.modules) > 0:
                         modules = ','.join(["module_" + str(module.ID) for module in gene.family.modules])
