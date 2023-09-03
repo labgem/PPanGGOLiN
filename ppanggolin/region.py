@@ -31,6 +31,7 @@ class Region(MetaFeatures):
         self.name = region_id
         self.score = 0
         self.ID = Region.id_counter
+        self.spot = None
         Region.id_counter += 1
 
     def __str__(self):
@@ -77,9 +78,23 @@ class Region(MetaFeatures):
 
         if isinstance(gene, Gene):
             self.genes.append(gene)
-            gene.RGP.add(self)
+            gene.RGP = self
         else:
             raise TypeError(f"Unexpected class / type for {type(gene)} when adding it to a RGP")
+
+
+    def add_spot(self, spot: Spot):
+        """Sets the spot of the RGP
+        
+        :param spot: spot to which the RGP is added
+
+        :raise TypeError: if the given spot is not a Spot.
+        """
+        if isinstance(spot, Spot):
+            self.spot = spot#only 1 spot possible
+        else:
+            raise TypeError(f"Unexpected class / type for {type(spot)} when adding it to a RGP")
+
 
     @property
     def families(self) -> set:
@@ -267,6 +282,7 @@ class Spot(MetaFeatures):
         """
         if isinstance(region, Region):
             self.regions.add(region)
+            region.add_spot(self)
 
     def spot_2_families(self):
         """Add to Gene Families a link to spot"""
