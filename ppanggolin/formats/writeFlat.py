@@ -589,13 +589,13 @@ def write_org_file(org: Organism, output: str, compress: bool = False):
                        len(gene.family.get_genes_per_org(org)), gene.family.named_partition,
                        nb_pers, nb_shell, nb_cloud]
                 if needRegions:
-                    if len(gene.RGP) > 0:
-                        rgp = ','.join([str(region.name) for region in gene.RGP])
+                    if gene.RGP is not None:
+                        rgp = gene.RGP.name
                     row.append(rgp)
-                if needSpots:
-                    if len(gene.family.spot) > 0:
-                        spot = ','.join([str(s.ID) for s in gene.family.spot])
-                    row.append(spot)
+                    if needSpots:
+                        if gene.RGP.spot is not None:
+                            spot = gene.RGP.spot.ID
+                        row.append(spot)
                 if needModules:
                     if len(gene.family.modules) > 0:
                         modules = ','.join(["module_" + str(module.ID) for module in gene.family.modules])
