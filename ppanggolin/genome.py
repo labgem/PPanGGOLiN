@@ -104,7 +104,7 @@ class Gene(Feature):
         super().__init__(gene_id)
         self.position = None
         self.family = None
-        self.RGP = set()
+        self.RGP = None
         self.genetic_code = None
         self.protein = None
 
