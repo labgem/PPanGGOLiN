@@ -10,6 +10,7 @@ import argparse
 from collections import defaultdict
 from typing import List, Tuple, Set, Dict, IO, Iterator
 from pathlib import Path
+import time
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
@@ -20,7 +21,7 @@ from ppanggolin.region import Spot
 from ppanggolin.figures.draw_spot import draw_selected_spots, subgraph
 
 
-def createdb(file_obj: TextIOWrapper, tmpdir: Path) -> IO:
+def createdb(file_obj: TextIOWrapper, tmpdir: Path, delete_tmp_file: bool = True) -> IO:
     """
     Create a MMseqs2 sequence database with the given fasta file
 
@@ -29,7 +30,7 @@ def createdb(file_obj: TextIOWrapper, tmpdir: Path) -> IO:
 
     :return: DB file
     """
-    seqdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir)
+    seqdb = tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, delete=False)
     cmd = ["mmseqs", "createdb", file_obj.name, seqdb.name, '--dbtype', '0']
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL)
@@ -62,7 +63,7 @@ def align_seq_to_pang(pang_file: IO, seq_file: TextIOWrapper, output: Path,
     if no_defrag:    
        cov_mode = "0"  # coverage of query and target
 
-    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file") as aln_db:
+    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file", delete=False) as aln_db:
         cmd = ["mmseqs", "search", seq_db.name, pang_db.name, aln_db.name, tmpdir.as_posix(), "-a", "--min-seq-id", str(identity),
             "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)]
         if is_nucleotid:
@@ -324,22 +325,24 @@ def get_seq2pang(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir
 
 def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: float = 0.8,
           coverage: float = 0.8, no_defrag: bool = False, cpu: int = 1, getinfo: bool = False,
-          draw_related: bool = False, tmpdir: Path = None, disable_bar: bool = False):
+          draw_related: bool = False, tmpdir: Path = None, disable_bar: bool = False, keep_tmp=False):
     """
-    Main function to align pangenome sequences with fasta file using MMSeqs2
+    Aligns pangenome sequences with sequences in a FASTA file using MMSeqs2.
 
-    :param pangenome: Pangenome with gene families to align with the given input sequences
-    :param sequence_file: Path to sequences in a .fasta file to align with the given Pangenome
-    :param output: Path of the output directory
-    :param identity: minimal identity threshold for the alignment
-    :param coverage: minimal coverage threshold for the alignment
-    :param no_defrag: do not use the defrag workflow if true
-    :param cpu: number of CPU cores to use
-    :param getinfo: Extract info related to the best hit of each query, such as the RGP it is in, or the spots.
-    :param draw_related: Draw figures and graphs in a gexf format of spots associated to the input sequences
-    :param tmpdir: Temporary directory
-    :param disable_bar: Disable the progresse bar
+    :param pangenome: Pangenome containing gene families to align with the input sequences.
+    :param sequence_file: Path to a FASTA file containing sequences to align with the pangenome.
+    :param output: Path to the output directory.
+    :param identity: Minimum identity threshold for the alignment.
+    :param coverage: Minimum coverage threshold for the alignment.
+    :param no_defrag: If True, the defrag workflow will not be used.
+    :param cpu: Number of CPU cores to use.
+    :param getinfo: If True, extract information related to the best hit of each query, such as the RGP it is in or the spots.
+    :param draw_related: If True, draw figures and graphs in a gexf format of spots associated with the input sequences.
+    :param tmpdir: Temporary directory for intermediate files.
+    :param disable_bar: If True, disable the progress bar.
+    :param keep_tmp: If True, keep temporary files.
     """
+
 
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
@@ -358,20 +361,31 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
     else:
         check_pangenome_info(pangenome, need_families=True, disable_bar=disable_bar)
 
-    # TODO add possibility to keep_tmp
-    new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-    tmp_path = Path(new_tmpdir.name)
+    if keep_tmp:
+        
+        dir_name = 'align_tmpdir' +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime())
+        tmp_path = Path(tmpdir) / dir_name
+        mk_outdir(tmp_path, force=True)
+        logging.getLogger().info(f'Temporary files will be written {tmp_path} and kept for reference.')
+
+    else:
+        # if keep tmp is false, TemporaryDirectory created and then removed 
+        new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
+        tmp_path = Path(new_tmpdir.name)
+        print(tmp_path)
+
     seq_set, align_file, seq2pang = get_seq2pang(pangenome, sequence_file, output, tmp_path, cpu, no_defrag, identity,
                                                  coverage)
 
     if getinfo or draw_related:  # TODO Add getinfo to function and remove if
         get_seq_info(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
+
     part_proj = project_and_write_partition(seq2pang, seq_set, output)  # write the partition assignation only
     logging.getLogger().info(f"sequences partition projection : '{part_proj}'")
     logging.getLogger().info(f"{len(seq2pang)} sequences over {len(seq_set)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{align_file.name}'")
 
-    new_tmpdir.cleanup()
+    # new_tmpdir.cleanup()
 
 
 def launch(args: argparse.Namespace):
@@ -385,7 +399,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     align(pangenome=pangenome, sequence_file=args.sequences, output=args.output, tmpdir=args.tmpdir,
           identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, cpu=args.cpu, getinfo=args.getinfo,
-          draw_related=args.draw_related, disable_bar=args.disable_prog_bar)
+          draw_related=args.draw_related, disable_bar=args.disable_prog_bar, keep_tmp=args.keep_tmp)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -439,7 +453,8 @@ def parser_align(parser: argparse.ArgumentParser):
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
-
+    optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
+                        help="Keeping temporary files (useful for debugging).")
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
