@@ -9,6 +9,7 @@ from itertools import combinations
 from collections.abc import Callable
 from collections import defaultdict
 from typing import Dict, List, Tuple, Set, Union, Any
+from pathlib import Path
 
 # installed libraries
 from tqdm import tqdm
@@ -141,11 +142,11 @@ def add_info_to_rgp_nodes(graph, regions: List[Region], region_to_spot: dict):
         region_info = {"contig": region.contig.name,
                        'organism': region.organism.name,
                        "name": region.name,
-                       "genes_count": len(region.genes),
+                       "genes_count": len(region),
                        "is_contig_border": region.is_contig_border,
                        "is_whole_contig": region.is_whole_contig,
                        "spot_id": get_spot_id(region, region_to_spot),
-                       'families_count': len(region.families)}
+                       'families_count': region.number_of_families()}
 
         region_attributes[region.ID] = region_info
 
@@ -461,8 +462,8 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
         valid_rgps = [
             rgp for rgp in pangenome.regions if not rgp.is_contig_border]
 
-        ignored_rgp_count = len(pangenome.regions) - len(valid_rgps)
-        total_rgp_count = len(pangenome.regions)
+        ignored_rgp_count = pangenome.number_of_rgp - len(valid_rgps)
+        total_rgp_count = pangenome.number_of_rgp
 
         logging.info(
             f'Ignoring {ignored_rgp_count}/{total_rgp_count} ({100 * ignored_rgp_count / total_rgp_count:.2f}%) '
@@ -472,7 +473,7 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
             raise Exception(
                 "The pangenome has no complete RGPs. The clustering of RGP is then not possible.")
     else:
-        valid_rgps = pangenome.regions
+        valid_rgps = set(pangenome.regions)
 
     dereplicated_rgps = dereplicate_rgp(valid_rgps, disable_bar=disable_bar)
 
@@ -593,7 +594,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=True,
-                          type=str, help="The pangenome .h5 file")
+                          type=Path, help="The pangenome .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
 
@@ -617,7 +618,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
     optional.add_argument("--basename", required=False,
                           default="rgp_cluster", help="basename for the output file")
 
-    optional.add_argument('-o', '--output', required=False, type=str,
+    optional.add_argument('-o', '--output', required=False, type=Path,
                           default="rgp_clustering", help="Output directory")
 
     optional.add_argument('--graph_formats', required=False, type=str, choices=['gexf', "graphml"], nargs="+",
