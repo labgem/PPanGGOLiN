@@ -274,7 +274,7 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
             for m in fam.metadata:
                 if m.source == source_metadata_families:
                     for field in m.fields:
-                        to_concat[field].append(str(m.get(field)))
+                        to_concat[field].append(str(getattr(m, field)))
             for field in source_fields[source_metadata_families]:
                 concatenated_fields = '|'.join(to_concat[field])
                 gexf.write(f'      <attvalue for="{shift}" value="{concatenated_fields}"/>\n')
@@ -973,6 +973,7 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
         needPartitions = True
     if gexf or light_gexf or json:
         needGraph = True
+        needRegions = True if pan.status["predictedRGP"] == "inFile" else False
         needSpots = True if pan.status["spots"] == "inFile" else False
         needModules = True if pan.status["modules"] == "inFile" else False
         if pangenome.status["metadata"]["families"] == "inFile":
