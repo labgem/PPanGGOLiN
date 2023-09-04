@@ -37,14 +37,14 @@ class Region(MetaFeatures):
     """
     id_counter = 0
 
-    def __init__(self, region_id: str):
+    def __init__(self, name: str):
         """Constructor method
 
-        :param region_id: Identifier of the region
+        :param name: Name of the region
         """
         super().__init__()
         self._genes_getter = {}
-        self.name = region_id
+        self.name = name
         self.score = 0
         self.starter = None
         self.stopper = None
@@ -103,9 +103,6 @@ class Region(MetaFeatures):
         :raises Exception: Organism or contig of the gene is different from the region
         :raises KeyError: Another gene already exists at the position
         """
-        if not isinstance(gene, Gene):
-            raise TypeError(f"Unexpected class / type for {type(gene)} "
-                            f"when adding it to a region of genomic plasticity")
         if len(self) > 0:
             if gene.organism != self.organism:
                 raise Exception(f"Gene {gene.name} is from a different organism than the first defined in RGP. "
@@ -145,6 +142,42 @@ class Region(MetaFeatures):
         except KeyError:
             raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
 
+    def add(self, gene: Gene):
+        """Add a gene to the region
+
+        :param gene: Gene to add
+        """
+        if not isinstance(gene, Gene):
+            raise TypeError(f"Unexpected class / type for {type(gene)} "
+                            f"when adding it to a region of genomic plasticity")
+        if gene.position is None:
+            raise AttributeError(f'Gene {gene.name} is not fill with position')
+        self[gene.position] = gene
+
+    def get(self, position: int) -> Gene:
+        """Get a gene by its position
+
+        :param position: Position of the gene in the contig
+
+        :return: Wanted gene
+
+        :raises TypeError: Position is not an integer
+        """
+        if not isinstance(position, int):
+            raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
+        return self[position]
+
+    def remove(self, position):
+        """Remove a gene by its position
+
+        :param position: Position of the gene in the contig
+
+        :raises TypeError: Position is not an integer
+        """
+        if not isinstance(position, int):
+            raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
+        del self[position]
+
     @property
     def genes(self) -> Generator[Gene, None, None]:
         """Generate the gene as they are ordered in contigs
@@ -163,6 +196,7 @@ class Region(MetaFeatures):
         for gene in self.genes:
             yield gene.family
 
+    @property
     def number_of_families(self) -> int:
         """Get the number of different gene families in the region
 
@@ -307,17 +341,14 @@ class Spot(MetaFeatures):
         """
         return f"spot_{self.ID}"
 
-    def __setitem__(self, name, region):
+    def __setitem__(self, name: str, region: Region):
         """Set the region belonging to the spot
 
         :param name: Name of the region
         :param region: Region to add in the spot
 
-        :raises TypeError: Region is not an instance Region
         :raises KeyError: Name of the region is already in the spot for a different region
         """
-        if not isinstance(region, Region):
-            raise TypeError(f"A Region object is expected to be added to the spot. find type is {type(region)}")
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
         self._region_getter[name] = region
@@ -330,7 +361,10 @@ class Spot(MetaFeatures):
         :return: Region in the spot for the given name
 
         :raises KeyError: Name does not exist in the spot
+        :raises TypeError: Name is not a string
         """
+        if not isinstance(name, str):
+            raise TypeError(f"Name of the region must be a string. The provided type was {type(name)}")
         try:
             return self._region_getter[name]
         except KeyError:
@@ -342,7 +376,10 @@ class Spot(MetaFeatures):
         :param name: Name of the wanted region
 
         :raises KeyError: Name does not exist in the spot
+        :raises TypeError: Name is not a string
         """
+        if not isinstance(name, str):
+            raise TypeError(f"Name of the region must be a string. The provided type was {type(name)}")
         try:
             del self._region_getter[name]
         except KeyError:
@@ -352,6 +389,36 @@ class Spot(MetaFeatures):
         """Get the number of regions in the spot
         """
         return len(self._region_getter)
+
+    def add(self, region: Region):
+        """Add a region to the spot.
+        Alias more readable for setitem
+
+        :param region: Region to add in the spot
+
+        :raises TypeError: Region is not an instance Region
+        """
+        if not isinstance(region, Region):
+            raise TypeError(f"A Region object is expected to be added to the spot. find type is {type(region)}")
+        self[region.name] = region
+
+    def get(self, name: str) -> Region:
+        """Get a region by its name.
+        Alias more readable for getitem
+
+        :param name: Name of the region
+
+        :return: Wanted region
+        """
+        return self[name]
+
+    def remove(self, name: str):
+        """Remove a region by its name.
+        Alias more readable for delitem
+
+        :param name: Name of the region
+        """
+        del self[name]
 
     @property
     def regions(self) -> Generator[Region, None, None]:
@@ -375,6 +442,7 @@ class Spot(MetaFeatures):
                     families.add(family)
                     yield family
 
+    @property
     def number_of_families(self) -> int:
         """Get the number of different families in the spot
 
@@ -552,7 +620,7 @@ class Module(MetaFeatures):
             raise TypeError(f"Another module is expected to be compared to the first one. You give a {type(other)}")
         return set(self.families) == set(other.families)
 
-    def __setitem__(self, name, family):
+    def __setitem__(self, name: str, family: GeneFamily):
         """Set a gene family in the module
 
         :param name: Name of the family
@@ -561,8 +629,6 @@ class Module(MetaFeatures):
         :raises TypeError: Family is not instance GeneFamily
         :raises KeyError: Another family with the same name already exists in the module
         """
-        if not isinstance(family, GeneFamily):
-            raise TypeError(f"A gene family is expected to be added to module. Given type was {type(family)}")
         if name in self._families_getter and self[name] != family:
             raise KeyError("A different gene family with the same name already exist in the module")
         self._families_getter[name] = family
@@ -596,6 +662,36 @@ class Module(MetaFeatures):
         else:
             del self._families_getter[name]
             fam._modules.remove(self)
+
+    def add(self, family: GeneFamily):
+        """Add a family to the module.
+        Alias more readable for setitem
+
+        :param family: Region to add in the spot
+
+        :raises TypeError: Region is not an instance Region
+        """
+        if not isinstance(family, GeneFamily):
+            raise TypeError(f"A gene family is expected to be added to module. Given type was {type(family)}")
+        self[family.name] = family
+
+    def get(self, name: str) -> GeneFamily:
+        """Get a family by its name.
+        Alias more readable for getitem
+
+        :param name: Name of the family
+
+        :return: Wanted family
+        """
+        return self[name]
+
+    def remove(self, name: str):
+        """Remove a family by its name.
+        Alias more readable for delitem
+
+        :param name: Name of the family
+        """
+        del self[name]
 
     @property
     def families(self) -> Generator[GeneFamily, None, None]:

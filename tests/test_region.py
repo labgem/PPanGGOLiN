@@ -109,7 +109,7 @@ class TestRegion:
         """
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
-        region[0] = gene
+        region.add(gene)
         assert len(region._genes_getter) == 1
         assert region._genes_getter[0] == gene
         assert region.starter == gene
@@ -120,18 +120,24 @@ class TestRegion:
         """Test that adding object with instance not Gene return a TypeError
         """
         with pytest.raises(TypeError):
-            region[0] = 0
+            region.add(0)
+
+    def test_add_gene_not_fill_with_position(self, region):
+        """Test that adding gene not fill with position return an AttributeError
+        """
+        with pytest.raises(AttributeError):
+            region.add(Gene('gene'))
 
     def test_add_genes_at_position_already_taken(self, region):
         """Test that adding genes with same position return a ValueError
         """
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
-        region[0] = gene
+        region.add(gene)
         with pytest.raises(KeyError):
             gene = Gene('gene')
             gene.fill_annotations(start=4, stop=12, strand='-', position=0)
-            region[0] = gene
+            region.add(gene)
 
     def test_add_genes_from_different_contigs(self, region):
         """Test that adding genes from different contigs return an Exception
@@ -140,10 +146,10 @@ class TestRegion:
         gene1.fill_annotations(start=0, stop=10, strand='+', position=0)
         gene2.fill_annotations(start=11, stop=20, strand='+', position=1)
         gene1.fill_parents(None, Contig('contig_1'))
-        region[0] = gene1
+        region.add(gene1)
         gene2.fill_parents(None, Contig('contig_2'))
         with pytest.raises(Exception):
-            region[1] = gene2
+            region.add(gene2)
 
     def test_add_genes_from_different_organisms(self, region):
         """Test that adding genes from different organisms return an Exception
@@ -152,34 +158,46 @@ class TestRegion:
         gene1.fill_annotations(start=0, stop=10, strand='+', position=0)
         gene2.fill_annotations(start=11, stop=20, strand='+', position=1)
         gene1.fill_parents(Organism("org_1"))
-        region[0] = gene1
+        region.add(gene1)
         gene2.fill_parents(Organism("org_2"))
         with pytest.raises(Exception):
-            region[1] = gene2
+            region.add(gene2)
 
     def test_get_genes(self, region):
         """Tests that genes can be retrieved from the region
         """
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
-        region[0] = gene
-        assert region[0] == gene
+        region.add(gene)
+        assert region.get(0) == gene
+
+    def test_get_genes_with_position_not_integer(self, region):
+        """Tests that getting a gene with wrong type for position raise a TypeError
+        """
+        with pytest.raises(TypeError):
+            region.get("0")
 
     def test_get_genes_with_position_not_in_region(self, region):
         """Tests that getting a gene at position not belonging in the region return a KeyError
         """
         with pytest.raises(KeyError):
-            _ = region[randint(0, 20)]
+            region.get(randint(0, 20))
 
     def test_del_gene(self, region):
         """Tests that genes can be deleted from the region
         """
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
-        region[0] = gene
-        assert region[0] == gene
-        del region[0]
+        region.add(gene)
+        assert region.get(0) == gene
+        region.remove(0)
         assert 0 not in region._genes_getter
+
+    def test_del_genes_with_position_not_integer(self, region):
+        """Tests that removing a gene with wrong type for position raise a TypeError
+        """
+        with pytest.raises(TypeError):
+            region.remove("0")
 
     def test_get_length(self, region):
         """Tests that the length of the region can be retrieved
@@ -187,8 +205,8 @@ class TestRegion:
         gene1, gene2 = Gene('gene_1'), Gene('gene_2')
         gene1.fill_annotations(start=0, stop=10, strand='+', position=0)
         gene2.fill_annotations(start=11, stop=20, strand='+', position=1)
-        region[0] = gene1
-        region[1] = gene2
+        region.add(gene1)
+        region.add(gene2)
         assert region.length == 20
 
     def test_get_organism(self, region):
@@ -197,7 +215,7 @@ class TestRegion:
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
         gene.fill_parents(Organism("org"))
-        region[0] = gene
+        region.add(gene)
         assert region.organism.name == 'org'
 
     def test_get_contig(self, region):
@@ -206,7 +224,7 @@ class TestRegion:
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
         gene.fill_parents(contig=Contig("contig"))
-        region[0] = gene
+        region.add(gene)
         assert region.contig.name == 'contig'
 
     def test_is_whole_contig_true(self, region):
@@ -218,7 +236,7 @@ class TestRegion:
         contig = Contig("contig")
         contig[starter.start], contig[stopper.start] = starter, stopper
         starter.fill_parents(None, contig), stopper.fill_parents(None, contig)
-        region[starter.position], region[stopper.position] = starter, stopper
+        region.add(starter), region.add(stopper)
         assert region.is_whole_contig is True
 
     def test_is_whole_contig_false(self, region):
@@ -234,7 +252,7 @@ class TestRegion:
         contig[starter.start], contig[stopper.start] = starter, stopper
         before.fill_parents(None, contig), after.fill_parents(None, contig)
         starter.fill_parents(None, contig), stopper.fill_parents(None, contig)
-        region[starter.position], region[stopper.position] = starter, stopper
+        region.add(starter), region.add(stopper)
         assert region.is_whole_contig is False
 
     def test_is_contig_border_true(self, region):
@@ -250,7 +268,7 @@ class TestRegion:
         starter.fill_parents(None, contig), stopper.fill_parents(None, contig)
         # Test bordering right
         contig[before.start], contig[starter.start], contig[stopper.start] = before, starter, stopper
-        region[starter.position], region[stopper.position] = starter, stopper
+        region.add(starter), region.add(stopper)
         assert region.is_contig_border is True
         # Test bordering left
         del contig._genes_position[before.position]
@@ -271,7 +289,7 @@ class TestRegion:
         contig[starter.start], contig[stopper.start] = starter, stopper
         before.fill_parents(None, contig), after.fill_parents(None, contig)
         starter.fill_parents(None, contig), stopper.fill_parents(None, contig)
-        region[starter.position], region[stopper.position] = starter, stopper
+        region.add(starter), region.add(stopper)
         assert region.is_contig_border is False
 
     def test_is_contig_border_assertion_error_if_no_gene(self, region):
@@ -284,7 +302,7 @@ class TestRegion:
         """Tests that the expected number of genes is retrieved in the region
         """
         for gene in genes:
-            region[gene.position] = gene
+            region.add(gene)
         assert isinstance(len(region), int)
         assert len(region) == len(genes)
 
@@ -294,8 +312,8 @@ class TestRegion:
         region_1, region_2, region_3 = Region("RGP_1"), Region("RGP_2"), Region("RGP_3")
         max_pos = max(genes, key=lambda gene: gene.position).position
         for gene in genes:
-            region_1[gene.position] = gene
-            region_2[gene.position] = gene
+            region_1.add(gene)
+            region_2.add(gene)
             region_3[max_pos - gene.position + 1] = gene
         assert region_1 == region_2
         assert region_1 == region_3
@@ -304,7 +322,7 @@ class TestRegion:
         """Test difference between two regions
         """
         for gene in genes:
-            region[gene.position] = gene
+            region.add(gene)
         assert region != Region("other_RGP")
 
     def test_equality_with_not_instance_region(self, region):
@@ -317,7 +335,7 @@ class TestRegion:
         """Tests that gene families can be retrieved from the region
         """
         for gene in genes:
-            region[gene.position] = gene
+            region.add(gene)
         assert all(isinstance(family, GeneFamily) for family in region.families)
         assert set(region.families) == families
 
@@ -325,9 +343,9 @@ class TestRegion:
         """Tests that gene families can be retrieved from the region
         """
         for gene in genes:
-            region[gene.position] = gene
-        assert isinstance(region.number_of_families(), int)
-        assert region.number_of_families() == len(families)
+            region.add(gene)
+        assert isinstance(region.number_of_families, int)
+        assert region.number_of_families == len(families)
 
     # def test_get_bordering_genes(self, region, genes):
     #     # TODO test multigenic
@@ -380,14 +398,14 @@ class TestSpot:
     def test_add_region(self, spot, region):
         """Tests that adding a Region object to the Spot object works as expected
         """
-        spot[region.name] = region
+        spot.add(region)
         assert region == spot._region_getter[region.name]
 
     def test_add_not_instance_region(self, spot):
         """Tests that a TypeError is returned if a non-region type is trying to be added
         """
         with pytest.raises(TypeError):
-            spot["spot"] = "spot"
+            spot.add("region")
 
     def test_add_different_region_with_same_name(self, spot):
         """Test that adding a new Region same name than another in the spot return a KeyError
@@ -417,8 +435,8 @@ class TestSpot:
     def test_get_region(self, spot, region):
         """Tests that getting the region in the Spot object works as expected
         """
-        spot[region.name] = region
-        assert spot[region.name] == region
+        spot.add(region)
+        assert spot.get(region.name) == region
 
     def test_get_region_not_in_spot(self, spot):
         """Tests that a KeyError is raised when the name of the region does not exist in the spot
@@ -490,7 +508,8 @@ class TestSpot:
         """
         for region in regions:
             spot[region.name] = region
-        assert spot.number_of_families() == len(families)
+        assert isinstance(spot.number_of_families, int)
+        assert spot.number_of_families == len(families)
 
     def test_add_spot_to_families(self, spot, regions, families):
         """Tests that adding spot to families works as expected

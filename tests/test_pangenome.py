@@ -595,7 +595,7 @@ class TestPangenomeRGP(TestPangenome):
 
         :param pangenome: Access the pangenome object
         """
-        rgp = Region(region_id="rgp")
+        rgp = Region(name="rgp")
         pangenome.add_region(rgp)
         assert len(pangenome._regionGetter) == 1
         assert pangenome._regionGetter["rgp"] == rgp
@@ -605,7 +605,7 @@ class TestPangenomeRGP(TestPangenome):
 
         :param pangenome: Access the pangenome object
         """
-        rgp = Region(region_id="rgp")
+        rgp = Region(name="rgp")
         pangenome.add_region(rgp)
         with pytest.raises(KeyError):
             pangenome.add_region(rgp)
@@ -623,7 +623,7 @@ class TestPangenomeRGP(TestPangenome):
 
         :param pangenome: Access the pangenome object
         """
-        rgp = Region(region_id="rgp")
+        rgp = Region(name="rgp")
         pangenome.add_region(rgp)
         assert pangenome.get_region("rgp") == rgp
 
@@ -648,7 +648,7 @@ class TestPangenomeRGP(TestPangenome):
 
         :param pangenome: Pass the pangenome object to the function
         """
-        rgp = Region(region_id="rgp")
+        rgp = Region(name="rgp")
         pangenome.add_region(rgp)
         assert isinstance(pangenome.number_of_rgp, int)
         assert pangenome.number_of_rgp == 1

@@ -387,7 +387,7 @@ def read_rgp(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
             region = Region(row["RGP"].decode())
             pangenome.add_region(region)
         gene = pangenome.get_gene(row["gene"].decode())
-        region[gene.position] = gene
+        region.add(gene)
     pangenome.status["predictedRGP"] = "Loaded"
 
 
@@ -407,7 +407,7 @@ def read_spots(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False
             curr_spot = Spot(int(row["spot"]))
             spots[row["spot"]] = curr_spot
         region = pangenome.get_region(row["RGP"].decode())
-        curr_spot[region.name] = region
+        curr_spot.add(region)
         curr_spot.spot_2_families()
     for spot in spots.values():
         pangenome.add_spot(spot)
@@ -432,7 +432,7 @@ def read_modules(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = Fal
             curr_module = Module(int(row['module']))
             modules[row["module"]] = curr_module
         family = pangenome.get_gene_family(row['geneFam'].decode())
-        curr_module[family.name] = family
+        curr_module.add(family)
     for module in modules.values():
 	    pangenome.add_module(module)
     pangenome.status["modules"] = "Loaded"

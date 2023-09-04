@@ -41,7 +41,7 @@ def extract_rgp(contig, node, rgp_id, naming) -> Region:
     elif naming == "organism":
         new_region = Region(node.gene.organism.name + "_" + contig.name + "_RGP_" + str(rgp_id))
     while node.state:
-        new_region[node.gene.position] = node.gene
+        new_region.add(node.gene)
         node.state = 0
         node.score = 0
         node = node.prev

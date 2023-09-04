@@ -146,7 +146,7 @@ def add_info_to_rgp_nodes(graph, regions: List[Region], region_to_spot: dict):
                        "is_contig_border": region.is_contig_border,
                        "is_whole_contig": region.is_whole_contig,
                        "spot_id": get_spot_id(region, region_to_spot),
-                       'families_count': region.number_of_families()}
+                       'families_count': region.number_of_families}
 
         region_attributes[region.ID] = region_info
 
