@@ -3,9 +3,11 @@
 
 # default libraries
 from __future__ import annotations
+import logging
 
 # installed libraries
 from typing import Dict, Generator, List, Set
+import gmpy2
 
 # local libraries
 from ppanggolin.genome import Gene, Organism, Contig
@@ -514,6 +516,7 @@ class Module(MetaFeatures):
         super().__init__()
         self.ID = module_id
         self._families_getter = {family.name: family for family in families} if families is not None else {}
+        self.bitarray = None
 
     def __repr__(self) -> str:
         """Module representation
@@ -601,6 +604,36 @@ class Module(MetaFeatures):
         :return: Families belonging to the module
         """
         yield from self._families_getter.values()
+
+    def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
+        """Produces a bitarray representing the presence / absence of families in the organism using the provided index
+        The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
+
+        :param partition: filter module by partition
+        :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
+        """
+        self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
+        if partition == 'all':
+            logging.getLogger("PPanGGOLiN").debug("all")
+            for fam in self.families:
+                self.bitarray[index[fam]] = 1
+        elif partition == 'persistent':
+            logging.getLogger("PPanGGOLiN").debug("persistent")
+            for fam in self.families:
+                if fam.named_partition in ['persistent']:
+                    self.bitarray[index[fam]] = 1
+        elif partition in ['shell', 'cloud']:
+            logging.getLogger("PPanGGOLiN").debug("shell, cloud")
+            for fam in self.families:
+                if fam.named_partition == partition:
+                    self.bitarray[index[fam]] = 1
+        elif partition == 'accessory':
+            logging.getLogger("PPanGGOLiN").debug("accessory")
+            for fam in self.families:
+                if fam.named_partition in ['shell', 'cloud']:
+                    self.bitarray[index[fam]] = 1
+        else:
+            raise Exception("There is not any partition corresponding please report a github issue")
 
 
 class GeneContext:

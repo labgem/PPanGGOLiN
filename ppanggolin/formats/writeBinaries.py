@@ -825,7 +825,7 @@ def write_info_modules(pangenome: Pangenome, h5f: tables.File):
             pangenome.compute_mod_bitarrays(part)
             return [popcount(module.bitarray) for module in pangenome.modules]
 
-        mod_fam = [len(module.families) for module in pangenome.modules]
+        mod_fam = [len(module) for module in pangenome.modules]
         info_group._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
                                                        "max": getmax(mod_fam),
                                                        "sd": getstdev(mod_fam),
