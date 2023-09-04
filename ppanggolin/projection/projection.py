@@ -16,6 +16,7 @@ import csv
 # installed libraries
 from tqdm import tqdm
 import networkx as nx
+import yaml
 
 # # local libraries
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
@@ -216,28 +217,26 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
     new_spot_count = "Not computed" if input_org_spots is None else sum(1 for spot in input_org_spots if isinstance(spot, NewSpot))
     module_count = "Not computed" if input_org_modules is None else len(input_org_modules)
 
-    summary_info = [
-                    ("Organism name", input_organism.name),
-                    ("Pangenome file", pangenome.file), 
-                    ("Contigs", contigs_count),
-                    ("Genes", gene_count),
-                    ("Families", families_count),
-                    ("Singleton families", singleton_gene_count),
-                    ("Persistent families", persistent_family_count),
-                    ("Persistent genes", persistent_gene_count),
-                    ("Shell families", shell_family_count),
-                    ("Shell genes", shell_gene_count),
-                    ("Cloud families", cloud_family_count),
-                    ("Cloud genes", cloud_gene_count),
-                    ("RGPs", rgp_count),
-                    ("Spots", spot_count),
-                    ("New spots", new_spot_count),
-                    ("Modules", module_count)
-                    ]
+    summary_info = {
+        "Organism name": input_organism.name,
+        "Pangenome file": pangenome.file,
+        "Contigs": contigs_count,
+        "Genes": gene_count,
+        "Families": families_count,
+        "Persistent": {"genes":persistent_gene_count, "families":persistent_family_count},
+        "Shell": {"genes":persistent_gene_count, "families":persistent_family_count},
+        "Cloud": {"genes":persistent_gene_count, "families":persistent_family_count, "singleton families":singleton_gene_count},
+        "RGPs": rgp_count,
+        "Spots": spot_count,
+        "New spots": new_spot_count,
+        "Modules": module_count
+    }
+    yaml_string = yaml.dump(summary_info, default_flow_style=False, sort_keys=False)
+    
 
-    summary_str = '\n'.join((f'    - {k}: {v}' for k,v in summary_info ))
+    # summary_str = '\n'.join((f'    - {k}: {v}' for k,v in summary_info ))
     print('Projection_summary:')
-    print(summary_str)
+    print(yaml_string)
 
 def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organism: Organism, output: Path, cpu: int, no_defrag: bool,
                                                  identity: float, coverage: float, tmpdir: Path,
@@ -747,9 +746,6 @@ def parser_projection(parser: argparse.ArgumentParser):
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
 
-    optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
-                          help="directory for storing temporary files")
-
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
@@ -776,6 +772,9 @@ def parser_projection(parser: argparse.ArgumentParser):
 
     optional.add_argument("-c", "--cpu", required=False,
                           default=1, type=int, help="Number of available cpus")
-    
+
+    optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
+                          help="directory for storing temporary files")
+        
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
                         help="Keeping temporary files (useful for debugging).")
