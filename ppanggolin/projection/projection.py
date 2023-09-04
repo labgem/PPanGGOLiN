@@ -102,7 +102,7 @@ def launch(args: argparse.Namespace):
         # read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         input_organism, has_sequence = read_anno_file(organism_name=args.organism_name,
                                                       filename=args.annot_file,
-                                                      circular_contigs=[],
+                                                      circular_contigs=[], 
                                                       pseudo=args.use_pseudo)
         if input_organism.number_of_genes() == 0:
             raise ValueError("The input organism lacks gene annotations. "
@@ -138,7 +138,7 @@ def launch(args: argparse.Namespace):
 
     singleton_gene_count = annotate_input_genes_with_pangenome_families(pangenome, input_organism=input_organism, output=output_dir, cpu=args.cpu,
                                                  no_defrag=args.no_defrag, identity=args.identity, coverage=args.coverage, tmpdir=args.tmpdir,
-                                                 translation_table=args.translation_table)
+                                                 translation_table=args.translation_table, keep_tmp=True)
 
     input_org_rgps, input_org_spots, input_org_modules = None, None, None
 
@@ -241,7 +241,7 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
 
 def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organism: Organism, output: Path, cpu: int, no_defrag: bool,
                                                  identity: float, coverage: float, tmpdir: Path,
-                                                 translation_table: int):
+                                                 translation_table: int, keep_tmp:bool = False):
     """
     Annotate input genes with pangenome gene families and perform clustering.
 
@@ -255,9 +255,12 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     :param tmpdir: Temporary directory for intermediate files.
     :param disable_bar: Whether to disable progress bar.
     :param translation_table: Translation table ID for nucleotide sequences.
+    :param keep_tmp: If True, keep temporary files.
 
     :return: Number of genes that do not cluster with any of the gene families of the pangenome.
     """
+
+    target_type = "all"
 
     seq_fasta_file = output / f"{input_organism.name}.fasta"
 
@@ -266,15 +269,22 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     with open(seq_fasta_file, "w") as fh_out_faa:
         write_gene_sequences_from_annotations(
             input_organism.genes, fh_out_faa, disable_bar=True)
+
+    if keep_tmp:
+        dir_name = 'seq_to_pang_tmpdir' +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime()) + "_PID" + str(os.getpid())
+        new_tmpdir = tmpdir / dir_name
+        mk_outdir(new_tmpdir, force=True)
         
-    # create tmpdir in case it does not exists
-    mk_outdir(tmpdir, force=True)
+    else:
+        new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_")
+        new_tmpdir = Path(new_tmpdir.name)
 
-    with tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_") as new_tmpdir:
+    seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, new_tmpdir,
+                                                    cpu, no_defrag, identity=identity, coverage=coverage,
+                                                    is_nucleotide=True, translation_table=translation_table, target_type="all")
 
-        seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, Path(new_tmpdir),
-                                                        cpu, no_defrag, identity=identity, coverage=coverage,
-                                                        is_nucleotide=True, translation_table=translation_table)
+    if not keep_tmp:
+        new_tmpdir.cleanup()
 
     project_and_write_partition(seqid_to_gene_family, seq_set, output)
 
@@ -766,3 +776,6 @@ def parser_projection(parser: argparse.ArgumentParser):
 
     optional.add_argument("-c", "--cpu", required=False,
                           default=1, type=int, help="Number of available cpus")
+    
+    optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
+                        help="Keeping temporary files (useful for debugging).")
