@@ -132,7 +132,7 @@ def launch_default_config(args: argparse.Namespace):
     """
     initial_command = args.default_config
 
-    if os.path.exists(args.output) and not args.force:
+    if args.output.exists() and not args.force:
         raise FileExistsError(f"{args.output} already exists. Use -f if you want to overwrite it.")
 
     ignored_params = ['config', 'help']
@@ -211,7 +211,7 @@ def launch_default_config(args: argparse.Namespace):
         arg_lines.append(f"\n{sub_command}:")
         arg_lines += get_default_argument_lines(specific_actions)
 
-    mk_outdir(args.output.parent, args.force)
+    mk_outdir(args.output.parent, True)  # Everytime it is True because the config file is already tested
     logging.getLogger("PPanGGOLiN").info(f'Writting default config in {args.output}')
     with open(args.output, 'w') as fl:
         fl.write('\n'.join(arg_lines) + '\n')
