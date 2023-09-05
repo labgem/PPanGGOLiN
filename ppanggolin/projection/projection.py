@@ -87,10 +87,21 @@ def launch(args: argparse.Namespace):
                                  "Projection of modules into the provided genome will not be performed.")
 
         project_modules = False
+    
+    if pangenome.status["geneSequences"] not in ["Loaded", "Computed", "inFile"] and not args.fast:
+        raise Exception("The provided pangenome has no gene sequences. "
+                        "Projection is still possible with the --fast option to use representative "
+                        "sequences rather than all genes to annotate input genes.")
+
+    if pangenome.status["geneFamilySequences"] not in ["Loaded", "Computed", "inFile"]:
+        raise Exception("The provided pangenome has no gene families sequences. "
+                        "This is not possible to annotate an input organism to this pangenome.")
+    
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar,
-                         need_rgp=predict_rgp, need_modules=project_modules,
+                         need_rgp=predict_rgp, need_modules=project_modules, need_gene_sequences=False,
                          need_spots=project_spots)
+
 
     logging.getLogger().info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(

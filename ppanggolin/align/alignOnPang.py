@@ -19,6 +19,8 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
 from ppanggolin.figures.draw_spot import draw_selected_spots, subgraph
 from ppanggolin.formats.readBinaries import get_gene_sequences_from_file
+from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
+
 
 def create_mmseqs_db(seq_file: Path, tmpdir: Path, basename="sequences") -> Path:
     """
@@ -119,7 +121,7 @@ def align_seq_to_pang(target_seq_file:Path , query_seq_file: Path, output: Path,
     return Path(outfile.name)
 
 
-def associate_input_seq_to_gene_family_from_aln_all(aln_res: Path, outdir:Path, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
+def map_input_gene_to_family_all_aln(aln_res: Path, outdir:Path, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], Path]:
     """
     Read alignment result to link input sequences to pangenome gene family. 
     Alignment have been made against all genes of the pangenome.
@@ -132,10 +134,12 @@ def associate_input_seq_to_gene_family_from_aln_all(aln_res: Path, outdir:Path, 
     """
 
     seq2pang = {}
-    result_file = outdir / f"alignment_input_seqs_to_all_pangenome_genes.tsv"  # write the actual result file 
-    logging.getLogger(f'Get write alignment file in {result_file}')
+    aln_file_clean = outdir / f"alignment_input_seqs_to_all_pangenome_genes.tsv"  # write the actual result file
+    input_seq_to_gene_family = outdir / f"input_seqs_to_gene_family.tsv"
+    logging.getLogger().debug(f'Writing alignment file in {aln_file_clean}')
+    logging.getLogger().debug(f'Writing Gene family id to input seq id file in {input_seq_to_gene_family}')
 
-    with open(aln_res, "r") as alnFile, open(result_file, "w") as outfile :
+    with open(aln_res, "r") as alnFile, open(aln_file_clean, "w") as aln_outfl, open(input_seq_to_gene_family, "w") as outgene2fam:
         for line in alnFile:
             line_splitted = line.split()
             
@@ -144,15 +148,17 @@ def associate_input_seq_to_gene_family_from_aln_all(aln_res: Path, outdir:Path, 
 
             input_seq_id, gene_id = line_splitted[0:2]
 
-            outfile.write("\t".join(line_splitted) + "\n")
+            aln_outfl.write("\t".join(line_splitted) + "\n")
 
             if seq2pang.get(input_seq_id) is None:  # if no results were found yet
-                seq2pang[input_seq_id] = pangenome.get_gene(gene_id).family  # then the best hit is the first one we see.
+                family = pangenome.get_gene(gene_id).family
+                seq2pang[input_seq_id] = family  # then the best hit is the first one we see.
+                outgene2fam.write(f"{input_seq_id}\t{family.name}\n")
 
-    return seq2pang, outfile
+    return seq2pang, aln_file_clean
 
 
-def associate_input_seq_to_gene_family_from_aln_rep(aln_res: Path, outdir:Path, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
+def map_input_gene_to_family_rep_aln(aln_res: Path, outdir:Path, pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
     """
     Read alignment result to link input sequences to pangenome gene family.
     Alignment have been made against representative sequence of gene families of the pangenome.
@@ -164,24 +170,29 @@ def associate_input_seq_to_gene_family_from_aln_rep(aln_res: Path, outdir:Path, 
     :return: Dictionnary with sequence link to pangenome gene families and actual path to the cleaned alignment file
     """
     seq2pang = {}
-    result_file = outdir / f"alignment_input_seqs_to_pangenome_gene_families.tsv"  # write the actual result file 
-    logging.getLogger().debug(f'Write alignment file in {result_file}')
+    aln_file_clean = outdir / f"alignment_input_seqs_to_pangenome_gene_families.tsv"  # write the actual result file 
 
-    with open(aln_res, "r") as alnFile, open(result_file, "w") as outfile :
+    input_seq_to_gene_family = outdir / f"input_seqs_to_gene_family.tsv"
+    logging.getLogger().debug(f'Writing alignment file in {aln_file_clean}')
+    logging.getLogger().debug(f'Writing Gene family id to input seq id file in {input_seq_to_gene_family}')
+
+    with open(aln_res, "r") as alnFile, open(aln_file_clean, "w") as aln_outfl, open(input_seq_to_gene_family, "w") as outgene2fam:
         for line in alnFile:
             line_splitted = line.split()
             
             line_splitted[1] = line_splitted[1].replace("ppanggolin_", "")  # remove the 'ppanggolin_' bit of the id
             line_splitted[0] = line_splitted[0].replace("ppanggolin_", "")
 
-            outfile.write("\t".join(line_splitted) + "\n")
+            aln_outfl.write("\t".join(line_splitted) + "\n")
 
             input_seq_id, gene_family_id = line_splitted[0:2]
 
             if seq2pang.get(input_seq_id) is None:  # if no results were found yet
-                seq2pang[input_seq_id] = pangenome.get_gene_family(gene_family_id)  # then the best hit is the first one we see.
+                family = pangenome.get_gene_family(gene_family_id)  # then the best hit is the first one we see.
+                seq2pang[input_seq_id] = family  
+                outgene2fam.write(f"{input_seq_id}\t{family.name}\n")
 
-    return seq2pang, outfile
+    return seq2pang, aln_file_clean
 
 
 
@@ -233,10 +244,16 @@ def write_all_gene_sequences(pangenome: Pangenome, file_obj: IO, add: str = "", 
     :param file_obj: Temporary file where sequences will be written
     :param add: Add prefix to sequence name
     """
-    gene_ids_to_write = {gene.ID for fam in pangenome.gene_families for gene in fam.genes}
-    # TODO Check that the sequence are in file or loaded and launch appropriate fct accordingly 
-    get_gene_sequences_from_file(pangenome.file, file_obj, gene_ids_to_write, add=add,
-                                         disable_bar=disable_bar)
+    genes_to_write = (gene for fam in pangenome.gene_families for gene in fam.genes)
+
+    if pangenome.status["geneSequences"] == "inFile":
+        get_gene_sequences_from_file(pangenome.file, file_obj, {gene.ID for gene in genes_to_write},
+                                        disable_bar=disable_bar)
+    elif pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
+        write_gene_sequences_from_annotations(genes_to_write, file_obj, disable_bar=disable_bar)
+    else:
+        # this should never happen if the pangenome has been properly checked before launching this function.
+        raise Exception("The pangenome does not include gene sequences")
 
 def project_and_write_partition(seqid_to_gene_family: Dict[str, GeneFamily], seq_set: Set[str], output: Path) -> Path:
     """
@@ -382,7 +399,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
 
 def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path,
                  cpu: int = 1, no_defrag: bool = False, identity: float = 0.8,
-                 coverage: float = 0.8, is_nucleotide: bool = False, translation_table: int = 11) -> Tuple[set, str, dict]:
+                 coverage: float = 0.8, translation_table: int = 11) -> Tuple[set, str, dict]:
     
     """
     Assign gene families from a pangenome to input sequences.
@@ -419,14 +436,14 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_file: Path, 
                                         is_query_nt=is_nucleotide, is_target_nt=False,
                                         translation_table=translation_table)
 
-        seq2pang, align_file = associate_input_seq_to_gene_family_from_aln_rep(align_file, output, pangenome)
+        seq2pang, align_file = map_input_gene_to_family_rep_aln(align_file, output, pangenome)
 
     return seqids_set, align_file, seq2pang
 
 
 def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path,
                                      cpu: int = 1, no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8,
-                                     is_nucleotide: bool = False, translation_table: int = 11,) -> Tuple[set, str, dict]:
+                                     translation_table: int = 11,) -> Tuple[set, str, dict]:
     """
     Assign gene families from a pangenome to input sequences.
 
@@ -462,7 +479,7 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_file: Path, 
                                         is_query_nt=is_nucleotide, is_target_nt=True,
                                         translation_table=translation_table )
 
-        seq2pang, align_file = associate_input_seq_to_gene_family_from_aln_all(align_file, output, pangenome)
+        seq2pang, align_file = map_input_gene_to_family_all_aln(align_file, output, pangenome)
 
     return seq_set, align_file, seq2pang
 
@@ -520,7 +537,7 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
             seq_set, align_file, seq2pang = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=sequence_file, 
                                                                                 output=output, tmpdir=new_tmpdir,
                                                                                 cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
-                                                                                is_nucleotide=True, translation_table=translation_table)
+                                                                                translation_table=translation_table)
 
     if getinfo or draw_related:  # TODO Add getinfo to function and remove if
         get_seq_info(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
@@ -528,7 +545,7 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
     part_proj = project_and_write_partition(seq2pang, seq_set, output)  # write the partition assignation only
     logging.getLogger().info(f"sequences partition projection : '{part_proj}'")
     logging.getLogger().info(f"{len(seq2pang)} sequences over {len(seq_set)} have at least one hit in the pangenome.")
-    logging.getLogger().info(f"Blast-tab file of the alignment : '{align_file.name}'")
+    logging.getLogger().info(f"Blast-tab file of the alignment : '{align_file}'")
 
 
 def launch(args: argparse.Namespace):

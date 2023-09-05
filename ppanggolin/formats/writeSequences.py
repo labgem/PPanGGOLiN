@@ -6,7 +6,7 @@ import argparse
 import logging
 import re
 from pathlib import Path
-from typing import TextIO, Dict, Set
+from typing import TextIO, Dict, Set, Iterable
 
 # installed libraries
 from tqdm import tqdm
@@ -14,15 +14,18 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.genome import Gene
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
+
 
 module_regex = re.compile(r'^module_[0-9]+')
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
 poss_values_log = f"Possible values are {', '.join(poss_values[:-1])}, module_X with X being a module id."
 
 
-def write_gene_sequences_from_annotations(genes_to_write: Pangenome, file_obj: TextIO, add: str = '',
+
+def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_obj: TextIO, add: str = '',
                                           disable_bar: bool = False):
     """
     Writes the CDS sequences to a File object,
