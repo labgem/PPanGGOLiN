@@ -23,13 +23,15 @@ from ppanggolin.formats.readBinaries import get_gene_sequences_from_file
 
 def create_mmseqs_db(seq_file: Path, tmpdir: Path, basename="sequences") -> Path:
     """
-    Create a MMseqs2 sequence database with the given fasta file
+    Create a MMseqs2 sequence database with the given fasta file.
 
-    :param seq_file: Fasta file
-    :param tmpdir: temporary directory
+    :param seq_file: Path to the input FASTA file.
+    :param tmpdir: Path to the temporary directory where the database will be created.
+    :param basename: Prefix for the database file (default: "sequences").
 
-    :return: DB file
+    :return: Path to the created MMseqs2 database file.
     """
+
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, delete=False, suffix=".DB", prefix=basename) as seqdb:
         cmd = ["mmseqs", "createdb", seq_file.as_posix(), seqdb.name, '--dbtype', '0']
         
@@ -38,9 +40,18 @@ def create_mmseqs_db(seq_file: Path, tmpdir: Path, basename="sequences") -> Path
 
     return Path(seqdb.name)
 
-def translate_with_mmseqs(seqdb:Path, translation_table:int, cpu:int, tmpdir: Path) -> Path:
+def translate_with_mmseqs(seqdb: Path, translation_table: int, cpu: int, tmpdir: Path) -> Path:
     """
+    Translate nucleotide sequences in an MMseqs2 sequence database to amino acid sequences.
+
+    :param seqdb: Path to the input MMseqs2 sequence database containing nucleotide sequences.
+    :param translation_table: The translation table to use for conversion.
+    :param cpu: Number of CPU cores to use for translation.
+    :param tmpdir: Path to the temporary directory for intermediate files.
+
+    :return: Path to the new MMseqs2 sequence database containing translated amino acid sequences.
     """
+    
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, delete=False, prefix=seqdb.stem, suffix=".aa.DB") as seqdb_aa:
 
         cmd = ["mmseqs", "translatenucs", seqdb.as_posix(), seqdb_aa.name, "--translation-table", 
