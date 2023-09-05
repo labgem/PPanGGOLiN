@@ -615,7 +615,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
         uniq_gene_lists = []
         ordered_counts = []
         for genelist in gene_lists:
-            curr_genelist_count = count_uniq.get(genelist[2], None)
+            curr_genelist_count = count_uniq.get(genelist[2])
             if curr_genelist_count is not None:
                 uniq_gene_lists.append(genelist)
                 ordered_counts.append(curr_genelist_count)

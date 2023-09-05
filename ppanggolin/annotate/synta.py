@@ -171,10 +171,10 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> (dict, in
                     all_contig_len += len(contig_seq)
                 contig_seq = ""
                 try:
-                    contig = org.get_contig(line.split()[0][1:])
+                    contig = org.get(line.split()[0][1:])
                 except KeyError:
                     contig = Contig(line.split()[0][1:])
-                    org.add_contig(contig)
+                    org.add(contig)
             else:
                 contig_seq += line.strip()
         if len(contig_seq) >= 1:  # processing the last contig
@@ -326,10 +326,10 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
 
     for contig_name, genes in genes.items():
         try:
-            contig = org.get_contig(contig_name)
+            contig = org.get(contig_name)
         except KeyError:
             contig = Contig(contig_name, True if contig_name in circular_contigs else False)
-            org.add_contig(contig)
+            org.add(contig)
         for gene in genes:
             gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             gene.fill_parents(org, contig)

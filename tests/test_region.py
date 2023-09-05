@@ -36,7 +36,7 @@ def families(genes) -> Generator[Set[GeneFamily], None, None]:
         idx_genes = 0
         while idx_genes < nb_genes_per_family:
             gene = genes[(idx_fam - 1) * nb_genes_per_family + idx_genes]
-            family.add_gene(gene)
+            family.add(gene)
             gene.family = family
             idx_genes += 1
         families.add(family)
@@ -46,7 +46,7 @@ def families(genes) -> Generator[Set[GeneFamily], None, None]:
     idx_genes = (idx_fam - 1) * nb_genes_per_family
     while idx_genes < len(genes):
         gene = genes[idx_genes]
-        family.add_gene(gene)
+        family.add(gene)
         gene.family = family
         idx_genes += 1
     families.add(family)

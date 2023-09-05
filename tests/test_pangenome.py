@@ -337,7 +337,7 @@ class TestPangenomeGene(TestPangenome):
         organism = Organism(name="organism")
         for contig_id in range(randint(2, 10)):
             contig = Contig("k_{}".format(contig_id))
-            organism.add_contig(contig)
+            organism.add(contig)
             for gene_idx in range(randint(2, 10)):
                 gene = Gene(gene_id=f"{organism.name}.{contig_id}.{gene_idx}")
                 gene.position = gene_idx
@@ -358,7 +358,7 @@ class TestPangenomeGene(TestPangenome):
             gene = Gene(gene_id=f"{family.name}_{gene_idx}")
             gene.position = gene_idx
             gene.start = gene_idx
-            family.add_gene(gene)
+            family.add(gene)
             genes.add(gene)
         yield family, genes
 
@@ -457,8 +457,8 @@ class TestPangenomeEdge(TestPangenome):
         fam2 = GeneFamily(family_id=2, name=f"fam_{gene_id_2}")
         ctg1 = Contig(name=f"ctg_{gene_id_1}")
         ctg2 = Contig(name=f"ctg_{gene_id_2}")
-        fam1.add_gene(gene1)
-        fam2.add_gene(gene2)
+        fam1.add(gene1)
+        fam2.add(gene2)
         organism = Organism(name=f"org_{choices([gene_id_1, gene_id_2], k=1)}")
         gene1.fill_parents(organism, ctg1)
         gene2.fill_parents(organism, ctg2)
@@ -809,7 +809,7 @@ class TestPangenomeMetadata(TestPangenome):
         org = Organism("Org")
         org.add_metadata(source=metadata.source, metadata=metadata)
         ctg = Contig("Ctg")
-        org.add_contig(ctg)
+        org.add(ctg)
         gene = Gene("Gene")
         gene.position, gene.start = (0, 0)
         gene.add_metadata(source=metadata.source, metadata=metadata)

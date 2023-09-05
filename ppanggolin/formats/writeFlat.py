@@ -62,7 +62,7 @@ def write_json_gene_fam(gene_fam: GeneFamily, json: TextIO):
     :param gene_fam: file-like object, compressed or not
     :param json: file-like object, compressed or not
     """
-    json.write('{' + f'"id": "{gene_fam.name}", "nb_genes": {gene_fam.number_of_genes}, '
+    json.write('{' + f'"id": "{gene_fam.name}", "nb_genes": {len(gene_fam)}, '
                      f'"partition": "{gene_fam.named_partition}", "subpartition": "{gene_fam.partition}"' + '}')
     org_dict = {}
     name_counts = Counter()
@@ -247,7 +247,7 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
         gexf.write(f'        <viz:color {colors[fam.named_partition]} />\n')
         gexf.write(f'        <viz:size value="{fam.number_of_organisms}" />\n')
         gexf.write('        <attvalues>\n')
-        gexf.write(f'          <attvalue for="0" value="{fam.number_of_genes}" />\n')
+        gexf.write(f'          <attvalue for="0" value="{len(fam)}" />\n')
         gexf.write(f'          <attvalue for="1" value="{name.most_common(1)[0][0]}" />\n')
         gexf.write(f'          <attvalue for="2" value="{product.most_common(1)[0][0]}" />\n')
         gexf.write(f'          <attvalue for="3" value="{gtype.most_common(1)[0][0]}" />\n')
@@ -406,8 +406,8 @@ def write_matrix(output: Path, sep: str = ',', ext: str = 'csv', compress: bool 
                                    '"' + alt + '"',  # 2
                                    '"' + str(product.most_common(1)[0][0]) + '"',  # 3
                                    '"' + str(fam.number_of_organisms) + '"',  # 4
-                                   '"' + str(fam.number_of_genes) + '"',  # 5
-                                   '"' + str(round(fam.number_of_genes / fam.number_of_organisms, 2)) + '"',  # 6
+                                   '"' + str(len(fam)) + '"',  # 5
+                                   '"' + str(round(len(fam) / fam.number_of_organisms, 2)) + '"',  # 6
                                    '"NA"',  # 7
                                    '"NA"',  # 8
                                    '""',  # 9
@@ -468,7 +468,7 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
                       "\n")
         for fam in pan.gene_families:
             if fam.named_partition == "persistent":
-                mean_pres = fam.number_of_genes / fam.number_of_organisms
+                mean_pres = len(fam) / fam.number_of_organisms
                 nb_multi = 0
                 for gene_list in fam.get_org_dict().values():
                     if len(gene_list) > 1:

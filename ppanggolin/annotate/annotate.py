@@ -122,10 +122,10 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
                     contig_id = line[12:].strip()
                     if contig_id != "":
                         try:
-                            contig = org.get_contig(contig_id)
+                            contig = org.get(contig_id)
                         except KeyError:
                             contig = Contig(contig_id, True if contig_id in circular_contigs else False)
-                            org.add_contig(contig)
+                            org.add(contig)
                         set_contig = True
                 line = lines.pop()
         if not set_contig:
@@ -133,10 +133,10 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             # Should be unique in a dataset, but if there's an update the contig ID
             # might still be the same even though it should not(?)
             try:
-                contig = org.get_contig(contig_locus_id)
+                contig = org.get(contig_locus_id)
             except KeyError:
                 contig = Contig(contig_locus_id, True if contig_locus_id in circular_contigs else False)
-                org.add_contig(contig)
+                org.add(contig)
         # start of the feature object.
         dbxref = set()
         gene_name = ""
@@ -297,10 +297,10 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                 elif line.startswith('sequence-region', 2, 17):
                     fields = [el.strip() for el in line.split()]
                     try:
-                        contig = org.get_contig(fields[1])
+                        contig = org.get(fields[1])
                     except KeyError:
                         contig = Contig(fields[1], True if fields[1] in circular_contigs else False)
-                        org.add_contig(contig)
+                        org.add(contig)
 
                 continue
             elif line.startswith('#'):  # comment lines to be ignores by parsers
@@ -341,11 +341,11 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                 if contig is None or contig.name != fields_gff[gff_seqname]:
                     # get the current contig
                     try:
-                        contig = org.get_contig(fields_gff[gff_seqname])
+                        contig = org.get(fields_gff[gff_seqname])
                     except KeyError:
                         contig = Contig(fields_gff[gff_seqname],
                                         True if fields_gff[gff_seqname] in circular_contigs else False)
-                        org.add_contig(contig)
+                        org.add(contig)
 
                 if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))

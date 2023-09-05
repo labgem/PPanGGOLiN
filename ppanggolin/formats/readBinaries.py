@@ -241,10 +241,10 @@ def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circul
     gene, gene_type = (None, None)
     for contig_name, gene_list in contig_dict.items():
         try:
-            contig = org.get_contig(contig_name)
+            contig = org.get(contig_name)
         except KeyError:
             contig = Contig(contig_name, is_circular=circular_contigs[contig_name])
-            org.add_contig(contig)
+            org.add(contig)
         for row in gene_list:
             if link:  # if the gene families are already computed/loaded the gene exists.
                 gene = pangenome.get_gene(row["ID"].decode())
@@ -322,7 +322,7 @@ def read_gene_families(pangenome: Pangenome, h5f: tables.File, disable_bar: bool
             gene_obj = pangenome.get_gene(row["gene"].decode())
         else:  # else, no
             gene_obj = Gene(row["gene"].decode())
-        fam.add_gene(gene_obj)
+        fam.add(gene_obj)
     pangenome.status["genesClustered"] = "Loaded"
 
 

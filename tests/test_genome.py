@@ -308,7 +308,7 @@ class TestContig:
 	def test_add_gene(self, gene, contig):
 		"""Tests that a gene can be added to the contig
 		"""
-		contig[gene.start] = gene
+		contig.add(gene)
 		assert len(contig._genes_getter) == 1
 		assert len(contig._genes_position) == 1
 		assert contig._genes_getter[gene.start] == gene
@@ -317,10 +317,10 @@ class TestContig:
 	def test_add_gene_at_far_position(self, gene, contig):
 		"""Tests that a gene can be added at each position and between position are fill with None
 		"""
-		contig[gene.start] = gene
+		contig.add(gene)
 		new_gene = Gene("Gene2")
 		new_gene.fill_annotations(start=50, stop=72, strand='+', position=6, genetic_code=4)
-		contig[new_gene.start] = new_gene
+		contig.add(new_gene)
 		assert len(contig._genes_position) == 7
 		assert contig._genes_position[1:6] == [None]*5
 
@@ -328,47 +328,49 @@ class TestContig:
 		"""Tests that the contig cannot be fill with a non-gene object
 		"""
 		with pytest.raises(TypeError):
-			contig[1] = "4"
+			contig.add(1)
+		with pytest.raises(TypeError):
+			contig[1] = '4'
 
 	def test_add_gene_with_start_already_taken(self, contig, gene):
 		"""Tests that the contig cannot be fill with a non-gene object
 		"""
-		contig[gene.start] = gene
+		contig.add(gene)
 		with pytest.raises(ValueError):
 			new_gene = Gene('test_gene')
 			new_gene.fill_annotations(start=1, stop=12, strand='+', position=2, genetic_code=4)
-			contig[new_gene.start] = new_gene
+			contig.add(new_gene)
 
 	def test_add_gene_without_position(self, contig):
 		"""Test that adding a gene not fill with position raise an AttributeError
 		"""
 		with pytest.raises(AttributeError):
 			gene = Gene('test_gene')
-			contig[gene.start] = gene
+			contig.add(gene)
 
 	def test_get_len(self, genes, contig):
 		"""Tests len method
 		"""
 		gene1, gene2, gene3 = genes
-		contig[gene1.start] = gene1
-		contig[gene2.start] = gene2
-		contig[gene3.start] = gene3
+		contig.add(gene1)
+		contig.add(gene2)
+		contig.add(gene3)
 		assert isinstance(len(contig), int)
 		assert len(contig) == 3
 
 	def test_get_gene(self, gene, contig):
 		"""Tests that a gene can be retrieved by its position
 		"""
-		contig[gene.start] = gene
+		contig.add(gene)
 		assert contig[0] == gene
 
 	def test_get_genes(self, genes, contig):
 		"""Tests that a list of genes within a range can be retrieved
 		"""
 		gene1, gene2, gene3 = genes
-		contig[gene1.start] = gene1
-		contig[gene2.start] = gene2
-		contig[gene3.start] = gene3
+		contig.add(gene1)
+		contig.add(gene2)
+		contig.add(gene3)
 		assert set(contig.get_genes(0, 3)) == set(genes)
 
 	def test_get_gene_with_non_integer_index(self, contig):
@@ -381,9 +383,9 @@ class TestContig:
 		"""Tests that genes cannot be retrieved with non-integer begin and end positions
 		"""
 		gene1, gene2, gene3 = genes
-		contig[gene1.start] = gene1
-		contig[gene2.start] = gene2
-		contig[gene3.start] = gene3
+		contig.add(gene1)
+		contig.add(gene2)
+		contig.add(gene3)
 		with pytest.raises(TypeError):
 			contig.get_genes('a', 4)
 		with pytest.raises(TypeError):
@@ -395,9 +397,9 @@ class TestContig:
 		"""Tests that genes cannot be retrieved with end position lower than begin position
 		"""
 		gene1, gene2, gene3 = genes
-		contig[gene1.start] = gene1
-		contig[gene2.start] = gene2
-		contig[gene3.start] = gene3
+		contig.add(gene1)
+		contig.add(gene2)
+		contig.add(gene3)
 		with pytest.raises(ValueError):
 			contig.get_genes(2, 0)
 
@@ -405,9 +407,9 @@ class TestContig:
 		"""Tests that all genes in the contig can be iterated over
 		"""
 		gene1, gene2, gene3 = genes
-		contig[gene1.start] = gene1
-		contig[gene2.start] = gene2
-		contig[gene3.start] = gene3
+		contig.add(gene1)
+		contig.add(gene2)
+		contig.add(gene3)
 		assert list(contig.genes) == sorted([gene1, gene2, gene3], key=lambda x: x.position)
 
 	def test_add_rna(self, contig):
@@ -482,54 +484,54 @@ class TestOrganism:
 	def test_add_contig(self, organism, contig):
 		"""Tests that a contig can be added to an Organism instance
 		"""
-		organism.add_contig(contig)
+		organism.add(contig)
 		assert organism._contigs_getter['contig'] == contig
 
 	def test_add_contig_not_instance_contig(self, organism):
 		"""Tests that a non Contig object cannot be added to an Organism instance
 		"""
 		with pytest.raises(AssertionError):
-			organism.add_contig(4)
+			organism.add(4)
 
 	def test_add_contig_existing_name(self, organism, contig):
 		"""Tests that a contig with an existing name cannot be added to an Organism instance
 		"""
-		organism.add_contig(contig)
+		organism.add(contig)
 		with pytest.raises(KeyError):
-			organism.add_contig(Contig('contig'))
+			organism.add(Contig('contig'))
 
 	def test_get_contig(self, organism, contig):
 		"""Tests that a contig can be retrieved from an Organism instance
 		"""
-		organism.add_contig(contig)
-		assert organism.get_contig('contig') == contig
+		organism.add(contig)
+		assert organism.get('contig') == contig
 
 	def test_get_contig_not_instance_string(self, organism):
 		"""Tests that a non Contig object cannot be added to an Organism instance
 		"""
-		with pytest.raises(AssertionError):
-			organism.get_contig(4)
+		with pytest.raises(TypeError):
+			organism.get(4)
 
 	def test_get_nonexistent_contig(self, organism):
 		"""Tests that a non-existent contig cannot be retrieved from an Organism instance
 		"""
 		with pytest.raises(KeyError):
-			organism.get_contig('contig1')
+			organism.get('contig1')
 
 	def test_number_of_contigs(self, organism):
 		"""Tests that the number of contigs in an organism instance can be retrieved
 		"""
-		organism.add_contig(Contig('contig1'))
-		organism.add_contig(Contig('contig2'))
+		organism.add(Contig('contig1'))
+		organism.add(Contig('contig2'))
 		assert organism.number_of_contigs() == 2
 
 	def test_get_families(self, organism, contig, gene):
 		"""Tests that gene families in an organism can be retrieved
 		"""
 		family = GeneFamily(0, "fam")
-		family.add_gene(gene)
+		family.add(gene)
 		gene.fill_parents(organism, contig)
-		organism.add_contig(contig)
+		organism.add(contig)
 		contig[gene.start] = gene
 		assert set(organism.families) == {family}
 
@@ -537,26 +539,26 @@ class TestOrganism:
 		"""Tests that the number of gene families in an organism instance can be retrieved
 		"""
 		family = GeneFamily(0, "fam")
-		family.add_gene(gene)
+		family.add(gene)
 		gene.fill_parents(organism, contig)
-		organism.add_contig(contig)
-		contig[gene.start] = gene
+		organism.add(contig)
+		contig.add(gene)
 		assert organism.number_of_families() == 1
 
 	def tests_get_genes(self, organism, contig, gene):
 		"""Tests that genes in an organism can be retrieved
 		"""
 		gene.fill_parents(organism, contig)
-		organism.add_contig(contig)
-		contig[gene.start] = gene
+		organism.add(contig)
+		contig.add(gene)
 		assert set(organism.genes) == {gene}
 
 	def test_number_of_genes(self, organism, contig, gene):
 		"""Tests that the number of genes in an organism instance can be retrieved
 		"""
 		gene.fill_parents(organism, contig)
-		organism.add_contig(contig)
-		contig[gene.start] = gene
+		organism.add(contig)
+		contig.add(gene)
 		assert organism.number_of_genes() == 1
 
 	def test_mk_bitarray(self, organism, contig):
@@ -568,11 +570,11 @@ class TestOrganism:
 		gene2 = Gene('gene2')
 		gene1.fill_annotations(start=1, stop=10, strand='+', position=0, genetic_code=4)
 		gene2.fill_annotations(start=11, stop=19, strand='+', position=1, genetic_code=4)
-		fam1.add_gene(gene1)
-		fam2.add_gene(gene2)
+		fam1.add(gene1)
+		fam2.add(gene2)
 		contig[gene1.start] = gene1
 		contig[gene2.start] = gene2
-		organism.add_contig(contig)
+		organism.add(contig)
 		index = {fam1: 1, fam2: 2}
 		organism.mk_bitarray(index)
 		assert organism.bitarray == gmpy2.xmpz(6)

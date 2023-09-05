@@ -25,17 +25,17 @@ class TestGeneFamily:
         """Tests that a GeneFamily object can be created with valid family_id and name
         """
         assert isinstance(family, GeneFamily)
-        assert all(attr in ["ID", "name", "_edges", "_genePerOrg", "_genes", "removed", "sequence", "partition",
+        assert all(attr in ["ID", "name", "_edges", "_genePerOrg", "_genes_getter", "removed", "sequence", "partition",
                             "_spots", "_modules", "bitarray", "_metadata_getter"] for attr in
                    family.__dict__)  # Check that no attribute was added else it should be tested
-        assert all(hasattr(family, attr) for attr in ["ID", "name", "_edges", "_genePerOrg", "_genes", "removed",
+        assert all(hasattr(family, attr) for attr in ["ID", "name", "_edges", "_genePerOrg", "_genes_getter", "removed",
                                                       "sequence", "partition", "_spots", "_modules",
                                                       "bitarray"])  # Check that no attribute was removed else it should be tested
         assert family.ID == 1
         assert family.name == 'test'
         assert family._edges == {}
         assert family._genePerOrg == {}
-        assert family._genes == set()
+        assert family._genes_getter == dict()
         assert not family.removed  # for the repeated family not added in the main graph
         assert family.sequence == ""
         assert family.partition == ""
@@ -82,7 +82,7 @@ class TestGeneFamily:
         """Tests that a Gene object can be added to a GeneFamily object
         """
         gene = Gene('gene1')
-        family.add_gene(gene)
+        family.add(gene)
         assert gene in family.genes
         assert gene.family == family
 
@@ -90,7 +90,7 @@ class TestGeneFamily:
         """Tests that a non-gene object can't be added to a GeneFamily as gene
         """
         with pytest.raises(TypeError):
-            family.add_gene(33)
+            family.add(33)
 
     @pytest.fixture
     def genes(self) -> Generator[Set[Gene], None, None]:
@@ -107,9 +107,9 @@ class TestGeneFamily:
         """Tests that the number of genes can be retrieved
         """
         for gene in genes:
-            family.add_gene(gene)
-        assert isinstance(family.number_of_genes, int)
-        assert family.number_of_genes == len(genes)
+            family.add(gene)
+        assert isinstance(len(family), int)
+        assert len(family) == len(genes)
 
     @pytest.fixture
     def organisms(self, genes) -> Generator[Set[Organism], None, None]:
@@ -123,7 +123,7 @@ class TestGeneFamily:
         while idx_org < nb_organisms:
             organism = Organism(f"organism_{idx_org}")
             contig = Contig(f"contig_{idx_org}")
-            organism.add_contig(contig)
+            organism.add(contig)
             idx_genes = 0
             while idx_genes < nb_genes_per_organisms:
                 gene = genes[(idx_org - 1) * nb_genes_per_organisms + idx_genes]
@@ -135,7 +135,7 @@ class TestGeneFamily:
         # last family fill with all the gene left
         organism = Organism(f"organism_{idx_org}")
         contig = Contig(f"contig_{idx_org}")
-        organism.add_contig(contig)
+        organism.add(contig)
         idx_genes = (idx_org - 1) * nb_genes_per_organisms
         while idx_genes < len(genes):
             gene = genes[idx_genes]
@@ -149,7 +149,7 @@ class TestGeneFamily:
         """Tests that all organisms and genes are retrieved as expected
         """
         for gene in genes:
-            family.add_gene(gene)
+            family.add(gene)
         org_dict = family.get_org_dict()
         assert isinstance(org_dict, dict)
         assert all(isinstance(org, Organism) for org in org_dict.keys())
@@ -161,7 +161,7 @@ class TestGeneFamily:
         """Tests that if genes are not fill with organism an AttributeError is returned
         """
         for gene in genes:
-            family.add_gene(gene)
+            family.add(gene)
         with pytest.raises(AttributeError):
             _ = family.get_org_dict()
 
@@ -169,14 +169,14 @@ class TestGeneFamily:
         """Tests that all organisms are retrieved as expected
         """
         for gene in genes:
-            family.add_gene(gene)
+            family.add(gene)
         assert set(family.organisms) == organisms
 
     def test_number_of_organism(self, family, organisms, genes):
         """Tests that the expected number of organisms is found
         """
         for gene in genes:
-            family.add_gene(gene)
+            family.add(gene)
         assert isinstance(family.number_of_organisms, int)
         assert family.number_of_organisms == len(organisms)
 
@@ -184,7 +184,7 @@ class TestGeneFamily:
         """Tests that for a giver organism, all the genes are retrieved as expected
         """
         for gene in genes:
-            family.add_gene(gene)
+            family.add(gene)
         for organism in organisms:
             assert set(family.get_genes_per_org(organism)) == set(organism.genes)
 
@@ -209,7 +209,7 @@ class TestGeneFamily:
             idx_genes = 0
             while idx_genes < nb_genes_per_family:
                 gene = genes[(idx_fam - 1) * nb_genes_per_family + idx_genes]
-                family.add_gene(gene)
+                family.add(gene)
                 gene.family = family
                 idx_genes += 1
             families.add(family)
@@ -219,7 +219,7 @@ class TestGeneFamily:
         idx_genes = (idx_fam - 1) * nb_genes_per_family
         while idx_genes < len(genes):
             gene = genes[idx_genes]
-            family.add_gene(gene)
+            family.add(gene)
             gene.family = family
             idx_genes += 1
         families.add(family)

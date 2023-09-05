@@ -343,6 +343,8 @@ class Contig:
         self._genes_position[gene.position] = gene
         self._genes_getter[gene.start] = gene
 
+    # TODO define eq function
+
     # retrieve gene by start position
     def __getitem__(self, position: int) -> Gene:
         """Get the gene for the given position
@@ -355,9 +357,66 @@ class Contig:
         """
         if not isinstance(position, int):
             raise TypeError(f"Expected type is int, given type was '{type(position)}'")
-        return self._genes_position[position]
+        try:
+            return self._genes_position[position]
+        except KeyError:
+            raise KeyError("Position of the gene in the contig does not exist")
 
-    # TODO define delitem
+    def __delitem__(self, position):
+        """Remove the gene for the given position in the contig
+
+        :param position: Position of the gene in the contig
+
+        :raises KeyError: Gene at the given position does not exist in the contig
+        """
+        if not isinstance(position, int):
+            raise TypeError(f"Expected type is int, given type was '{type(position)}'")
+        try:
+            del self._genes_position[position]
+        except KeyError:
+            raise KeyError("Position of the gene in the contig does not exist")
+
+    def add(self, gene: Gene):
+        """Add a gene to the contig
+
+        :param gene: Gene to add
+
+        :raises TypeError: Region is not an instance Region
+        """
+        if not isinstance(gene, Gene):
+            raise TypeError(f"Unexpected class / type for {type(gene)} when adding it to a contig")
+        if gene.start is None:
+            raise AttributeError(f'Gene {gene.name} is not fill with start')
+        if gene.position is None:
+            raise AttributeError(f'Gene {gene.name} is not fill with position')
+        self[gene.start] = gene
+
+    def get(self, position: int) -> Gene:
+        """Get a gene by its position
+
+        :param position: Position of the gene in the contig
+
+        :return: Wanted gene
+
+        :raises TypeError: Position is not an integer
+        """
+        if not isinstance(position, int):
+            raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
+        gene = self[position]
+        if gene is None:
+            logging.getLogger("PPanGGOLiN").debug("Given position result with a None Gene")
+        return gene
+
+    def remove(self, position):
+        """Remove a gene by its position
+
+        :param position: Position of the gene in the contig
+
+        :raises TypeError: Position is not an integer
+        """
+        if not isinstance(position, int):
+            raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
+        del self[position]
 
     def get_genes(self, begin: int, end: int) -> List[Gene]:
         """Gets a list of genes within a range
@@ -470,6 +529,58 @@ class Organism(MetaFeatures):
         """
         self._families = {gene.family for gene in self.genes}
 
+    def __setitem__(self, name: str, contig: Contig):
+        """ Set contig to the organism
+
+        :param name: Name of the contig
+        :param contig: Contig object to add in the organism
+
+        :raises TypeError: If the contig is not instance Contig
+        :raises TypeError: If the name is not instance string
+        :raises KeyError: Contig with the given name already exist in the organism
+        """
+
+        if not isinstance(name, str):
+            raise TypeError(f"Contig name should be a string. You provided a '{type(name)}' type object")
+        if not isinstance(contig, Contig):
+            raise TypeError(f"'Contig' type was expected but you provided a '{type(contig)}' type object")
+        if name in self._contigs_getter:  # Add test if contig are equivalent when __eq__ method will be defined in Contig
+            raise KeyError(f"Contig {contig.name} already in organism {self.name}")
+        self._contigs_getter[contig.name] = contig
+        contig.organism = self
+
+    def __getitem__(self, name: str) -> Contig:
+        """Get the contig for the given position
+
+        :param name: Name of the contig
+
+        :return:  Wanted contig for the given name
+
+        :raises TypeError: If name is not a string
+        :raises KeyError: Name does not exist in the organism
+        """
+        if not isinstance(name, str):
+            raise TypeError(f"Expected type is string, given type was '{type(name)}'")
+        try:
+            return self._contigs_getter[name]
+        except KeyError:
+            raise KeyError(f"Contig with the name: {name} does not exist in the organism")
+
+    def __delitem__(self, name):
+        """Remove the contig for the given name
+
+        :param name: Name of the contig
+
+        :raises TypeError: If name is not a string
+        :raises KeyError: Name does not exist in the organism
+        """
+        if not isinstance(name, int):
+            raise TypeError(f"Expected type is int, given type was '{type(name)}'")
+        try:
+            del self._contigs_getter[name]
+        except KeyError:
+            raise KeyError("Position of the gene in the contig does not exist")
+
     @property
     def families(self):
         """Return the gene families present in the organism
@@ -521,23 +632,7 @@ class Organism(MetaFeatures):
         """
         return len(self._contigs_getter)
 
-    def get_contig(self, name: str) -> Contig:
-        """
-        Get contig with the given identifier in the organim
-
-        :param name: Contig identifier
-
-        :return: The contig with the given identifier
-
-        :raises KeyError: Contig with the given name does not exist in the organism
-        """
-        assert isinstance(name, str), f"To get a contig, name with string type is expected. Given type: {type(name)}"
-        try:
-            return self._contigs_getter[name]
-        except KeyError:
-            raise KeyError(f"Contig {name} does not belong to organism {self.name}")
-
-    def add_contig(self, contig: Contig):
+    def add(self, contig: Contig):
         """Add a contig to organism
 
         :param: Contig to add in organism
@@ -546,12 +641,31 @@ class Organism(MetaFeatures):
         """
         assert isinstance(contig, Contig), f"Contig object is expected, given type was {type(contig)}"
         try:
-            _ = self.get_contig(contig.name)
+            _ = self.get(contig.name)
         except KeyError:
-            self._contigs_getter[contig.name] = contig
-            contig.organism = self
+            self[contig.name] = contig
         else:
             raise KeyError(f"Contig {contig.name} already in organism {self.name}")
+
+    def get(self, name: str) -> Contig:
+        """
+        Get contig with the given identifier in the organism
+
+        :param name: Contig identifier
+
+        :return: The contig with the given identifier
+        """
+        return self[name]
+
+    def remove(self, name: str) -> Contig:
+        """
+        Remove a contig with the given identifier in the organism
+
+        :param name: Contig identifier
+
+        :return: The contig with the given identifier
+        """
+        del self[name]
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index

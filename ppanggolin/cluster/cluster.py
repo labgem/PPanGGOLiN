@@ -275,7 +275,7 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
         else:
             gene_obj = Gene(gene)
         gene_obj.is_fragment = is_frag
-        fam.add_gene(gene_obj)
+        fam.add(gene_obj)
 
 
 def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = True, code: int = 11,
@@ -360,7 +360,7 @@ def infer_singletons(pangenome: Pangenome):
     for gene in pangenome.genes:
         if gene.family is None:
             fam = GeneFamily(family_id=pangenome.max_fam_id, name=gene.ID)
-            fam.add_gene(gene)
+            fam.add(gene)
             pangenome.add_gene_family(fam)
             singleton_counter += 1
     logging.getLogger("PPanGGOLiN").info(f"Inferred {singleton_counter} singleton families")
@@ -409,7 +409,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
                     fam = GeneFamily(pangenome.max_fam_id, fam_id)
                     pangenome.add_gene_family(fam)
                 gene_obj.is_fragment = True if is_frag == "F" else False  # F for Fragment
-                fam.add_gene(gene_obj)
+                fam.add(gene_obj)
             if is_frag == "F":
                 frag = True
         except Exception:

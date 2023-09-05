@@ -67,7 +67,7 @@ class GeneFamily(MetaFeatures):
         self.ID = family_id
         self._edges = {}
         self._genePerOrg = defaultdict(set)
-        self._genes = set()
+        self._genes_getter = {}
         self.removed = False  # for the repeated family not added in the main graph
         self.sequence = ""
         self.partition = ""
@@ -79,6 +79,106 @@ class GeneFamily(MetaFeatures):
         """Family representation
         """
         return f"{self.ID}: {self.name}"
+
+
+
+    def __len__(self) -> int:
+        return len(self._genes_getter)
+
+    def __setitem__(self, identifier: str, gene: Gene):
+        """ Set gene to Gene Family
+
+        :param identifier: ID of the gene
+        :param gene: Gene object to add
+
+        :raises TypeError: If the gene is not instance Gene
+        :raises TypeError: If the identifier is not instance string
+        :raises ValueError: If a gene in getter already exists at the name
+        """
+        # TODO look at change start for position
+
+        if not isinstance(gene, Gene):
+            raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
+        if not isinstance(identifier, str):
+            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+        if identifier in self._genes_getter:
+            raise KeyError(f"Gene with name {identifier} already exists in the gene family")
+        self._genes_getter[identifier] = gene
+
+    # TODO define eq function
+
+    # retrieve gene by start position
+    def __getitem__(self, identifier: str) -> Gene:
+        """Get the gene for the given name
+
+        :param identifier: ID of the gene in the gene family
+
+        :return:  Wanted gene
+
+        :raises TypeError: If the identifier is not instance string
+        :raises KeyError: Gene with the given identifier does not exist in the contig
+        """
+        if not isinstance(identifier, str):
+            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+        try:
+            return self._genes_getter[identifier]
+        except KeyError:
+            raise KeyError(f"Gene with the ID: {identifier} does not exist in the family")
+
+    def __delitem__(self, identifier: str):
+        """Remove the gene for the given name in the gene family
+
+        :param position: ID of the gene in the family
+
+        :raises TypeError: If the identifier is not instance string
+        :raises KeyError: Gene with the given identifier does not exist in the contig
+        """
+        if not isinstance(identifier, str):
+            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+        try:
+            del self._genes_getter[identifier]
+        except KeyError:
+            raise KeyError(f"Gene with the name: {identifier} does not exist in the family")
+
+    def add(self, gene: Gene):
+        """Add a gene to the gene family, and sets the gene's :attr:family accordingly.
+
+        :param gene: The gene to add
+
+        :raises TypeError: If the provided `gene` is of the wrong type
+        """
+        if not isinstance(gene, Gene):
+            raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
+        self[gene.ID] = gene
+        gene.family = self
+        if gene.organism is not None:
+            self._genePerOrg[gene.organism].add(gene)
+
+    def get(self, identifier: str) -> Gene:
+        """Get a gene by its name
+
+        :param identifier: ID of the gene
+
+        :return: Wanted gene
+
+        :raises TypeError: If the identifier is not instance string
+        """
+        if not isinstance(identifier, str):
+            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+        return self[identifier]
+
+    def remove(self, identifier):
+        """Remove a gene by its name
+
+        :param identifier: Name of the gene
+
+        :return: Wanted gene
+
+        :raises TypeError: If the identifier is not instance string
+        """
+        if not isinstance(identifier, str):
+            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+        del self[identifier]
 
     #TODO define __eq__
 
@@ -125,7 +225,7 @@ class GeneFamily(MetaFeatures):
 
         :return: Generator of genes
         """
-        for gene in self._genes:
+        for gene in self._genes_getter.values():
             yield gene
 
     @property
@@ -210,20 +310,6 @@ class GeneFamily(MetaFeatures):
         assert isinstance(seq, str), "Sequence must be a string"
 
         self.sequence = seq
-
-    def add_gene(self, gene: Gene):
-        """Add a gene to the gene family, and sets the gene's :attr:family accordingly.
-
-        :param gene: The gene to add
-
-        :raises TypeError: If the provided `gene` is of the wrong type
-        """
-        if not isinstance(gene, Gene):
-            raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
-        self._genes.add(gene)
-        gene.family = self
-        if gene.organism is not None:
-            self._genePerOrg[gene.organism].add(gene)
 
     def add_spot(self, spot: Spot):
         """Add the given spot to the family
