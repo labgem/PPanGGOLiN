@@ -5,24 +5,17 @@
 import logging
 import argparse
 import time
-import os
-import tempfile
-import subprocess
-from itertools import combinations
-from statistics import mean, median
-from collections import defaultdict
+from pathlib import Path
 
 # installed libraries
 from tqdm import tqdm
 import networkx as nx
-from gmpy2 import xmpz, popcount  # pylint: disable=no-name-in-module
 
 # local libraries
-from ppanggolin.genome import Organism
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Module
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
-from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
+from ppanggolin.utils import restricted_float, add_gene, connected_components
 
 
 def check_pangenome_former_modules(pangenome: Pangenome, force: bool = False):
@@ -39,24 +32,24 @@ def check_pangenome_former_modules(pangenome: Pangenome, force: bool = False):
         erase_pangenome(pangenome, modules=True)
 
 
-def compute_mod_graph(organisms: list, t: int = 1, disable_bar: bool = False):
+def compute_mod_graph(pangenome: Pangenome, t: int = 1, disable_bar: bool = False):
     """
     Computes a graph using all provided genomes with a transitive closure of size t
     
-    :param organisms: the list of organisms to compute the graph with
+    :param pangenome: pangenome with organisms to compute the graph
     :param t: the size of the transitive closure
     :param disable_bar: whether to show a progress bar or not
     """
 
     g = nx.Graph()
-    for org in tqdm(organisms, unit="genome", disable=disable_bar):
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
         for contig in org.contigs:
-            if len(contig.genes) > 0:
-                start_gene = contig.genes[0]
+            if len(contig) > 0:
+                start_gene = contig[0]
                 g.add_node(start_gene.family)
                 add_gene(g.nodes[start_gene.family], start_gene, fam_split=False)
                 for i, gene in enumerate(contig.genes):
-                    for j, a_gene in enumerate(contig.genes[i + 1:i + t + 2], start=i + 1):
+                    for j, a_gene in enumerate(contig.get_genes(i + 1, i + t + 2), start=i + 1):
                         g.add_edge(gene.family, a_gene.family)
                         edge = g[gene.family][a_gene.family]
                         add_gene(edge, gene)
@@ -76,11 +69,11 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     :param multi: a set of families :class:`ppanggolin.geneFamily.GeneFamily` considered multigenic
     :param weight: the minimal jaccard under which edges are not considered
     :param min_fam: the minimal number of presence under which the family is not considered
-    : param size: Minimal number of gene family in a module
+    :param size: Minimal number of gene family in a module
     """
 
     # removing families with low presence
-    removed = set([fam for fam in g.nodes if len(fam.organisms) < min_fam])
+    removed = set([fam for fam in g.nodes if fam.number_of_organisms < min_fam])
 
     modules = set()
     c = 0
@@ -94,15 +87,12 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     return modules
 
 
-def predict_modules(pangenome: Pangenome, tmpdir: str, cpu: int = 1, dup_margin: float = 0.05,
-                    size: int = 3, min_presence: int = 2, transitive: int = 4, jaccard: float = 0.85,
-                    force: bool = False, disable_bar: bool = False):
+def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 3, min_presence: int = 2,
+                    transitive: int = 4, jaccard: float = 0.85, force: bool = False, disable_bar: bool = False):
     """
     Main function to predict module
 
     :param pangenome: Pangenome object with Gene Families, Annotation and Partition
-    :param tmpdir: Path to temporary directory
-    :param cpu: Number of available core
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
     :param size: Minimal number of gene family in a module
     :param min_presence: Minimum number of times the module needs to be present in the pangenome to be reported.
@@ -118,10 +108,10 @@ def predict_modules(pangenome: Pangenome, tmpdir: str, cpu: int = 1, dup_margin:
 
     # compute the graph with transitive closure size provided as parameter
     start_time = time.time()
-    logging.getLogger().info("Building the graph...")
-    g = compute_mod_graph(pangenome.organisms, t=transitive, disable_bar=disable_bar)
-    logging.getLogger().info(f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
-    logging.getLogger().info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
+    logging.getLogger("PPanGGOLiN").info("Building the graph...")
+    g = compute_mod_graph(pangenome, t=transitive, disable_bar=disable_bar)
+    logging.getLogger("PPanGGOLiN").info(f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
+    logging.getLogger("PPanGGOLiN").info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     start_time = time.time()
     # get all multigenic gene families
@@ -132,12 +122,11 @@ def predict_modules(pangenome: Pangenome, tmpdir: str, cpu: int = 1, dup_margin:
 
     fams = set()
     for mod in modules:
-        fams |= mod.families
+        fams |= set(mod.families)
+        pangenome.add_module(mod)
 
-    logging.getLogger().info(f"There are {len(fams)} families among {len(modules)} modules")
-    logging.getLogger().info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
-
-    pangenome.add_modules(modules)
+    logging.getLogger("PPanGGOLiN").info(f"There are {len(fams)} families among {len(modules)} modules")
+    logging.getLogger("PPanGGOLiN").info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
 
     pangenome.status["modules"] = "Computed"
     pangenome.parameters["modules"] = {}
@@ -156,7 +145,7 @@ def launch(args: argparse.Namespace):
     """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    predict_modules(pangenome=pangenome, tmpdir=args.tmpdir, cpu=args.cpu, dup_margin=args.dup_margin, size=args.size,
+    predict_modules(pangenome=pangenome, dup_margin=args.dup_margin, size=args.size,
                     min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard, force=args.force,
                     disable_bar=args.disable_prog_bar)
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
@@ -183,8 +172,7 @@ def parser_module(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
-
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--size", required=False, type=int, default=3,
                           help="Minimal number of gene family in a module")
@@ -207,22 +195,13 @@ def parser_module(parser: argparse.ArgumentParser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_module(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--tmpdir", required=False, type=str, default=tempfile.gettempdir(),
-                        help="directory for storing temporary files")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

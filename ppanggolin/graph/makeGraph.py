@@ -4,6 +4,7 @@
 # default libraries
 import logging
 import argparse
+from pathlib import Path
 
 # installed libraries
 from tqdm import tqdm
@@ -84,8 +85,8 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
     if remove_copy_number > 0:
         remove_high_copy_number(pangenome, remove_copy_number)
 
-    logging.getLogger().info("Computing the neighbors graph...")
-    bar = tqdm(pangenome.organisms, total=len(pangenome.organisms), unit="organism", disable=disable_bar)
+    logging.getLogger("PPanGGOLiN").info("Computing the neighbors graph...")
+    bar = tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="organism", disable=disable_bar)
     for org in bar:
         bar.set_description(f"Processing {org.name}")
         bar.refresh()
@@ -102,10 +103,10 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
                     raise AttributeError("a Gene does not have a GeneFamily object associated")
                 except Exception:
                     raise Exception("Unexpected error. Please report on our github.")
-            if prev is not None and contig.is_circular and len(contig.genes) > 0:
+            if prev is not None and contig.is_circular and len(contig) > 0:
                 # if prev is None, the contig is entirely made of duplicated genes, so no edges are added
-                pangenome.add_edge(contig.genes[0], prev)
-    logging.getLogger().info("Done making the neighbors graph.")
+                pangenome.add_edge(contig[0], prev)
+    logging.getLogger("PPanGGOLiN").info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"
 
     pangenome.parameters["graph"] = {}
@@ -146,7 +147,7 @@ def parser_graph(parser: argparse.ArgumentParser):
 
     :param parser: parser for graph argument
     """
-    parser.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
+    parser.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
                         help="Positive Number: Remove families having a number of copy of gene in a single organism "
                              "above or equal to this threshold in at least one organism "
@@ -155,20 +156,13 @@ def parser_graph(parser: argparse.ArgumentParser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_graph(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())
