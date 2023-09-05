@@ -7,15 +7,14 @@ import logging
 import tempfile
 import subprocess
 import argparse
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import List, Tuple, Set, Dict, IO, Iterator
 from pathlib import Path
-import time
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.utils import mk_outdir, read_compressed_or_not
+from ppanggolin.utils import mk_outdir, read_compressed_or_not, create_tmpdir
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
 from ppanggolin.figures.draw_spot import draw_selected_spots, subgraph
@@ -51,7 +50,7 @@ def translate_with_mmseqs(seqdb: Path, translation_table: int, cpu: int, tmpdir:
 
     :return: Path to the new MMseqs2 sequence database containing translated amino acid sequences.
     """
-    
+
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, delete=False, prefix=seqdb.stem, suffix=".aa.DB") as seqdb_aa:
 
         cmd = ["mmseqs", "translatenucs", seqdb.as_posix(), seqdb_aa.name, "--translation-table", 
@@ -185,19 +184,32 @@ def associate_input_seq_to_gene_family_from_aln_rep(aln_res: Path, outdir:Path, 
     return seq2pang, outfile
 
 
-def get_seq_ids(seq_file: TextIOWrapper) -> Set[str]:
-    """
-    get sequence if from sequence input file in fasta format
 
-    :param seq_file: file containing sequences
-
-    :return: set of sequences
+def get_seq_ids(seq_file: TextIOWrapper) -> Tuple[Set[str], bool]:
     """
-    seqset = set()
+    Get sequence IDs from a sequence input file in FASTA format and guess the sequence type based on the first sequences.
+
+    :param seq_file: A file object containing sequences in FASTA format.
+
+    :return: A tuple containing a set of sequence IDs and a boolean indicating if the sequences are nucleotide sequences.
+    """
+    dna_expected_char = {'A', 'T', 'G', 'C', 'N'}
+    seq_set = set()
+    seq_count = 0
+    first_seq_concat = ""
+    
     for line in seq_file:
         if line.startswith(">"):
-            seqset.add(line[1:].split()[0].strip())
-    return seqset
+            seq_set.add(line[1:].split()[0].strip())
+            seq_count += 1
+        elif seq_count <= 20:
+            first_seq_concat += line.strip()
+
+    char_counter = Counter(first_seq_concat)
+    is_nucleotide = all(char in dna_expected_char for char in char_counter)
+    
+    return seq_set, is_nucleotide
+
 
 
 def write_gene_fam_sequences(pangenome: Pangenome, file_obj: IO, add: str = ""):
@@ -386,8 +398,6 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_file: Path, 
     :param no_defrag: If True, the defragmentation workflow is skipped (default: False).
     :param identity: Minimum identity threshold for the alignment (default: 0.8).
     :param coverage: Minimum coverage threshold for the alignment (default: 0.8).
-    :param is_nucleotide: Set to True if the sequence file contains nucleotide sequences to be translated.
-                          If True, sequences will be translated using the specified translation table (default: False).
     :param translation_table: Translation table to use if sequences need to be translated (default: 11).
     
     :return: A tuple containing the set of input sequences, the path to the alignment result file, 
@@ -401,7 +411,7 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_file: Path, 
         write_gene_fam_sequences(pangenome, tmp_pang_file, add="ppanggolin_")
 
         with read_compressed_or_not(sequence_file) as seqFileObj:
-            seqids_set = get_seq_ids(seqFileObj)
+            seqids_set, is_nucleotide = get_seq_ids(seqFileObj)
 
         align_file = align_seq_to_pang(target_seq_file=Path(tmp_pang_file.name), query_seq_file=sequence_file, output=output,
                                         tmpdir=tmpdir, cpu=cpu, 
@@ -431,8 +441,6 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_file: Path, 
     :param no_defrag: If True, the defragmentation workflow is skipped (default: False).
     :param identity: Minimum identity threshold for the alignment (default: 0.8).
     :param coverage: Minimum coverage threshold for the alignment (default: 0.8).
-    :param is_nucleotide: Set to True if the sequence file contains nucleotide sequences to be translated.
-                          If True, sequences will be translated using the specified translation table (default: False).
     :param translation_table: Translation table to use if sequences need to be translated (default: 11).
 
     :return: A tuple containing the set of input sequences, the path to the alignment result file, 
@@ -446,7 +454,7 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_file: Path, 
         write_all_gene_sequences(pangenome, tmp_pang_file, add="ppanggolin_")
 
         with read_compressed_or_not(sequence_file) as seqFileObj:
-            seq_set = get_seq_ids(seqFileObj)
+            seq_set, is_nucleotide = get_seq_ids(seqFileObj)
 
         align_file = align_seq_to_pang(target_seq_file=Path(tmp_pang_file.name), query_seq_file=sequence_file, output=output,
                                        tmpdir=tmpdir, cpu=cpu, 
@@ -461,11 +469,13 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_file: Path, 
 
 def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: float = 0.8,
           coverage: float = 0.8, no_defrag: bool = False, cpu: int = 1, getinfo: bool = False,
-          draw_related: bool = False, tmpdir: Path = None, disable_bar: bool = False, keep_tmp=False):
+          use_representatives: bool = False,
+          draw_related: bool = False, translation_table:int=11, tmpdir: Path = None, 
+          disable_bar: bool = False, keep_tmp=False):
     """
     Aligns pangenome sequences with sequences in a FASTA file using MMSeqs2.
 
-    :param pangenome: Pangenome containing gene families to align with the input sequences.
+    :param pangenome: Pangenome object containing gene families to align with the input sequences.
     :param sequence_file: Path to a FASTA file containing sequences to align with the pangenome.
     :param output: Path to the output directory.
     :param identity: Minimum identity threshold for the alignment.
@@ -473,7 +483,9 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
     :param no_defrag: If True, the defrag workflow will not be used.
     :param cpu: Number of CPU cores to use.
     :param getinfo: If True, extract information related to the best hit of each query, such as the RGP it is in or the spots.
+    :param use_representatives: If True, use representative sequences of gene families rather than all sequences to align input genes.
     :param draw_related: If True, draw figures and graphs in a gexf format of spots associated with the input sequences.
+    :param translation_table: Translation table ID for nucleotide sequences.
     :param tmpdir: Temporary directory for intermediate files.
     :param disable_bar: If True, disable the progress bar.
     :param keep_tmp: If True, keep temporary files.
@@ -497,21 +509,18 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
     else:
         check_pangenome_info(pangenome, need_families=True, disable_bar=disable_bar)
 
-    if keep_tmp:
-        
-        dir_name = 'align_tmpdir' +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime())
-        tmp_path = Path(tmpdir) / dir_name
-        mk_outdir(tmp_path, force=True)
-        logging.getLogger().info(f'Temporary files will be written {tmp_path} and kept for reference.')
+    with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
+            
 
-    else:
-        # if keep tmp is false, TemporaryDirectory created and then removed 
-        new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        tmp_path = Path(new_tmpdir.name)
-        print(tmp_path)
-
-    seq_set, align_file, seq2pang = get_seq2pang(pangenome, sequence_file, output, tmp_path, cpu, no_defrag, identity,
-                                                 coverage)
+        if use_representatives:
+            seq_set, align_file, seq2pang = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir,
+                                                        cpu, no_defrag, identity=identity, coverage=coverage,
+                                                        translation_table=translation_table)
+        else:
+            seq_set, align_file, seq2pang = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=sequence_file, 
+                                                                                output=output, tmpdir=new_tmpdir,
+                                                                                cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
+                                                                                is_nucleotide=True, translation_table=translation_table)
 
     if getinfo or draw_related:  # TODO Add getinfo to function and remove if
         get_seq_info(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
@@ -520,8 +529,6 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
     logging.getLogger().info(f"sequences partition projection : '{part_proj}'")
     logging.getLogger().info(f"{len(seq2pang)} sequences over {len(seq_set)} have at least one hit in the pangenome.")
     logging.getLogger().info(f"Blast-tab file of the alignment : '{align_file.name}'")
-
-    # new_tmpdir.cleanup()
 
 
 def launch(args: argparse.Namespace):
@@ -533,9 +540,12 @@ def launch(args: argparse.Namespace):
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    align(pangenome=pangenome, sequence_file=args.sequences, output=args.output, tmpdir=args.tmpdir,
-          identity=args.identity, coverage=args.coverage, no_defrag=args.no_defrag, cpu=args.cpu, getinfo=args.getinfo,
-          draw_related=args.draw_related, disable_bar=args.disable_prog_bar, keep_tmp=args.keep_tmp)
+    align(pangenome=pangenome, sequence_file=args.sequences, output=args.output,
+          tmpdir=args.tmpdir, identity=args.identity, coverage=args.coverage,
+          no_defrag=args.no_defrag, cpu=args.cpu, getinfo=args.getinfo,
+          use_representatives=args.fast, draw_related=args.draw_related,
+          translation_table=args.translation_table, 
+          disable_bar=args.disable_prog_bar, keep_tmp=args.keep_tmp)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -574,6 +584,9 @@ def parser_align(parser: argparse.ArgumentParser):
                           help="min identity percentage threshold")
     optional.add_argument('--coverage', required=False, type=float, default=0.8,
                           help="min coverage percentage threshold")
+    optional.add_argument("--fast", required=False, action="store_true",
+                    help="Use representative sequences of gene families for input gene alignment. "
+                        "This option is faster but may be less sensitive. By default, all pangenome genes are used.")
     optional.add_argument("--translation_table", required=False, default="11",
                           help="Translation table (genetic code) to use.")
     optional.add_argument("--getinfo", required=False, action="store_true",

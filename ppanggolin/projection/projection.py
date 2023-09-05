@@ -280,13 +280,12 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
         if use_representatives:
             seq_set, _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome, seq_fasta_file, output, new_tmpdir,
-                                                        cpu, no_defrag, identity=identity, coverage=coverage,
-                                                        is_nucleotide=True, translation_table=translation_table)
+                                                        cpu, no_defrag, identity=identity, coverage=coverage, translation_table=translation_table)
         else:
             seq_set, _, seqid_to_gene_family = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=seq_fasta_file, 
                                                                                 output=output, tmpdir=new_tmpdir,
                                                                                 cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
-                                                                                is_nucleotide=True, translation_table=translation_table)
+                                                                                translation_table=translation_table)
 
 
     project_and_write_partition(seqid_to_gene_family, seq_set, output)
