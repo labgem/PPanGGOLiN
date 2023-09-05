@@ -105,7 +105,7 @@ def align_seq_to_pang(target_seq_file:Path , query_seq_file: Path, output: Path,
 
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file", suffix=".aln.DB", delete=False) as aln_db:
         cmd = ["mmseqs", "search", query_db.as_posix(), target_db.as_posix(), aln_db.name, tmpdir.as_posix(), "-a", "--min-seq-id", str(identity),
-            "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)] #,  "--max-accept", str(1)]
+            "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)] #,  "--max-accept", str(1), "--max-seqs", str(10)]
         
         logging.getLogger().info("Aligning sequences")
         logging.getLogger().debug(" ".join(cmd))
