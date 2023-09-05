@@ -93,13 +93,14 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_align --draw_related --getinfo
+        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta \
+                         --output test_align --draw_related --getinfo --fast
         cd -
     - name: testing context command
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context
+        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context --fast
         ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f
         cd -
     - name: testing metadata command
@@ -122,6 +123,10 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_gbff --organism_name trotro --annot GBFF/GCF_000026905.1_ASM2690v1_genomic.gbff.gz --spot_graph 
-        ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_fasta --organism_name trotro --fasta_file FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz --spot_graph --graph_formats graphml
+        ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_gbff \
+                              --organism_name trotro --annot GBFF/GCF_000026905.1_ASM2690v1_genomic.gbff.gz --spot_graph 
+        ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_fasta \
+                              --organism_name trotro --fasta_file FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz \
+                              --spot_graph --graph_formats graphml --fast --keep_tmp
+
       
