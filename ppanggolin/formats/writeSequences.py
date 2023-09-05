@@ -106,14 +106,14 @@ def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_c
     elif partition == "softcore":
         logging.getLogger().info(
             f"Writing the {type_name} in {partition} genome, that are present in more than {soft_core} of genomes")
-        threshold = pangenome.number_of_organisms() * soft_core
+        threshold = pangenome.number_of_organisms * soft_core
         for fam in pangenome.gene_families:
             if len(fam.organisms) >= threshold:
                 genefams.add(fam)
     elif partition == "core":
         logging.getLogger().info(f"Writing the representative {type_name} of the {partition} gene families...")
         for fam in pangenome.gene_families:
-            if len(fam.organisms) == pangenome.number_of_organisms():
+            if len(fam.organisms) == pangenome.number_of_organisms:
                 genefams.add(fam)
     elif "module_" in partition:
         logging.getLogger().info(f"Writing the representation {type_name} of {partition} gene families...")

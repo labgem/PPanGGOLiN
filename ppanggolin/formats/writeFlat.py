@@ -487,9 +487,9 @@ def write_stats(output: str, soft_core: float = 0.95, dup_margin: float = 0.05, 
     soft = set()  # could use bitarrays if speed is needed
     core = set()
     for fam in pan.gene_families:
-        if len(fam.organisms) >= pan.number_of_organisms() * soft_core:
+        if len(fam.organisms) >= pan.number_of_organisms * soft_core:
             soft.add(fam)
-        if len(fam.organisms) == pan.number_of_organisms():
+        if len(fam.organisms) == pan.number_of_organisms:
             core.add(fam)
 
     with write_compressed_or_not(output + "/organisms_statistics.tsv", compress) as outfile:

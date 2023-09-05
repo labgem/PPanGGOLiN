@@ -251,7 +251,7 @@ def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain
     multigenics = pangenome.get_multigenics(dup_margin)
     logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
     name_scheme = naming_scheme(pangenome)
-    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genomes", disable=disable_bar):
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genomes", disable=disable_bar):
         pangenome.add_regions(compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
                                               min_score, naming=name_scheme))
     logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")

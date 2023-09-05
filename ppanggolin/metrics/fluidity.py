@@ -40,7 +40,7 @@ def gen_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
             common_fam = popcount(c_organisms[0].bitarray & c_organisms[1].bitarray) - 1
             if tot_fam > 0 and common_fam > 0:
                 g_sum += (tot_fam - 2 * common_fam) / tot_fam
-        fluidity_dict[subset] = (2 / (pangenome.number_of_organisms() * (pangenome.number_of_organisms() - 1))) * g_sum
+        fluidity_dict[subset] = (2 / (pangenome.number_of_organisms * (pangenome.number_of_organisms - 1))) * g_sum
     return fluidity_dict
 
 

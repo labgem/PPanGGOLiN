@@ -145,6 +145,10 @@ def get_genedata(gene:Feature) -> Tuple[int, str, str, int, str, str, int]:
                     gene.product, genetic_code)
 
 
+def write_organism(pangenome: Pangenome, h5f: tables.File, disable_bar = False):
+    organism_table = h5f.create_table(annotation, "organism", gene_desc(*get_max_len_annotations(pangenome)),
+                                      expectedrows=pangenome.number_of_organisms)
+
 def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
     Function writing all the pangenome annotations
@@ -163,7 +167,7 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, disable_bar: bool 
     genedata_counter = 0
 
     gene_row = gene_table.row
-    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genome", disable=disable_bar):
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
         for contig in org.contigs:
             for gene in contig.genes + list(contig.RNAs):
                 gene_row["organism"] = org.name

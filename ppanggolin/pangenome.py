@@ -94,7 +94,7 @@ class Pangenome:
 
         :return: an iterator of Gene
         """
-        if self.number_of_organisms() > 0:  # if we have organisms, they're supposed to have genes
+        if self.number_of_organisms > 0:  # if we have organisms, they're supposed to have genes
             for org in self.organisms:
                 for contig in org.contigs:
                     for gene in contig.genes:
@@ -245,6 +245,7 @@ class Pangenome:
         """
         return list(self._orgGetter.values())
 
+    @property
     def number_of_organisms(self) -> int:
         """Returns the number of organisms present in the pangenome
         
