@@ -581,6 +581,13 @@ class Organism(MetaFeatures):
         except KeyError:
             raise KeyError("Position of the gene in the contig does not exist")
 
+    def __len__(self):
+        """ Get number of contigs in organism
+
+        :return: Number of contigs in organism
+        """
+        return len(self._contigs_getter)
+
     @property
     def families(self):
         """Return the gene families present in the organism
@@ -624,13 +631,6 @@ class Organism(MetaFeatures):
         :return: Values in contig dictionary from organism
         """
         yield from self._contigs_getter.values()
-
-    def number_of_contigs(self) -> int:
-        """ Get number of contigs in organism
-
-        :return: Number of contigs in organism
-        """
-        return len(self._contigs_getter)
 
     def add(self, contig: Contig):
         """Add a contig to organism

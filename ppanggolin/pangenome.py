@@ -8,7 +8,7 @@ from typing import Iterator, List, Union, Dict, Set, Iterable, Generator
 from pathlib import Path
 
 # local libraries
-from ppanggolin.genome import Organism, Gene
+from ppanggolin.genome import Organism, Contig, Gene
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.edge import Edge
@@ -280,6 +280,18 @@ class Pangenome:
         :return: The number of organism
         """
         return len(self._orgGetter)
+
+    @property
+    def contigs(self) -> Generator[Contig, None, None]:
+        for organism in self.organisms:
+            yield from organism.contigs
+    @property
+    def number_of_contigs(self) -> int:
+        """Returns the number of contigs present in the pangenome
+
+        :return: The number of contigs
+        """
+        return sum(len(org) for org in self.organisms)
 
     def get_organism(self, name: str) -> Organism:
         """
