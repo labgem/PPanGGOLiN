@@ -10,6 +10,9 @@ import argparse
 from io import TextIOWrapper
 from pathlib import Path
 from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable
+from contextlib import contextmanager
+import tempfile
+import time
 
 import networkx as nx
 import pkg_resources
@@ -261,6 +264,23 @@ def mk_outdir(output: Path, force: bool = False):
             raise FileExistsError(
                 f"{output} already exists. Use -f if you want to overwrite the files in the directory")
 
+@contextmanager
+def create_tmpdir(main_dir, basename="tmpdir", keep_tmp=False):
+
+    if keep_tmp:
+        dir_name = basename +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime()) 
+
+        new_tmpdir = main_dir / dir_name
+        logging.debug(f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
+
+        mk_outdir(new_tmpdir, force=True)
+        yield new_tmpdir
+        
+    else:
+        with tempfile.TemporaryDirectory(dir=main_dir, prefix=basename) as new_tmpdir:
+            logging.debug(f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
+            yield Path(new_tmpdir)
+                  
 
 def mk_file_name(basename: str, output: Path, force: bool = False) -> Path:
     """Returns a usable filename for a ppanggolin output file, or crashes.

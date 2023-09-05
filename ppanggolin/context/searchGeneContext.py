@@ -18,7 +18,7 @@ from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig
 from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.align.alignOnPang import get_seq2pang, project_and_write_partition
+from ppanggolin.align.alignOnPang import  project_and_write_partition #get_seq2pang,
 from ppanggolin.region import GeneContext
 
 

@@ -13,6 +13,7 @@ from typing import Tuple, Set, Dict, Iterator, Optional, List
 from collections import defaultdict
 import csv
 
+
 # installed libraries
 from tqdm import tqdm
 import networkx as nx
@@ -24,8 +25,8 @@ from ppanggolin.annotate.annotate import read_anno_file
 from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
 # from ppanggolin.genome import input_organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, write_compressed_or_not, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args
-from ppanggolin.align.alignOnPang import get_seq2pang, project_and_write_partition
+from ppanggolin.utils import create_tmpdir, read_compressed_or_not, write_compressed_or_not, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args
+from ppanggolin.align.alignOnPang import get_input_seq_to_family_with_rep,get_input_seq_to_family_with_all, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
 from ppanggolin.formats.readBinaries import check_pangenome_info
 # from ppanggolin.formats import write_pangenome
@@ -137,9 +138,11 @@ def launch(args: argparse.Namespace):
     # Add input organism in pangenome. This is temporary as the pangenome object is not going to be written.
     pangenome.add_organism(input_organism)
 
-    singleton_gene_count = annotate_input_genes_with_pangenome_families(pangenome, input_organism=input_organism, output=output_dir, cpu=args.cpu,
-                                                 no_defrag=args.no_defrag, identity=args.identity, coverage=args.coverage, tmpdir=args.tmpdir,
-                                                 translation_table=args.translation_table, keep_tmp=True)
+    singleton_gene_count = annotate_input_genes_with_pangenome_families(pangenome, input_organism=input_organism,
+                                                                        output=output_dir, cpu=args.cpu,use_representatives=args.fast,
+                                                                        no_defrag=args.no_defrag, identity=args.identity,
+                                                                        coverage=args.coverage, tmpdir=args.tmpdir,
+                                                                        translation_table=args.translation_table, keep_tmp=args.keep_tmp)
 
     input_org_rgps, input_org_spots, input_org_modules = None, None, None
 
@@ -238,7 +241,9 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
     print('Projection_summary:')
     print(yaml_string)
 
-def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organism: Organism, output: Path, cpu: int, no_defrag: bool,
+        
+def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organism: Organism, output: Path,
+                                                 cpu: int,use_representatives:bool, no_defrag: bool, 
                                                  identity: float, coverage: float, tmpdir: Path,
                                                  translation_table: int, keep_tmp:bool = False):
     """
@@ -249,6 +254,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     :param output: Output directory for generated files.
     :param cpu: Number of CPU cores to use.
     :param no_defrag: Whether to use defragmentation.
+    :param use_representatives: Use representative sequences of gene families rather than all sequence to align input genes
     :param identity: Minimum identity threshold for gene clustering.
     :param coverage: Minimum coverage threshold for gene clustering.
     :param tmpdir: Temporary directory for intermediate files.
@@ -259,31 +265,29 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     :return: Number of genes that do not cluster with any of the gene families of the pangenome.
     """
 
-    target_type = "all"
-
     seq_fasta_file = output / f"{input_organism.name}.fasta"
 
     logging.info(f'The input organism has {input_organism.number_of_genes()} genes. Writting them in {seq_fasta_file}')
 
     with open(seq_fasta_file, "w") as fh_out_faa:
         write_gene_sequences_from_annotations(
-            input_organism.genes, fh_out_faa, disable_bar=True)
+            input_organism.genes, fh_out_faa, disable_bar=True, add="ppanggolin_")
 
-    if keep_tmp:
-        dir_name = 'seq_to_pang_tmpdir' +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime()) + "_PID" + str(os.getpid())
-        new_tmpdir = tmpdir / dir_name
-        mk_outdir(new_tmpdir, force=True)
-        
-    else:
-        new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir, prefix="seq_to_pang_tmpdir_")
-        new_tmpdir = Path(new_tmpdir.name)
 
-    seq_set, _, seqid_to_gene_family = get_seq2pang(pangenome, seq_fasta_file, output, new_tmpdir,
-                                                    cpu, no_defrag, identity=identity, coverage=coverage,
-                                                    is_nucleotide=True, translation_table=translation_table, target_type="all")
 
-    if not keep_tmp:
-        new_tmpdir.cleanup()
+    with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
+            
+
+        if use_representatives:
+            seq_set, _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome, seq_fasta_file, output, new_tmpdir,
+                                                        cpu, no_defrag, identity=identity, coverage=coverage,
+                                                        is_nucleotide=True, translation_table=translation_table)
+        else:
+            seq_set, _, seqid_to_gene_family = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=seq_fasta_file, 
+                                                                                output=output, tmpdir=new_tmpdir,
+                                                                                cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
+                                                                                is_nucleotide=True, translation_table=translation_table)
+
 
     project_and_write_partition(seqid_to_gene_family, seq_set, output)
 
@@ -749,6 +753,10 @@ def parser_projection(parser: argparse.ArgumentParser):
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family. (default: False)")
+    
+    optional.add_argument("--fast", required=False, action="store_true",
+                        help="Use representative sequences of gene families for input gene alignment. "
+                            "This option is faster but may be less sensitive. By default, all pangenome genes are used.")
 
     optional.add_argument('--identity', required=False, type=restricted_float, default=0.8,
                           help="min identity percentage threshold")
