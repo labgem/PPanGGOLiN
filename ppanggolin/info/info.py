@@ -3,8 +3,9 @@
 
 # default libraries
 import argparse
-import logging
+from pathlib import Path
 
+# installed libraries
 import tables
 
 # local libraries
@@ -108,13 +109,13 @@ def parser_info(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="The following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=True, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=True, type=Path, help="The pangenome .h5 file")
 
     options = parser.add_argument_group(title="optional arguments")
     options.add_argument("--parameters", required=False, action="store_true",
                          help="Shows the parameters used (or computed) for each step of the pangenome generation")
     options.add_argument("--content", required=False, action="store_true",
-                         help="Shows detailled informations about the pan's content")
+                         help="Shows detailled informations about the pangenome's content")
     options.add_argument("--status", required=False, action="store_true",
                          help="Shows informations about the statuses of the different elements of the pangenome "
                               "(what has been computed, or not)")

@@ -18,7 +18,8 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
 
-    launch_workflow(args, subparser, panrgp=True, panmodule=False)
+    launch_workflow(args, panrgp=True, panmodule=False)
+
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
