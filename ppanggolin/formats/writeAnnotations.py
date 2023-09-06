@@ -110,7 +110,7 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
     logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_contigs} contigs")
     contig_row = contig_table.row
     for contig in tqdm(pangenome.contigs, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
-        if len(contig) >= contig.number_of_rnas:
+        if contig.number_of_genes >= contig.number_of_rnas:
             rna_list = list(contig.RNAs)
             for index, gene in enumerate(contig.genes):
                 contig_row["name"] = contig.name
