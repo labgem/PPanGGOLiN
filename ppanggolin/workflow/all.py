@@ -87,7 +87,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                            procedure=args.annotate.prodigal_procedure,
                            translation_table=args.annotate.translation_table, kingdom=args.annotate.kingdom,
                            norna=args.annotate.norna,
-                           overlap=args.annotate.allow_overlap)
+                           allow_overlap=args.annotate.allow_overlap)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()

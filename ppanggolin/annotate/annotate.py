@@ -545,7 +545,7 @@ def launch_annotate_organism(pack: tuple) -> Organism:
 
 
 def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu: int = 1, translation_table: int = 11,
-                       kingdom: str = "bacteria", norna: bool = False, overlap: bool = False, procedure: str = None,
+                       kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,
                        disable_bar: bool = False):
     """
     Main function to annotate a pangenome
@@ -557,7 +557,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     :param translation_table: Translation table (genetic code) to use.
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param norna: Use to avoid annotating RNA features.
-    :param overlap: Use to not remove genes overlapping with RNA features
+    :param allow_overlap: Use to not remove genes overlapping with RNA features
     :param procedure: prodigal procedure used
     :param disable_bar: Disable the progresse bar
     """
@@ -574,7 +574,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
             org_path = fasta_list.parent.joinpath(org_path)
             
         arguments.append((elements[0], org_path, elements[2:], tmpdir, translation_table,
-                          norna, kingdom, overlap, procedure))
+                          norna, kingdom, allow_overlap, procedure))
 
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
@@ -592,7 +592,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     pangenome.status["genomesAnnotated"] = "Computed"  # the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"  # the gene objects have their respective gene sequences.
     pangenome.parameters["annotation"] = {}
-    pangenome.parameters["annotation"]["remove_Overlapping_CDS"] = overlap
+    pangenome.parameters["annotation"]["remove_Overlapping_CDS"] = allow_overlap
     pangenome.parameters["annotation"]["annotate_RNA"] = True if not norna else False
     pangenome.parameters["annotation"]["kingdom"] = kingdom
     pangenome.parameters["annotation"]["translation_table"] = translation_table
@@ -611,7 +611,7 @@ def launch(args: argparse.Namespace):
     if args.fasta is not None and args.anno is None:
         annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, procedure=args.prodigal_procedure,
                            translation_table=args.translation_table, kingdom=args.kingdom, norna=args.norna,
-                           overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
+                           allow_overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
         read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":

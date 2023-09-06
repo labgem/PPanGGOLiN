@@ -241,12 +241,12 @@ def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, tmpdir: str, n
     return genes
 
 
-def overlap_filter(all_genes: defaultdict, overlap: bool = False) -> defaultdict:
+def overlap_filter(all_genes: defaultdict, allow_overlap: bool = False) -> defaultdict:
     """
     Removes the CDS that overlap with RNA genes.
 
     :param all_genes: Dictionary with complete list of genes
-    :param overlap: Use to not remove genes overlapping with RNA features
+    :param allow_overlap: Use to not remove genes overlapping with RNA features
 
     :return: Dictionary with genes filtered
     """
@@ -255,7 +255,7 @@ def overlap_filter(all_genes: defaultdict, overlap: bool = False) -> defaultdict
     for key, genes in all_genes.items():
         tmp_genes = sorted(genes, key=lambda x: x.start)
         rm_genes = set()
-        if not overlap:
+        if not allow_overlap:
             for i, gene_i in enumerate(tmp_genes):
                 if i + 1 < len(tmp_genes):
                     gene_j = tmp_genes[i + 1]
@@ -292,7 +292,7 @@ def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
 
 def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: str,
                       code: int = 11, norna: bool = False, kingdom: str = "bacteria",
-                      overlap: bool = False, procedure: str = None) -> Organism:
+                      allow_overlap: bool = False, procedure: str = None) -> Organism:
     """
     Function to annotate a single organism
 
@@ -303,7 +303,7 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param norna: Use to avoid annotating RNA features.
     :param tmpdir: Path to temporary directory
-    :param overlap: Use to not remove genes overlapping with RNA features
+    :param allow_overlap: Use to not remove genes overlapping with RNA features
     :param procedure: prodigal procedure used
 
     :return: Complete organism object for pangenome
@@ -322,7 +322,7 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
         else:
             procedure = "single"
     genes = syntaxic_annotation(org, fasta_file, tmpdir, norna, kingdom, code, procedure)
-    genes = overlap_filter(genes, overlap)
+    genes = overlap_filter(genes, allow_overlap=allow_overlap)
 
     for contig_name, genes in genes.items():
         try:
