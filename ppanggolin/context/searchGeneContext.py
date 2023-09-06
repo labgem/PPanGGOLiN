@@ -149,7 +149,7 @@ def extract_gene_context(gene: Gene, contig: list, families: dict, t: int = 4) -
     """
 
     pos_left, pos_right = (max(0, gene.position - t),
-                           min(gene.position + t, contig.number_of_genes - 1))  # Gene positions to compare family
+                           min(gene.position + t, len(contig) - 1))  # Gene positions to compare family
     in_context_left, in_context_right = (False, False)
     while pos_left < gene.position and not in_context_left:
         if contig[pos_left].family in families.values():
