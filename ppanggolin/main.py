@@ -153,10 +153,6 @@ def main():
 
     if hasattr(args, "pangenome") and args.pangenome is not None:
         check_input_files(args.pangenome)
-    if hasattr(args, "fasta") and args.fasta is not None:
-        check_input_files(args.fasta, True)
-    if hasattr(args, "anno") and args.anno is not None:
-        check_input_files(args.anno, True)
 
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)

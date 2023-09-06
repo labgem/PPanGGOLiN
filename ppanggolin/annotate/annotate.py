@@ -17,7 +17,7 @@ from tqdm import tqdm
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype
+from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
 from ppanggolin.formats import write_pangenome
 
 
@@ -32,6 +32,12 @@ def check_annotate_args(args):
         raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
                         "or a file with the --gff option to load annotations from.")
 
+    
+    if hasattr(args, "fasta") and args.fasta is not None:
+        check_input_files(args.fasta, True)
+
+    if hasattr(args, "anno") and args.anno is not None:
+        check_input_files(args.anno, True)
 
 def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: set,
                 start: int, stop: int, strand: str, gene_type: str, position: int = None, gene_name: str = "",
@@ -560,16 +566,20 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
 
     arguments = []  # Argument given to annotate organism in same order than prototype
     for line in read_compressed_or_not(fasta_list):
+
         elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:  # TODO remove ? Already tested by check TSV sanity
-            raise Exception("No tabulation separator found in organisms file")
         org_path = Path(elements[1])
+
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = fasta_list.parent.joinpath(org_path)
+            
         arguments.append((elements[0], org_path, elements[2:], tmpdir, translation_table,
                           norna, kingdom, overlap, procedure))
+
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
+
+
     logging.getLogger("PPanGGOLiN").info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
     with get_context('fork').Pool(processes=cpu) as p:
         for organism in tqdm(p.imap_unordered(launch_annotate_organism, arguments), unit="genome",
