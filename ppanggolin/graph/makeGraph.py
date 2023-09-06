@@ -103,7 +103,7 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
                     raise AttributeError("a Gene does not have a GeneFamily object associated")
                 except Exception:
                     raise Exception("Unexpected error. Please report on our github.")
-            if prev is not None and contig.is_circular and len(contig) > 0:
+            if prev is not None and contig.is_circular and contig.number_of_genes > 0:
                 # if prev is None, the contig is entirely made of duplicated genes, so no edges are added
                 pangenome.add_edge(contig[0], prev)
     logging.getLogger("PPanGGOLiN").info("Done making the neighbors graph.")

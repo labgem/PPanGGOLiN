@@ -17,7 +17,7 @@ from tqdm import tqdm
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype
+from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
 from ppanggolin.formats import write_pangenome
 
 
@@ -32,6 +32,12 @@ def check_annotate_args(args):
         raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
                         "or a file with the --gff option to load annotations from.")
 
+    
+    if hasattr(args, "fasta") and args.fasta is not None:
+        check_input_files(args.fasta, True)
+
+    if hasattr(args, "anno") and args.anno is not None:
+        check_input_files(args.anno, True)
 
 def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: set,
                 start: int, stop: int, strand: str, gene_type: str, position: int = None, gene_name: str = "",
@@ -155,7 +161,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             if curr_type != "":
                 if useful_info:
                     create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
-                                len(contig), gene_name, product, genetic_code, protein_id)
+                                contig.number_of_genes, gene_name, product, genetic_code, protein_id)
                     if obj_type == "CDS":
                         gene_counter += 1
                     else:
@@ -215,7 +221,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             # end of contig
         if useful_info:  # saving the last element...
             create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
-                        len(contig), gene_name, product, genetic_code, protein_id)
+                        contig.number_of_genes, gene_name, product, genetic_code, protein_id)
             if obj_type == "CDS":
                 gene_counter += 1
             else:
@@ -352,7 +358,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                     # here contig is filled in order, so position is the number of genes already stored in the contig.
                     gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                           strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
-                                          position=len(contig), product=product, local_identifier=gene_id,
+                                          position=contig.number_of_genes, product=product, local_identifier=gene_id,
                                           genetic_code=genetic_code)
                     gene.fill_parents(org, contig)
                     gene_counter += 1
@@ -457,8 +463,6 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     args = []
     for line in read_compressed_or_not(organisms_file):
         elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
-            raise Exception(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
         org_path = Path(elements[1])
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
@@ -539,7 +543,7 @@ def launch_annotate_organism(pack: tuple) -> Organism:
 
 
 def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu: int = 1, translation_table: int = 11,
-                       kingdom: str = "bacteria", norna: bool = False, overlap: bool = False, procedure: str = None,
+                       kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,
                        disable_bar: bool = False):
     """
     Main function to annotate a pangenome
@@ -551,7 +555,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     :param translation_table: Translation table (genetic code) to use.
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param norna: Use to avoid annotating RNA features.
-    :param overlap: Use to not remove genes overlapping with RNA features
+    :param allow_overlap: Use to not remove genes overlapping with RNA features
     :param procedure: prodigal procedure used
     :param disable_bar: Disable the progresse bar
     """
@@ -560,16 +564,20 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
 
     arguments = []  # Argument given to annotate organism in same order than prototype
     for line in read_compressed_or_not(fasta_list):
+
         elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:  # TODO remove ? Already tested by check TSV sanity
-            raise Exception("No tabulation separator found in organisms file")
         org_path = Path(elements[1])
+
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = fasta_list.parent.joinpath(org_path)
+            
         arguments.append((elements[0], org_path, elements[2:], tmpdir, translation_table,
-                          norna, kingdom, overlap, procedure))
+                          norna, kingdom, allow_overlap, procedure))
+
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
+
+
     logging.getLogger("PPanGGOLiN").info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
     with get_context('fork').Pool(processes=cpu) as p:
         for organism in tqdm(p.imap_unordered(launch_annotate_organism, arguments), unit="genome",
@@ -582,7 +590,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     pangenome.status["genomesAnnotated"] = "Computed"  # the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"  # the gene objects have their respective gene sequences.
     pangenome.parameters["annotation"] = {}
-    pangenome.parameters["annotation"]["remove_Overlapping_CDS"] = overlap
+    pangenome.parameters["annotation"]["remove_Overlapping_CDS"] = allow_overlap
     pangenome.parameters["annotation"]["annotate_RNA"] = True if not norna else False
     pangenome.parameters["annotation"]["kingdom"] = kingdom
     pangenome.parameters["annotation"]["translation_table"] = translation_table
@@ -601,7 +609,7 @@ def launch(args: argparse.Namespace):
     if args.fasta is not None and args.anno is None:
         annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, procedure=args.prodigal_procedure,
                            translation_table=args.translation_table, kingdom=args.kingdom, norna=args.norna,
-                           overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
+                           allow_overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
         read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":

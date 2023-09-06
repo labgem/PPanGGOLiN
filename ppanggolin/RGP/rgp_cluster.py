@@ -245,7 +245,7 @@ def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List
 
 def add_edges_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List[IdenticalRegions]):
     """
-    Replace the identical rgp object by all identical rgp it contains.
+    Replace identical rgp objects by all identical RGPs it contains.
 
     :param rgp_graph: The RGP graph to add edges to.
     :param identical_rgps_objects: A dictionary mapping RGPs to sets of identical RGPs.

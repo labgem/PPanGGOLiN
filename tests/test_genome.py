@@ -348,15 +348,15 @@ class TestContig:
 			gene = Gene('test_gene')
 			contig.add(gene)
 
-	def test_get_len(self, genes, contig):
+	def test_number_of_genes(self, genes, contig):
 		"""Tests len method
 		"""
 		gene1, gene2, gene3 = genes
 		contig.add(gene1)
 		contig.add(gene2)
 		contig.add(gene3)
-		assert isinstance(len(contig), int)
-		assert len(contig) == 3
+		assert isinstance(contig.number_of_genes, int)
+		assert contig.number_of_genes == 3
 
 	def test_get_gene(self, gene, contig):
 		"""Tests that a gene can be retrieved by its position
