@@ -234,7 +234,7 @@ class Region(MetaFeatures):
 
         :return: True if whole contig else False
         """
-        if self.starter.position == 0 and self.stopper.position == len(self.contig) - 1:
+        if self.starter.position == 0 and self.stopper.position == self.contig.number_of_genes - 1:
             return True
         return False
 
@@ -279,14 +279,14 @@ class Region(MetaFeatures):
                 border[0].append(curr_gene)
             pos -= 1
             if pos == -1 and self.contig.is_circular:
-                pos = len(self.contig)
+                pos = self.contig.number_of_genes
             if pos == init:
                 break  # looped around the contig
         pos = self.stopper.position
         init = pos
-        while len(border[1]) < n and (pos != len(self.contig) - 1 or self.contig.is_circular):
+        while len(border[1]) < n and (pos != self.contig.number_of_genes - 1 or self.contig.is_circular):
             curr_gene = None
-            if pos == len(self.contig) - 1:
+            if pos == self.contig.number_of_genes - 1:
                 if self.contig.is_circular:
                     curr_gene = self.contig[0]
             else:
@@ -294,7 +294,7 @@ class Region(MetaFeatures):
             if curr_gene is not None and curr_gene.family not in multigenics:
                 border[1].append(curr_gene)
             pos += 1
-            if pos == len(self.contig) and self.contig.is_circular:
+            if pos == self.contig.number_of_genes and self.contig.is_circular:
                 pos = -1
             if pos == init:
                 break  # looped around the contig

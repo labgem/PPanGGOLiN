@@ -315,9 +315,6 @@ class Contig:
     def __str__(self) -> str:
         return self.name
 
-    def __len__(self) -> int:
-        return len(self._genes_position)
-
     def __setitem__(self, start: int, gene: Gene):
         """ Set gene to Contig
 
@@ -435,6 +432,10 @@ class Contig:
             raise ValueError("End position is lower than begin position")
         else:
             return self._genes_position[begin: end]
+
+    @property
+    def number_of_genes(self) -> int:
+        return len(self._genes_position)
 
     @property
     def genes(self) -> Generator[Gene, None, None]:
@@ -615,7 +616,7 @@ class Organism(MetaFeatures):
 
         :return: Number of genes
         """
-        return sum([len(contig) for contig in self.contigs])
+        return sum([contig.number_of_genes for contig in self.contigs])
 
     @property
     def contigs(self) -> Generator[Contig, None, None]:

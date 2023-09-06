@@ -161,7 +161,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             if curr_type != "":
                 if useful_info:
                     create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
-                                len(contig), gene_name, product, genetic_code, protein_id)
+                                contig.number_of_genes, gene_name, product, genetic_code, protein_id)
                     if obj_type == "CDS":
                         gene_counter += 1
                     else:
@@ -221,7 +221,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             # end of contig
         if useful_info:  # saving the last element...
             create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
-                        len(contig), gene_name, product, genetic_code, protein_id)
+                        contig.number_of_genes, gene_name, product, genetic_code, protein_id)
             if obj_type == "CDS":
                 gene_counter += 1
             else:
@@ -358,7 +358,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                     # here contig is filled in order, so position is the number of genes already stored in the contig.
                     gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                           strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
-                                          position=len(contig), product=product, local_identifier=gene_id,
+                                          position=contig.number_of_genes, product=product, local_identifier=gene_id,
                                           genetic_code=genetic_code)
                     gene.fill_parents(org, contig)
                     gene_counter += 1
@@ -463,8 +463,6 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     args = []
     for line in read_compressed_or_not(organisms_file):
         elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
-            raise Exception(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
         org_path = Path(elements[1])
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
