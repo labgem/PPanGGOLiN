@@ -488,6 +488,12 @@ class Contig:
         """
         yield from self._rna_getter
 
+    @property
+    def number_of_rnas(self) -> int:
+        """Get the number of RNA in the contig
+        """
+        return len(self._rna_getter)
+
 
 class Organism(MetaFeatures):
     """

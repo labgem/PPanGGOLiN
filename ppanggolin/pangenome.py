@@ -146,6 +146,26 @@ class Pangenome:
             self._mk_gene_getter()  # make it
             return len(self._geneGetter)
 
+    """RNAs methods"""
+
+    @property
+    def RNAs(self) -> Generator[Gene, None, None]:
+        """Generator of genes in the pangenome.
+
+        :return: gene generator
+        """
+        for org in self.organisms:
+            for contig in org.contigs:
+                yield from contig.RNAs
+
+    @property
+    def number_of_rnas(self) -> int:
+        """Returns the number of gene present in the pangenome
+
+        :return: The number of genes
+        """
+        return sum(ctg.number_of_rnas for ctg in self.contigs)
+
     """Gene families methods"""
     @property
     def max_fam_id(self):

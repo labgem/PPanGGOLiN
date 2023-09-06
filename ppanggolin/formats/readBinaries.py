@@ -5,10 +5,9 @@
 import logging
 import sys
 from pathlib import Path
-# installed libraries
-from typing import TextIO
-from typing import List
+from typing import TextIO, List, Dict, Tuple
 
+# installed libraries
 from tables import Table
 from tqdm import tqdm
 import tables
@@ -27,10 +26,10 @@ class Genedata:
     This is a general class storing unique gene-related data to be written in a specific
     genedata table
 
-    :param start: Start position of a gene
-    :param stop: Stop position of a gene
-    :param strand: associated strand
-    :param gene_type: Type of gene
+    :param start: Gene start position
+    :param stop: Gene stop position
+    :param strand: Associated strand
+    :param gene_type: Gene type
     :param position: Position of the gene on its contig
     :param name: Name of the feature
     :param product: Associated product
@@ -164,7 +163,7 @@ def read_chunks(table: Table, column: str = None, chunk: int = 10000):
             yield row
 
 
-def read_genedata(h5f: tables.File) -> dict:
+def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
     """
     Reads the genedata table and returns a genedata_id2genedata dictionnary
     :param h5f: the hdf5 file handler
@@ -192,7 +191,7 @@ def read_sequences(h5f: tables.File) -> dict:
     :param h5f: the hdf5 file handler
     :return: dictionnary linking sequences to the seq identifier
     """
-    table = h5f.root.sequences
+    table = h5f.root.annotations.sequences
     seqid2seq = {}
     for row in read_chunks(table, chunk=20000):
         seqid2seq[row["seqid"]] = row['dna'].decode()
@@ -204,6 +203,7 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
     """
     Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
     and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
+
     :param filename: Name of the pangenome file
     :param file_obj: Name of the output file
     :param list_cds: An iterable object of CDS
@@ -212,7 +212,7 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
     """
     logging.getLogger("PPanGGOLiN").info(f"Extracting and writing CDS sequences from a {filename} file to a fasta file...")
     h5f = tables.open_file(filename, "r", driver_core_backing_store=0)
-    table = h5f.root.geneSequences
+    table = h5f.root.annotations.geneSequences
     list_cds = set(list_cds) if list_cds is not None else None
     seqid2seq = read_sequences(h5f)
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
@@ -223,60 +223,6 @@ def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter
             file_obj.write(seqid2seq[row["seqid"]] + "\n")
     file_obj.flush()
     h5f.close()
-
-
-def read_organism(pangenome: Pangenome, org_name: str, contig_dict: dict, circular_contigs: dict, genedata_dict: dict,
-                  link: bool = False):
-    """
-    Read information from pangenome to assign to organism object
-
-    :param pangenome: Input     pangenome
-    :param org_name: Name of the organism
-    :param contig_dict: Dictionary with all contig and associate genes
-    :param circular_contigs: Dictionary of contigs
-    :param genedata_dict: dictionnary linking genedata to the genedata identifier
-    :param link: get the gene object if the genes are clustered
-    """
-    org = Organism(org_name)
-    gene, gene_type = (None, None)
-    for contig_name, gene_list in contig_dict.items():
-        try:
-            contig = org.get(contig_name)
-        except KeyError:
-            contig = Contig(contig_name, is_circular=circular_contigs[contig_name])
-            org.add(contig)
-        for row in gene_list:
-            if link:  # if the gene families are already computed/loaded the gene exists.
-                gene = pangenome.get_gene(row["ID"].decode())
-            else:  # else creating the gene.
-                curr_genedata = genedata_dict[row["genedata_id"]]
-                gene_type = curr_genedata.gene_type
-                if gene_type == "CDS":
-                    gene = Gene(row["ID"].decode())
-                elif "RNA" in gene_type:
-                    gene = RNA(row["ID"].decode())
-            try:
-                local = row["local"].decode()
-            except ValueError:
-                local = ""
-            if isinstance(gene, Gene):
-                gene.fill_annotations(start=curr_genedata.start, stop=curr_genedata.stop, strand=curr_genedata.strand,
-                                      gene_type=gene_type, name=curr_genedata.name, position=curr_genedata.position,
-                                      genetic_code=curr_genedata.genetic_code, product=curr_genedata.product,
-                                      local_identifier=local)
-            else:
-                gene.fill_annotations(start=curr_genedata.start, stop=curr_genedata.stop, strand=curr_genedata.strand,
-                                      gene_type=gene_type, name=curr_genedata.name,
-                                      product=curr_genedata.product, local_identifier=local)
-            gene.is_fragment = row["is_fragment"]
-            gene.fill_parents(org, contig)
-            if gene_type == "CDS":
-                contig[gene.start] = gene
-            elif "RNA" in gene_type:
-                contig.add_rna(gene)
-            else:
-                raise Exception(f"A strange type '{gene_type}', which we do not know what to do with, was met.")
-    pangenome.add_organism(org)
 
 
 def read_graph(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
@@ -350,6 +296,7 @@ def read_gene_families_info(pangenome: Pangenome, h5f: tables.File, disable_bar:
 def read_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
     Read gene sequences in pangenome hdf5 file to add in pangenome object
+
     :param pangenome: Pangenome object without gene sequence associate to gene
     :param h5f: Pangenome HDF5 file with gene sequence associate to gene
     :param disable_bar: Disable the progress bar
@@ -357,7 +304,7 @@ def read_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: boo
     if pangenome.status["genomesAnnotated"] not in ["Computed", "Loaded"]:
         raise Exception("It's not possible to read the pangenome gene dna sequences "
                         "if the annotations have not been loaded.")
-    table = h5f.root.geneSequences
+    table = h5f.root.annotations.geneSequences
 
     seqid2seq = read_sequences(h5f)
     for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
@@ -437,8 +384,80 @@ def read_modules(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = Fal
 	    pangenome.add_module(module)
     pangenome.status["modules"] = "Loaded"
 
+def read_organisms(pangenome: Pangenome, annotations: tables.Group, chunk_size: int = 20000,
+                   disable_bar: bool = False) -> Tuple[Dict[str, Gene], Dict[str, RNA]]:
+    table = annotations.genomes
+    contig2organism = {}
+    for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="genome", disable=disable_bar):
+        try:
+            organism = pangenome.get_organism(row["name"].decode())
+        except:
+            organism = Organism(row["name"].decode())
+            pangenome.add_organism(organism)
+        contig = Contig(name=row["contig"].decode())
+        organism.add(contig)
+        contig2organism[contig.name] = organism.name
+    table = annotations.contigs
+    contig_name = None
+    genes_dict = {}
+    rna_dict = {}
+    for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="contig", disable=disable_bar):
+        if contig_name != row["name"].decode():
+            contig_name = row["name"].decode()
+            organism = pangenome.get_organism(contig2organism[contig_name])
+            contig = organism.get(contig_name)
+            contig.is_circular = row["is_circular"]
+        try:
+            gene = Gene(row["gene"].decode())
+        except ValueError:
+            pass
+        else:
+            gene.fill_parents(organism, contig)
+            if row["gene"].decode() in genes_dict:
+                logging.getLogger().warning("A gene with the same ID already pass. "
+                                            "It could be a problem in the number of genes")
+            genes_dict[gene.ID] = gene
+        try:
+            rna = RNA(row["rna"].decode())
+        except ValueError:
+            pass
+        else:
+            rna_dict[rna.ID] = rna
+            rna.fill_parents(organism, contig)
+    return genes_dict, rna_dict
 
-def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
+def read_genes(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[int, Genedata],
+               gene_dict: Dict[str, Gene], chunk_size: int = 20000, disable_bar: bool = False):
+    for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="gene", disable=disable_bar):
+        gene = gene_dict[row["ID"].decode()]
+        genedata = genedata_dict[row["genedata_id"]]
+        try:
+            local = row["local"].decode()
+        except ValueError:
+            local = ""
+        gene.fill_annotations(start=genedata.start, stop=genedata.stop, strand=genedata.strand,
+                                  gene_type=genedata.gene_type, name=genedata.name, position=genedata.position,
+                                  genetic_code=genedata.genetic_code, product=genedata.product,
+                                  local_identifier=local)
+        gene.is_fragment = row["is_fragment"]
+        if gene.contig is not None:
+            gene.contig.add(gene)
+
+
+def read_rnas(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[int, Genedata],
+               rna_dict: Dict[str, RNA], chunk_size: int = 20000, disable_bar: bool = False):
+    for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="gene", disable=disable_bar):
+        rna = rna_dict[row["ID"].decode()]
+        genedata = genedata_dict[row["genedata_id"]]
+        rna.fill_annotations(start=genedata.start, stop=genedata.stop, strand=genedata.strand,
+                             gene_type=genedata.gene_type, name=genedata.name,
+                             product=genedata.product)
+        if rna.contig is not None:
+            rna.contig.add_rna(rna)
+
+
+def read_annotation(pangenome: Pangenome, h5f: tables.File, load_organisms: bool = True, load_genes: bool = True,
+                    load_rnas: bool = True, chunk_size: int = 20000, disable_bar: bool = False):
     """
     Read annotation in pangenome hdf5 file to add in pangenome object
 
@@ -448,33 +467,31 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = 
     """
     annotations = h5f.root.annotations
 
-    table = annotations.genes
-    pangenome_dict = {}
-    circular_contigs = {}
+    if load_organisms:
+        if load_genes:
+            genedata_dict = read_genedata(h5f)
+            if load_rnas:
+                gene_dict, rna_dict = read_organisms(pangenome, annotations, disable_bar=disable_bar)
 
-    genedata_dict = read_genedata(h5f)
-
-    for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
-        decode_org = row["organism"].decode()
-        try:
-            # new gene, seen contig, seen org
-            pangenome_dict[decode_org][row["contig"]["name"].decode()].append(row["gene"])
-        except KeyError:
-            try:
-                # new contig, seen org
-                pangenome_dict[decode_org][row["contig"]["name"].decode()] = [row["gene"]]
-                circular_contigs[decode_org][row["contig"]["name"].decode()] = row["contig"]["is_circular"]
-            except KeyError:
-                # new org
-                pangenome_dict[sys.intern(decode_org)] = {row["contig"]["name"].decode(): [row["gene"]]}
-                circular_contigs[decode_org] = {row["contig"]["name"].decode(): row["contig"]["is_circular"]}
-
-    link = True if pangenome.status["genesClustered"] in ["Computed", "Loaded"] else False
-
-    for org_name, contig_dict in tqdm(pangenome_dict.items(), total=len(pangenome_dict),
-                                      unit="organism", disable=disable_bar):
-        read_organism(pangenome, org_name, contig_dict, circular_contigs[org_name], genedata_dict, link)
+                read_genes(pangenome, annotations.genes, genedata_dict, gene_dict, disable_bar=disable_bar)
+                read_rnas(pangenome, annotations.RNAs, genedata_dict, rna_dict, disable_bar=disable_bar)
+            else:
+                gene_dict, _ = read_organisms(pangenome, annotations, disable_bar=disable_bar)
+                read_genes(pangenome, annotations.genes, genedata_dict, gene_dict, disable_bar=disable_bar)
+        else:
+            if load_rnas:
+                genedata_dict = read_genedata(h5f)
+                _, rna_dict = read_organisms(pangenome, annotations, disable_bar=disable_bar)
+                read_rnas(pangenome, annotations.RNAs, genedata_dict, rna_dict, disable_bar=disable_bar)
+    else:
+        if load_genes:
+            if pangenome.status["genesClustered"] not in ["Loaded", "Computed"]:
+                raise Exception("Genes must be linked to gene families or organisms, but none are laoded")
+            gene_dict = {gene.ID: gene for gene in pangenome.genes}  # Dictionary with genes in families
+            gene_dict, _ = read_organisms(pangenome, annotations, disable_bar=disable_bar)
+            read_genes(pangenome, annotations.genes, genedata_dict, gene_dict, disable_bar=disable_bar)
     pangenome.status["genomesAnnotated"] = "Loaded"
+
 
 
 def read_info(h5f: tables.File):
@@ -630,12 +647,14 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
     fix_partitioned(pangenome.file)
 
     h5f = tables.open_file(filename, "r")
-    if annotation:
+
+    if annotation:  # I place annotation here, to link gene to gene families if organism are not loaded
         if h5f.root.status._v_attrs.genomesAnnotated:
             logging.getLogger("PPanGGOLiN").info("Reading pangenome annotations...")
             read_annotation(pangenome, h5f, disable_bar=disable_bar)
         else:
             raise Exception(f"The pangenome in file '{filename}' has not been annotated, or has been improperly filled")
+
     if gene_sequences:
         if h5f.root.status._v_attrs.geneSequences:
             logging.getLogger("PPanGGOLiN").info("Reading pangenome gene dna sequences...")
@@ -652,6 +671,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         else:
             raise Exception(
                 f"The pangenome in file '{filename}' does not have gene families, or has been improperly filled")
+
     if graph:
         if h5f.root.status._v_attrs.NeighborsGraph:
             logging.getLogger("PPanGGOLiN").info("Reading the neighbors graph edges...")
@@ -659,6 +679,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have graph information, "
                             f"or has been improperly filled")
+
     if rgp:
         if h5f.root.status._v_attrs.predictedRGP:
             logging.getLogger("PPanGGOLiN").info("Reading the RGP...")
@@ -666,6 +687,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have RGP information, "
                             f"or has been improperly filled")
+
     if spots:
         if h5f.root.status._v_attrs.spots:
             logging.getLogger("PPanGGOLiN").info("Reading the spots...")
@@ -673,6 +695,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have spots information, "
                             f"or has been improperly filled")
+
     if modules:
         if h5f.root.status._v_attrs.modules:
             logging.getLogger("PPanGGOLiN").info("Reading the modules...")
@@ -680,6 +703,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         else:
             raise Exception(f"The pangenome in file '{filename}' does not have modules information, "
                             f"or has been improperly filled")
+
     if metadata:
         assert metatype is not None
         if sources is None:
