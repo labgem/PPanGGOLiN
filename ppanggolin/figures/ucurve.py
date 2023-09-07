@@ -28,7 +28,7 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
     is_partitioned = False
     has_undefined = False
     for fam in pangenome.gene_families:
-        nb_org = len(fam.organisms)
+        nb_org = fam.number_of_organisms
         if fam.partition != "":
             is_partitioned = True
             if fam.partition == "U":
@@ -39,7 +39,7 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
     data_plot = []
     chao = "NA"
     if count[1]["pangenome"] > 0:
-        chao = round(len(pangenome.gene_families) + ((count[0]["pangenome"] ^ 2) / (count[1]["pangenome"] * 2)), 2)
+        chao = round(pangenome.number_of_gene_families + ((count[0]["pangenome"] ^ 2) / (count[1]["pangenome"] * 2)), 2)
     colors = {"pangenome": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
               "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
               "undefined": "#828282"}
@@ -48,24 +48,24 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
         persistent_values = []
         shell_values = []
         cloud_values = []
-        for nb_org in range(1, len(pangenome.organisms) + 1):
+        for nb_org in range(1, pangenome.number_of_organisms + 1):
             persistent_values.append(count[nb_org]["persistent"])
             shell_values.append(count[nb_org]["shell"])
             cloud_values.append(count[nb_org]["cloud"])
-        data_plot.append(go.Bar(x=list(range(1, len(pangenome.organisms) + 1)), y=persistent_values, name='persistent',
+        data_plot.append(go.Bar(x=list(range(1, pangenome.number_of_organisms + 1)), y=persistent_values, name='persistent',
                                 marker=dict(color=colors["persistent"])))
-        data_plot.append(go.Bar(x=list(range(1, len(pangenome.organisms) + 1)), y=shell_values, name='shell',
+        data_plot.append(go.Bar(x=list(range(1, pangenome.number_of_organisms + 1)), y=shell_values, name='shell',
                                 marker=dict(color=colors["shell"])))
-        data_plot.append(go.Bar(x=list(range(1, len(pangenome.organisms) + 1)), y=cloud_values, name='cloud',
+        data_plot.append(go.Bar(x=list(range(1, pangenome.number_of_organisms + 1)), y=cloud_values, name='cloud',
                                 marker=dict(color=colors["cloud"])))
     else:
         text = 'undefined' if has_undefined else "pangenome"
         undefined_values = []
-        for nb_org in range(1, len(pangenome.organisms) + 1):
+        for nb_org in range(1, pangenome.number_of_organisms + 1):
             undefined_values.append(count[nb_org][text])
-        data_plot.append(go.Bar(x=list(range(1, len(pangenome.organisms) + 1)), y=undefined_values, name=text,
+        data_plot.append(go.Bar(x=list(range(1, pangenome.number_of_organisms + 1)), y=undefined_values, name=text,
                                 marker=dict(color=colors[text])))
-    x = len(pangenome.organisms) * soft_core
+    x = pangenome.number_of_organisms * soft_core
     layout = go.Layout(title="Gene families frequency distribution (U shape), chao=" + str(chao),
                        xaxis=dict(title='Occurring in x genomes'),
                        yaxis=dict(title='# of gene families (F)'),

@@ -132,7 +132,7 @@ def launch_default_config(args: argparse.Namespace):
     """
     initial_command = args.default_config
 
-    if os.path.exists(args.output) and not args.force:
+    if args.output.exists() and not args.force:
         raise FileExistsError(f"{args.output} already exists. Use -f if you want to overwrite it.")
 
     ignored_params = ['config', 'help']

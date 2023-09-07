@@ -19,6 +19,7 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.utils import read_compressed_or_not, restricted_float
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
@@ -244,8 +245,9 @@ def read_fam2seq(pangenome: Pangenome, fam_to_seq: Dict[str, str]):
     """
     logging.getLogger("PPanGGOLiN").info("Adding protein sequences to the gene families")
     for family, protein in fam_to_seq.items():
-        fam = pangenome.add_gene_family(family)
+        fam = GeneFamily(pangenome.max_fam_id, family)
         fam.add_sequence(protein)
+        pangenome.add_gene_family(fam)
 
 
 def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = False):
@@ -259,19 +261,23 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
     logging.getLogger("PPanGGOLiN").info(f"Adding {len(gene_to_fam)} genes to the gene families")
 
     link = True if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] else False
-    if link and len(gene_to_fam) != len(pangenome.genes):  # then maybe there are genes with identical IDs
+    if link and len(gene_to_fam) != pangenome.number_of_genes:  # then maybe there are genes with identical IDs
         raise Exception("Something unexpected happened during clustering (have less genes clustered than genes "
                         "in the pangenome). A probable reason is that two genes in two different organisms have "
                         "the same IDs; If you are sure that all of your genes have non identical IDs,  please post an "
                         "issue at https://github.com/labgem/PPanGGOLiN/")
     for gene, (family, is_frag) in tqdm(gene_to_fam.items(), unit="gene", total=len(gene_to_fam), disable=disable_bar):
-        fam = pangenome.add_gene_family(family)
+        try:
+            fam = pangenome.get_gene_family(family)
+        except KeyError:  # Family not found so create and add
+            fam = GeneFamily(pangenome.max_fam_id, family)
+            pangenome.add_gene_family(fam)
         if link:  # doing the linking if the annotations are loaded.
             gene_obj = pangenome.get_gene(gene)
         else:
             gene_obj = Gene(gene)
         gene_obj.is_fragment = is_frag
-        fam.add_gene(gene_obj)
+        fam.add(gene_obj)
 
 
 def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = True, code: int = 11,
@@ -369,7 +375,9 @@ def infer_singletons(pangenome: Pangenome):
     singleton_counter = 0
     for gene in pangenome.genes:
         if gene.family is None:
-            pangenome.add_gene_family(gene.ID).add_gene(gene)
+            fam = GeneFamily(family_id=pangenome.max_fam_id, name=gene.ID)
+            fam.add(gene)
+            pangenome.add_gene_family(fam)
             singleton_counter += 1
     logging.getLogger("PPanGGOLiN").info(f"Inferred {singleton_counter} singleton families")
 
@@ -411,16 +419,20 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
                 gene_obj = local_dict.get(gene_id)
             if gene_obj is not None:
                 nb_gene_with_fam += 1
-                fam = pangenome.add_gene_family(fam_id)
+                try:
+                    fam = pangenome.get_gene_family(fam_id)
+                except KeyError:  # Family not found so create and add
+                    fam = GeneFamily(pangenome.max_fam_id, fam_id)
+                    pangenome.add_gene_family(fam)
                 gene_obj.is_fragment = True if is_frag == "F" else False  # F for Fragment
-                fam.add_gene(gene_obj)
+                fam.add(gene_obj)
             if is_frag == "F":
                 frag = True
         except Exception:
             raise Exception(f"line {line_counter} of the file '{families_tsv_file.name}' raised an error.")
     bar.close()
     families_tsv_file.close()
-    if nb_gene_with_fam < len(pangenome.genes):  # not all genes have an associated cluster
+    if nb_gene_with_fam < pangenome.number_of_genes:  # not all genes have an associated cluster
         if nb_gene_with_fam == 0:
             raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step."
                             " Please ensure that the annotations that you loaded previously and the clustering results "
@@ -430,7 +442,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
             if infer_singleton:
                 infer_singletons(pangenome)
             else:
-                raise Exception(f"Some genes ({len(pangenome.genes) - nb_gene_with_fam}) did not have an associated "
+                raise Exception(f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) did not have an associated "
                                 f"cluster. Either change your cluster file so that each gene has a cluster, "
                                 f"or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
     pangenome.status["genesClustered"] = "Computed"

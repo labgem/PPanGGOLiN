@@ -65,7 +65,6 @@ def check_metadata_format(metadata: Path, metatype: str) -> pd.DataFrame:
     :return: Dataframe with metadata loaded
     """
     assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
-
     colname_check = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
     metadata_df = pd.read_csv(metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE,
                               dtype={metatype: str})
@@ -85,14 +84,13 @@ def check_metadata_format(metadata: Path, metatype: str) -> pd.DataFrame:
 
 def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str, metatype: str,
                     omit: bool = False, disable_bar: bool = False):
-    """ Add to pangenome element a metadata
-
-    :param metadata_df: Dataframe with for each family a metadata
-    :param pangenome: Pangenome with gene families
-    :param source: source of the metadata
-    :param metatype: select to which pangenome element metadata will be added
-    :param omit: allow to omit a row in dataframe if the element name is not find in pangenomes
-    :param disable_bar: Disable progress bar
+    """function assigns metadata to elements in a pangenome based on a metadata dataframe.
+    :param metadata_df: A pandas dataframe containing metadata to be assigned to elements in the pangenome.
+    :param pangenome: A Pangenome object representing the pangenome to which metadata will be assigned.
+    :param source: A string representing the source of the metadata.
+    :param metatype: A string representing the type of element to which metadata will be assigned.
+    :param omit: A boolean indicating whether to raise an error if metadata cannot be assigned to an element. If True, metadata will not be assigned to elements that do not exist in the pangenome. If False, an error will be raised. Default is False.
+    :param disable_bar: A boolean indicating whether to disable the progress bar. Default is False.
 
     :raise KeyError: element name is not find in pangenome
     :raise AssertionError: Metatype is not recognized

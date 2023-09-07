@@ -32,24 +32,24 @@ def check_pangenome_former_modules(pangenome: Pangenome, force: bool = False):
         erase_pangenome(pangenome, modules=True)
 
 
-def compute_mod_graph(organisms: list, t: int = 1, disable_bar: bool = False):
+def compute_mod_graph(pangenome: Pangenome, t: int = 1, disable_bar: bool = False):
     """
     Computes a graph using all provided genomes with a transitive closure of size t
     
-    :param organisms: the list of organisms to compute the graph with
+    :param pangenome: pangenome with organisms to compute the graph
     :param t: the size of the transitive closure
     :param disable_bar: whether to show a progress bar or not
     """
 
     g = nx.Graph()
-    for org in tqdm(organisms, unit="genome", disable=disable_bar):
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
         for contig in org.contigs:
-            if len(contig.genes) > 0:
-                start_gene = contig.genes[0]
+            if contig.number_of_genes > 0:
+                start_gene = contig[0]
                 g.add_node(start_gene.family)
                 add_gene(g.nodes[start_gene.family], start_gene, fam_split=False)
                 for i, gene in enumerate(contig.genes):
-                    for j, a_gene in enumerate(contig.genes[i + 1:i + t + 2], start=i + 1):
+                    for j, a_gene in enumerate(contig.get_genes(i + 1, i + t + 2), start=i + 1):
                         g.add_edge(gene.family, a_gene.family)
                         edge = g[gene.family][a_gene.family]
                         add_gene(edge, gene)
@@ -73,7 +73,7 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     """
 
     # removing families with low presence
-    removed = set([fam for fam in g.nodes if len(fam.organisms) < min_fam])
+    removed = set([fam for fam in g.nodes if fam.number_of_organisms < min_fam])
 
     modules = set()
     c = 0
@@ -109,7 +109,7 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
     # compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger("PPanGGOLiN").info("Building the graph...")
-    g = compute_mod_graph(pangenome.organisms, t=transitive, disable_bar=disable_bar)
+    g = compute_mod_graph(pangenome, t=transitive, disable_bar=disable_bar)
     logging.getLogger("PPanGGOLiN").info(f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
     logging.getLogger("PPanGGOLiN").info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
@@ -122,12 +122,11 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
 
     fams = set()
     for mod in modules:
-        fams |= mod.families
+        fams |= set(mod.families)
+        pangenome.add_module(mod)
 
     logging.getLogger("PPanGGOLiN").info(f"There are {len(fams)} families among {len(modules)} modules")
     logging.getLogger("PPanGGOLiN").info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
-
-    pangenome.add_modules(modules)
 
     pangenome.status["modules"] = "Computed"
     pangenome.parameters["module"] = {}

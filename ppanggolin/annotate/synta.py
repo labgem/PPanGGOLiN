@@ -13,7 +13,7 @@ from typing import Union
 from pathlib import Path
 
 # local libraries
-from ppanggolin.genome import Organism, Gene, RNA
+from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import is_compressed, read_compressed_or_not
 
 
@@ -143,16 +143,11 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
             c += 1
             line_data = line.split()
             strand = line_data[9]
-            if strand == "-":
-                start = line_data[8]
-                stop = line_data[7]
-            else:
-                start, stop = map(int, (line_data[7], line_data[8]))
+            start, stop = map(int, (line_data[8], line_data[7]) if strand == "-" else (line_data[7], line_data[8]))
             gene = RNA(rna_id=locustag + "_rRNA_" + str(c).zfill(3))
             gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type="rRNA",
                                   product=" ".join(line_data[17:]))
             gene_objs[line_data[2]].add(gene)
-
     return gene_objs
 
 
@@ -175,7 +170,11 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> (dict, in
                     contigs[contig.name] = contig_seq.upper()
                     all_contig_len += len(contig_seq)
                 contig_seq = ""
-                contig = org.get_contig(line.split()[0][1:])
+                try:
+                    contig = org.get(line.split()[0][1:])
+                except KeyError:
+                    contig = Contig(line.split()[0][1:])
+                    org.add(contig)
             else:
                 contig_seq += line.strip()
         if len(contig_seq) >= 1:  # processing the last contig
@@ -242,12 +241,12 @@ def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, tmpdir: str, n
     return genes
 
 
-def overlap_filter(all_genes: defaultdict, overlap: bool = True) -> defaultdict:
+def overlap_filter(all_genes: defaultdict, allow_overlap: bool = False) -> defaultdict:
     """
     Removes the CDS that overlap with RNA genes.
 
     :param all_genes: Dictionary with complete list of genes
-    :param overlap: Allow to filter overlap
+    :param allow_overlap: Use to not remove genes overlapping with RNA features
 
     :return: Dictionary with genes filtered
     """
@@ -256,7 +255,7 @@ def overlap_filter(all_genes: defaultdict, overlap: bool = True) -> defaultdict:
     for key, genes in all_genes.items():
         tmp_genes = sorted(genes, key=lambda x: x.start)
         rm_genes = set()
-        if overlap:
+        if not allow_overlap:
             for i, gene_i in enumerate(tmp_genes):
                 if i + 1 < len(tmp_genes):
                     gene_j = tmp_genes[i + 1]
@@ -293,7 +292,7 @@ def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
 
 def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: str,
                       code: int = 11, norna: bool = False, kingdom: str = "bacteria",
-                      overlap: bool = True, procedure: str = None) -> Organism:
+                      allow_overlap: bool = False, procedure: str = None) -> Organism:
     """
     Function to annotate a single organism
 
@@ -304,7 +303,7 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param norna: Use to avoid annotating RNA features.
     :param tmpdir: Path to temporary directory
-    :param overlap: Use to not remove genes overlapping with RNA features
+    :param allow_overlap: Use to not remove genes overlapping with RNA features
     :param procedure: prodigal procedure used
 
     :return: Complete organism object for pangenome
@@ -323,17 +322,19 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
         else:
             procedure = "single"
     genes = syntaxic_annotation(org, fasta_file, tmpdir, norna, kingdom, code, procedure)
-    genes = overlap_filter(genes, overlap)
+    genes = overlap_filter(genes, allow_overlap=allow_overlap)
 
     for contig_name, genes in genes.items():
-        contig = org.get_contig(contig_name)
-        if contig.name in circular_contigs:
-            contig.is_circular = True
+        try:
+            contig = org.get(contig_name)
+        except KeyError:
+            contig = Contig(contig_name, True if contig_name in circular_contigs else False)
+            org.add(contig)
         for gene in genes:
-            gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
+            gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             gene.fill_parents(org, contig)
             if isinstance(gene, Gene):
-                contig.add_gene(gene)
+                contig[gene.start] = gene
             elif isinstance(gene, RNA):
                 contig.add_rna(gene)
     return org

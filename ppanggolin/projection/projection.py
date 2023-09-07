@@ -138,7 +138,7 @@ def launch(args: argparse.Namespace):
 
         input_organism = annotate_organism(org_name=args.organism_name, file_name=args.fasta_file, circular_contigs=[], tmpdir=args.tmpdir,
                                            code=args.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
-                                           overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure)
+                                           allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure)
         if input_organism.number_of_genes() == 0:
             raise ValueError("No genes have been predicted in the input organism's FASTA file, making projection impossible.")
  
@@ -183,7 +183,7 @@ def launch(args: argparse.Namespace):
                 # then no spot will be found
                 input_org_spots = {}
             else:
-                input_org_spots = predict_spots_in_input_organism(initial_spots=pangenome.spots,
+                input_org_spots = predict_spots_in_input_organism(initial_spots=list(pangenome.spots),
                                             initial_regions=pangenome.regions,
                                             input_org_rgps=input_org_rgps,
                                             multigenics=multigenics, output=output_dir,
@@ -307,11 +307,12 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
         try:
             gene_family = seqid_to_gene_family[gene_id]
-            gene_family.add_gene(gene)
+            gene_family.add(gene)
         except KeyError:
-            new_gene_family = pangenome.add_gene_family(gene_id)
-            new_gene_family.add_gene(gene)
-            new_gene_family.add_partition("Cloud")
+            new_gene_family = GeneFamily(pangenome.max_fam_id, gene_id)
+            pangenome.add_gene_family(new_gene_family)
+            new_gene_family.add(gene)
+            new_gene_family.partition = "Cloud"
             lonely_gene += 1
 
     logging.getLogger().info(f"The input organism has {lonely_gene}/{input_organism.number_of_genes()} "
@@ -366,15 +367,15 @@ def write_predicted_regions(regions: Set[Region],
         writer.writeheader()
 
         regions = sorted(regions, key=lambda x: (
-            x.organism.name, x.contig.name, x.start))
+            x.organism.name, x.contig.name, x.starter))
         for region in regions:
             row = {
                 "region": region.name,
                 "organism": region.organism,
                 "contig": region.contig,
-                "start": region.start,
-                "stop": region.stop,
-                "genes": len(region.genes),
+                "start": region.starter,
+                "stop": region.stopper,
+                "genes": len(region),
                 "contigBorder": region.is_contig_border,
                 "wholeContig": region.is_whole_contig
             }
@@ -402,7 +403,7 @@ def write_rgp_to_spot_table(rgp_to_spots: Dict[Region, Set[str]], output: Path, 
         writer.writeheader()
 
         regions = sorted(rgp_to_spots.keys(), key=lambda x: (
-            x.organism.name, x.contig.name, x.start))
+            x.organism.name, x.contig.name, x.starter))
         for region in regions:
             row = {
                 "region": region.name,
@@ -649,7 +650,8 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
                     graph_spot.nodes[node]["includes_RGPs_from_the_input_organism"] = True
 
         for spot in spots_of_the_cc:
-            spot.add_regions(input_rgps_of_the_cc)
+            for region in input_rgps_of_the_cc:
+                spot.add(region)
 
         input_rgp_to_spots.update(
             {rgp: spots_of_the_cc for rgp in input_rgps_of_the_cc})
@@ -705,7 +707,7 @@ def project_and_write_modules(pangenome: Pangenome, input_organism: Organism,
                 modules_in_input_org.append(mod)
 
                 completion = round(
-                    len(input_organism.families & mod.families) / len(mod.families), 2)
+                    len(set(input_organism.families) & set(mod.families)) / len(set(mod.families)), 2)
                 fout.write(
                     f"module_{mod.ID}\t{input_organism.name}\t{completion}\n")
 
@@ -774,7 +776,7 @@ def parser_projection(parser: argparse.ArgumentParser):
     optional.add_argument('--coverage', required=False, type=restricted_float, default=0.8,
                           help="min coverage percentage threshold")
 
-    optional.add_argument("--translation_table", required=False, default="11",
+    optional.add_argument("--translation_table", required=False, default=11,  type=int,
                           help="Translation table (genetic code) to use.")
 
     optional.add_argument("--use_pseudo", required=False, action="store_true",

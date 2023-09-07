@@ -73,6 +73,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and " \
             "predict information from it\n"
     desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
+    desc += "    rgp_cluster  cluster RGPs based on their gene families.\n"
     desc += "    spot         predicts spots in your pangenome\n"
     desc += "    module       Predicts functional modules in your pangenome\n"
     desc += "  \n"
@@ -92,6 +93,7 @@ def cmd_line() -> argparse.Namespace:
 
     subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
     subparsers.required = True  # because python3 sent subcommands to hell apparently
+
 
     # print help if no subcommand is specified
     if len(sys.argv) == 1:
@@ -168,10 +170,6 @@ def main():
 
     if hasattr(args, "pangenome") and args.pangenome is not None:
         check_input_files(args.pangenome)
-    if hasattr(args, "fasta") and args.fasta is not None:
-        check_input_files(args.fasta, True)
-    if hasattr(args, "anno") and args.anno is not None:
-        check_input_files(args.anno, True)
 
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
@@ -205,6 +203,8 @@ def main():
         ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "spot":
         ppanggolin.RGP.spot.launch(args)
+    elif args.subcommand == "rgp_cluster":
+        ppanggolin.RGP.rgp_cluster.launch(args)
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
     elif args.subcommand == "module":

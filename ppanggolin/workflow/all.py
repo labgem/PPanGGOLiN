@@ -12,7 +12,7 @@ import tempfile
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, restricted_float
-from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas
+from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas, check_annotate_args
 from ppanggolin.cluster.cluster import clustering, read_clustering
 from ppanggolin.graph.makeGraph import compute_neighbors_graph
 from ppanggolin.nem.rarefaction import make_rarefaction_curve
@@ -41,6 +41,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
     """
 
     check_option_workflow(args)
+    check_annotate_args(args)
     pangenome = Pangenome()
 
     filename = mk_file_name(args.basename, args.output, args.force)
@@ -87,7 +88,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                            procedure=args.annotate.prodigal_procedure,
                            translation_table=args.annotate.translation_table, kingdom=args.annotate.kingdom,
                            norna=args.annotate.norna,
-                           overlap=args.annotate.allow_overlap)
+                           allow_overlap=args.annotate.allow_overlap)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()
@@ -185,8 +186,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
             spot_time += time.time() - start_spot_drawing
 
         if args.draw.tile_plot:
-            if 1 < len(pangenome.organisms) < 5000:
-                nocloud = args.draw.nocloud if len(pangenome.organisms) < 500 else True
+            if 1 < pangenome.number_of_organisms < 5000:
+                nocloud = args.draw.nocloud if pangenome.number_of_organisms < 500 else True
                 draw_tile_plot(pangenome, args.output, nocloud=nocloud, disable_bar=args.disable_prog_bar)
             else:
                 logging.getLogger("PPanGGOLiN").warning(

@@ -34,7 +34,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     if pangenome.status["partitioned"] == "No":
         raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
-    if len(pangenome.organisms) > 500 and nocloud is False:
+    if pangenome.number_of_organisms > 500 and nocloud is False:
         logging.getLogger("PPanGGOLiN").warning("You asked to draw a tile plot for a lot of organisms (>500). "
                                                 "Your browser will probably not be able to open it.")
     logging.getLogger("PPanGGOLiN").info("Drawing the tile plot...")
@@ -65,14 +65,13 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         index2fam[row] = fam.name
         fam2index[fam.name] = row
 
-    mat_p_a = csc_matrix((data, (all_indexes, all_columns)), shape=(len(families), len(pangenome.organisms)),
+    mat_p_a = csc_matrix((data, (all_indexes, all_columns)), shape=(len(families), pangenome.number_of_organisms),
                          dtype='float')
     dist = pdist(1 - jaccard_similarities(mat_p_a, 0).todense())
     hc = linkage(dist, 'single')
 
-    logging.getLogger("PPanGGOLiN").info("done with making the dendrogram to order the organisms on the plot")
     dendro_org = dendrogram(hc, no_plot=True)
-    logging.getLogger().info("done with making the dendrogram to order the organisms on the plot")
+    logging.getLogger("PPanGGOLiN").info("done with making the dendrogram to order the organisms on the plot")
 
     order_organisms = [index2org[index] for index in dendro_org["leaves"]]
 
@@ -85,13 +84,13 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         partitions_dict[fam.partition].append(fam)
         if fam.partition.startswith("S"):
             shell_subs.add(fam.partition)  # number of elements will tell the number of subpartitions
-    ordered_nodes_p = sorted(partitions_dict["P"], key=lambda n: len(n.organisms), reverse=True)
-    ordered_nodes_c = sorted(partitions_dict["C"], key=lambda n: len(n.organisms), reverse=True)
+    ordered_nodes_p = sorted(partitions_dict["P"], key=lambda n: n.number_of_organisms, reverse=True)
+    ordered_nodes_c = sorted(partitions_dict["C"], key=lambda n: n.number_of_organisms, reverse=True)
     sep_p = len(ordered_nodes_p) - 0.5
     separators = [sep_p]
     shell_na = None
     if len(shell_subs) == 1:
-        ordered_nodes_s = sorted(partitions_dict[shell_subs.pop()], key=lambda n: len(n.organisms), reverse=True)
+        ordered_nodes_s = sorted(partitions_dict[shell_subs.pop()], key=lambda n: n.number_of_organisms, reverse=True)
         ordered_nodes = ordered_nodes_p + ordered_nodes_s + ordered_nodes_c
         separators.append(separators[len(separators) - 1] + len(ordered_nodes_s))
         separators.append(separators[len(separators) - 1] + len(ordered_nodes_c))
@@ -100,7 +99,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         for subpartition in sorted(shell_subs):
             if subpartition == "S_":
                 shell_na = len(separators) - 1
-            ordered_nodes_s = sorted(partitions_dict[subpartition], key=lambda n: len(n.organisms), reverse=True)
+            ordered_nodes_s = sorted(partitions_dict[subpartition], key=lambda n: n.number_of_organisms, reverse=True)
             ordered_nodes += ordered_nodes_s
             separators.append(separators[len(separators) - 1] + len(ordered_nodes_s))
         ordered_nodes += ordered_nodes_c
@@ -110,7 +109,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     for node in ordered_nodes:
         fam_order.append('\u200c' + node.name)
         data = node.organisms
-        binary_data.append([len(node.get_genes_per_org(org)) if org in data else numpy.nan for org in order_organisms])
+        binary_data.append([len(list(node.get_genes_per_org(org))) if org in data else numpy.nan for org in order_organisms])
         text_data.append([("\n".join(map(str, node.get_genes_per_org(org))))
                           if org in data else numpy.nan for org in order_organisms])
 
@@ -154,9 +153,9 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
         else:
             color = colors["shell"]
         shapes.append(dict(type='line', x0=-1, x1=-1, y0=sep_prec, y1=sep, line=dict(dict(width=10, color=color))))
-        shapes.append(dict(type='line', x0=len(pangenome.organisms), x1=len(pangenome.organisms), y0=sep_prec, y1=sep,
+        shapes.append(dict(type='line', x0=pangenome.number_of_organisms, x1=pangenome.number_of_organisms, y0=sep_prec, y1=sep,
                            line=dict(dict(width=10, color=color))))
-        shapes.append(dict(type='line', x0=-1, x1=len(pangenome.organisms), y0=sep, y1=sep,
+        shapes.append(dict(type='line', x0=-1, x1=pangenome.number_of_organisms, y0=sep, y1=sep,
                            line=dict(dict(width=1, color=color))))
         sep_prec = sep
 
@@ -188,4 +187,4 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
 
     fig.update_layout(layout)
     out_plotly.plot(fig, filename=output.as_posix() + "/tile_plot.html", auto_open=False)
-    logging.getLogger("PPanGGOLiN").info(f"Done with the tile plot : '{output.as_posix() + '/tile_plot.html'}' ")
+    logging.getLogger("PPanGGOLiN").info(f"Done with the tile plot : '{output / 'tile_plot.html'}' ")

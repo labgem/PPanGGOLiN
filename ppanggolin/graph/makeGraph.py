@@ -86,7 +86,7 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
         remove_high_copy_number(pangenome, remove_copy_number)
 
     logging.getLogger("PPanGGOLiN").info("Computing the neighbors graph...")
-    bar = tqdm(pangenome.organisms, total=len(pangenome.organisms), unit="organism", disable=disable_bar)
+    bar = tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="organism", disable=disable_bar)
     for org in bar:
         bar.set_description(f"Processing {org.name}")
         bar.refresh()
@@ -103,9 +103,9 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
                     raise AttributeError("a Gene does not have a GeneFamily object associated")
                 except Exception:
                     raise Exception("Unexpected error. Please report on our github.")
-            if prev is not None and contig.is_circular and len(contig.genes) > 0:
+            if prev is not None and contig.is_circular and contig.number_of_genes > 0:
                 # if prev is None, the contig is entirely made of duplicated genes, so no edges are added
-                pangenome.add_edge(contig.genes[0], prev)
+                pangenome.add_edge(contig[0], prev)
     logging.getLogger("PPanGGOLiN").info("Done making the neighbors graph.")
     pangenome.status["neighborsGraph"] = "Computed"
 

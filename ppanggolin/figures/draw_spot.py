@@ -174,9 +174,9 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
             minpos = min([gene.position for border in borders for gene in border])
             maxpos = max([gene.position for border in borders for gene in border])
         else:
-            minpos = rgp.start_gene.position
-            maxpos = rgp.stop_gene.position
-        gene_list = rgp.contig.genes[minpos:maxpos + 1]
+            minpos = rgp.starter.position
+            maxpos = rgp.stopper.position
+        gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
         prev = None
         for gene in gene_list:
             g.add_node(gene.family.name, partition=gene.family.named_partition)
@@ -201,10 +201,10 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
                 try:
                     g[gene.family.name][prev]["rgp"].add(rgp)
                 except KeyError:
-                    g[gene.family.name][prev]["rgp"] = set(rgp)
+                    g[gene.family.name][prev]["rgp"] = {rgp}
             prev = gene.family.name
     for node1, node2 in g.edges:
-        g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot.regions)
+        g[node1][node2]["weight"] = len(g[node1][node2]["rgp"]) / len(spot)
         del g[node1][node2]["rgp"]
     for node in g.nodes:
         if "name" in g.nodes[node]:
@@ -592,7 +592,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             borders = rgp.get_bordering_genes(set_size, multigenics)
             minpos = min([gene.position for border in borders for gene in border])
             maxpos = max([gene.position for border in borders for gene in border])
-            gene_list = rgp.contig.genes[minpos:maxpos + 1]
+            gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
             minstart = min([gene.start for border in borders for gene in border])
             maxstop = max([gene.stop for border in borders for gene in border])
             rnas_toadd = set()
@@ -615,7 +615,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
         uniq_gene_lists = []
         ordered_counts = []
         for genelist in gene_lists:
-            curr_genelist_count = count_uniq.get(genelist[2], None)
+            curr_genelist_count = count_uniq.get(genelist[2])
             if curr_genelist_count is not None:
                 uniq_gene_lists.append(genelist)
                 ordered_counts.append(curr_genelist_count)

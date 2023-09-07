@@ -18,7 +18,7 @@ from tqdm import tqdm
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype
+from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
 from ppanggolin.formats import write_pangenome
 
 
@@ -33,6 +33,12 @@ def check_annotate_args(args):
         raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
                         "or a file with the --gff option to load annotations from.")
 
+    
+    if hasattr(args, "fasta") and args.fasta is not None:
+        check_input_files(args.fasta, True)
+
+    if hasattr(args, "anno") and args.anno is not None:
+        check_input_files(args.anno, True)
 
 def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: set,
                 start: int, stop: int, strand: str, gene_type: str, position: int = None, gene_name: str = "",
@@ -77,7 +83,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
         new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
                                   position=position, product=product, local_identifier=gene_id,
                                   genetic_code=genetic_code)
-        contig.add_gene(new_gene)
+        contig[new_gene.start] = new_gene
     else:  # if not CDS, it is RNA
         new_gene = RNA(org.name + "_RNA_" + str(rna_counter).zfill(4))
         new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
@@ -121,18 +127,22 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
                 if line.startswith('VERSION'):
                     contig_id = line[12:].strip()
                     if contig_id != "":
-                        if contig_id in circular_contigs:
-                            is_circ = True
-                        contig = org.get_contig(contig_id, is_circ)
+                        try:
+                            contig = org.get(contig_id)
+                        except KeyError:
+                            contig = Contig(contig_id, True if contig_id in circular_contigs else False)
+                            org.add(contig)
                         set_contig = True
                 line = lines.pop()
         if not set_contig:
             # if no contig ids were filled after VERSION, we use what was found in LOCUS for the contig ID.
             # Should be unique in a dataset, but if there's an update the contig ID
             # might still be the same even though it should not(?)
-            if contig_locus_id in circular_contigs:
-                is_circ = True
-            contig = org.get_contig(contig_locus_id, is_circ)
+            try:
+                contig = org.get(contig_locus_id)
+            except KeyError:
+                contig = Contig(contig_locus_id, True if contig_locus_id in circular_contigs else False)
+                org.add(contig)
         # start of the feature object.
         dbxref = set()
         gene_name = ""
@@ -143,15 +153,15 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
         genetic_code = ""
         useful_info = False
         start = None
-        end = None
+        stop = None
         strand = None
         line = lines.pop()
         while not line.startswith("ORIGIN"):
             curr_type = line[5:21].strip()
             if curr_type != "":
                 if useful_info:
-                    create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, end, strand, obj_type,
-                                len(contig.genes), gene_name, product, genetic_code, protein_id)
+                    create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
+                                contig.number_of_genes, gene_name, product, genetic_code, protein_id)
                     if obj_type == "CDS":
                         gene_counter += 1
                     else:
@@ -166,18 +176,18 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
                             useful_info = True
                             if line[21:].startswith('complement('):
                                 strand = "-"
-                                start, end = line[32:].strip().replace(
-                                    ')', '').split("..")
+                                start, stop = line[32:].strip().replace(')', '').split("..")
                             else:
                                 strand = "+"
-                                start, end = line[21:].strip().split('..')
-                            if '>' in start or '<' in start or '>' in end or '<' in end:
+                                start, stop = line[21:].strip().split('..')
+                            if '>' in start or '<' in start or '>' in stop or '<' in stop:
                                 if not pseudo:
                                     # pseudogene likely
                                     useful_info = False
                                 else:
                                     start = start.replace('>', '').replace('<', '')
-                                    end = end.replace('>', '').replace('<', '')
+                                    stop = stop.replace('>', '').replace('<', '')
+                            start, stop = map(int, [start, stop])
                     except ValueError:
                         pass
                         # don't know what to do with that, ignoring for now.
@@ -210,8 +220,8 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             line = lines.pop()
             # end of contig
         if useful_info:  # saving the last element...
-            create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, end, strand, obj_type,
-                        len(contig.genes), gene_name, product, genetic_code, protein_id)
+            create_gene(org, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
+                        contig.number_of_genes, gene_name, product, genetic_code, protein_id)
             if obj_type == "CDS":
                 gene_counter += 1
             else:
@@ -226,7 +236,7 @@ def read_org_gbff(organism: str, gbff_file_path: Path, circular_contigs: list, p
             line = lines.pop()
         # get each gene's sequence.
         for gene in contig.genes:
-            gene.add_dna(get_dna_sequence(sequence, gene))
+            gene.add_sequence(get_dna_sequence(sequence, gene))
     return org, True
 
 
@@ -292,7 +302,12 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                     has_fasta = True
                 elif line.startswith('sequence-region', 2, 17):
                     fields = [el.strip() for el in line.split()]
-                    contig = org.get_contig(fields[1], True if fields[1] in circular_contigs else False)
+                    try:
+                        contig = org.get(fields[1])
+                    except KeyError:
+                        contig = Contig(fields[1], True if fields[1] in circular_contigs else False)
+                        org.add(contig)
+
                 continue
             elif line.startswith('#'):  # comment lines to be ignores by parsers
                 continue
@@ -331,18 +346,21 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                     genetic_code = 11
                 if contig is None or contig.name != fields_gff[gff_seqname]:
                     # get the current contig
-                    contig = org.get_contig(fields_gff[gff_seqname],
-                                            True if fields_gff[gff_seqname] in circular_contigs else False)
+                    try:
+                        contig = org.get(fields_gff[gff_seqname])
+                    except KeyError:
+                        contig = Contig(fields_gff[gff_seqname],
+                                        True if fields_gff[gff_seqname] in circular_contigs else False)
+                        org.add(contig)
 
                 if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                     gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
                     # here contig is filled in order, so position is the number of genes already stored in the contig.
                     gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                           strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
-                                          position=len(contig.genes), product=product, local_identifier=gene_id,
+                                          position=contig.number_of_genes, product=product, local_identifier=gene_id,
                                           genetic_code=genetic_code)
                     gene.fill_parents(org, contig)
-                    contig.add_gene(gene)
                     gene_counter += 1
                 elif "RNA" in fields_gff[gff_type]:
                     rna = RNA(org.name + "_CDS_" + str(rna_counter).zfill(4))
@@ -350,7 +368,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                                          strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                          product=product, local_identifier=gene_id)
                     rna.fill_parents(org, contig)
-                    contig.add_rna(rna)
                     rna_counter += 1
 
     # GET THE FASTA SEQUENCES OF THE GENES
@@ -358,9 +375,9 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
         contig_sequences, _ = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
         for contig in org.contigs:
             for gene in contig.genes:
-                gene.add_dna(get_dna_sequence(contig_sequences[contig.name], gene))
+                gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             for rna in contig.RNAs:
-                rna.add_dna(get_dna_sequence(contig_sequences[contig.name], rna))
+                rna.add_sequence(get_dna_sequence(contig_sequences[contig.name], rna))
     return org, has_fasta
 
 
@@ -445,8 +462,6 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     args = []
     for line in read_compressed_or_not(organisms_file):
         elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
-            raise Exception(f"No tabulation separator found in given --fasta file: '{organisms_file}'")
         org_path = Path(elements[1])
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
@@ -496,17 +511,17 @@ def get_gene_sequences_from_fastas(pangenome, fasta_file):
         with read_compressed_or_not(elements[1]) as currFastaFile:
             fasta_dict[org], _ = read_fasta(org, currFastaFile)
     if set(pangenome.organisms) > set(fasta_dict.keys()):
-        missing = len(pangenome.organisms) - len(set(pangenome.organisms) & set(fasta_dict.keys()))
+        missing = pangenome.number_of_organisms() - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome organisms are present within the provided fasta file. "
-                        f"{missing} are missing (out of {len(pangenome.organisms)}).")
+                        f"{missing} are missing (out of {pangenome.number_of_organisms()}).")
 
     for org in pangenome.organisms:
         for contig in org.contigs:
             try:
                 for gene in contig.genes:
-                    gene.add_dna(get_dna_sequence(fasta_dict[org][contig.name], gene))
+                    gene.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], gene))
                 for rna in contig.RNAs:
-                    rna.add_dna(get_dna_sequence(fasta_dict[org][contig.name], rna))
+                    rna.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], rna))
             except KeyError:
                 msg = f"Fasta file for organism {org.name} did not have the contig {contig.name} " \
                       f"that was read from the annotation file. "
@@ -527,7 +542,7 @@ def launch_annotate_organism(pack: tuple) -> Organism:
 
 
 def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu: int = 1, translation_table: int = 11,
-                       kingdom: str = "bacteria", norna: bool = False, overlap: bool = True, procedure: str = None,
+                       kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,
                        disable_bar: bool = False):
     """
     Main function to annotate a pangenome
@@ -539,7 +554,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     :param translation_table: Translation table (genetic code) to use.
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param norna: Use to avoid annotating RNA features.
-    :param overlap: Use to not remove genes overlapping with RNA features
+    :param allow_overlap: Use to not remove genes overlapping with RNA features
     :param procedure: prodigal procedure used
     :param disable_bar: Disable the progresse bar
     """
@@ -548,16 +563,20 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
 
     arguments = []  # Argument given to annotate organism in same order than prototype
     for line in read_compressed_or_not(fasta_list):
+
         elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:  # TODO remove ? Already tested by check TSV sanity
-            raise Exception("No tabulation separator found in organisms file")
         org_path = Path(elements[1])
+
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = fasta_list.parent.joinpath(org_path)
+            
         arguments.append((elements[0], org_path, elements[2:], tmpdir, translation_table,
-                          norna, kingdom, overlap, procedure))
+                          norna, kingdom, allow_overlap, procedure))
+
     if len(arguments) == 0:
         raise Exception("There are no genomes in the provided file")
+
+
     logging.getLogger("PPanGGOLiN").info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
     with get_context('fork').Pool(processes=cpu) as p:
         for organism in tqdm(p.imap_unordered(launch_annotate_organism, arguments), unit="genome",
@@ -570,13 +589,13 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     pangenome.status["genomesAnnotated"] = "Computed"  # the pangenome is now annotated.
     pangenome.status["geneSequences"] = "Computed"  # the gene objects have their respective gene sequences.
     pangenome.parameters["annotate"] = {}
-    pangenome.parameters["annotate"]["allow_overlap"] = overlap
     pangenome.parameters["annotate"]["norna"] = norna
     pangenome.parameters["annotate"]["kingdom"] = kingdom
     pangenome.parameters["annotate"]["translation_table"] = translation_table
     pangenome.parameters["annotate"]["prodigal_procedure"] = None if procedure is None else procedure
+    pangenome.parameters["annotate"]["allow_overlap"] = allow_overlap
+    pangenome.parameters["annotate"]["norna"] =  norna
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = False
-
 
 def launch(args: argparse.Namespace):
     """
@@ -590,7 +609,7 @@ def launch(args: argparse.Namespace):
     if args.fasta is not None and args.anno is None:
         annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.cpu, procedure=args.prodigal_procedure,
                            translation_table=args.translation_table, kingdom=args.kingdom, norna=args.norna,
-                           overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
+                           allow_overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
         read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":

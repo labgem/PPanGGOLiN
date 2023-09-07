@@ -272,10 +272,11 @@ def write_nem_input_files(tmpdir: Path, organisms: set, sm_degree: int = 10) -> 
             index_org[org] = index
 
         for fam in pan.gene_families:
+            fam_organisms = set(fam.organisms)
             # could use bitarrays if this part is limiting?
-            if not organisms.isdisjoint(fam.organisms):
+            if not organisms.isdisjoint(fam_organisms):
                 curr_dat = list(default_dat)
-                curr_orgs = fam.organisms & organisms
+                curr_orgs = fam_organisms & organisms
                 for org in curr_orgs:
                     curr_dat[index_org[org]] = "1"
                 dat_file.write("\t".join(curr_dat) + "\n")
@@ -288,7 +289,7 @@ def write_nem_input_files(tmpdir: Path, organisms: set, sm_degree: int = 10) -> 
             neighbor_number = 0
             sum_dist_score = 0
             for edge in fam.edges:  # iter on the family's edges.
-                coverage = sum([len(gene_list) for org, gene_list in edge.organisms.items() if org in organisms])
+                coverage = sum([len(gene_list) for org, gene_list in edge.get_organisms_dict().items() if org in organisms])
                 if coverage == 0:
                     continue  # nothing interesting to write, this edge does not exist with this subset of organisms.
                 distance_score = coverage / len(organisms)

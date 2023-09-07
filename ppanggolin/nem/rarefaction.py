@@ -89,7 +89,7 @@ def raref_nem(index: int, tmpdir: Path, beta: float = 2.5, sm_degree: int = 10,
                         validated.add(node)
 
         for fam in ppp.pan.gene_families:
-            if not samp.isdisjoint(fam.organisms):  # otherwise, useless to keep track of
+            if not samp.isdisjoint(set(fam.organisms)):  # otherwise, useless to keep track of
                 families.add(fam)
                 cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
 
@@ -371,8 +371,8 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
     tmpdir_obj = tempfile.TemporaryDirectory(dir=tmpdir)
     tmp_path = Path(tmpdir_obj.name)
 
-    if float(len(pangenome.organisms)) < max_sampling:
-        max_sampling = len(pangenome.organisms)
+    if float(pangenome.number_of_organisms) < max_sampling:
+        max_sampling = pangenome.number_of_organisms
     else:
         max_sampling = int(max_sampling)
 
@@ -399,7 +399,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
     index_org = pangenome.compute_family_bitarrays()
     logging.getLogger("PPanGGOLiN").info("Done computing bitarrays. Comparing them to get exact and soft core stats "
                                          f"for {len(all_samples)} samples...")
-    bar = tqdm(range(len(all_samples) * len(pangenome.gene_families)), unit="gene family", disable=disable_bar)
+    bar = tqdm(range(len(all_samples) * pangenome.number_of_gene_families), unit="gene family", disable=disable_bar)
     for samp in all_samples:
         # make the sample's organism bitarray.
         samp_bitarray = gmpy2.xmpz()  # pylint: disable=no-member

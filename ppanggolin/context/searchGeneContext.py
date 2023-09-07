@@ -7,6 +7,7 @@ import logging
 import tempfile
 import time
 from pathlib import Path
+from typing import Set
 
 # installed libraries
 from tqdm import tqdm
@@ -17,6 +18,7 @@ import pandas as pd
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig
 from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components, create_tmpdir
+from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import  project_and_write_partition, get_input_seq_to_family_with_rep, get_input_seq_to_family_with_all
 from ppanggolin.region import GeneContext
@@ -93,7 +95,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
     families = set()
     for gene_context in common_components:
-        families |= gene_context.families
+        families |= set(gene_context.families)
 
     if len(families) != 0:
         export_to_dataframe(families, common_components, fam_2_seq, output)
@@ -117,7 +119,7 @@ def compute_gene_context_graph(families: dict, t: int = 4, disable_bar: bool = F
     g = nx.Graph()
     for family in tqdm(families.values(), unit="families", disable=disable_bar):
         for gene in family.genes:
-            contig = gene.contig.genes
+            contig = list(gene.contig.genes)
             pos_left, in_context_left, pos_right, in_context_right = extract_gene_context(gene, contig, families, t)
             if in_context_left or in_context_right:
                 for env_gene in contig[pos_left:pos_right + 1]:
@@ -214,7 +216,7 @@ def fam2seq(seq_to_pan: dict) -> dict:
     return fam_2_seq
 
 
-def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, output: str):
+def export_to_dataframe(families: Set[GeneFamily], gene_contexts: Set[GeneContext], fam_to_seq: dict, output: str):
     """ Export the results into dataFrame
 
     :param families: Families related to the connected components
@@ -230,10 +232,10 @@ def export_to_dataframe(families: set, gene_contexts: set, fam_to_seq: dict, out
         for family in gene_context.families:
             line = [gene_context.ID]
             if fam_to_seq is None or fam_to_seq.get(family.ID) is None:
-                line += [family.name, None, len(family.organisms), family.named_partition]
+                line += [family.name, None, family.number_of_organisms, family.named_partition]
             else:
                 line += [family.name, ','.join(fam_to_seq.get(family.ID)),
-                         len(family.organisms), family.named_partition]
+                         family.number_of_organisms, family.named_partition]
             lines.append(line)
     df = pd.DataFrame(lines,
                       columns=["GeneContext ID", "Gene family name", "Sequence ID", "Nb Genomes", "Partition"]

@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: ['ubuntu-latest', 'macos-latest']
-        python-version: ['3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.8', '3.9', '3.10']
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
@@ -88,6 +88,14 @@ jobs:
         ppanggolin annotate --anno organisms.gbff.list --output readclusters
         ppanggolin cluster --clusters clusters.tsv -p readclusters/pangenome.h5
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f
+        cd -
+    - name: testing rgp_cluster command
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 --ignore_incomplete_rgp --grr_metric max_grr -f --graph_formats graphml gexf
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 --no_identical_rgp_merging -o rgp_clustering_no_identical_rgp_merging --graph_formats graphml
         cd -
     - name: testing align command
       shell: bash -l {0}

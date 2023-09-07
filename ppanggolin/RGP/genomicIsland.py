@@ -5,6 +5,7 @@
 import logging
 import argparse
 from pathlib import Path
+from typing import Set
 # installed libraries
 from tqdm import tqdm
 
@@ -30,7 +31,7 @@ class MatriceNode:
         self.score = score if score >= 0 else 0
 
 
-def extract_rgp(contig, node, rgp_id, naming):
+def extract_rgp(contig, node, rgp_id, naming) -> Region:
     """
         Extract the region from the given starting node
     """
@@ -40,7 +41,7 @@ def extract_rgp(contig, node, rgp_id, naming):
     elif naming == "organism":
         new_region = Region(node.gene.organism.name + "_" + contig.name + "_RGP_" + str(rgp_id))
     while node.state:
-        new_region.append(node.gene)
+        new_region.add(node.gene)
         node.state = 0
         node.score = 0
         node = node.prev
@@ -148,7 +149,7 @@ def init_matrices(contig: Contig, multi: set, persistent_penalty: int = 3, varia
 
 
 def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000, min_score: int = 4,
-               persistent: int = 3, continuity: int = 1, naming: str = "contig") -> set:
+               persistent: int = 3, continuity: int = 1, naming: str = "contig") -> Set[Region]:
     """
     Processing matrix and 'emptying' it to get the regions.
 
@@ -183,7 +184,7 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
     while val >= min_score:
         new_region = extract_rgp(contig, matrix[index], len(contig_regions), naming)
         new_region.score = val
-        if (new_region[0].stop - new_region[-1].start) > min_length:
+        if new_region.length > min_length:
             contig_regions.add(new_region)
         rewrite_matrix(contig, matrix, index, persistent, continuity, multi)
         val, index = max_index_node(matrix)
@@ -208,8 +209,8 @@ def compute_org_rgp( organism: Organism, multigenics: set,
     :return: A set of RGPs of the provided organism.
     """
     org_regions = set()
-    for contig in tqdm(organism.contigs, total=len(organism.contigs), unit="contig", disable=disable_bar): 
-        if len(contig.genes) != 0:  # some contigs have no coding genes...
+    for contig in tqdm(organism.contigs, total=organism.number_of_contigs, unit="contig", disable=disable_bar): 
+        if contig.number_of_genes != 0:  # some contigs have no coding genes...
             # can definitely multiprocess this part, as not THAT much information is needed...
             matrix = init_matrices(contig, multigenics, persistent_penalty, variable_gain)
             org_regions |= mk_regions(
@@ -276,16 +277,17 @@ def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain
     # check statuses and load info
     check_pangenome_former_rgp(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
-                         disable_bar=disable_bar)
+                            disable_bar=disable_bar)
 
     logging.getLogger("PPanGGOLiN").info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
     logging.getLogger("PPanGGOLiN").info("Compute Regions of Genomic Plasticity ...")
     name_scheme = naming_scheme(pangenome)
-    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genomes", disable=disable_bar):
-        pangenome.add_regions(compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
-                                              min_score, naming=name_scheme))
-    logging.getLogger("PPanGGOLiN").info(f"Predicted {len(pangenome.regions)} RGP")
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genomes", disable=disable_bar):
+        for region in compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
+                                                min_score, naming=name_scheme):
+            pangenome.add_region(region)
+    logging.getLogger("PPanGGOLiN").info(f"Predicted {pangenome.number_of_rgp} RGP")
 
     # save parameters and save status
     pangenome.parameters["rgp"] = {}
