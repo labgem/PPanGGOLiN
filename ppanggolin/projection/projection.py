@@ -238,14 +238,14 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
         "Genes": gene_count,
         "Families": families_count,
         "Persistent": {"genes":persistent_gene_count, "families":persistent_family_count},
-        "Shell": {"genes":persistent_gene_count, "families":persistent_family_count},
-        "Cloud": {"genes":persistent_gene_count, "families":persistent_family_count, "singleton families":singleton_gene_count},
+        "Shell": {"genes":shell_gene_count, "families":shell_family_count},
+        "Cloud": {"genes":cloud_gene_count, "families":cloud_family_count - singleton_gene_count, "specific families":singleton_gene_count},
         "RGPs": rgp_count,
         "Spots": spot_count,
         "New spots": new_spot_count,
         "Modules": module_count
     }
-    yaml_string = yaml.dump(summary_info, default_flow_style=False, sort_keys=False)
+    yaml_string = yaml.dump(summary_info, default_flow_style=False, sort_keys=False, indent=4)
     
 
     # summary_str = '\n'.join((f'    - {k}: {v}' for k,v in summary_info ))
