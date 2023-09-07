@@ -109,7 +109,7 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
     contig_table = h5f.create_table(annotation, "contigs", contig_desc, expectedrows=pangenome.number_of_contigs)
     logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_contigs} contigs")
     contig_row = contig_table.row
-    for contig in tqdm(pangenome.contigs, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
+    for contig in tqdm(pangenome.contigs, total=pangenome.number_of_contigs, unit="contigs", disable=disable_bar):
         if contig.number_of_genes >= contig.number_of_rnas:
             rna_list = list(contig.RNAs)
             for index, gene in enumerate(contig.genes):
@@ -117,8 +117,6 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
                 contig_row["is_circular"] = contig.is_circular
                 contig_row["gene"] = gene.ID
                 if index < len(rna_list):
-                    if rna_list[index].ID == 'GCF_001293965.1_ASM129396v1_genomic_tRNA_005':
-                        print("pika")
                     contig_row["rna"] = rna_list[index].ID
                 contig_row.append()
         else:
@@ -161,7 +159,6 @@ def write_genes(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Grou
     :returns: Dictionnary linking genedata to gene identifier
     """
     global genedata_counter
-    print(genedata_counter)
     genedata2gene = {}
     gene_table = h5f.create_table(annotation, "genes", gene_desc, expectedrows=pangenome.number_of_genes)
     logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_genes} genes")
@@ -179,7 +176,6 @@ def write_genes(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Grou
         gene_row["genedata_id"] = genedata_id
         gene_row.append()
     gene_table.flush()
-    print(genedata_counter)
     return genedata2gene
 
 
@@ -208,7 +204,6 @@ def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group
     :returns: Dictionnary linking genedata to RNA identifier
     """
     global genedata_counter
-    print(genedata_counter)
     genedata2rna = {}
     rna_table = h5f.create_table(annotation, "RNAs", rna_desc, expectedrows=pangenome.number_of_genes)
     logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_genes} genes")
@@ -224,7 +219,6 @@ def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group
         rna_row["genedata_id"] = genedata_id
         rna_row.append()
     rna_table.flush()
-    print(genedata_counter)
     return genedata2rna
 
 

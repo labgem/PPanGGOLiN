@@ -311,6 +311,7 @@ class Contig:
         self._genes_getter = {}
         self._genes_position = []
         self._organism = None
+        self._length = None
 
     def __str__(self) -> str:
         return self.name
@@ -341,6 +342,23 @@ class Contig:
         self._genes_getter[gene.start] = gene
 
     # TODO define eq function
+
+    @property
+    def length(self):
+        if self._length is None:
+            logging.getLogger("PPanGGOLiN").warning("Contig length is unknown")
+        return self._length
+
+    @length.setter
+    def length(self, contig_len: int):
+        if not isinstance(contig_len, int):
+            raise TypeError("Contig length is expected to be an integer")
+        if contig_len < 0:
+            raise ValueError("Contig length must be positive")
+        self._length = contig_len
+
+    def __len__(self):
+        return self.length
 
     # retrieve gene by start position
     def __getitem__(self, position: int) -> Gene:
@@ -593,7 +611,7 @@ class Organism(MetaFeatures):
 
         :return: Number of contigs in organism
         """
-        return len(self._contigs_getter)
+        return len(self._contigs_getter.keys())
 
     @property
     def families(self):

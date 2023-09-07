@@ -147,7 +147,6 @@ class Pangenome:
             return len(self._geneGetter)
 
     """RNAs methods"""
-
     @property
     def RNAs(self) -> Generator[Gene, None, None]:
         """Generator of genes in the pangenome.
