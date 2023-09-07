@@ -18,8 +18,7 @@ from ppanggolin.utils import mk_outdir, read_compressed_or_not, create_tmpdir
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
 from ppanggolin.figures.draw_spot import draw_selected_spots, subgraph
-from ppanggolin.formats.readBinaries import get_gene_sequences_from_file
-from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
+from ppanggolin.formats.readBinaries import get_non_redundant_gene_sequences_from_file
 
 
 def create_mmseqs_db(seq_file: Path, tmpdir: Path, basename="sequences") -> Path:
@@ -105,7 +104,7 @@ def align_seq_to_pang(target_seq_file:Path , query_seq_file: Path, output: Path,
 
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file", suffix=".aln.DB", delete=False) as aln_db:
         cmd = ["mmseqs", "search", query_db.as_posix(), target_db.as_posix(), aln_db.name, tmpdir.as_posix(), "-a", "--min-seq-id", str(identity),
-            "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu)] #,  "--max-accept", str(1), "--max-seqs", str(10)]
+            "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu), "--max-accept", str(1)]
         
         logging.getLogger().info("Aligning sequences")
         logging.getLogger().debug(" ".join(cmd))
@@ -244,13 +243,9 @@ def write_all_gene_sequences(pangenome: Pangenome, file_obj: IO, add: str = "", 
     :param file_obj: Temporary file where sequences will be written
     :param add: Add prefix to sequence name
     """
-    genes_to_write = (gene for fam in pangenome.gene_families for gene in fam.genes)
 
     if pangenome.status["geneSequences"] == "inFile":
-        get_gene_sequences_from_file(pangenome.file, file_obj, {gene.ID for gene in genes_to_write},
-                                        disable_bar=disable_bar)
-    elif pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-        write_gene_sequences_from_annotations(genes_to_write, file_obj, disable_bar=disable_bar)
+        get_non_redundant_gene_sequences_from_file(pangenome.file, file_obj, disable_bar=disable_bar)
     else:
         # this should never happen if the pangenome has been properly checked before launching this function.
         raise Exception("The pangenome does not include gene sequences")

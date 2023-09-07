@@ -196,20 +196,55 @@ def read_sequences(h5f: tables.File) -> dict:
         seqid2seq[row["seqid"]] = row['dna'].decode()
     return seqid2seq
 
+def get_non_redundant_gene_sequences_from_file(pangenome_filename: str, file_obj: TextIO, add: str = '',
+                                                disable_bar: bool = False):
+    """
+    Writes the non redundant CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
+    and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
 
-def get_gene_sequences_from_file(filename: str, file_obj: TextIO, list_cds: iter = None, add: str = '',
+    :param pangenome_filename: Name of the pangenome file
+    :param file_obj: Name of the output file
+    :param add: Add a prefix to sequence header
+    :param disable_bar: disable progress bar
+
+    """
+
+    logging.getLogger("PPanGGOLiN").info(f"Extracting and writing non redundant CDS sequences from {pangenome_filename} to {file_obj.name}")
+    
+    with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
+
+        # get a dictionarry mapping seqid to cds_name 
+        # seqid are uniq and can have multiple cds name. 
+        # We just want one of the cds name to have non redundant fasta sequences 
+        seqid2cds_name = {}
+        for row in read_chunks(h5f.root.geneSequences, chunk=20000):
+            # Read the table chunk per chunk otherwise RAM dies on big pangenomes
+            seqid2cds_name[row["seqid"]] = row["gene"].decode()
+
+        table = h5f.root.sequences
+        for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
+
+            cds_name = seqid2cds_name[row["seqid"]]
+            file_obj.write(f'>{add}{cds_name}\n')
+            file_obj.write(f'{row["dna"].decode()}\n')
+
+        file_obj.flush()
+
+
+def get_gene_sequences_from_file(pangenome_filename: str, file_obj: TextIO, list_cds: iter = None, add: str = '',
                                  disable_bar: bool = False):
     """
     Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
     and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
-    :param filename: Name of the pangenome file
+
+    :param pangenome_filename: Name of the pangenome file
     :param file_obj: Name of the output file
     :param list_cds: An iterable object of CDS
     :param add: Add a prefix to sequence header
     :param disable_bar: Prevent to print disable progress bar
     """
     logging.getLogger("PPanGGOLiN").info(f"Extracting and writing CDS sequences from a {filename} file to a fasta file...")
-    h5f = tables.open_file(filename, "r", driver_core_backing_store=0)
+    h5f = tables.open_file(pangenome_filename, "r", driver_core_backing_store=0)
     table = h5f.root.geneSequences
     list_cds = set(list_cds) if list_cds is not None else None
     seqid2seq = read_sequences(h5f)
