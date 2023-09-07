@@ -367,7 +367,7 @@ def write_predicted_regions(regions: Set[Region],
         writer.writeheader()
 
         regions = sorted(regions, key=lambda x: (
-            x.organism.name, x.contig.name, x.starter))
+            x.organism.name, x.contig.name, x.ID))
         for region in regions:
             row = {
                 "region": region.name,
@@ -403,7 +403,7 @@ def write_rgp_to_spot_table(rgp_to_spots: Dict[Region, Set[str]], output: Path, 
         writer.writeheader()
 
         regions = sorted(rgp_to_spots.keys(), key=lambda x: (
-            x.organism.name, x.contig.name, x.starter))
+            x.organism.name, x.contig.name, x.ID))
         for region in regions:
             row = {
                 "region": region.name,
@@ -686,13 +686,15 @@ def project_and_write_modules(pangenome: Pangenome, input_organism: Organism,
     """
     Write a tsv file providing association between modules and the input organism
 
+    :param pangenome: Pangenome object
+    :param input_organism: the organism that is being annotated
     :param output: Path to output directory
     :param compress: Compress the file in .gz
     """
 
     output_file = output / "modules_in_input_organism.tsv"
 
-    input_organism_families = input_organism.families
+    input_organism_families = list(input_organism.families)
     counter = 0
     modules_in_input_org = []
     with write_compressed_or_not(output_file, compress) as fout:
