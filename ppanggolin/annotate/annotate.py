@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import tempfile
 import time
+from typing import List, Set, Tuple
 
 # installed libraries
 from tqdm import tqdm
@@ -21,7 +22,7 @@ from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filety
 from ppanggolin.formats import write_pangenome
 
 
-def check_annotate_args(args):
+def check_annotate_args(args: argparse.Namespace):
     """Check That the given arguments are usable
 
     :param args: All arguments provide by user
@@ -39,7 +40,7 @@ def check_annotate_args(args):
         check_input_files(args.anno, True)
 
 
-def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: set,
+def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: Set[str],
                 start: int, stop: int, strand: str, gene_type: str, position: int = None, gene_name: str = "",
                 product: str = "", genetic_code: int = 11, protein_id: str = ""):
     """
@@ -82,7 +83,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
         new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
                                   position=position, product=product, local_identifier=gene_id,
                                   genetic_code=genetic_code)
-        contig[new_gene.start] = new_gene
+        contig.add(new_gene)
     else:  # if not CDS, it is RNA
         new_gene = RNA(org.name + "_RNA_" + str(rna_counter).zfill(4))
         new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
@@ -91,8 +92,8 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     new_gene.fill_parents(org, contig)
 
 
-def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: list, pseudo: bool = False) -> (
-        Organism, bool):
+def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
+                  pseudo: bool = False) -> Tuple[Organism, bool]:
     """
     Read a GBFF file and fills Organism, Contig and Genes objects based on information contained in this file
 
@@ -236,7 +237,8 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: li
     return organism, True
 
 
-def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: bool = False) -> (Organism, bool):
+def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str],
+                 pseudo: bool = False) -> Tuple[Organism, bool]:
     """
     Read annotation from GFF file
 
@@ -358,7 +360,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
     return org, has_fasta
 
 
-def launch_read_anno(args: tuple) -> (Organism, bool):
+def launch_read_anno(args: Tuple[str, Path, List[str], bool]) -> Tuple[Organism, bool]:
     """ Allow to launch in multiprocessing the read of genome annotation
 
     :param args: Pack of argument for annotate_organism function
@@ -368,8 +370,8 @@ def launch_read_anno(args: tuple) -> (Organism, bool):
     return read_anno_file(*args)
 
 
-def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
-                   pseudo: bool = False) -> (Organism, bool):
+def read_anno_file(organism_name: str, filename: Path, circular_contigs: List[str],
+                   pseudo: bool = False) -> Tuple[Organism, bool]:
     """
     Read a GBFF file for one organism
 
@@ -396,7 +398,7 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
                         "You may be able to use --fasta instead.")
 
 
-def chose_gene_identifiers(pangenome) -> bool:
+def chose_gene_identifiers(pangenome: Pangenome) -> bool:
     """
     Parses the pangenome genes to decide whether to use local_identifiers or ppanggolin generated gene identifiers.
     If the local identifiers are unique within the pangenome they are picked, otherwise ppanggolin ones are used.
@@ -467,15 +469,15 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotation"]["read_annotations_from_file"] = True
 
 
-def get_gene_sequences_from_fastas(pangenome, fasta_file):
+def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: List[Path]):
     """
     Get gene sequences from fastas
 
-    :param pangenome: input pangenome
-    :param fasta_file: list of fasta file
+    :param pangenome: Input pangenome
+    :param fasta_files: list of fasta file
     """
     fasta_dict = {}
-    for line in read_compressed_or_not(fasta_file):
+    for line in read_compressed_or_not(fasta_files):
         elements = [el.strip() for el in line.split("\t")]
         if len(elements) <= 1:
             logging.getLogger("PPanGGOLiN").error("No tabulation separator found in organisms file")
@@ -483,15 +485,15 @@ def get_gene_sequences_from_fastas(pangenome, fasta_file):
         try:
             org = pangenome.get_organism(elements[0])
         except KeyError:
-            raise KeyError(f"One of the genome in your '{fasta_file}' was not found in the pan."
+            raise KeyError(f"One of the genome in your '{fasta_files}' was not found in the pan."
                            f" This might mean that the genome names between your annotation file and "
                            f"your fasta file are different.")
         with read_compressed_or_not(elements[1]) as currFastaFile:
             fasta_dict[org], _ = read_fasta(org, currFastaFile)
     if set(pangenome.organisms) > set(fasta_dict.keys()):
-        missing = pangenome.number_of_organisms() - len(set(pangenome.organisms) & set(fasta_dict.keys()))
+        missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome organisms are present within the provided fasta file. "
-                        f"{missing} are missing (out of {pangenome.number_of_organisms()}).")
+                        f"{missing} are missing (out of {pangenome.number_of_organisms}).")
 
     for org in pangenome.organisms:
         for contig in org.contigs:
@@ -509,7 +511,7 @@ def get_gene_sequences_from_fastas(pangenome, fasta_file):
     pangenome.status["geneSequences"] = "Computed"
 
 
-def launch_annotate_organism(pack: tuple) -> Organism:
+def launch_annotate_organism(pack: Tuple[str, Path, List[str], str, int, bool, str, bool, str]) -> Organism:
     """ Allow to launch in multiprocessing the genome annotation
 
     :param pack: Pack of argument for annotate_organism function
@@ -592,12 +594,16 @@ def launch(args: argparse.Namespace):
             if args.fasta:
                 get_gene_sequences_from_fastas(pangenome, args.fasta)
             else:
-                logging.getLogger("PPanGGOLiN").warning(
-                    "You provided gff files without sequences, and you did not provide "
-                    "fasta sequences. Thus it was not possible to get the gene sequences.")
-                logging.getLogger("PPanGGOLiN").warning(
-                    "You will be able to proceed with your analysis ONLY if you provide "
-                    "the clustering results in the next step.")
+                logging.getLogger("PPanGGOLiN").warning("You provided gff files without sequences, "
+                                                        "and you did not provide fasta sequences. "
+                                                        "Thus it was not possible to get the gene sequences.")
+                logging.getLogger("PPanGGOLiN").warning("You will be able to proceed with your analysis "
+                                                        "ONLY if you provide the clustering results in the next step.")
+        else:
+            if args.fasta:
+                logging.getLogger("PPanGGOLiN").warning("You provided fasta sequences "
+                                                        "but your gff files were already with sequences."
+                                                        "PPanGGOLiN will use sequences in GFF and not from your fasta.")
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
 
 

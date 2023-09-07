@@ -6,6 +6,7 @@ import logging
 import os
 import tempfile
 from io import TextIOWrapper
+from multiprocessing import Manager
 from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
@@ -15,6 +16,10 @@ from pathlib import Path
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import is_compressed, read_compressed_or_not
+
+
+manager = Manager()
+contig_len = manager.dict()
 
 
 def reverse_complement(seq: str):
@@ -79,6 +84,8 @@ def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str
 
     :return: Annotated genes in a list of gene objects
     """
+    global contig_len
+
     locustag = org.name
     cmd = list(map(str, ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", procedure, "-q"]))
     logging.getLogger("PPanGGOLiN").debug(f"prodigal command : {' '.join(cmd)}")
@@ -89,9 +96,13 @@ def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str
     header = ""
     for line in p.communicate()[0].decode().split("\n"):
         if line.startswith("# Sequence Data: "):
+            length = None
             for data in line.split(";"):
-                if data.startswith("seqhdr"):
+                if data.startswith("seqlen"):
+                    length = int(data.split("=")[1])
+                elif data.startswith("seqhdr"):
                     header = data.split("=")[1].replace('"', "").split()[0]
+            contig_len[header] = length
 
         elif line.startswith(">"):
             c += 1
@@ -330,11 +341,12 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
         except KeyError:
             contig = Contig(contig_name, True if contig_name in circular_contigs else False)
             org.add(contig)
+        contig.length = contig_len[contig.name]
         for gene in genes:
             gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             gene.fill_parents(org, contig)
             if isinstance(gene, Gene):
-                contig[gene.start] = gene
+                contig.add(gene)
             elif isinstance(gene, RNA):
                 contig.add_rna(gene)
     return org
