@@ -2,6 +2,7 @@
 # coding:utf-8
 
 # default libraries
+import time
 from _io import TextIOWrapper
 import logging
 import tempfile
@@ -106,9 +107,15 @@ def align_seq_to_pang(target_seq_file:Path , query_seq_file: Path, output: Path,
         cmd = ["mmseqs", "search", query_db.as_posix(), target_db.as_posix(), aln_db.name, tmpdir.as_posix(), "-a", "--min-seq-id", str(identity),
             "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu), "--max-accept", str(1)]
         
+
+        
         logging.getLogger().info("Aligning sequences")
         logging.getLogger().debug(" ".join(cmd))
+
+        start = time.time()
         subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+        align_time = time.time() - start
+        logging.getLogger().info(f"Done aligning sequences in {round(align_time,2)} seconds")
 
         with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, prefix="aln_result_db_file", suffix = ".tsv", delete=False) as outfile:
             cmd = ["mmseqs", "convertalis", query_db.as_posix(), target_db.as_posix(), aln_db.name, outfile.name, "--format-mode", "2"]
