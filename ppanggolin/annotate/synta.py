@@ -170,8 +170,11 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
                     contigs[contig.name] = contig_seq.upper()
                     contig.length = len(contig_seq)
                 contig_seq = ""
-                contig = Contig(line.split()[0][1:])
-                org.add(contig)
+                try:
+                    contig = org.get(line.split()[0][1:])
+                except KeyError:
+                    contig = Contig(line.split()[0][1:])
+                    org.add(contig)
             else:
                 contig_seq += line.strip()
         if len(contig_seq) >= 1:  # processing the last contig
