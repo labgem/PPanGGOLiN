@@ -113,7 +113,6 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     while len(lines) != 0:
         line = lines.pop()
         # beginning of contig
-        contig = None
         is_circ = False
         contig_id = None
         if line.startswith('LOCUS'):
@@ -351,7 +350,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
     # GET THE FASTA SEQUENCES OF THE GENES
     if has_fasta and fasta_string != "":
-        contig_sequences, _ = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
+        contig_sequences = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
         for contig in org.contigs:
             for gene in contig.genes:
                 gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
@@ -489,7 +488,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: List[Path]
                            f" This might mean that the genome names between your annotation file and "
                            f"your fasta file are different.")
         with read_compressed_or_not(elements[1]) as currFastaFile:
-            fasta_dict[org], _ = read_fasta(org, currFastaFile)
+            fasta_dict[org] = read_fasta(org, currFastaFile)
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome organisms are present within the provided fasta file. "

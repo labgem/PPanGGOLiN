@@ -6,20 +6,15 @@ import logging
 import os
 import tempfile
 from io import TextIOWrapper
-from multiprocessing import Manager
 from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
-from typing import Union
+from typing import Dict, List, Union
 from pathlib import Path
 
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import is_compressed, read_compressed_or_not
-
-
-manager = Manager()
-contig_len = manager.dict()
 
 
 def reverse_complement(seq: str):
@@ -84,7 +79,6 @@ def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str
 
     :return: Annotated genes in a list of gene objects
     """
-    global contig_len
 
     locustag = org.name
     cmd = list(map(str, ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", procedure, "-q"]))
@@ -96,13 +90,9 @@ def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str
     header = ""
     for line in p.communicate()[0].decode().split("\n"):
         if line.startswith("# Sequence Data: "):
-            length = None
             for data in line.split(";"):
-                if data.startswith("seqlen"):
-                    length = int(data.split("=")[1])
-                elif data.startswith("seqhdr"):
+                if data.startswith("seqhdr"):
                     header = data.split("=")[1].replace('"', "").split()[0]
-            contig_len[header] = length
 
         elif line.startswith(">"):
             c += 1
@@ -162,7 +152,7 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
     return gene_objs
 
 
-def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> (dict, int):
+def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str, str]:
     """ Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
 
     :param org: Organism corresponding to fasta file
@@ -173,24 +163,21 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> (dict, in
     try:
         contigs = {}
         contig_seq = ""
-        all_contig_len = 0
         contig = None
         for line in fna_file:
             if line.startswith('>'):
                 if len(contig_seq) >= 1:  # contig filter = 1
                     contigs[contig.name] = contig_seq.upper()
-                    all_contig_len += len(contig_seq)
+                    contig.length = len(contig_seq)
                 contig_seq = ""
-                try:
-                    contig = org.get(line.split()[0][1:])
-                except KeyError:
-                    contig = Contig(line.split()[0][1:])
-                    org.add(contig)
+                contig = Contig(line.split()[0][1:])
+                org.add(contig)
             else:
                 contig_seq += line.strip()
         if len(contig_seq) >= 1:  # processing the last contig
             contigs[contig.name] = contig_seq.upper()
-            all_contig_len += len(contig_seq)
+            contig.length = len(contig_seq)
+
     except AttributeError as e:
         raise AttributeError(f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
                              f"One possibility for this error is that the file did not start with a '>' "
@@ -198,7 +185,7 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> (dict, in
     except Exception:  # To manage other exception which can occur
         raise Exception("Unexpected error. Please check your input file and if everything looks fine, "
                         "please post an issue on our github")
-    return contigs, all_contig_len
+    return contigs
 
 
 def write_tmp_fasta(contigs: dict, tmpdir: str) -> tempfile._TemporaryFileWrapper:
@@ -301,7 +288,7 @@ def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
         return reverse_complement(contig_seq[gene.start - 1:gene.stop])
 
 
-def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: str,
+def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str], tmpdir: str,
                       code: int = 11, norna: bool = False, kingdom: str = "bacteria",
                       allow_overlap: bool = False, procedure: str = None) -> Organism:
     """
@@ -323,10 +310,11 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
 
     fasta_file = read_compressed_or_not(file_name)
 
-    contig_sequences, all_contig_len = read_fasta(org, fasta_file)
+    contig_sequences = read_fasta(org, fasta_file)
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
     if procedure is None:  # prodigal procedure is not force by user
+        all_contig_len = sum(len(contig) for contig in org.contigs)
         logging.getLogger("PPanGGOLiN").debug(all_contig_len)
         if all_contig_len < 20000:  # case of short sequence
             procedure = "meta"
@@ -336,12 +324,8 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs, tmpdir: 
     genes = overlap_filter(genes, allow_overlap=allow_overlap)
 
     for contig_name, genes in genes.items():
-        try:
-            contig = org.get(contig_name)
-        except KeyError:
-            contig = Contig(contig_name, True if contig_name in circular_contigs else False)
-            org.add(contig)
-        contig.length = contig_len[contig.name]
+        contig = org.get(contig_name)
+        contig.is_circular = True if contig.name in circular_contigs else False
         for gene in genes:
             gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             gene.fill_parents(org, contig)
