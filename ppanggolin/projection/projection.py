@@ -309,7 +309,23 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
             gene_family = seqid_to_gene_family[gene_id]
             gene_family.add(gene)
         except KeyError:
-            new_gene_family = GeneFamily(pangenome.max_fam_id, gene_id)
+            # the seqid is not in the dict so it does not align with any pangenome families
+            # We consider it as cloud gene
+            try:
+                 # in some case a family exists already and has the same name of the gene id
+                 # So gene id cannot be used 
+                _ = pangenome.get_gene_family(gene_id)
+            except KeyError:
+                new_gene_family = GeneFamily(pangenome.max_fam_id, gene_id)
+
+            else:
+                # gene id already exists.
+                new_name=f"{input_organism.name}_{gene_id}"
+                logging.getLogger('PPanGGOLiN').warning('The input organism as a specific gene that does not align to any '
+                                                        f'pangenome families with the same id ({gene_id}) than an existing gene family in the pangenome. '
+                                                        f'The organism name is added to the family name: {new_name}')
+                new_gene_family = GeneFamily(pangenome.max_fam_id, new_name)
+
             pangenome.add_gene_family(new_gene_family)
             new_gene_family.add(gene)
             new_gene_family.partition = "Cloud"
