@@ -81,7 +81,7 @@ def write_organisms(pangenome: Pangenome, h5f: tables.File, annotation: tables.G
 
 
 def contig_desc(contig_len: int, max_gene_id_len: int,
-                max_rna_id_len: int) -> Dict[str, Union[tables.StringCol, tables.BoolCol]]:
+                max_rna_id_len: int) -> Dict[str, Union[tables.StringCol, tables.BoolCol, tables.UInt32Col]]:
     """Table description to save contig-related information
 
     :param contig_len: Maximum size of contig name
@@ -92,12 +92,13 @@ def contig_desc(contig_len: int, max_gene_id_len: int,
     """
     return {'name': tables.StringCol(itemsize=contig_len),
             "is_circular": tables.BoolCol(dflt=False),
+            'length': tables.UInt32Col(),
             "gene": tables.StringCol(itemsize=max_gene_id_len),
             "rna": tables.StringCol(itemsize=max_rna_id_len)}
 
 
 def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Group,
-                  contig_desc: Dict[str, Union[tables.StringCol, tables.BoolCol]],
+                  contig_desc: Dict[str, Union[tables.StringCol, tables.BoolCol, tables.UInt32Col]],
                   disable_bar=False):
     """Write contigs information in the pangenome file
     :param pangenome: Annotated pangenome object
@@ -115,6 +116,7 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
             for index, gene in enumerate(contig.genes):
                 contig_row["name"] = contig.name
                 contig_row["is_circular"] = contig.is_circular
+                contig_row["length"] = len(contig)
                 contig_row["gene"] = gene.ID
                 if index < len(rna_list):
                     contig_row["rna"] = rna_list[index].ID

@@ -407,6 +407,7 @@ def read_organisms(pangenome: Pangenome, annotations: tables.Group, chunk_size: 
             organism = pangenome.get_organism(contig2organism[contig_name])
             contig = organism.get(contig_name)
             contig.is_circular = row["is_circular"]
+            contig.length = row["length"]
         try:
             gene = Gene(row["gene"].decode())
         except ValueError:
