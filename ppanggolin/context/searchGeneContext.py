@@ -69,7 +69,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
                                                                                     output=output, tmpdir=new_tmpdir,
                                                                                     cpu=cpu, no_defrag=no_defrag,
                                                                                     identity=identity, coverage=coverage,
-                                                                                    translation_table=translation_table)
+                                                                                    translation_table=translation_table, disable_bar=disable_bar)
         
         project_and_write_partition(seq2pan, seq_set, output)
 

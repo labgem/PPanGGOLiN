@@ -445,7 +445,7 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_file: Path, 
 
 def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_file: Path, output: Path, tmpdir: Path,
                                      cpu: int = 1, no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8,
-                                     translation_table: int = 11,) -> Tuple[set, str, dict]:
+                                     translation_table: int = 11, disable_bar: bool = False,) -> Tuple[set, str, dict]:
     """
     Assign gene families from a pangenome to input sequences.
 
@@ -461,6 +461,7 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_file: Path, 
     :param identity: Minimum identity threshold for the alignment (default: 0.8).
     :param coverage: Minimum coverage threshold for the alignment (default: 0.8).
     :param translation_table: Translation table to use if sequences need to be translated (default: 11).
+    :param disable_bar: Disable progress bar
 
     :return: A tuple containing the set of input sequences, the path to the alignment result file, 
              and a dictionary mapping input sequences to gene families.
@@ -470,7 +471,7 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_file: Path, 
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), delete=False, 
                                      prefix="all_pangenome_genes", suffix=".fna") as tmp_pang_file:
             
-        write_all_gene_sequences(pangenome, tmp_pang_file, add="ppanggolin_")
+        write_all_gene_sequences(pangenome, tmp_pang_file, add="ppanggolin_", disable_bar=disable_bar)
 
         with read_compressed_or_not(sequence_file) as seqFileObj:
             seq_set, is_nucleotide = get_seq_ids(seqFileObj)
@@ -539,7 +540,7 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
             seq_set, align_file, seq2pang = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=sequence_file, 
                                                                                 output=output, tmpdir=new_tmpdir,
                                                                                 cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
-                                                                                translation_table=translation_table)
+                                                                                translation_table=translation_table, disable_bar=disable_bar)
 
     if getinfo or draw_related:  # TODO Add getinfo to function and remove if
         get_seq_info(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)

@@ -153,7 +153,8 @@ def launch(args: argparse.Namespace):
                                                                         output=output_dir, cpu=args.cpu,use_representatives=args.fast,
                                                                         no_defrag=args.no_defrag, identity=args.identity,
                                                                         coverage=args.coverage, tmpdir=args.tmpdir,
-                                                                        translation_table=args.translation_table, keep_tmp=args.keep_tmp)
+                                                                        translation_table=args.translation_table, keep_tmp=args.keep_tmp, 
+                                                                        disable_bar=args.disable_prog_bar)
 
     input_org_rgps, input_org_spots, input_org_modules = None, None, None
 
@@ -256,7 +257,7 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
 def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organism: Organism, output: Path,
                                                  cpu: int,use_representatives:bool, no_defrag: bool, 
                                                  identity: float, coverage: float, tmpdir: Path,
-                                                 translation_table: int, keep_tmp:bool = False):
+                                                 translation_table: int, keep_tmp:bool = False, disable_bar: bool =False):
     """
     Annotate input genes with pangenome gene families and perform clustering.
 
@@ -269,9 +270,9 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     :param identity: Minimum identity threshold for gene clustering.
     :param coverage: Minimum coverage threshold for gene clustering.
     :param tmpdir: Temporary directory for intermediate files.
-    :param disable_bar: Whether to disable progress bar.
     :param translation_table: Translation table ID for nucleotide sequences.
     :param keep_tmp: If True, keep temporary files.
+    :param disable_bar: Whether to disable progress bar.
 
     :return: Number of genes that do not cluster with any of the gene families of the pangenome.
     """
@@ -296,7 +297,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
             seq_set, _, seqid_to_gene_family = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=seq_fasta_file, 
                                                                                 output=output, tmpdir=new_tmpdir,
                                                                                 cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
-                                                                                translation_table=translation_table)
+                                                                                translation_table=translation_table, disable_bar=disable_bar)
 
 
     project_and_write_partition(seqid_to_gene_family, seq_set, output)
