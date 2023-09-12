@@ -102,11 +102,12 @@ def align_seq_to_pang(target_seq_file:Path , query_seq_file: Path, output: Path,
        cov_mode = "0"  # coverage of query and target
     
     # mmseqs search command
+    # see https://github.com/soedinglab/MMseqs2/issues/373 Using a combination of param to no miss short proteins 
 
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file", suffix=".aln.DB", delete=False) as aln_db:
-        cmd = ["mmseqs", "search", query_db.as_posix(), target_db.as_posix(), aln_db.name, tmpdir.as_posix(), "-a", "--min-seq-id", str(identity),
-            "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu), "--max-accept", str(1)]
-        
+        cmd = ["mmseqs", "search", query_db.as_posix(), target_db.as_posix(), aln_db.name, tmpdir.as_posix(), "-a", "--min-seq-id", str(identity), 
+               "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu), 
+               "--seed-sub-mat", "VTML40.out", "-s", "2", '--comp-bias-corr', "0", "--mask", "0", "-e", "1"]
 
         
         logging.getLogger().info("Aligning sequences")
