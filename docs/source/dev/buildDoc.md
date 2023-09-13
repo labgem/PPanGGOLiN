@@ -1,17 +1,24 @@
 # Build the documentation
-This part help developper to build the documentation before to merge on main.
+This partdescribe the guidelines to build the documentation of PPanGGOLiN.
 
 ```{danger}
-When you will merge or pull request your branch on main, a bot from readthedoc will see it and update the doc online.
+When you will merge or pull request your branch on master, a bot from readthedoc will see it and update the doc online.
 Be sure that your doc is clean and without error. 
 ```
 
 ## Install required packages
 
-Required packages are listed in [sphinx_requirements file](../../sphinx_requirements.txt) at the root of the doc folder.
+Required packages are listed below :
+```text
+sphinx==6.2.1
+sphinx_rtd_theme==1.2.2
+readthedocs-sphinx-search==0.3.1
+sphinx-autobuild==2021.3.14
+myst-parser==1.0.0
+```
 To build the doc you need to use an environnement with panorama installed. 
-To make think easier [pyproject.toml file](../../../pyproject.toml) contain the same list of requirement and can install
-everything automatically with pip.
+To make think easier [pyproject.toml file](../../../pyproject.toml) contain the same list of requirement 
+and can install everything automatically with pip.
 ```shell
 # PANORAMA=/path/to/panorama/
 pip install $PANORAMA[doc]  # You can add -e to install in editable mode
@@ -33,27 +40,32 @@ you type for docs hosted on Read the Docs". It's only work on ReadTheDocs web si
 ```
 
 ### Modify existing documentation
-In this part we will speak about how to change already existing file. To adding file for command, package, ... 
-See [Adding section](#heading-adding)
+In this part we will speak about how to change the already existing documentation files.
+To add files for command, package, ... See [Adding section](#heading-adding)
 
-To modify the existing user or developper documentation, you simply need to go to the file that you want to change and modify it.
+To modify the existing user or developper documentation, you simply need to go to the file where you want to make a change and modify it.
 
-The API documentation is automatically update when you modify the code. 
-It's working also when you add function in the package, but not if you add new package, for this look at the next section.  
+The API documentation is automatically update when you modify the docstring in the code. 
+It's also working when you add function, method, class, ect, in an already existing package,
+but not if you add new package (new file in the ppanggolin), for this look at [Update API documentation](#add-api-doc).
 
 (heading-adding)=
 ### Adding to existing documentation
-#### Adding command documentation
-Documentation to a new command should be in the user documentation. 
-A new file should be created with a name corresponding to the commande name. 
+#### Adding user documentation file
+User documentation should contain files relative to new command, example and information about PPanGGOLiN. 
+To ensure efficency, file name should correspond to the main topic.
+A file should not be long, prefer to split in multiple files.
+
 When the file is created, you can add it to the index in the *toctree UserGuide* by adding a line `user/filename` 
-without the file extension (.md).
+without the file extension (.md) in the **index file**.
 
 #### New guidelines for development
-All new guidelines that seems interesting are welcomed. 
-If you think that the guidelines could not be add to an existing file you can create a new one.   
-Use an explicit name for you file and add it to the *toctree DevelopperGuide* 
+All new guidelines that seems interesting are welcomed.
 
+If you think that the guidelines could not be added to an existing file, you can create a new one.   
+Use an explicit name for your file and add it to the *toctree DevelopperGuide* 
+
+(add-api-doc)=
 #### Update API documentation
 The API documentation is build automatically. 
 To update the API documentation and keep the automatic update when a new package, module, submodules is added follow the
@@ -69,13 +81,13 @@ sphinx-apidoc -o api $PANORAMA/panorama -f
 ### Creating a new documentation from scratch
 #### Quickstart with sphinx
 ```{warning}
-This must be discuss and validate by other collaborator.
+This must be discuss with repository administrators.
 ```
 To create the documentation from scratch, rename the existing documentation (or use another name for the new one)
 and follow the next steps.
 
 ```shell
-DOCS=path/to/documentation/folder
+DOCS=path/to/PPanGGOLiN/docs
 sphinx-quickstart $DOCS
 #Welcome to the Sphinx 6.2.1 quickstart utility.
 #
@@ -90,9 +102,9 @@ sphinx-quickstart $DOCS
 #> Separate source and build directories (y/n) [n]: y
 #
 #The project name will occur in several places in the built documentation.
-#> Project name: PANORAMA
+#> Project name: PPanGGOLiN
 #> Author name(s): Jérôme Arnoux
-#> Project release []: 0.2.65
+#> Project release []: 1.2.174
 #
 #If the documents are to be written in a language other than English,
 #you can select a language here by its language code. Sphinx will then
@@ -135,8 +147,8 @@ from pathlib import Path
 
 # -- Project information -----------------------------------------------------
 
-project = 'PANORAMA'
-copyright = '2023, Jérôme Arnoux'
+project = 'PPanGGOLiN'
+copyright = 'LABGeM'
 author = 'Jérôme Arnoux'
 
 # The full version, including alpha/beta/rc tags
@@ -182,11 +194,12 @@ html_static_path = ['_static']
 (rst2md)=
 #### ReStructeredText to markdown
 reStructuredText (rst) is the default plaintext markup language used by both Docutils and Sphinx. 
-More complete but a little bit older than Markdown, which is easier to use too, we are going to change 
-rst for Markdown (md). To translate rst and keep all the features we will use [MyST](https://mystmd.org/guide).
+More complete but a little bit older than Markdown, which is easier to use too.
+We are going to change rst for Markdown (md). 
+To translate rst and keep all the features, we will use [MyST](https://mystmd.org/guide).
 
 For this case we will need to install a new package `rst-to-myst`.
-```{note} We advice to use another environment, because this package is not compatible with our sphinx version
+```{note} We advice to use another environment, because as far as we know today, this package is not compatible with our sphinx version
 ```
 
 ```shell
@@ -207,15 +220,15 @@ Simply add the following line in `index.md`
 ```
 
 #### User documentation
-The user documentation is completely handwritten. Moreover, we advise to respect the following guidelines:
+The user documentation is completely handwritten. Moreover, we advise respecting the following guidelines:
 
-1. One file per panorama command with an explicit text on the feature
+1. One file per topic/command with an explicit text on the feature
 2. One file for the installation guidelines
 3. One file on how to report issue or enhancement
 4. Don't ref to any function in the panorama code. This is reserved for developper documentation
 
 #### Developper documentation
-The developper documentation is handwritten too. We advise to respect the following guidelines:
+The developper documentation is handwritten too. We advise respecting the following guidelines:
 1. Spoke about the PEP rules
 2. Give guidelines on how to use git and GitHub for version control
 3. Explain how to write unit test and modify GitHub workflows
@@ -224,19 +237,19 @@ The developper documentation is handwritten too. We advise to respect the follow
 
 
 #### API documentation
-To build the API documentation and use the docstring in code you can use the command `sphinx-apidoc` as follows:
+To build the API documentation and use the docstring in code, you can use the command `sphinx-apidoc` as follows:
 ```shell
 sphinx-apidoc -o api $PANORAMA/panorama
 # Go to your environment with rst2myst
 rst2myst convert api/*.rst
-# Go back to your environment with panorama
+# Go back to your environment with sphinx
 rm api/*.rst
 ```
-You have now documentation for panorama api. To ref api in your doc you can paste **\{ref\}\`package panorama\`**
+You have now documentation for PPanGGOLiN api. To ref api in your doc you can paste **\{ref\}\`package panorama\`**
 
 ```{tip}
 With the "sphinx.ext.autosectionlabel", you will certainly get multiple warning for duplicate label. 
-To remove them you have to remove or modify the label in one of the cited file. 
+To remove them you have to remove or modify the label in one of the cited file.
 ```
 ```{tip}
 When you use "sphinx-apidoc" a modules.md file is created but he is not used. we advice to removed it to prevent warning.
