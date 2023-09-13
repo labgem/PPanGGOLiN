@@ -17,7 +17,7 @@ sphinx-autobuild==2021.3.14
 myst-parser==1.0.0
 ```
 To build the doc you need to use an environnement with panorama installed. 
-To make think easier [pyproject.toml file](../../../pyproject.toml) contain the same list of requirement 
+To make think easier [pyproject.toml file](../../pyproject.toml) contain the same list of requirement 
 and can install everything automatically with pip.
 ```shell
 # PANORAMA=/path/to/panorama/

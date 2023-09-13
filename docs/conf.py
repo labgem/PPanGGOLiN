@@ -19,7 +19,7 @@ copyright = '2023, LABGeM'
 author = 'Jérôme Arnoux'
 
 # The full version, including alpha/beta/rc tags
-release = open(Path(__file__).resolve().parents[2]/"VERSION").read().rstrip()  # Get release number in the VERSION file
+release = open(Path(__file__).resolve().parents[1]/"VERSION").read().rstrip()  # Get release number in the VERSION file
 
 
 # -- General configuration ---------------------------------------------------
