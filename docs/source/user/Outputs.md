@@ -1,3 +1,4 @@
+(output)=
 # PPanGGOLiN outputs 
 
 PPanGGOLiN provides multiple outputs to describe a pangenome. In this section the different outputs will be described.
@@ -13,6 +14,7 @@ When using the same subcommand (like 'write' or 'draw' that can help you generat
 ### U-shaped plot
 ```{include} Figures/Uplot.md
 ```
+
 ### tile plot
 ```{include} Figures/tilePlot.md
 ```
@@ -22,7 +24,6 @@ When using the same subcommand (like 'write' or 'draw' that can help you generat
 ```
 
 ## Rarefaction
-
 ```{include} Figures/rarefaction.md
 ```
 
@@ -69,9 +70,11 @@ The pangenome's graph can be given through multiple data formats, in order to ma
 ### Modules
 ```{include} Flat/module.md
 ```
+
 ## Fasta
 ```{include} sequence/fasta.md
 ```
+
 ## MSA
 ```{include} sequence/MSA.md
 ```

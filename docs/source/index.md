@@ -4,9 +4,6 @@
 % contain the root `toctree` directive.
 
 
-# PPanGGOLiN home documentation
-
-
 ```{include} ../../README.md
 :relative-images:
 ```
@@ -27,27 +24,21 @@ user/metadata
 user/Outputs
 ```
 
-
 ```{toctree}
 :caption: 'Developper Guide:'
 :maxdepth: 2
 
-
 dev/devRules
-
 dev/git
-
 dev/unitTest
-
 dev/workflows
-
 dev/buildDoc
 ```
 
+
 # Indices and tables
-
-
 [//]: # (- {ref}`ppanggolin package`)
+
 - {ref}`genindex`
 
 - {ref}`modindex`

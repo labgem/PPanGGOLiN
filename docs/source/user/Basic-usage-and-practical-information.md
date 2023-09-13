@@ -1,3 +1,4 @@
+(basic)
 # Basic usage and pratical information
 
 ## The 'workflow' subcommand
@@ -26,10 +27,12 @@ You can also give PPanGGOLiN your own annotations using .gff or .gbff/.gbk files
 
 Another [example](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.gbff.list) of such a file can be found in the testingDataset/ directory.
 
+(panrgp)=
 ## The 'panrgp' subcommand 
 
 This command works exactly like 'workflow'. The difference is that it will run more analysis related to [Regions of Genome Plasticity](#RGP-section).
 
+(panmodule)=
 ## The 'panmodule' subcommand
 
 Again it works like 'workflow' but you can detect the conserved modules in your pangenome, you can use the **panModule** workflow, as such:
