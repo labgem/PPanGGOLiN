@@ -58,7 +58,7 @@ def launch(args: argparse.Namespace):
     output_dir = Path(args.output)
     mk_outdir(output_dir, args.force)
 
-    # For the moment this element of the pangenome are predicted by default
+    # For the moment these elements of the pangenome are predicted by default
     project_modules = True
     predict_rgp = True
     project_spots = True
@@ -150,7 +150,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_organism(input_organism)
 
     singleton_gene_count = annotate_input_genes_with_pangenome_families(pangenome, input_organism=input_organism,
-                                                                        output=output_dir, cpu=args.cpu,use_representatives=args.fast,
+                                                                        output=output_dir, cpu=args.cpu, use_representatives=args.fast,
                                                                         no_defrag=args.no_defrag, identity=args.identity,
                                                                         coverage=args.coverage, tmpdir=args.tmpdir,
                                                                         translation_table=args.translation_table, keep_tmp=args.keep_tmp, 
@@ -284,18 +284,18 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     with open(seq_fasta_file, "w") as fh_out_faa:
         write_gene_sequences_from_annotations(
             input_organism.genes, fh_out_faa, disable_bar=True, add="ppanggolin_")
-
+    seq_set = {gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in input_organism.genes}
 
 
     with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
             
 
         if use_representatives:
-            seq_set, _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome, seq_fasta_file, output, new_tmpdir,
-                                                        cpu, no_defrag, identity=identity, coverage=coverage, translation_table=translation_table)
+            _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome, seq_fasta_file, output, new_tmpdir, is_input_seq_nt=True,
+                                                        cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage, translation_table=translation_table)
         else:
-            seq_set, _, seqid_to_gene_family = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=seq_fasta_file, 
-                                                                                output=output, tmpdir=new_tmpdir,
+            _, seqid_to_gene_family = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=seq_fasta_file, 
+                                                                                output=output, tmpdir=new_tmpdir, is_input_seq_nt=True,
                                                                                 cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
                                                                                 translation_table=translation_table, disable_bar=disable_bar)
 

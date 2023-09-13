@@ -17,10 +17,10 @@ import pandas as pd
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig
-from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components, create_tmpdir
+from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components, create_tmpdir, read_compressed_or_not
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.align.alignOnPang import  project_and_write_partition, get_input_seq_to_family_with_rep, get_input_seq_to_family_with_all
+from ppanggolin.align.alignOnPang import  project_and_write_partition, get_input_seq_to_family_with_rep, get_input_seq_to_family_with_all, get_seq_ids
 from ppanggolin.region import GeneContext
 
 
@@ -58,15 +58,18 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
     fam_2_seq = None
     if sequence_file is not None:
         # Alignment of sequences on pangenome families
+        with read_compressed_or_not(sequence_file) as seqFileObj:
+            seq_set, is_nucleotide = get_seq_ids(seqFileObj)
+    
         with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
         
             if use_representatives:
-                seq_set, _, seq2pan = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir,
-                                                            cpu, no_defrag, identity=identity, coverage=coverage,
-                                                            translation_table=translation_table)
+                _, seq2pan = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir, is_input_seq_nt=is_nucleotide,
+                                                            cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
+                                                            translation_table=translation_table, disable_bar=disable_bar)
             else:
-                seq_set, _, seq2pan = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=sequence_file, 
-                                                                                    output=output, tmpdir=new_tmpdir,
+                _, seq2pan = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=sequence_file, 
+                                                                                    output=output, tmpdir=new_tmpdir, is_input_seq_nt=is_nucleotide,
                                                                                     cpu=cpu, no_defrag=no_defrag,
                                                                                     identity=identity, coverage=coverage,
                                                                                     translation_table=translation_table, disable_bar=disable_bar)
