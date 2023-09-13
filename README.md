@@ -54,7 +54,7 @@ conda install -c bioconda ppanggolin
 
 **PPanGGOLiN** integrates some workflows to build and analyse easily and rapidly a pangenome. 
 These commands can be tuned with some parameters but are mostly automatic.
-All workflow parameters are described [here](#step-by-step-section).
+All workflow parameters are described [here](https://ppanggolin.readthedocs.io/en/updateenv/user/Basic-usage-and-practical-information.html#the-workflow-subcommand).
 
 ## Pangenome graph construction and partition
 
@@ -83,7 +83,7 @@ ppanggolin workflow --anno ORGANISMS_ANNOTATION_LIST
 
 Another [example](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.gbff.list) of such a file can be found in the testingDataset/ directory.
 
-Both of those commands write several output files and graphics (more information [here](#output)). Most notably, an HDF-5 (pangenome.h5) file is written.
+Both of those commands write several output files and graphics (more information [here](https://ppanggolin.readthedocs.io/en/updateenv/user/Outputs.html#ppanggolin-outputs)). Most notably, an HDF-5 (pangenome.h5) file is written.
 It can be used as input for any of the subcommands to rerun parts of the analysis with different parameters,
 write and draw different representations of the pangenome or run additional analysis with **PPanGGOLiN**.
 
@@ -104,7 +104,7 @@ The usage is identical to the previous 'workflow' command:
 ppanggolin panrgp --fasta ORGANISMS_FASTA_LIST
 ```
 
-It will run more analyses after the pangenome has been partitioned. Further details are available [here](#panrgp) and in the [panRPG publication](https://doi.org/10.1093/bioinformatics/btaa792)
+It will run more analyses after the pangenome has been partitioned. Further details are available [here](https://ppanggolin.readthedocs.io/en/updateenv/user/Basic-usage-and-practical-information.html#the-panrgp-subcommand) and in the [panRPG publication](https://doi.org/10.1093/bioinformatics/btaa792)
 
 ## Conserved module prediction
 To detect the conserved modules in your pangenome, you can use the panModule workflow, as such:
@@ -113,7 +113,7 @@ To detect the conserved modules in your pangenome, you can use the panModule wor
 ppanggolin panmodule --fasta ORGANISMS_FASTA_LIST
 ```
 
-Further details can be found [here](#panmodule) and in the [panModule publication](https://doi.org/10.1101/2021.12.06.471380)
+Further details can be found [here](https://ppanggolin.readthedocs.io/en/updateenv/user/Basic-usage-and-practical-information.html#the-panmodule-subcommand) and in the [panModule publication](https://doi.org/10.1101/2021.12.06.471380)
 
 
 Alternatively, to run all the possible analysis that **PPanGGOLiN** can run, you can use:
