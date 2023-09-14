@@ -4,7 +4,8 @@
 
 ### Install with conda (recommended)
 
-The recommended way of installing PPanGGOLiN is to do it using conda.To use it you need to add the conda channels that store the dependencies as such :
+The recommended way of installing PPanGGOLiN is to do it using conda.
+To use it, you need to add the conda channels that store the dependencies as such:
 
 ```
 conda config --add channels defaults ;
@@ -16,26 +17,28 @@ Then you can just run :
 
 `conda install -c bioconda ppanggolin`
 
-You can also use mamba, which is much quicker and sometimes help solving conflicting dependencies:
-
-```
-conda install mamba
-mamba install -c bioconda ppanggolin
+```{tip}
+You can also use mamba, which is much quicker and sometimes help solving conflicting dependencies
 ```
 
-If you have troubles or if conda tells you something about conflicting dependencies, I recommend you install PPanGGOLiN on a separate conda environment as PPanGGOLiN has quite a few dependencies and their versions can be conflicting with other bioinformatics software.
+If you have troubles or if conda tells you something about conflicting dependencies, I recommend you install PPanGGOLiN in a separate conda environment as PPanGGOLiN has quite a few dependencies, and their versions can be conflicting with other bioinformatics software.
 
 Sometimes, installation problems come from having an unsupported python version installed by default in your environment. Forcing the python version solves the problem:
+
 ``` 
 conda install -c bioconda ppanggolin python=3.8
+```
+
+```{note}
+Supported python version are 3.8, 3.9 and 3.10
 ```
 
 ### Install from source code (GitHub)
 
 If you want to install from the source code, you should respect some step before.
 
-```{note}
-This is a manual installation, we can help, but not support all troubleshooting. Prefer to use the conda installation whenever possible.  
+```{warning}
+This is a manual installation, we can help, but not support all troubleshooting. Prefer to use the conda installation whenever possible.
 ```
 
 First, you must install the python dependencies.
@@ -79,24 +82,30 @@ pip install .
 
 ## Development version
 
-If you want to use the development version you can use the 'dev' branch on GitHub. While it is not guaranteed to work, it should most of the time.
+If you want to use the development version, you can use the 'dev' branch on GitHub. While it is not guaranteed to work, it should most of the time.
+
 
 You need to clone the repository on your computer, as followed:
 
 ```bash
 git clone https://github.com/labgem/PPanGGOLiN.git
 cd PPanGGOLiN
-git fetch
 git checkout -b dev
-git pull
+git branch --set-upstream-to=origin/dev dev
+git pull 
 ```
-then you will need to have all the dependencies.
-You can install them as described above with **pip** or by using conda and the *requirements.txt file* as such:
 
-` conda install --file requirements.txt `
+Then you will need to have all the dependencies.
+You can install them as described [above](#install-from-source-code-github) with **pip** or by using **conda** and the [*requirements.txt file*](https://github.com/labgem/PPanGGOLiN/blob/dev/requirements.txt) as such:
 
-Then you will need to install ppanggolin. You can use pip while in your conda environment which is the preferred way of doing. For this, place yourself at the root of the repository and run : 
+```
+conda install --file requirements.txt 
+```
 
-`pip install .`
+Then you will need to install ppanggolin. You can use pip while in your conda environment, which is the preferred way of doing. For this, place yourself at the root of the repository and run : 
+
+```
+pip install .
+```
 
 It should install PPanGGOLiN in your conda environment.

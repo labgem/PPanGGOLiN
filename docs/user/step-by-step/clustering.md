@@ -8,6 +8,7 @@ If you provided .fasta files or annotation files with gene sequences in them, cl
 
 PPanGGOLiN will call [MMseqs2](https://github.com/soedinglab/MMseqs2) to run the clustering on all the protein sequences by searching for connected components for the clustering step. You can tune its parameters using `--identity`(default 0.8) and `--coverage`(default 0.8). You can use other clustering algorithms of MMseqs by using --mode (default 1). Both protein sequences have to be covered by at least the proportion indicated by --coverage.
 
+(read-clustering)=
 ### Providing your gene families
 
 If you do not want to use MMseqs2 and provide your clusters (or gene families) you can do so only if you provided the annotations in the first step. In the case of gff3 files, the 'ID' field in the 9th column is expected as a gene id. In the case of gbff or gbk files, the 'locus_tag' is used as a gene id, except with files coming from MaGe or from SEED, where the id provided in the 'db_xref' field is used.

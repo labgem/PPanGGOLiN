@@ -4,6 +4,7 @@ The workflow subcommand of PPanGGOLiN uses what you can use through the other su
 
 This is useful only if you want to customize your workflow parameters. If you want to build the pangenome of your species without tuning parameters, you can use the subcommand `ppanggolin workflow` as described in the introduction.
 
+(annotation)=
 ## Genomes annotation and storage
 ```{include} step-by-step/annotation.md
 ```
