@@ -21,7 +21,7 @@ import yaml
 
 # # local libraries
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
-from ppanggolin.annotate.annotate import read_anno_file
+from ppanggolin.annotate.annotate import read_anno_file, launch_read_anno, launch_annotate_organism
 from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
 # from ppanggolin.genome import input_organism, Gene, RNA, Contig
@@ -106,46 +106,40 @@ def launch(args: argparse.Namespace):
     logging.getLogger().info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(
         **{step: argparse.Namespace(**k_v) for step, k_v in pangenome.parameters.items()})
+    
+    
+    if args.anno is not None:
+        genome_name_to_annot_path = parse_input_paths_file(args.anno)
+        check_input_names(pangenome, genome_name_to_annot_path, args.anno)
 
-    if args.organism_name in [org.name for org in pangenome.organisms]:
-        raise NameError(
-            f"The provided organism name '{args.organism_name}' already exists in the given pangenome.")
-
-    if args.annot_file is not None:
-        # read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
-        input_organism, has_sequence = read_anno_file(organism_name=args.organism_name,
-                                                      filename=args.annot_file,
-                                                      circular_contigs=[], 
-                                                      pseudo=args.use_pseudo)
-        if input_organism.number_of_genes() == 0:
-            raise ValueError("The input organism lacks gene annotations. "
-                             f"Please verify the provided annotation file: {args.annot_file}")
-
-        if not has_sequence:
-            if args.fasta_file:
-                retrieve_gene_sequences_from_fasta_file(
-                    input_organism, args.fasta_file)
+        organisms, org_2_has_fasta = read_annotation_files(genome_name_to_annot_path, cpu=args.cpu, pseudo=args.use_pseudo,
+                     disable_bar=args.disable_prog_bar)
+        if not all((has_fasta for has_fasta in org_2_has_fasta.values())):
+            organisms_with_no_fasta = {org for org, has_fasta in org_2_has_fasta.items() if not has_fasta}
+            if args.fasta is not None:
+                get_gene_sequences_from_fasta_files(organisms_with_no_fasta, args.fasta)
             else:
-                raise Exception("The gff/gbff provided did not have any sequence information, "
-                                "Thus, we do not have the information we need to continue the projection.")
+                raise ValueError(f"You provided GFF files for {len(organisms_with_no_fasta)} (out of {len(organisms)}) "
+                                 "organisms without associated sequence data, and you did not provide "
+                                "FASTA sequences using the --fasta option. Therefore, it is impossible to project the pangenome onto the input genomes. "
+                                f"The following organisms have no associated sequence data: {', '.join(o.name for o in organisms_with_no_fasta)}")
 
-    elif args.fasta_file is not None:
+                
+    elif args.fasta is not None:
         annotate_param_names = ["norna", "kingdom",
                                 "allow_overlap", "prodigal_procedure"]
 
-        annotate_params = manage_annotate_param(
-            annotate_param_names, pangenome_params.annotate, args.config)
+        annotate_params = manage_annotate_param(annotate_param_names, pangenome_params.annotate, args.config)
 
-        input_organism = annotate_organism(org_name=args.organism_name, file_name=args.fasta_file, circular_contigs=[], tmpdir=args.tmpdir,
-                                           code=args.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
-                                           allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure)
-        if input_organism.number_of_genes() == 0:
-            raise ValueError("No genes have been predicted in the input organism's FASTA file, making projection impossible.")
- 
-    else:
-        raise Exception(
-            "At least one of --fasta_file or --anno_file must be given")
+        genome_name_to_fasta_path = parse_input_paths_file(args.fasta)
+        check_input_names(pangenome, genome_name_to_fasta_path, args.fasta)
+        organisms = annotate_fasta_files(genome_name_to_fasta_path=genome_name_to_fasta_path,  tmpdir=args.tmpdir, cpu=args.cpu,
+                             translation_table=args.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
+                             allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure, disable_bar=args.disable_prog_bar )
 
+                        
+
+    exit()
     # Add input organism in pangenome. This is temporary as the pangenome object is not going to be written.
     pangenome.add_organism(input_organism)
 
@@ -197,6 +191,197 @@ def launch(args: argparse.Namespace):
         input_org_modules = project_and_write_modules(pangenome, input_organism, output_dir)
 
     summarize_projection(input_organism, pangenome, input_org_rgps, input_org_spots, input_org_modules, singleton_gene_count )
+
+def annotate_fasta_files(genome_name_to_fasta_path: Dict[str,dict], tmpdir: str, cpu: int = 1, translation_table: int = 11,
+                       kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,
+                       disable_bar: bool = False):
+    """
+    Main function to annotate a pangenome
+
+    :param genome_name_to_annot_path: 
+    :param fasta_list: List of fasta file containing sequences that will be base of pangenome
+    :param tmpdir: Path to temporary directory
+    :param cpu: number of CPU cores to use
+    :param translation_table: Translation table (genetic code) to use.
+    :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
+    :param norna: Use to avoid annotating RNA features.
+    :param allow_overlap: Use to not remove genes overlapping with RNA features
+    :param procedure: prodigal procedure used
+    :param disable_bar: Disable the progresse bar
+    """
+
+    organisms = []
+    arguments = []  # Argument given to annotate organism in same order than prototype
+    for org_name, org_info in genome_name_to_fasta_path.items():
+
+        arguments.append((org_name, org_info['path'], org_info['circular_contigs'], tmpdir, translation_table,
+                          norna, kingdom, allow_overlap, procedure))
+
+    logging.getLogger("PPanGGOLiN").info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
+    with get_context('fork').Pool(processes=cpu) as p:
+        for organism in tqdm(p.imap_unordered(launch_annotate_organism, arguments), unit="genome",
+                             total=len(arguments), disable=disable_bar):
+            
+            organisms.append(organism)
+        p.close()
+        p.join()
+
+    return organisms
+
+
+    
+def read_annotation_files(genome_name_to_annot_path: Dict[str,dict], cpu: int = 1, pseudo: bool = False,
+                     disable_bar: bool = False):
+    """
+    Read the annotation from GBFF file
+
+    :param pangenome: pangenome object
+    :param organisms_file: List of GBFF files for each organism
+    :param cpu: number of CPU cores to use
+    :param pseudo: allow to read pseudogène
+    :param disable_bar: Disable the progresse bar
+    """
+
+    args = []
+    organisms = []
+
+    # we assume there are gene sequences in the annotation files,
+    # unless a gff file without fasta is met (which is the only case where sequences can be absent)
+    org_to_has_fasta_flag = {}
+
+
+    for org_name, org_info in genome_name_to_annot_path.items():
+        
+        args.append((org_name, org_info['path'], org_info['circular_contigs'], pseudo))
+
+    with get_context('fork').Pool(cpu) as p:
+        for org, has_fasta in tqdm(p.imap_unordered(launch_read_anno, args), unit="file", total=len(args),
+                              disable=disable_bar):
+            
+            organisms.append(org)
+            org_to_has_fasta_flag[org] = has_fasta
+
+    return organisms, org_to_has_fasta_flag
+
+
+# def annotate_input_genomes():
+
+
+
+#     if args.annot_file is not None:
+#         # read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
+#         input_organism, has_sequence = read_anno_file(organism_name=args.organism_name,
+#                                                       filename=args.annot_file,
+#                                                       circular_contigs=[], 
+#                                                       pseudo=args.use_pseudo)
+#         if input_organism.number_of_genes() == 0:
+#             raise ValueError("The input organism lacks gene annotations. "
+#                              f"Please verify the provided annotation file: {args.annot_file}")
+
+#         if not has_sequence:
+#             if args.fasta_file:
+#                 retrieve_gene_sequences_from_fasta_file(
+#                     input_organism, args.fasta_file)
+#             else:
+#                 raise Exception("The gff/gbff provided did not have any sequence information, "
+#                                 "Thus, we do not have the information we need to continue the projection.")
+
+#     elif args.fasta_file is not None:
+#         annotate_param_names = ["norna", "kingdom",
+#                                 "allow_overlap", "prodigal_procedure"]
+
+#         annotate_params = manage_annotate_param(
+#             annotate_param_names, pangenome_params.annotate, args.config)
+
+#         input_organism = annotate_organism(org_name=args.organism_name, file_name=args.fasta_file, circular_contigs=[], tmpdir=args.tmpdir,
+#                                            code=args.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
+#                                            allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure)
+#         if input_organism.number_of_genes() == 0:
+#             raise ValueError("No genes have been predicted in the input organism's FASTA file, making projection impossible.")
+ 
+#     else:
+#         raise Exception(
+#             "At least one of --fasta_file or --anno_file must be given")
+
+
+
+
+def get_gene_sequences_from_fasta_files(organisms, fasta_paths_file):
+    """
+    Get gene sequences from fasta path file
+
+    :param organisms: input pangenome
+    :param fasta_file: list of fasta file
+    """
+    genome_name_to_annot_path = parse_input_paths_file(fasta_paths_file)
+
+    org_names = {org.name for org in organisms}
+    
+    if org_names & set(genome_name_to_annot_path) != org_names:
+        missing = len(org_names - set(genome_name_to_annot_path))
+        raise ValueError(f"Not all of your pangenome organisms are present within the provided fasta file: {fasta_paths_file}. "
+                        f"{missing} are missing (out of {len(organisms)}).")
+        
+    for org in organisms:
+        
+        org_fasta_file = genome_name_to_annot_path[org.name]['path']
+
+        with read_compressed_or_not(org_fasta_file) as currFastaFile:
+            org_contig_to_seq, _ = read_fasta(org, currFastaFile)
+
+        for contig in org.contigs:
+            try:
+                contig_seq = org_contig_to_seq[contig.name]
+            except KeyError:
+                msg = f"Fasta file for organism {org.name} did not have the contig {contig.name} " \
+                      f"that was read from the annotation file. "
+                msg += f"The provided contigs in the fasta were : " \
+                       f"{', '.join([contig for contig in org_contig_to_seq])}."
+                raise KeyError(msg)
+            
+            for gene in contig.genes:
+                gene.add_sequence(get_dna_sequence(contig_seq, gene))
+
+            for rna in contig.RNAs:
+                rna.add_sequence(get_dna_sequence(contig_seq, rna))
+
+            
+
+def check_input_names(pangenome, input_names, path_list_file):
+        duplicated_names = set(input_names) & {org.name for org in pangenome.organisms}
+        if len(duplicated_names) != 0:
+            raise NameError(f"{len(duplicated_names)} organism names found in '{path_list_file}' already exists in the given pangenome: {' '.join(duplicated_names)}")
+
+
+
+def parse_input_paths_file(path_list_file):
+
+
+    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process organism files")
+    genome_name_to_genome_path = {}
+
+
+    for line in read_compressed_or_not(path_list_file):
+
+        elements = [el.strip() for el in line.split("\t")]
+        genome_file_path = Path(elements[1])
+        genome_name = elements[0]
+        putative_circular_contigs = elements[2:]
+
+        if not genome_file_path.exists():  # Check tsv sanity test if it's not one it's the other
+            genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
+
+            if not genome_file_path_alt.exists():
+                raise FileNotFoundError(f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist.")
+            else:
+                genome_file_path = genome_file_path_alt
+
+        genome_name_to_genome_path[genome_name] = {"path":genome_file_path, "circular_contigs":putative_circular_contigs}
+
+    if len(genome_name_to_genome_path) == 0:
+        raise Exception(f"There are no genomes in the provided file: {path_list_file} ")
+    
+    return genome_name_to_genome_path
 
 
 
@@ -254,15 +439,15 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
     print(yaml_string)
 
         
-def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organism: Organism, output: Path,
+def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organisms: Iter[Organism], output: Path,
                                                  cpu: int,use_representatives:bool, no_defrag: bool, 
                                                  identity: float, coverage: float, tmpdir: Path,
                                                  translation_table: int, keep_tmp:bool = False, disable_bar: bool =False):
     """
-    Annotate input genes with pangenome gene families and perform clustering.
+    Annotate input genes with pangenome gene families by associating them to a cluster.
 
     :param pangenome: Pangenome object.
-    :param input_organism: Input organism object.
+    :param input_organisms: Iterable of input organism objects.
     :param output: Output directory for generated files.
     :param cpu: Number of CPU cores to use.
     :param no_defrag: Whether to use defragmentation.
@@ -277,19 +462,19 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     :return: Number of genes that do not cluster with any of the gene families of the pangenome.
     """
 
-    seq_fasta_file = output / f"{input_organism.name}.fasta"
+    for input_organism in input_organisms:
+        seq_fasta_file = output / f"{input_organism.name}.fasta"
 
-    logging.info(f'The input organism has {input_organism.number_of_genes()} genes. Writting them in {seq_fasta_file}')
+        logging.info(f'The input organism has {input_organism.number_of_genes()} genes. Writting them in {seq_fasta_file}')
 
-    with open(seq_fasta_file, "w") as fh_out_faa:
-        write_gene_sequences_from_annotations(
-            input_organism.genes, fh_out_faa, disable_bar=True, add="ppanggolin_")
-    seq_set = {gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in input_organism.genes}
+        with open(seq_fasta_file, "w") as fh_out_faa:
+            write_gene_sequences_from_annotations(
+                input_organism.genes, fh_out_faa, disable_bar=True, add="ppanggolin_")
+        seq_set = {gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in input_organism.genes}
 
 
     with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
             
-
         if use_representatives:
             _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome, seq_fasta_file, output, new_tmpdir, is_input_seq_nt=True,
                                                         cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage, translation_table=translation_table)
@@ -762,17 +947,26 @@ def parser_projection(parser: argparse.ArgumentParser):
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=False,
                           type=Path, help="The pangenome.h5 file")
+    
+    required.add_argument('--fasta', required=False, type=Path,
+                        help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
+                            "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
+    required.add_argument('--anno', required=False, type=Path,
+                        help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
+                            "annotations (the files can be compressed with gzip). One line per organism. "
+                            "If this is provided, those annotations will be used.")
 
-    required.add_argument("-n", '--organism_name', required=False, type=str,
-                          help="Name of the input_organism whose genome is being annotated with the provided pangenome.")
 
-    required.add_argument('--fasta_file', required=False, type=Path,
-                          help="The filepath of the genomic sequence(s) in FASTA format if the genome to annotate. "
-                          "(Fasta file can be compressed with gzip)")
+    # required.add_argument("-n", '--organism_name', required=False, type=str,
+    #                       help="Name of the input_organism whose genome is being annotated with the provided pangenome.")
 
-    required.add_argument('--annot_file', required=False, type=Path,
-                          help="The filepath of the annotations in GFF/GBFF format for the genome to annotate with the provided pangenome. "
-                          "(Annotation file can be compressed with gzip)")
+    # required.add_argument('--fasta_file', required=False, type=Path,
+    #                       help="The filepath of the genomic sequence(s) in FASTA format if the genome to annotate. "
+    #                       "(Fasta file can be compressed with gzip)")
+
+    # required.add_argument('--annot_file', required=False, type=Path,
+    #                       help="The filepath of the annotations in GFF/GBFF format for the genome to annotate with the provided pangenome. "
+    #                       "(Annotation file can be compressed with gzip)")
 
     optional = parser.add_argument_group(title="Optional arguments")
 
