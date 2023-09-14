@@ -362,6 +362,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                                           genetic_code=genetic_code)
                     gene.fill_parents(org, contig)
                     gene_counter += 1
+                    contig.add(gene)
+
                 elif "RNA" in fields_gff[gff_type]:
                     rna = RNA(org.name + "_CDS_" + str(rna_counter).zfill(4))
                     rna.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
@@ -369,6 +371,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs, pseudo: b
                                          product=product, local_identifier=gene_id)
                     rna.fill_parents(org, contig)
                     rna_counter += 1
+                    contig.add_rna(rna)
+
 
     # GET THE FASTA SEQUENCES OF THE GENES
     if has_fasta and fasta_string != "":
