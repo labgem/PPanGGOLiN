@@ -384,81 +384,80 @@ def read_modules(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = Fal
 	    pangenome.add_module(module)
     pangenome.status["modules"] = "Loaded"
 
-def read_organisms(pangenome: Pangenome, annotations: tables.Group, chunk_size: int = 20000,
-                   disable_bar: bool = False) -> Tuple[Dict[str, Gene], Dict[str, RNA]]:
-    table = annotations.genomes
+def read_organisms(pangenome: Pangenome, table: tables.Table, chunk_size: int = 20000,
+                   disable_bar: bool = False):
     contig2organism = {}
     for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="genome", disable=disable_bar):
-        try:
-            organism = pangenome.get_organism(row["name"].decode())
-        except:
-            organism = Organism(row["name"].decode())
-            pangenome.add_organism(organism)
-        contig = Contig(name=row["contig"].decode())
-        organism.add(contig)
-        contig2organism[contig.name] = organism.name
-    table = annotations.contigs
-    contig_name = None
-    genes_dict = {}
-    rna_dict = {}
+        organism = Organism(row["name"].decode())
+        pangenome.add_organism(organism)
+
+
+def read_contigs(pangenome: Pangenome, table: tables.Table, chunk_size: int = 20000,
+                   disable_bar: bool = False):
     for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="contig", disable=disable_bar):
-        if contig_name != row["name"].decode():
-            contig_name = row["name"].decode()
-            organism = pangenome.get_organism(contig2organism[contig_name])
-            contig = organism.get(contig_name)
-            contig.is_circular = row["is_circular"]
-            contig.length = int(row["length"])
+        contig = Contig(name=row["name"].decode())
+        contig.is_circular = row["is_circular"]
+        contig.length = int(row["length"])
         try:
-            gene = Gene(row["gene"].decode())
-        except ValueError:
+            organism = pangenome.get_organism(row["organism"].decode())
+        except KeyError:
             pass
         else:
-            gene.fill_parents(organism, contig)
-            if row["gene"].decode() in genes_dict:
-                logging.getLogger().warning("A gene with the same ID already pass. "
-                                            "It could be a problem in the number of genes")
-            genes_dict[gene.ID] = gene
-        try:
-            rna = RNA(row["rna"].decode())
-        except ValueError:
-            pass
-        else:
-            rna_dict[rna.ID] = rna
-            rna.fill_parents(organism, contig)
-    return genes_dict, rna_dict
+            organism.add(contig)
 
 def read_genes(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[int, Genedata],
-               gene_dict: Dict[str, Gene], chunk_size: int = 20000, disable_bar: bool = False):
+               link: bool = True, chunk_size: int = 20000, disable_bar: bool = False):
+    """Read genes in pangenome file to add them to the pangenome object
+
+    :param pangenome: Pangenome object
+    :param table: Genes table
+    :param genedata_dict: Dictionary to link genedata with gene
+    :param link: Allow to link gene to organism and contig
+    :param chunk_size: Size of the chunck reading
+    :param disable_bar: Disable progress bar
+    """
     for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="gene", disable=disable_bar):
-        gene = gene_dict[row["ID"].decode()]
+        gene = Gene(row["ID"].decode())
         genedata = genedata_dict[row["genedata_id"]]
         try:
             local = row["local"].decode()
         except ValueError:
             local = ""
         gene.fill_annotations(start=genedata.start, stop=genedata.stop, strand=genedata.strand,
-                                  gene_type=genedata.gene_type, name=genedata.name, position=genedata.position,
-                                  genetic_code=genedata.genetic_code, product=genedata.product,
-                                  local_identifier=local)
+                              gene_type=genedata.gene_type, name=genedata.name, position=genedata.position,
+                              genetic_code=genedata.genetic_code, product=genedata.product, local_identifier=local)
         gene.is_fragment = row["is_fragment"]
-        if gene.contig is not None:
-            gene.contig.add(gene)
+        if link:
+            contig = pangenome.get_contig(row["contig"].decode())
+            gene.fill_parents(contig.organism, contig)
+            contig.add(gene)
 
 
 def read_rnas(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[int, Genedata],
-               rna_dict: Dict[str, RNA], chunk_size: int = 20000, disable_bar: bool = False):
+              link: bool = True, chunk_size: int = 20000, disable_bar: bool = False):
+    """Read RNAs in pangenome file to add them to the pangenome object
+
+    :param pangenome: Pangenome object
+    :param table: RNAs table
+    :param genedata_dict: Dictionary to link genedata with gene
+    :param link: Allow to link gene to organism and contig
+    :param chunk_size: Size of the chunck reading
+    :param disable_bar: Disable progress bar
+    """
     for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="gene", disable=disable_bar):
-        rna = rna_dict[row["ID"].decode()]
+        rna = RNA(row["ID"].decode())
         genedata = genedata_dict[row["genedata_id"]]
         rna.fill_annotations(start=genedata.start, stop=genedata.stop, strand=genedata.strand,
                              gene_type=genedata.gene_type, name=genedata.name,
                              product=genedata.product)
-        if rna.contig is not None:
-            rna.contig.add_rna(rna)
+        if link:
+            contig = pangenome.get_contig(row["contig"].decode())
+            rna.fill_parents(contig.organism, contig)
+            contig.add_rna(rna)
 
 
-def read_annotation(pangenome: Pangenome, h5f: tables.File, load_organisms: bool = True, load_genes: bool = True,
-                    load_rnas: bool = True, chunk_size: int = 20000, disable_bar: bool = False):
+def read_annotation(pangenome: Pangenome, h5f: tables.File, load_organisms: bool = True, load_contigs: bool = True,
+                    load_genes: bool = True, load_rnas: bool = True, chunk_size: int = 20000, disable_bar: bool = False):
     """
     Read annotation in pangenome hdf5 file to add in pangenome object
 
@@ -467,30 +466,20 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, load_organisms: bool
     :param disable_bar: Disable the progress bar
     """
     annotations = h5f.root.annotations
-
+    genedata_dict = None
     if load_organisms:
-        if load_genes:
-            genedata_dict = read_genedata(h5f)
-            if load_rnas:
-                gene_dict, rna_dict = read_organisms(pangenome, annotations, disable_bar=disable_bar)
+        read_organisms(pangenome, annotations.genomes, disable_bar=disable_bar)
 
-                read_genes(pangenome, annotations.genes, genedata_dict, gene_dict, disable_bar=disable_bar)
-                read_rnas(pangenome, annotations.RNAs, genedata_dict, rna_dict, disable_bar=disable_bar)
-            else:
-                gene_dict, _ = read_organisms(pangenome, annotations, disable_bar=disable_bar)
-                read_genes(pangenome, annotations.genes, genedata_dict, gene_dict, disable_bar=disable_bar)
-        else:
-            if load_rnas:
-                genedata_dict = read_genedata(h5f)
-                _, rna_dict = read_organisms(pangenome, annotations, disable_bar=disable_bar)
-                read_rnas(pangenome, annotations.RNAs, genedata_dict, rna_dict, disable_bar=disable_bar)
-    else:
-        if load_genes:
-            if pangenome.status["genesClustered"] not in ["Loaded", "Computed"]:
-                raise Exception("Genes must be linked to gene families or organisms, but none are laoded")
-            gene_dict = {gene.ID: gene for gene in pangenome.genes}  # Dictionary with genes in families
-            gene_dict, _ = read_organisms(pangenome, annotations, disable_bar=disable_bar)
-            read_genes(pangenome, annotations.genes, genedata_dict, gene_dict, disable_bar=disable_bar)
+    if load_contigs:
+        read_contigs(pangenome, annotations.contigs, disable_bar=disable_bar)
+
+    if load_genes:
+        genedata_dict = read_genedata(h5f)
+        read_genes(pangenome, annotations.genes, genedata_dict,
+                   all([load_organisms, load_contigs]), disable_bar=disable_bar)
+    if load_rnas:
+        read_rnas(pangenome, annotations.RNAs, read_genedata(h5f) if genedata_dict is None else genedata_dict,
+                   all([load_organisms, load_contigs]), disable_bar=disable_bar)
     pangenome.status["genomesAnnotated"] = "Loaded"
 
 
