@@ -152,7 +152,7 @@ def launch(args: argparse.Namespace):
     # Add input organism in pangenome. This is temporary as the pangenome object is not going to be written.
     # pangenome.add_organism(input_organism)
 
-    singleton_gene_count = annotate_input_genes_with_pangenome_families(pangenome, input_organisms=organisms,
+    input_org_to_lonely_genes_count = annotate_input_genes_with_pangenome_families(pangenome, input_organisms=organisms,
                                                                         output=output_dir, cpu=args.cpu, use_representatives=args.fast,
                                                                         no_defrag=args.no_defrag, identity=args.identity,
                                                                         coverage=args.coverage, tmpdir=args.tmpdir,
@@ -160,7 +160,7 @@ def launch(args: argparse.Namespace):
                                                                         disable_bar=args.disable_prog_bar)
     
 
-    input_org_rgps, input_org_spots, input_org_modules = None, None, None
+    input_org_2_rgps, input_org_to_spots, input_orgs_to_modules = None, None, None
 
     if predict_rgp:
         logging.getLogger('PPanGGOLiN').info('Detecting RGPs in input genomes.')
@@ -175,7 +175,7 @@ def launch(args: argparse.Namespace):
 
         if project_spots:
             logging.getLogger('PPanGGOLiN').info('Predicting spot of insertion in input genomes.')
-            input_org_spots = predict_spots_in_input_organisms(initial_spots=list(pangenome.spots),
+            input_org_to_spots = predict_spots_in_input_organisms(initial_spots=list(pangenome.spots),
                                                             initial_regions=pangenome.regions,
                                                             input_org_2_rgps=input_org_2_rgps,
                                                             multigenics=multigenics,
@@ -187,9 +187,13 @@ def launch(args: argparse.Namespace):
                                                             exact_match=pangenome_params.spot.exact_match_size)
 
     if project_modules:
-        input_org_modules = project_and_write_modules(pangenome, organisms, output_dir)
+        input_orgs_to_modules = project_and_write_modules(pangenome, organisms, output_dir)
 
-    # summarize_projection(input_organism, pangenome, input_org_rgps, input_org_spots, input_org_modules, singleton_gene_count )
+    for organism in organisms:
+
+        summarize_projection(organism, pangenome, input_org_2_rgps[organism],
+                             input_org_to_spots[organism], input_orgs_to_modules[organism],
+                             input_org_to_lonely_genes_count[organism], output_dir)
 
 def annotate_fasta_files(genome_name_to_fasta_path: Dict[str,dict], tmpdir: str, cpu: int = 1, translation_table: int = 11,
                        kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,
@@ -397,7 +401,7 @@ def parse_input_paths_file(path_list_file):
 
 
 def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org_rgps:Region,
-                         input_org_spots:Spot, input_org_modules:Module, singleton_gene_count:int ):
+                         input_org_spots:Spot, input_org_modules:Module, singleton_gene_count:int, output_dir:Path):
     """
 
     :param singleton_gene_count: Number of genes that do not cluster with any of the gene families of the pangenome.
@@ -443,11 +447,9 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
         "Modules": module_count
     }
     yaml_string = yaml.dump(summary_info, default_flow_style=False, sort_keys=False, indent=4)
-    
-
-    # summary_str = '\n'.join((f'    - {k}: {v}' for k,v in summary_info ))
-    print('Projection_summary:')
-    print(yaml_string)
+    with open(output_dir / input_organism.name / "projection_summary.yaml", 'w') as flout:
+        flout.write('Projection_summary:')
+        flout.write(yaml_string)
 
         
 def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organisms: Iterable[Organism], output: Path,
@@ -498,7 +500,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
                                                                                 output=output, tmpdir=new_tmpdir, is_input_seq_nt=True,
                                                                                 cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
                                                                                 translation_table=translation_table, disable_bar=disable_bar)
-
+    input_org_to_lonely_genes_count = {}
     for input_organism in input_organisms:
         
         org_outdir = output / input_organism.name
@@ -543,7 +545,9 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
         with open(org_outdir / "specific_genes.tsv", "w") as fl:
             fl.write('\n'.join((gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in lonely_genes)) + '\n')
 
-    return len(lonely_genes)
+        input_org_to_lonely_genes_count[input_organism] = len(lonely_genes)
+
+    return input_org_to_lonely_genes_count
 
 
 def predict_RGP(pangenome: Pangenome, input_organisms: Organism, persistent_penalty: int, variable_gain: int,
@@ -802,11 +806,14 @@ def predict_spots_in_input_organisms(initial_spots: List[Spot], initial_regions:
     
     new_spot_id_counter = max((s.ID for s in initial_spots)) + 1
 
+    input_org_to_spots = {}
     for input_organism, rgps in input_org_2_rgps.items():
         
         if len(rgps) == 0:
             logging.getLogger('PPanGGOLiN').info(f"{input_organism.name}: No RGPs have been found. "
                                              "As a result, spot prediction and RGP output will be skipped.")
+        
+            input_org_to_spots[input_organism] = set()
             continue
     
         outdir_org = output / input_organism.name
@@ -819,9 +826,10 @@ def predict_spots_in_input_organisms(initial_spots: List[Spot], initial_regions:
                                         overlapping_match=overlapping_match, set_size=set_size, exact_match=exact_match)
         
         new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
-    
+        
+        input_org_to_spots[input_organism] = input_org_spots
 
-    return input_org_spots
+    return input_org_to_spots
 
 def predict_spot_in_one_organism(graph_spot, input_org_rgps, original_nodes, new_spot_id_counter, multigenics: Set[GeneFamily], 
                                    organism_name:str, output: Path,
@@ -955,7 +963,7 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
     :param output: Path to output directory
     :param compress: Compress the file in .gz
     """
-
+    input_orgs_to_modules = {}
     for input_organism in input_organisms:
         output_file = output / input_organism.name / "modules_in_input_organism.tsv"
 
@@ -984,7 +992,9 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
         logging.getLogger('PPanGGOLiN').info(
             f"{input_organism.name}: Projected modules have been written in: '{output_file}'")
         
-    return modules_in_input_org
+        input_orgs_to_modules[input_organism] = modules_in_input_org
+    
+    return input_orgs_to_modules
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
