@@ -12,6 +12,7 @@ import tempfile
 from typing import Tuple, Set, Dict, Iterator, Optional, List, Iterable
 from collections import defaultdict
 import csv
+from itertools import chain
 
 
 # installed libraries
@@ -158,7 +159,7 @@ def launch(args: argparse.Namespace):
                                                                         translation_table=args.translation_table, keep_tmp=args.keep_tmp, 
                                                                         disable_bar=args.disable_prog_bar)
     
-    exit()
+
     input_org_rgps, input_org_spots, input_org_modules = None, None, None
 
     if predict_rgp:
@@ -167,11 +168,13 @@ def launch(args: argparse.Namespace):
         logging.getLogger('PPanGGOLiN').debug("Detecting multigenic families...")
         multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
 
-        input_org_rgps = predict_RGP(pangenome, organisms,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
-                                     min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics,
+        input_org_2_rgps = predict_RGP(pangenome, organisms,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
+                                     min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, output_dir=output_dir,
                                      disable_bar=args.disable_prog_bar)
-        if len(input_org_rgps) == 0:
-
+        
+        exit()
+        
+        if None:
             logging.getLogger('PPanGGOLiN').info("No RGPs have been found in the input organisms. "
                                                  "As a result, spot prediction and RGP output will be skipped.")
 
@@ -491,7 +494,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
         seq_outdir = output / input_organism.name
         mk_outdir(seq_outdir, force=True)
 
-        seq_fasta_file = seq_outdir / f"{input_organism.name}.fasta"
+        seq_fasta_file = seq_outdir / f"cds_sequences.fasta"
 
         with open(seq_fasta_file, "w") as fh_out_faa:
             write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa, disable_bar=True, add=f"ppanggolin_")
@@ -558,31 +561,41 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
 def predict_RGP(pangenome: Pangenome, input_organisms: Organism, persistent_penalty: int, variable_gain: int,
                 min_length: int, min_score: int, multigenics: float,
-                disable_bar: bool) -> None:
+                output_dir:Path, disable_bar: bool) -> Dict[Organism, Set[Region]]:
     """
-    Compute Regions of Genomic Plasticity (RGP) for the given pangenome and input organism.
+    Compute Regions of Genomic Plasticity (RGP) for the given input organisms.
 
     :param pangenome: The pangenome object.
-    :param input_organism: The input organism for which to compute RGPs.
+    :param input_organisms: The input organism for which to compute RGPs.
     :param persistent_penalty: Penalty score to apply to persistent genes.
     :param variable_gain: Gain score to apply to variable genes.
     :param min_length: Minimum length (bp) of a region to be considered as RGP.
     :param min_score: Minimal score required for considering a region as RGP.
     :param multigenics: multigenic families.
+    :param output_dir: Output directory where predicted rgps are going to be written.
     :param disable_bar: Flag to disable the progress bar.
 
-    :return: Set of RGPs
+    :return: Dictionary mapping organism with the set of predicted regions
     """
 
     logging.getLogger('PPanGGOLiN').info("Computing Regions of Genomic Plasticity...")
-    name_scheme = naming_scheme(pangenome)
 
-    rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
+    name_scheme = naming_scheme(chain(pangenome.organisms, input_organisms))
+    organism_to_rgps = {}
+
+    for input_organism in input_organisms:
+        rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
                            min_score, naming=name_scheme, disable_bar=disable_bar)
 
-    logging.getLogger('PPanGGOLiN').info(
-        f"{len(rgps)} RGPs have been predicted in the input genomes.")
-    return rgps
+        logging.getLogger('PPanGGOLiN').info(f"{len(rgps)} RGPs have been predicted in the input genomes.")
+        
+        
+        org_outdir = output_dir / input_organism.name 
+        
+        write_predicted_regions(rgps, output=org_outdir, compress=False)
+        organism_to_rgps[input_organism] = rgps
+
+    return organism_to_rgps
 
 
 def write_predicted_regions(regions: Set[Region],

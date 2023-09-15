@@ -5,7 +5,7 @@
 import logging
 import argparse
 from pathlib import Path
-from typing import Set
+from typing import Set, Iterable
 # installed libraries
 from tqdm import tqdm
 
@@ -226,15 +226,15 @@ def compute_org_rgp( organism: Organism, multigenics: set,
     return org_regions
 
 
-def naming_scheme(pangenome: Pangenome) -> str:
+def naming_scheme(organisms: Iterable[Organism]) -> str:
     """
     Determine the naming scheme for the contigs in the pangenome.
 
-    :param pangenome: Pangenome object
+    :param organisms: Iterable of organims objects
     :return: Naming scheme for the contigs ("contig" or "organism").
     """
     contigsids = set()
-    for org in pangenome.organisms:
+    for org in organisms:
         for contig in org.contigs:
             oldlen = len(contigsids)
             contigsids.add(contig.name)
