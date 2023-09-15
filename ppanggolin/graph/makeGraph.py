@@ -147,11 +147,14 @@ def parser_graph(parser: argparse.ArgumentParser):
 
     :param parser: parser for graph argument
     """
-    parser.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
-    parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
-                        help="Positive Number: Remove families having a number of copy of gene in a single organism "
-                             "above or equal to this threshold in at least one organism "
-                             "(0 or negative values are ignored).")
+    required = parser.add_argument_group(title="Required arguments",
+                                         description="Following arguments is required:")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
+    optional = parser.add_argument_group(title="Optional arguments")
+    optional.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
+                          help="Positive Number: Remove families having a number of copy of gene in a single organism "
+                               "above or equal to this threshold in at least one organism "
+                               "(0 or negative values are ignored).")
 
 
 if __name__ == '__main__':

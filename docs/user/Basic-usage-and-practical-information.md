@@ -50,21 +50,21 @@ An example of what MY_CLUSTERS_FILE should look like is provided [here](https://
 
 Whether you use fasta or annotations, the workflow command options are the same.
 
-| name              | alias | default                         | type / choices     | description                                                                                                                   |
-|-------------------|-------|---------------------------------|--------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| output            | -o    | ppanggolin_output_DATE_HOUR_PID | Path               | Output directory to save the pangenome and all the output files                                                               |
-| basename          |       | pangenome                       | string             | basename for the pangenome file                                                                                               |
-| rarefaction       |       | False                           | bool               | Use to compute the rarefaction curves (WARNING: can be time consuming)                                                        |
-| cpu               | -c    | 1                               | integer            | Number of available cpus                                                                                                      |
-| translation_table |       | 11                              | integer            | Translation table (genetic code) to use                                                                                       |
-| kingdom           |       | bacteria                        | {bacteria,archaea} | Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation                                   |
-| mode              |       | 1                               | {0,1,2,3}          | the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component), 2: CD-HIT-like, 3: CD-HIT-like (lowmem) |
-| coverage          |       | 0.8                             | 0<=float<=1        | Minimal coverage of the alignment for two proteins to be in the same cluster                                                  |
-| identity          |       | 0.8                             | 0<=float<=1        | Minimal identity percent for two proteins to be in the same cluster                                                           |
-| nb_of_partitions  | -K    | -1                              | integer            | Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically                                |
-| no_defrag         |       | False                           | bool               | DO NOT Realign gene families to link fragments with their non-fragmented gene family                                          |
-| no_flat_files     |       | False                           | bool               | Generate only the HDF5 pangenome file                                                                                         |
-| tmpdir            |       | TMPDIR                          | Path               | directory for storing temporary files                                                                                         |
+| name                | alias | default                         | type / choices     | description                                                                                                                   |
+|---------------------|-------|---------------------------------|--------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| --output            | -o    | ppanggolin_output_DATE_HOUR_PID | Path               | Output directory to save the pangenome and all the output files                                                               |
+| --basename          |       | pangenome                       | string             | basename for the pangenome file                                                                                               |
+| --rarefaction       |       | False                           | bool               | Use to compute the rarefaction curves (WARNING: can be time consuming)                                                        |
+| --cpu               | -c    | 1                               | integer            | Number of available cpus                                                                                                      |
+| --translation_table |       | 11                              | integer            | Translation table (genetic code) to use                                                                                       |
+| --kingdom           |       | bacteria                        | {bacteria,archaea} | Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation                                   |
+| --mode              |       | 1                               | {0,1,2,3}          | the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component), 2: CD-HIT-like, 3: CD-HIT-like (lowmem) |
+| --coverage          |       | 0.8                             | 0<=float<=1        | Minimal coverage of the alignment for two proteins to be in the same cluster                                                  |
+| --identity          |       | 0.8                             | 0<=float<=1        | Minimal identity percent for two proteins to be in the same cluster                                                           |
+| --nb_of_partitions  | -K    | -1                              | integer            | Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically                                |
+| --no_defrag         |       | False                           | bool               | DO NOT Realign gene families to link fragments with their non-fragmented gene family                                          |
+| --no_flat_files     |       | False                           | bool               | Generate only the HDF5 pangenome file                                                                                         |
+| --tmpdir            |       | TMPDIR                          | Path               | directory for storing temporary files                                                                                         |
 
 (panrgp)=
 ## The 'panrgp' subcommand 
