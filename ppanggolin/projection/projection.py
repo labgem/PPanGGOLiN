@@ -161,7 +161,7 @@ def launch(args: argparse.Namespace):
         
         check_input_names(pangenome, genome_name_to_fasta_path)
         organisms = annotate_fasta_files(genome_name_to_fasta_path=genome_name_to_fasta_path,  tmpdir=args.tmpdir, cpu=args.cpu,
-                             translation_table=args.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
+                             translation_table=pangenome_params.cluster.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
                              allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure, disable_bar=args.disable_prog_bar )
 
     
@@ -172,7 +172,8 @@ def launch(args: argparse.Namespace):
                                                                         output=output_dir, cpu=args.cpu, use_representatives=args.fast,
                                                                         no_defrag=args.no_defrag, identity=args.identity,
                                                                         coverage=args.coverage, tmpdir=args.tmpdir,
-                                                                        translation_table=args.translation_table, keep_tmp=args.keep_tmp, 
+                                                                        translation_table=pangenome_params.cluster.translation_table,
+                                                                        keep_tmp=args.keep_tmp, 
                                                                         disable_bar=args.disable_prog_bar)
     
 
@@ -778,6 +779,9 @@ def manage_annotate_param(annotate_param_names: List[str], pangenome_args: argpa
     annotate_params = argparse.Namespace()
 
     # Collecting annotate parameters from different sources
+    # if they are found in pangenome param they are used
+    # elif they are found in config they are used 
+    # else use the default value.  
     for annotate_arg in annotate_param_names:
         if hasattr(pangenome_args, annotate_arg):
             param_val = getattr(pangenome_args, annotate_arg)
@@ -1163,7 +1167,7 @@ def parser_projection(parser: argparse.ArgumentParser):
     required.add_argument('-p', '--pangenome', required=False,
                           type=Path, help="The pangenome.h5 file")
     
-    required_multiple = parser.add_argument_group(title="Multiple genome arguments:",
+    required_multiple = parser.add_argument_group(title="Multiple genome arguments",
                                                   description="Arguments for annotating multiple genomes with the provided pangenome.")
 
     required_multiple.add_argument('--fasta', required=False, type=Path,
@@ -1173,9 +1177,9 @@ def parser_projection(parser: argparse.ArgumentParser):
     required_multiple.add_argument('--anno', required=False, type=Path,
                                     help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
                                         "annotations (the files can be compressed with gzip). One line per organism. "
-                                        "If this is provided, those annotations will be used.")
+                                        "If provided, those annotations will be used.")
 
-    required_single = parser.add_argument_group(title="Single genome arguments:",
+    required_single = parser.add_argument_group(title="Single genome arguments",
                                                 description="Arguments for annotating a single genome with the provided pangenome.")
 
     required_single.add_argument("-n", '--organism_name', required=False, type=str,
@@ -1200,7 +1204,7 @@ def parser_projection(parser: argparse.ArgumentParser):
                           help="Output directory")
 
     optional.add_argument('--no_defrag', required=False, action="store_true",
-                          help="DO NOT Realign gene families to link fragments with"
+                          help="DO NOT Realign gene families to link fragments with "
                                "their non-fragmented gene family. (default: False)")
     
     optional.add_argument("--fast", required=False, action="store_true",
@@ -1212,9 +1216,6 @@ def parser_projection(parser: argparse.ArgumentParser):
 
     optional.add_argument('--coverage', required=False, type=restricted_float, default=0.8,
                           help="min coverage percentage threshold")
-
-    optional.add_argument("--translation_table", required=False, default=11,  type=int,
-                          help="Translation table (genetic code) to use.")
 
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
