@@ -438,6 +438,7 @@ def chose_gene_identifiers(pangenome:Pangenome)-> bool:
             gene.ID = gene.local_identifier  # Erase ppanggolin generated gene ids and replace with local identifiers
             gene.local_identifier = ""  # this is now useless, setting it to default value
         pangenome._mk_gene_getter()  # re-build the gene getter
+        return True
 
     else:
         return False
