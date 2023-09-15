@@ -145,14 +145,14 @@ def cmd_line() -> argparse.Namespace:
                     "using the --sequences argument, either through the command line or the config file.")
 
         
-    if args.subcommand == "projection" and args.organism_name is None:
-        parser.error("Please specify the name of the input organism you want to annotate using the provided pangenome. "
-                    "You can use the --organism_name argument either through the command line or the config file.")
+    # if args.subcommand == "projection" and args.organism_name is None:
+    #     parser.error("Please specify the name of the input organism you want to annotate using the provided pangenome. "
+    #                 "You can use the --organism_name argument either through the command line or the config file.")
         
-    if args.subcommand == "projection" and args.fasta_file is None and args.annot_file is None:
-        parser.error("Please provide either a sequence file using the --fasta_file option or an annotation file (GFF/GBFF) "
-                     "using the --annot_file option for the input organism, either through the command line or the config file, "
-                     "to enable annotation with the provided pangenome.")
+    # if args.subcommand == "projection" and args.fasta_file is None and args.annot_file is None:
+    #     parser.error("Please provide either a sequence file using the --fasta_file option or an annotation file (GFF/GBFF) "
+    #                  "using the --annot_file option for the input organism, either through the command line or the config file, "
+    #                  "to enable annotation with the provided pangenome.")
 
         
         

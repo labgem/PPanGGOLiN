@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import tempfile
 import time
-from typing import Tuple
+from typing import Tuple, Iterable
 
 # installed libraries
 from tqdm import tqdm
@@ -420,9 +420,9 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list, p
     else:  # Fasta type obligatory because unknow raise an error in detect_filetype function
         raise Exception("Wrong file type provided. This looks like a fasta file. "
                         "You may be able to use --fasta instead.")
+    
 
-
-def chose_gene_identifiers(pangenome) -> bool:
+def chose_gene_identifiers(pangenome:Pangenome)-> bool:
     """
     Parses the pangenome genes to decide whether to use local_identifiers or ppanggolin generated gene identifiers.
     If the local identifiers are unique within the pangenome they are picked, otherwise ppanggolin ones are used.
@@ -431,19 +431,34 @@ def chose_gene_identifiers(pangenome) -> bool:
 
     :return: Boolean stating True if local identifiers are used, and False otherwise
     """
+
+    if local_identifiers_are_unique(pangenome.genes):
+        
+        for gene in pangenome.genes:
+            gene.ID = gene.local_identifier  # Erase ppanggolin generated gene ids and replace with local identifiers
+            gene.local_identifier = ""  # this is now useless, setting it to default value
+        pangenome._mk_gene_getter()  # re-build the gene getter
+
+    else:
+        return False
+        
+def local_identifiers_are_unique(genes: Iterable[Gene]) -> bool:
+    """
+    Check if local_identifiers of genes are uniq in order to decide if they should be used as gene id.
+
+    :param genes: Iterable of gene objects
+
+    :return: Boolean stating True if local identifiers are uniq, and False otherwise
+    """
     gene_id_2_local = {}
     local_to_gene_id = {}
-    for gene in pangenome.genes:
+    for gene in genes:
         gene_id_2_local[gene.ID] = gene.local_identifier
         local_to_gene_id[gene.local_identifier] = gene.ID
         if len(local_to_gene_id) != len(gene_id_2_local):
             # then, there are non unique local identifiers
             return False
     # if we reach this line, local identifiers are unique within the pangenome
-    for gene in pangenome.genes:
-        gene.ID = gene.local_identifier  # Erase ppanggolin generated gene ids and replace with local identifiers
-        gene.local_identifier = ""  # this is now useless, setting it to default value
-    pangenome._mk_gene_getter()  # re-build the gene getter
     return True
 
 

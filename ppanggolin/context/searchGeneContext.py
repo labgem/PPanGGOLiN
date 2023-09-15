@@ -64,11 +64,11 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
         with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
         
             if use_representatives:
-                _, seq2pan = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir, is_input_seq_nt=is_nucleotide,
+                _, seq2pan = get_input_seq_to_family_with_rep(pangenome, [sequence_file], output, new_tmpdir, is_input_seq_nt=is_nucleotide,
                                                             cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
                                                             translation_table=translation_table, disable_bar=disable_bar)
             else:
-                _, seq2pan = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=sequence_file, 
+                _, seq2pan = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=[sequence_file], 
                                                                                     output=output, tmpdir=new_tmpdir, is_input_seq_nt=is_nucleotide,
                                                                                     cpu=cpu, no_defrag=no_defrag,
                                                                                     identity=identity, coverage=coverage,
