@@ -186,11 +186,10 @@ def launch(args: argparse.Namespace):
                                                             set_size=pangenome_params.spot.set_size,
                                                             exact_match=pangenome_params.spot.exact_match_size)
 
-    exit()
     if project_modules:
-        input_org_modules = project_and_write_modules(pangenome, input_organism, output_dir)
+        input_org_modules = project_and_write_modules(pangenome, organisms, output_dir)
 
-    summarize_projection(input_organism, pangenome, input_org_rgps, input_org_spots, input_org_modules, singleton_gene_count )
+    # summarize_projection(input_organism, pangenome, input_org_rgps, input_org_spots, input_org_modules, singleton_gene_count )
 
 def annotate_fasta_files(genome_name_to_fasta_path: Dict[str,dict], tmpdir: str, cpu: int = 1, translation_table: int = 11,
                        kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,
@@ -946,44 +945,45 @@ def predict_spot_in_one_organism(graph_spot, input_org_rgps, original_nodes, new
         
     return input_org_spots
 
-def project_and_write_modules(pangenome: Pangenome, input_organism: Organism,
+def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Organism],
                               output: Path, compress: bool = False):
     """
     Write a tsv file providing association between modules and the input organism
 
     :param pangenome: Pangenome object
-    :param input_organism: the organism that is being annotated
+    :param input_organisms: iterable of the organisms that is being annotated
     :param output: Path to output directory
     :param compress: Compress the file in .gz
     """
 
-    output_file = output / "modules_in_input_organism.tsv"
+    for input_organism in input_organisms:
+        output_file = output / input_organism.name / "modules_in_input_organism.tsv"
 
-    input_organism_families = list(input_organism.families)
-    counter = 0
-    modules_in_input_org = []
-    with write_compressed_or_not(output_file, compress) as fout:
-        fout.write("module_id\torganism\tcompletion\n")
+        input_organism_families = list(input_organism.families)
+        counter = 0
+        modules_in_input_org = []
+        with write_compressed_or_not(output_file, compress) as fout:
+            fout.write("module_id\torganism\tcompletion\n")
 
-        for mod in pangenome.modules:
-            module_in_input_organism = any(
-                (fam in input_organism_families for fam in mod.families))
+            for mod in pangenome.modules:
+                module_in_input_organism = any(
+                    (fam in input_organism_families for fam in mod.families))
 
-            if module_in_input_organism:
-                counter += 1
-                modules_in_input_org.append(mod)
+                if module_in_input_organism:
+                    counter += 1
+                    modules_in_input_org.append(mod)
 
-                completion = round(
-                    len(set(input_organism.families) & set(mod.families)) / len(set(mod.families)), 2)
-                fout.write(
-                    f"module_{mod.ID}\t{input_organism.name}\t{completion}\n")
+                    completion = round(
+                        len(set(input_organism.families) & set(mod.families)) / len(set(mod.families)), 2)
+                    fout.write(
+                        f"module_{mod.ID}\t{input_organism.name}\t{completion}\n")
 
-    logging.getLogger('PPanGGOLiN').info(
-        f"{counter} modules have been projected to the input genomes.")
+        logging.getLogger('PPanGGOLiN').info(
+            f"{input_organism.name}: {counter} modules have been projected to the input genomes.")
 
-    logging.getLogger('PPanGGOLiN').info(
-        f"Projected modules have been written in: '{output_file}'")
-    
+        logging.getLogger('PPanGGOLiN').info(
+            f"{input_organism.name}: Projected modules have been written in: '{output_file}'")
+        
     return modules_in_input_org
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
