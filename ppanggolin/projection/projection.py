@@ -161,7 +161,7 @@ def launch(args: argparse.Namespace):
         
         check_input_names(pangenome, genome_name_to_fasta_path)
         organisms = annotate_fasta_files(genome_name_to_fasta_path=genome_name_to_fasta_path,  tmpdir=args.tmpdir, cpu=args.cpu,
-                             translation_table=pangenome_params.cluster.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
+                             translation_table=int(pangenome_params.cluster.translation_table), norna=annotate_params.norna, kingdom=annotate_params.kingdom,
                              allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure, disable_bar=args.disable_prog_bar )
 
     
@@ -169,13 +169,13 @@ def launch(args: argparse.Namespace):
     # pangenome.add_organism(input_organism)
 
     input_org_to_lonely_genes_count = annotate_input_genes_with_pangenome_families(pangenome, input_organisms=organisms,
-                                                                        output=output_dir, cpu=args.cpu, use_representatives=args.fast,
-                                                                        no_defrag=args.no_defrag, identity=args.identity,
-                                                                        coverage=args.coverage, tmpdir=args.tmpdir,
-                                                                        translation_table=pangenome_params.cluster.translation_table,
-                                                                        keep_tmp=args.keep_tmp, 
-                                                                        disable_bar=args.disable_prog_bar)
-    
+                                                                                output=output_dir, cpu=args.cpu, use_representatives=args.fast,
+                                                                                no_defrag=args.no_defrag, identity=args.identity,
+                                                                                coverage=args.coverage, tmpdir=args.tmpdir,
+                                                                                translation_table=int(pangenome_params.cluster.translation_table),
+                                                                                keep_tmp=args.keep_tmp, 
+                                                                                disable_bar=args.disable_prog_bar)
+            
 
     input_org_2_rgps, input_org_to_spots, input_orgs_to_modules = {}, {}, {}
 
@@ -300,48 +300,6 @@ def read_annotation_files(genome_name_to_annot_path: Dict[str,dict], cpu: int = 
         logging.getLogger("PPanGGOLiN").info("Gene identifiers used in the provided annotation files were not unique, "
                                              "PPanGGOLiN will use self-generated identifiers.")
     return organisms, org_to_has_fasta_flag
-
-
-# def annotate_input_genomes():
-
-
-
-#     if args.annot_file is not None:
-#         # read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
-#         input_organism, has_sequence = read_anno_file(organism_name=args.organism_name,
-#                                                       filename=args.annot_file,
-#                                                       circular_contigs=[], 
-#                                                       pseudo=args.use_pseudo)
-#         if input_organism.number_of_genes() == 0:
-#             raise ValueError("The input organism lacks gene annotations. "
-#                              f"Please verify the provided annotation file: {args.annot_file}")
-
-#         if not has_sequence:
-#             if args.fasta_file:
-#                 retrieve_gene_sequences_from_fasta_file(
-#                     input_organism, args.fasta_file)
-#             else:
-#                 raise Exception("The gff/gbff provided did not have any sequence information, "
-#                                 "Thus, we do not have the information we need to continue the projection.")
-
-#     elif args.fasta_file is not None:
-#         annotate_param_names = ["norna", "kingdom",
-#                                 "allow_overlap", "prodigal_procedure"]
-
-#         annotate_params = manage_annotate_param(
-#             annotate_param_names, pangenome_params.annotate, args.config)
-
-#         input_organism = annotate_organism(org_name=args.organism_name, file_name=args.fasta_file, circular_contigs=[], tmpdir=args.tmpdir,
-#                                            code=args.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
-#                                            allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure)
-#         if input_organism.number_of_genes() == 0:
-#             raise ValueError("No genes have been predicted in the input organism's FASTA file, making projection impossible.")
- 
-#     else:
-#         raise Exception(
-#             "At least one of --fasta_file or --anno_file must be given")
-
-
 
 
 def get_gene_sequences_from_fasta_files(organisms, genome_name_to_annot_path):
@@ -892,7 +850,7 @@ def predict_spots_in_input_organisms(
     for input_organism, rgps in input_org_2_rgps.items():
         
         if len(rgps) == 0:
-            logging.getLogger('PPanGGOLiN').info(f"{input_organism.name}: No RGPs have been found. "
+            logging.getLogger('PPanGGOLiN').debug(f"{input_organism.name}: No RGPs have been found. "
                                              "As a result, spot prediction and RGP output will be skipped.")
         
             input_org_to_spots[input_organism] = set()
@@ -961,7 +919,7 @@ def predict_spot_in_one_organism(
             input_org_node_to_rgps[border_node].add(rgp)
 
     if len(input_org_node_to_rgps) == 0:
-        logging.getLogger("PPanGGOLiN").info(f"{organism_name}: no RGPs of the input organism will be associated with any spot of insertion "
+        logging.getLogger("PPanGGOLiN").debug(f"{organism_name}: no RGPs of the input organism will be associated with any spot of insertion "
                                              "as they are on a contig border (or have "
                                              f"less than {set_size} persistent gene families until the contig border). "
                                              "Projection of spots stops here")
@@ -970,10 +928,10 @@ def predict_spot_in_one_organism(
     # remove node that were already in the graph
     new_nodes = set(input_org_node_to_rgps) - original_nodes
 
-    logging.getLogger("PPanGGOLiN").info(f"{organism_name}: {lost} RGPs were not used as they are on a contig border (or have"
+    logging.getLogger("PPanGGOLiN").debug(f"{organism_name}: {lost} RGPs were not used as they are on a contig border (or have"
                                          f"less than {set_size} persistent gene families until the contig border)")
 
-    logging.getLogger("PPanGGOLiN").info(
+    logging.getLogger("PPanGGOLiN").debug(
         f"{organism_name}: {used} RGPs of the input organism will be associated to a spot of insertion")
 
     # add potential edges from new nodes to the rest of the nodes
@@ -1014,7 +972,7 @@ def predict_spot_in_one_organism(
 
         elif len(spots_of_the_cc) > 1:
             # more than one spot in the cc
-            logging.getLogger("PPanGGOLiN").info(f'{organism_name}: Some RGPs of the input organism '
+            logging.getLogger("PPanGGOLiN").debug(f'{organism_name}: Some RGPs of the input organism '
                                                  f"are connected to {len(spots_of_the_cc)} original spots of the pangenome.")
 
         input_rgps_of_the_cc = set()
@@ -1052,7 +1010,7 @@ def predict_spot_in_one_organism(
     new_spots = {spot for spot in input_org_spots if type(spot) == NewSpot}
 
 
-    logging.getLogger('PPanGGOLiN').info(
+    logging.getLogger('PPanGGOLiN').debug(
         f'{organism_name}: {len(new_spots)} new spots have been created for the input genome.')
 
     if new_spots:
@@ -1094,10 +1052,10 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
                     fout.write(
                         f"module_{mod.ID}\t{input_organism.name}\t{completion}\n")
 
-        logging.getLogger('PPanGGOLiN').info(
+        logging.getLogger('PPanGGOLiN').debug(
             f"{input_organism.name}: {counter} modules have been projected to the input genomes.")
 
-        logging.getLogger('PPanGGOLiN').info(
+        logging.getLogger('PPanGGOLiN').debug(
             f"{input_organism.name}: Projected modules have been written in: '{output_file}'")
         
         input_orgs_to_modules[input_organism] = modules_in_input_org
