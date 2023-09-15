@@ -9,7 +9,7 @@ import os
 import time
 from pathlib import Path
 import tempfile
-from typing import Tuple, Set, Dict, Iterator, Optional, List, Iterable
+from typing import Tuple, Set, Dict, Iterator, Optional, List, Iterable, Any
 from collections import defaultdict
 import csv
 from itertools import chain
@@ -19,6 +19,8 @@ from itertools import chain
 from tqdm import tqdm
 import networkx as nx
 import yaml
+import pandas as pd
+
 
 # # local libraries
 from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
@@ -160,7 +162,7 @@ def launch(args: argparse.Namespace):
                                                                         disable_bar=args.disable_prog_bar)
     
 
-    input_org_2_rgps, input_org_to_spots, input_orgs_to_modules = None, None, None
+    input_org_2_rgps, input_org_to_spots, input_orgs_to_modules = {}, {}, {}
 
     if predict_rgp:
         logging.getLogger('PPanGGOLiN').info('Detecting RGPs in input genomes.')
@@ -189,11 +191,17 @@ def launch(args: argparse.Namespace):
     if project_modules:
         input_orgs_to_modules = project_and_write_modules(pangenome, organisms, output_dir)
 
+    organism_2_summary = {}
     for organism in organisms:
-
-        summarize_projection(organism, pangenome, input_org_2_rgps[organism],
-                             input_org_to_spots[organism], input_orgs_to_modules[organism],
+        # summarize projection for all input organisms
+        organism_2_summary[organism] = summarize_projection(organism, pangenome,
+                             input_org_2_rgps.get(organism, None),
+                             input_org_to_spots.get(organism, None),
+                             input_orgs_to_modules.get(organism, None),
                              input_org_to_lonely_genes_count[organism], output_dir)
+        
+        write_summaries(organism_2_summary, output_dir)
+
 
 def annotate_fasta_files(genome_name_to_fasta_path: Dict[str,dict], tmpdir: str, cpu: int = 1, translation_table: int = 11,
                        kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,
@@ -399,6 +407,40 @@ def parse_input_paths_file(path_list_file):
     return genome_name_to_genome_path
 
 
+def write_summaries(organism_2_summary: Dict[Organism, Dict[str, Any]], output_dir: Path):
+    """
+    Write summary information to YAML files and create a summary projection in TSV format.
+
+    This function takes a dictionary where keys are input organisms and values are dictionaries containing summary
+    information. It writes this information to YAML files for each organism and creates a summary projection in TSV format.
+
+    :param organism_2_summary: A dictionary where keys are input organisms and values are dictionaries containing
+                               summary information.
+    :param output_dir: The directory where the summary files will be written.
+    """
+    flat_summaries = []
+
+    for input_organism, summary_info in organism_2_summary.items():
+        yaml_string = yaml.dump(summary_info, default_flow_style=False, sort_keys=False, indent=4)
+
+        with open(output_dir / input_organism.name / "projection_summary.yaml", 'w') as flout:
+            flout.write('Projection_summary:')
+            flout.write(yaml_string)
+
+        flat_summary = {}
+        for key, val in summary_info.items():
+            if type(val) == dict:
+                for nest_k, nest_v in val.items():
+                    flat_summary[f"{key} {nest_k}"] =  nest_v
+            else:
+                flat_summary[key] = val
+
+        flat_summaries.append(flat_summary)
+
+    df_summary = pd.DataFrame(flat_summaries)
+
+    df_summary.to_csv(output_dir / "summary_projection.tsv", sep='\t', index=False)
+
 
 def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org_rgps:Region,
                          input_org_spots:Spot, input_org_modules:Module, singleton_gene_count:int, output_dir:Path):
@@ -446,10 +488,7 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
         "New spots": new_spot_count,
         "Modules": module_count
     }
-    yaml_string = yaml.dump(summary_info, default_flow_style=False, sort_keys=False, indent=4)
-    with open(output_dir / input_organism.name / "projection_summary.yaml", 'w') as flout:
-        flout.write('Projection_summary:')
-        flout.write(yaml_string)
+    return summary_info
 
         
 def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organisms: Iterable[Organism], output: Path,
