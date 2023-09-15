@@ -49,7 +49,7 @@ class Genedata:
         self.product = product
         self.genetic_code = genetic_code
 
-    def __eq__(self, other: Genedata):
+    def __eq__(self, other):
         return self.start == other.start \
             and self.stop == other.stop \
             and self.strand == other.strand \
