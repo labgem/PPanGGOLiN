@@ -15,7 +15,6 @@ import ppanggolin.pangenome
 from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
-import ppanggolin.nem.partition
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
@@ -143,19 +142,9 @@ def cmd_line() -> argparse.Namespace:
     if args.subcommand == "align" and args.sequences is None:
         parser.error("Please provide sequences (nucleotides or amino acids) for alignment with the pangenome gene families "
                     "using the --sequences argument, either through the command line or the config file.")
-
-        
-    # if args.subcommand == "projection" and args.organism_name is None:
-    #     parser.error("Please specify the name of the input organism you want to annotate using the provided pangenome. "
-    #                 "You can use the --organism_name argument either through the command line or the config file.")
-        
-    # if args.subcommand == "projection" and args.fasta_file is None and args.annot_file is None:
-    #     parser.error("Please provide either a sequence file using the --fasta_file option or an annotation file (GFF/GBFF) "
-    #                  "using the --annot_file option for the input organism, either through the command line or the config file, "
-    #                  "to enable annotation with the provided pangenome.")
-
-        
-        
+    
+    if args.subcommand == "projection":
+        ppanggolin.projection.projection.check_projection_arguments(args, parser)
 
     return args
 

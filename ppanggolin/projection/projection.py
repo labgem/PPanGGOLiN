@@ -50,7 +50,6 @@ class NewSpot(Spot):
     def __str__(self):
         return f'new_spot_{str(self.ID)}'
 
-
 def launch(args: argparse.Namespace):
     """
     Command launcher
@@ -65,13 +64,6 @@ def launch(args: argparse.Namespace):
     project_modules = True
     predict_rgp = True
     project_spots = True
-
-    if hasattr(args, "fasta") and args.fasta is not None:
-        check_input_files(args.fasta, True)
-
-    if hasattr(args, "anno") and args.anno is not None:
-        check_input_files(args.anno, True)
-
 
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
@@ -117,35 +109,57 @@ def launch(args: argparse.Namespace):
     pangenome_params = argparse.Namespace(
         **{step: argparse.Namespace(**k_v) for step, k_v in pangenome.parameters.items()})
     
-    
-    if args.anno is not None:
+
+    if args.anno:
         genome_name_to_annot_path = parse_input_paths_file(args.anno)
-        check_input_names(pangenome, genome_name_to_annot_path, args.anno)
+
+    elif args.single_annot_file:
+        circular_contigs = args.circular_contigs if args.circular_contigs else []
+        genome_name_to_annot_path = {args.organism_name: {"path": args.single_annot_file,
+                                                          "circular_contigs": circular_contigs} 
+                                    }
+    else:
+        genome_name_to_annot_path = None
+        
+    if args.fasta:
+        genome_name_to_fasta_path = parse_input_paths_file(args.fasta)
+        
+    elif args.single_fasta_file:
+        circular_contigs = args.circular_contigs if args.circular_contigs else []
+        genome_name_to_fasta_path = {args.organism_name: {"path": args.single_fasta_file,
+                                                          "circular_contigs": circular_contigs} 
+                                    }
+    else:
+        genome_name_to_fasta_path = None
+
+
+    if genome_name_to_annot_path:
+        check_input_names(pangenome, genome_name_to_annot_path)
 
         organisms, org_2_has_fasta = read_annotation_files(genome_name_to_annot_path, cpu=args.cpu, pseudo=args.use_pseudo,
                      disable_bar=args.disable_prog_bar)
         
         if not all((has_fasta for has_fasta in org_2_has_fasta.values())):
             organisms_with_no_fasta = {org for org, has_fasta in org_2_has_fasta.items() if not has_fasta}
-            if args.fasta is not None:
-                get_gene_sequences_from_fasta_files(organisms_with_no_fasta, args.fasta)
+            if args.fasta:
+                get_gene_sequences_from_fasta_files(organisms_with_no_fasta, genome_name_to_fasta_path)
             else:
                 raise ValueError(f"You provided GFF files for {len(organisms_with_no_fasta)} (out of {len(organisms)}) "
                                  "organisms without associated sequence data, and you did not provide "
-                                "FASTA sequences using the --fasta option. Therefore, it is impossible to project the pangenome onto the input genomes. "
+                                "FASTA sequences using the --fasta or --single_fasta_file options. Therefore, it is impossible to project the pangenome onto the input genomes. "
                                 f"The following organisms have no associated sequence data: {', '.join(o.name for o in organisms_with_no_fasta)}")
 
         
 
         
-    elif args.fasta is not None:
+    elif genome_name_to_fasta_path:
         annotate_param_names = ["norna", "kingdom",
                                 "allow_overlap", "prodigal_procedure"]
 
         annotate_params = manage_annotate_param(annotate_param_names, pangenome_params.annotate, args.config)
 
-        genome_name_to_fasta_path = parse_input_paths_file(args.fasta)
-        check_input_names(pangenome, genome_name_to_fasta_path, args.fasta)
+        
+        check_input_names(pangenome, genome_name_to_fasta_path)
         organisms = annotate_fasta_files(genome_name_to_fasta_path=genome_name_to_fasta_path,  tmpdir=args.tmpdir, cpu=args.cpu,
                              translation_table=args.translation_table, norna=annotate_params.norna, kingdom=annotate_params.kingdom,
                              allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure, disable_bar=args.disable_prog_bar )
@@ -329,21 +343,20 @@ def read_annotation_files(genome_name_to_annot_path: Dict[str,dict], cpu: int = 
 
 
 
-def get_gene_sequences_from_fasta_files(organisms, fasta_paths_file):
+def get_gene_sequences_from_fasta_files(organisms, genome_name_to_annot_path):
     """
     Get gene sequences from fasta path file
 
     :param organisms: input pangenome
     :param fasta_file: list of fasta file
     """
-    genome_name_to_annot_path = parse_input_paths_file(fasta_paths_file)
 
     org_names = {org.name for org in organisms}
     
     if org_names & set(genome_name_to_annot_path) != org_names:
         missing = len(org_names - set(genome_name_to_annot_path))
-        raise ValueError(f"Not all of your pangenome organisms are present within the provided fasta file: {fasta_paths_file}. "
-                        f"{missing} are missing (out of {len(organisms)}).")
+        raise ValueError(f"You did not provided fasta for all the organisms found in annotation file. "
+                        f"{missing} are missing (out of {len(organisms)}). Missing organisms: {','.join(missing)}")
         
     for org in organisms:
         
@@ -369,29 +382,43 @@ def get_gene_sequences_from_fasta_files(organisms, fasta_paths_file):
                 rna.add_sequence(get_dna_sequence(contig_seq, rna))
 
             
+def check_input_names(pangenome, input_names):
+    """
+    Check if input organism names already exist in the pangenome.
 
-def check_input_names(pangenome, input_names, path_list_file):
-        duplicated_names = set(input_names) & {org.name for org in pangenome.organisms}
-        if len(duplicated_names) != 0:
-            raise NameError(f"{len(duplicated_names)} organism names found in '{path_list_file}' already exists in the given pangenome: {' '.join(duplicated_names)}")
+    :param pangenome: The pangenome object.
+    :param input_names: List of input organism names to check.
+    :raises NameError: If duplicate organism names are found in the pangenome.
+    """
+    duplicated_names = set(input_names) & {org.name for org in pangenome.organisms}
+    if len(duplicated_names) != 0:
+        raise NameError(f"{len(duplicated_names)} provided organism names already exist in the given pangenome: {' '.join(duplicated_names)}")
 
 
+def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, List[str]]]:
+    """
+    Parse an input paths file to extract genome information.
 
-def parse_input_paths_file(path_list_file):
+    This function reads an input paths file, which is in TSV format, and extracts genome information
+    including file paths and putative circular contigs.
 
-
+    :param path_list_file: The path to the input paths file.
+    :return: A dictionary where keys are genome names and values are dictionaries containing path information and
+             putative circular contigs.
+    :raises FileNotFoundError: If a specified genome file path does not exist.
+    :raises Exception: If there are no genomes in the provided file.
+    """
     logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process organism files")
     genome_name_to_genome_path = {}
 
-
     for line in read_compressed_or_not(path_list_file):
-
         elements = [el.strip() for el in line.split("\t")]
         genome_file_path = Path(elements[1])
         genome_name = elements[0]
         putative_circular_contigs = elements[2:]
 
-        if not genome_file_path.exists():  # Check tsv sanity test if it's not one it's the other
+        if not genome_file_path.exists():  
+            # Check if the file path doesn't exist and try an alternative path.
             genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
 
             if not genome_file_path_alt.exists():
@@ -399,12 +426,16 @@ def parse_input_paths_file(path_list_file):
             else:
                 genome_file_path = genome_file_path_alt
 
-        genome_name_to_genome_path[genome_name] = {"path":genome_file_path, "circular_contigs":putative_circular_contigs}
+        genome_name_to_genome_path[genome_name] = {
+            "path": genome_file_path,
+            "circular_contigs": putative_circular_contigs
+        }
 
     if len(genome_name_to_genome_path) == 0:
         raise Exception(f"There are no genomes in the provided file: {path_list_file} ")
     
     return genome_name_to_genome_path
+
 
 
 def write_summaries(organism_2_summary: Dict[Organism, Dict[str, Any]], output_dir: Path):
@@ -813,23 +844,31 @@ def check_spots_congruency(graph_spot: nx.Graph, spots: List[Spot]) -> None:
             graph_spot.nodes[node]["spots"] = {current_spot}
 
 
-def predict_spots_in_input_organisms(initial_spots: List[Spot], initial_regions: List[Region],
-                                    input_org_2_rgps: Dict[Organism, Set[Region]], multigenics: Set[GeneFamily], output: str,
-                                    write_graph_flag: bool = False, graph_formats: List[str] = ['gexf'],
-                                    overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1) -> Dict:
+
+def predict_spots_in_input_organisms(
+    initial_spots: List[Spot], 
+    initial_regions: List[Region],
+    input_org_2_rgps: Dict[Organism, Set[Region]],
+    multigenics: Set[GeneFamily], 
+    output: str,
+    write_graph_flag: bool = False, 
+    graph_formats: List[str] = ['gexf'],
+    overlapping_match: int = 2, 
+    set_size: int = 3, 
+    exact_match: int = 1 ) -> Dict[Organism, Set[Spot]]:
     """
     Create a spot graph from pangenome RGP and predict spots for input organism RGPs.
 
     :param initial_spots: List of original spots in the pangenome.
     :param initial_regions: List of original regions in the pangenome.
-    :param input_org_rgps: List of RGPs from the input organism to be associated with spots.
+    :param input_org_2_rgps: Dictionary mapping input organisms to their RGPs.
     :param multigenics: Set of pangenome graph multigenic persistent families.
     :param output: Output directory to save the spot graph.
-    :param write_graph_flag: If True, writes the spot graph in the specified formats.
+    :param write_graph_flag: If True, writes the spot graph in the specified formats. Default is False.
     :param graph_formats: List of graph formats to write (default is ['gexf']).
-    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes.
-    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation.
-    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs.
+    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes. Default is 2.
+    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation. Default is 3.
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs. Default is 1.
 
     :return: A dictionary mapping input organism RGPs to their predicted spots.
     """
@@ -870,12 +909,38 @@ def predict_spots_in_input_organisms(initial_spots: List[Spot], initial_regions:
 
     return input_org_to_spots
 
-def predict_spot_in_one_organism(graph_spot, input_org_rgps, original_nodes, new_spot_id_counter, multigenics: Set[GeneFamily], 
-                                   organism_name:str, output: Path,
-                                    write_graph_flag: bool = False, graph_formats: List[str] = ['gexf'],
-                                    overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1):
+def predict_spot_in_one_organism(
+    graph_spot: nx.Graph, 
+    input_org_rgps: List[Region], 
+    original_nodes: Set[int], 
+    new_spot_id_counter: int, 
+    multigenics: Set[GeneFamily], 
+    organism_name: str, 
+    output: Path,
+    write_graph_flag: bool = False, 
+    graph_formats: List[str] = ['gexf'],
+    overlapping_match: int = 2, 
+    set_size: int = 3, 
+    exact_match: int = 1 ) -> Set[Spot]:
+    """
+    Predict spots for input organism RGPs.
 
-    
+    :param graph_spot: The spot graph from the pangenome.
+    :param input_org_rgps: List of RGPs from the input organism to be associated with spots.
+    :param original_nodes: Set of original nodes in the spot graph.
+    :param new_spot_id_counter: Counter for new spot IDs.
+    :param multigenics: Set of pangenome graph multigenic persistent families.
+    :param organism_name: Name of the input organism.
+    :param output: Output directory to save the spot graph.
+    :param write_graph_flag: If True, writes the spot graph in the specified formats. Default is False.
+    :param graph_formats: List of graph formats to write (default is ['gexf']).
+    :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes. Default is 2.
+    :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation. Default is 3.
+    :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs. Default is 1.
+
+    Returns:
+        Set[Spot]: The predicted spots for the input organism RGPs.
+    """
     # Check which input RGP has a spot
     lost = 0
     used = 0
@@ -1035,6 +1100,44 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
     
     return input_orgs_to_modules
 
+
+def check_projection_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser):
+    """
+    Check the arguments provided for genome projection and raise errors if they are incompatible or missing.
+
+    :param args: An argparse.Namespace object containing parsed command-line arguments.
+    :param parser: An argparse.ArgumentParser object used to raise errors.
+    """
+    
+    # Check if we annotate genomes from path files or only a single genome...  
+    if args.fasta or args.anno:
+        # We are in paths file mode
+        
+        incompatible_args = ["single_fasta_file", "single_annot_file", "organism_name", "circular_contigs"]
+        for single_arg in incompatible_args:
+            if getattr(args, single_arg) is not None:
+                parser.error(f"The single genome argument --{single_arg} is incompatible with multiple genomes arguments (--anno and/or --fasta).") 
+        
+        if args.fasta:
+            check_input_files(args.fasta, True)
+
+        if args.anno:
+            check_input_files(args.anno, True)
+
+    elif args.single_fasta_file or args.single_annot_file:
+        # We are in single file mode
+            
+        if args.organism_name is None:
+            parser.error("Please specify the name of the input organism you want to annotate. "
+                        "You can use the --organism_name argument either through the command line or the config file.")
+            
+    else:
+        parser.error("Please provide either a sequence file using the '--single_fasta_file' or '--fasta' option, "
+                        "or an annotation file using the '--single_annot_file' or '--anno' option. "
+                        "You can specify these either through the command line or the config file.")
+
+
+
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
     Subparser to launch PPanGGOLiN in Command line
@@ -1051,34 +1154,43 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
 def parser_projection(parser: argparse.ArgumentParser):
     """
-    Parser for specific argument of annotate command
+    Parser for specific argument of projection command
 
-    :param parser: parser for annotate argument
+    :param parser: parser for projection argument
     """
-    required = parser.add_argument_group(title="Required arguments",
-                                         description="One of the following arguments is required :")
+    required = parser.add_argument_group(title="Required arguments")
+
     required.add_argument('-p', '--pangenome', required=False,
                           type=Path, help="The pangenome.h5 file")
     
-    required.add_argument('--fasta', required=False, type=Path,
-                        help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
-                            "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
-    required.add_argument('--anno', required=False, type=Path,
-                        help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
-                            "annotations (the files can be compressed with gzip). One line per organism. "
-                            "If this is provided, those annotations will be used.")
+    required_multiple = parser.add_argument_group(title="Multiple genome arguments:",
+                                                  description="Arguments for annotating multiple genomes with the provided pangenome.")
 
+    required_multiple.add_argument('--fasta', required=False, type=Path,
+                                    help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
+                                        "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
+    
+    required_multiple.add_argument('--anno', required=False, type=Path,
+                                    help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
+                                        "annotations (the files can be compressed with gzip). One line per organism. "
+                                        "If this is provided, those annotations will be used.")
 
-    # required.add_argument("-n", '--organism_name', required=False, type=str,
-    #                       help="Name of the input_organism whose genome is being annotated with the provided pangenome.")
+    required_single = parser.add_argument_group(title="Single genome arguments:",
+                                                description="Arguments for annotating a single genome with the provided pangenome.")
 
-    # required.add_argument('--fasta_file', required=False, type=Path,
-    #                       help="The filepath of the genomic sequence(s) in FASTA format if the genome to annotate. "
-    #                       "(Fasta file can be compressed with gzip)")
+    required_single.add_argument("-n", '--organism_name', required=False, type=str,
+                            help="Specify the name of the input organism whose genome you want to annotate with the provided pangenome.")
 
-    # required.add_argument('--annot_file', required=False, type=Path,
-    #                       help="The filepath of the annotations in GFF/GBFF format for the genome to annotate with the provided pangenome. "
-    #                       "(Annotation file can be compressed with gzip)")
+    required_single.add_argument('--single_fasta_file', required=False, type=Path,
+                            help="Provide the file path to the genomic sequence(s) in FASTA format for the genome you wish to annotate. "
+                            "(Fasta files can be compressed using gzip)")
+
+    required_single.add_argument('--single_annot_file', required=False, type=Path,
+                            help="Provide the file path to the annotations in GFF/GBFF format for the genome you want to annotate. "
+                            "(Annotation files can be compressed using gzip)")
+    
+    required_single.add_argument('--circular_contigs', nargs="+", required=False, type=tuple,
+                            help="Contigs of the input genome to consider as circular.")
 
     optional = parser.add_argument_group(title="Optional arguments")
 
