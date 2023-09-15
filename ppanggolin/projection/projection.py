@@ -164,9 +164,6 @@ def launch(args: argparse.Namespace):
                              translation_table=int(pangenome_params.cluster.translation_table), norna=annotate_params.norna, kingdom=annotate_params.kingdom,
                              allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure, disable_bar=args.disable_prog_bar )
 
-    
-    # Add input organism in pangenome. This is temporary as the pangenome object is not going to be written.
-    # pangenome.add_organism(input_organism)
 
     input_org_to_lonely_genes_count = annotate_input_genes_with_pangenome_families(pangenome, input_organisms=organisms,
                                                                                 output=output_dir, cpu=args.cpu, use_representatives=args.fast,
