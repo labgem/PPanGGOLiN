@@ -171,34 +171,22 @@ def launch(args: argparse.Namespace):
         input_org_2_rgps = predict_RGP(pangenome, organisms,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
                                      min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, output_dir=output_dir,
                                      disable_bar=args.disable_prog_bar)
-        
-        exit()
-        
-        if None:
-            logging.getLogger('PPanGGOLiN').info("No RGPs have been found in the input organisms. "
-                                                 "As a result, spot prediction and RGP output will be skipped.")
 
-        else:
 
-            write_predicted_regions(
-                input_org_rgps, output=output_dir, compress=False)
+        if project_spots:
+            logging.getLogger('PPanGGOLiN').info('Predicting spot of insertion in input genomes.')
+            input_org_spots = predict_spots_in_input_organisms(initial_spots=list(pangenome.spots),
+                                                            initial_regions=pangenome.regions,
+                                                            input_org_2_rgps=input_org_2_rgps,
+                                                            multigenics=multigenics,
+                                                            output=output_dir,
+                                                            write_graph_flag=args.spot_graph,
+                                                            graph_formats=args.graph_formats,
+                                                            overlapping_match=pangenome_params.spot.overlapping_match,
+                                                            set_size=pangenome_params.spot.set_size,
+                                                            exact_match=pangenome_params.spot.exact_match_size)
 
-        if predict_rgp and project_spots:
-            if len(input_org_rgps) == 0:
-                # if rgp and spot flag are on but no RGP has been found 
-                # then no spot will be found
-                input_org_spots = {}
-            else:
-                logging.getLogger('PPanGGOLiN').info('Detecting RG in input genomes.')
-                input_org_spots = predict_spots_in_input_organism(initial_spots=list(pangenome.spots),
-                                            initial_regions=pangenome.regions,
-                                            input_org_rgps=input_org_rgps,
-                                            multigenics=multigenics, output=output_dir,
-                                            write_graph_flag=args.spot_graph, graph_formats=args.graph_formats,
-                                            overlapping_match=pangenome_params.spot.overlapping_match,
-                                            set_size=pangenome_params.spot.set_size,
-                                            exact_match=pangenome_params.spot.exact_match_size)
-
+    exit()
     if project_modules:
         input_org_modules = project_and_write_modules(pangenome, input_organism, output_dir)
 
@@ -642,7 +630,7 @@ def write_rgp_to_spot_table(rgp_to_spots: Dict[Region, Set[str]], output: Path, 
     :param compress: Whether to compress the file.
     """
     fname = output / filename
-    logging.getLogger('PPanGGOLiN').info(
+    logging.getLogger('PPanGGOLiN').debug(
         f'Writing RGPs to spot table in {fname}')
 
     with write_compressed_or_not(fname, compress) as tab:
@@ -783,8 +771,8 @@ def check_spots_congruency(graph_spot: nx.Graph, spots: List[Spot]) -> None:
             graph_spot.nodes[node]["spots"] = {current_spot}
 
 
-def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: List[Region],
-                                    input_org_rgps: List[Region], multigenics: Set[GeneFamily], output: str,
+def predict_spots_in_input_organisms(initial_spots: List[Spot], initial_regions: List[Region],
+                                    input_org_2_rgps: Dict[Organism, Set[Region]], multigenics: Set[GeneFamily], output: str,
                                     write_graph_flag: bool = False, graph_formats: List[str] = ['gexf'],
                                     overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1) -> Dict:
     """
@@ -804,7 +792,7 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
     :return: A dictionary mapping input organism RGPs to their predicted spots.
     """
 
-    logging.getLogger("PPanGGOLiN").info(f"Rebuilding spot graph.")
+    logging.getLogger("PPanGGOLiN").debug(f"Rebuilding original spot graph.")
     graph_spot = make_spot_graph(rgps=initial_regions, multigenics=multigenics,
                                  overlapping_match=overlapping_match, set_size=set_size, exact_match=exact_match)
 
@@ -812,7 +800,36 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
 
     # Check congruency with already computed spot and add spot id in node attributes
     check_spots_congruency(graph_spot, initial_spots)
+    
+    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1
 
+    for input_organism, rgps in input_org_2_rgps.items():
+        
+        if len(rgps) == 0:
+            logging.getLogger('PPanGGOLiN').info(f"{input_organism.name}: No RGPs have been found. "
+                                             "As a result, spot prediction and RGP output will be skipped.")
+            continue
+    
+        outdir_org = output / input_organism.name
+        # Copy the graph spot, as each input organism are processed independently
+        graph_spot_cp = graph_spot.copy()
+        
+        input_org_spots = predict_spot_in_one_organism(graph_spot_cp, input_org_rgps=rgps, original_nodes=original_nodes, 
+                                          new_spot_id_counter=new_spot_id_counter, multigenics=multigenics, organism_name=input_organism.name,
+                                          output=outdir_org, write_graph_flag=write_graph_flag, graph_formats=graph_formats,
+                                        overlapping_match=overlapping_match, set_size=set_size, exact_match=exact_match)
+        
+        new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
+    
+
+    return input_org_spots
+
+def predict_spot_in_one_organism(graph_spot, input_org_rgps, original_nodes, new_spot_id_counter, multigenics: Set[GeneFamily], 
+                                   organism_name:str, output: Path,
+                                    write_graph_flag: bool = False, graph_formats: List[str] = ['gexf'],
+                                    overlapping_match: int = 2, set_size: int = 3, exact_match: int = 1):
+
+    
     # Check which input RGP has a spot
     lost = 0
     used = 0
@@ -829,7 +846,7 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
             input_org_node_to_rgps[border_node].add(rgp)
 
     if len(input_org_node_to_rgps) == 0:
-        logging.getLogger("PPanGGOLiN").info(f"No RGPs of the input organism will be associated with any spot of insertion "
+        logging.getLogger("PPanGGOLiN").info(f"{organism_name}: no RGPs of the input organism will be associated with any spot of insertion "
                                              "as they are on a contig border (or have "
                                              f"less than {set_size} persistent gene families until the contig border). "
                                              "Projection of spots stops here")
@@ -838,12 +855,11 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
     # remove node that were already in the graph
     new_nodes = set(input_org_node_to_rgps) - original_nodes
 
-    logging.getLogger("PPanGGOLiN").info(f"{lost} RGPs of the input organism won't be associated with any spot of insertion "
-                                         "as they are on a contig border (or have "
+    logging.getLogger("PPanGGOLiN").info(f"{organism_name}: {lost} RGPs were not used as they are on a contig border (or have"
                                          f"less than {set_size} persistent gene families until the contig border)")
 
     logging.getLogger("PPanGGOLiN").info(
-        f"{used} RGPs of the input organism will be associated to a spot of insertion")
+        f"{organism_name}: {used} RGPs of the input organism will be associated to a spot of insertion")
 
     # add potential edges from new nodes to the rest of the nodes
     all_nodes = list(graph_spot.nodes)
@@ -860,7 +876,7 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
 
     input_rgp_to_spots = {}
     new_spots = []
-    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1
+    
     # determine spot ids of the new nodes and by extension to their rgps
     for comp in nx.algorithms.components.connected_components(graph_spot):
         # in very rare case one cc can have several original spots
@@ -883,7 +899,7 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
 
         elif len(spots_of_the_cc) > 1:
             # more than one spot in the cc
-            logging.getLogger("PPanGGOLiN").info('Some RGPs of the input organism '
+            logging.getLogger("PPanGGOLiN").info(f'{organism_name}: Some RGPs of the input organism '
                                                  f"are connected to {len(spots_of_the_cc)} original spots of the pangenome.")
 
         input_rgps_of_the_cc = set()
@@ -906,6 +922,7 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
             {rgp: spots_of_the_cc for rgp in input_rgps_of_the_cc})
 
     if write_graph_flag:
+        # remove node that would not be writable in graph file
         for node in graph_spot.nodes:
             del graph_spot.nodes[node]["spots"]
 
@@ -921,14 +938,13 @@ def predict_spots_in_input_organism(initial_spots: List[Spot], initial_regions: 
 
 
     logging.getLogger('PPanGGOLiN').info(
-        f'{len(new_spots)} new spots have been created for the input genome.')
+        f'{organism_name}: {len(new_spots)} new spots have been created for the input genome.')
 
     if new_spots:
         summarize_spots(new_spots, output, compress=False,
                         file_name="new_spots_summary.tsv")
-
+        
     return input_org_spots
-
 
 def project_and_write_modules(pangenome: Pangenome, input_organism: Organism,
                               output: Path, compress: bool = False):
