@@ -209,7 +209,7 @@ def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group
     return genedata2rna
 
 
-def genedata_desc(type_len, name_len, product_len):
+def genedata_desc(type_len: int, name_len: int, product_len: int) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
     """
     Creates a table for gene-related data
 
@@ -311,8 +311,8 @@ def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.G
     genedata_table.flush()
 
 
-def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: bool = True,
-                      rec_contigs: bool = True, rec_genes: bool = True, rec_rnas: bool = True, disable_bar: bool = False):
+def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: bool = True, rec_contigs: bool = True,
+                      rec_genes: bool = True, rec_rnas: bool = True, disable_bar: bool = False):
     """Function writing all the pangenome annotations
 
     :param pangenome: Annotated pangenome
@@ -361,11 +361,13 @@ def get_gene_sequences_len(pangenome: Pangenome) -> Tuple[int, int]:
     return max_gene_id_len, max_gene_type
 
 
-def gene_sequences_desc(gene_id_len, gene_type_len) -> dict:
+def gene_sequences_desc(gene_id_len: int, gene_type_len: int) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
     """
     Create table to save gene sequences
+
     :param gene_id_len: Maximum size of gene sequence identifier
     :param gene_type_len: Maximum size of gene type
+
     :return: Formated table
     """
     return {
@@ -388,7 +390,7 @@ def get_sequence_len(pangenome: Pangenome) -> int:
     return max_seq_len
 
 
-def sequence_desc(max_seq_len: int) -> dict:
+def sequence_desc(max_seq_len: int) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
     """
     Table description to save sequences
     :param max_seq_len: Maximum size of gene type

@@ -25,19 +25,21 @@ class Genedata:
     """
     This is a general class storing unique gene-related data to be written in a specific
     genedata table
-
-    :param start: Gene start position
-    :param stop: Gene stop position
-    :param strand: Associated strand
-    :param gene_type: Gene type
-    :param position: Position of the gene on its contig
-    :param name: Name of the feature
-    :param product: Associated product
-    :param genetic_code: associated genetic code, if any
     """
 
     def __init__(self, start: int, stop: int, strand: str, gene_type: str, position: int, name: str, product: str,
                  genetic_code: int):
+        """Constructor method
+
+        :param start: Gene start position
+        :param stop: Gene stop position
+        :param strand: Associated strand
+        :param gene_type: Gene type
+        :param position: Position of the gene on its contig
+        :param name: Name of the feature
+        :param product: Associated product
+        :param genetic_code: associated genetic code, if any
+        """
         self.start = start
         self.stop = stop
         self.strand = strand
@@ -47,7 +49,7 @@ class Genedata:
         self.product = product
         self.genetic_code = genetic_code
 
-    def __eq__(self, other):
+    def __eq__(self, other: Genedata):
         return self.start == other.start \
             and self.stop == other.stop \
             and self.strand == other.strand \
@@ -166,7 +168,9 @@ def read_chunks(table: Table, column: str = None, chunk: int = 10000):
 def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
     """
     Reads the genedata table and returns a genedata_id2genedata dictionnary
+
     :param h5f: the hdf5 file handler
+
     :return: dictionnary linking genedata to the genedata identifier
     """
     table = h5f.root.annotations.genedata
@@ -386,6 +390,13 @@ def read_modules(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = Fal
 
 def read_organisms(pangenome: Pangenome, table: tables.Table, chunk_size: int = 20000,
                    disable_bar: bool = False):
+    """Read organism table in pangenome file to add them to the pangenome object
+
+    :param pangenome: Pangenome object
+    :param table: Organism table
+    :param chunk_size: Size of the chunck reading
+    :param disable_bar: Disable progress bar
+    """
     contig2organism = {}
     for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="genome", disable=disable_bar):
         organism = Organism(row["name"].decode())
@@ -394,6 +405,13 @@ def read_organisms(pangenome: Pangenome, table: tables.Table, chunk_size: int = 
 
 def read_contigs(pangenome: Pangenome, table: tables.Table, chunk_size: int = 20000,
                    disable_bar: bool = False):
+    """Read contig table in pangenome file to add them to the pangenome object
+
+    :param pangenome: Pangenome object
+    :param table: Contig table
+    :param chunk_size: Size of the chunck reading
+    :param disable_bar: Disable progress bar
+    """
     for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="contig", disable=disable_bar):
         contig = Contig(name=row["name"].decode())
         contig.is_circular = row["is_circular"]
@@ -563,7 +581,16 @@ def read_modules_info(h5f: tables.File):
                   f"\t\t\t- mean: {info_group._v_attrs['StatOfFamiliesInModules']['mean']}")
 
 
-def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str, sources: List[str] = None, disable_bar: bool = False):
+def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
+                  sources: List[str] = None, disable_bar: bool = False):
+    """Read metadata to add them to the pangenome object
+
+    :param pangenome: Pangenome object
+    :param h5f: Pangenome file
+    :param metatype: Object type to associate metadata
+    :param sources: Source name of metadata
+    :param disable_bar: Disable progress bar
+    """
     metadata_group = h5f.root.metadata._f_get_child(metatype)
     for source in sources:
         source_table = metadata_group._f_get_child(source)
