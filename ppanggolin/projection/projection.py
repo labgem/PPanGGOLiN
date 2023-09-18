@@ -1054,7 +1054,7 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
     return input_orgs_to_modules
 
 
-def determine_input_mode(input_file: Path, expected_types: List[str], parser: argparse.ArgumentParser) -> str:
+def infer_input_mode(input_file: Path, expected_types: List[str], parser: argparse.ArgumentParser) -> str:
     """
     Determine the input mode based on the provided input file and expected file types.
 
@@ -1101,11 +1101,11 @@ def check_projection_arguments(args: argparse.Namespace, parser: argparse.Argume
 
     mode_from_fasta, mode_from_anno = None, None
     if args.fasta:
-        mode_from_fasta = determine_input_mode(args.fasta, ['fasta'], parser)
+        mode_from_fasta = infer_input_mode(args.fasta, ['fasta'], parser)
         input_mode = mode_from_fasta
 
     if args.anno:
-        mode_from_anno = determine_input_mode(args.anno, ['gff', "gbff"], parser)
+        mode_from_anno = infer_input_mode(args.anno, ['gff', "gbff"], parser)
         input_mode = mode_from_anno
 
         logging.getLogger('PPanGGOLiN').debug("")
