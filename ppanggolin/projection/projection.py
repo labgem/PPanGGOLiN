@@ -1054,7 +1054,7 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
     return input_orgs_to_modules
 
 
-def determine_input_mode(input_file: Path, expected_types: list[str], parser: argparse.ArgumentParser) -> str:
+def determine_input_mode(input_file: Path, expected_types: List[str], parser: argparse.ArgumentParser) -> str:
     """
     Determine the input mode based on the provided input file and expected file types.
 
