@@ -92,7 +92,7 @@ def check_tsv_sanity(tsv: Path):
     except IOError as ios_error:
         raise IOError(ios_error)
     except Exception as exception_error:
-        raise Exception(f"The following unexpected error happened when opening the list of pangenomes : "
+        raise Exception(f"The following unexpected error happened when opening the list of genomes path: "
                         f"{exception_error}")
     else:
         name_set = set()
@@ -319,6 +319,8 @@ def detect_filetype(filename: Path) -> str:
         return 'gff'
     elif first_line.startswith(">"):
         return 'fasta'
+    elif "\t" in first_line:
+        return "tsv"
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') "
                         "nor gbff/gbk (file starts with 'LOCUS       '). "

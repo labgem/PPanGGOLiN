@@ -28,7 +28,7 @@ from ppanggolin.annotate.annotate import read_anno_file, launch_read_anno, launc
 from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
 # from ppanggolin.genome import input_organism, Gene, RNA, Contig
-from ppanggolin.utils import create_tmpdir, read_compressed_or_not, write_compressed_or_not, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args, check_input_files
+from ppanggolin.utils import detect_filetype, create_tmpdir, read_compressed_or_not, write_compressed_or_not, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args, check_input_files
 from ppanggolin.align.alignOnPang import get_input_seq_to_family_with_rep,get_input_seq_to_family_with_all, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
 from ppanggolin.formats.readBinaries import check_pangenome_info
@@ -110,29 +110,26 @@ def launch(args: argparse.Namespace):
         **{step: argparse.Namespace(**k_v) for step, k_v in pangenome.parameters.items()})
     
 
-    if args.anno:
-        genome_name_to_annot_path = parse_input_paths_file(args.anno)
+    genome_name_to_fasta_path, genome_name_to_annot_path = None, None
 
-    elif args.single_annot_file:
-        circular_contigs = args.circular_contigs if args.circular_contigs else []
-        genome_name_to_annot_path = {args.organism_name: {"path": args.single_annot_file,
-                                                          "circular_contigs": circular_contigs} 
-                                    }
-    else:
-        genome_name_to_annot_path = None
+    if args.input_mode == "multiple":
+        if args.anno:
+            genome_name_to_annot_path = parse_input_paths_file(args.anno)
         
-    if args.fasta:
-        genome_name_to_fasta_path = parse_input_paths_file(args.fasta)
-        
-    elif args.single_fasta_file:
+        if args.fasta:
+            genome_name_to_fasta_path = parse_input_paths_file(args.fasta)
+
+    else: #  args.input_mode == "single:
+
         circular_contigs = args.circular_contigs if args.circular_contigs else []
-        genome_name_to_fasta_path = {args.organism_name: {"path": args.single_fasta_file,
-                                                          "circular_contigs": circular_contigs} 
-                                    }
-    else:
-        genome_name_to_fasta_path = None
-
-
+        if args.anno:
+            genome_name_to_annot_path = {args.organism_name: {"path": args.annot,
+                                                            "circular_contigs": circular_contigs}}
+        
+        if args.fasta:
+            genome_name_to_fasta_path = {args.organism_name: {"path": args.fasta,
+                                                            "circular_contigs": circular_contigs}}
+    
     if genome_name_to_annot_path:
         check_input_names(pangenome, genome_name_to_annot_path)
 
@@ -149,9 +146,6 @@ def launch(args: argparse.Namespace):
                                 "FASTA sequences using the --fasta or --single_fasta_file options. Therefore, it is impossible to project the pangenome onto the input genomes. "
                                 f"The following organisms have no associated sequence data: {', '.join(o.name for o in organisms_with_no_fasta)}")
 
-        
-
-        
     elif genome_name_to_fasta_path:
         annotate_param_names = ["norna", "kingdom",
                                 "allow_overlap", "prodigal_procedure"]
@@ -1060,50 +1054,101 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
     return input_orgs_to_modules
 
 
-def check_projection_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser):
+def determine_input_mode(input_file: Path, expected_types: list[str], parser: argparse.ArgumentParser) -> str:
+    """
+    Determine the input mode based on the provided input file and expected file types.
+
+    :param input_file: A Path object representing the input file.
+    :param expected_types: A list of expected file types (e.g., ['fasta', 'gff', 'gbff', 'tsv']).
+
+    :return: A string indicating the input mode ('single' or 'multiple').
+    """
+    if not input_file.exists():
+        parser.error(f"The provided file {input_file} does not exist.")
+    
+    try:
+        filetype = detect_filetype(input_file)
+    except Exception:
+        parser.error("Based on its content, the provided file is not recognized as a valid input file. Please ensure it is in one of the supported formats (FASTA, GFF/GBFF, or TSV).")
+
+    if filetype == "tsv":
+        logging.getLogger('PPanGGOLiN').debug(f"The provided file ({input_file}) is detected as a TSV file.")
+        mode = "multiple"
+    elif filetype in expected_types:
+        logging.getLogger('PPanGGOLiN').debug(f"The provided file ({input_file}) is detected as a single {'/'.join(expected_types)} file.")
+        mode = "single"
+    else:
+        logging.getLogger('PPanGGOLiN').error(f"The provided file {input_file} is not recognized as a valid {'/'.join(expected_types)} file or a TSV file listing names and {'/'.join(expected_types)} files of genomes to annotate.")
+        parser.error(f"The provided file {input_file} is not recognized as a valid {'/'.join(expected_types)} file or a TSV file listing names and files of genomes to annotate.")
+
+    return mode
+
+
+def check_projection_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser ) -> str:
     """
     Check the arguments provided for genome projection and raise errors if they are incompatible or missing.
 
     :param args: An argparse.Namespace object containing parsed command-line arguments.
-    :param parser: An argparse.ArgumentParser object used to raise errors.
+    :param parser : parser of the command
+    :return: A string indicating the input mode ('single' or 'multiple').
     """
     
     # Check if we annotate genomes from path files or only a single genome...  
-    if args.fasta or args.anno:
+    if not args.anno and not args.fasta:
+        parser.error("Please provide either a FASTA file or a tab-separated file listing sequence files using the '--fasta' option, "
+                    "or an annotation file or a tab-separated file listing annotation files using the '--anno' option. "
+                    "You can specify these either through the command line or the configuration file.")
+
+    mode_from_fasta, mode_from_anno = None, None
+    if args.fasta:
+        mode_from_fasta = determine_input_mode(args.fasta, ['fasta'], parser)
+        input_mode = mode_from_fasta
+
+    if args.anno:
+        mode_from_anno = determine_input_mode(args.anno, ['gff', "gbff"], parser)
+        input_mode = mode_from_anno
+
+        logging.getLogger('PPanGGOLiN').debug("")
+
+    if mode_from_fasta and mode_from_anno and mode_from_fasta != mode_from_anno:
+        single_input, multiple_input = ("fasta", "anno") if mode_from_fasta == "single" else ("anno", "fasta")
+
+        parser.error(f"You've provided both a single annotation/fasta file using the '--{single_input}' option and a list of files using "
+                    f"the '--{multiple_input}' option. Please choose either a single file or a tab-separated file listing genome files, but not both.")
+
+
+    if input_mode == "multiple":
         # We are in paths file mode
         
-        incompatible_args = ["single_fasta_file", "single_annot_file", "organism_name", "circular_contigs"]
+        incompatible_args = ["organism_name", "circular_contigs"]
         for single_arg in incompatible_args:
             if getattr(args, single_arg) is not None:
-                parser.error(f"The single genome argument --{single_arg} is incompatible with multiple genomes arguments (--anno and/or --fasta).") 
-        
+                parser.error("You provided a TSV file listing the files of genomes you wish to annotate. "
+                             f"Therefore, the single genome argument '--{single_arg}' is incompatible with this multiple genomes file.")
+
         if args.fasta:
             check_input_files(args.fasta, True)
 
         if args.anno:
             check_input_files(args.anno, True)
 
-    elif args.single_fasta_file or args.single_annot_file:
+    elif input_mode == "single":
         # We are in single file mode
             
         if args.organism_name is None:
-            parser.error("Please specify the name of the input organism you want to annotate. "
+            parser.error("You directly provided a single FASTA/GBFF/GFF file. Please specify the name of the input organism you want to annotate. "
                         "You can use the --organism_name argument either through the command line or the config file.")
-            
-    else:
-        parser.error("Please provide either a sequence file using the '--single_fasta_file' or '--fasta' option, "
-                        "or an annotation file using the '--single_annot_file' or '--anno' option. "
-                        "You can specify these either through the command line or the config file.")
-
+    
+    return input_mode
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
     Subparser to launch PPanGGOLiN in Command line
 
-    :param sub_parser : sub_parser for align command
+    :param sub_parser : sub_parser for projection command
 
-    :return : parser arguments for align command
+    :return : parser arguments for projection command
     """
     parser = sub_parser.add_parser(
         "projection", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -1121,35 +1166,25 @@ def parser_projection(parser: argparse.ArgumentParser):
 
     required.add_argument('-p', '--pangenome', required=False,
                           type=Path, help="The pangenome.h5 file")
-    
-    required_multiple = parser.add_argument_group(title="Multiple genome arguments",
-                                                  description="Arguments for annotating multiple genomes with the provided pangenome.")
 
-    required_multiple.add_argument('--fasta', required=False, type=Path,
-                                    help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
-                                        "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
+    required.add_argument('--fasta', required=False, type=Path,
+                                help="Specify a FASTA file containing the genomic sequences of the organism(s) you wish to annotate, "
+                                "or provide a tab-separated file listing organism names alongside their respective FASTA filepaths, with one line per organism.")
     
-    required_multiple.add_argument('--anno', required=False, type=Path,
-                                    help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
-                                        "annotations (the files can be compressed with gzip). One line per organism. "
-                                        "If provided, those annotations will be used.")
+    required.add_argument('--anno', required=False, type=Path,
+                                    help="Specify an annotation file in GFF/GBFF format for the genome you wish to annotate. "
+                                    "Alternatively, you can provide a tab-separated file listing organism names alongside their respective annotation filepaths, "
+                                    "with one line per organism. If both an annotation file and a FASTA file are provided, the annotation file will take precedence.")
 
-    required_single = parser.add_argument_group(title="Single genome arguments",
-                                                description="Arguments for annotating a single genome with the provided pangenome.")
+    required_single = parser.add_argument_group(title="Single Genome Arguments",
+                                                description="Use these options when providing a single FASTA or annotation file:")
 
     required_single.add_argument("-n", '--organism_name', required=False, type=str,
-                            help="Specify the name of the input organism whose genome you want to annotate with the provided pangenome.")
+                        help="Specify the name of the organism whose genome you want to annotate when providing a single FASTA or annotation file.")
 
-    required_single.add_argument('--single_fasta_file', required=False, type=Path,
-                            help="Provide the file path to the genomic sequence(s) in FASTA format for the genome you wish to annotate. "
-                            "(Fasta files can be compressed using gzip)")
-
-    required_single.add_argument('--single_annot_file', required=False, type=Path,
-                            help="Provide the file path to the annotations in GFF/GBFF format for the genome you want to annotate. "
-                            "(Annotation files can be compressed using gzip)")
-    
     required_single.add_argument('--circular_contigs', nargs="+", required=False, type=tuple,
-                            help="Contigs of the input genome to consider as circular.")
+                                help="Specify the contigs of the input genome that should be treated as circular when providing a single FASTA or annotation file.")
+
 
     optional = parser.add_argument_group(title="Optional arguments")
 

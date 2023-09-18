@@ -144,8 +144,10 @@ def cmd_line() -> argparse.Namespace:
                     "using the --sequences argument, either through the command line or the config file.")
     
     if args.subcommand == "projection":
-        ppanggolin.projection.projection.check_projection_arguments(args, parser)
-
+        # check argument correctness and determine input mode (single or multiple files) and add it to args.
+        input_mode = ppanggolin.projection.projection.check_projection_arguments(args, parser)
+        setattr(args, "input_mode", input_mode)
+        
     return args
 
 
