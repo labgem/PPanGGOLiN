@@ -140,8 +140,3 @@ jobs:
                               --organism_name chlam_A --fasta FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz \
                               --spot_graph --graph_formats graphml --fast --keep_tmp -f
 
-Z
-
-
-
-
