@@ -23,19 +23,17 @@ import pandas as pd
 
 
 # # local libraries
-from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
-from ppanggolin.annotate.annotate import read_anno_file, launch_read_anno, launch_annotate_organism, local_identifiers_are_unique
+from ppanggolin.annotate.synta import read_fasta, get_dna_sequence
+from ppanggolin.annotate.annotate import launch_read_anno, launch_annotate_organism, local_identifiers_are_unique
 from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
-# from ppanggolin.genome import input_organism, Gene, RNA, Contig
 from ppanggolin.utils import detect_filetype, create_tmpdir, read_compressed_or_not, write_compressed_or_not, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args, check_input_files
-from ppanggolin.align.alignOnPang import get_input_seq_to_family_with_rep,get_input_seq_to_family_with_all, project_and_write_partition
+from ppanggolin.align.alignOnPang import write_gene_to_gene_family, get_input_seq_to_family_with_rep,get_input_seq_to_family_with_all, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
 from ppanggolin.formats.readBinaries import check_pangenome_info
-# from ppanggolin.formats import write_pangenome
 from ppanggolin.RGP.genomicIsland import naming_scheme, compute_org_rgp
 from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot_graph, write_spot_graph
-from ppanggolin.genome import Organism, Gene, RNA, Contig
+from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.formats.writeFlat import summarize_spots
@@ -528,6 +526,8 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
         seq_set = {gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in input_organism.genes}
 
         project_and_write_partition(seqid_to_gene_family, seq_set, org_outdir)
+        
+        write_gene_to_gene_family(seqid_to_gene_family, seq_set, org_outdir)
 
         lonely_genes = set()
         for gene in input_organism.genes:

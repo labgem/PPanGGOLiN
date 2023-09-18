@@ -276,6 +276,27 @@ def project_and_write_partition(seqid_to_gene_family: Dict[str, GeneFamily], seq
             partProjFile.write(remainingSeq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
     return partition_proj
 
+def write_gene_to_gene_family(seqid_to_gene_family: Dict[str, GeneFamily], seq_set: Set[str], output: Path) -> Path:
+    """
+    Write input gene to gene family.
+
+    :param seqid_to_gene_family: dictionnary which link sequence and pangenome gene family
+    :param seq_set: input sequences
+    :param output: Path of the output directory
+
+    :return: Path to file which contain partition projection
+    """
+
+    gene_fam_map_file = output.absolute() / "gene_to_gene_family.tsv"
+    with open(gene_fam_map_file, "w") as partProjFile:
+        for input_seq, pangFam in seqid_to_gene_family.items():
+            partProjFile.write(f"{input_seq}\t{pangFam.name}\n")
+
+        for remainingSeq in  seq_set - seqid_to_gene_family.keys():
+            partProjFile.write(f"{remainingSeq}\t{remainingSeq}\n")  # if there is no hit, gene family is itself.
+
+    return gene_fam_map_file
+
 
 def get_fam_to_rgp(pangenome, multigenics: set) -> dict:
     """
