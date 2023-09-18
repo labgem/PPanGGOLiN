@@ -144,11 +144,9 @@ def map_input_gene_to_family_all_aln(aln_res: Path, outdir:Path, pangenome: Pang
 
     seq2pang = {}
     aln_file_clean = outdir / f"alignment_input_seqs_to_all_pangenome_genes.tsv"  # write the actual result file
-    input_seq_to_gene_family = outdir / f"input_seqs_to_gene_family.tsv"
     logging.getLogger().debug(f'Writing alignment file in {aln_file_clean}')
-    logging.getLogger().debug(f'Writing gene family IDs to the input sequence ID file: {input_seq_to_gene_family}')
     
-    with open(aln_res, "r") as alnFile, open(aln_file_clean, "w") as aln_outfl, open(input_seq_to_gene_family, "w") as outgene2fam:
+    with open(aln_res, "r") as alnFile, open(aln_file_clean, "w") as aln_outfl:
         for line in alnFile:
             line_splitted = line.split()
             
@@ -162,7 +160,6 @@ def map_input_gene_to_family_all_aln(aln_res: Path, outdir:Path, pangenome: Pang
             if seq2pang.get(input_seq_id) is None:  # if no results were found yet
                 family = pangenome.get_gene(gene_id).family
                 seq2pang[input_seq_id] = family  # then the best hit is the first one we see.
-                outgene2fam.write(f"{input_seq_id}\t{family.name}\n")
 
     return seq2pang, aln_file_clean
 
@@ -181,11 +178,9 @@ def map_input_gene_to_family_rep_aln(aln_res: Path, outdir:Path, pangenome: Pang
     seq2pang = {}
     aln_file_clean = outdir / f"alignment_input_seqs_to_pangenome_gene_families.tsv"  # write the actual result file 
 
-    input_seq_to_gene_family = outdir / f"input_seqs_to_gene_family.tsv"
     logging.getLogger().debug(f'Writing alignment file in {aln_file_clean}')
-    logging.getLogger().debug(f'Writing Gene family id to input seq id file in {input_seq_to_gene_family}')
 
-    with open(aln_res, "r") as alnFile, open(aln_file_clean, "w") as aln_outfl, open(input_seq_to_gene_family, "w") as outgene2fam:
+    with open(aln_res, "r") as alnFile, open(aln_file_clean, "w") as aln_outfl:
         for line in alnFile:
             line_splitted = line.split()
             
@@ -198,8 +193,7 @@ def map_input_gene_to_family_rep_aln(aln_res: Path, outdir:Path, pangenome: Pang
 
             if seq2pang.get(input_seq_id) is None:  # if no results were found yet
                 family = pangenome.get_gene_family(gene_family_id)  # then the best hit is the first one we see.
-                seq2pang[input_seq_id] = family  
-                outgene2fam.write(f"{input_seq_id}\t{family.name}\n")
+                seq2pang[input_seq_id] = family
 
     return seq2pang, aln_file_clean
 

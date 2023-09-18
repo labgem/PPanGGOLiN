@@ -513,11 +513,11 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
             
         if use_representatives:
-            _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome, seq_fasta_files, output, new_tmpdir, is_input_seq_nt=True,
+            _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome, seq_fasta_files, output=new_tmpdir, tmpdir=new_tmpdir, is_input_seq_nt=True,
                                                         cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage, translation_table=translation_table)
         else:
             _, seqid_to_gene_family = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=seq_fasta_files, 
-                                                                                output=output, tmpdir=new_tmpdir, is_input_seq_nt=True,
+                                                                                output=new_tmpdir, tmpdir=new_tmpdir, is_input_seq_nt=True,
                                                                                 cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
                                                                                 translation_table=translation_table, disable_bar=disable_bar)
     input_org_to_lonely_genes_count = {}
@@ -1189,7 +1189,7 @@ def parser_projection(parser: argparse.ArgumentParser):
     optional = parser.add_argument_group(title="Optional arguments")
 
     optional.add_argument('-o', '--output', required=False, type=Path,
-                          default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
+                          default="ppanggolin_projection" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
                                                                       time.localtime()) + "_PID" + str(os.getpid()),
                           help="Output directory")
 
