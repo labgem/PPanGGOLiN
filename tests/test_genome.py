@@ -523,7 +523,10 @@ class TestOrganism:
 		"""
 		organism.add(Contig('contig1'))
 		organism.add(Contig('contig2'))
+
 		assert organism.number_of_contigs == 2
+		assert isinstance(len(organism), int)
+		assert len(organism) == 2
 
 	def test_get_families(self, organism, contig, gene):
 		"""Tests that gene families in an organism can be retrieved

@@ -297,7 +297,6 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     :param force: Force writing clustering results back to the pangenome.
     :param disable_bar: Disable the progress bar during clustering.
     :param keep_tmp_files: Keep temporary files (useful for debugging).
-
     """
 
     if keep_tmp_files:

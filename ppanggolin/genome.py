@@ -311,6 +311,7 @@ class Contig:
         self._genes_getter = {}
         self._genes_position = []
         self._organism = None
+        self._length = None
 
     def __str__(self) -> str:
         return self.name
@@ -341,6 +342,23 @@ class Contig:
         self._genes_getter[gene.start] = gene
 
     # TODO define eq function
+
+    @property
+    def length(self):
+        if self._length is None:
+            logging.getLogger("PPanGGOLiN").warning("Contig length is unknown")
+        return self._length
+
+    @length.setter
+    def length(self, contig_len: int):
+        if not isinstance(contig_len, int):
+            raise TypeError("Contig length is expected to be an integer")
+        if contig_len < 0:
+            raise ValueError("Contig length must be positive")
+        self._length = contig_len
+
+    def __len__(self):
+        return self.length
 
     # retrieve gene by start position
     def __getitem__(self, position: int) -> Gene:
@@ -489,6 +507,12 @@ class Contig:
         """
         yield from self._rna_getter
 
+    @property
+    def number_of_rnas(self) -> int:
+        """Get the number of RNA in the contig
+        """
+        return len(self._rna_getter)
+
 
 class Organism(MetaFeatures):
     """
@@ -582,6 +606,13 @@ class Organism(MetaFeatures):
         except KeyError:
             raise KeyError("Position of the gene in the contig does not exist")
 
+    def __len__(self):
+        """ Get number of contigs in organism
+
+        :return: Number of contigs in organism
+        """
+        return len(self._contigs_getter.keys())
+
     @property
     def families(self):
         """Return the gene families present in the organism
@@ -626,6 +657,7 @@ class Organism(MetaFeatures):
         """
         yield from self._contigs_getter.values()
 
+
     @property
     def number_of_contigs(self) -> int:
         """ Get number of contigs in organism
@@ -633,6 +665,7 @@ class Organism(MetaFeatures):
         :return: Number of contigs in organism
         """
         return len(self._contigs_getter)
+
 
     def add(self, contig: Contig):
         """Add a contig to organism
@@ -649,6 +682,7 @@ class Organism(MetaFeatures):
         else:
             raise KeyError(f"Contig {contig.name} already in organism {self.name}")
 
+ 
     def get(self, name: str) -> Contig:
         """
         Get contig with the given identifier in the organism
@@ -659,6 +693,7 @@ class Organism(MetaFeatures):
         """
         return self[name]
 
+
     def remove(self, name: str) -> Contig:
         """
         Remove a contig with the given identifier in the organism
@@ -668,6 +703,7 @@ class Organism(MetaFeatures):
         :return: The contig with the given identifier
         """
         del self[name]
+
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
