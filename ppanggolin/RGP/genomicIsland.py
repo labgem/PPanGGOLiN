@@ -4,7 +4,8 @@
 # default libraries
 import logging
 import argparse
-
+from pathlib import Path
+from typing import Set
 # installed libraries
 from tqdm import tqdm
 
@@ -30,7 +31,7 @@ class MatriceNode:
         self.score = score if score >= 0 else 0
 
 
-def extract_rgp(contig, node, rgp_id, naming):
+def extract_rgp(contig, node, rgp_id, naming) -> Region:
     """
         Extract the region from the given starting node
     """
@@ -40,7 +41,7 @@ def extract_rgp(contig, node, rgp_id, naming):
     elif naming == "organism":
         new_region = Region(node.gene.organism.name + "_" + contig.name + "_RGP_" + str(rgp_id))
     while node.state:
-        new_region.append(node.gene)
+        new_region.add(node.gene)
         node.state = 0
         node.score = 0
         node = node.prev
@@ -148,7 +149,7 @@ def init_matrices(contig: Contig, multi: set, persistent_penalty: int = 3, varia
 
 
 def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000, min_score: int = 4,
-               persistent: int = 3, continuity: int = 1, naming: str = "contig") -> set:
+               persistent: int = 3, continuity: int = 1, naming: str = "contig") -> Set[Region]:
     """
     Processing matrix and 'emptying' it to get the regions.
 
@@ -163,6 +164,7 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
 
     :return:
     """
+
     def max_index_node(lst):
         """gets the last node with the highest score from a list of matriceNode"""
         if isinstance(lst, list):
@@ -182,7 +184,7 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
     while val >= min_score:
         new_region = extract_rgp(contig, matrix[index], len(contig_regions), naming)
         new_region.score = val
-        if (new_region[0].stop - new_region[-1].start) > min_length:
+        if new_region.length > min_length:
             contig_regions.add(new_region)
         rewrite_matrix(contig, matrix, index, persistent, continuity, multi)
         val, index = max_index_node(matrix)
@@ -190,10 +192,10 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
 
 
 def compute_org_rgp(organism: Organism, multigenics: set, persistent_penalty: int = 3, variable_gain: int = 1,
-                    min_length: int = 3000, min_score: int = 4, naming: str = "contig") -> set:
+                    min_length: int = 3000, min_score: int = 4, naming: str = "contig") -> Set[Region]:
     org_regions = set()
     for contig in organism.contigs:
-        if len(contig.genes) != 0:  # some contigs have no coding genes...
+        if contig.number_of_genes != 0:  # some contigs have no coding genes...
             # can definitely multiprocess this part, as not THAT much information is needed...
             matrix = init_matrices(contig, multigenics, persistent_penalty, variable_gain)
             org_regions |= mk_regions(contig, matrix, multigenics, min_length, min_score, persistent_penalty,
@@ -208,8 +210,9 @@ def naming_scheme(pangenome: Pangenome):
             oldlen = len(contigsids)
             contigsids.add(contig.name)
             if oldlen == len(contigsids):
-                logging.getLogger().warning("You have contigs with identical identifiers in your assemblies. "
-                                            "identifiers will be supplemented with your provided organism names.")
+                logging.getLogger("PPanGGOLiN").warning("You have contigs with identical identifiers in your "
+                                                        "assemblies. identifiers will be supplemented with your "
+                                                        "provided organism names.")
                 return "organism"
     return "contig"
 
@@ -247,14 +250,15 @@ def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
                          disable_bar=disable_bar)
 
-    logging.getLogger().info("Detecting multigenic families...")
+    logging.getLogger("PPanGGOLiN").info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
-    logging.getLogger().info("Compute Regions of Genomic Plasticity ...")
+    logging.getLogger("PPanGGOLiN").info("Compute Regions of Genomic Plasticity ...")
     name_scheme = naming_scheme(pangenome)
-    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms(), unit="genomes", disable=disable_bar):
-        pangenome.add_regions(compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
-                                              min_score, naming=name_scheme))
-    logging.getLogger().info(f"Predicted {len(pangenome.regions)} RGP")
+    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genomes", disable=disable_bar):
+        for region in compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
+                                              min_score, naming=name_scheme):
+	        pangenome.add_region(region)
+    logging.getLogger("PPanGGOLiN").info(f"Predicted {pangenome.number_of_rgp} RGP")
 
     # save parameters and save status
     pangenome.parameters["RGP"] = {}
@@ -301,7 +305,7 @@ def parser_rgp(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
 
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument('--persistent_penalty', required=False, type=int, default=3,
@@ -319,20 +323,13 @@ def parser_rgp(parser: argparse.ArgumentParser):
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_rgp(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())
