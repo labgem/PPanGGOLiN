@@ -120,7 +120,6 @@ def cmd_line() -> argparse.Namespace:
 
     # First parse args to check that nothing is missing or not expected in cli and throw help when requested
     args = parser.parse_args()
-
     if hasattr(args,  "config"):
         # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
         args = manage_cli_and_config_args(args.subcommand, args.config, SUBCOMMAND_TO_SUBPARSER)

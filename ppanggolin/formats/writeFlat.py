@@ -535,7 +535,7 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
                         nb_gene_core += 1
             completeness = "NA"
             if len(single_copy_markers) > 0:
-                completeness = round(((org.number_of_families() + len(single_copy_markers)) /
+                completeness = round((len(set(org.families) & single_copy_markers) /
                                       len(single_copy_markers)) * 100, 2)
             outfile.write("\t".join(map(str, [org.name,
                                               org.number_of_families(),
