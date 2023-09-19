@@ -1120,24 +1120,15 @@ def check_projection_arguments(args: argparse.Namespace, parser: argparse.Argume
     if input_mode == "multiple":
         # We are in paths file mode
         
-        incompatible_args = ["organism_name", "circular_contigs"]
-        for single_arg in incompatible_args:
-            if getattr(args, single_arg) is not None:
-                parser.error("You provided a TSV file listing the files of genomes you wish to annotate. "
-                             f"Therefore, the single genome argument '--{single_arg}' is incompatible with this multiple genomes file.")
+        if args.circular_contigs:
+            parser.error("You provided a TSV file listing the files of genomes you wish to annotate. "
+                            f"Therefore, the  argument '--circular_contigs' is incompatible with this multiple genomes file.")
 
         if args.fasta:
             check_input_files(args.fasta, True)
 
         if args.anno:
             check_input_files(args.anno, True)
-
-    elif input_mode == "single":
-        # We are in single file mode
-            
-        if args.organism_name is None:
-            parser.error("You directly provided a single FASTA/GBFF/GFF file. Please specify the name of the input organism you want to annotate. "
-                        "You can use the --organism_name argument either through the command line or the config file.")
     
     return input_mode
 
@@ -1179,7 +1170,7 @@ def parser_projection(parser: argparse.ArgumentParser):
     required_single = parser.add_argument_group(title="Single Genome Arguments",
                                                 description="Use these options when providing a single FASTA or annotation file:")
 
-    required_single.add_argument("-n", '--organism_name', required=False, type=str,
+    required_single.add_argument("-n", '--organism_name', required=False, type=str, default="input_genome",
                         help="Specify the name of the organism whose genome you want to annotate when providing a single FASTA or annotation file.")
 
     required_single.add_argument('--circular_contigs', nargs="+", required=False, type=tuple,
