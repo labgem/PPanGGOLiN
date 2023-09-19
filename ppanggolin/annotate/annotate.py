@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import tempfile
 import time
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Iterable
 
 # installed libraries
 from tqdm import tqdm
