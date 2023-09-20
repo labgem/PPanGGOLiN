@@ -331,7 +331,7 @@ class Contig:
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if start in self._genes_getter:
-            raise ValueError(f"Gene with start position {start} already exists in the contig")
+            raise ValueError(f"Gene '{self._genes_getter[start].ID}' with start position {start} already exists in the contig '{self.name}', cannot add gene '{gene.ID}'")
         if gene.position is None:
             raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
         # Adding empty values.
