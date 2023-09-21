@@ -285,7 +285,7 @@ class Gene(Feature):
         self.protein = protein
 
 
-class Contig:
+class Contig(MetaFeatures):
     """
     Describe the contig content and some information
     Methods:
@@ -305,6 +305,7 @@ class Contig:
         :param name: Name of the contig
         :param is_circular: saves if the contig is circular
         """
+        super().__init__()
         self.ID = identifier
         self.name = name
         self.is_circular = is_circular

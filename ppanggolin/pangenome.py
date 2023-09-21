@@ -51,12 +51,14 @@ class Pangenome:
             'modules': 'No',
             "metadata": {"families": 'No',
                          "genes": 'No',
+                         "contigs": 'No',
                          "genomes": 'No',
                          "RGPs": 'No',
                          "spots": 'No',
                          "modules": 'No'},
             "metasources": {"families": [],
                             "genes": [],
+                            "contigs": [],
                             "genomes": [],
                             "RGPs": [],
                             "spots": [],
@@ -697,6 +699,8 @@ class Pangenome:
             return self.gene_families
         elif metatype == "genomes":
             return self.organisms
+        elif metatype == "contigs":
+            return self.contigs
         elif metatype == "genes":
             return self.genes
         elif metatype == "RGPs":
@@ -754,7 +758,7 @@ class Pangenome:
 
         :return: Gene families with the source
         """
-        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        assert metatype in ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
         for elem in self.select_elem(metatype):
             if elem.get_metadata_by_source(source) is not None:
                 yield elem
