@@ -684,8 +684,13 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     strand = feature.strand
                     
                     source = annotation_sources.get(feat_type, "external")
+
+                    # before the CDS or RNA line a gene line is created. with the following id
+                    parent_gene_id=f"gene-{feature.ID}"
+
                     attributes = [("ID", feature.ID), 
                                   ("Name", feature.name),
+                                  ('Parent', parent_gene_id),
                                   ("product", feature.product),
                                 ]
                     
@@ -697,14 +702,32 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                             ("Family", feature.family.name),
                             ("Partition", feature.family.named_partition),
                             ('RGP', rgp),
-                            ('Module', ','.join((f"module_{module.ID}" for module in feature.family.modules)) ) 
+                            ('Module', ','.join((f"module_{module.ID}" for module in feature.family.modules)) )
                         ]
                 
+
+
+                    # add an extra line of type gene
+
+                    gene_line = [contig.name,
+                            source, 
+                            'gene',
+                            feature.start,
+                            feature.stop,
+                            '.',
+                            strand,
+                            ".",
+                            f'ID={parent_gene_id}'
+                            ]
+                    
+                    line_str = '\t'.join(map(str, gene_line))
+                    outfile.write(line_str + "\n")
+
                 elif type(feature) == Region:
                     feat_type = "region"
                     source = "ppanggolin"
                     strand = "."
-                    score = feature.score # TODO is RGP score make sens and do we want it in gff file?
+                    score = feature.score # TODO does RGP score make sens and do we want it in gff file?
                     attributes = [
                             ("Name", feature.name),
                             ("Spot", rgp_to_spotid.get(feature, "No_spot")),
@@ -728,6 +751,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                         ".",
                         attributes_str,
                         ]
+
                 line_str = '\t'.join(map(str, line))
                 outfile.write(line_str + "\n")
 
