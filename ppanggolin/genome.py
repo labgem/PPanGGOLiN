@@ -299,12 +299,13 @@ class Contig:
     - RNAs: Set of RNA annotations present in the contig.
     """
 
-    def __init__(self, name: str, is_circular: bool = False):
+    def __init__(self, identifier: int, name: str, is_circular: bool = False):
         """Constructor method
 
         :param name: Name of the contig
         :param is_circular: saves if the contig is circular
         """
+        self.ID = identifier
         self.name = name
         self.is_circular = is_circular
         self._rna_getter = set()  # Saving the rna annotations. We're not using them in the vast majority of cases.
@@ -331,7 +332,9 @@ class Contig:
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if start in self._genes_getter:
-            raise ValueError(f"Gene '{self._genes_getter[start].ID}' with start position {start} already exists in the contig '{self.name}', cannot add gene '{gene.ID}'")
+            raise ValueError(f"Gene '{self._genes_getter[start].ID}' with start position {start} already exists in the "
+                             f"contig '{self.name}' {f'from organism {self.organism}' if self.organism is not None else ''}, "
+                             f"cannot add gene '{gene.ID}' {f'from organism {gene.organism}' if gene.organism is not None else ''}")
         if gene.position is None:
             raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
         # Adding empty values.

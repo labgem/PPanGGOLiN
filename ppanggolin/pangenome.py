@@ -322,28 +322,45 @@ class Pangenome:
         """
         self._contig_getter = {}
         for contig in self.contigs:
-            self._contig_getter[contig.name] = contig
+            self._contig_getter[contig.ID] = contig
 
-    def get_contig(self, name: str) -> Contig:
-        """Returns the contig that has the given name
+    def get_contig(self, identifier: int = None, name: str = None, organism_name: str = None) -> Contig:
+        """Returns the contig by his identifier or by his name. If name is given the organism name is needed
 
-        :param name: The ,ame of the contig to look for
+        :param identifier: ID of the contig to look for
+        :param name: The name of the contig to look for
+        :param organism_name: Name of the organism to which the contig belong
 
         :return: Returns the wanted contig
 
         :raises AssertionError: If the `gene_id` is not an integer
         :raises KeyError: If the `gene_id` is not in the pangenome
         """
-        assert isinstance(name, str), "Contig name should be a string"
+        if identifier is None:
+            if name is None:
+                raise ValueError("Neiher identifier or name of the contig are given.")
+            else:
+                if not isinstance(name, str):
+                    raise AssertionError("Contig name should be a string")
 
-        try:
-            return self._contig_getter[name]
-        except AttributeError:
-            # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
-            self._mk_contig_getter()  # make it
-            return self.get_contig(name)  # Return what was expected. If geneID does not exist it will raise an error.
-        except KeyError:
-            raise KeyError(f"Contig: {name}, does not exist in the pangenome.")
+                if organism_name is None:
+                    raise ValueError("You should provide the name of the organism to which the contig belong")
+                else:
+                    if not isinstance(organism_name, str):
+                        raise AssertionError("Organism name should be a string")
+                    organism = self.get_organism(organism_name)
+                    return organism.get(name)
+        else:
+            if not isinstance(identifier, int):
+                raise AssertionError("Contig ID should be an integer")
+            try:
+                return self._contig_getter[identifier]
+            except AttributeError:
+                # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
+                self._mk_contig_getter()  # make it
+                return self.get_contig(identifier)  # Return what was expected. If geneID does not exist it will raise an error.
+            except KeyError:
+                raise KeyError(f"Contig: {identifier}, does not exist in the pangenome.")
     def get_organism(self, name: str) -> Organism:
         """
         Get an organism that is expected to be in the pangenome using its name, which is supposedly unique.

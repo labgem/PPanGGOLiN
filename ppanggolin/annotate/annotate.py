@@ -4,6 +4,7 @@
 # default libraries
 import argparse
 import logging
+from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 import os
 from pathlib import Path
@@ -15,11 +16,14 @@ from typing import List, Set, Tuple, Iterable
 from tqdm import tqdm
 
 # local libraries
-from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence
+from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence, init_contig_counter, contig_counter
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
 from ppanggolin.formats import write_pangenome
+
+
+ctg_counter = contig_counter
 
 
 def check_annotate_args(args: argparse.Namespace):
@@ -104,6 +108,8 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
 
     :return: Organism complete and true for sequence in file
     """
+    global ctg_counter
+
     organism = Organism(organism_name)
     logging.getLogger("PPanGGOLiN").debug(f"Extracting genes informations from the given gbff {gbff_file_path.name}")
     # revert the order of the file, to read the first line first.
@@ -135,7 +141,10 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         try:
             contig = organism.get(contig_id)
         except KeyError:
-            contig = Contig(contig_id, True if contig_id in circular_contigs or is_circ else False)
+            with contig_counter.get_lock():
+                contig = Contig(contig_counter.value, contig_id,
+                                True if contig_id in circular_contigs or is_circ else False)
+                contig_counter.value += 1
             organism.add(contig)
             contig.length = contig_len
         # start of the feature object.
@@ -247,6 +256,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
     :return: Organism object and if there are sequences associated or not
     """
+    global ctg_counter
+
     (gff_seqname, _, gff_type, gff_start, gff_end, _, gff_strand, _, gff_attribute) = range(0, 9)
 
     # Missing values: source, score, frame. They are unused.
@@ -299,7 +310,10 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                     has_fasta = True
                 elif line.startswith('sequence-region', 2, 17):
                     fields = [el.strip() for el in line.split()]
-                    contig = Contig(fields[1], True if fields[1] in circular_contigs else False)
+                    with contig_counter.get_lock():
+                        contig = Contig(contig_counter.value, fields[1],
+                                        True if fields[1] in circular_contigs else False)
+                        contig_counter.value += 1
                     org.add(contig)
                     contig.length = int(fields[-1]) - int(fields[3]) + 1
 
@@ -350,7 +364,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                     rna_counter += 1
                     contig.add_rna(rna)
 
-
     # GET THE FASTA SEQUENCES OF THE GENES
     if has_fasta and fasta_string != "":
         contig_sequences = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
@@ -360,16 +373,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             for rna in contig.RNAs:
                 rna.add_sequence(get_dna_sequence(contig_sequences[contig.name], rna))
     return org, has_fasta
-
-
-def launch_read_anno(args: Tuple[str, Path, List[str], bool]) -> Tuple[Organism, bool]:
-    """ Allow to launch in multiprocessing the read of genome annotation
-
-    :param args: Pack of argument for annotate_organism function
-
-    :return: Organism object for pangenome
-    """
-    return read_anno_file(*args)
 
 
 def read_anno_file(organism_name: str, filename: Path, circular_contigs: list, pseudo: bool = False) -> Tuple[Organism, bool]:
@@ -384,6 +387,7 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list, p
 
     :return: Annotated organism for pangenome and true for sequence in file
     """
+    global ctg_counter
     filetype = detect_filetype(filename)
     if filetype == "gff":
         try:
@@ -420,7 +424,8 @@ def chose_gene_identifiers(pangenome: Pangenome) -> bool:
 
     else:
         return False
-        
+
+
 def local_identifiers_are_unique(genes: Iterable[Gene]) -> bool:
     """
     Check if local_identifiers of genes are uniq in order to decide if they should be used as gene id.
@@ -452,6 +457,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     :param pseudo: allow to read pseudogène
     :param disable_bar: Disable the progresse bar
     """
+
     logging.getLogger("PPanGGOLiN").info(f"Reading {organisms_file.name} the list of organism files ...")
 
     pangenome.status["geneSequences"] = "Computed"
@@ -464,12 +470,22 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
         args.append((elements[0], org_path, elements[2:], pseudo))
-    with get_context('fork').Pool(cpu) as p:
-        for org, flag in tqdm(p.imap_unordered(launch_read_anno, args), unit="file", total=len(args),
-                              disable=disable_bar):
-            pangenome.add_organism(org)
-            if not flag:
-                pangenome.status["geneSequences"] = "No"
+
+    with ProcessPoolExecutor(mp_context=get_context('fork'), max_workers=cpu,
+                             initializer=init_contig_counter, initargs=(contig_counter, )) as executor:
+        with tqdm(total=len(args), unit="file", disable=disable_bar) as progress:
+            futures = []
+
+            for fn_args in args:
+                future = executor.submit(read_anno_file, *fn_args)
+                future.add_done_callback(lambda p: progress.update())
+                futures.append(future)
+
+            for future in futures:
+                org, flag = future.result()
+                pangenome.add_organism(org)
+                if not flag:
+                    pangenome.status["geneSequences"] = "No"
 
     # decide whether we use local ids or ppanggolin ids.
     used_local_identifiers = chose_gene_identifiers(pangenome)
@@ -529,16 +545,6 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: List[Path]
     pangenome.status["geneSequences"] = "Computed"
 
 
-def launch_annotate_organism(pack: Tuple[str, Path, List[str], str, int, bool, str, bool, str]) -> Organism:
-    """ Allow to launch in multiprocessing the genome annotation
-
-    :param pack: Pack of argument for annotate_organism function
-
-    :return: Organism object for pangenome
-    """
-    return annotate_organism(*pack)
-
-
 def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu: int = 1, translation_table: int = 11,
                        kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False,
                        procedure: str = None, disable_bar: bool = False):
@@ -575,12 +581,18 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
         raise Exception("There are no genomes in the provided file")
 
     logging.getLogger("PPanGGOLiN").info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
-    with get_context('fork').Pool(processes=cpu) as p:
-        for organism in tqdm(p.imap_unordered(launch_annotate_organism, arguments), unit="genome",
-                             total=len(arguments), disable=disable_bar):
-            pangenome.add_organism(organism)
-        p.close()
-        p.join()
+    with ProcessPoolExecutor(mp_context=get_context('fork'), max_workers=cpu,
+                             initializer=init_contig_counter, initargs=(contig_counter,)) as executor:
+        with tqdm(total=len(arguments), unit="file", disable=disable_bar) as progress:
+            futures = []
+
+            for fn_args in arguments:
+                future = executor.submit(annotate_organism, *fn_args)
+                future.add_done_callback(lambda p: progress.update())
+                futures.append(future)
+
+            for future in futures:
+                pangenome.add_organism(future.result())
 
     logging.getLogger("PPanGGOLiN").info("Done annotating genomes")
     pangenome.status["genomesAnnotated"] = "Computed"  # the pangenome is now annotated.
@@ -591,8 +603,8 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     pangenome.parameters["annotate"]["translation_table"] = translation_table
     pangenome.parameters["annotate"]["prodigal_procedure"] = None if procedure is None else procedure
     pangenome.parameters["annotate"]["allow_overlap"] = allow_overlap
-    pangenome.parameters["annotate"]["norna"] =  norna
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = False
+
 
 def launch(args: argparse.Namespace):
     """

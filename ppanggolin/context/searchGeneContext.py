@@ -68,7 +68,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
                                                             cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
                                                             translation_table=translation_table, disable_bar=disable_bar)
             else:
-                _, seq2pan = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=[sequence_file], 
+                _, seq2pan = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=[sequence_file],
                                                                                     output=output, tmpdir=new_tmpdir, is_input_seq_nt=is_nucleotide,
                                                                                     cpu=cpu, no_defrag=no_defrag,
                                                                                     identity=identity, coverage=coverage,

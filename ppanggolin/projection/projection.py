@@ -3,7 +3,8 @@
 
 # default libraries
 import argparse
-from multiprocessing import get_context
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import get_context, Value
 import logging
 import os
 import time
@@ -24,7 +25,7 @@ import pandas as pd
 
 # # local libraries
 from ppanggolin.annotate.synta import read_fasta, get_dna_sequence
-from ppanggolin.annotate.annotate import launch_read_anno, launch_annotate_organism, local_identifiers_are_unique
+from ppanggolin.annotate.annotate import init_contig_counter, read_anno_file, annotate_organism, local_identifiers_are_unique
 from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import detect_filetype, create_tmpdir, read_compressed_or_not, write_compressed_or_not, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args, check_input_files
@@ -207,13 +208,13 @@ def launch(args: argparse.Namespace):
         write_summaries(organism_2_summary, output_dir)
 
 
-def annotate_fasta_files(genome_name_to_fasta_path: Dict[str,dict], tmpdir: str, cpu: int = 1, translation_table: int = 11,
+def annotate_fasta_files(genome_name_to_fasta_path: Dict[str, dict], tmpdir: str, cpu: int = 1, translation_table: int = 11,
                        kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,
                        disable_bar: bool = False):
     """
     Main function to annotate a pangenome
 
-    :param genome_name_to_annot_path: 
+    :param genome_name_to_fasta_path:
     :param fasta_list: List of fasta file containing sequences that will be base of pangenome
     :param tmpdir: Path to temporary directory
     :param cpu: number of CPU cores to use
@@ -233,18 +234,23 @@ def annotate_fasta_files(genome_name_to_fasta_path: Dict[str,dict], tmpdir: str,
                           norna, kingdom, allow_overlap, procedure))
 
     logging.getLogger("PPanGGOLiN").info(f"Annotating {len(arguments)} genomes using {cpu} cpus...")
-    with get_context('fork').Pool(processes=cpu) as p:
-        for organism in tqdm(p.imap_unordered(launch_annotate_organism, arguments), unit="genome",
-                             total=len(arguments), disable=disable_bar):
-            
-            organisms.append(organism)
-        p.close()
-        p.join()
+    contig_counter = Value('i', 0)
+    with ProcessPoolExecutor(mp_context=get_context('fork'), max_workers=cpu,
+                             initializer=init_contig_counter, initargs=(contig_counter,)) as executor:
+        with tqdm(total=len(arguments), unit="file", disable=disable_bar) as progress:
+            futures = []
+
+            for fn_args in arguments:
+                future = executor.submit(annotate_organism, *fn_args)
+                future.add_done_callback(lambda p: progress.update())
+                futures.append(future)
+
+            for future in futures:
+                organisms.append(future.result())
 
     return organisms
 
 
-    
 def read_annotation_files(genome_name_to_annot_path: Dict[str,dict], cpu: int = 1, pseudo: bool = False,
                      disable_bar: bool = False) -> Tuple[List[Organism], Dict[Organism,bool]]:
     """
@@ -264,17 +270,24 @@ def read_annotation_files(genome_name_to_annot_path: Dict[str,dict], cpu: int = 
     # unless a gff file without fasta is met (which is the only case where sequences can be absent)
     org_to_has_fasta_flag = {}
 
+    args = [(org_name, org_info['path'], org_info['circular_contigs'], pseudo)
+            for org_name, org_info in genome_name_to_annot_path.items()]
 
-    for org_name, org_info in genome_name_to_annot_path.items():
-        
-        args.append((org_name, org_info['path'], org_info['circular_contigs'], pseudo))
+    contig_counter = Value('i', 0)
+    with ProcessPoolExecutor(mp_context=get_context('fork'), max_workers=cpu, 
+                             initializer=init_contig_counter, initargs=(contig_counter,)) as executor:
+        with tqdm(total=len(args), unit="file", disable=disable_bar) as progress:
+            futures = []
 
-    with get_context('fork').Pool(cpu) as p:
-        for org, has_fasta in tqdm(p.imap_unordered(launch_read_anno, args), unit="file", total=len(args),
-                              disable=disable_bar):
-            
-            organisms.append(org)
-            org_to_has_fasta_flag[org] = has_fasta
+            for fn_args in args:
+                future = executor.submit(read_anno_file, *fn_args)
+                future.add_done_callback(lambda p: progress.update())
+                futures.append(future)
+
+            for future in futures:
+                org, has_fasta = future.result()
+                organisms.append(org)
+                org_to_has_fasta_flag[org] = has_fasta
 
     genes = (gene for org in organisms for gene in org.genes)
 

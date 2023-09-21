@@ -555,13 +555,13 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
 
         if use_representatives:
             align_file, seq2pang = get_input_seq_to_family_with_rep(pangenome, [sequence_file], output, new_tmpdir, is_input_seq_nt=is_nucleotide,
-                                                        cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
-                                                        translation_table=translation_table, disable_bar=disable_bar)
+                                                                    cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
+                                                                    translation_table=translation_table, disable_bar=disable_bar)
         else:
-            align_file, seq2pang = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_file=[sequence_file], 
-                                                                                output=output, tmpdir=new_tmpdir, is_input_seq_nt=is_nucleotide,
-                                                                                cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
-                                                                                translation_table=translation_table, disable_bar=disable_bar)
+            align_file, seq2pang = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=[sequence_file],
+                                                                    output=output, tmpdir=new_tmpdir, is_input_seq_nt=is_nucleotide,
+                                                                    cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
+                                                                    translation_table=translation_table, disable_bar=disable_bar)
 
     if getinfo or draw_related:  # TODO Add getinfo to function and remove if
         get_seq_info(seq2pang, pangenome, output, draw_related, disable_bar=disable_bar)
