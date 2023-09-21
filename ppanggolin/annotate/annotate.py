@@ -115,14 +115,15 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         # beginning of contig
         is_circ = False
         contig_id = None
+        contig_len = None
         if line.startswith('LOCUS'):
             if "CIRCULAR" in line.upper():
                 # this line contains linear/circular word telling if the dna sequence is circularized or not
                 is_circ = True
             # TODO maybe it could be a good thing to add a elif for linear
             #  and if circular or linear are not found raise a warning
-
             contig_id = line.split()[1]
+            contig_len = int(line.split()[2])
             # If contig_id is not specified in VERSION afterward like with Prokka, in that case we use the one in LOCUS
             while not line.startswith('FEATURES'):
                 if line.startswith('VERSION') and line[12:].strip() != "":
@@ -136,6 +137,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         except KeyError:
             contig = Contig(contig_id, True if contig_id in circular_contigs or is_circ else False)
             organism.add(contig)
+            contig.length = contig_len
         # start of the feature object.
         dbxref = set()
         gene_name = ""
@@ -185,9 +187,6 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                         pass
                         # don't know what to do with that, ignoring for now.
                         # there is a protein with a frameshift mecanism.
-                elif curr_type == 'source':  # Get Contig length
-                    start, end = map(int, map(str.strip, line[21:].split('..')))
-                    contig.length = end - start + 1
             elif useful_info:  # current info goes to current objtype, if it's useful.
                 if line[21:].startswith("/db_xref"):
                     dbxref.add(line.split("=")[1].replace('"', '').strip())
