@@ -7,7 +7,7 @@ import logging
 from multiprocessing import get_context
 from collections import Counter, defaultdict
 import logging
-from typing import TextIO, Dict
+from typing import TextIO,List, Dict
 from pathlib import Path
 import pkg_resources
 from statistics import median, mean, stdev
@@ -21,7 +21,7 @@ from ppanggolin.region import Region, Spot
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float
 from ppanggolin.formats.readBinaries import check_pangenome_info
-
+from ppanggolin.formats.write_proksee import write_proksee_organism
 # global variable to store the pangenome
 pan = Pangenome()  # TODO change to pangenome:Pangenome = Pangenome=() ?
 needAnnotations = False
@@ -617,6 +617,23 @@ def write_projections(output: Path, compress: bool = False):
         write_org_file(org, outdir, compress)
     logging.getLogger("PPanGGOLiN").info("Done writing the projection files")
 
+
+def write_proksee(output: Path, compress: bool = False):
+    """
+    """
+    
+    features = ["all"]
+    template = Path(__file__).parent.joinpath("proksee_template").with_suffix(".json")
+
+    organism_with_rgp =  {rgp.organism for rgp in pan.regions}
+    
+    for organism in organism_with_rgp : #pan.organisms:
+        write_proksee_organism(pan, organism, output,
+                                    template, features)
+        
+        
+
+
 def write_gff(output: str, compress: bool = False):
     """
     Write the gff files for all organisms
@@ -660,7 +677,6 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
     :param outdir: Path to the output directory where the GFF file will be written.
     :param compress: If True, compress the output GFF file using .gz format.
     :param annotation_sources: A dictionary that maps types of features to their source information.
-    :type annotation_sources: Dict[str, str]
     """
 
 
@@ -1060,7 +1076,7 @@ def write_rgp_modules(output: Path, compress: bool = False):
 
 def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core: float = 0.95,
                      dup_margin: float = 0.05, csv: bool = False, gene_pa: bool = False, gexf: bool = False,
-                     light_gexf: bool = False, projection: bool = False, gff: bool = False, stats: bool = False, json: bool = False,
+                     light_gexf: bool = False, projection: bool = False, gff: bool = False, proksee: bool = False, stats: bool = False, json: bool = False,
                      partitions: bool = False, regions: bool = False, families_tsv: bool = False, spots: bool = False,
                      borders: bool = False, modules: bool = False, spot_modules: bool = False, compress: bool = False,
                      disable_bar: bool = False):
@@ -1091,7 +1107,7 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
     :param disable_bar: Disable progress bar
     """
     # TODO Add force parameter to check if output already exist
-    if not any(x for x in [csv, gene_pa, gexf, light_gexf, projection, gff, stats, json, partitions, regions, spots, borders,
+    if not any(x for x in [csv, gene_pa, gexf, light_gexf, projection, gff, proksee, stats, json, partitions, regions, spots, borders,
                            families_tsv, modules, spot_modules]):
         raise Exception("You did not indicate what file you wanted to write.")
 
@@ -1111,10 +1127,10 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
     pan = pangenome
 
     if csv or gene_pa or gexf or light_gexf or projection or stats or json or partitions or regions or spots or \
-            families_tsv or borders or modules or spot_modules or gff:
+            families_tsv or borders or modules or spot_modules or gff or proksee:
         needAnnotations = True
         needFamilies = True
-    if projection or stats or partitions or regions or spots or borders or gff:
+    if projection or stats or partitions or regions or spots or borders or gff or proksee:
         needPartitions = True
     if gexf or light_gexf or json:
         needGraph = True
@@ -1132,7 +1148,7 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
         needSpots = True
     if modules or spot_modules:  # or projection:
         needModules = True
-    if projection or gff:
+    if projection or gff or proksee:
         needRegions = True if pan.status["predictedRGP"] == "inFile" else False
         needSpots = True if pan.status["spots"] == "inFile" else False
         needModules = True if pan.status["modules"] == "inFile" else False
@@ -1155,6 +1171,8 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
             processes.append(p.apply_async(func=write_projections, args=(output, compress)))
         if gff:
             processes.append(p.apply_async(func=write_gff, args=(output, compress)))
+        if proksee:
+            processes.append(p.apply_async(func=write_proksee, args=(output, compress)))
         if stats:
             processes.append(p.apply_async(func=write_stats, args=(output, soft_core, dup_margin, compress)))
         if json:
@@ -1191,7 +1209,7 @@ def launch(args: argparse.Namespace):
     global pan
     pan.add_file(args.pangenome)
     write_flat_files(pan, args.output, cpu=args.cpu, soft_core=args.soft_core, dup_margin=args.dup_margin, csv=args.csv,
-                     gene_pa=args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, gff=args.gff,
+                     gene_pa=args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, gff=args.gff, proksee=args.proksee,
                      stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions,
                      families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, modules=args.modules,
                      spot_modules=args.spot_modules, compress=args.compress, disable_bar=args.disable_prog_bar)
@@ -1242,6 +1260,8 @@ def parser_flat(parser: argparse.ArgumentParser):
                                "on the organism")
     optional.add_argument("--gff", required=False, action="store_true",
                         help="Generate a gff file for each organism containing pangenome annotations.")
+    optional.add_argument("--proksee", required=False, action="store_true",
+                        help="Generate a json file for each organism containing pangenome annotations to be used to in proksee.")
     optional.add_argument("--stats", required=False, action="store_true",
                           help="tsv files with some statistics for each organism and for each gene family")
     optional.add_argument("--partitions", required=False, action="store_true",

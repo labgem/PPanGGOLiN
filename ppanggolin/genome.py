@@ -655,12 +655,28 @@ class Organism(MetaFeatures):
         for contig in self.contigs:
             yield from contig.genes
 
+    @property
+    def rna_genes(self) -> Generator[RNA, None, None]:
+        """Generator to get genes in the organism
+
+        :return: Generator of genes
+        """
+        for contig in self.contigs:
+            yield from contig.RNAs
+
     def number_of_genes(self) -> int:
         """ Get number of genes in the organism
 
         :return: Number of genes
         """
-        return sum([contig.number_of_genes for contig in self.contigs])
+        return sum((contig.number_of_genes for contig in self.contigs))
+    
+    def number_of_rnas(self) -> int:
+        """ Get number of genes in the organism
+
+        :return: Number of genes
+        """
+        return sum((contig.number_of_rnas for contig in self.contigs))
 
     @property
     def contigs(self) -> Generator[Contig, None, None]:
