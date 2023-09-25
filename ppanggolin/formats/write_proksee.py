@@ -9,22 +9,24 @@ import logging
 from pathlib import Path
 from random import randint
 from tqdm import tqdm
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 from uuid import uuid4
-
+from itertools import cycle 
 # installed libraries
 from bokeh.palettes import Category20
+from plotly.express.colors import qualitative
+
 from ppanggolin.genome import Organism, Contig, Gene
-from ppanggolin.region import Spot
+from ppanggolin.region import Spot, Module
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
 
 
 def palette() -> List[Tuple[int]]:
-    palette = []
-    for hex_color in list(Category20[20]):
-        palette.append(tuple(int(hex_color.strip('#')[i:i + 2], 16) for i in (0, 2, 4)))
+    palette = qualitative.Vivid + qualitative.Pastel2 + qualitative.Pastel1 + qualitative.Antique  + qualitative.Safe +  qualitative.Bold
+    palette = cycle(palette)
+
     return palette
 
 
@@ -36,31 +38,47 @@ def read_settings(settings_data: dict):
         settings_data["geneticCode"] = "11"
 
 
-def write_legend_items(legend_data: dict, features: List[str]): #, sources: List[str]):
+def write_legend_items(legend_data: dict, features: List[str], modules: Set[Module]): #, sources: List[str]):
+
+
+
     colors = palette()
-    legend_data["items"] = [#{"name": "CDS", "swatchColor": f"rgba({','.join(map(str, colors.pop(1)))},0.5)", "decoration": "arrow"},
-                            {"name": "persistent", "swatchColor": "rgba(229,156,4,1)", "decoration": "arrow"},
-                            {"name": "shell", "swatchColor": "rgba(60,254,91,1)", "decoration": "arrow"},
-                            {"name": "cloud", "swatchColor": f"rgba({','.join(map(str, colors.pop(17)))},1)", "decoration": "arrow"},
-                             {"name": "RNA", "swatchColor": "rgba(137,23,207,0.5)", "decoration": "arrow"},]
+    print(colors)
+    # use https://medialab.github.io/iwanthue/ to find nice colors 
+    # that associate well with established partition colors (orange, light green, light blue)    
+    main_colors = {
+                    "orange": "#e59c04",
+                    "light green": "#00d860" ,
+                    "light blue": "#79deff",
+                    "purple": "#a567bb",
+                    "dark green": "#7a9a4c",
+                    "dark red": "#ca5c55",
+                    }
+
+
+    legend_data["items"] = [
+                            {"name": "persistent", "swatchColor": main_colors['orange'], "decoration": "arrow"},
+                            {"name": "shell", "swatchColor": main_colors['light green'], "decoration": "arrow"},
+                            {"name": "cloud", "swatchColor": main_colors['light blue'], "decoration": "arrow"},
+                             {"name": "RNA", "swatchColor": main_colors['purple'], "decoration": "arrow"},]
     if "rgp" in features or "all" in features:
-        legend_data["items"].append({"name": "RGP", "swatchColor": f"rgba({','.join(map(str, colors.pop(6)))}, 1)", "decoration": "arc"}),
-    if "spots" in features or "all" in features:
-        legend_data["items"].append({"name": "Spot", "swatchColor": f"rgba({','.join(map(str, colors.pop(5)))}, 1)", "decoration": "arc"})
+        legend_data["items"].append({"name": "RGP", "swatchColor": main_colors['dark green'], "decoration": "arc"}),
+    # if "spots" in features or "all" in features:
+    #     legend_data["items"].append({"name": "Spot", "swatchColor": main_colors['dark red'], 1)", "decoration": "arc"})
+
     if "modules" in features or "all" in features:
-        legend_data["items"].append({"name": "Module", "swatchColor": f"rgba({','.join(map(str, colors.pop(3)))},1)", "decoration": "arc"})
-    # if "systems" in features or "all" in features:
-    #     for source in sources:
-    #         color = ','.join(map(str, colors.pop(randint(0, len(colors) - 1))))
-    #         legend_data["items"].append({"name": source, "decoration": "arc", "swatchColor": f"rgba({color},1)"})
+        if modules is None:
+            legend_data["items"].append({"name": "Module", "swatchColor": main_colors['dark red'], "decoration": "arc"})
+        else:
+            for mod in modules:
+                legend_data["items"].append({"name": f"module_{mod.ID}", "decoration": "arc", "swatchColor": next(colors)})
 
 
 def write_tracks(features: List[str]):
 
-    tracks = [{"name": "Gene", "separateFeaturesBy": "None", "position": "outside", "thicknessRatio": 1,
-               "dataType": "feature", "dataMethod": "source", "dataKeys": "Gene"},
-              {"name": "Partition", "separateFeaturesBy": "strand", "position": "outside", "thicknessRatio": 1,
-               "dataType": "feature", "dataMethod": "source", "dataKeys": "partition"}]
+    tracks = [{"name": "Gene", "separateFeaturesBy": "strand", "position": "outside", "thicknessRatio": 1,
+               "dataType": "feature", "dataMethod": "source", "dataKeys": "Gene"}, # {"name": "Partition", "separateFeaturesBy": "strand", "position": "outside", "thicknessRatio": 1, "dataType": "feature", "dataMethod": "source", "dataKeys": "partition"}
+               ]
     
     if "rgp" in features or "all" in features:
         tracks.append({"name": "RGP", "separateFeaturesBy": "None", "position": "inside", "thicknessRatio": 1,
@@ -75,7 +93,7 @@ def write_tracks(features: List[str]):
     return tracks
 
 
-def read_data(template: Path, features: List[str], sources: List[str] = None) -> dict:
+def read_data(template: Path, features: List[str], modules: List[str] = None) -> dict:
     """
     """
     
@@ -99,7 +117,7 @@ def read_data(template: Path, features: List[str], sources: List[str] = None) ->
     read_settings(proksee_data["cgview"]["settings"])
 
     if "items" not in proksee_data["cgview"]["legend"]:
-        write_legend_items(proksee_data["cgview"]["legend"], features)
+        write_legend_items(proksee_data["cgview"]["legend"], features, modules)
 
     if "tracks" not in proksee_data["cgview"]:
         proksee_data["cgview"]["tracks"] = write_tracks(features)
@@ -244,7 +262,7 @@ def write_modules(pangenome: Pangenome, organism: Organism, gf2genes: Dict[str, 
                                               "start": gene.start,
                                               "stop": gene.stop,
                                               "contig": gene.contig.name,
-                                              "legend": "Module",
+                                              "legend": "Module",#f"module_{module.ID}",
                                               "source": "Module",
                                               "tags": [],
                                               "meta": {
@@ -254,9 +272,11 @@ def write_modules(pangenome: Pangenome, organism: Organism, gf2genes: Dict[str, 
 
 
 def write_proksee_organism(pangenome: Pangenome, organism: Organism, output: Path, template: Path,
-                           features: List[str] = None, sources: List[str] = None):
+                           features: List[str] = None, modules: List[str] = None):
     
-    proksee_data = read_data(template=template, features=features, sources=sources)
+
+    print(len(modules), "MODULES")
+    proksee_data = read_data(template=template, features=features, modules=None)
     
     if "name" not in proksee_data["cgview"]["captions"]:
         proksee_data["cgview"]["captions"][0]["name"] = f"{organism.name} annotated with PPanGGOLiN"
@@ -266,15 +286,16 @@ def write_proksee_organism(pangenome: Pangenome, organism: Organism, output: Pat
     if "features" not in proksee_data["cgview"]:
         proksee_data["cgview"]["features"] = []
 
-    genes_features, gf2genes = write_genes(organism, sources=sources)
+    genes_features, gf2genes = write_genes(organism, sources=None)
+
     print(len(genes_features))
     proksee_data["cgview"]["features"] += genes_features
     proksee_data["cgview"]["features"] += write_partition(organism)
 
     if "rgp" in features or "all" in features:
         proksee_data["cgview"]["features"] += write_rgp(pangenome=pangenome, organism=organism)
-    if "spots" in features or "all" in features:
-        proksee_data["cgview"]["features"] += write_spots(pangenome=pangenome, organism=organism, gf2genes=gf2genes)
+    # if "spots" in features or "all" in features:
+    #     proksee_data["cgview"]["features"] += write_spots(pangenome=pangenome, organism=organism, gf2genes=gf2genes)
     if "modules" in features or "all" in features:
         proksee_data["cgview"]["features"] += write_modules(pangenome=pangenome, organism=organism, gf2genes=gf2genes)
 

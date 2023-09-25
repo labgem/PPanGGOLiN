@@ -621,15 +621,29 @@ def write_projections(output: Path, compress: bool = False):
 def write_proksee(output: Path, compress: bool = False):
     """
     """
-    
+
+    org_to_modules = defaultdict(set)
+    for mod in pan.modules:
+        for org in mod.organisms:
+            org_to_modules[org].add(mod)
+
+
     features = ["all"]
     template = Path(__file__).parent.joinpath("proksee_template").with_suffix(".json")
 
     organism_with_rgp =  {rgp.organism for rgp in pan.regions}
     
     for organism in organism_with_rgp : #pan.organisms:
-        write_proksee_organism(pan, organism, output,
-                                    template, features)
+
+        if organism.name in ["GCA_018141505.1_ASM1814150v1_genomic.fna",
+                             "GCA_018219365.1_ASM1821936v1_genomic.fna",
+                             "GCA_003031305.1_ASM303130v1_genomic.fna",
+                             "GCA_000808515.1_ASM80851v1_genomic.fna",
+                             "GCA_003932035.1_ASM393203v1_genomic.fna"]:
+
+            write_proksee_organism(pan, organism, output,
+                                        template, features=features,
+                                        modules=org_to_modules[organism])
         
         
 

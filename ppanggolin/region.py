@@ -720,6 +720,18 @@ class Module(MetaFeatures):
         :return: Families belonging to the module
         """
         yield from self._families_getter.values()
+    
+    @property
+    def organisms(self) -> Generator[Organism, None, None]:
+        """Returns all the Organisms that have this module
+
+        :return: Organisms that have this module
+        """
+        organisms = set()
+        for fam in self.families:
+            organisms |= set(fam.organisms)
+        return organisms
+
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
