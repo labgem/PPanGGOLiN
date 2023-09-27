@@ -263,10 +263,10 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
         gexf.write(f'          <attvalue for="10" value="{fam.number_of_organisms}" />\n')
         if pan.number_of_spots > 0:
             str_spot = "|".join([str(s) for s in list(fam.spots)])
-            gexf.write(f'      <attvalue for="12" value="{str_spot}"/>\n')
+            gexf.write(f'          <attvalue for="12" value="{str_spot}"/>\n')
         if pan.number_of_modules > 0:
             str_module = "|".join([str(m) for m in list(fam.modules)])
-            gexf.write(f'      <attvalue for="13" value="{str_module}"/>\n')
+            gexf.write(f'          <attvalue for="13" value="{str_module}"/>\n')
         shift = 14
         source_fields = {m.source: m.fields for f in pan.gene_families if len(list(f.metadata)) > 0 for m in f.metadata}
         for source_metadata_families in pan.metadata_sources("families"):
@@ -336,7 +336,7 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
     txt += "light gexf file for the pangenome graph..." if light else "gexf file for the pangenome graph..."
 
     logging.getLogger("PPanGGOLiN").info(txt)
-    outname = output / f"pangenomeGraph{'_light' if light else ''}.gexf"
+    outname = output / f"pangenomeGraph{'_light' if light else ''}.gexf{'.gz' if compress else ''}"
     with write_compressed_or_not(outname, compress) as gexf:
         graph_type = 'ligth gexf' if light else 'gexf'
         logging.getLogger("PPanGGOLiN").debug(f"Writing the {graph_type} header...")
@@ -347,7 +347,7 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
         write_gexf_edges(gexf, light)
         logging.getLogger("PPanGGOLiN").debug(f"Writing the {graph_type} ends...")
         write_gexf_end(gexf)
-    logging.getLogger("PPanGGOLiN").info(f"Done writing the gexf file : '{outname.as_posix()}'")
+        logging.getLogger("PPanGGOLiN").info(f"Done writing the gexf file : '{gexf.name}'")
 
 
 def write_matrix(output: Path, sep: str = ',', ext: str = 'csv', compress: bool = False, gene_names: bool = False):
@@ -1012,9 +1012,9 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
         if gene_pa:
             processes.append(p.apply_async(func=write_gene_presence_absence, args=(output, compress)))
         if gexf:
-            processes.append(p.apply_async(func=write_gexf, args=(output, False, soft_core)))
+            processes.append(p.apply_async(func=write_gexf, args=(output, False, compress)))
         if light_gexf:
-            processes.append(p.apply_async(func=write_gexf, args=(output, True, soft_core)))
+            processes.append(p.apply_async(func=write_gexf, args=(output, True, compress)))
         if projection:
             processes.append(p.apply_async(func=write_projections, args=(output, compress)))
         if stats:
