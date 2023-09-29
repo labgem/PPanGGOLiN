@@ -534,16 +534,17 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
                     if gene.family in core:
                         nb_gene_core += 1
             completeness = "NA"
+            org_families = set(org.families)
             if len(single_copy_markers) > 0:
-                completeness = round((len(set(org.families) & single_copy_markers) /
+                completeness = round((len(org_families & single_copy_markers) /
                                       len(single_copy_markers)) * 100, 2)
             outfile.write("\t".join(map(str, [org.name,
                                               org.number_of_families(),
                                               nb_pers,
                                               nb_shell,
                                               nb_cloud,
-                                              len(core) + org.number_of_families(),
-                                              len(soft) + org.number_of_families(),
+                                              len(core & org_families),
+                                              len(soft & org_families),
                                               org.number_of_genes(),
                                               nb_gene_pers,
                                               nb_gene_shell,
@@ -551,7 +552,7 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
                                               nb_gene_core,
                                               nb_gene_soft,
                                               completeness,
-                                              org.number_of_families() + len(single_copy_markers)])) + "\n")
+                                              len(org_families & single_copy_markers)])) + "\n")
 
     logging.getLogger("PPanGGOLiN").info("Done writing genome per genome statistics")
 
@@ -674,7 +675,7 @@ def write_gene_families_tsv(output: Path, compress: bool = False):
                 tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier,
                                      "F" if gene.is_fragment else ""]) + "\n")
     logging.getLogger("PPanGGOLiN").info("Done writing the file providing the association between genes and "
-                                         f"gene families : '{outname}'")
+                                         f"gene families: '{outname}'")
 
 
 def write_regions(output: Path, compress: bool = False):
