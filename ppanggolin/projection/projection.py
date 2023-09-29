@@ -172,7 +172,6 @@ def launch(args: argparse.Namespace):
     if predict_rgp:
         logging.getLogger('PPanGGOLiN').info('Detecting RGPs in input genomes.')
 
-        logging.getLogger('PPanGGOLiN').debug("Detecting multigenic families...")
         multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
 
         input_org_2_rgps = predict_RGP(pangenome, organisms,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
@@ -197,15 +196,27 @@ def launch(args: argparse.Namespace):
         input_orgs_to_modules = project_and_write_modules(pangenome, organisms, output_dir)
 
     organism_2_summary = {}
+    # dup margin value here is specified in argument and is used to compute completeness. 
+    # Thats mean it can be different than dup margin used in spot and RGPS.
+    single_copy_fams = set()
+
+    for fam in pangenome.gene_families:
+        if fam.named_partition == "persistent":
+            dup = len([genes for genes in fam.get_org_dict().values() if
+                        len([gene for gene in genes if not gene.is_fragment]) > 1])
+            
+            if (dup / fam.number_of_organisms) < args.dup_margin:
+               single_copy_fams.add(fam)
+                
     for organism in organisms:
         # summarize projection for all input organisms
-        organism_2_summary[organism] = summarize_projection(organism, pangenome,
+        organism_2_summary[organism] = summarize_projection(organism, pangenome, single_copy_fams,
                              input_org_2_rgps.get(organism, None),
                              input_org_to_spots.get(organism, None),
                              input_orgs_to_modules.get(organism, None),
-                             input_org_to_lonely_genes_count[organism], output_dir)
+                             input_org_to_lonely_genes_count[organism])
         
-        write_summaries(organism_2_summary, output_dir)
+    write_summaries(organism_2_summary, output_dir)
 
 
 def annotate_fasta_files(genome_name_to_fasta_path: Dict[str, dict], tmpdir: str, cpu: int = 1, translation_table: int = 11,
@@ -434,8 +445,8 @@ def write_summaries(organism_2_summary: Dict[Organism, Dict[str, Any]], output_d
     df_summary.to_csv(output_dir / "summary_projection.tsv", sep='\t', index=False)
 
 
-def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org_rgps:Region,
-                         input_org_spots:Spot, input_org_modules:Module, singleton_gene_count:int, output_dir:Path):
+def summarize_projection(input_organism:Organism,  pangenome:Pangenome, single_copy_families:Set, input_org_rgps:Region,
+                         input_org_spots:Spot, input_org_modules:Module, singleton_gene_count:int):
     """
 
     :param singleton_gene_count: Number of genes that do not cluster with any of the gene families of the pangenome.
@@ -452,6 +463,13 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
     persistent_gene_count = len(partition_to_gene['persistent'])
     shell_gene_count = len(partition_to_gene['shell'])
     cloud_gene_count = len(partition_to_gene['cloud'])
+    
+    completeness = "NA"
+
+    single_copy_markers_count = len(set(input_organism.families) & single_copy_families     ) 
+    if len(single_copy_families) > 0:
+        completeness = round((single_copy_markers_count /
+                                        len(single_copy_families)) * 100, 2)
 
     gene_count = persistent_gene_count + shell_gene_count + cloud_gene_count
 
@@ -475,6 +493,8 @@ def summarize_projection(input_organism:Organism, pangenome:Pangenome, input_org
         "Persistent": {"genes":persistent_gene_count, "families":persistent_family_count},
         "Shell": {"genes":shell_gene_count, "families":shell_family_count},
         "Cloud": {"genes":cloud_gene_count, "families":cloud_family_count - singleton_gene_count, "specific families":singleton_gene_count},
+        "Completeness":completeness,
+        "Single copy markers":single_copy_markers_count,
         "RGPs": rgp_count,
         "Spots": spot_count,
         "New spots": new_spot_count,
@@ -1214,7 +1234,12 @@ def parser_projection(parser: argparse.ArgumentParser):
     optional.add_argument("--use_pseudo", required=False, action="store_true",
                           help="In the context of provided annotation, use this option to read pseudogenes. "
                                "(Default behavior is to ignore them)")
-
+    
+    optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
+                            help="minimum ratio of organisms in which the family must have multiple genes "
+                                "for it to be considered 'duplicated'. "
+                                "This metric is used to compute completeness and duplication of the input genomes")
+    
     optional.add_argument("--spot_graph", required=False, action="store_true",
                           help="Write the spot graph to a file, with pairs of blocks of single copy markers flanking RGPs "
                           "as nodes. This graph can be used to visualize nodes that have RGPs from the input organism.")
