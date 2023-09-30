@@ -6,6 +6,7 @@ import logging
 import argparse
 import time
 import os
+from pathlib import Path
 
 # installed libraries
 import networkx as nx
@@ -69,7 +70,7 @@ def check_sim(pair_border1: list, pair_border2: list, overlapping_match: int = 2
     return False
 
 
-def make_spot_graph(rgps: list, multigenics: set, output: str, spot_graph: bool = False, overlapping_match: int = 2,
+def make_spot_graph(rgps: list, multigenics: set, output: Path, spot_graph: bool = False, overlapping_match: int = 2,
                     set_size: int = 3, exact_match: int = 1) -> list:
     """
     Create a spot graph from pangenome RGP
@@ -115,11 +116,11 @@ def make_spot_graph(rgps: list, multigenics: set, output: str, spot_graph: bool 
         else:
             used += 1
             add_new_node(graph_spot, rgp, border)
-    logging.getLogger().info(f"{lost} RGPs were not used as they are on a contig border (or have less than {set_size} "
-                             f"persistent gene families until the contig border)")
-    logging.getLogger().info(f"{used} RGPs are being used to predict spots of insertion")
+    logging.getLogger("PPanGGOLiN").info(f"{lost} RGPs were not used as they are on a contig border (or have "
+                                         f"less than {set_size} persistent gene families until the contig border)")
+    logging.getLogger("PPanGGOLiN").info(f"{used} RGPs are being used to predict spots of insertion")
     node_list = list(graph_spot.nodes)
-    logging.getLogger().info(f"{len(node_list)} number of different pairs of flanking gene families")
+    logging.getLogger("PPanGGOLiN").info(f"{len(node_list)} number of different pairs of flanking gene families")
     for i, nodei in enumerate(node_list[:-1]):
         for nodej in node_list[i + 1:]:
             node_obj_i = graph_spot.nodes[nodei]
@@ -133,7 +134,8 @@ def make_spot_graph(rgps: list, multigenics: set, output: str, spot_graph: bool 
         curr_spot = Spot(spot_id)
         spots.append(curr_spot)
         for node in comp:
-            curr_spot.add_regions(graph_spot.nodes[node]["rgp"])
+            for region in graph_spot.nodes[node]["rgp"]:
+                curr_spot.add(region)
         spot_id += 1
 
     if spot_graph:
@@ -142,7 +144,7 @@ def make_spot_graph(rgps: list, multigenics: set, output: str, spot_graph: bool 
             del graph_spot.nodes[node]["border1"]
             del graph_spot.nodes[node]["rgp"]
 
-        nx.readwrite.gexf.write_gexf(graph_spot, output + "/spotGraph.gexf")
+        nx.readwrite.gexf.write_gexf(graph_spot, output.as_posix() + "/spotGraph.gexf")
     return spots
 
 
@@ -160,7 +162,7 @@ def check_pangenome_former_spots(pangenome: Pangenome, force: bool = False):
         erase_pangenome(pangenome, spots=True)
 
 
-def predict_hotspots(pangenome: Pangenome, output: str, spot_graph: bool = False, overlapping_match: int = 2,
+def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = False, overlapping_match: int = 2,
                      set_size: int = 3, exact_match: int = 1, force: bool = False, disable_bar: bool = False):
     """
     Main function to predict hotspot
@@ -188,21 +190,21 @@ def predict_hotspots(pangenome: Pangenome, output: str, spot_graph: bool = False
                          need_rgp=True, disable_bar=disable_bar)
 
     # get multigenic gene families
-    logging.getLogger().info("Detecting multigenic families...")
+    logging.getLogger("PPanGGOLiN").info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
 
-    logging.getLogger().info("Detecting hotspots in the pan...")
+    logging.getLogger("PPanGGOLiN").info("Detecting hotspots in the pangenome...")
 
     # predict spots
     spots = make_spot_graph(pangenome.regions, multigenics, output, spot_graph, overlapping_match, set_size,
                             exact_match)
 
     if len(spots) == 0:
-        logging.getLogger().warning("No spots were detected.")
+        logging.getLogger("PPanGGOLiN").warning("No spots were detected.")
     else:
-        logging.getLogger().info(f"{len(spots)} spots were detected")
-
-    pangenome.add_spots(spots)
+        logging.getLogger("PPanGGOLiN").info(f"{len(spots)} spots were detected")
+        for spot in spots:
+            pangenome.add_spot(spot)
     pangenome.status["spots"] = "Computed"
     pangenome.parameters["spots"] = {}
     pangenome.parameters["spots"]["set_size"] = set_size
@@ -220,10 +222,6 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     if args.spot_graph:
         mk_outdir(args.output, args.force)
-    if args.draw_hotspots or args.interest or args.fig_margin or args.priority:
-        logging.getLogger().warning(
-            "Options to draw the spots with the 'ppanggolin spot' subcommand have been deprecated, "
-            "and are now dealt with in a dedicated subcommand 'ppanggolin drawspot'.")
     predict_hotspots(pangenome, args.output, force=args.force, spot_graph=args.spot_graph,
                      overlapping_match=args.overlapping_match, set_size=args.set_size,
                      exact_match=args.exact_match_size, disable_bar=args.disable_prog_bar)
@@ -251,11 +249,12 @@ def parser_spot(parser: argparse.ArgumentParser):
     """
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=False, type=str, help="The pangenome .h5 file")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument('-o', '--output', required=False, type=str,
-                          default="ppanggolin_output" + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S",
-                                                                      time.localtime()) + "_PID" + str(os.getpid()),
+    optional.add_argument('-o', '--output', required=False, type=Path,
+                          default=Path(
+                              f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
+                              f"_PID{str(os.getpid())}"),
                           help="Output directory")
     optional.add_argument("--spot_graph", required=False, action="store_true",
                           help="Writes a graph in .gexf format of pairs of blocks of single copy markers flanking RGPs,"
@@ -270,36 +269,17 @@ def parser_spot(parser: argparse.ArgumentParser):
                           help="Number of perfectly matching flanking single copy markers required to associate RGPs "
                                "during hotspot computation (Ex: If set to 1, two RGPs are in the same hotspot "
                                "if both their 1st flanking genes are the same)")
-    optional.add_argument("--draw_hotspots", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
-    # but does not use the option
-    optional.add_argument("--interest", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
-    # but does not use the option
-    optional.add_argument("--fig_margin", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
-    # but does not use the option
-    optional.add_argument("--priority", required=False, action="store_true",
-                          help=argparse.SUPPRESS)  # This ensures compatibility with the old API
-    # but does not use the option
 
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser_spot(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())
