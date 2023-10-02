@@ -284,7 +284,7 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     """
     Main function to cluster pangenome gene sequences into families
 
-    :param pangenome: Annoatated Pangenome
+    :param pangenome: Annotated Pangenome
     :param tmpdir: Path to temporary directory
     :param cpu: number of CPU cores to use
     :param defrag: Allow to remove fragment

@@ -8,7 +8,7 @@ from typing import Iterator, List, Union, Dict, Set, Iterable, Generator
 from pathlib import Path
 
 # local libraries
-from ppanggolin.genome import Organism, Gene
+from ppanggolin.genome import Organism, Contig, Gene
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.edge import Edge
@@ -38,7 +38,6 @@ class Pangenome:
         self._regionGetter = {}
         self._spotGetter = {}
         self._moduleGetter = {}
-
         self.status = {
             'genomesAnnotated': "No",
             'geneSequences': "No",
@@ -145,6 +144,25 @@ class Pangenome:
         except AttributeError:  # in that case the gene getter has not been computed
             self._mk_gene_getter()  # make it
             return len(self._geneGetter)
+
+    """RNAs methods"""
+    @property
+    def RNAs(self) -> Generator[Gene, None, None]:
+        """Generator of genes in the pangenome.
+
+        :return: gene generator
+        """
+        for org in self.organisms:
+            for contig in org.contigs:
+                yield from contig.RNAs
+
+    @property
+    def number_of_rnas(self) -> int:
+        """Returns the number of gene present in the pangenome
+
+        :return: The number of genes
+        """
+        return sum(ctg.number_of_rnas for ctg in self.contigs)
 
     """Gene families methods"""
     @property
@@ -281,6 +299,51 @@ class Pangenome:
         """
         return len(self._orgGetter)
 
+    @property
+    def contigs(self) -> Generator[Contig, None, None]:
+        for organism in self.organisms:
+            yield from organism.contigs
+    @property
+    def number_of_contigs(self) -> int:
+        """Returns the number of contigs present in the pangenome
+
+        :return: The number of contigs
+        """
+        return sum(len(org) for org in self.organisms)
+
+    def _mk_contig_getter(self):
+        """
+        Builds the attribute _contig_getter of the pangenome
+
+        Since the genes are never explicitly 'added' to a pangenome (but rather to an organism),
+        the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
+        If at some point we want to extract contig from a pangenome we'll create a contig_getter.
+        The assumption behind this is that the pangenome has been filled and no more contig will be added.
+        """
+        self._contig_getter = {}
+        for contig in self.contigs:
+            self._contig_getter[contig.name] = contig
+
+    def get_contig(self, name: str) -> Contig:
+        """Returns the contig that has the given name
+
+        :param name: The ,ame of the contig to look for
+
+        :return: Returns the wanted contig
+
+        :raises AssertionError: If the `gene_id` is not an integer
+        :raises KeyError: If the `gene_id` is not in the pangenome
+        """
+        assert isinstance(name, str), "Contig name should be a string"
+
+        try:
+            return self._contig_getter[name]
+        except AttributeError:
+            # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
+            self._mk_contig_getter()  # make it
+            return self.get_contig(name)  # Return what was expected. If geneID does not exist it will raise an error.
+        except KeyError:
+            raise KeyError(f"Contig: {name}, does not exist in the pangenome.")
     def get_organism(self, name: str) -> Organism:
         """
         Get an organism that is expected to be in the pangenome using its name, which is supposedly unique.
