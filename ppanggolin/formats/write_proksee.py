@@ -43,7 +43,6 @@ def write_legend_items(legend_data: dict, features: List[str], modules: Set[Modu
 
 
     colors = palette()
-    print(colors)
     # use https://medialab.github.io/iwanthue/ to find nice colors 
     # that associate well with established partition colors (orange, light green, light blue)    
     main_colors = {
@@ -124,14 +123,16 @@ def read_data(template: Path, features: List[str], modules: List[str] = None) ->
     return proksee_data
 
 
-def write_contig(organism: Organism):
+def write_contig(organism: Organism, genome_sequences):
     contigs_data_list = []
     for contig in tqdm(organism.contigs, unit="contig", disable=True):
-
-        contigs_data_list.append({"name": contig.name,
-                                  "length": contig.length,
-                                  "orientation": "+", # "seq": "".join([gene.dna for gene in contig.genes])
-                                  })
+        contig_info = {"name": contig.name,
+                        "length": contig.length,
+                        "orientation": "+",
+                        }
+        if genome_sequences:
+            contig_info['seq'] = genome_sequences[contig.name]
+        contigs_data_list.append(contig_info)
     return contigs_data_list
 
 
@@ -163,12 +164,6 @@ def write_genes(organism: Organism, sources: List[str]=None):
         
     for gene in tqdm(organism.rna_genes, total=organism.number_of_rnas(), unit="rnas", disable=True):
 
-        if gf.name in gf2gene:
-            gf2gene[gf.name].append(gene)
-        else:
-            gf2gene[gf.name] = [gene]
-        # annotations = {source: "|".join(list(map(str, gf.get_source(source)))) for source in gf.sources if
-        #                source in sources}
         genes_data_list.append({"name": gene.name,
                                 "type": "Gene",
                                 "contig": gene.contig.name,
@@ -249,46 +244,40 @@ def write_spots(pangenome: Pangenome, organism: Organism, gf2genes: Dict[str, Li
 def write_modules(pangenome: Pangenome, organism: Organism, gf2genes: Dict[str, List[Gene]]):
     modules_data_list = []
     for module in tqdm(pangenome.modules, unit="Module", disable=True):
-        mod_orgs = set()
-        for gf in module.families:
-            mod_orgs |= set(gf.organisms)
-        if organism in mod_orgs:
-            gf_intersection = set(organism.families) & set(module.families)
+        gf_intersection = set(organism.families) & set(module.families)
+        if gf_intersection:
             completion = round(len(gf_intersection) / len(set(module.families)), 2)
             for gf in gf_intersection:
                 for gene in gf2genes[gf.name]:
                     modules_data_list.append({"name": f"Module_{module.ID}", 
-                                              "presence": "Module",
-                                              "start": gene.start,
-                                              "stop": gene.stop,
-                                              "contig": gene.contig.name,
-                                              "legend": "Module",#f"module_{module.ID}",
-                                              "source": "Module",
-                                              "tags": [],
-                                              "meta": {
-                                                  "completion": completion
-                                              }})
+                                                "presence": "Module",
+                                                "start": gene.start,
+                                                "stop": gene.stop,
+                                                "contig": gene.contig.name,
+                                                "legend": "Module",#f"module_{module.ID}",
+                                                "source": "Module",
+                                                "tags": [],
+                                                "meta": {
+                                                    "completion": completion
+                                                }})
     return modules_data_list
 
 
 def write_proksee_organism(pangenome: Pangenome, organism: Organism, output: Path, template: Path,
-                           features: List[str] = None, modules: List[str] = None):
+                           features: List[str] = None, modules: List[str] = None, genome_sequences= None):
     
-
-    print(len(modules), "MODULES")
     proksee_data = read_data(template=template, features=features, modules=None)
     
     if "name" not in proksee_data["cgview"]["captions"]:
         proksee_data["cgview"]["captions"][0]["name"] = f"{organism.name} annotated with PPanGGOLiN"
 
-    proksee_data["cgview"]["sequence"]["contigs"] = write_contig(organism)
+    proksee_data["cgview"]["sequence"]["contigs"] = write_contig(organism, genome_sequences)
 
     if "features" not in proksee_data["cgview"]:
         proksee_data["cgview"]["features"] = []
 
     genes_features, gf2genes = write_genes(organism, sources=None)
 
-    print(len(genes_features))
     proksee_data["cgview"]["features"] += genes_features
     proksee_data["cgview"]["features"] += write_partition(organism)
 

@@ -19,9 +19,10 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Organism, Gene, Contig, RNA
 from ppanggolin.region import Region, Spot
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, read_compressed_or_not
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.formats.write_proksee import write_proksee_organism
+from ppanggolin.formats.writeSequences import read_genome_file
 # global variable to store the pangenome
 pan = Pangenome()  # TODO change to pangenome:Pangenome = Pangenome=() ?
 needAnnotations = False
@@ -618,9 +619,24 @@ def write_projections(output: Path, compress: bool = False):
     logging.getLogger("PPanGGOLiN").info("Done writing the projection files")
 
 
-def write_proksee(output: Path, compress: bool = False):
+def write_proksee(output: Path, compress: bool = False, fasta = None, anno = None):
     """
     """
+    # TODO improve this part by using fct created in projection to read such file
+
+    organisms_file = fasta if fasta is not None else anno
+    
+    if organisms_file:
+        org_dict = {}
+        for line in read_compressed_or_not(organisms_file):
+            elements = [el.strip() for el in line.split("\t")]
+            if len(elements) <= 1:
+                raise Exception(f"No tabulation separator found in given --fasta or --anno file: '{organisms_file}'")
+            org_dict[elements[0]] = Path(elements[1])
+            if not org_dict[elements[0]].exists():  # Check tsv sanity test if it's not one it's the other
+                org_dict[elements[0]] = organisms_file.parent.joinpath(org_dict[elements[0]])
+
+
 
     org_to_modules = defaultdict(set)
     for mod in pan.modules:
@@ -635,17 +651,17 @@ def write_proksee(output: Path, compress: bool = False):
     
     for organism in organism_with_rgp : #pan.organisms:
 
-        if organism.name in ["GCA_018141505.1_ASM1814150v1_genomic.fna",
-                             "GCA_018219365.1_ASM1821936v1_genomic.fna",
-                             "GCA_003031305.1_ASM303130v1_genomic.fna",
-                             "GCA_000808515.1_ASM80851v1_genomic.fna",
-                             "GCA_003932035.1_ASM393203v1_genomic.fna"]:
+        if organisms_file:
+            genome_sequences = read_genome_file(org_dict, organism.name)
+        else:
+            genome_sequences = None
 
-            write_proksee_organism(pan, organism, output,
-                                        template, features=features,
-                                        modules=org_to_modules[organism])
-        
-        
+        write_proksee_organism(pan, organism, output,
+                                    template, features=features,
+                                    modules=org_to_modules[organism], 
+                                    genome_sequences=genome_sequences)
+    
+    
 
 
 def write_gff(output: str, compress: bool = False):
@@ -1093,7 +1109,7 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
                      light_gexf: bool = False, projection: bool = False, gff: bool = False, proksee: bool = False, stats: bool = False, json: bool = False,
                      partitions: bool = False, regions: bool = False, families_tsv: bool = False, spots: bool = False,
                      borders: bool = False, modules: bool = False, spot_modules: bool = False, compress: bool = False,
-                     disable_bar: bool = False):
+                     disable_bar: bool = False, fasta=None, anno=None):
     """
     Main function to write flat files from pangenome
 
@@ -1186,7 +1202,7 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
         if gff:
             processes.append(p.apply_async(func=write_gff, args=(output, compress)))
         if proksee:
-            processes.append(p.apply_async(func=write_proksee, args=(output, compress)))
+            processes.append(p.apply_async(func=write_proksee, args=(output, compress, fasta, anno)))
         if stats:
             processes.append(p.apply_async(func=write_stats, args=(output, soft_core, dup_margin, compress)))
         if json:
@@ -1226,7 +1242,7 @@ def launch(args: argparse.Namespace):
                      gene_pa=args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf, projection=args.projection, gff=args.gff, proksee=args.proksee,
                      stats=args.stats, json=args.json, partitions=args.partitions, regions=args.regions,
                      families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, modules=args.modules,
-                     spot_modules=args.spot_modules, compress=args.compress, disable_bar=args.disable_prog_bar)
+                     spot_modules=args.spot_modules, compress=args.compress, disable_bar=args.disable_prog_bar, fasta=args.fasta, anno=args.anno)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -1296,6 +1312,19 @@ def parser_flat(parser: argparse.ArgumentParser):
                           help="writes 3 files comparing the presence of modules within spots")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
+
+    context = parser.add_argument_group(title="Contextually required arguments",
+                                        description="With --proksee and -gff, the following arguments can be "
+                                        "used to add sequence information to the output file:")
+    
+    context.add_argument('--fasta', required=False, type=Path,
+                         help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
+                              "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
+    
+    context.add_argument('--anno', required=False, type=Path,
+                         help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
+                              "annotations (the files can be compressed with gzip). One line per organism. "
+                              "If this is provided, those annotations will be used.")
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""
