@@ -15,7 +15,7 @@ import tempfile
 import time
 
 import networkx as nx
-import pkg_resources
+from importlib.metadata import distribution
 from numpy import repeat
 from collections.abc import Callable
 
@@ -162,8 +162,7 @@ def set_verbosity_level(args):
                                 format=str_format,
                                 datefmt=datefmt)
         logging.getLogger("PPanGGOLiN").info("Command: " + " ".join([arg for arg in sys.argv]))
-        logging.getLogger("PPanGGOLiN").info(
-            "PPanGGOLiN version: " + pkg_resources.get_distribution("ppanggolin").version)
+        logging.getLogger("PPanGGOLiN").info(f"PPanGGOLiN version: {distribution('ppanggolin').version}")
 
 
 def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:

@@ -32,8 +32,7 @@ jobs:
       shell: bash -l {0}
       run: |
         conda install -y --file requirements.txt 
-        conda install -y pytest
-        pip install .
+        pip install .[test]
     # Check that it is installed and displays help without error
     - name: Check that PPanGGOLiN is installed
       shell: bash -l {0}

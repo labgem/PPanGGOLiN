@@ -9,17 +9,19 @@ from ppanggolin.genome import Gene, Organism
 
 
 class Edge:
-    """The Edge class represents an edge between two gene families in the pangenome graph. It is associated with all the
-     organisms in which the neighborship is found, and all the involved genes as well.
+    """
+    The Edge class represents an edge between two gene families in the pangenome graph. It is associated with all the
+    organisms in which the neighborship is found, and all the involved genes as well.
+
     Methods:
-    - get_org_dict: Returns a dictionary with organisms as keys and an iterable of the pairs in genes as values.
-    - gene_pairs: Returns a list of all the gene pairs in the Edge.
-    - add_genes: Adds genes to the edge. They are supposed to be in the same organism.
+        - get_org_dict: Returns a dictionary with organisms as keys and an iterable of the pairs in genes as values.
+        - gene_pairs: Returns a list of all the gene pairs in the Edge.
+        - add_genes: Adds genes to the edge. They are supposed to be in the same organism.
 
     Fields:
-    - source: A GeneFamily object representing the source gene family of the edge.
-    - target: A GeneFamily object representing the target gene family of the edge.
-    - organisms: A defaultdict object representing the organisms in which the edge is found and the pairs of genes involved.
+        - source: A GeneFamily object representing the source gene family of the edge.
+        - target: A GeneFamily object representing the target gene family of the edge.
+        - organisms: A defaultdict object representing the organisms in which the edge is found and the pairs of genes involved.
     """
 
     def __init__(self, source_gene: Gene, target_gene: Gene):
