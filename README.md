@@ -26,12 +26,14 @@ RGPs from different genomes are next grouped in spots of insertion based on thei
 
 Those RGPs can be further divided in conserved modules by panModule ([Bazin et al. 2021](https://doi.org/10.1101/2021.12.06.471380)). Those conserved modules correspond to groups of cooccurring and colocalized genes that are gained or lost together in the variable regions of the pangenome.
 
-```{image} _static/logo.png
-:alt: ppangolin logo
-:align: center
-:heigth: 300
-:width: 300
-```
+
+<!-- ![PPanGGOLiN logo](docs/_static/logo.png) -->
+
+<!-- center the image with html syntax -->
+<img src="docs/_static/logo.png" 
+        alt="logo" 
+        style="display: block; margin: 0 auto" />
+
 
 # Installation
 
