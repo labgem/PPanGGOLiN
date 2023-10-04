@@ -497,7 +497,6 @@ def summarize_projection(input_organism:Organism,  pangenome:Pangenome, single_c
         "Shell": {"genes":shell_gene_count, "families":shell_family_count},
         "Cloud": {"genes":cloud_gene_count, "families":cloud_family_count - singleton_gene_count, "specific families":singleton_gene_count},
         "Completeness":completeness,
-        "Single copy markers":single_copy_markers_count,
         "RGPs": rgp_count,
         "Spots": spot_count,
         "New spots": new_spot_count,
