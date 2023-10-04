@@ -145,9 +145,9 @@ class TestRegion:
         gene1, gene2 = Gene('gene_1'), Gene('gene_2')
         gene1.fill_annotations(start=0, stop=10, strand='+', position=0)
         gene2.fill_annotations(start=11, stop=20, strand='+', position=1)
-        gene1.fill_parents(None, Contig('contig_1'))
+        gene1.fill_parents(None, Contig(1, 'contig_1'))
         region.add(gene1)
-        gene2.fill_parents(None, Contig('contig_2'))
+        gene2.fill_parents(None, Contig(2, 'contig_2'))
         with pytest.raises(Exception):
             region.add(gene2)
 
@@ -223,7 +223,7 @@ class TestRegion:
         """
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
-        gene.fill_parents(contig=Contig("contig"))
+        gene.fill_parents(contig=Contig(0, "contig"))
         region.add(gene)
         assert region.contig.name == 'contig'
 
@@ -233,7 +233,7 @@ class TestRegion:
         starter, stopper = Gene('starter'), Gene('stopper')
         starter.fill_annotations(start=0, stop=10, strand='+', position=0)
         stopper.fill_annotations(start=11, stop=20, strand='+', position=1)
-        contig = Contig("contig")
+        contig = Contig(0, "contig")
         contig[starter.start], contig[stopper.start] = starter, stopper
         starter.fill_parents(None, contig), stopper.fill_parents(None, contig)
         region.add(starter), region.add(stopper)
@@ -247,7 +247,7 @@ class TestRegion:
         starter.fill_annotations(start=11, stop=20, strand='+', position=1)
         stopper.fill_annotations(start=21, stop=30, strand='+', position=2)
         after.fill_annotations(start=31, stop=40, strand='+', position=3)
-        contig = Contig("contig")
+        contig = Contig(0, "contig")
         contig[before.start], contig[after.start] = before, after
         contig[starter.start], contig[stopper.start] = starter, stopper
         before.fill_parents(None, contig), after.fill_parents(None, contig)
@@ -263,7 +263,7 @@ class TestRegion:
         starter.fill_annotations(start=11, stop=20, strand='+', position=1)
         stopper.fill_annotations(start=21, stop=30, strand='+', position=2)
         after.fill_annotations(start=31, stop=40, strand='+', position=3)
-        contig = Contig("contig")
+        contig = Contig(0, "contig")
         before.fill_parents(None, contig), after.fill_parents(None, contig)
         starter.fill_parents(None, contig), stopper.fill_parents(None, contig)
         # Test bordering right
@@ -284,7 +284,7 @@ class TestRegion:
         starter.fill_annotations(start=11, stop=20, strand='+', position=1)
         stopper.fill_annotations(start=21, stop=30, strand='+', position=2)
         after.fill_annotations(start=31, stop=40, strand='+', position=3)
-        contig = Contig("contig")
+        contig = Contig(0, "contig")
         contig[before.start], contig[after.start] = before, after
         contig[starter.start], contig[stopper.start] = starter, stopper
         before.fill_parents(None, contig), after.fill_parents(None, contig)

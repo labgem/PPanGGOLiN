@@ -272,7 +272,7 @@ class GeneFamily(MetaFeatures):
     def number_of_genes(self) -> int:
         """Get the number of genes for the current gene family
         """
-        return len(self._genes)
+        return len(self._genes_getter)
 
     @property
     def number_of_organisms(self) -> int:

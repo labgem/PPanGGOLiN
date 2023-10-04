@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 
 # installed libraries
+import networkx as nx
 from typing import Dict, Generator, List, Set
 import gmpy2
 
@@ -766,24 +767,40 @@ class Module(MetaFeatures):
 
 class GeneContext:
     """
-    The GeneContext class represents a gene context, which is a collection of gene families related to a specific genomic context.
+    A class used to represent a gene context which is a collection of gene families related to a specific genomic context..
 
-    Methods
-    families: Generator that yields all the gene families in the gene context.
-
-    Fields
-    ID: The identifier of the gene context.
+    :param gc_id: Identifier of the gene context.
+    :param families: Gene families related to the gene context.
+    :param families_of_interest: Input families for which the context is being searched.
     """
-    def __init__(self, gc_id: int, families: set = None):
+
+    def __init__(self, gc_id: int, families: Set[GeneFamily] = None, families_of_interest: Set[GeneFamily] = None):
         """Constructor method
         :param gc_id : Identifier of the Gene context
         :param families: Gene families related to the GeneContext
         """
+
         if not isinstance(gc_id, int):
             raise TypeError(f"Gene context identifier must be an integer. Given type is {type(gc_id)}")
+        
         self.ID = gc_id
-        self._families_getter = {family.name: family for family in families} if families is not None else {}
+        self._families_getter = {}
+        self.families_of_interest = families_of_interest
+        self.graph = None
+        if families is not None:
+            if not all(isinstance(fam, GeneFamily) for fam in families):
+                raise Exception("You provided elements that were not GeneFamily objects. "
+                                "GeneContexts are only made of GeneFamily objects.")
+            self._families_getter = {family.name: family for family in families}
 
+    def __len__(self) -> int:
+        """
+        Get length of a context graph by returning the number of gene families it includes.
+
+        :return: number of family in the gene context
+        """
+        return len(self.families)
+    
     def __repr__(self) -> str:
         """Context representation
         """
@@ -859,6 +876,16 @@ class GeneContext:
         except KeyError:
             raise KeyError(f"There isn't gene family with the name {name} in the gene context")
 
+    def add_context_graph(self, graph: nx.Graph):
+        """
+        Add a context graph to the gene context.
+
+        :param graph: The context graph.
+        """
+        self.graph = graph
+
+
+
     @property
     def families(self) -> Generator[GeneFamily, None, None]:
         """Generator of the family in the context
@@ -866,3 +893,15 @@ class GeneContext:
         :return: Gene families belonging to the context
         """
         yield from self._families_getter.values()
+
+
+    def add_family(self, family: GeneFamily):
+        """
+        Add a gene family to the gene context.
+
+        :param family: The gene family to add.
+        """
+        if not isinstance(family, GeneFamily):
+            raise Exception("You did not provide a GeneFamily object. "
+                            "GeneContexts are only made of GeneFamily objects.")
+        self.families.add(family)

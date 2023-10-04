@@ -566,7 +566,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
 
     logging.getLogger("PPanGGOLiN").info("Ordering genes among regions, and drawing spots...")
 
-    multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
+    multigenics = pangenome.get_multigenics(pangenome.parameters["rgp"]["dup_margin"])
 
     fam2mod = {}
     for mod in pangenome.modules:
@@ -666,6 +666,6 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
         logging.getLogger("PPanGGOLiN").info(f"Drawing {len(selected_spots)} spots")
 
     draw_selected_spots(selected_spots, pangenome, output,
-                        overlapping_match=pangenome.parameters["spots"]["overlapping_match"],
-                        exact_match=pangenome.parameters["spots"]["exact_match"],
-                        set_size=pangenome.parameters["spots"]["set_size"], disable_bar=disable_bar)
+                        overlapping_match=pangenome.parameters["spot"]["overlapping_match"],
+                        exact_match=pangenome.parameters["spot"]["exact_match_size"],
+                        set_size=pangenome.parameters["spot"]["set_size"], disable_bar=disable_bar)

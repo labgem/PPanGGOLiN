@@ -16,7 +16,7 @@ def genes() -> Generator[Set[Gene], None, None]:
     """Create a set of genes to fill gene families
     """
     organism = Organism("organism")
-    contig = Contig("contig")
+    contig = Contig(0, "contig")
     genes = set()
     for i in range(0, randint(11, 20)):
         gene = Gene(f"gene_{str(i)}")

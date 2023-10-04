@@ -120,9 +120,11 @@ class TestGeneFamily:
         nb_organisms = randint(2, 10)
         nb_genes_per_organisms = len(genes) // nb_organisms
         idx_org = 1
+        contig_counter = 0
         while idx_org < nb_organisms:
             organism = Organism(f"organism_{idx_org}")
-            contig = Contig(f"contig_{idx_org}")
+            contig = Contig(contig_counter, f"contig_{idx_org}")
+            contig_counter
             organism.add(contig)
             idx_genes = 0
             while idx_genes < nb_genes_per_organisms:
@@ -134,7 +136,7 @@ class TestGeneFamily:
             idx_org += 1
         # last family fill with all the gene left
         organism = Organism(f"organism_{idx_org}")
-        contig = Contig(f"contig_{idx_org}")
+        contig = Contig(contig_counter, f"contig_{idx_org}")
         organism.add(contig)
         idx_genes = (idx_org - 1) * nb_genes_per_organisms
         while idx_genes < len(genes):

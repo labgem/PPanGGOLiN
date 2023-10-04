@@ -110,10 +110,10 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
     pangenome.status["neighborsGraph"] = "Computed"
 
     pangenome.parameters["graph"] = {}
-    pangenome.parameters["graph"]["removed_high_copy_number_families"] = False
+    # pangenome.parameters["graph"]["removed_high_copy_number_families"] = False
     if remove_copy_number > 0:
-        pangenome.parameters["graph"]["removed_high_copy_number_families"] = True
-        pangenome.parameters["graph"]["removed_high_copy_number_of_families_above"] = remove_copy_number
+        # pangenome.parameters["graph"]["removed_high_copy_number_families"] = True
+        pangenome.parameters["graph"]["remove_high_copy_number"] = remove_copy_number
 
 
 def launch(args: argparse.Namespace):
