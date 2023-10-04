@@ -13,15 +13,14 @@ from pandas import isna
 class Metadata:
     """The Metadata class represents a metadata link to genes, gene families, organisms, regions, spot or modules.
 
-        Methods:
+    Methods:
         - number_of_attribute: Returns the number of attributes in the Metadata object.
         - get: Returns the value of a specific attribute, or None if the attribute does not exist.
         - fields: Returns a list of all the attributes in the Metadata object.
 
-
-        Fields:
+    Fields:
         - source: A string representing the source of the metadata.
-        - **kwargs: A dictionary of attributes and values representing the metadata. The attributes can be any string, and the values can be any type except None or NaN.
+        - kwargs: A dictionary of attributes and values representing the metadata. The attributes can be any string, and the values can be any type except None or NaN.
     """
     def __init__(self, source: str, **kwargs):
         """Constructor Method
