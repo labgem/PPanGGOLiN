@@ -2,7 +2,7 @@ import pytest
 from ppanggolin.context.searchGeneContext import extract_contig_window, get_n_next_genes_index, add_edges_to_context_graph, compute_gene_context_graph
 
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.genome import Gene, Contig
+from ppanggolin.genome import Gene, Contig, Organism
 
 import networkx as nx
 
@@ -63,26 +63,27 @@ def test_get_n_next_genes_index_out_of_range():
 @pytest.fixture()
 def simple_contig():
 
-    contig = Contig(name="contig1", is_circular=False)
-
+    contig = Contig(identifier=1, name="contig1", is_circular=False)
+    
     contig_size=6
-    genes = [Gene(i) for i in range(contig_size)]
-
+    contig.length = contig_size
+    genes = [Gene(str(i)) for i in range(contig_size)]
+    organism = Organism('organism_A')
     for i, (gene, family_name) in enumerate(zip(genes, 'ABCDEFGHIJKLMNOP')):
         family = GeneFamily(i, family_name) 
-        gene.fill_annotations(start=0, stop=0, strand=0, position=i)
+        gene.fill_annotations(start=i, stop=i+1, strand="+", position=i)
+
+        gene.fill_parents(organism, contig)
         
-        gene.fill_parents("organism A", contig)
-        
-        contig.add_gene(gene)
-        family.add_gene(gene)
+        contig.add(gene)
+        family.add(gene)
 
     return contig
 
 @pytest.fixture()
 def simple_circular_contig():
 
-    contig = Contig(name="contig2", is_circular=True)
+    contig = Contig(identifier=2, name="contig2", is_circular=True)
 
     contig_size=6
     genes = [Gene(i) for i in range(contig_size)]
@@ -104,7 +105,7 @@ def test_add_edges_to_context_graph(simple_contig):
     #simple_contig families : ABCDEF
 
     add_edges_to_context_graph(context_graph,
-                            contig_genes = simple_contig.genes,
+                            contig_genes = list(simple_contig.genes),
                             contig_windows = [(0,3)],
                             transitivity=1,
                             is_circular=simple_contig.is_circular)
@@ -125,7 +126,7 @@ def test_add_edges_to_context_graph_2(simple_contig):
     #simple_contig families : A B-C-D E F
 
     add_edges_to_context_graph(context_graph,
-                            contig_genes = simple_contig.genes,
+                            contig_genes = list(simple_contig.genes),
                             contig_windows = [(1,3)],
                             transitivity=0,
                             is_circular=simple_contig.is_circular)
@@ -147,7 +148,7 @@ def test_add_edges_to_context_graph_linear(simple_contig):
     context_graph = nx.Graph()
 
     add_edges_to_context_graph(context_graph,
-                            contig_genes = simple_contig.genes,
+                            contig_genes = list(simple_contig.genes),
                             contig_windows = [(4,5), (0,2)],
                             transitivity=0,
                             is_circular=False)
@@ -171,7 +172,7 @@ def test_add_edges_to_context_graph_circular(simple_contig):
     context_graph = nx.Graph()
 
     add_edges_to_context_graph(context_graph,
-                            contig_genes = simple_contig.genes,
+                            contig_genes = list(simple_contig.genes),
                             contig_windows = [(4,5), (0,2)],
                             transitivity=0,
                             is_circular=True)

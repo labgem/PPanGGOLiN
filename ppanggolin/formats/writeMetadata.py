@@ -5,6 +5,7 @@
 import logging
 from typing import Dict, List, Tuple, Union
 
+import numpy
 # installed libraries
 from tqdm import tqdm
 import tables
@@ -41,6 +42,9 @@ def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: 
     if metastatus["genes"] in ["Computed", "Loaded", "inFile"]:
         metadata_group._v_attrs.genes = True
         metasources_group._v_attrs.genes = metasources["genes"]
+    if metastatus["contigs"] in ["Computed", "Loaded", "inFile"]:
+        metadata_group._v_attrs.contigs = True
+        metasources_group._v_attrs.contigs = metasources["contigs"]
     if metastatus["genomes"] in ["Computed", "Loaded", "inFile"]:
         metadata_group._v_attrs.genomes = True
         metasources_group._v_attrs.genomes = metasources["genomes"]
@@ -99,16 +103,21 @@ def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, 
     expected_rows = 0
 
     for element in select_elem:
-        if hasattr(element, 'ID') and isinstance(element.ID, str):
-            if "ID" not in max_len_dict or len(element.ID) > max_len_dict['ID']:
-                max_len_dict['ID'] = len(element.ID)
-        elif hasattr(element, 'name'):
+        if hasattr(element, 'name') and len(element.name) > 0:
             if "ID" not in max_len_dict or len(element.name) > max_len_dict['ID']:
                 max_len_dict['ID'] = len(element.name)
+        elif hasattr(element, 'ID'):
+            if isinstance(element.ID, str):
+                if "ID" not in max_len_dict or len(element.ID) > max_len_dict['ID']:
+                    max_len_dict['ID'] = len(element.ID)
+            elif any(isinstance(element.ID, x) for x in [int, numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64]):
+                type_dict["ID"] = tables.Int64Col()
+            else:
+                raise Exception(f"{type(element)} ID must be an integer")
         else:
             raise Exception("Unexpected attribute. A recent change could create this error."
                             " Please report the error on our github.")
-        for metadata in element.get_source(source=source):
+        for metadata in element.get_metadata_by_source(source):
             for attr, value in ((k, v) for k, v in metadata.__dict__.items() if k != "source"):
                 if isinstance(value, bytes):
                     value = value.decode('UTF-8')
@@ -154,7 +163,7 @@ def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
     source_table = h5f.create_table(metatype_group, source, desc_metadata(*meta_len[:-1]), expectedrows=meta_len[-1])
     meta_row = source_table.row
     for element in tqdm(select_elements, unit=metatype, desc=f'Source = {source}', disable=disable_bar):
-        for metadata in element.get_source(source=source):
+        for metadata in element.get_metadata_by_source(source):
             for desc in source_table.colnames:
                 if desc == "ID":
                     if hasattr(element, 'name') and len(element.name) > 0:
@@ -231,6 +240,14 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
         write_metadata_metatype(h5f, pangenome.status["metasources"]["genomes"][-1],
                                 "genomes", select_genomes, disable_bar)
         pangenome.status["metadata"]["genomes"] = "Loaded"
+
+    if pangenome.status["metadata"]["contigs"] == "Computed":
+        logging.getLogger().info("Writing contigs metadata in pangenome")
+        select_genomes = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["contigs"][-1],
+                                                            metatype="contigs"))
+        write_metadata_metatype(h5f, pangenome.status["metasources"]["contigs"][-1],
+                                "contigs", select_genomes, disable_bar)
+        pangenome.status["metadata"]["contigs"] = "Loaded"
 
     if pangenome.status["metadata"]["genes"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")

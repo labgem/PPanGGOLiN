@@ -12,7 +12,8 @@ import pkg_resources
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args #, SUBCOMMAND_TO_SUBPARSER
+from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args
+import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
@@ -30,6 +31,7 @@ import ppanggolin.meta
 import ppanggolin.utility
 
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
+
 
 def cmd_line() -> argparse.Namespace:
     """ Manage the command line argument given by user
@@ -56,21 +58,23 @@ def cmd_line() -> argparse.Namespace:
     desc += "    partition     Partition the pangenome graph\n"
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
+    desc += "    projection    Annotate an input genome with an existing pangenome\n"
     desc += "    metadata      Add metadata to elements in pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
     desc += "    draw          Draw figures representing the pangenome through different aspects\n"
     desc += "    write         Writes 'flat' files representing the pangenome that can be used with other software\n"
-    desc += "    fasta         Writes fasta files for different elements of the pan\n"
+    desc += "    fasta         Writes fasta files for different elements of the pangenome\n"
     desc += "    info          Prints information about a given pangenome graph file\n"
-    desc += "    metrics       Compute several metrics on a given pan\n"
+    desc += "    metrics       Compute several metrics on a given pangenome\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
-    desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and "\
+    desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and " \
             "predict information from it\n"
-    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pan\n"
-    desc += "    spot         predicts spots in your pan\n"
-    desc += "    module       Predicts functional modules in your pan\n"
+    desc += "    rgp          predicts Regions of Genomic Plasticity in the genomes of your pangenome\n"
+    desc += "    rgp_cluster  cluster RGPs based on their gene families.\n"
+    desc += "    spot         predicts spots in your pangenome\n"
+    desc += "    module       Predicts functional modules in your pangenome\n"
     desc += "  \n"
     desc += "  Genomic context:\n"
     desc += "    context      Local genomic context analysis\n"
@@ -79,14 +83,13 @@ def cmd_line() -> argparse.Namespace:
     desc += "    utils      Helper side commands.\n"
     desc += "  \n"
 
-
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter)
-    
+
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
-    
+
     subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
     subparsers.required = True  # because python3 sent subcommands to hell apparently
 
@@ -98,12 +101,12 @@ def cmd_line() -> argparse.Namespace:
 
     # manage command parser to use command arguments
     subs = []
-    for sub_fct in SUBCOMMAND_TO_SUBPARSER.values():  
+    for sub_fct in SUBCOMMAND_TO_SUBPARSER.values():
         sub = sub_fct(subparsers)
         # add options common to all subcommands
         add_common_arguments(sub)
         subs.append(sub)
-        
+
     # manage command without common arguments
     sub_info = ppanggolin.info.subparser(subparsers)
     sub_utils = ppanggolin.utility.utils.subparser(subparsers)
@@ -115,30 +118,34 @@ def cmd_line() -> argparse.Namespace:
             sub.print_help()
             exit(0)
 
-
     # First parse args to check that nothing is missing or not expected in cli and throw help when requested
     args = parser.parse_args()
-
-    if hasattr(args, "config"): # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
+    if hasattr(args,  "config"):
+        # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
         args = manage_cli_and_config_args(args.subcommand, args.config, SUBCOMMAND_TO_SUBPARSER)
     else:
         set_verbosity_level(args)
 
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        parser.error("You must provide at least a file with the --fasta option to annotate from sequences, "
-                        "or a file with the --gff option to load annotations through the command line or the config file.")
-    
+        parser.error("Please provide either a sequence file using the --fasta option or an annotation file using the --anno option "
+                    "to enable annotation. Use the command line or the config file.")
 
-    cmds_pangenome_required = ["cluster", "info", "module", "graph","align", 
+    cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
                                "context", "write", "msa", "draw", "partition",
-                               "rarefaction", "spot", "fasta", "metrics", "rgp"]
-    if args.subcommand in  cmds_pangenome_required and args.pangenome is None:
-        parser.error("You must provide a pangenome file with the --pangenome "
-                        "argument through the command line or the config file.")
-    
+                               "rarefaction", "spot", "fasta", "metrics", "rgp", "projection", "metadata"]
+    if args.subcommand in cmds_pangenome_required and args.pangenome is None:
+        parser.error("Please specify a pangenome file using the --pangenome argument, "
+                     "either through the command line or the config file.")
+
+
     if args.subcommand == "align" and args.sequences is None:
-        parser.error("You must provide sequences (nucleotides or amino acids) to align on the pangenome gene families "
-                            "with the --sequences argument through the command line or the config file.")
+        parser.error("Please provide sequences (nucleotides or amino acids) for alignment with the pangenome gene families "
+                    "using the --sequences argument, either through the command line or the config file.")
+    
+    if args.subcommand == "projection":
+        # check argument correctness and determine input mode (single or multiple files) and add it to args.
+        input_mode = ppanggolin.projection.projection.check_projection_arguments(args, parser)
+        setattr(args, "input_mode", input_mode)
         
     return args
 
@@ -151,12 +158,8 @@ def main():
     """
     args = cmd_line()
 
-    if hasattr(args, "pangenome"):
-        check_input_files(pangenome=args.pangenome)
-    if hasattr(args, "fasta"):
-        check_input_files(fasta=args.fasta)
-    if hasattr(args, "anno"):
-        check_input_files(anno=args.anno)
+    if hasattr(args, "pangenome") and args.pangenome is not None:
+        check_input_files(args.pangenome)
 
     if args.subcommand == "annotate":
         ppanggolin.annotate.launch(args)
@@ -184,10 +187,14 @@ def main():
         ppanggolin.metrics.metrics.launch(args)
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
+    elif args.subcommand == "projection":
+        ppanggolin.projection.projection.launch(args)
     elif args.subcommand == "rgp":
         ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "spot":
         ppanggolin.RGP.spot.launch(args)
+    elif args.subcommand == "rgp_cluster":
+        ppanggolin.RGP.rgp_cluster.launch(args)
     elif args.subcommand == "panrgp":
         ppanggolin.workflow.panRGP.launch(args)
     elif args.subcommand == "module":

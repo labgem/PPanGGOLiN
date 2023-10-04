@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import List
 # local libraries
-from ppanggolin.utils import get_subcommand_parser, check_log, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, \
+from ppanggolin.utils import get_subcommand_parser, check_log, mk_outdir, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, \
     WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES, WRITE_FLAG_DEFAULT_IN_WF, DRAW_FLAG_DEFAULT_IN_WF
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
@@ -132,7 +132,7 @@ def launch_default_config(args: argparse.Namespace):
     """
     initial_command = args.default_config
 
-    if os.path.exists(args.output) and not args.force:
+    if args.output.exists() and not args.force:
         raise FileExistsError(f"{args.output} already exists. Use -f if you want to overwrite it.")
 
     ignored_params = ['config', 'help']
@@ -150,6 +150,9 @@ def launch_default_config(args: argparse.Namespace):
         # it is clearer if the order of the subcommand is conserved in wf config file
         commands = [initial_command] + [sub_cmd for sub_cmd in ALL_WORKFLOW_DEPENDENCIES if
                                         sub_cmd in workflow_dependencies]
+    elif initial_command == "projection":
+        commands = [initial_command] + ['annotate']
+     
     else:
         commands = [initial_command]
 
@@ -211,7 +214,7 @@ def launch_default_config(args: argparse.Namespace):
         arg_lines.append(f"\n{sub_command}:")
         arg_lines += get_default_argument_lines(specific_actions)
 
-    logging.info(f'Writting default config in {args.output}')
+    logging.getLogger("PPanGGOLiN").info(f'Writting default config in {args.output}')
     with open(args.output, 'w') as fl:
         fl.write('\n'.join(arg_lines) + '\n')
 

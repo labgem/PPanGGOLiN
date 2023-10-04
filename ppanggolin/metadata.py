@@ -2,43 +2,80 @@
 # coding: utf8
 
 # default libraries
-from typing import Generator, List, Tuple, Union
+import logging
+from typing import Generator, List, Tuple, Union, Any
+from collections import defaultdict
 
 # installed libraries
 from pandas import isna
 
 
 class Metadata:
-    """
-    This represents a metadata link to genes, gene families, organisms, regions, spot or modules
+    """The Metadata class represents a metadata link to genes, gene families, organisms, regions, spot or modules.
 
-    :param source: source of the metadata
-    :param kwargs: all metadata name with there value
-    """
+        Methods:
+        - number_of_attribute: Returns the number of attributes in the Metadata object.
+        - get: Returns the value of a specific attribute, or None if the attribute does not exist.
+        - fields: Returns a list of all the attributes in the Metadata object.
 
+
+        Fields:
+        - source: A string representing the source of the metadata.
+        - **kwargs: A dictionary of attributes and values representing the metadata. The attributes can be any string, and the values can be any type except None or NaN.
+    """
     def __init__(self, source: str, **kwargs):
         """Constructor Method
+
+        :param source: A string representing the source of the metadata.
+        :param kwargs: A dictionary of attributes and values representing the metadata. The attributes can be any string, and the values can be any type except None or NaN.
+
+        :raises TypeError: Source name is not a string
+        :raises Exception: Source name is empty
+        :raises Exception: Metadata is empty
         """
+        if not isinstance(source, str):
+            raise TypeError(f"Metadata source name must be a string. Given type {type(source)}")
+        if source == "":
+            raise ValueError("Metadata source name should not be empty.")
         self.source = source
+        if len(kwargs) == 0:
+            raise Exception(f"No metadata given for source: {source}")
         for attr, value in kwargs.items():
+            if isinstance(value, list):
+                value = self._join_list(value)
             if value is not None and not isna(value):
-                if isinstance(value, list):
-                    value = self._join_list(value)
                 setattr(self, attr, value)
 
-    def __len__(self):
-        return len(self.__dict__.keys())
+    def __repr__(self):
+        return f"Metadata source: {self.source}, #attr: {len(self)}"
 
-    def get(self, name: str, skip_error: bool = False):
-        try:
-            value = self.__getattribute__(name)
-        except AttributeError as attr_error:
-            if skip_error:
-                return None
-            else:
-                raise attr_error
-        else:
-            return value
+    def __len__(self) -> int:
+        """Get the number of attribute links to the metadata object
+
+        :return: Number of fields (atribute) of the metadata
+        """
+        return len(self.__dict__) - 1
+
+    def __getattr__(self, item: str) -> Any:
+        """Get the value corresponding to the given attibute
+
+        :return: Value of the attribute
+
+        :raises AttributeError: The attribute does not exist in the metadata
+        """
+        if item not in self.__dict__:
+            raise AttributeError(f"{item} is not an attribute of metadata")
+        return self.__dict__[item]
+
+    @property
+    def fields(self) -> List[str]:
+        """Get all the field of the metadata
+
+        :return: List of the field in the metadata
+        """
+        fields = list(self.__dict__)
+        fields.remove("source")
+        return fields
 
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
@@ -47,71 +84,106 @@ class Metadata:
 
 class MetaFeatures:
     """
-    This represents a methods to access metadata in genes, gene families, organisms, regions, spot or modules
+    The MetaFeatures class provides methods to access and manipulate metadata in all ppanggolin classes.
+
+    Methods
+    metadata: Generate all metadata from all sources.
+    sources: Generate all metadata sources.
+    get_metadata: Get metadata based on attribute values.
+    max_metadata_by_source: Gets the source with the maximum number of metadata and the corresponding count.
     """
+
     def __init__(self):
-        self._metadataGetter = {}
+        """Constructor method
+        """
+        self._metadata_getter = defaultdict(list)
 
     @property
     def metadata(self) -> Generator[Metadata, None, None]:
-        """Generate metadatas in gene families
+        """Generate metadata in gene families
 
-        :return: Generator with all metadata from all sources
+        :return: Metadata from all sources
         """
 
-        for meta_list in self._metadataGetter.values():
+        for meta_list in self._metadata_getter.values():
             for metadata in meta_list:
                 yield metadata
 
     @property
-    def sources(self) -> List[str]:
+    def sources(self) -> Generator[str, None, None]:
         """ Get all metadata source in gene family
 
-        :return: List of metadata source
+        :return: Metadata source
         """
-        return list(self._metadataGetter.keys())
+        yield from self._metadata_getter.keys()
 
-    def get_source(self, source: str) -> Union[List[Metadata], None]:
-        """ Get the metadata for a specific source in gene family
+    def add_metadata(self, source, metadata):
+        """Add metadata to metadata getter
 
-        :param source: Name of the source
+        :param source: Name of the metadata source
+        :param metadata: metadata value to add for the source
 
-        :return: All the metadata from the source if exist else None
+        :raises AssertionError: Source or metadata is not with the correct type
         """
-        return self._metadataGetter[source] if source in self.sources else None
+        assert isinstance(metadata, Metadata), f"Metadata is not with type Metadata but with {type(metadata)}"
+        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
 
-    def get_metadata(self, **kwargs) -> Generator[Metadata, None, None]:
+        self._metadata_getter[source].append(metadata)
+
+    def get_metadata_by_source(self, source: str) -> Union[List[Metadata], None]:
+        """Get all the metadata feature corresponding to the source
+
+        :param source: Name of the source to get
+
+        :return: List of metadata corresponding to the source
+
+        :raises AssertionError: Source is not with the correct type
+        """
+        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
+        return self._metadata_getter.get(source)  # if source in _metadata_getter return value else None
+
+    def get_metadata_by_attribute(self, **kwargs) -> Generator[Metadata, None, None]:
         """Get metadata by one or more attribute
 
-        :return: metadata searched
+        :return: Metadata searched
         """
         for metadata in self.metadata:
             for attr, value in kwargs.items():
                 if hasattr(metadata, attr):
-                    if metadata.__getattribute__(attr) in value or metadata.__getattribute__(attr) == value:
+                    # BUG If value is a list, the join block detection.
+                    # It would be better to keep a list and change in writing and reading metadata to join the list
+                    if getattr(metadata, attr, None) in value or getattr(metadata, attr, None) == value:
                         yield metadata
 
-    def add_metadata(self, source: str, metadata: Metadata):
-        """ Add metadata
+    def del_metadata_by_source(self, source: str):
+        """Remove a source from the feature
 
-        :param source: Name of database source
-        :param metadata: Identifier of the metadata
+        :param source: Name of the source to delete
+
+        :raises AssertionError: Source is not with the correct type
+        :raises KeyError: Source does not belong in the MetaFeature
         """
-        assert isinstance(metadata, Metadata)
-        source_annot = self.get_source(source)
-        if source_annot is not None:
-            self._metadataGetter[source].append(metadata)
-        else:
-            self._metadataGetter[source] = [metadata]
+        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
+        if self._metadata_getter.pop(source, None) is None:
+            logging.getLogger("PPanGGOLiN").warning("The source to remove does not exist")
+
+    def del_metadata_by_attribute(self, **kwargs):
+        """Remove a source from the feature
+
+        :param source: Name of the source to delete
+        """
+        for source, metadata in self._metadata_getter.items():
+            for attr, value in kwargs.items():
+                if hasattr(metadata, attr):
+                    # BUG If value is a list, the join block detection.
+                    # It would be better to keep a list and change in writing and reading metadata to join the list
+                    if getattr(metadata, attr, None) in value or getattr(metadata, attr, None) == value:
+                        self._metadata_getter[source].remove(metadata)
 
     def max_metadata_by_source(self) -> Tuple[str, int]:
-        """Get the maximum number of annotation for one source
-        :return: Name of the source with the maximum annotation and the number of annotation corresponding
+        """Get the maximum number of metadata for one source
+
+        :return: Name of the source with the maximum annotation and the number of metadata corresponding
         """
-        max_meta = 0
-        max_source = None
-        for source, metadata in self._metadataGetter.items():
-            if len(metadata) > max_meta:
-                max_meta = len(metadata)
-                max_source = source
-        return max_source, max_meta
+        max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
+        return max_source, len(max_meta)

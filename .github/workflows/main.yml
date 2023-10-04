@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: ['ubuntu-latest', 'macos-latest']
-        python-version: ['3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.8', '3.9', '3.10']
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
@@ -58,8 +58,8 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin annotate --fasta organisms.fasta.list --output stepbystep --kingdom bacteria --contig_filter 500
-        ppanggolin cluster -p stepbystep/pangenome.h5 --defrag --coverage 0.8 --identity 0.8
+        ppanggolin annotate --fasta organisms.fasta.list --output stepbystep --kingdom bacteria
+        ppanggolin cluster -p stepbystep/pangenome.h5 --coverage 0.8 --identity 0.8
         ppanggolin graph -p stepbystep/pangenome.h5 -r 10
         ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu 1 -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL -se $RANDOM
         ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
@@ -70,9 +70,9 @@ jobs:
         ppanggolin module -p stepbystep/pangenome.h5 --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05
         ppanggolin write -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --csv --Rtab --projection --stats --partitions --compress --json --regions --spots --borders --families_tsv --cpu 1
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
-        ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots -o stepbystep -f
+        ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --info_modules --no_print_info -f --log metrics.log
-        cd -
+        cd - 
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
       run: |
@@ -86,21 +86,33 @@ jobs:
         cd testingDataset
         ppanggolin panrgp --anno organisms.gbff.list --cluster clusters.tsv --output readclusterpang
         ppanggolin annotate --anno organisms.gbff.list --output readclusters
-        ppanggolin cluster --cluster clusters.tsv -p readclusters/pangenome.h5
+        ppanggolin cluster --clusters clusters.tsv -p readclusters/pangenome.h5
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f
+        cd -
+    - name: testing rgp_cluster command
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 --ignore_incomplete_rgp --grr_metric max_grr -f --graph_formats graphml gexf
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 --no_identical_rgp_merging -o rgp_clustering_no_identical_rgp_merging --graph_formats graphml
         cd -
     - name: testing align command
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_align --draw_related --getinfo
+        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta \
+                         --output test_align --draw_related --getinfo --fast
         cd -
     - name: testing context command
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context
-        ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f
+        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context --fast
+
+        # test from gene family ids. Test here with one family of module 1. The context should find all families of module 1
+        echo AP288_RS05055 > one_family_of_module_1.txt 
+        ppanggolin context --pangenome myannopang/pangenome.h5 --family one_family_of_module_1.txt  --output test_context_from_id
         cd -
     - name: testing metadata command
       shell: bash -l {0}
@@ -109,6 +121,7 @@ jobs:
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genes.tsv -a genes
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genomes.tsv -a genomes
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_families.tsv -a families --omit
+        ppanggolin write -p mybasicpangenome/pangenome.h5 --output mybasicpangenome -f --gexf --light_gexf --cpu 1
         cd -
     - name: testing config file
       shell: bash -l {0}
@@ -116,4 +129,16 @@ jobs:
         cd testingDataset
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
         ppanggolin panrgp  --anno organisms.gbff.list --cluster clusters.tsv -o test_config --config panrgp_default_config.yaml
- 
+        cd -
+    - name: testing projection cmd
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        head organisms.gbff.list | sed 's/^/input_org_/g' > organisms.gbff.head.list
+        ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_lisy_of_gbff --anno organisms.gbff.head.list 
+
+
+        ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_single_fasta \
+                              --organism_name chlam_A --fasta FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz \
+                              --spot_graph --graph_formats graphml --fast --keep_tmp -f
+
