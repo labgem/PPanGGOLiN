@@ -43,8 +43,10 @@ In **sequence Id**, it is possible to find a NA value. This case, correspond to 
 ## Detailed options
 | option name | Description |
 |-----------------------------|---------------------------------------------------------------------------|
-| --no_defrag | Do not use the defragmentation step, to align sequences with MMseqs2 |
-| --identity | Minimum identity percentage threshold |
-| --coverage | Minimum coverage percentage threshold |
-| -t, --transitive | Size of the transitive closure used to build the graph. This indicates the number of non-related genes allowed in-between two related genes. Increasing it will improve precision but lower sensitivity a little. |
-| -s, --jaccard | Minimum jaccard similarity used to filter edges between gene families. Increasing it will improve precision but lower sensitivity a lot. |
+| --fast | Use representative sequences of gene families for input gene alignment. This option is recommended for faster processing but may be less sensitive. By default, all pangenome genes are used for alignment. This argument makes sense only when --sequence is provided. (default: False) |
+| --no_defrag | Do not use the defragmentation step, to align sequences with MMseqs2 (default: False) |
+| --identity | Minimum identity percentage threshold (default: 0.8)|
+| --coverage | Minimum coverage percentage threshold (default: 0.8)|
+| -t, --transitive | Size of the transitive closure used to build the graph. This indicates the number of non-related genes allowed in-between two related genes. Increasing it will improve precision but lower sensitivity a little. (default: 4) |
+| -s, --jaccard | Minimum jaccard similarity used to filter edges between gene families. Increasing it will improve precision but lower sensitivity a lot. (default: 0.85) |
+| -w, --window_size | Number of neighboring genes that are considered on each side of a gene of interest when searching for conserved genomic contexts. (default: 5) |
