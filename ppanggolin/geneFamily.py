@@ -19,6 +19,7 @@ from ppanggolin.metadata import MetaFeatures
 class GeneFamily(MetaFeatures):
     """
     This represents a single gene family. It will be a node in the pangenome graph, and be aware of its genes and edges.
+
     Methods:
         - named_partition: returns a meaningful name for the partition associated with the family.
         - neighbors: returns all the GeneFamilies that are linked with an edge.

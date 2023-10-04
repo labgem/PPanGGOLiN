@@ -18,6 +18,7 @@ from ppanggolin.metadata import MetaFeatures
 class Region(MetaFeatures):
     """
     The 'Region' class represents a region of genomic plasticity.
+
     Methods:
         - 'genes': the property that generates the genes in the region as they are ordered in contigs.
         - 'families': the property that generates the gene families in the region.
@@ -304,6 +305,7 @@ class Region(MetaFeatures):
 class Spot(MetaFeatures):
     """
     The 'Spot' class represents a region of genomic plasticity.
+    
     Methods:
         - 'regions': the property that generates the regions in the spot.
         - 'families': the property that generates the gene families in the spot.

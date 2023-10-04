@@ -4,11 +4,11 @@
 # default libraries
 import sys
 
-if sys.version_info < (3, 6):  # minimum is python3.6
-    raise AssertionError("Minimum python version to run PPanGGOLiN is 3.6. Your current python version is " +
+if sys.version_info < (3, 8):  # minimum is python3.8
+    raise AssertionError("Minimum python version to run PPanGGOLiN is 3.8. Your current python version is " +
                          ".".join(map(str, sys.version_info)))
 import argparse
-import pkg_resources
+from importlib.metadata import distribution
 
 # local modules
 import ppanggolin.pangenome
@@ -32,6 +32,13 @@ import ppanggolin.utility
 
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
+version = distribution("ppanggolin").version
+epilog = f"""
+PPanGGOLiN ({version}) is an opensource bioinformatic tools under CeCILL FREE SOFTWARE LICENSE AGREEMENT
+LABGeM
+Please cite: Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. 
+PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
+"""
 
 def cmd_line() -> argparse.Namespace:
     """ Manage the command line argument given by user
@@ -80,18 +87,17 @@ def cmd_line() -> argparse.Namespace:
     desc += "  \n"
     desc += "  Utility command:\n"
     desc += "    utils      Helper side commands.\n"
-    desc += "  \n"
 
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-        formatter_class=argparse.RawTextHelpFormatter)
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog=epilog)
 
     parser.add_argument('-v', '--version', action='version',
-                        version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
+                        version='%(prog)s ' + version)
 
     subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
     subparsers.required = True  # because python3 sent subcommands to hell apparently
-
 
     # print help if no subcommand is specified
     if len(sys.argv) == 1:
