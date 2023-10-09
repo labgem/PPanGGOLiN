@@ -14,7 +14,7 @@ from typing import Dict, List, Union
 from pathlib import Path
 
 # install libraries
-from pyrodigal import GeneFinder, TrainingInfo
+from pyrodigal import GeneFinder, Sequence
 
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA, Contig
@@ -74,7 +74,7 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
 
 def launch_prodigal(fna_file: TextIOWrapper, org: Organism, code: int = 11, use_meta: bool = False) -> defaultdict:
     """
-    Launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the found genes.
+    Launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the pred genes.
 
     :param fna_file: File-like object containing the uncompressed fasta sequences
     :param org: Organism which will be annotated
@@ -83,15 +83,24 @@ def launch_prodigal(fna_file: TextIOWrapper, org: Organism, code: int = 11, use_
 
     :return: Annotated genes in a list of gene objects
     """
+    def write_seq(fna_file: TextIOWrapper):
+        sequences = {}
+        contig_name = None
+        with open(fna_file.name, "r") as file:
+            lines = file.readlines()
+            for line in lines:
+                if line.startswith('>'):
+                    contig_name = line.replace(">", "").replace("\n", "")
+                    seq = ""
+                else:
+                    while not line.startswith('>') and len(lines) > 0:
+                        seq += line.replace("\n", "")
+                        line = lines.pop(0)
+                    sequences[contig_name] = Sequence(seq)
+        return sequences
+
     gene_objs = defaultdict(set)
-    sequences = {}
-    with open(fna_file.name, "r") as file:
-        for line in file.readlines():
-            if line.startswith('>'):
-                contig_name = line.replace(">", "").replace("\n", "")
-                sequences[contig_name] = ""
-            else:
-                sequences[contig_name] += line.replace("\n", "")
+    sequences = write_seq(fna_file)
     gene_finder = GeneFinder(
         meta=use_meta,  # '-p meta' if meta is true else '-p single'
         closed=True,  # -c: Closed ends. Do not allow genes to run off edges.
@@ -101,9 +110,9 @@ def launch_prodigal(fna_file: TextIOWrapper, org: Organism, code: int = 11, use_
                       translation_table=code)  # -g: Specify a translation table to use (default 11).
     gene_counter = 0
     for contig_name, sequence in sequences.items():
-        for found in gene_finder.find_genes(sequence):
+        for pred in gene_finder.find_genes(sequence):
             gene = Gene(gene_id=f"{org.name}_CDS_{str(gene_counter).zfill(4)}")
-            gene.fill_annotations(start=found.begin, stop=found.end, strand='-' if found.strand == -1 else '+',
+            gene.fill_annotations(start=pred.begin, stop=pred.end, strand='-' if pred.strand == -1 else '+',
                                   gene_type="CDS", genetic_code=code)
             gene_counter += 1
             gene_objs[contig_name].add(gene)
