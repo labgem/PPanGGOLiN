@@ -6,7 +6,6 @@ import logging
 import os
 import tempfile
 from io import TextIOWrapper
-from concurrent.futures import ThreadPoolExecutor
 from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
@@ -83,7 +82,13 @@ def launch_prodigal(fna_file: TextIOWrapper, org: Organism, code: int = 11, use_
 
     :return: Annotated genes in a list of gene objects
     """
-    def write_seq(fna_file: TextIOWrapper):
+    def write_seq(fna_file: TextIOWrapper) -> Dict[str, Sequence]:
+        """Write contig sequence to predict genes with pyrodigal
+
+        :param fna_file: Fasta file with sequences
+
+        :return: Contig sequence link to contig name
+        """
         sequences = {}
         contig_name = None
         with open(fna_file.name, "r") as file:
@@ -108,7 +113,7 @@ def launch_prodigal(fna_file: TextIOWrapper, org: Organism, code: int = 11, use_
     )
     gene_finder.train(max(sequences.values(), key=len), force_nonsd=False,
                       translation_table=code)  # -g: Specify a translation table to use (default 11).
-    gene_counter = 0
+    gene_counter = 1
     for contig_name, sequence in sequences.items():
         for pred in gene_finder.find_genes(sequence):
             gene = Gene(gene_id=f"{org.name}_CDS_{str(gene_counter).zfill(4)}")
