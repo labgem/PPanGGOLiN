@@ -42,6 +42,9 @@ def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: 
     if metastatus["genes"] in ["Computed", "Loaded", "inFile"]:
         metadata_group._v_attrs.genes = True
         metasources_group._v_attrs.genes = metasources["genes"]
+    if metastatus["contigs"] in ["Computed", "Loaded", "inFile"]:
+        metadata_group._v_attrs.contigs = True
+        metasources_group._v_attrs.contigs = metasources["contigs"]
     if metastatus["genomes"] in ["Computed", "Loaded", "inFile"]:
         metadata_group._v_attrs.genomes = True
         metasources_group._v_attrs.genomes = metasources["genomes"]
@@ -237,6 +240,14 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
         write_metadata_metatype(h5f, pangenome.status["metasources"]["genomes"][-1],
                                 "genomes", select_genomes, disable_bar)
         pangenome.status["metadata"]["genomes"] = "Loaded"
+
+    if pangenome.status["metadata"]["contigs"] == "Computed":
+        logging.getLogger().info("Writing contigs metadata in pangenome")
+        select_genomes = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["contigs"][-1],
+                                                            metatype="contigs"))
+        write_metadata_metatype(h5f, pangenome.status["metasources"]["contigs"][-1],
+                                "contigs", select_genomes, disable_bar)
+        pangenome.status["metadata"]["contigs"] = "Loaded"
 
     if pangenome.status["metadata"]["genes"] == "Computed":
         logging.getLogger().info("Writing genes metadata in pangenome")

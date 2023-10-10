@@ -9,7 +9,7 @@ from pathlib import Path
 import tables
 
 # local libraries
-from ppanggolin.formats import read_info, read_parameters, fix_partitioned
+from ppanggolin.formats import read_info, read_parameters,  fix_partitioned
 
 
 def read_status(h5f: tables.File):

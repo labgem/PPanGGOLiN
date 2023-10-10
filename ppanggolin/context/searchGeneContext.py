@@ -17,49 +17,65 @@ import pandas as pd
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig
+from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components, create_tmpdir, read_compressed_or_not
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.utils import mk_outdir, restricted_float, add_gene, connected_components
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.align.alignOnPang import get_seq2pang, project_partition
+from ppanggolin.align.alignOnPang import  project_and_write_partition, get_input_seq_to_family_with_rep, get_input_seq_to_family_with_all, get_seq_ids
 from ppanggolin.region import GeneContext
 
 
-def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir: Path, sequences: Path = None,
+def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir: Path, sequence_file: Path = None,
                                      families: Path = None, transitive: int = 4, identity: float = 0.5,
-                                     coverage: float = 0.8, jaccard: float = 0.85, no_defrag: bool = False,
-                                     cpu: int = 1, disable_bar=True):
+                                     coverage: float = 0.8, use_representatives: bool = False, jaccard: float = 0.85, no_defrag: bool = False,
+                                     cpu: int = 1, disable_bar=True, translation_table:int=11, keep_tmp:bool = False):
     """
     Main function to search common gene contexts between sequence set and pangenome families
 
     :param pangenome: Pangenome containing GeneFamilies to align with sequence set
-    :param sequences: Path to file containing the sequences
+    :param sequence_file: Path to file containing the sequences
     :param families: Path to file containing families name
     :param output: Path to output directory
     :param tmpdir: Path to temporary directory
     :param transitive: number of genes to check on both sides of a family aligned with an input sequence
     :param identity: minimum identity threshold between sequences and gene families for the alignment
     :param coverage: minimum coverage threshold between sequences and gene families for the alignment
+    :param use_representatives: Use representative sequences of gene families rather than all sequences to align input genes
     :param jaccard: Jaccard index to filter edges in graph
     :param no_defrag: do not use the defrag workflow if true
     :param cpu: Number of core used to process
     :param disable_bar: Allow preventing bar progress print
-    """
+    :param translation_table: Translation table ID for nucleotide sequences.
+    :param keep_tmp: If True, keep temporary files.
 
+    """
     # check statuses and load info
-    if sequences is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
+    if sequence_file is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
                         "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
     gene_families = {}
     fam_2_seq = None
-    if sequences is not None:
+    if sequence_file is not None:
         # Alignment of sequences on pangenome families
-        new_tmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        tmp_path = Path(new_tmpdir.name)
-        seq_set, _, seq2pan = get_seq2pang(pangenome, sequences, output, tmp_path, cpu, no_defrag, identity, coverage)
-        project_partition(seq2pan, seq_set, output)
-        new_tmpdir.cleanup()
+        with read_compressed_or_not(sequence_file) as seqFileObj:
+            seq_set, is_nucleotide = get_seq_ids(seqFileObj)
+    
+        with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
+        
+            if use_representatives:
+                _, seq2pan = get_input_seq_to_family_with_rep(pangenome, [sequence_file], output, new_tmpdir, is_input_seq_nt=is_nucleotide,
+                                                            cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
+                                                            translation_table=translation_table, disable_bar=disable_bar)
+            else:
+                _, seq2pan = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=[sequence_file],
+                                                                                    output=output, tmpdir=new_tmpdir, is_input_seq_nt=is_nucleotide,
+                                                                                    cpu=cpu, no_defrag=no_defrag,
+                                                                                    identity=identity, coverage=coverage,
+                                                                                    translation_table=translation_table, disable_bar=disable_bar)
+        
+        project_and_write_partition(seq2pan, seq_set, output)
+
         for k, v in seq2pan.items():
             gene_families[v.name] = v
         fam_2_seq = fam2seq(seq2pan)
@@ -245,9 +261,11 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
-                                     sequences=args.sequences, families=args.family, transitive=args.transitive,
-                                     identity=args.identity, coverage=args.coverage, jaccard=args.jaccard,
-                                     no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar)
+                                     sequence_file=args.sequences, families=args.family, transitive=args.transitive,
+                                     identity=args.identity, coverage=args.coverage, 
+                                     use_representatives=args.fast, jaccard=args.jaccard,
+                                     no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar,
+                                     translation_table=args.translation_table, keep_tmp=args.keep_tmp)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -286,10 +304,17 @@ def parser_context(parser: argparse.ArgumentParser):
     optional.add_argument('--no_defrag', required=False, action="store_true",
                           help="DO NOT Realign gene families to link fragments with"
                                "their non-fragmented gene family.")
+    optional.add_argument("--fast", required=False, action="store_true",
+                            help="Use representative sequences of gene families for input gene alignment. "
+                                "This option is recommended for faster processing but may be less sensitive. "
+                                "By default, all pangenome genes are used for alignment. "
+                                "This argument makes sense only when --sequence is provided.")
     optional.add_argument('--identity', required=False, type=float, default=0.5,
                           help="min identity percentage threshold")
     optional.add_argument('--coverage', required=False, type=float, default=0.8,
                           help="min coverage percentage threshold")
+    optional.add_argument("--translation_table", required=False, default="11",
+                          help="The translation table (genetic code) to use when the input sequences are nucleotide sequences. ")
     optional.add_argument("-t", "--transitive", required=False, type=int, default=4,
                           help="Size of the transitive closure used to build the graph. This indicates the number of "
                                "non related genes allowed in-between two related genes. Increasing it will improve "
@@ -300,6 +325,8 @@ def parser_context(parser: argparse.ArgumentParser):
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
     optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
+    optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
+                        help="Keeping temporary files (useful for debugging).")
 
 
 if __name__ == '__main__':

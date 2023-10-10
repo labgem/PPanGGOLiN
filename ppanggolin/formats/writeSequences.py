@@ -6,7 +6,7 @@ import argparse
 import logging
 import re
 from pathlib import Path
-from typing import TextIO, Dict, Set
+from typing import TextIO, Dict, Set, Iterable
 
 # installed libraries
 from tqdm import tqdm
@@ -14,33 +14,35 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.genome import Gene
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
+
 
 module_regex = re.compile(r'^module_[0-9]+')
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
 poss_values_log = f"Possible values are {', '.join(poss_values[:-1])}, module_X with X being a module id."
 
 
-def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO, list_cds: list = None,
-                                          add: str = '', disable_bar: bool = False):
-    """
-    Writes the CDS sequences given through list_CDS of the Pangenome object to a tmpFile object,
-    and adds the str provided through add in front of it.
-    Loads the sequences from previously computed or loaded annotations
 
-    :param pangenome: Pangenome object with gene families sequences
-    :param file_obj: Output file to write sequences
-    :param list_cds: Selected genes
-    :param add: Add prefix to gene ID
-    :param disable_bar: Disable progress bar
+def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_obj: TextIO, add: str = '',
+                                          disable_bar: bool = False):
     """
-    logging.getLogger("PPanGGOLiN").info("Writing all of the CDS sequences...")
-    for gene in tqdm(sorted(list_cds if list_cds is not None else pangenome.genes, key=lambda x: x.ID),
-                     unit="gene", disable=disable_bar):
+    Writes the CDS sequences to a File object,
+    and adds the string provided through `add` in front of it.
+    Loads the sequences from previously computed or loaded annotations.
+
+    :param genes_to_write: Genes to write.
+    :param file_obj: Output file to write sequences.
+    :param add: Add prefix to gene ID.
+    :param disable_bar: Disable progress bar.
+    """
+    logging.getLogger("PPanGGOLiN").info(f"Writing all CDS sequences in {file_obj.name}")
+    for gene in tqdm(genes_to_write, unit="gene", disable=disable_bar):
         if gene.type == "CDS":
-            file_obj.write('>' + add + gene.ID + "\n")
-            file_obj.write(gene.dna + "\n")
+            gene_id = gene.ID if gene.local_identifier == "" else gene.local_identifier
+            file_obj.write(f'>{add}{gene_id}\n')
+            file_obj.write(f'{gene.dna}\n')
     file_obj.flush()
 
 
@@ -73,7 +75,7 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
             get_gene_sequences_from_file(pangenome.file, fasta, set([gene.ID for gene in genes_to_write]),
                                          disable_bar=disable_bar)
         elif pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-            write_gene_sequences_from_annotations(pangenome, fasta, genes_to_write, disable_bar=disable_bar)
+            write_gene_sequences_from_annotations(genes_to_write, fasta, disable_bar=disable_bar)
         else:
             # this should never happen if the pangenome has been properly checked before launching this function.
             raise Exception("The pangenome does not include gene sequences")

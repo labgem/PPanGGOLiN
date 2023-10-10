@@ -5,7 +5,7 @@
 import logging
 import argparse
 from pathlib import Path
-from typing import Set
+from typing import Set, Iterable
 # installed libraries
 from tqdm import tqdm
 
@@ -191,27 +191,56 @@ def mk_regions(contig: Contig, matrix: list, multi: set, min_length: int = 3000,
     return contig_regions
 
 
-def compute_org_rgp(organism: Organism, multigenics: set, persistent_penalty: int = 3, variable_gain: int = 1,
-                    min_length: int = 3000, min_score: int = 4, naming: str = "contig") -> Set[Region]:
+def compute_org_rgp( organism: Organism, multigenics: set,
+    persistent_penalty: int = 3, variable_gain: int = 1,  min_length: int = 3000,  min_score: int = 4,
+    naming: str = "contig", disable_bar: bool = True ) -> set:
+    """
+    Compute regions of genomic plasticity (RGP) on the given organism based on the provided parameters.
+
+    :param organism: The Organism object representing the organism.
+    :param multigenics: A set of multigenic persistent families of the pangenome graph.
+    :param persistent_penalty: Penalty score to apply to persistent multigenic families (default: 3).
+    :param variable_gain: Gain score to apply to variable multigenic families (default: 1).
+    :param min_length: Minimum length threshold (in base pairs) for the regions to be considered RGP (default: 3000).
+    :param min_score: Minimum score threshold for considering a region as RGP (default: 4).
+    :param naming: Naming scheme for the regions, either "contig" or "organism" (default: "contig").
+    :param disable_bar: Whether to disable the progress bar. It is recommended to disable it when calling this function in a loop on multiple organisms (default: True).
+    
+    :return: A set of RGPs of the provided organism.
+    """
     org_regions = set()
-    for contig in organism.contigs:
+    for contig in tqdm(organism.contigs, total=organism.number_of_contigs, unit="contig", disable=disable_bar): 
         if contig.number_of_genes != 0:  # some contigs have no coding genes...
             # can definitely multiprocess this part, as not THAT much information is needed...
             matrix = init_matrices(contig, multigenics, persistent_penalty, variable_gain)
-            org_regions |= mk_regions(contig, matrix, multigenics, min_length, min_score, persistent_penalty,
-                                      variable_gain, naming=naming)
+            org_regions |= mk_regions(
+                contig,
+                matrix,
+                multigenics,
+                min_length,
+                min_score,
+                persistent_penalty,
+                variable_gain,
+                naming=naming
+            )
     return org_regions
 
 
-def naming_scheme(pangenome: Pangenome):
+def naming_scheme(organisms: Iterable[Organism]) -> str:
+    """
+    Determine the naming scheme for the contigs in the pangenome.
+
+    :param organisms: Iterable of organims objects
+    :return: Naming scheme for the contigs ("contig" or "organism").
+    """
     contigsids = set()
-    for org in pangenome.organisms:
+    for org in organisms:
         for contig in org.contigs:
             oldlen = len(contigsids)
             contigsids.add(contig.name)
             if oldlen == len(contigsids):
                 logging.getLogger("PPanGGOLiN").warning("You have contigs with identical identifiers in your "
-                                                        "assemblies. identifiers will be supplemented with your "
+                                                        "assemblies. Identifiers will be supplemented with your "
                                                         "provided organism names.")
                 return "organism"
     return "contig"
@@ -248,25 +277,25 @@ def predict_rgp(pangenome: Pangenome, persistent_penalty: int = 3, variable_gain
     # check statuses and load info
     check_pangenome_former_rgp(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=False, need_partitions=True,
-                         disable_bar=disable_bar)
+                            disable_bar=disable_bar)
 
     logging.getLogger("PPanGGOLiN").info("Detecting multigenic families...")
     multigenics = pangenome.get_multigenics(dup_margin)
     logging.getLogger("PPanGGOLiN").info("Compute Regions of Genomic Plasticity ...")
-    name_scheme = naming_scheme(pangenome)
+    name_scheme = naming_scheme(pangenome.organisms)
     for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genomes", disable=disable_bar):
         for region in compute_org_rgp(org, multigenics, persistent_penalty, variable_gain, min_length,
-                                              min_score, naming=name_scheme):
-	        pangenome.add_region(region)
+                                                min_score, naming=name_scheme):
+            pangenome.add_region(region)
     logging.getLogger("PPanGGOLiN").info(f"Predicted {pangenome.number_of_rgp} RGP")
 
     # save parameters and save status
-    pangenome.parameters["RGP"] = {}
-    pangenome.parameters["RGP"]["persistent_penalty"] = persistent_penalty
-    pangenome.parameters["RGP"]["variable_gain"] = variable_gain
-    pangenome.parameters["RGP"]["min_length"] = min_length
-    pangenome.parameters["RGP"]["min_score"] = min_score
-    pangenome.parameters["RGP"]["dup_margin"] = dup_margin
+    pangenome.parameters["rgp"] = {}
+    pangenome.parameters["rgp"]["persistent_penalty"] = persistent_penalty
+    pangenome.parameters["rgp"]["variable_gain"] = variable_gain
+    pangenome.parameters["rgp"]["min_length"] = min_length
+    pangenome.parameters["rgp"]["min_score"] = min_score
+    pangenome.parameters["rgp"]["dup_margin"] = dup_margin
     pangenome.status['predictedRGP'] = "Computed"
 
 

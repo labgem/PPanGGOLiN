@@ -10,6 +10,9 @@ import argparse
 from io import TextIOWrapper
 from pathlib import Path
 from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable
+from contextlib import contextmanager
+import tempfile
+import time
 
 import networkx as nx
 from importlib.metadata import distribution
@@ -24,11 +27,12 @@ from collections import defaultdict
 from ppanggolin.geneFamily import GeneFamily
 
 # all input params that exists in ppanggolin
-ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome']
+ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', 
+                    "fasta_file", "annot_file", "organism_name"] # the last three params is for projection cmd
 
 # all params that should be in the general_parameters section of the config file
 ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log',
-                      'disable_prog_bar', 'force']
+                      'disable_prog_bar', 'force', "config"]
 
 WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panModule'}
 
@@ -39,7 +43,7 @@ ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "raref
 # Inside a workflow command, write output default is overwrite to output some flat files
 WRITE_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
                             'projection', 'stats', 'json', 'partitions', 'regions',
-                            'borders', 'modules', 'spot_modules', "draw_spots"]
+                            'borders', 'modules', 'spot_modules', "spots"]
 DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "draw_spots"]
 
 
@@ -88,7 +92,7 @@ def check_tsv_sanity(tsv: Path):
     except IOError as ios_error:
         raise IOError(ios_error)
     except Exception as exception_error:
-        raise Exception(f"The following unexpected error happened when opening the list of pangenomes : "
+        raise Exception(f"The following unexpected error happened when opening the list of genomes path: "
                         f"{exception_error}")
     else:
         name_set = set()
@@ -259,6 +263,23 @@ def mk_outdir(output: Path, force: bool = False):
             raise FileExistsError(
                 f"{output} already exists. Use -f if you want to overwrite the files in the directory")
 
+@contextmanager
+def create_tmpdir(main_dir, basename="tmpdir", keep_tmp=False):
+
+    if keep_tmp:
+        dir_name = basename +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime()) 
+
+        new_tmpdir = main_dir / dir_name
+        logging.debug(f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
+
+        mk_outdir(new_tmpdir, force=True)
+        yield new_tmpdir
+        
+    else:
+        with tempfile.TemporaryDirectory(dir=main_dir, prefix=basename) as new_tmpdir:
+            logging.debug(f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
+            yield Path(new_tmpdir)
+                  
 
 def mk_file_name(basename: str, output: Path, force: bool = False) -> Path:
     """Returns a usable filename for a ppanggolin output file, or crashes.
@@ -297,6 +318,8 @@ def detect_filetype(filename: Path) -> str:
         return 'gff'
     elif first_line.startswith(">"):
         return 'fasta'
+    elif "\t" in first_line:
+        return "tsv"
     else:
         raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') "
                         "nor gbff/gbk (file starts with 'LOCUS       '). "
@@ -469,14 +492,15 @@ def get_arg_name(arg_val: Union[str, TextIOWrapper]) -> Union[str, TextIOWrapper
 def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Namespace, cli_args: argparse.Namespace):
     """
     Overwrite args objects.
-    When arguments are given in CLI, their value is used instead of the one found in config. 
-    When arguments are specified in config they overwrite default values.
+
+    When arguments are given in CLI, their values are used instead of the ones found in the config file.
+    When arguments are specified in the config file, they overwrite default values.
 
     :param default_args: default arguments
-    :param config_args: arguments parsed from config file
-    :param cli_args: arguments parsed from command line
+    :param config_args: arguments parsed from the config file
+    :param cli_args: arguments parsed from the command line
 
-    :return: final arguments 
+    :return: final arguments
     """
     args = argparse.Namespace()
     all_params = [arg for arg in dir(default_args) if not arg.startswith('_')]
@@ -486,28 +510,46 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
         cli_val = getattr(cli_args, param, 'unspecified')
         config_val = getattr(config_args, param, 'unspecified')
 
-        if param in cli_args:
-            # param is defined in cli, cli val is used
+        if param in cli_args and param not in config_args:
+            # Use the value from the command line argument
             setattr(args, param, cli_val)
 
-            if default_val != cli_val:
+            if default_val != cli_val and param != "config":
                 logging.getLogger("PPanGGOLiN").debug(
-                    f'Parameter "--{param} {get_arg_name(cli_val)}" has been specified in command line.'
-                    f' Its value overwrites putative config values.')
+                    f'The parameter "--{param}: {get_arg_name(cli_val)}" has been specified in the command line with a non-default value.'
+                    f' Its value overwrites the default value ({get_arg_name(default_val)}).')
 
-        elif param in config_args:
-            # parma is defined only in config. config val is used
+        elif param not in cli_args and param in config_args:
+            # Use the value from the config file
             setattr(args, param, config_val)
 
             if default_val != config_val:
                 logging.getLogger("PPanGGOLiN").debug(
-                    f'Parameter "{param}: {get_arg_name(config_val)}" has been specified in config file with non default value.'
-                    f' Its value overwrites default value ({get_arg_name(default_val)}).')
+                    f'The parameter "--{param}: {get_arg_name(config_val)}" has been specified in the config file with a non-default value.'
+                    f' Its value overwrites the default value ({get_arg_name(default_val)}).')
+
+        elif param in cli_args and param in config_args:
+            # Use the value from the command line argument (cli) if it's different from the config file (config)
+            setattr(args, param, cli_val)
+
+            if cli_val == config_val and cli_val != default_val:
+                logging.getLogger("PPanGGOLiN").debug(
+                    f'The parameter "--{param} {get_arg_name(cli_val)}" has been specified in both the command line '
+                    f'and the config file with the same values, but with non-default value. '
+                    f'Its value overwrites the default value ({get_arg_name(default_val)}).')
+
+            elif cli_val != config_val and param != "config":
+                # Values in cli and config differ. Use the value from the command line argument (cli)
+                logging.getLogger("PPanGGOLiN").debug(
+                    f'The parameter "--{param}" has been specified in both the command line ("{get_arg_name(cli_val)}") '
+                    f'and the config file ("{get_arg_name(config_val)}") with different values. '
+                    f'The value from the command line argument is used.')
         else:
-            # param is not defined in cli and in config. default value is applied
+            # Parameter is not defined in cli and in config. Use the default value.
             setattr(args, param, default_val)
 
     return args
+
 
 
 def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
@@ -616,12 +658,16 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
             f"{len(params_that_differ)} {subcommand} parameters have non-default value: {params_that_differ_str}")
 
     # manage workflow command
+    workflow_steps = []
     if subcommand in WORKFLOW_SUBCOMMANDS:
-        for workflow_step in ALL_WORKFLOW_DEPENDENCIES:
+
+        workflow_steps = [wf_step for wf_step in ALL_WORKFLOW_DEPENDENCIES if not (wf_step in ["rgp", "spot"] and subcommand in ["workflow", "panmodule"]) or \
+                    not (wf_step == "module" and subcommand in ["workflow", "panmodule"])]
+
+        for workflow_step in workflow_steps:
             if (workflow_step in ["rgp", "spot"] and subcommand in ["workflow", "panmodule"]) or \
                     (workflow_step == "module" and subcommand in ["workflow", "panmodule"]):
                 continue
-
             logging.getLogger("PPanGGOLiN").debug(f'Parsing {workflow_step} arguments in config file.')
             step_subparser = subcommand_to_subparser[workflow_step]
 
@@ -664,7 +710,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     if params_that_differ:
         logging.getLogger("PPanGGOLiN").info(f'{len(params_that_differ)} parameters have a non-default value.')
 
-    check_config_consistency(config, ALL_WORKFLOW_DEPENDENCIES)
+    check_config_consistency(config, workflow_steps)
 
     return args
 
@@ -720,10 +766,11 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
     arguments_to_parse = []
     for param, val in config_param_val.items():
 
-        if type(val) == bool:
+        if type(val) == bool or val is None or val == "None":
             # param is a flag
             if val is True:
                 arguments_to_parse.append(f"--{param}")
+            # if val is False or None we don't add id to the  
         else:
             arguments_to_parse.append(f"--{param}")
 
@@ -860,8 +907,8 @@ def get_cli_args(subparser_fct: Callable) -> argparse.Namespace:
     # remove argument that have not been specified
     delete_unspecified_args(cli_args)
     delattr(cli_args, 'subcommand')
-    if 'config' in cli_args:
-        delattr(cli_args, 'config')
+    # if 'config' in cli_args:
+    #     delattr(cli_args, 'config')
 
     return cli_args
 

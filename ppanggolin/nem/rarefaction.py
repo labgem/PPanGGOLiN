@@ -362,8 +362,8 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
     ppp.pan = pangenome  # use the global from partition to store the pangenome, so that it is usable
 
     try:
-        krange[0] = ppp.pan.parameters["partition"]["K"] if krange[0] < 0 else krange[0]
-        krange[1] = ppp.pan.parameters["partition"]["K"] if krange[1] < 0 else krange[1]
+        krange[0] = ppp.pan.parameters["partition"]["# final nb of partitions"] if krange[0] < 0 else krange[0]
+        krange[1] = ppp.pan.parameters["partition"]["# final nb of partitions"] if krange[1] < 0 else krange[1]
     except KeyError:
         krange = [3, 20]
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
@@ -378,7 +378,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
 
     if kval < 3 and kestimate is False:  # estimate K once and for all.
         try:
-            kval = ppp.pan.parameters["partition"]["K"]
+            kval = ppp.pan.parameters["partition"]["# final nb of partitions"]
             logging.getLogger("PPanGGOLiN").info(f"Reuse the number of partitions {kval}")
         except KeyError:
             logging.getLogger("PPanGGOLiN").info("Estimating the number of partitions...")

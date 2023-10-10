@@ -71,7 +71,7 @@ jobs:
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --info_modules --no_print_info -f --log metrics.log
-        cd -
+        cd - 
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
       run: |
@@ -100,13 +100,14 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_align --draw_related --getinfo
+        ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta \
+                         --output test_align --draw_related --getinfo --fast
         cd -
     - name: testing context command
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context
+        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context --fast
         ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f
         cd -
     - name: testing metadata command
@@ -124,3 +125,17 @@ jobs:
         cd testingDataset
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
         ppanggolin panrgp  --anno organisms.gbff.list --cluster clusters.tsv -o test_config --config panrgp_default_config.yaml
+        cd -
+    - name: testing projection cmd
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        head organisms.gbff.list | sed 's/^/input_org_/g' > organisms.gbff.head.list
+        ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_lisy_of_gbff \
+                            --anno organisms.gbff.head.list 
+
+
+        ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_single_fasta \
+                              --organism_name chlam_A --fasta FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz \
+                              --spot_graph --graph_formats graphml --fast --keep_tmp -f
+
