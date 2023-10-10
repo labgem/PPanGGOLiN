@@ -64,52 +64,31 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
             line_data = line.split()
             start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
             c += 1
-            gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(3))
+            gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(4))
             gene.fill_annotations(start=start, stop=stop, strand="-" if line_data[2].startswith("c") else "+",
                                   gene_type="tRNA", product=line_data[1] + line_data[4])
             gene_objs[header].add(gene)
     return gene_objs
 
 
-def launch_prodigal(fna_file: TextIOWrapper, org: Organism, code: int = 11, use_meta: bool = False) -> defaultdict:
+def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int = 11, use_meta: bool = False) -> defaultdict:
     """
     Launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the pred genes.
 
-    :param fna_file: File-like object containing the uncompressed fasta sequences
+    :param contig_sequences: Dict containing contig sequences for pyrodigal
     :param org: Organism which will be annotated
     :param code: Translation table (genetic code) to use.
     :param use_meta: use meta procedure in Prodigal
 
     :return: Annotated genes in a list of gene objects
     """
-    def write_seq(fna_file: TextIOWrapper) -> Dict[str, Sequence]:
-        """Write contig sequence to predict genes with pyrodigal
-
-        :param fna_file: Fasta file with sequences
-
-        :return: Contig sequence link to contig name
-        """
-        sequences = {}
-        contig_name = None
-        with open(fna_file.name, "r") as file:
-            lines = file.readlines()
-            for line in lines:
-                if line.startswith('>'):
-                    contig_name = line.replace(">", "").replace("\n", "")
-                    seq = ""
-                else:
-                    while not line.startswith('>') and len(lines) > 0:
-                        seq += line.replace("\n", "")
-                        line = lines.pop(0)
-                    sequences[contig_name] = Sequence(seq)
-        return sequences
-
     gene_objs = defaultdict(set)
-    sequences = write_seq(fna_file)
+    sequences = {contig_name: Sequence(sequence) for contig_name, sequence in contig_sequences.items()}
     gene_finder = GeneFinder(
         meta=use_meta,  # '-p meta' if meta is true else '-p single'
         closed=True,  # -c: Closed ends. Do not allow genes to run off edges.
-        mask=True  # -m: Treat runs of N as masked sequence; don't build genes across them.
+        mask=True,  # -m: Treat runs of N as masked sequence; don't build genes across them.
+        min_gene=120  # This is to prevent erreur with mmseqs translatenucs that cut too short sequences
     )
     gene_finder.train(max(sequences.values(), key=len), force_nonsd=False,
                       translation_table=code)  # -g: Specify a translation table to use (default 11).
@@ -164,7 +143,7 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str, kingdom: str = "b
             line_data = line.split()
             strand = line_data[9]
             start, stop = map(int, (line_data[8], line_data[7]) if strand == "-" else (line_data[7], line_data[8]))
-            gene = RNA(rna_id=locustag + "_rRNA_" + str(c).zfill(3))
+            gene = RNA(rna_id=locustag + "_rRNA_" + str(c).zfill(4))
             gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type="rRNA",
                                   product=" ".join(line_data[17:]))
             gene_objs[line_data[2]].add(gene)
@@ -232,13 +211,15 @@ def write_tmp_fasta(contigs: dict, tmpdir: str) -> tempfile._TemporaryFileWrappe
     return tmp_file
 
 
-def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, tmpdir: str, norna: bool = False,
-                        kingdom: str = "bacteria", code: int = 11, use_meta: bool = False) -> defaultdict:
+def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, contig_sequences: Dict[str, str],
+                        tmpdir: str, norna: bool = False, kingdom: str = "bacteria",
+                        code: int = 11, use_meta: bool = False) -> defaultdict:
     """
     Runs the different software for the syntaxic annotation.
 
     :param org: Organism which will be annotated
     :param fasta_file: file-like object containing the uncompressed fasta sequences
+    :param contig_sequences: Dict containing contig sequences for pyrodigal
     :param tmpdir: Path to temporary directory
     :param norna: Use to avoid annotating RNA features.
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
@@ -250,7 +231,7 @@ def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, tmpdir: str, n
 
     # launching tools for syntaxic annotation
     genes = defaultdict(list)
-    for key, items in launch_prodigal(fna_file=fasta_file, org=org, code=code, use_meta=use_meta).items():
+    for key, items in launch_prodigal(contig_sequences=contig_sequences, org=org, code=code, use_meta=use_meta).items():
         genes[key].extend(items)
     if not norna:
         for key, items in launch_aragorn(fna_file=fasta_file.name, org=org).items():
@@ -342,7 +323,7 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str
             use_meta = False
     else:
         use_meta = True if procedure == "meta" else False
-    genes = syntaxic_annotation(org, fasta_file, tmpdir, norna, kingdom, code, use_meta)
+    genes = syntaxic_annotation(org, fasta_file, contig_sequences, tmpdir, norna, kingdom, code, use_meta)
     genes = overlap_filter(genes, allow_overlap=allow_overlap)
 
     for contig_name, genes in genes.items():
