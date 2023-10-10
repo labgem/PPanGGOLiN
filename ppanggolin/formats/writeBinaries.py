@@ -6,7 +6,7 @@ import logging
 from collections import Counter, defaultdict
 import statistics
 from typing import Tuple, Union
-import pkg_resources
+from importlib.metadata import distribution
 
 # installed libraries
 from tqdm import tqdm
@@ -394,7 +394,7 @@ def write_status(pangenome: Pangenome, h5f: tables.File):
     status_group._v_attrs.spots = True if pangenome.status["spots"] in ["Computed", "Loaded", "inFile"] else False
     status_group._v_attrs.modules = True if pangenome.status["modules"] in ["Computed", "Loaded", "inFile"] else False
     status_group._v_attrs.metadata = write_metadata_status(pangenome, h5f, status_group)
-    status_group._v_attrs.version = pkg_resources.get_distribution("ppanggolin").version
+    status_group._v_attrs.version = distribution("ppanggolin").version
 
 
 def write_info(pangenome: Pangenome, h5f: tables.File):

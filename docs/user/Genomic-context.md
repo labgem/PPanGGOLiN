@@ -1,8 +1,8 @@
+# Genomic context searching
+
 From version 1.2.45, it is possible to search genomic context in a pangenome graph using PPanGGOLiN. A genomic context corresponds to a group of genes/proteins with a functional interest, often found together in the genomes. They are detected by extracting a subgraph obtained by filtering edges connecting the sequences of interest in the pangenome.
 
 The analysis can be run on your formerly computed pangenomes and one or more genomic context. 
-
-# Context
 
 To search your genomic context of interest, there are two possibilities. You can search directly with genes/proteins sequences in a fasta file or use a list of the gene family ID. Both possibilities can be run in the same subcommand `context` and all the options are for tuning the parameters for the analysis.
 
@@ -41,6 +41,7 @@ There are 4 columns in `gene_context.tsv`.
 In **sequence Id**, it is possible to find a NA value. This case, correspond to another gene family found in the context.
 
 ## Detailed options
+
 | option name | Description |
 |-----------------------------|---------------------------------------------------------------------------|
 | --fast | Use representative sequences of gene families for input gene alignment. This option is recommended for faster processing but may be less sensitive. By default, all pangenome genes are used for alignment. This argument makes sense only when --sequence is provided. (default: False) |

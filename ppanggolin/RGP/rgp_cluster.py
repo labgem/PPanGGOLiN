@@ -382,14 +382,14 @@ def cluster_rgp_on_grr(graph: nx.Graph, clustering_attribute: str = "grr"):
 
 def get_spot_id(rgp: Region, rgp_to_spot: Dict[Region, int]) -> str:
     """
-    Return Spot ID associated to an RGP. 
-    It adds the prefix "spot_" to the spot ID.
-    When no spot is associated with the RGP, then the string "No spot" is return
+    Return Spot ID associated to an RGP.
+    It adds the prefix "spot" to the spot ID. When no spot is associated with the RGP,
+    then the string "No spot" is return
 
-    :params rgp: RGP id
-    :params rgp_to_spot: A dictionary mapping an RGP to its spot.
+    :param rgp: RGP id
+    :param rgp_to_spot: A dictionary mapping an RGP to its spot.
 
-    :return: Spot ID of the given RGP with the prefix spot_ or "No spot". 
+    :return: Spot ID of the given RGP with the prefix spot or "No spot".
     """
     if rgp in rgp_to_spot:
         return f"spot_{rgp_to_spot[rgp]}"
