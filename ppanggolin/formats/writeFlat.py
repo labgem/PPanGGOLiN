@@ -1029,8 +1029,8 @@ def write_org_modules(output: Path, compress: bool = False):
             for fam in mod.families:
                 mod_orgs |= set(fam.organisms)
             for org in mod_orgs:
-                completion = round((org.number_of_families() + len(mod)) / len(mod), 2)
-                fout.write(f"module_{mod.ID}\t{org.name}\t{completion}\n")
+                completion = len(set(org.families) & set(mod.families)) / len(mod)
+                fout.write(f"module_{mod.ID}\t{org.name}\t{completion:.2}\n")
         fout.close()
     logging.getLogger("PPanGGOLiN").info(
         f"Done writing modules to organisms associations to: '{output.as_posix() + '/modules_in_organisms.tsv'}'")
