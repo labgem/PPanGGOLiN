@@ -95,7 +95,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
         project_and_write_partition(seqid2fam, seq_set, output)
         write_gene_to_gene_family(seqid2fam, seq_set, output)
-        fam2seq = {gf.ID: seqid for seqid, gf in seqid2fam}
+        fam2seq = {gf.ID: seqid for seqid, gf in seqid2fam.items()}
         for pan_family in seqid2fam.values():
             families_of_interest.add(pan_family)
 
