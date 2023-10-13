@@ -648,7 +648,7 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
 
     if spot_list == 'all' or any(x == 'all' for x in spot_list):
         logging.getLogger("PPanGGOLiN").debug(f"'all' value is found in spot list, all spots are drawn.")
-        selected_spots = pangenome.spots
+        selected_spots = list(pangenome.spots)
     elif spot_list == "synteny" or any(x == 'synteny' for x in spot_list):
         logging.getLogger().debug(f"'synteny' value is found in spot list, all spots with more than 1 conserved synteny are drawn.")
         selected_spots = [s for s in pangenome.spots if len(s.get_uniq_ordered_set()) > 1]
