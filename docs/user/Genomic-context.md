@@ -30,13 +30,14 @@ In this case, you can give a pangenome without gene families representatives seq
 
 In case of you are using families ID, you will only have as output the `gene_context.tsv` file. In the other case, you use sequences, you will have another output file to report the alignment between sequences and pangenome families (see detail in align subcommand).
 
-There are 4 columns in `gene_context.tsv`. 
+There are 6 columns in `gene_context.tsv`. 
 
-1. **geneContext ID**: identifier of the found context. It is incrementally generated, beginning with 1
+1. **geneContext ID**: Identifier of the found context. It is incrementally generated, beginning with 1
 2. **Gene family name**: Identifier of the gene family, from the pangenome, correspond to the found context
 3. **Sequence ID**: Identifier of the searched sequence in the pangenome
 4. **Nb Genomes**: Number of genomes where the genomic context is found
 5. **Partition**: Partition of the gene family corresponding to the found context
+6. **Target family**: Whether the family is a target family, meaning it matches an input sequence, or a family provided as input.
 
 In **sequence Id**, it is possible to find a NA value. This case, correspond to another gene family found in the context.
 

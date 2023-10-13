@@ -66,7 +66,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
 
     families_of_interest = set()
-    fam2seq = {}
+    family_2_input_seqid = None
     if sequence_file is not None:
         # Alignment of sequences on pangenome families
         with read_compressed_or_not(sequence_file) as seqFileObj:
@@ -95,7 +95,11 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
         project_and_write_partition(seqid2fam, seq_set, output)
         write_gene_to_gene_family(seqid2fam, seq_set, output)
-        fam2seq = {gf.ID: seqid for seqid, gf in seqid2fam.items()}
+
+        family_2_input_seqid = defaultdict(set)
+        for seqid, gf in seqid2fam.items():
+            family_2_input_seqid[gf].add(seqid)
+
         for pan_family in seqid2fam.values():
             families_of_interest.add(pan_family)
 
@@ -140,8 +144,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
             f"There are {sum((len(gc) for gc in gene_contexts))} families among {len(gene_contexts)} gene contexts")
 
         output_file = output / "gene_contexts.tsv"
-
-        export_context_to_dataframe(gene_contexts, fam2seq, output_file)
+        export_context_to_dataframe(gene_contexts, family_2_input_seqid, families_of_interest, output_file)
 
     else:
         logging.getLogger("PPanGGOLiN").info("No gene contexts were found")
@@ -569,29 +572,31 @@ def fam_to_seq(seq_to_pan: dict) -> dict:
     return fam_2_seq
 
 
-def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int], output: Path):
+def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int], families_of_interest: Set[GeneFamily], output: Path):
     """
     Export the results into dataFrame
 
     :param gene_contexts: connected components found in the pangenome
     :param fam2seq: Dictionary with gene families ID as keys and list of sequence ids as values
+    :param families_of_interest: families of interest that are at the origine of the context.
     :param output: output path
     """
 
     lines = []
     for gene_context in gene_contexts:
         for family in gene_context.families:
-
-            if fam2seq.get(family.ID) is None:
+            if fam2seq.get(family) is None:
                 sequence_id = None
             else:
-                sequence_id = ','.join(fam2seq.get(family.ID))
+                sequence_id = ','.join(fam2seq.get(family))
 
             family_info = {"GeneContext ID": gene_context.ID,
                            "Gene family name": family.name,
                            "Sequence ID": sequence_id,
                            "Nb Genomes": family.number_of_organisms,
-                           "Partition": family.named_partition}
+                           "Partition": family.named_partition,
+                           "Target family": family in families_of_interest}
+            
             lines.append(family_info)
 
     df = pd.DataFrame(lines).set_index("GeneContext ID")
