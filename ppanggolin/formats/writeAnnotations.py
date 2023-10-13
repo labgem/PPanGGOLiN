@@ -84,7 +84,8 @@ def contig_desc(contig_len: int, org_len: int) -> Dict[str, Union[tables.StringC
 
     :return: Formatted table
     """
-    return {'name': tables.StringCol(itemsize=contig_len),
+    return {'ID': tables.UInt32Col(),
+            'name': tables.StringCol(itemsize=contig_len),
             "is_circular": tables.BoolCol(dflt=False),
             'length': tables.UInt32Col(),
             "organism": tables.StringCol(itemsize=org_len)}
@@ -104,6 +105,7 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
     logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_contigs} contigs")
     contig_row = contig_table.row
     for contig in tqdm(pangenome.contigs, total=pangenome.number_of_contigs, unit="contigs", disable=disable_bar):
+        contig_row["ID"] = contig.ID
         contig_row["name"] = contig.name
         contig_row["is_circular"] = contig.is_circular
         contig_row["length"] = len(contig)
@@ -112,12 +114,11 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
     contig_table.flush()
 
 
-def gene_desc(id_len: int, max_local_id: int, max_contig_len: int) -> Dict[str, Union[tables.StringCol, tables.UInt32Col, tables.BoolCol]]:
+def gene_desc(id_len: int, max_local_id: int) -> Dict[str, Union[tables.StringCol, tables.UInt32Col, tables.BoolCol]]:
     """Table description to save gene-related information
 
     :param id_len: Maximum size of gene name
     :param max_local_id: Maximum size of gene local identifier
-    :param max_contig_len: Maximum size of contig identifier
 
     :return: Formatted table
     """
@@ -125,7 +126,7 @@ def gene_desc(id_len: int, max_local_id: int, max_contig_len: int) -> Dict[str, 
             'genedata_id': tables.UInt32Col(),
             'local': tables.StringCol(itemsize=max_local_id),
             'is_fragment': tables.BoolCol(dflt=False),
-            'contig': tables.StringCol(itemsize=max_contig_len)}
+            'contig': tables.UInt32Col()}
 
 
 def write_genes(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group,
@@ -150,7 +151,7 @@ def write_genes(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Grou
         gene_row["ID"] = gene.ID
         gene_row["is_fragment"] = gene.is_fragment
         gene_row["local"] = gene.local_identifier
-        gene_row["contig"] = gene.contig.name
+        gene_row["contig"] = gene.contig.ID
         genedata = get_genedata(gene)
         genedata_id = genedata2gene.get(genedata)
         if genedata_id is None:
@@ -163,7 +164,7 @@ def write_genes(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Grou
     return genedata2gene
 
 
-def rna_desc(id_len: int, max_contig_len: int) -> Dict[str, Union[tables.StringCol, tables.UInt32Col]]:
+def rna_desc(id_len: int) -> Dict[str, Union[tables.StringCol, tables.UInt32Col]]:
     """Table description to save rna-related information
 
     :param id_len: Maximum size of RNA identifier
@@ -173,7 +174,7 @@ def rna_desc(id_len: int, max_contig_len: int) -> Dict[str, Union[tables.StringC
     """
     return {'ID': tables.StringCol(itemsize=id_len),
             'genedata_id': tables.UInt32Col(),
-            'contig': tables.StringCol(itemsize=max_contig_len)}
+            'contig': tables.UInt32Col()}
 
 
 def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group,
@@ -196,7 +197,7 @@ def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group
     rna_row = rna_table.row
     for rna in tqdm(pangenome.RNAs, total=pangenome.number_of_rnas, unit="RNA", disable=disable_bar):
         rna_row["ID"] = rna.ID
-        rna_row["contig"] = rna.contig.name
+        rna_row["contig"] = rna.contig.ID
         genedata = get_genedata(rna)
         genedata_id = genedata2rna.get(genedata)
         if genedata_id is None:
@@ -336,11 +337,11 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: boo
         desc = contig_desc(contig_len, org_len)
         write_contigs(pangenome, h5f, annotation, desc, disable_bar)
     if rec_genes:
-        desc = gene_desc(gene_id_len, gene_local_id, contig_len)
+        desc = gene_desc(gene_id_len, gene_local_id)
         genedata2gene = write_genes(pangenome, h5f, annotation, desc, disable_bar)
         write_genedata(pangenome, h5f, annotation, genedata2gene, disable_bar)
     if rec_rnas:
-        desc = rna_desc(rna_id_len, contig_len)
+        desc = rna_desc(rna_id_len)
         genedata2rna = write_rnas(pangenome, h5f, annotation, desc, disable_bar)
         write_genedata(pangenome, h5f, annotation, genedata2rna, disable_bar)
 

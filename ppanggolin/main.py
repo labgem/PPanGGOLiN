@@ -4,17 +4,17 @@
 # default libraries
 import sys
 
-if sys.version_info < (3, 6):  # minimum is python3.6
-    raise AssertionError("Minimum python version to run PPanGGOLiN is 3.6. Your current python version is " +
+if sys.version_info < (3, 8):  # minimum is python3.8
+    raise AssertionError("Minimum python version to run PPanGGOLiN is 3.8. Your current python version is " +
                          ".".join(map(str, sys.version_info)))
 import argparse
-import pkg_resources
+from importlib.metadata import distribution
 
 # local modules
 import ppanggolin.pangenome
 from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args
-import ppanggolin.nem.rarefaction
 import ppanggolin.nem.partition
+import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
@@ -32,6 +32,13 @@ import ppanggolin.utility
 
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
+version = distribution("ppanggolin").version
+epilog = f"""
+PPanGGOLiN ({version}) is an opensource bioinformatic tools under CeCILL FREE SOFTWARE LICENSE AGREEMENT
+LABGeM
+Please cite: Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. 
+PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
+"""
 
 def cmd_line() -> argparse.Namespace:
     """ Manage the command line argument given by user
@@ -58,6 +65,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    partition     Partition the pangenome graph\n"
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
+    desc += "    projection    Annotate an input genome with an existing pangenome\n"
     desc += "    metadata      Add metadata to elements in pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
@@ -80,18 +88,17 @@ def cmd_line() -> argparse.Namespace:
     desc += "  \n"
     desc += "  Utility command:\n"
     desc += "    utils      Helper side commands.\n"
-    desc += "  \n"
 
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-        formatter_class=argparse.RawTextHelpFormatter)
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog=epilog)
 
     parser.add_argument('-v', '--version', action='version',
-                        version='%(prog)s ' + pkg_resources.get_distribution("ppanggolin").version)
+                        version='%(prog)s ' + version)
 
     subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
     subparsers.required = True  # because python3 sent subcommands to hell apparently
-
 
     # print help if no subcommand is specified
     if len(sys.argv) == 1:
@@ -126,20 +133,26 @@ def cmd_line() -> argparse.Namespace:
         set_verbosity_level(args)
 
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        parser.error("You must provide at least a file with the --fasta option to annotate from sequences, "
-                     "or a file with the --gff option to load annotations through the command line or the config file.")
+        parser.error("Please provide either a sequence file using the --fasta option or an annotation file using the --anno option "
+                    "to enable annotation. Use the command line or the config file.")
 
     cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
                                "context", "write", "msa", "draw", "partition",
-                               "rarefaction", "spot", "fasta", "metrics", "rgp"]
+                               "rarefaction", "spot", "fasta", "metrics", "rgp", "projection", "metadata"]
     if args.subcommand in cmds_pangenome_required and args.pangenome is None:
-        parser.error("You must provide a pangenome file with the --pangenome "
-                     "argument through the command line or the config file.")
+        parser.error("Please specify a pangenome file using the --pangenome argument, "
+                     "either through the command line or the config file.")
+
 
     if args.subcommand == "align" and args.sequences is None:
-        parser.error("You must provide sequences (nucleotides or amino acids) to align on the pangenome gene families "
-                     "with the --sequences argument through the command line or the config file.")
-
+        parser.error("Please provide sequences (nucleotides or amino acids) for alignment with the pangenome gene families "
+                    "using the --sequences argument, either through the command line or the config file.")
+    
+    if args.subcommand == "projection":
+        # check argument correctness and determine input mode (single or multiple files) and add it to args.
+        input_mode = ppanggolin.projection.projection.check_projection_arguments(args, parser)
+        setattr(args, "input_mode", input_mode)
+        
     return args
 
 
@@ -180,6 +193,8 @@ def main():
         ppanggolin.metrics.metrics.launch(args)
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
+    elif args.subcommand == "projection":
+        ppanggolin.projection.projection.launch(args)
     elif args.subcommand == "rgp":
         ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "spot":

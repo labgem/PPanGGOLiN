@@ -110,10 +110,10 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
     pangenome.status["neighborsGraph"] = "Computed"
 
     pangenome.parameters["graph"] = {}
-    pangenome.parameters["graph"]["removed_high_copy_number_families"] = False
+    # pangenome.parameters["graph"]["removed_high_copy_number_families"] = False
     if remove_copy_number > 0:
-        pangenome.parameters["graph"]["removed_high_copy_number_families"] = True
-        pangenome.parameters["graph"]["removed_high_copy_number_of_families_above"] = remove_copy_number
+        # pangenome.parameters["graph"]["removed_high_copy_number_families"] = True
+        pangenome.parameters["graph"]["remove_high_copy_number"] = remove_copy_number
 
 
 def launch(args: argparse.Namespace):
@@ -147,11 +147,14 @@ def parser_graph(parser: argparse.ArgumentParser):
 
     :param parser: parser for graph argument
     """
-    parser.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
-    parser.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
-                        help="Positive Number: Remove families having a number of copy of gene in a single organism "
-                             "above or equal to this threshold in at least one organism "
-                             "(0 or negative values are ignored).")
+    required = parser.add_argument_group(title="Required arguments",
+                                         description="Following arguments is required:")
+    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
+    optional = parser.add_argument_group(title="Optional arguments")
+    optional.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
+                          help="Positive Number: Remove families having a number of copy of gene in a single organism "
+                               "above or equal to this threshold in at least one organism "
+                               "(0 or negative values are ignored).")
 
 
 if __name__ == '__main__':
