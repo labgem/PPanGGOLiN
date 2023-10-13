@@ -66,7 +66,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
 
     families_of_interest = set()
-    family_2_input_seqid = None
+    family_2_input_seqid = {}
     if sequence_file is not None:
         # Alignment of sequences on pangenome families
         with read_compressed_or_not(sequence_file) as seqFileObj:
