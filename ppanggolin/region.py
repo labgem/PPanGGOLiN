@@ -737,17 +737,24 @@ class Module(MetaFeatures):
 
 class GeneContext:
     """
-    A class used to represent a gene context which is a collection of gene families related to a specific genomic context..
+    Represent a gene context which is a collection of gene families related to a specific genomic context..
 
-    :param gc_id: Identifier of the gene context.
-    :param families: Gene families related to the gene context.
-    :param families_of_interest: Input families for which the context is being searched.
+    Methods
+    - families: Generator that yields all the gene families in the gene context.
+    - add_context_graph: Add a context graph corresponding to the gene context.
+    - add_family: Add a gene family to the gene context.
+
+    Fields
+    - gc_id: The identifier of the gene context.
+    - graph: context graph corresponding to the gene context
     """
 
     def __init__(self, gc_id: int, families: Set[GeneFamily] = None, families_of_interest: Set[GeneFamily] = None):
         """Constructor method
-        :param gc_id : Identifier of the Gene context
-        :param families: Gene families related to the GeneContext
+
+        :param gc_id: Identifier of the gene context.
+        :param families: Gene families related to the gene context.
+        :param families_of_interest: Input families for which the context is being searched.
         """
 
         if not isinstance(gc_id, int):
@@ -756,7 +763,7 @@ class GeneContext:
         self.ID = gc_id
         self._families_getter = {}
         self.families_of_interest = families_of_interest
-        self.graph = None
+        self._graph = None
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
                 raise Exception("You provided elements that were not GeneFamily objects. "
@@ -846,15 +853,23 @@ class GeneContext:
         except KeyError:
             raise KeyError(f"There isn't gene family with the name {name} in the gene context")
 
-    def add_context_graph(self, graph: nx.Graph):
+    @property
+    def graph(self):
+        if self._graph is None:
+            raise ValueError("Graph has not been added to the context")
+        return self._graph
+
+    @graph.setter
+    def graph(self, graph: nx.Graph):
         """
         Add a context graph to the gene context.
 
         :param graph: The context graph.
         """
-        self.graph = graph
-
-
+        if not isinstance(nx.Graph, graph):
+            logging.getLogger("PPanGGOLiN").debug(f"given type: {type(graph)}")
+            raise TypeError("Context graph must be a networkx graph object.")
+        self._graph = graph
 
     @property
     def families(self) -> Generator[GeneFamily, None, None]:
@@ -863,7 +878,6 @@ class GeneContext:
         :return: Gene families belonging to the context
         """
         yield from self._families_getter.values()
-
 
     def add_family(self, family: GeneFamily):
         """
@@ -874,4 +888,4 @@ class GeneContext:
         if not isinstance(family, GeneFamily):
             raise Exception("You did not provide a GeneFamily object. "
                             "GeneContexts are only made of GeneFamily objects.")
-        self.families.add(family)
+        self[family.name] = family
