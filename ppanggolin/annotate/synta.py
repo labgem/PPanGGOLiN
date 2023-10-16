@@ -6,6 +6,7 @@ import logging
 import os
 import tempfile
 from io import TextIOWrapper
+from multiprocessing import Value
 from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
@@ -18,6 +19,15 @@ from pyrodigal import GeneFinder, Sequence
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import is_compressed, read_compressed_or_not
+
+
+contig_counter: Value = Value('i', 0)
+
+
+def init_contig_counter(value: Value):
+    """Initialize the contig counter for later use"""
+    global contig_counter
+    contig_counter = value
 
 
 def reverse_complement(seq: str):
@@ -158,6 +168,8 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
 
     :return: Dictionnary with contig_name as keys and contig sequence in values
     """
+    global contig_counter
+
     try:
         contigs = {}
         contig_seq = ""
@@ -171,7 +183,9 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
                 try:
                     contig = org.get(line.split()[0][1:])
                 except KeyError:
-                    contig = Contig(line.split()[0][1:])
+                    with contig_counter.get_lock():
+                        contig = Contig(contig_counter.value, line.split()[0][1:])
+                        contig_counter.value += 1
                     org.add(contig)
             else:
                 contig_seq += line.strip()

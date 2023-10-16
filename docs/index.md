@@ -163,6 +163,7 @@ user/Regions-of-Genome-Plasticity
 user/Conserved-modules
 user/Align
 user/Genomic-context
+user/projection
 user/metadata
 user/Outputs
 ```

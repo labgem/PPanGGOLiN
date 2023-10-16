@@ -10,6 +10,7 @@ import os
 import argparse
 from typing import TextIO, Tuple, Dict, Set
 from pathlib import Path
+import time
 
 # installed libraries
 from networkx import Graph
@@ -23,6 +24,7 @@ from ppanggolin.utils import read_compressed_or_not, restricted_float
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
+from ppanggolin.utils import mk_outdir
 
 
 # Global functions
@@ -55,7 +57,7 @@ def check_pangenome_for_clustering(pangenome: Pangenome, tmp_file: TextIO, force
     check_pangenome_former_clustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
         # we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
-        write_gene_sequences_from_annotations(pangenome, tmp_file, add="ppanggolin_", disable_bar=disable_bar)
+        write_gene_sequences_from_annotations(pangenome.genes, tmp_file, add="ppanggolin_", disable_bar=disable_bar)
     elif pangenome.status["geneSequences"] == "inFile":
         get_gene_sequences_from_file(pangenome.file, tmp_file, add="ppanggolin_",
                                      disable_bar=disable_bar)  # write CDS sequences to the tmpFile
@@ -282,24 +284,33 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
 
 def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = True, code: int = 11,
                coverage: float = 0.8, identity: float = 0.8, mode: int = 1, force: bool = False,
-               disable_bar: bool = False):
+               disable_bar: bool = False, keep_tmp_files: bool = True):
     """
-    Main function to cluster pangenome gene sequences into families
+    Cluster gene sequences from an annotated pangenome into families.
 
-    :param pangenome: Annotated Pangenome
-    :param tmpdir: Path to temporary directory
-    :param cpu: number of CPU cores to use
-    :param defrag: Allow to remove fragment
-    :param code: Genetic code used
-    :param coverage: minimal coverage threshold for the alignment
-    :param identity: minimal identity threshold for the alignment
-    :param mode: MMseqs2 clustering mode
-    :param force: force to write in the pangenome
-    :param disable_bar: Allow to disable progress bar
+    :param pangenome: Annotated Pangenome object.
+    :param tmpdir: Path to a temporary directory for intermediate files.
+    :param cpu: Number of CPU cores to use for clustering.
+    :param defrag: Allow removal of fragmented sequences during clustering.
+    :param code: Genetic code used for sequence translation.
+    :param coverage: Minimum coverage threshold for sequence alignment during clustering.
+    :param identity: Minimum identity threshold for sequence alignment during clustering.
+    :param mode: Clustering mode (MMseqs2 mode).
+    :param force: Force writing clustering results back to the pangenome.
+    :param disable_bar: Disable the progress bar during clustering.
+    :param keep_tmp_files: Keep temporary files (useful for debugging).
     """
 
-    newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-    tmp_path = Path(newtmpdir.name)
+    if keep_tmp_files:
+        dir_name = 'clustering_tmpdir' +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime())
+        tmp_path = Path(tmpdir) / dir_name
+        mk_outdir(tmp_path, force=True)
+    else:
+        newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
+        tmp_path = Path(newtmpdir.name)
+
+    # newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
+    # tmp_path = Path(newtmpdir.name)
     with open(tmp_path/'nucleotid_sequences', "w") as sequence_file:
         check_pangenome_for_clustering(pangenome, sequence_file, force, disable_bar=disable_bar)
         logging.getLogger("PPanGGOLiN").info("Clustering all of the genes sequences...")
@@ -314,7 +325,8 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
         aln = align_rep(rep, tmp_path, cpu, coverage, identity)
         genes2fam, fam2seq = refine_clustering(tsv, aln, fam2seq)
         pangenome.status["defragmented"] = "Computed"
-    newtmpdir.cleanup()
+    if not keep_tmp_files:
+        newtmpdir.cleanup()
     read_fam2seq(pangenome, fam2seq)
     read_gene2fam(pangenome, genes2fam, disable_bar=disable_bar)
 
@@ -324,9 +336,12 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     pangenome.parameters["cluster"] = {}
     pangenome.parameters["cluster"]["coverage"] = coverage
     pangenome.parameters["cluster"]["identity"] = identity
-    pangenome.parameters["cluster"]["defragmentation"] = defrag
+    pangenome.parameters["cluster"]["mode"] = mode
+    pangenome.parameters["cluster"]["# defragmentation"] = defrag
+    pangenome.parameters["cluster"]["no_defrag"] = not defrag
+    
     pangenome.parameters["cluster"]["translation_table"] = code
-    pangenome.parameters["cluster"]["read_clustering_from_file"] = False
+    pangenome.parameters["cluster"]["# read_clustering_from_file"] = False
 
 
 # Read clustering
@@ -342,12 +357,12 @@ def mk_local_to_gene(pangenome: Pangenome) -> dict:
         old_len = len(local_dict)
         local_dict[gene.local_identifier] = gene
         if len(local_dict) == old_len:
-            if pangenome.parameters["annotation"]["read_annotations_from_file"] and not \
-                    pangenome.parameters["annotation"]["used_local_identifiers"]:
+            if pangenome.parameters["annotate"]["# read_annotations_from_file"] and not \
+                    pangenome.parameters["annotate"]["# used_local_identifiers"]:
                 raise Exception(f"'{gene.local_identifier}' was found multiple times used as an identifier. "
                                 f"The identifier of the genes (locus_tag, protein_id in gbff, ID in gff) were not "
                                 f"unique throughout all of the files. It is thus impossible to differentiate the genes."
-                                f" To use this function while importing annotation, all identifiers MUST be unique "
+                                f" To use this function while importing annotate, all identifiers MUST be unique "
                                 f"throughout all of your genomes")
             return {}  # local identifiers are not unique.
     return local_dict
@@ -435,7 +450,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
     pangenome.parameters["cluster"] = {}
-    pangenome.parameters["cluster"]["read_clustering_from_file"] = True
+    pangenome.parameters["cluster"]["# read_clustering_from_file"] = True
     pangenome.parameters["cluster"]["infer_singletons"] = infer_singleton
 
 
@@ -453,7 +468,7 @@ def launch(args: argparse.Namespace):
                                                     "creation. To infer singleton you should give a clustering")
         clustering(pangenome, args.tmpdir, args.cpu, defrag=not args.no_defrag, code=args.translation_table,
                    coverage=args.coverage, identity=args.identity, mode=args.mode, force=args.force,
-                   disable_bar=args.disable_prog_bar)
+                   disable_bar=args.disable_prog_bar, keep_tmp_files=args.keep_tmp)
         logging.getLogger("PPanGGOLiN").info("Done with the clustering")
     else:
         if None in [args.tmpdir, args.cpu, args.no_defrag, args.translation_table,
@@ -512,6 +527,9 @@ def parser_clust(parser: argparse.ArgumentParser):
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
+    optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
+                        help="Keeping temporary files (useful for debugging).")
+    
 
 
 if __name__ == '__main__':

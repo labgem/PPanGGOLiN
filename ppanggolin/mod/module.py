@@ -129,12 +129,12 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
     logging.getLogger("PPanGGOLiN").info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
 
     pangenome.status["modules"] = "Computed"
-    pangenome.parameters["modules"] = {}
-    pangenome.parameters["modules"]["size"] = size
-    pangenome.parameters["modules"]["min_presence"] = min_presence
-    pangenome.parameters["modules"]["transitive"] = transitive
-    pangenome.parameters["modules"]["jaccard"] = jaccard
-    pangenome.parameters["modules"]["dup_margin"] = dup_margin
+    pangenome.parameters["module"] = {}
+    pangenome.parameters["module"]["size"] = size
+    pangenome.parameters["module"]["min_presence"] = min_presence
+    pangenome.parameters["module"]["transitive"] = transitive
+    pangenome.parameters["module"]["jaccard"] = jaccard
+    pangenome.parameters["module"]["dup_margin"] = dup_margin
 
 
 def launch(args: argparse.Namespace):
