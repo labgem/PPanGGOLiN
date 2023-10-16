@@ -109,7 +109,6 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
                                 "you did not provide the genome linked to contig. "
                                 "Add a column 'genomes' to indicate to which genome the contig belongs to.")
 
-    print(metadata_df.columns)
     if metatype == "contigs" and "genomes" not in metadata_df.columns:
             check_duplicate_contig_name()
             org2contig = {contig.name: contig.organism.name for contig in pangenome.contigs}
@@ -144,7 +143,6 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
             if metatype == "contigs":
                 meta.genomes = element.organism.name
             element.add_metadata(source=source, metadata=meta)
-            print(element.metadata)
 
     pangenome.status["metadata"][metatype] = "Computed"
     pangenome.status["metasources"][metatype].append(source)

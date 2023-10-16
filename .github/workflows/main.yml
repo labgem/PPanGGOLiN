@@ -108,7 +108,10 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context --fast
-        ppanggolin context --pangenome readclusterpang/pangenome.h5 --family some_chlam_families.txt --output test_context -f
+
+        # test from gene family ids. Test here with one family of module 1. The context should find all families of module 1
+        echo AP288_RS05055 > one_family_of_module_1.txt 
+        ppanggolin context --pangenome myannopang/pangenome.h5 --family one_family_of_module_1.txt  --output test_context_from_id
         cd -
     - name: testing metadata command
       shell: bash -l {0}
@@ -131,8 +134,7 @@ jobs:
       run: |
         cd testingDataset
         head organisms.gbff.list | sed 's/^/input_org_/g' > organisms.gbff.head.list
-        ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_lisy_of_gbff \
-                            --anno organisms.gbff.head.list 
+        ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_lisy_of_gbff --anno organisms.gbff.head.list 
 
 
         ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_single_fasta \

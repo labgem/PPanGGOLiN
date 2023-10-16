@@ -358,14 +358,18 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
     need_regions = False
     need_modules = False
 
-    if any(x is not None for x in [regions, genes, gene_families, prot_families]):
+    if prot_families is not None:
+        need_families = True
+
+    if any(x is not None for x in [regions, genes, gene_families]):
         need_annotations = True
         need_families = True
     if regions is not None or any(x == "rgp" for x in (genes, gene_families, prot_families)):
+        need_annotations = True
         need_regions = True
     if any(x in ["persistent", "shell", "cloud"] for x in (genes, gene_families, prot_families)):
         need_partitions = True
-    for x in (genes, gene_families, prot_families):
+    for x in (genes, gene_families):
         if x is not None and 'module_' in x:
             need_modules = True
 

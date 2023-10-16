@@ -469,9 +469,7 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
     common.add_argument('-f', '--force', action="store_true",
                         help="Force writing in output directory and in pangenome output file.")
     common.add_argument("--config", required=False, type=argparse.FileType(),
-                        help="Config file in yaml format to launch the different step of "
-                             "the workflow with specific arguments.")
-
+                        help="Specify command arguments through a YAML configuration file.")
     subparser._action_groups.append(common)
 
 
