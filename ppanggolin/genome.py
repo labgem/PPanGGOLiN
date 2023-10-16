@@ -437,8 +437,10 @@ class Contig(MetaFeatures):
             raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
         del self[position]
 
-    def get_genes(self, begin: int, end: int) -> List[Gene]:
-        """Gets a list of genes within a range
+    def get_genes(self, begin: int = 0, end: int = None) -> List[Gene]:
+        """
+        Gets a list of genes within a range.
+        If no arguments are given it return all genes.
 
         :param begin: Position of the first gene to retrieve
         :param end: Position of the last gene to not retrieve
@@ -448,10 +450,16 @@ class Contig(MetaFeatures):
         :raises TypeError: If begin or end is not an integer
         :raises ValueError: If begin position is greater than end positon
         """
+
+        if end is None:
+            end = self.length
+
         if not isinstance(begin, int) or not isinstance(end, int):
-            raise TypeError(f"Expected type is int, given type was '{type(begin)}, {type(end)}'")
-        if end < begin:
-            raise ValueError("End position is lower than begin position")
+            raise TypeError(f"Expected type int for 'begin' and 'end', but received types '{type(begin)}' and '{type(end)}'.")
+
+        if begin >= end:
+            raise ValueError("The 'begin' position must be less than the 'end' position.")
+
         else:
             return self._genes_position[begin: end]
 
