@@ -1,6 +1,6 @@
 tqdm>=4.64
 pytables>=3.7
-prodigal>=2.6.3
+pyrodigal>=3.0.1
 aragorn>=1.2.41
 infernal>=1.1.4
 mmseqs2>=13.45111
