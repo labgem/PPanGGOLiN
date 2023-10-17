@@ -1,3 +1,5 @@
+# Align
+
 `ppanggolin align` is a command made to use a pangenome as a reference to get information about a set of sequences of interest. It requires a HDF-5 file of a previously computed pangenome as input, as well as either a set of sequences, nucleotides or proteins, as a .fasta file.
 The command will use MMseqs to compare the given input sequences to the pangenome gene family representatives, and will assign a gene family to each input sequence, if there is one which is close enough (the 'closeness' can be defined by some of the command parameters). If there are multiple assignable families, the closest one in bitscore is chosen.
 

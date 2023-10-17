@@ -438,7 +438,9 @@ class Contig(MetaFeatures):
         del self[position]
 
     def get_genes(self, begin: int = 0, end: int = None) -> List[Gene]:
-        """Gets a list of genes within a range. If argument is given it return all genes.
+        """
+        Gets a list of genes within a range.
+        If no arguments are given it return all genes.
 
         :param begin: Position of the first gene to retrieve
         :param end: Position of the last gene to not retrieve

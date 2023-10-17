@@ -1,4 +1,4 @@
-# Projection command
+# Projection
 The ppanggolin projection command allows you to annotate external genomes using an existing pangenome. This process eliminates the need to recompute all components, streamlining the annotation process. Input genomes are expected to belong to the same species.
 
 Genes within the input genome are aligned with genes in the pangenome to determine their gene families and partitions. Genes that do not align with any existing gene in the pangenome are considered specific to the input genome and are assigned to the "Cloud" partition. Based on the alignment and partition assignment, Regions of Plasticity (RGPs) within the input genome are predicted. Each RGP that is not located on a contig border is assigned to a spot of insertion. Finally, conserved modules of the pangenome found in the input genome are reported in the output files.
@@ -35,6 +35,7 @@ The Output directory contains `summary_projection.tsv` giving an overview of the
 | Cloud genes                          | The number of genes in the "Cloud" partition.|
 | Cloud families                       | The number of gene families in the "Cloud" parition.|
 | Cloud specific families              | The number of gene families that are specific to the input organism. These families are unique to the input organism and do not have homologs in any other genomes within the pangenome and have been assigned to the "Cloud" partition.|
+| completeness           | This indicates the proportion of single copy markers from the persistent partition that are present in the genome. While it is expected to be relatively close to 100 when working with isolates, it may be particularly interesting when working with very fragmented genomes as this provide a *de novo* estimation of the completeness based on the expectation that single copy markers within the persistent should be mostly present in all individuals of the studied taxonomic group. |
 | RGPs (Regions of Genomic Plasticity) | The number of Regions of Genomic Plasticity (RGPs) predicted within the input genome.|
 | Spots                                | The total number of spots of insertion associated with RGPs in the input genome.|
 | New spots                            | The number of new insertion spots that have been identified in the input genome. These spots represent novel genomic regions compared to other genomes in the pangenome.|

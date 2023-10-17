@@ -13,6 +13,9 @@ from collections import defaultdict
 from typing import Dict, List, Union
 from pathlib import Path
 
+# install libraries
+from pyrodigal import GeneFinder, Sequence
+
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import is_compressed, read_compressed_or_not
@@ -71,51 +74,46 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
             line_data = line.split()
             start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
             c += 1
-            gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(3))
+            gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(4))
             gene.fill_annotations(start=start, stop=stop, strand="-" if line_data[2].startswith("c") else "+",
                                   gene_type="tRNA", product=line_data[1] + line_data[4])
             gene_objs[header].add(gene)
     return gene_objs
 
 
-def launch_prodigal(fna_file: str, org: Organism, code: int = 11, procedure: str = None) -> defaultdict:
+def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int = 11, use_meta: bool = False) -> defaultdict:
     """
-    Launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the found genes.
+    Launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the pred genes.
 
-    :param fna_file: file-like object containing the uncompressed fasta sequences
+    :param contig_sequences: Dict containing contig sequences for pyrodigal
     :param org: Organism which will be annotated
     :param code: Translation table (genetic code) to use.
-    :param procedure: prodigal procedure used
+    :param use_meta: use meta procedure in Prodigal
 
     :return: Annotated genes in a list of gene objects
     """
-
-    locustag = org.name
-    cmd = list(map(str, ["prodigal", "-f", "sco", "-g", code, "-m", "-c", "-i", fna_file, "-p", procedure, "-q"]))
-    logging.getLogger("PPanGGOLiN").debug(f"prodigal command : {' '.join(cmd)}")
-    p = Popen(cmd, stdout=PIPE)
-
     gene_objs = defaultdict(set)
-    c = 0
-    header = ""
-    for line in p.communicate()[0].decode().split("\n"):
-        if line.startswith("# Sequence Data: "):
-            for data in line.split(";"):
-                if data.startswith("seqhdr"):
-                    header = data.split("=")[1].replace('"', "").split()[0]
-
-        elif line.startswith(">"):
-            c += 1
-            line_data = line[1:].split("_")  # not considering the '>'
-            gene = Gene(gene_id=locustag + "_CDS_" + str(c).zfill(4))
-            gene.fill_annotations(start=int(line_data[1]), stop=int(line_data[2]), strand=line_data[3], gene_type="CDS",
-                                  genetic_code=code)
-            gene_objs[header].add(gene)
-
+    sequences = {contig_name: Sequence(sequence) for contig_name, sequence in contig_sequences.items()}
+    gene_finder = GeneFinder(
+        meta=use_meta,  # '-p meta' if meta is true else '-p single'
+        closed=True,  # -c: Closed ends. Do not allow genes to run off edges.
+        mask=True,  # -m: Treat runs of N as masked sequence; don't build genes across them.
+        min_gene=120  # This is to prevent erreur with mmseqs translatenucs that cut too short sequences
+    )
+    gene_finder.train(max(sequences.values(), key=len), force_nonsd=False,
+                      translation_table=code)  # -g: Specify a translation table to use (default 11).
+    gene_counter = 1
+    for contig_name, sequence in sequences.items():
+        for pred in gene_finder.find_genes(sequence):
+            gene = Gene(gene_id=f"{org.name}_CDS_{str(gene_counter).zfill(4)}")
+            gene.fill_annotations(start=pred.begin, stop=pred.end, strand='-' if pred.strand == -1 else '+',
+                                  gene_type="CDS", genetic_code=code)
+            gene_counter += 1
+            gene_objs[contig_name].add(gene)
     return gene_objs
 
 
-def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "bacteria") -> defaultdict:
+def launch_infernal(fna_file: str, org: Organism, tmpdir: str, kingdom: str = "bacteria") -> defaultdict:
     """
     Launches Infernal in hmmer-only mode to annotate rRNAs.
 
@@ -155,7 +153,7 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str,  kingdom: str = "
             line_data = line.split()
             strand = line_data[9]
             start, stop = map(int, (line_data[8], line_data[7]) if strand == "-" else (line_data[7], line_data[8]))
-            gene = RNA(rna_id=locustag + "_rRNA_" + str(c).zfill(3))
+            gene = RNA(rna_id=locustag + "_rRNA_" + str(c).zfill(4))
             gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type="rRNA",
                                   product=" ".join(line_data[17:]))
             gene_objs[line_data[2]].add(gene)
@@ -227,25 +225,27 @@ def write_tmp_fasta(contigs: dict, tmpdir: str) -> tempfile._TemporaryFileWrappe
     return tmp_file
 
 
-def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, tmpdir: str, norna: bool = False,
-                        kingdom: str = "bacteria", code: int = 11, procedure: str = None) -> defaultdict:
+def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, contig_sequences: Dict[str, str],
+                        tmpdir: str, norna: bool = False, kingdom: str = "bacteria",
+                        code: int = 11, use_meta: bool = False) -> defaultdict:
     """
     Runs the different software for the syntaxic annotation.
 
     :param org: Organism which will be annotated
     :param fasta_file: file-like object containing the uncompressed fasta sequences
+    :param contig_sequences: Dict containing contig sequences for pyrodigal
     :param tmpdir: Path to temporary directory
     :param norna: Use to avoid annotating RNA features.
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param code: Translation table (genetic code) to use.
-    :param procedure: prodigal procedure used
+    :param use_meta: Use meta prodigal procedure
 
     :return: list of genes in the organism
     """
 
     # launching tools for syntaxic annotation
     genes = defaultdict(list)
-    for key, items in launch_prodigal(fna_file=fasta_file.name, org=org, code=code, procedure=procedure).items():
+    for key, items in launch_prodigal(contig_sequences=contig_sequences, org=org, code=code, use_meta=use_meta).items():
         genes[key].extend(items)
     if not norna:
         for key, items in launch_aragorn(fna_file=fasta_file.name, org=org).items():
@@ -291,8 +291,7 @@ def overlap_filter(all_genes: defaultdict, allow_overlap: bool = False) -> defau
 
 
 def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
-    """
-    Return the gene sequence
+    """Return the gene sequence
 
     :param contig_seq: Contig sequence
     :param gene: Gene
@@ -331,13 +330,14 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
     if procedure is None:  # prodigal procedure is not force by user
-        all_contig_len = sum(len(contig) for contig in org.contigs)
-        logging.getLogger("PPanGGOLiN").debug(all_contig_len)
-        if all_contig_len < 20000:  # case of short sequence
-            procedure = "meta"
+        max_contig_len = max(len(contig) for contig in org.contigs)
+        if max_contig_len < 20000:  # case of short sequence
+            use_meta = True
         else:
-            procedure = "single"
-    genes = syntaxic_annotation(org, fasta_file, tmpdir, norna, kingdom, code, procedure)
+            use_meta = False
+    else:
+        use_meta = True if procedure == "meta" else False
+    genes = syntaxic_annotation(org, fasta_file, contig_sequences, tmpdir, norna, kingdom, code, use_meta)
     genes = overlap_filter(genes, allow_overlap=allow_overlap)
 
     for contig_name, genes in genes.items():

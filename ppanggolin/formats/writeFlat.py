@@ -9,7 +9,8 @@ from collections import Counter, defaultdict
 import logging
 from typing import TextIO,List, Dict
 from pathlib import Path
-import pkg_resources
+from typing import TextIO
+from importlib.metadata import distribution
 from statistics import median, mean, stdev
 import os
 
@@ -217,7 +218,7 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
             gexf.write(f'      <attribute id="{org_idx + len(index) + shift}" title="{org.name}" type="long" />\n')
     gexf.write('    </attributes>\n')
     gexf.write('    <meta>\n')
-    gexf.write(f'      <creator>PPanGGOLiN {pkg_resources.get_distribution("ppanggolin").version}</creator>\n')
+    gexf.write(f'      <creator>PPanGGOLiN {distribution("ppanggolin").version}</creator>\n')
     gexf.write('    </meta>\n')
 
 

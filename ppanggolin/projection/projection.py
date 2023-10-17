@@ -10,7 +10,7 @@ import os
 import time
 from pathlib import Path
 import tempfile
-from typing import Tuple, Set, Dict, Iterator, Optional, List, Iterable, Any
+from typing import Tuple, Set, Dict, Optional, List, Iterable, Any
 from collections import defaultdict
 import csv
 from itertools import chain
@@ -102,12 +102,26 @@ def launch(args: argparse.Namespace):
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar,
                          need_rgp=predict_rgp, need_modules=project_modules, need_gene_sequences=False,
                          need_spots=project_spots)
-
-
+    
+    print("number_of_organisms", pangenome.number_of_organisms)
     logging.getLogger('PPanGGOLiN').info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(
         **{step: argparse.Namespace(**k_v) for step, k_v in pangenome.parameters.items()})
     
+    # dup margin value here is specified in argument and is used to compute completeness. 
+    # Thats mean it can be different than dup margin used in spot and RGPS.
+
+    # TODO make this single_copy_fams a method of class Pangenome that should be used in write --stats 
+    single_copy_fams = set()
+
+    for fam in pangenome.gene_families:
+        if fam.named_partition == "persistent":
+            dup = len([genes for genes in fam.get_org_dict().values() if
+                        len([gene for gene in genes if not gene.is_fragment]) > 1])
+            
+            if (dup / fam.number_of_organisms) < args.dup_margin:
+               single_copy_fams.add(fam)
+
 
     genome_name_to_fasta_path, genome_name_to_annot_path = None, None
 
@@ -196,17 +210,6 @@ def launch(args: argparse.Namespace):
         input_orgs_to_modules = project_and_write_modules(pangenome, organisms, output_dir)
 
     organism_2_summary = {}
-    # dup margin value here is specified in argument and is used to compute completeness. 
-    # Thats mean it can be different than dup margin used in spot and RGPS.
-    single_copy_fams = set()
-
-    for fam in pangenome.gene_families:
-        if fam.named_partition == "persistent":
-            dup = len([genes for genes in fam.get_org_dict().values() if
-                        len([gene for gene in genes if not gene.is_fragment]) > 1])
-            
-            if (dup / fam.number_of_organisms) < args.dup_margin:
-               single_copy_fams.add(fam)
                 
     for organism in organisms:
         # summarize projection for all input organisms
@@ -494,7 +497,6 @@ def summarize_projection(input_organism:Organism,  pangenome:Pangenome, single_c
         "Shell": {"genes":shell_gene_count, "families":shell_family_count},
         "Cloud": {"genes":cloud_gene_count, "families":cloud_family_count - singleton_gene_count, "specific families":singleton_gene_count},
         "Completeness":completeness,
-        "Single copy markers":single_copy_markers_count,
         "RGPs": rgp_count,
         "Spots": spot_count,
         "New spots": new_spot_count,
