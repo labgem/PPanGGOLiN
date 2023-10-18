@@ -40,11 +40,10 @@ def read_settings(settings_data: dict):
         settings_data["geneticCode"] = "11"
 
 
-def write_legend_items(features: List[str]):#, modules: Set[Module]): #, sources: List[str]):
-
-
-
-    # colors = palette()
+def write_legend_items(features: List[str], module_to_color: Dict[Module, str]):#, modules: Set[Module]): #, sources: List[str]):
+    """
+    
+    """
     # use https://medialab.github.io/iwanthue/ to find nice colors 
     # that associate well with established partition colors (orange, light green, light blue)    
     main_colors = {
@@ -66,15 +65,13 @@ def write_legend_items(features: List[str]):#, modules: Set[Module]): #, sources
     if "rgp" in features or "all" in features:
         legend_data["items"].append({"name": "RGP", "swatchColor": main_colors['dark green'], "decoration": "arc"}),
 
-    # if "spots" in features or "all" in features:
-    #     legend_data["items"].append({"name": "Spot", "swatchColor": main_colors['dark red'], 1)", "decoration": "arc"})
-
     if "modules" in features or "all" in features:
         # if modules is None:
-        legend_data["items"].append({"name": "Module", "swatchColor": main_colors['dark red'], "decoration": "arc"})
+        # legend_data["items"].append({"name": "Module", "swatchColor": main_colors['dark red'], "decoration": "arc"})
         # else:
-        #     for mod in modules:
-        #         legend_data["items"].append({"name": f"module_{mod.ID}", "decoration": "arc", "swatchColor": next(colors)})
+        for mod, color in sorted(module_to_color.items(), key=lambda x: x[0].ID):
+            legend_data["items"].append({"name": f"module_{mod.ID}", "decoration": "arc", "swatchColor": color, "visible":False})
+
     return legend_data
 
 def write_tracks(features: List[str]):
@@ -126,12 +123,12 @@ def read_data(template: Path, features: List[str], modules: List[str] = None) ->
         proksee_data["cgview"]["tracks"] = write_tracks(features)
     return proksee_data
 
-def initiate_proksee_data(features, org_name):
+def initiate_proksee_data(features, org_name, module_to_color):
     """
 
     """
 
-    proksee_legends =  write_legend_items(features)
+    proksee_legends =  write_legend_items(features, module_to_color)
 
     proksee_tracks = write_tracks(features)
 
@@ -266,9 +263,9 @@ def write_spots(pangenome: Pangenome, organism: Organism, gf2genes: Dict[str, Li
     return spots_data_list
 
 
-def write_modules(pangenome: Pangenome, organism: Organism, gf2genes: Dict[str, List[Gene]]):
+def write_modules(modules: List[Module], organism: Organism, gf2genes: Dict[str, List[Gene]]):
     modules_data_list = []
-    for module in tqdm(pangenome.modules, unit="Module", disable=True):
+    for module in modules:
         gf_intersection = set(organism.families) & set(module.families)
         if gf_intersection:
             completion = round(len(gf_intersection) / len(set(module.families)), 2)
@@ -279,7 +276,7 @@ def write_modules(pangenome: Pangenome, organism: Organism, gf2genes: Dict[str, 
                                                 "start": gene.start,
                                                 "stop": gene.stop,
                                                 "contig": gene.contig.name,
-                                                "legend": "Module",#f"module_{module.ID}",
+                                                "legend":f"module_{module.ID}",
                                                 "source": "Module",
                                                 "tags": [],
                                                 "meta": {
@@ -288,10 +285,10 @@ def write_modules(pangenome: Pangenome, organism: Organism, gf2genes: Dict[str, 
     return modules_data_list
 
 
-def write_proksee_organism(pangenome: Pangenome, organism: Organism, output: Path, template: Path,
-                           features: List[str] = None, modules: List[str] = None, genome_sequences= None):
+def write_proksee_organism(pangenome: Pangenome, organism: Organism, output: Path,
+                           features: List[str] = None, module_to_colors: Dict[Module,str] = None, genome_sequences= None):
     
-    proksee_data = initiate_proksee_data(features, organism.name)
+    proksee_data = initiate_proksee_data(features, organism.name, module_to_colors)
 
 
     proksee_data["cgview"]["sequence"]["contigs"] = write_contig(organism, genome_sequences)
@@ -309,7 +306,7 @@ def write_proksee_organism(pangenome: Pangenome, organism: Organism, output: Pat
     #     proksee_data["cgview"]["features"] += write_spots(pangenome=pangenome, organism=organism, gf2genes=gf2genes)
 
     if "modules" in features or "all" in features:
-        proksee_data["cgview"]["features"] += write_modules(pangenome=pangenome, organism=organism, gf2genes=gf2genes)
+        proksee_data["cgview"]["features"] += write_modules(modules=module_to_colors, organism=organism, gf2genes=gf2genes)
 
     logging.debug(f"Write proksee for {organism.name}")
     with open(output.joinpath(organism.name).with_suffix(".json"), "w") as out_json:

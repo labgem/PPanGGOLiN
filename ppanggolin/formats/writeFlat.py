@@ -5,6 +5,7 @@
 import argparse
 import logging
 from multiprocessing import get_context
+from itertools import combinations
 from collections import Counter, defaultdict
 import logging
 from typing import TextIO,List, Dict
@@ -13,17 +14,23 @@ from typing import TextIO
 from importlib.metadata import distribution
 from statistics import median, mean, stdev
 import os
+import random
+
+import networkx as nx
+from plotly.express.colors import qualitative
+
 
 # local libraries
 from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Organism, Gene, Contig, RNA
-from ppanggolin.region import Region, Spot
+from ppanggolin.region import Region, Spot, Module
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, read_compressed_or_not
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, read_compressed_or_not, extract_contig_window
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.formats.write_proksee import write_proksee_organism
 from ppanggolin.formats.writeSequences import read_genome_file
+
 # global variable to store the pangenome
 pan = Pangenome()  # TODO change to pangenome:Pangenome = Pangenome=() ?
 needAnnotations = False
@@ -649,26 +656,94 @@ def write_proksee(output: Path, compress: bool = False, fasta = None, anno = Non
     for mod in pan.modules:
         for org in mod.organisms:
             org_to_modules[org].add(mod)
-
+    
+    module_to_colors = manage_module_colors(set(pan.modules))
 
     features = ["all"]
-    template = Path(__file__).parent.joinpath("proksee_template").with_suffix(".json")
 
-    organism_with_rgp =  {rgp.organism for rgp in pan.regions}
-    
-    for organism in organism_with_rgp : #pan.organisms:
-
+    for organism in pan.organisms:
         if organisms_file:
             genome_sequences = read_genome_file(org_dict, organism.name)
         else:
             genome_sequences = None
 
-        write_proksee_organism(pan, organism, output,
-                                    template, features=features,
-                                    modules=org_to_modules[organism], 
+        org_module_to_color = {org_mod:module_to_colors[org_mod] for org_mod in org_to_modules[organism]}
+
+        write_proksee_organism(pan, organism, output, features=features, module_to_colors = org_module_to_color,
                                     genome_sequences=genome_sequences)
     
+
+def manage_module_colors(modules: List[Module], window_size:int=30) -> Dict[Module, str]:
+    """
+    Manages colors for a list of modules based on gene positions and a specified window size.
+
+    :param modules: A list of module objects for which you want to determine colors.
+    :param window_size: Minimum number of genes between two modules to color them with the same color. 
+                        A higher value results in more module colors.
+    :return: A dictionary that maps each module to its assigned color.
+    """
     
+    color_mod_graph = nx.Graph()
+    color_mod_graph.add_nodes_from((module for module in modules))
+
+    contig_to_mod_genes = defaultdict(set)
+    gene_to_module = {}
+
+    for module in modules:
+        for fam in module.families:
+            for gene in fam.genes:
+                contig_to_mod_genes[gene.contig].add(gene)
+                gene_to_module[gene] = module
+
+    for contig, mod_genes in contig_to_mod_genes.items():
+        gene_positions = (gene.position for gene in mod_genes)
+        contig_windows = extract_contig_window(
+            contig.number_of_genes, gene_positions, window_size=window_size, is_circular=contig.is_circular
+        )
+        contig_windows = list(contig_windows)
+
+        for (start, end) in contig_windows:
+            module_in_window = {gene_to_module[gene] for gene in mod_genes if start <= gene.position <= end}
+
+            # Add edges between closely located modules
+            module_edges = [(mod_a, mod_b) for mod_a, mod_b in combinations(module_in_window, 2)]
+            color_mod_graph.add_edges_from(module_edges)
+
+    module_to_color_int = nx.coloring.greedy_color(color_mod_graph)
+
+    # If you want to export the graph to see the coloring:
+    # nx.set_node_attributes(color_mod_graph, color_dict, name="color")
+    # nx.readwrite.graphml.write_graphml(color_mod_graph, f"module_graph_window_size{window_size}.graphml")
+    
+    nb_colors = len(set(module_to_color_int.values()))
+    logging.getLogger().debug(f"We have found that {nb_colors} colors were necessary to color Modules.")
+    colors = palette(nb_colors)
+
+    module_to_color = {mod: colors[col_i] for mod, col_i in module_to_color_int.items()}
+
+    return module_to_color
+
+def palette(nb_colors: int) -> List[str]:
+    """
+    Generates a palette of colors for visual representation.
+
+    :param nb_colors: The number of colors needed in the palette.
+
+    :return: A list of color codes in hexadecimal format.
+    """
+
+    # Combine two sets of predefined colors for variety
+    colors = qualitative.Vivid + qualitative.Safe
+    
+    if len(colors) < nb_colors:
+        # Generate random colors if not enough predefined colors are available
+        random.seed(1)
+        random_colors = ["#" + ''.join([random.choice('0123456789ABCDEF') for _ in range(6)]) for _ in range(nb_colors - len(colors))]
+        colors += random_colors
+    else:
+        colors =  colors[:nb_colors]
+
+    return colors
 
 
 def write_gff(output: str, compress: bool = False):

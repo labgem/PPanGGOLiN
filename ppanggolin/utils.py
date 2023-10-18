@@ -13,6 +13,7 @@ from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable
 from contextlib import contextmanager
 import tempfile
 import time
+from itertools import zip_longest
 
 import networkx as nx
 from importlib.metadata import distribution
@@ -935,3 +936,60 @@ def delete_unspecified_args(args: argparse.Namespace):
     for arg_name, arg_val in args._get_kwargs():
         if arg_val is None:
             delattr(args, arg_name)
+
+
+def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int], window_size: int,
+                          is_circular: bool = False):
+    """
+    Extracts contiguous windows around positions of interest within a contig.
+
+    :param contig_size: Number of genes in contig.
+    :param positions_of_interest: An iterable containing the positions of interest.
+    :param window_size: The size of the window to extract around each position of interest.
+    :param is_circular: Indicates if the contig is circular.
+    :return: Yields tuples representing the start and end positions of each contiguous window.
+    """
+    windows_coordinates = []
+
+    # Sort the positions of interest
+    sorted_positions = sorted(positions_of_interest)
+
+    # Check if any position of interest is out of range
+    if sorted_positions[0] < 0 or sorted_positions[-1] >= contig_size:
+        raise IndexError(f'Positions of interest are out of range. '
+                         f"Contig has {contig_size} genes while given min={sorted_positions[0]} & max={sorted_positions[-1]} positions")
+
+    if is_circular:
+        first_position = sorted_positions[0]
+        last_position = sorted_positions[-1]
+        # in a circular contig, if the window of a gene of interest overlaps the end/start of the contig
+        # an out of scope position is added to the sorted positions to take into account those positions
+        # the returned window are always checked that its positions are not out of range... 
+        # so there's no chance to find an out of scope position in final list
+        if first_position - window_size < 0:
+            out_of_scope_position = contig_size + first_position
+            sorted_positions.append(out_of_scope_position)
+
+        if last_position + window_size >= contig_size:
+            out_of_scope_position = last_position - contig_size
+            sorted_positions.insert(0, out_of_scope_position)
+
+    start_po = max(sorted_positions[0] - window_size, 0)
+
+    for position, next_po in zip_longest(sorted_positions, sorted_positions[1:]):
+
+        if next_po is None:
+            # If there are no more positions, add the final window
+            end_po = min(position + window_size, contig_size - 1)
+            windows_coordinates.append((start_po, end_po))
+
+        elif position + window_size + 1 < next_po - window_size:
+            # If there is a gap between positions, add the current window 
+            # and update the start position for the next window
+            end_po = min(position + window_size, contig_size - 1)
+
+            windows_coordinates.append((start_po, end_po))
+
+            start_po = max(next_po - window_size, 0)
+
+    return windows_coordinates
