@@ -28,7 +28,9 @@ from ppanggolin.annotate.synta import read_fasta, get_dna_sequence
 from ppanggolin.annotate.annotate import init_contig_counter, read_anno_file, annotate_organism, local_identifiers_are_unique
 from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import detect_filetype, create_tmpdir, read_compressed_or_not, write_compressed_or_not, restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args, check_input_files
+from ppanggolin.utils import detect_filetype, create_tmpdir, read_compressed_or_not, write_compressed_or_not, \
+                             restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args, \
+                                check_input_files, parse_input_paths_file
 from ppanggolin.align.alignOnPang import write_gene_to_gene_family, get_input_seq_to_family_with_rep,get_input_seq_to_family_with_all, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
 from ppanggolin.formats.readBinaries import check_pangenome_info
@@ -368,48 +370,6 @@ def check_input_names(pangenome, input_names):
     duplicated_names = set(input_names) & {org.name for org in pangenome.organisms}
     if len(duplicated_names) != 0:
         raise NameError(f"{len(duplicated_names)} provided organism names already exist in the given pangenome: {' '.join(duplicated_names)}")
-
-
-def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, List[str]]]:
-    """
-    Parse an input paths file to extract genome information.
-
-    This function reads an input paths file, which is in TSV format, and extracts genome information
-    including file paths and putative circular contigs.
-
-    :param path_list_file: The path to the input paths file.
-    :return: A dictionary where keys are genome names and values are dictionaries containing path information and
-             putative circular contigs.
-    :raises FileNotFoundError: If a specified genome file path does not exist.
-    :raises Exception: If there are no genomes in the provided file.
-    """
-    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process organism files")
-    genome_name_to_genome_path = {}
-
-    for line in read_compressed_or_not(path_list_file):
-        elements = [el.strip() for el in line.split("\t")]
-        genome_file_path = Path(elements[1])
-        genome_name = elements[0]
-        putative_circular_contigs = elements[2:]
-
-        if not genome_file_path.exists():  
-            # Check if the file path doesn't exist and try an alternative path.
-            genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
-
-            if not genome_file_path_alt.exists():
-                raise FileNotFoundError(f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist.")
-            else:
-                genome_file_path = genome_file_path_alt
-
-        genome_name_to_genome_path[genome_name] = {
-            "path": genome_file_path,
-            "circular_contigs": putative_circular_contigs
-        }
-
-    if len(genome_name_to_genome_path) == 0:
-        raise Exception(f"There are no genomes in the provided file: {path_list_file} ")
-    
-    return genome_name_to_genome_path
 
 
 

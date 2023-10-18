@@ -9,7 +9,7 @@ import gzip
 import argparse
 from io import TextIOWrapper
 from pathlib import Path
-from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable
+from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable, Dict
 from contextlib import contextmanager
 import tempfile
 import time
@@ -993,3 +993,47 @@ def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int]
             start_po = max(next_po - window_size, 0)
 
     return windows_coordinates
+
+
+
+def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, List[str]]]:
+    """
+    Parse an input paths file to extract genome information.
+
+    This function reads an input paths file, which is in TSV format, and extracts genome information
+    including file paths and putative circular contigs.
+
+    :param path_list_file: The path to the input paths file.
+    :return: A dictionary where keys are genome names and values are dictionaries containing path information and
+             putative circular contigs.
+    :raises FileNotFoundError: If a specified genome file path does not exist.
+    :raises Exception: If there are no genomes in the provided file.
+    """
+    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process organism files")
+    genome_name_to_genome_path = {}
+
+    for line in read_compressed_or_not(path_list_file):
+        elements = [el.strip() for el in line.split("\t")]
+        genome_file_path = Path(elements[1])
+        genome_name = elements[0]
+        putative_circular_contigs = elements[2:]
+
+        if not genome_file_path.exists():  
+            # Check if the file path doesn't exist and try an alternative path.
+            genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
+
+            if not genome_file_path_alt.exists():
+                raise FileNotFoundError(f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist.")
+            else:
+                genome_file_path = genome_file_path_alt
+
+        genome_name_to_genome_path[genome_name] = {
+            "path": genome_file_path,
+            "circular_contigs": putative_circular_contigs
+        }
+
+    if len(genome_name_to_genome_path) == 0:
+        raise Exception(f"There are no genomes in the provided file: {path_list_file} ")
+    
+    return genome_name_to_genome_path
+

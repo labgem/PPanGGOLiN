@@ -26,7 +26,7 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Organism, Gene, Contig, RNA
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, read_compressed_or_not, extract_contig_window
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, extract_contig_window, parse_input_paths_file
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.formats.write_proksee import write_proksee_organism
 from ppanggolin.formats.writeSequences import read_genome_file
@@ -633,30 +633,31 @@ def write_projections(output: Path, compress: bool = False):
     logging.getLogger("PPanGGOLiN").info("Done writing the projection files")
 
 
-def write_proksee(output: Path, compress: bool = False, fasta = None, anno = None):
+def write_proksee(output: Path, fasta: Path = None, anno: Path = None):
     """
-    """
-    # TODO improve this part by using fct created in projection to read such file
+    Generate ProkSee data for multiple organisms and write it to the specified output directory.
 
+    :param output: The directory where the ProkSee data will be written.
+    :param fasta: The path to a FASTA file containing genome sequences (optional).
+    :param anno: The path to an annotation file (optional).
+
+    This function generates ProkSee data for multiple organisms and writes it to the specified output directory.
+    If genome sequences are provided in a FASTA file or annotations in a separate file, they will be used in the generation
+    of ProkSee data for each organism to add sequences data to proksee files.
+    """
     organisms_file = fasta if fasta is not None else anno
-    
+
     if organisms_file:
-        org_dict = {}
-        for line in read_compressed_or_not(organisms_file):
-            elements = [el.strip() for el in line.split("\t")]
-            if len(elements) <= 1:
-                raise Exception(f"No tabulation separator found in given --fasta or --anno file: '{organisms_file}'")
-            org_dict[elements[0]] = Path(elements[1])
-            if not org_dict[elements[0]].exists():  # Check tsv sanity test if it's not one it's the other
-                org_dict[elements[0]] = organisms_file.parent.joinpath(org_dict[elements[0]])
-
-
+        org_dict = parse_input_paths_file(organisms_file)
 
     org_to_modules = defaultdict(set)
+
+    # Create a mapping of organisms to the modules they belong to
     for mod in pan.modules:
         for org in mod.organisms:
             org_to_modules[org].add(mod)
-    
+
+    # Generate a color mapping for modules
     module_to_colors = manage_module_colors(set(pan.modules))
 
     features = ["all"]
@@ -667,11 +668,13 @@ def write_proksee(output: Path, compress: bool = False, fasta = None, anno = Non
         else:
             genome_sequences = None
 
-        org_module_to_color = {org_mod:module_to_colors[org_mod] for org_mod in org_to_modules[organism]}
+        # Generate a color mapping for modules specific to the organism
+        org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in org_to_modules[organism]}
 
-        write_proksee_organism(pan, organism, output, features=features, module_to_colors = org_module_to_color,
-                                    genome_sequences=genome_sequences)
-    
+        # Write ProkSee data for the organism
+        write_proksee_organism(pan, organism, output, features=features, module_to_colors=org_module_to_color,
+                               genome_sequences=genome_sequences)
+
 
 def manage_module_colors(modules: List[Module], window_size:int=30) -> Dict[Module, str]:
     """
@@ -1288,7 +1291,7 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
         if gff:
             processes.append(p.apply_async(func=write_gff, args=(output, compress)))
         if proksee:
-            processes.append(p.apply_async(func=write_proksee, args=(output, compress, fasta, anno)))
+            processes.append(p.apply_async(func=write_proksee, args=(output, fasta, anno)))
         if stats:
             processes.append(p.apply_async(func=write_stats, args=(output, soft_core, dup_margin, compress)))
         if json:
