@@ -218,6 +218,9 @@ def launch(args: argparse.Namespace):
     organism_2_summary = {}
                 
     for organism in organisms:
+
+        org_outdir = output_dir / organism.name
+
         # summarize projection for all input organisms
         organism_2_summary[organism] = summarize_projection(organism, pangenome, single_copy_fams,
                              input_org_2_rgps.get(organism, None),
@@ -233,7 +236,26 @@ def launch(args: argparse.Namespace):
                                rgps=input_org_2_rgps.get(organism, None),
                                 genome_sequences=None)
         
-        # write_gff_file(org,  contig_to_rgp, rgp_to_spot_id, outdir, compress, annotation_sources)
+
+        if genome_name_to_annot_path: # if the genome has not been annotated by PPanGGOLiN
+            annotation_sources = {"rRNA": "external",
+                                "tRNA": "external",
+                                "CDS":"external"}
+        else:
+            annotation_sources = {}
+
+        contig_to_rgp, rgp_to_spot_id = {}, {}
+
+        if organism in input_org_2_rgps:
+            contig_to_rgp = defaultdict(list)
+            for rgp in input_org_2_rgps[organism]:
+                contig_to_rgp[rgp.contig].append(rgp)
+
+        if organism in input_org_to_spots:
+            rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in input_org_to_spots[organism] for rgp in spot.regions if rgp in input_org_2_rgps[organism] }
+
+
+        write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, outdir=org_outdir, compress=False, annotation_sources=annotation_sources, genome_sequences=None)
 
         
     write_summaries(organism_2_summary, output_dir)
@@ -1224,6 +1246,15 @@ def parser_projection(parser: argparse.ArgumentParser):
     optional.add_argument('--graph_formats', required=False, type=str, choices=['gexf', "graphml"], nargs="+",
                           default=['gexf'], help="Format of the output graph.")
 
+    optional.add_argument("--gff", required=False, action="store_true",
+                        help="Generate GFF files with projected pangenome annotations for each input organism.")
+
+    optional.add_argument("--proksee", required=False, action="store_true",
+                        help="Generate JSON map files for PROKSEE with projected pangenome annotations for each input organism.")
+
+    optional.add_argument("--add_sequences", required=False, action="store_true",
+                      help="Include input genome DNA sequences in GFF and Proksee output.")
+    
     optional.add_argument("-c", "--cpu", required=False,
                           default=1, type=int, help="Number of available cpus")
 

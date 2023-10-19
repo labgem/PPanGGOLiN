@@ -1405,13 +1405,17 @@ def parser_flat(parser: argparse.ArgumentParser):
                                "on the organism")
     optional.add_argument("--gff", required=False, action="store_true",
                         help="Generate a gff file for each organism containing pangenome annotations.")
+    
     optional.add_argument("--proksee", required=False, action="store_true",
-                        help="Generate a json file for each organism containing pangenome annotations to be used to in proksee.")
+                        help="Generate JSON map files for PROKSEE for each organism containing pangenome annotations to be used to in proksee.")
+    
     optional.add_argument("--stats", required=False, action="store_true",
                           help="tsv files with some statistics for each organism and for each gene family")
+    
     optional.add_argument("--partitions", required=False, action="store_true",
                           help="list of families belonging to each partition, with one file per partitions and "
                                "one family per line")
+    
     optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
     optional.add_argument("--json", required=False, action="store_true", help="Writes the graph in a json file format")
     optional.add_argument("--regions", required=False, action="store_true",
