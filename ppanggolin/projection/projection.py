@@ -39,7 +39,7 @@ from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot
 from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
-from ppanggolin.formats.writeFlat import summarize_spots
+from ppanggolin.formats.writeFlat import summarize_spots, write_proksee_organism, manage_module_colors
 
 
 class NewSpot(Spot):
@@ -105,11 +105,11 @@ def launch(args: argparse.Namespace):
                          need_rgp=predict_rgp, need_modules=project_modules, need_gene_sequences=False,
                          need_spots=project_spots)
     
-    print("number_of_organisms", pangenome.number_of_organisms)
     logging.getLogger('PPanGGOLiN').info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(
         **{step: argparse.Namespace(**k_v) for step, k_v in pangenome.parameters.items()})
     
+
     # dup margin value here is specified in argument and is used to compute completeness. 
     # Thats mean it can be different than dup margin used in spot and RGPS.
 
@@ -155,6 +155,7 @@ def launch(args: argparse.Namespace):
             organisms_with_no_fasta = {org for org, has_fasta in org_2_has_fasta.items() if not has_fasta}
             if args.fasta:
                 get_gene_sequences_from_fasta_files(organisms_with_no_fasta, genome_name_to_fasta_path)
+                
             else:
                 raise ValueError(f"You provided GFF files for {len(organisms_with_no_fasta)} (out of {len(organisms)}) "
                                  "organisms without associated sequence data, and you did not provide "
@@ -209,6 +210,9 @@ def launch(args: argparse.Namespace):
                                                             exact_match=pangenome_params.spot.exact_match_size)
 
     if project_modules:
+        # get module color for proksee
+        module_to_colors = manage_module_colors(set(pangenome.modules))
+        
         input_orgs_to_modules = project_and_write_modules(pangenome, organisms, output_dir)
 
     organism_2_summary = {}
@@ -221,8 +225,16 @@ def launch(args: argparse.Namespace):
                              input_orgs_to_modules.get(organism, None),
                              input_org_to_lonely_genes_count[organism])
         
-    write_summaries(organism_2_summary, output_dir)
+        org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in input_orgs_to_modules.get(organism, [])}
 
+        output_file = output_dir / organism.name / f"{organism.name}_proksee.json"
+
+        write_proksee_organism(organism, output_file, features='all', module_to_colors=org_module_to_color, 
+                               rgps=input_org_2_rgps.get(organism, None),
+                                genome_sequences=None)
+        
+    write_summaries(organism_2_summary, output_dir)
+    
 
 def annotate_fasta_files(genome_name_to_fasta_path: Dict[str, dict], tmpdir: str, cpu: int = 1, translation_table: int = 11,
                        kingdom: str = "bacteria", norna: bool = False, allow_overlap: bool = False, procedure: str = None,

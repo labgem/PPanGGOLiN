@@ -671,12 +671,16 @@ def write_proksee(output: Path, fasta: Path = None, anno: Path = None):
         # Generate a color mapping for modules specific to the organism
         org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in org_to_modules[organism]}
 
+        output_file = output.joinpath(organism.name).with_suffix(".json")
+
         # Write ProkSee data for the organism
-        write_proksee_organism(pan, organism, output, features=features, module_to_colors=org_module_to_color,
+        write_proksee_organism(organism, output_file, features=features, module_to_colors=org_module_to_color, rgps=pan.regions,
                                genome_sequences=genome_sequences)
+        
+        
 
 
-def manage_module_colors(modules: List[Module], window_size:int=30) -> Dict[Module, str]:
+def manage_module_colors(modules: List[Module], window_size:int=50) -> Dict[Module, str]:
     """
     Manages colors for a list of modules based on gene positions and a specified window size.
 
@@ -721,7 +725,6 @@ def manage_module_colors(modules: List[Module], window_size:int=30) -> Dict[Modu
     nb_colors = len(set(module_to_color_int.values()))
     logging.getLogger().debug(f"We have found that {nb_colors} colors were necessary to color Modules.")
     colors = palette(nb_colors)
-
     module_to_color = {mod: colors[col_i] for mod, col_i in module_to_color_int.items()}
 
     return module_to_color

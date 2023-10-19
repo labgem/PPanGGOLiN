@@ -14,7 +14,7 @@ from collections import defaultdict
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
-from ppanggolin.region import Module
+from ppanggolin.region import Module, Region
 from ppanggolin.pangenome import Pangenome
 
 
@@ -121,7 +121,7 @@ def initiate_proksee_data(features: List[str], org_name: str, module_to_color: D
     }
 
     cgview_data = {
-        "name": "PPanGGOLiN annotations at genome levels",
+        "name": "PPanGGOLiN annotation at genome level",
         "version": "1.5.0",
         'settings': {},
         "legend": proksee_legends,
@@ -210,7 +210,7 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
     return genes_data_list, gf2gene
 
 
-def write_rgp(pangenome: Pangenome, organism: Organism):
+def write_rgp(rgps: Pangenome, organism: Organism):
     """
     Writes RGP (Region of Genomic Plasticity) data for a given organism in proksee format.
 
@@ -222,7 +222,7 @@ def write_rgp(pangenome: Pangenome, organism: Organism):
     rgp_data_list = []
 
     # Iterate through each RGP in the pangenome
-    for rgp in tqdm(pangenome.regions, unit="RGP", disable=True):
+    for rgp in tqdm(rgps, unit="RGP", disable=True):
         if rgp.organism == organism:
             # Create an entry for the RGP in the data list
             rgp_data_list.append({
@@ -278,22 +278,23 @@ def write_modules(modules: List[Module], organism: Organism, gf2genes: Dict[str,
     return modules_data_list
 
 
-def write_proksee_organism(pangenome: Pangenome, organism: Organism, output: Path,
+def write_proksee_organism(organism: Organism, output_file: Path,
                            features: List[str] = None,
                            module_to_colors: Dict[Module, str] = None,
+                           rgps:List[Region] = None,
                            genome_sequences: Dict[str,str] = None):
     """
     Write ProkSee data for a given organism.
 
-    :param pangenome: The pangenome to which the organism belongs.
     :param organism: The organism for which ProkSee data will be written.
-    :param output: The output directory where ProkSee data will be written.
+    :param output_file: The output file where ProkSee data will be written.
     :param features: A list of features to include in the ProkSee data, e.g., ["rgp", "modules", "all"].
     :param module_to_colors: A dictionary mapping modules to their assigned colors.
+    :patram rgps: list of RGPs that belong to the organisms
     :param genome_sequences: The genome sequences for the organism.
 
     This function writes ProkSee data for a given organism, including contig information, genes colored by partition, RGPs,
-    and modules. The resulting data is saved as a JSON file in the specified output directory.
+    and modules. The resulting data is saved as a JSON file in the specified output file.
     """
     proksee_data = initiate_proksee_data(features, organism.name, module_to_colors)
 
@@ -304,11 +305,11 @@ def write_proksee_organism(pangenome: Pangenome, organism: Organism, output: Pat
     proksee_data["cgview"]["features"] = genes_features
 
     if "rgp" in features or "all" in features:
-        proksee_data["cgview"]["features"] += write_rgp(pangenome=pangenome, organism=organism)
+        proksee_data["cgview"]["features"] += write_rgp(rgps, organism=organism)
 
     if "modules" in features or "all" in features:
         proksee_data["cgview"]["features"] += write_modules(modules=module_to_colors, organism=organism, gf2genes=gf2genes)
 
     logging.debug(f"Write ProkSee for {organism.name}")
-    with open(output.joinpath(organism.name).with_suffix(".json"), "w") as out_json:
+    with open(output_file, "w") as out_json:
         json.dump(proksee_data, out_json, indent=2)
