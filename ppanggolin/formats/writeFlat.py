@@ -646,6 +646,11 @@ def write_proksee(output: Path, fasta: Path = None, anno: Path = None):
     If genome sequences are provided in a FASTA file or annotations in a separate file, they will be used in the generation
     of ProkSee data for each organism to add sequences data to proksee files.
     """
+    
+    proksee_outdir = output / "proksee" 
+    if not os.path.exists(proksee_outdir):
+        os.makedirs(proksee_outdir)
+
     organisms_file = fasta if fasta is not None else anno
 
     if organisms_file:
@@ -672,7 +677,7 @@ def write_proksee(output: Path, fasta: Path = None, anno: Path = None):
         # Generate a color mapping for modules specific to the organism
         org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in org_to_modules[organism]}
 
-        output_file = output.joinpath(organism.name).with_suffix(".json")
+        output_file = proksee_outdir.joinpath(organism.name).with_suffix(".json")
 
         # Write ProkSee data for the organism
         write_proksee_organism(organism, output_file, features=features, module_to_colors=org_module_to_color, rgps=pan.regions,
