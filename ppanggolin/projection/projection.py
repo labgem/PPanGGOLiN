@@ -228,34 +228,39 @@ def launch(args: argparse.Namespace):
                              input_orgs_to_modules.get(organism, None),
                              input_org_to_lonely_genes_count[organism])
         
-        org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in input_orgs_to_modules.get(organism, [])}
+        if args.proksee:
+            org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in input_orgs_to_modules.get(organism, [])}
 
-        output_file = output_dir / organism.name / f"{organism.name}_proksee.json"
+            output_file = output_dir / organism.name / f"{organism.name}_proksee.json"
 
-        write_proksee_organism(organism, output_file, features='all', module_to_colors=org_module_to_color, 
-                               rgps=input_org_2_rgps.get(organism, None),
-                                genome_sequences=None)
+            
+            write_proksee_organism(organism, output_file, features='all', module_to_colors=org_module_to_color, 
+                                rgps=input_org_2_rgps.get(organism, None),
+                                    genome_sequences=None)
         
 
-        if genome_name_to_annot_path: # if the genome has not been annotated by PPanGGOLiN
-            annotation_sources = {"rRNA": "external",
-                                "tRNA": "external",
-                                "CDS":"external"}
-        else:
-            annotation_sources = {}
+        if args.gff:
+            if genome_name_to_annot_path: # if the genome has not been annotated by PPanGGOLiN
+                annotation_sources = {"rRNA": "external",
+                                    "tRNA": "external",
+                                    "CDS":"external"}
+            else:
+                annotation_sources = {}
 
-        contig_to_rgp, rgp_to_spot_id = {}, {}
+            contig_to_rgp, rgp_to_spot_id = {}, {}
 
-        if organism in input_org_2_rgps:
-            contig_to_rgp = defaultdict(list)
-            for rgp in input_org_2_rgps[organism]:
-                contig_to_rgp[rgp.contig].append(rgp)
+            if organism in input_org_2_rgps:
+                contig_to_rgp = defaultdict(list)
+                for rgp in input_org_2_rgps[organism]:
+                    contig_to_rgp[rgp.contig].append(rgp)
 
-        if organism in input_org_to_spots:
-            rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in input_org_to_spots[organism] for rgp in spot.regions if rgp in input_org_2_rgps[organism] }
+            if organism in input_org_to_spots:
+                rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in input_org_to_spots[organism] for rgp in spot.regions if rgp in input_org_2_rgps[organism] }
 
 
-        write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, outdir=org_outdir, compress=False, annotation_sources=annotation_sources, genome_sequences=None)
+            write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, outdir=org_outdir, compress=False, annotation_sources=annotation_sources, genome_sequences=None)
+
+
 
         
     write_summaries(organism_2_summary, output_dir)
@@ -270,7 +275,7 @@ def annotate_fasta_files(genome_name_to_fasta_path: Dict[str, dict], tmpdir: str
     :param genome_name_to_fasta_path:
     :param fasta_list: List of fasta file containing sequences that will be base of pangenome
     :param tmpdir: Path to temporary directory
-    :param cpu: number of CPU cores to use
+    :param cpu: number of CPU cores to use             
     :param translation_table: Translation table (genetic code) to use.
     :param kingdom: Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
     :param norna: Use to avoid annotating RNA features.
