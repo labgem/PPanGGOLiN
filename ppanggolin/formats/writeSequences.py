@@ -17,7 +17,7 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
-
+from ppanggolin.genome import Organism
 
 module_regex = re.compile(r'^module_[0-9]+')
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
@@ -246,26 +246,33 @@ def read_fasta_gbk(file_path: Path) -> Dict[str, str]:
     return sequence_dict
 
 
-def read_genome_file(file_dict: Dict[str, Path], genome_name: str) -> Dict[str, str]:
+def read_genome_file(genome_file: Path, organism: Organism) -> Dict[str, str]:
     """
-    Read the genome file associated to organism
+    Read the genome file associated to organism to extract sequences
 
-    :param file_dict: Dictionary given association between organism and fasta file
-    :param genome_name: organism name
+    :param genome_file: Path to a fasta file or gbff/gff file
+    :param genome: organism object
 
     :return: Dictionary with all sequences associated to contig
     """
-    filetype = detect_filetype(file_dict[genome_name])
+    filetype = detect_filetype(genome_file)
     if filetype in ["fasta", "gff"]:
-        return read_fasta_or_gff(file_dict[genome_name])
+        contig_to_sequence = read_fasta_or_gff(genome_file)
     elif filetype == "gbff":
-        return read_fasta_gbk(file_dict[genome_name])
+        contig_to_sequence = read_fasta_gbk(genome_file)
     else:
-        raise Exception(f"Unknown filetype detected: '{file_dict[genome_name]}'")
+        raise Exception(f"Unknown filetype detected: '{genome_file}'")
 
+    # # check_contig_names
+    # if set(contig_to_sequence) != {contig.name for contig in organism.contigs}:
+    #     raise Exception(f"Contig name inconsistency detected in organism '{organism.name}' between the "
+    #                     f"information stored in the pangenome file and the contigs found in '{genome_file}'.")
+
+    return contig_to_sequence
 
 def write_spaced_fasta(sequence: str, space: int = 60) -> str:
-    """Write a maximum of element per line
+    """
+    Write a maximum of element per line
 
     :param sequence: sequence to write
     :param space: maximum of size for one line
@@ -322,8 +329,8 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
         loaded_genome = ""
         for region in tqdm(regions_to_write, unit="rgp", disable=disable_bar):
             if region.organism.name != loaded_genome:
-                loaded_genome = region.organism.name
-                genome_sequence = read_genome_file(org_dict, loaded_genome)
+                organism = region.organism
+                genome_sequence = read_genome_file(org_dict[organism.name], organism)
             fasta.write(f">{region.name}\n")
             fasta.write(write_spaced_fasta(genome_sequence[region.contig.name][region.starter.start:region.stopper.stop], 60))
     logging.getLogger("PPanGGOLiN").info(f"Done writing the regions nucleotide sequences: '{outname}'")

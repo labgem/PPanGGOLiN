@@ -16,6 +16,7 @@ from statistics import median, mean, stdev
 import os
 import random
 
+
 import networkx as nx
 from plotly.express.colors import qualitative
 
@@ -29,7 +30,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, extract_contig_window, parse_input_paths_file
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.formats.write_proksee import write_proksee_organism
-from ppanggolin.formats.writeSequences import read_genome_file
+from ppanggolin.formats.writeSequences import read_genome_file, write_spaced_fasta
 
 # global variable to store the pangenome
 pan = Pangenome()  # TODO change to pangenome:Pangenome = Pangenome=() ?
@@ -664,7 +665,7 @@ def write_proksee(output: Path, fasta: Path = None, anno: Path = None):
 
     for organism in pan.organisms:
         if organisms_file:
-            genome_sequences = read_genome_file(org_dict, organism.name)
+            genome_sequences = read_genome_file(org_dict[organism.name]['path'], organism.name)
         else:
             genome_sequences = None
 
@@ -752,19 +753,29 @@ def palette(nb_colors: int) -> List[str]:
     return colors
 
 
-def write_gff(output: str, compress: bool = False):
+def write_gff(output: str, compress: bool = False, fasta: Path = None, anno: Path = None):
+
     """
     Write the gff files for all organisms
 
     :param output: Path to output directory
     :param compress: Compress the file in .gz
+    :param fasta: The path to a FASTA file containing genome sequences (optional).
+    :param anno: The path to an annotation file (optional).
+
     """
     logging.getLogger().info("Writing the gff files...")
+
+    organisms_file = fasta if fasta is not None else anno
+
+    if organisms_file:
+        org_dict = parse_input_paths_file(organisms_file)
+    
     outdir = output / "gff"
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    if pan.parameters["annotation"]["read_annotations_from_file"]:
+    if pan.parameters["annotate"]["# read_annotations_from_file"]:
         annotation_sources = {"rRNA": "external",
                               "tRNA": "external",
                               "CDS":"external"}
@@ -778,14 +789,19 @@ def write_gff(output: str, compress: bool = False):
     rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in pan.spots for rgp in spot.regions}
 
     for org in pan.organisms:
-        write_gff_file(org,  contig_to_rgp, rgp_to_spot_id, outdir, compress, annotation_sources)
+        if organisms_file:
+            genome_sequences = read_genome_file(org_dict[org.name]['path'], org)
+        else:
+            genome_sequences = None
+    
+        write_gff_file(org, contig_to_rgp, rgp_to_spot_id, outdir, compress, annotation_sources, genome_sequences)
 
     logging.getLogger().info("Done writing the gff files")
 
 
 def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region], 
                    rgp_to_spotid: Dict[Region, str], outdir: str, compress: bool,
-                   annotation_sources: Dict[str, str]):
+                   annotation_sources: Dict[str, str], genome_sequences:Dict[str,str]):
     """
     Write the GFF file of the provided organism.
 
@@ -795,19 +811,22 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
     :param outdir: Path to the output directory where the GFF file will be written.
     :param compress: If True, compress the output GFF file using .gz format.
     :param annotation_sources: A dictionary that maps types of features to their source information.
+    :param genome_sequences: A dictionary mapping contig names to their DNA sequences (default: None).
     """
 
+    # sort contig by their name
+    sorted_contigs = sorted(org.contigs, key= lambda x : x.name)
 
     with write_compressed_or_not(outdir /  F"{org.name}.gff", compress) as outfile:
         # write gff header
         outfile.write('##gff-version 3\n')
-        for contig in org.contigs:
+        for contig in sorted_contigs:
             if contig.length is None:
                 raise AttributeError(f'Contig {contig.name} has no length defined.')
 
             outfile.write(f'##sequence-region {contig.name} 1 {contig.length}\n')
 
-        for contig in org.contigs:
+        for contig in sorted_contigs:
             contig_elements = sorted(contig_to_rgp[contig] + list(contig.genes) + list(contig.RNAs), key=lambda x: (x.start))
 
             for feature in contig_elements:
@@ -889,10 +908,14 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                 line_str = '\t'.join(map(str, line))
                 outfile.write(line_str + "\n")
 
+        if genome_sequences:
+            logging.getLogger("PPanGGOLiN").debug("Writing fasta section of gff file...")
+            outfile.write(f"##FASTA\n")
+            for contig in sorted_contigs:
+                outfile.write(f">{contig.name}\n")
 
+                outfile.write(write_spaced_fasta(genome_sequences[contig.name], space=60))
 
-
-    
 
 def write_parts(output: Path, soft_core: float = 0.95):
     """
@@ -1291,10 +1314,10 @@ def write_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1, soft_core
             processes.append(p.apply_async(func=write_gexf, args=(output, True, compress)))
         if projection:
             processes.append(p.apply_async(func=write_projections, args=(output, compress)))
-        if gff:
-            processes.append(p.apply_async(func=write_gff, args=(output, compress)))
         if proksee:
             processes.append(p.apply_async(func=write_proksee, args=(output, fasta, anno)))
+        if gff:
+            processes.append(p.apply_async(func=write_gff, args=(output, compress, fasta, anno)))
         if stats:
             processes.append(p.apply_async(func=write_stats, args=(output, soft_core, dup_margin, compress)))
         if json:

@@ -39,7 +39,7 @@ from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot
 from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
-from ppanggolin.formats.writeFlat import summarize_spots, write_proksee_organism, manage_module_colors
+from ppanggolin.formats.writeFlat import summarize_spots, write_proksee_organism, manage_module_colors, write_gff_file
 
 
 class NewSpot(Spot):
@@ -232,6 +232,9 @@ def launch(args: argparse.Namespace):
         write_proksee_organism(organism, output_file, features='all', module_to_colors=org_module_to_color, 
                                rgps=input_org_2_rgps.get(organism, None),
                                 genome_sequences=None)
+        
+        # write_gff_file(org,  contig_to_rgp, rgp_to_spot_id, outdir, compress, annotation_sources)
+
         
     write_summaries(organism_2_summary, output_dir)
     
