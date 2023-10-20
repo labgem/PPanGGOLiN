@@ -40,7 +40,7 @@ from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.formats.writeFlat import summarize_spots, write_proksee_organism, manage_module_colors, write_gff_file
-
+from ppanggolin.formats.writeSequences import read_genome_file
 
 class NewSpot(Spot):
     """
@@ -125,36 +125,41 @@ def launch(args: argparse.Namespace):
                single_copy_fams.add(fam)
 
 
-    genome_name_to_fasta_path, genome_name_to_annot_path = None, None
+    # genome_name_to_fasta_path, genome_name_to_annot_path = None, None
+    genome_name_to_path = None
 
     if args.input_mode == "multiple":
         if args.anno:
-            genome_name_to_annot_path = parse_input_paths_file(args.anno)
+            input_type = "annotation"
+            genome_name_to_path = parse_input_paths_file(args.anno)
         
-        if args.fasta:
-            genome_name_to_fasta_path = parse_input_paths_file(args.fasta)
+        elif args.fasta:
+            input_type = "fasta"
+            genome_name_to_path = parse_input_paths_file(args.fasta)
 
     else: #  args.input_mode == "single:
 
         circular_contigs = args.circular_contigs if args.circular_contigs else []
         if args.anno:
-            genome_name_to_annot_path = {args.organism_name: {"path": args.annot,
+            input_type = "annotation"
+            genome_name_to_path = {args.organism_name: {"path": args.annot,
                                                             "circular_contigs": circular_contigs}}
         
-        if args.fasta:
-            genome_name_to_fasta_path = {args.organism_name: {"path": args.fasta,
+        elif args.fasta:
+            input_type = "fasta"
+            genome_name_to_path = {args.organism_name: {"path": args.fasta,
                                                             "circular_contigs": circular_contigs}}
     
-    if genome_name_to_annot_path:
-        check_input_names(pangenome, genome_name_to_annot_path)
+    if input_type == "annotation":
+        check_input_names(pangenome, genome_name_to_path)
 
-        organisms, org_2_has_fasta = read_annotation_files(genome_name_to_annot_path, cpu=args.cpu, pseudo=args.use_pseudo,
+        organisms, org_2_has_fasta = read_annotation_files(genome_name_to_path, cpu=args.cpu, pseudo=args.use_pseudo,
                      disable_bar=args.disable_prog_bar)
         
         if not all((has_fasta for has_fasta in org_2_has_fasta.values())):
             organisms_with_no_fasta = {org for org, has_fasta in org_2_has_fasta.items() if not has_fasta}
             if args.fasta:
-                get_gene_sequences_from_fasta_files(organisms_with_no_fasta, genome_name_to_fasta_path)
+                get_gene_sequences_from_fasta_files(organisms_with_no_fasta, genome_name_to_path)
                 
             else:
                 raise ValueError(f"You provided GFF files for {len(organisms_with_no_fasta)} (out of {len(organisms)}) "
@@ -162,15 +167,15 @@ def launch(args: argparse.Namespace):
                                 "FASTA sequences using the --fasta or --single_fasta_file options. Therefore, it is impossible to project the pangenome onto the input genomes. "
                                 f"The following organisms have no associated sequence data: {', '.join(o.name for o in organisms_with_no_fasta)}")
 
-    elif genome_name_to_fasta_path:
+    elif input_type == "fasta":
         annotate_param_names = ["norna", "kingdom",
                                 "allow_overlap", "prodigal_procedure"]
 
         annotate_params = manage_annotate_param(annotate_param_names, pangenome_params.annotate, args.config)
 
         
-        check_input_names(pangenome, genome_name_to_fasta_path)
-        organisms = annotate_fasta_files(genome_name_to_fasta_path=genome_name_to_fasta_path,  tmpdir=args.tmpdir, cpu=args.cpu,
+        check_input_names(pangenome, genome_name_to_path)
+        organisms = annotate_fasta_files(genome_name_to_fasta_path=genome_name_to_path,  tmpdir=args.tmpdir, cpu=args.cpu,
                              translation_table=int(pangenome_params.cluster.translation_table), norna=annotate_params.norna, kingdom=annotate_params.kingdom,
                              allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure, disable_bar=args.disable_prog_bar )
 
@@ -209,6 +214,8 @@ def launch(args: argparse.Namespace):
                                                             set_size=pangenome_params.spot.set_size,
                                                             exact_match=pangenome_params.spot.exact_match_size)
 
+    
+
     if project_modules:
         # get module color for proksee
         module_to_colors = manage_module_colors(set(pangenome.modules))
@@ -228,6 +235,10 @@ def launch(args: argparse.Namespace):
                              input_orgs_to_modules.get(organism, None),
                              input_org_to_lonely_genes_count[organism])
         
+        if (args.proksee or args.gff) and args.add_sequences:
+            genome_sequences = read_genome_file(genome_name_to_path[organism.name]['path'], organism)
+            genome_name_to_path[organism.name]['path']
+
         if args.proksee:
             org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in input_orgs_to_modules.get(organism, [])}
 
@@ -236,11 +247,11 @@ def launch(args: argparse.Namespace):
             
             write_proksee_organism(organism, output_file, features='all', module_to_colors=org_module_to_color, 
                                 rgps=input_org_2_rgps.get(organism, None),
-                                    genome_sequences=None)
+                                    genome_sequences=genome_sequences)
         
 
         if args.gff:
-            if genome_name_to_annot_path: # if the genome has not been annotated by PPanGGOLiN
+            if input_type == "annotation": # if the genome has not been annotated by PPanGGOLiN
                 annotation_sources = {"rRNA": "external",
                                     "tRNA": "external",
                                     "CDS":"external"}
@@ -258,7 +269,8 @@ def launch(args: argparse.Namespace):
                 rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in input_org_to_spots[organism] for rgp in spot.regions if rgp in input_org_2_rgps[organism] }
 
 
-            write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, outdir=org_outdir, compress=False, annotation_sources=annotation_sources, genome_sequences=None)
+            write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, outdir=org_outdir, compress=False,
+                           annotation_sources=annotation_sources, genome_sequences=genome_sequences)
 
 
 
