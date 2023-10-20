@@ -238,6 +238,8 @@ def launch(args: argparse.Namespace):
         if (args.proksee or args.gff) and args.add_sequences:
             genome_sequences = read_genome_file(genome_name_to_path[organism.name]['path'], organism)
             genome_name_to_path[organism.name]['path']
+        else:
+            genome_sequences = None
 
         if args.proksee:
             org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in input_orgs_to_modules.get(organism, [])}
