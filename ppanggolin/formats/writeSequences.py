@@ -191,15 +191,16 @@ def read_fasta_or_gff(file_path: Path) -> Dict[str, str]:
     sequence_dict = {}
     seqname = ""
     seq = ""
-    z = False
+    in_fasta_part = False
     with read_compressed_or_not(file_path) as f:
         for line in f:
             if line.startswith(">"):
-                z = True
-            if z:
+                in_fasta_part = True
+            if in_fasta_part:
                 if line.startswith('>'):
                     if seq != "":
                         sequence_dict[seqname] = seq
+                        seq = ""
                     seqname = line[1:].strip().split()[0]
                 else:
                     seq += line.strip()
@@ -263,10 +264,10 @@ def read_genome_file(genome_file: Path, organism: Organism) -> Dict[str, str]:
     else:
         raise Exception(f"Unknown filetype detected: '{genome_file}'")
 
-    # # check_contig_names
-    # if set(contig_to_sequence) != {contig.name for contig in organism.contigs}:
-    #     raise Exception(f"Contig name inconsistency detected in organism '{organism.name}' between the "
-    #                     f"information stored in the pangenome file and the contigs found in '{genome_file}'.")
+    # check_contig_names
+    if set(contig_to_sequence) != {contig.name for contig in organism.contigs}:
+        raise Exception(f"Contig name inconsistency detected in organism '{organism.name}' between the "
+                        f"information stored in the pangenome file and the contigs found in '{genome_file}'.")
 
     return contig_to_sequence
 
