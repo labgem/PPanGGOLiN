@@ -362,7 +362,7 @@ class Contig(MetaFeatures):
 
         if self.length is None:
             self._length = contig_len
-        elif self.length != contig_length:
+        elif self.length != contig_len:
             raise ValueError('Attempting to define a contig length different from the previously defined value.')
         
 

@@ -746,7 +746,7 @@ class Module(MetaFeatures):
         organisms = set()
         for fam in self.families:
             organisms |= set(fam.organisms)
-        return organisms
+        yield from organisms
 
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
