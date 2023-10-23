@@ -647,9 +647,8 @@ def write_proksee(output: Path, fasta: Path = None, anno: Path = None):
     of ProkSee data for each organism to add sequences data to proksee files.
     """
 
-    proksee_outdir = output / "proksee" 
-    if not os.path.exists(proksee_outdir):
-        os.makedirs(proksee_outdir)
+    proksee_outdir = output / "proksee"
+    mk_outdir(proksee_outdir, True)
 
     organisms_file = fasta if fasta is not None else anno
 
@@ -664,7 +663,7 @@ def write_proksee(output: Path, fasta: Path = None, anno: Path = None):
             org_to_modules[org].add(mod)
 
     # Generate a color mapping for modules
-    module_to_colors = manage_module_colors(set(pan.modules))
+    module_to_colors = manage_module_colors(list(pan.modules))
 
     features = ["all"]
 
@@ -677,7 +676,7 @@ def write_proksee(output: Path, fasta: Path = None, anno: Path = None):
         # Generate a color mapping for modules specific to the organism
         org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in org_to_modules[organism]}
 
-        output_file = proksee_outdir.joinpath(organism.name).with_suffix(".json")
+        output_file = proksee_outdir / f"{organism.name}.json"
 
         # Write ProkSee data for the organism
         write_proksee_organism(organism, output_file, features=features, module_to_colors=org_module_to_color, rgps=pan.regions,
@@ -777,8 +776,7 @@ def write_gff(output: str, compress: bool = False, fasta: Path = None, anno: Pat
         org_dict = parse_input_paths_file(organisms_file)
     
     outdir = output / "gff"
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    mk_outdir(outdir, True)
 
     if pan.parameters["annotate"]["# read_annotations_from_file"]:
         annotation_sources = {"rRNA": "external",
