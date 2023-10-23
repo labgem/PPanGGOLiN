@@ -169,7 +169,6 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
     :return: Dictionnary with contig_name as keys and contig sequence in values
     """
     global contig_counter
-
     try:
         contigs = {}
         contig_seq = ""

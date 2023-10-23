@@ -360,9 +360,10 @@ class Contig(MetaFeatures):
         if contig_len < 0:
             raise ValueError("Contig length must be positive")
 
-        if self.length is None:
+        if self._length is None:
             self._length = contig_len
         elif self.length != contig_len:
+            logging.getLogger("PPanGGOLiN").debug(f"Known contig length = {self.length}, new length = {contig_len}")
             raise ValueError('Attempting to define a contig length different from the previously defined value.')
         
 
