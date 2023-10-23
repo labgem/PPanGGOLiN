@@ -1049,7 +1049,7 @@ def predict_spot_in_one_organism(
 
     input_org_spots = {spot for spots in input_rgp_to_spots.values()
                  for spot in spots }
-    new_spots = {spot for spot in input_org_spots if type(spot) == NewSpot}
+    new_spots = {spot for spot in input_org_spots if isinstance(spot, NewSpot)}
 
 
     logging.getLogger('PPanGGOLiN').debug(

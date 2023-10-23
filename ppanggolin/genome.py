@@ -359,7 +359,12 @@ class Contig(MetaFeatures):
             raise TypeError("Contig length is expected to be an integer")
         if contig_len < 0:
             raise ValueError("Contig length must be positive")
-        self._length = contig_len
+
+        if self.length is None:
+            self._length = contig_len
+        elif self.length != contig_length:
+            raise ValueError('Attempting to define a contig length different from the previously defined value.')
+        
 
     def __len__(self):
         return self.length
@@ -524,19 +529,6 @@ class Contig(MetaFeatures):
         """Get the number of RNA in the contig
         """
         return len(self._rna_getter)
-
-    def add_contig_length(self, contig_length: int):
-        """
-        Add contig length to Contig object.
-
-        :param contig_length: Length of the contig.
-        :raises ValueError: If trying to define a contig length different than previously defined.
-        """
-        if self.length is None:
-            self.length = contig_length
-
-        elif self.length != contig_length:
-            raise ValueError('Attempting to define a contig length different from the previously defined value.')
 
 
 class Organism(MetaFeatures):

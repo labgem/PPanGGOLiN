@@ -14,10 +14,9 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.genome import Gene
+from ppanggolin.genome import Gene, Organism
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
-from ppanggolin.genome import Organism
 
 module_regex = re.compile(r'^module_[0-9]+')
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]

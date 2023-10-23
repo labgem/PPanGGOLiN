@@ -245,7 +245,7 @@ class Region(MetaFeatures):
         return self.starter.contig
     
     @property
-    def start(self) -> Contig:
+    def start(self) -> int:
         """ 
         Get the starter start link to RGP
 
@@ -254,7 +254,7 @@ class Region(MetaFeatures):
         return self.starter.start
     
     @property
-    def stop(self) -> Contig:
+    def stop(self) -> int:
         """ 
         Get the stopper stop link to RGP
 
