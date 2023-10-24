@@ -39,12 +39,14 @@ WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panModule'}
 
 # command that can be launched inside a workflow subcommand
 ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "rarefaction", "rgp", "spot", "module",
-                             "draw", "write"]
+                             "draw", "write_pangenome", "write_genomes"]
 
 # Inside a workflow command, write output default is overwrite to output some flat files
-WRITE_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
-                            'projection', 'stats', 'json', 'partitions', 'regions',
-                            'borders', 'modules', 'spot_modules', "spots"]
+WRITE_PAN_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
+                            'stats', 'json', 'partitions', 'regions',
+                            'borders', 'modules', 'spot_modules', "spots", "families_tsv"]
+WRITE_GENOME_FLAG_DEFAULT_IN_WF = ['table', 'proksee', "gff"]
+
 DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "draw_spots"]
 
 
@@ -680,8 +682,11 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
                                                specific_step_params, strict_config_check=True)
 
             # overwrite write and draw default when not specified in config 
-            if workflow_step == 'write':
-                for out_flag in WRITE_FLAG_DEFAULT_IN_WF:
+            if workflow_step == 'write_pangenome':
+                for out_flag in WRITE_PAN_FLAG_DEFAULT_IN_WF:
+                    setattr(default_step_args, out_flag, True)
+            if workflow_step == 'write_genomes':
+                for out_flag in WRITE_GENOME_FLAG_DEFAULT_IN_WF:
                     setattr(default_step_args, out_flag, True)
 
             if workflow_step == "draw":

@@ -8,8 +8,8 @@ import os
 from pathlib import Path
 from typing import List
 # local libraries
-from ppanggolin.utils import get_subcommand_parser, check_log, mk_outdir, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, \
-    WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES, WRITE_FLAG_DEFAULT_IN_WF, DRAW_FLAG_DEFAULT_IN_WF
+from ppanggolin.utils import get_subcommand_parser, check_log, ALL_INPUT_PARAMS, ALL_GENERAL_PARAMS, \
+    WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES, WRITE_PAN_FLAG_DEFAULT_IN_WF, WRITE_GENOME_FLAG_DEFAULT_IN_WF, DRAW_FLAG_DEFAULT_IN_WF
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
 """ Utility scripts to help formating input files of PPanggolin."""
@@ -169,9 +169,9 @@ def launch_default_config(args: argparse.Namespace):
         specific_actions = []
 
         # overwrite some default value for write cmd in a workflow context
-        if initial_command in WORKFLOW_SUBCOMMANDS and sub_command == 'write':
+        if initial_command in WORKFLOW_SUBCOMMANDS and sub_command in ['write_pangenome', "write_genomes"]:
             for sub_action in sub._actions:
-                if sub_action.dest in WRITE_FLAG_DEFAULT_IN_WF:
+                if sub_action.dest in WRITE_PAN_FLAG_DEFAULT_IN_WF + WRITE_GENOME_FLAG_DEFAULT_IN_WF :
                     sub_action.default = True
         # overwrite some default value for draw cmd in a workflow context
         if initial_command in WORKFLOW_SUBCOMMANDS and sub_command == 'draw':

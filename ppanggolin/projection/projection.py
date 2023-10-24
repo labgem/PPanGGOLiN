@@ -39,7 +39,8 @@ from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot
 from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
-from ppanggolin.formats.writeFlat import summarize_spots, write_proksee_organism, manage_module_colors, write_gff_file
+from ppanggolin.formats.writeFlatGenomes import write_proksee_organism, manage_module_colors, write_gff_file
+from ppanggolin.formats.writeFlatPangenome import summarize_spots
 from ppanggolin.formats.writeSequences import read_genome_file
 
 class NewSpot(Spot):

@@ -69,11 +69,12 @@ def cmd_line() -> argparse.Namespace:
     desc += "    metadata      Add metadata to elements in pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
-    desc += "    draw          Draw figures representing the pangenome through different aspects\n"
-    desc += "    write         Writes 'flat' files representing the pangenome that can be used with other software\n"
-    desc += "    fasta         Writes fasta files for different elements of the pangenome\n"
-    desc += "    info          Prints information about a given pangenome graph file\n"
-    desc += "    metrics       Compute several metrics on a given pangenome\n"
+    desc += "    draw              Draw figures representing the pangenome through different aspects\n"
+    desc += "    write_pangenome:  Writes 'flat' files that represent the pangenome and its elements for use with other software.\n"
+    desc += "    write_genomes:    Writes 'flat' files that represent the genomes along with their associated pangenome elements.\n"
+    desc += "    fasta             Writes fasta files for different elements of the pangenome\n"
+    desc += "    info              Prints information about a given pangenome graph file\n"
+    desc += "    metrics           Compute several metrics on a given pangenome\n"
     desc += "  \n"
     desc += "  Regions of genomic Plasticity:\n"
     desc += "    align        aligns a genome or a set of proteins to the pangenome gene families representatives and " \
@@ -137,7 +138,7 @@ def cmd_line() -> argparse.Namespace:
                     "to enable annotation. Use the command line or the config file.")
 
     cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
-                               "context", "write", "msa", "draw", "partition",
+                               "context", "write_pangenome", "write_genomes", "msa", "draw", "partition",
                                "rarefaction", "spot", "fasta", "metrics", "rgp", "projection", "metadata"]
     if args.subcommand in cmds_pangenome_required and args.pangenome is None:
         parser.error("Please specify a pangenome file using the --pangenome argument, "
@@ -181,8 +182,8 @@ def main():
         ppanggolin.nem.rarefaction.launch(args)
     elif args.subcommand == "draw":
         ppanggolin.figures.launch(args)
-    elif args.subcommand == "write":
-        ppanggolin.formats.writeFlat.launch(args)
+    elif args.subcommand == "write_pangenome":
+        ppanggolin.formats.writeFlatPangenome.launch(args)
     elif args.subcommand == "fasta":
         ppanggolin.formats.writeSequences.launch(args)
     elif args.subcommand == "msa":
