@@ -69,7 +69,7 @@ jobs:
         ppanggolin module -p stepbystep/pangenome.h5 --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05
         ppanggolin write_pangenome -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06  --gexf --light_gexf --csv --Rtab --stats --partitions --compress --json --spots --borders --families_tsv --cpu 1 
         ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output stepbystep -f --fasta organisms.fasta.list --gff --proksee --table
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list --gff --proksee
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --info_modules --no_print_info -f --log metrics.log
         cd - 
