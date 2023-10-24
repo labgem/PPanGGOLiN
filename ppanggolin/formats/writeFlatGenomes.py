@@ -16,7 +16,7 @@ from statistics import median, mean, stdev
 import csv
 import random
 from tqdm import tqdm
-
+import time
 
 import networkx as nx
 from plotly.express.colors import qualitative
@@ -44,7 +44,7 @@ def count_neighbors_partitions(gene_family:GeneFamily):
     nb_pers = 0
     nb_shell = 0
     nb_cloud = 0
-    
+
     for neighbor in gene_family.neighbors:
         if neighbor.named_partition == "persistent":
             nb_pers += 1
@@ -374,7 +374,8 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, cpu: int = 1,
             contig_to_rgp[rgp.contig].append(rgp)
             rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in pangenome.spots for rgp in spot.regions}
 
-
+    start_writing = time.time()
+    
     for organism in  tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="organism", disable=disable_bar):
 
         logging.getLogger("PPanGGOLiN").debug(f"Writing genome annotations for {organism.name}")
@@ -407,6 +408,9 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, cpu: int = 1,
         if table:
             write_org_file(org=organism, output=org_outdir, compress=compress,
                        add_regions=needRegions, add_modules=needModules, add_spots=needSpots)
+
+    writing_time = time.time() - start_writing
+    logging.getLogger("PPanGGOLiN").debug(f"writing_time for {pangenome.number_of_organisms} genomes: {writing_time} seconds")
 
 
 def launch(args: argparse.Namespace):
