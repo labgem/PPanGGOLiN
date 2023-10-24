@@ -303,7 +303,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                 outfile.write(write_spaced_fasta(genome_sequences[contig.name], space=60))
 
 
-def write_flat_genome_files(pangenome: Pangenome, output: Path, cpu: int = 1,
+def write_flat_genome_files(pangenome: Pangenome, output: Path,
                             table: bool = False, gff: bool = False, proksee: bool = False, compress: bool = False,
                      disable_bar: bool = False, fasta=None, anno=None):
     """
@@ -376,6 +376,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, cpu: int = 1,
 
     start_writing = time.time()
     
+    # TODO try to multithread this part... ? 
     for organism in  tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="organism", disable=disable_bar):
 
         logging.getLogger("PPanGGOLiN").debug(f"Writing genome annotations for {organism.name}")
@@ -424,14 +425,9 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
 
-
-
-    write_flat_genome_files(pangenome, args.output, cpu=args.cpu, 
+    write_flat_genome_files(pangenome, args.output,
                     table=args.table, gff=args.gff, proksee=args.proksee,
                     compress=args.compress, disable_bar=args.disable_prog_bar, fasta=args.fasta, anno=args.anno)
-    
-
-    
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -469,8 +465,6 @@ def parser_flat(parser: argparse.ArgumentParser):
                         help="Generate JSON map files for PROKSEE for each genome containing pangenome annotations to be used in proksee.")
     
     optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
-    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-
 
     context = parser.add_argument_group(title="Contextually required arguments",
                                         description="With --proksee and -gff, the following arguments can be "
