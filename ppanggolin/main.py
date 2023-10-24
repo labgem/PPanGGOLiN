@@ -184,6 +184,8 @@ def main():
         ppanggolin.figures.launch(args)
     elif args.subcommand == "write_pangenome":
         ppanggolin.formats.writeFlatPangenome.launch(args)
+    elif args.subcommand == "write_genomes":
+        ppanggolin.formats.writeFlatGenomes.launch(args)
     elif args.subcommand == "fasta":
         ppanggolin.formats.writeSequences.launch(args)
     elif args.subcommand == "msa":
