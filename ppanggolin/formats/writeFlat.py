@@ -852,7 +852,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     
                     score = '.'
                     
-                    if type(feature) == Gene:
+                    if isinstance(feature, Gene):
                         rgp = feature.RGP.name if feature.RGP else ""
                         attributes += [
                             ("Family", feature.family.name),
@@ -879,7 +879,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     line_str = '\t'.join(map(str, gene_line))
                     outfile.write(line_str + "\n")
 
-                elif type(feature) == Region:
+                elif isinstance(feature, Region):
                     feat_type = "region"
                     source = "ppanggolin"
                     strand = "."
@@ -913,7 +913,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
 
         if genome_sequences:
             logging.getLogger("PPanGGOLiN").debug("Writing fasta section of gff file...")
-            outfile.write(f"##FASTA\n")
+            outfile.write("##FASTA\n")
             for contig in sorted_contigs:
                 outfile.write(f">{contig.name}\n")
 

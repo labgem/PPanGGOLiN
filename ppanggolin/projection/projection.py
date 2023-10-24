@@ -70,7 +70,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
 
     if pangenome.status["partitioned"] not in ["Computed", "Loaded", "inFile"]:
-        raise NameError(f"The provided pangenome has not been partitioned. "
+        raise NameError("The provided pangenome has not been partitioned. "
                         "Annotation of an external genome is therefore not possible. "
                         "See the 'partition' subcommands.")
 
@@ -125,7 +125,6 @@ def launch(args: argparse.Namespace):
                single_copy_fams.add(fam)
 
 
-    # genome_name_to_fasta_path, genome_name_to_annot_path = None, None
     genome_name_to_path = None
 
     if args.input_mode == "multiple":
@@ -451,7 +450,7 @@ def write_summaries(organism_2_summary: Dict[Organism, Dict[str, Any]], output_d
 
         flat_summary = {}
         for key, val in summary_info.items():
-            if type(val) == dict:
+            if isinstance(val, dict):
                 for nest_k, nest_v in val.items():
                     flat_summary[f"{key} {nest_k}"] =  nest_v
             else:
@@ -545,17 +544,17 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     """
     seq_fasta_files = []
     
-    logging.getLogger('PPanGGOLiN').info(f'Writting gene sequences of input genomes.')
+    logging.getLogger('PPanGGOLiN').info('Writting gene sequences of input genomes.')
 
     for input_organism in input_organisms:
 
         seq_outdir = output / input_organism.name
         mk_outdir(seq_outdir, force=True)
 
-        seq_fasta_file = seq_outdir / f"cds_sequences.fasta"
+        seq_fasta_file = seq_outdir / "cds_sequences.fasta"
 
         with open(seq_fasta_file, "w") as fh_out_faa:
-            write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa, disable_bar=True, add=f"ppanggolin_")
+            write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa, disable_bar=True, add="ppanggolin_")
 
         seq_fasta_files.append(seq_fasta_file)
 
@@ -854,7 +853,7 @@ def predict_spots_in_input_organisms(
     initial_regions: List[Region],
     input_org_2_rgps: Dict[Organism, Set[Region]],
     multigenics: Set[GeneFamily], 
-    output: str,
+    output: Path,
     write_graph_flag: bool = False, 
     graph_formats: List[str] = ['gexf'],
     overlapping_match: int = 2, 
@@ -877,7 +876,7 @@ def predict_spots_in_input_organisms(
     :return: A dictionary mapping input organism RGPs to their predicted spots.
     """
 
-    logging.getLogger("PPanGGOLiN").debug(f"Rebuilding original spot graph.")
+    logging.getLogger("PPanGGOLiN").debug("Rebuilding original spot graph.")
     graph_spot = make_spot_graph(rgps=initial_regions, multigenics=multigenics,
                                  overlapping_match=overlapping_match, set_size=set_size, exact_match=exact_match)
 
@@ -965,7 +964,7 @@ def predict_spot_in_one_organism(
                                              "as they are on a contig border (or have "
                                              f"less than {set_size} persistent gene families until the contig border). "
                                              "Projection of spots stops here")
-        return {}
+        return set()
 
     # remove node that were already in the graph
     new_nodes = set(input_org_node_to_rgps) - original_nodes
@@ -1173,7 +1172,7 @@ def check_projection_arguments(args: argparse.Namespace, parser: argparse.Argume
         
         if args.circular_contigs:
             parser.error("You provided a TSV file listing the files of genomes you wish to annotate. "
-                            f"Therefore, the  argument '--circular_contigs' is incompatible with this multiple genomes file.")
+                         "Therefore, the  argument '--circular_contigs' is incompatible with this multiple genomes file.")
 
         if args.fasta:
             check_input_files(args.fasta, True)

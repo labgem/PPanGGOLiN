@@ -237,14 +237,12 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: str,
             genome_id = ""
             seq = ""
             curr_len = 0
-            dup_gene = 0  # TODO Remove ?
             curr_phylo_dict = {}
 
             for line in fin:
                 if line.startswith('>'):
                     if genome_id != "":
                         if genome_id not in missing_genomes:
-                            dup_gene += 1
                             # duplicated genes. Replacing them with gaps.
                             curr_phylo_dict[genome_id] = "-" * curr_len
                         else:

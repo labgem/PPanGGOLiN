@@ -18,7 +18,7 @@ from ppanggolin.genome import Gene, Organism
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
 
-module_regex = re.compile(r'^module_[0-9]+')
+module_regex = re.compile(r'^module_\d+')  #\d == [0-9]
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
 poss_values_log = f"Possible values are {', '.join(poss_values[:-1])}, module_X with X being a module id."
 
