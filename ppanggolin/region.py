@@ -58,7 +58,8 @@ class Region(MetaFeatures):
         return self.name
 
     def __repr__(self) -> str:
-        """Region representation
+        """
+        Region representation
         """
         return f"RGP name:{self.name}"
 
@@ -242,6 +243,25 @@ class Region(MetaFeatures):
         :return: Contig corresponding to the region
         """
         return self.starter.contig
+    
+    @property
+    def start(self) -> int:
+        """ 
+        Get the starter start link to RGP
+
+        :return: start position in the contig of the first gene of the RGP
+        """
+        return self.starter.start
+    
+    @property
+    def stop(self) -> int:
+        """ 
+        Get the stopper stop link to RGP
+
+        :return: start position in the contig of the last gene of the RGP
+        """
+        return self.stopper.stop
+
 
     @property
     def is_whole_contig(self) -> bool:
@@ -716,6 +736,18 @@ class Module(MetaFeatures):
         :return: Families belonging to the module
         """
         yield from self._families_getter.values()
+    
+    @property
+    def organisms(self) -> Generator[Organism, None, None]:
+        """Returns all the Organisms that have this module
+
+        :return: Organisms that have this module
+        """
+        organisms = set()
+        for fam in self.families:
+            organisms |= set(fam.organisms)
+        yield from organisms
+
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index

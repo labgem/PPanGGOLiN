@@ -9,10 +9,11 @@ import gzip
 import argparse
 from io import TextIOWrapper
 from pathlib import Path
-from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable
+from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable, Dict
 from contextlib import contextmanager
 import tempfile
 import time
+from itertools import zip_longest
 
 import networkx as nx
 from importlib.metadata import distribution
@@ -482,7 +483,7 @@ def get_arg_name(arg_val: Union[str, TextIOWrapper]) -> Union[str, TextIOWrapper
     :return: Either a string or a TextIOWrapper object, depending on the type of the input argument.
     """
 
-    if type(arg_val) == TextIOWrapper:
+    if isinstance(arg_val, TextIOWrapper):
         return arg_val.name
     return arg_val
 
@@ -732,7 +733,7 @@ def check_config_consistency(config: dict, workflow_steps: list):
         """
         hashable_values = set()
         for value in values:
-            hashable_value = tuple(value) if type(value) == list else value
+            hashable_value = tuple(value) if isinstance(value, list) else value
             hashable_values.add(hashable_value)
         return len(hashable_values)
 
@@ -764,7 +765,7 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
     arguments_to_parse = []
     for param, val in config_param_val.items():
 
-        if type(val) == bool or val is None or val == "None":
+        if isinstance(val, bool) or val is None or val == "None":
             # param is a flag
             if val is True:
                 arguments_to_parse.append(f"--{param}")
@@ -772,7 +773,7 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
         else:
             arguments_to_parse.append(f"--{param}")
 
-            if type(val) == list:
+            if isinstance(val, list):
                 # range of values need to be added one by one
                 arguments_to_parse += [str(v) for v in val]
             else:
@@ -905,8 +906,6 @@ def get_cli_args(subparser_fct: Callable) -> argparse.Namespace:
     # remove argument that have not been specified
     delete_unspecified_args(cli_args)
     delattr(cli_args, 'subcommand')
-    # if 'config' in cli_args:
-    #     delattr(cli_args, 'config')
 
     return cli_args
 
@@ -935,3 +934,104 @@ def delete_unspecified_args(args: argparse.Namespace):
     for arg_name, arg_val in args._get_kwargs():
         if arg_val is None:
             delattr(args, arg_name)
+
+
+def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int], window_size: int,
+                          is_circular: bool = False):
+    """
+    Extracts contiguous windows around positions of interest within a contig.
+
+    :param contig_size: Number of genes in contig.
+    :param positions_of_interest: An iterable containing the positions of interest.
+    :param window_size: The size of the window to extract around each position of interest.
+    :param is_circular: Indicates if the contig is circular.
+    :return: Yields tuples representing the start and end positions of each contiguous window.
+    """
+    windows_coordinates = []
+
+    # Sort the positions of interest
+    sorted_positions = sorted(positions_of_interest)
+
+    # Check if any position of interest is out of range
+    if sorted_positions[0] < 0 or sorted_positions[-1] >= contig_size:
+        raise IndexError(f'Positions of interest are out of range. '
+                         f"Contig has {contig_size} genes while given min={sorted_positions[0]} & max={sorted_positions[-1]} positions")
+
+    if is_circular:
+        first_position = sorted_positions[0]
+        last_position = sorted_positions[-1]
+        # in a circular contig, if the window of a gene of interest overlaps the end/start of the contig
+        # an out of scope position is added to the sorted positions to take into account those positions
+        # the returned window are always checked that its positions are not out of range... 
+        # so there's no chance to find an out of scope position in final list
+        if first_position - window_size < 0:
+            out_of_scope_position = contig_size + first_position
+            sorted_positions.append(out_of_scope_position)
+
+        if last_position + window_size >= contig_size:
+            out_of_scope_position = last_position - contig_size
+            sorted_positions.insert(0, out_of_scope_position)
+
+    start_po = max(sorted_positions[0] - window_size, 0)
+
+    for position, next_po in zip_longest(sorted_positions, sorted_positions[1:]):
+
+        if next_po is None:
+            # If there are no more positions, add the final window
+            end_po = min(position + window_size, contig_size - 1)
+            windows_coordinates.append((start_po, end_po))
+
+        elif position + window_size + 1 < next_po - window_size:
+            # If there is a gap between positions, add the current window 
+            # and update the start position for the next window
+            end_po = min(position + window_size, contig_size - 1)
+
+            windows_coordinates.append((start_po, end_po))
+
+            start_po = max(next_po - window_size, 0)
+
+    return windows_coordinates
+
+
+
+def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, List[str]]]:
+    """
+    Parse an input paths file to extract genome information.
+
+    This function reads an input paths file, which is in TSV format, and extracts genome information
+    including file paths and putative circular contigs.
+
+    :param path_list_file: The path to the input paths file.
+    :return: A dictionary where keys are genome names and values are dictionaries containing path information and
+             putative circular contigs.
+    :raises FileNotFoundError: If a specified genome file path does not exist.
+    :raises Exception: If there are no genomes in the provided file.
+    """
+    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process organism files")
+    genome_name_to_genome_path = {}
+
+    for line in read_compressed_or_not(path_list_file):
+        elements = [el.strip() for el in line.split("\t")]
+        genome_file_path = Path(elements[1])
+        genome_name = elements[0]
+        putative_circular_contigs = elements[2:]
+
+        if not genome_file_path.exists():  
+            # Check if the file path doesn't exist and try an alternative path.
+            genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
+
+            if not genome_file_path_alt.exists():
+                raise FileNotFoundError(f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist.")
+            else:
+                genome_file_path = genome_file_path_alt
+
+        genome_name_to_genome_path[genome_name] = {
+            "path": genome_file_path,
+            "circular_contigs": putative_circular_contigs
+        }
+
+    if len(genome_name_to_genome_path) == 0:
+        raise Exception(f"There are no genomes in the provided file: {path_list_file} ")
+    
+    return genome_name_to_genome_path
+

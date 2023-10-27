@@ -200,7 +200,7 @@ class Gene(Feature):
     Fields:
     - position: the position of the gene in the genome.
     - family: the family that the gene belongs to.
-    - RGP: a set of resistance gene profiles associated with the gene.
+    - RGP: A putative Region of Plasticity that contains the gene. 
     - genetic_code: the genetic code associated with the gene.
     - Protein: the protein sequence corresponding to the translated gene.
     """
@@ -359,7 +359,13 @@ class Contig(MetaFeatures):
             raise TypeError("Contig length is expected to be an integer")
         if contig_len < 0:
             raise ValueError("Contig length must be positive")
-        self._length = contig_len
+
+        if self._length is None:
+            self._length = contig_len
+        elif self.length != contig_len:
+            logging.getLogger("PPanGGOLiN").debug(f"Known contig length = {self.length}, new length = {contig_len}")
+            raise ValueError('Attempting to define a contig length different from the previously defined value.')
+        
 
     def __len__(self):
         return self.length
@@ -654,12 +660,28 @@ class Organism(MetaFeatures):
         for contig in self.contigs:
             yield from contig.genes
 
+    @property
+    def rna_genes(self) -> Generator[RNA, None, None]:
+        """Generator to get genes in the organism
+
+        :return: Generator of genes
+        """
+        for contig in self.contigs:
+            yield from contig.RNAs
+
     def number_of_genes(self) -> int:
         """ Get number of genes in the organism
 
         :return: Number of genes
         """
-        return sum([contig.number_of_genes for contig in self.contigs])
+        return sum((contig.number_of_genes for contig in self.contigs))
+    
+    def number_of_rnas(self) -> int:
+        """ Get number of genes in the organism
+
+        :return: Number of genes
+        """
+        return sum((contig.number_of_rnas for contig in self.contigs))
 
     @property
     def contigs(self) -> Generator[Contig, None, None]:
@@ -743,3 +765,4 @@ class Organism(MetaFeatures):
                     self.bitarray[index[fam]] = 1
         else:
             raise Exception("There is not any partition corresponding please report a github issue")
+        

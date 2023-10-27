@@ -238,6 +238,9 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         while not line.startswith('//'):
             sequence += line[10:].replace(" ", "").strip().upper()
             line = lines.pop()
+        
+        if contig.length != len(sequence):
+            raise ValueError("The contig lenght defined is different than the sequence length")
         # get each gene's sequence.
         for gene in contig.genes:
             gene.add_sequence(get_dna_sequence(sequence, gene))
@@ -315,7 +318,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                         True if fields[1] in circular_contigs else False)
                         contig_counter.value += 1
                     org.add(contig)
-                    contig.length = int(fields[-1]) - int(fields[3]) + 1
+                    contig.length = int(fields[-1]) - int(fields[2]) + 1
 
                 continue
             elif line.startswith('#'):  # comment lines to be ignores by parsers
@@ -368,6 +371,9 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     if has_fasta and fasta_string != "":
         contig_sequences = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
         for contig in org.contigs:
+            if contig.length != len(contig_sequences[contig.name]):
+                raise ValueError("The contig lenght defined is different than the sequence length")
+
             for gene in contig.genes:
                 gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             for rna in contig.RNAs:

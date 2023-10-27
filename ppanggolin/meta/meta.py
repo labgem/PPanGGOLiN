@@ -65,7 +65,7 @@ def check_metadata_format(metadata: Path, metatype: str) -> pd.DataFrame:
     :return: Dataframe with metadata loaded
     """
     assert metatype in ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
-    colname_check = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
+    colname_check = re.compile('^[a-zA-Z_]\w*$')  # \w = [A-Za-z0-9_]
     metadata_df = pd.read_csv(metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE,
                               dtype={metatype: str})
     metadata_df.replace(to_replace='-', value=pd.NA, inplace=True)
