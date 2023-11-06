@@ -261,7 +261,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     feat_type = "region"
                     source = "ppanggolin"
                     strand = "."
-                    score = feature.score # TODO does RGP score make sens and do we want it in gff file?
+                    score = "."
                     attributes = [
                             ("Name", feature.name),
                             ("Spot", rgp_to_spotid.get(feature, "No_spot")),
@@ -439,8 +439,6 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
             org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in org_to_modules[organism]}
 
             output_file = org_outdir / f"{organism.name}.json"
-
-            # TODO Add spot ID in attribute of RGP element in proksee
 
             # Write ProkSee data for the organism
             write_proksee_organism(organism, output_file, features=['all'], module_to_colors=org_module_to_color, rgps=pangenome.regions,
