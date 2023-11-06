@@ -142,3 +142,13 @@ jobs:
                               --organism_name chlam_A --fasta FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz \
                               --spot_graph --graph_formats graphml --fast --keep_tmp -f --add_sequences --gff --proksee
 
+
+    - name: testing write_genome_cmds
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        head organisms.gbff.list | cut -f1  > organisms_names.gbff.head.list
+
+        ppanggolin write_genomes  -p myannopang/pangenome.h5 --output flat_genomes_from_file_org -f --anno organisms.gbff.head.list --gff  --organisms  organisms_names.gbff.head.list
+
+        ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output flat_genomes_from_cmdline_orgs --proksee --organisms GCF_006508185.1_ASM650818v1_genomic,GCF_002088315.1_ASM208831v1_genomic

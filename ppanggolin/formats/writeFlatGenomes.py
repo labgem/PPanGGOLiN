@@ -4,15 +4,11 @@
 # default libraries
 import argparse
 import logging
-from multiprocessing import get_context
 from itertools import combinations
-from collections import Counter, defaultdict
+from collections import defaultdict
 import logging
-from typing import TextIO,List, Dict
+from typing import List, Dict, Set
 from pathlib import Path
-from typing import TextIO
-from importlib.metadata import distribution
-from statistics import median, mean, stdev
 import csv
 import random
 from tqdm import tqdm
@@ -23,12 +19,11 @@ from plotly.express.colors import qualitative
 
 
 # local libraries
-from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Organism, Gene, Contig, RNA
-from ppanggolin.region import Region, Spot, Module
+from ppanggolin.region import Region, Module
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, extract_contig_window, parse_input_paths_file
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, extract_contig_window, parse_input_paths_file
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.formats.write_proksee import write_proksee_organism
 from ppanggolin.formats.writeSequences import read_genome_file, write_spaced_fasta
@@ -303,9 +298,49 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                 outfile.write(write_spaced_fasta(genome_sequences[contig.name], space=60))
 
 
+def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism]:
+    """
+    Get a list of organisms to include in the output.
+
+    :param organisms_filt: Filter for selecting organisms. It can be a file path with one organism name per line
+                          or a comma-separated list of organism names.
+    :param pangenome: The pangenome from which organisms will be selected.
+    :return: A set of selected Organism objects.
+    """
+
+    if organisms_filt == "all":
+        logging.getLogger("PPanGGOLiN").info("Writing output for all genomes of the pangenome.")
+        organisms_list = set(pangenome.organisms)
+
+    else:
+        if Path(organisms_filt).is_file():
+            logging.getLogger("PPanGGOLiN").debug("Parsing the list of organisms from a file to determine which genomes should be included in the output.")
+            with open(organisms_filt) as fl:
+                org_names = [line.strip() for line in fl if line and not line.startswith("#")]
+        else:
+            org_names = [name.strip()  for name in organisms_filt.split(',') if name.strip() ]
+
+        organisms_list = set()
+        org_not_in_pangenome = set()
+        for org_name in org_names:
+            try:
+                org = pangenome.get_organism(org_name)
+                organisms_list.add(org)
+            except KeyError:
+                org_not_in_pangenome.add(org_name)
+        if org_not_in_pangenome:
+            raise KeyError(f"{len(org_not_in_pangenome)} organism(s) specified with '--organisms' parameter were "
+                           f"not found in the pangenome: {', '.join(org_not_in_pangenome)}")
+
+
+        logging.getLogger("PPanGGOLiN").info(f"Writing output for {len(organisms_list)}/{pangenome.number_of_organisms} genomes of the pangenome.")
+
+    return organisms_list
+
+
 def write_flat_genome_files(pangenome: Pangenome, output: Path,
                             table: bool = False, gff: bool = False, proksee: bool = False, compress: bool = False,
-                     disable_bar: bool = False, fasta=None, anno=None):
+                     disable_bar: bool = False, fasta=None, anno=None, organisms_filt: str ="all"):
     """
     Main function to write flat files from pangenome
 
@@ -319,6 +354,9 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
     :param proksee: write a proksee file with pangenome annotation for each organisms
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
+    :param fasta: File containing the list FASTA files for each organism
+    :param anno: File containing the list of GBFF/GFF files for each organism
+    :param organism_filt: String used to specify which organism to write. if all, all organisms are written.
     """
 
     if not any(x for x in [ table, gff, proksee]):
@@ -341,6 +379,11 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
                          need_modules=needModules, need_metadata=None, metatype=None, sources=None,
                          disable_bar=disable_bar)
     
+
+    organisms_list = get_organism_list(organisms_filt, pangenome)
+    if not organisms_list:
+        raise ValueError("No genomes are selected for output. Please check the '--organisms' parameter.")
+
     organisms_file = fasta if fasta is not None else anno
 
     if organisms_file and (gff or proksee):
@@ -377,8 +420,8 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
     start_writing = time.time()
     
     # TODO try to multithread this part... ? 
-    for organism in  tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="organism", disable=disable_bar):
-
+    for organism in  tqdm(organisms_list, total=(len(organisms_list)), unit="organism", disable=disable_bar):
+        
         logging.getLogger("PPanGGOLiN").debug(f"Writing genome annotations for {organism.name}")
 
 
@@ -427,7 +470,8 @@ def launch(args: argparse.Namespace):
 
     write_flat_genome_files(pangenome, args.output,
                     table=args.table, gff=args.gff, proksee=args.proksee,
-                    compress=args.compress, disable_bar=args.disable_prog_bar, fasta=args.fasta, anno=args.anno)
+                    compress=args.compress, disable_bar=args.disable_prog_bar, fasta=args.fasta, anno=args.anno,
+                    organisms_filt=args.organisms)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -458,16 +502,26 @@ def parser_flat(parser: argparse.ArgumentParser):
 
     optional.add_argument("--table", required=False, action="store_true",
                           help="Generate a tsv file for each genome with pangenome annotations.")
+    
     optional.add_argument("--gff", required=False, action="store_true",
                         help="Generate a gff file for each genome containing pangenome annotations.")
     
     optional.add_argument("--proksee", required=False, action="store_true",
                         help="Generate JSON map files for PROKSEE for each genome containing pangenome annotations to be used in proksee.")
     
-    optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
+    optional.add_argument("--compress", required=False, action="store_true",
+                          help="Compress the files in .gz")
+    
+    optional.add_argument("--organisms", 
+                        required=False, 
+                        default='all',
+                        help="Specify the organisms for which to generate output. "
+                            "You can provide a list of organism names either directly in the command line separated by commas, "
+                            "or by referencing a file containing the list of organism names, with one name per line.")
+
 
     context = parser.add_argument_group(title="Contextually required arguments",
-                                        description="With --proksee and -gff, the following arguments can be "
+                                        description="With --proksee and --gff, the following arguments can be "
                                         "used to add sequence information to the output file:")
     
     context.add_argument('--fasta', required=False, type=Path,
