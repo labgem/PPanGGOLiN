@@ -410,6 +410,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
         else:
             annotation_sources = {}
 
+    if gff or proksee:
         rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in pangenome.spots for rgp in spot.regions}
 
         contig_to_rgp = defaultdict(list)
@@ -443,7 +444,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
 
             # Write ProkSee data for the organism
             write_proksee_organism(organism, output_file, features=['all'], module_to_colors=org_module_to_color, rgps=pangenome.regions,
-                                    genome_sequences=genome_sequences)
+                                    genome_sequences=genome_sequences, rgp_to_spot_id=rgp_to_spot_id)
         
         
         if gff:

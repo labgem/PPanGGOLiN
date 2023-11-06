@@ -236,9 +236,15 @@ def launch(args: argparse.Namespace):
                              input_orgs_to_modules.get(organism, None),
                              input_org_to_lonely_genes_count[organism])
         
-        if (args.proksee or args.gff) and args.add_sequences:
-            genome_sequences = read_genome_file(genome_name_to_path[organism.name]['path'], organism)
-            genome_name_to_path[organism.name]['path']
+        rgp_to_spot_id = {}
+        if (args.proksee or args.gff):
+            if args.add_sequences:
+                genome_sequences = read_genome_file(genome_name_to_path[organism.name]['path'], organism)
+                genome_name_to_path[organism.name]['path']
+            
+            if organism in input_org_to_spots:
+                rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in input_org_to_spots[organism] for rgp in spot.regions if rgp in input_org_2_rgps[organism] }
+
         else:
             genome_sequences = None
 
@@ -261,16 +267,12 @@ def launch(args: argparse.Namespace):
             else:
                 annotation_sources = {}
 
-            contig_to_rgp, rgp_to_spot_id = {}, {}
+            contig_to_rgp = {}
 
             if organism in input_org_2_rgps:
                 contig_to_rgp = defaultdict(list)
                 for rgp in input_org_2_rgps[organism]:
                     contig_to_rgp[rgp.contig].append(rgp)
-
-            if organism in input_org_to_spots:
-                rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in input_org_to_spots[organism] for rgp in spot.regions if rgp in input_org_2_rgps[organism] }
-
 
             write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, outdir=org_outdir, compress=False,
                            annotation_sources=annotation_sources, genome_sequences=genome_sequences)

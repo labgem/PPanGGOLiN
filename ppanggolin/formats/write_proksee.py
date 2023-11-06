@@ -210,11 +210,11 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
     return genes_data_list, gf2gene
 
 
-def write_rgp(rgps: Pangenome, organism: Organism):
+def write_rgp(rgps: Region, organism: Organism, rgp_to_spot_id:Dict[Region,int]=None) -> list:
     """
     Writes RGP (Region of Genomic Plasticity) data for a given organism in proksee format.
 
-    :param pangenome: The pangenome containing information about RGPs.
+    :param rgps: Set of RGPs to write.
     :param organism: The specific organism for which RGP data will be written.
 
     :return: A list of RGP data in a structured format.
@@ -223,7 +223,12 @@ def write_rgp(rgps: Pangenome, organism: Organism):
 
     # Iterate through each RGP in the pangenome
     for rgp in tqdm(rgps, unit="RGP", disable=True):
+        
         if rgp.organism == organism:
+            tags = []
+            if rgp_to_spot_id:
+                tags = [rgp_to_spot_id.get(rgp, "No_spot") ]
+            
             # Create an entry for the RGP in the data list
             rgp_data_list.append({
                 "name": rgp.name,
@@ -232,7 +237,7 @@ def write_rgp(rgps: Pangenome, organism: Organism):
                 "stop": rgp.stop,
                 "legend": "RGP",
                 "source": "RGP",
-                "tags": []
+                "tags": tags
             })
 
     return rgp_data_list
@@ -256,7 +261,7 @@ def write_modules(modules: List[Module], organism: Organism, gf2genes: Dict[str,
 
         if gf_intersection:
             # Calculate the completion percentage
-            completion = round(len(gf_intersection) / len(set(module.families)), 2)
+            completion =  round(100 * len(gf_intersection) / len(set(module.families)), 1)
 
             # Create module data entries for genes within intersecting gene families
             for gf in gf_intersection:
@@ -269,9 +274,9 @@ def write_modules(modules: List[Module], organism: Organism, gf2genes: Dict[str,
                         "contig": gene.contig.name,
                         "legend": f"module_{module.ID}",
                         "source": "Module",
-                        "tags": [],
+                        "tags": [f'{completion}% complete'],
                         "meta": {
-                            "completion": completion
+                            "completion": f"{completion}%"
                         }
                     })
 
@@ -282,7 +287,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
                            features: List[str] = None,
                            module_to_colors: Dict[Module, str] = None,
                            rgps:List[Region] = None,
-                           genome_sequences: Dict[str,str] = None):
+                           genome_sequences: Dict[str,str] = None, rgp_to_spot_id:Dict[Region, int] = None):
     """
     Write ProkSee data for a given organism.
 
@@ -305,7 +310,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
     proksee_data["cgview"]["features"] = genes_features
 
     if "rgp" in features or "all" in features:
-        proksee_data["cgview"]["features"] += write_rgp(rgps, organism=organism)
+        proksee_data["cgview"]["features"] += write_rgp(rgps, organism=organism, rgp_to_spot_id=rgp_to_spot_id)
 
     if "modules" in features or "all" in features:
         proksee_data["cgview"]["features"] += write_modules(modules=module_to_colors, organism=organism, gf2genes=gf2genes)

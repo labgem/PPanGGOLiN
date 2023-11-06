@@ -143,7 +143,7 @@ class Region(MetaFeatures):
         :raise TypeError: if the given spot is not a Spot.
         """
         if isinstance(spot, Spot):
-            self.spot = spot#only 1 spot possible
+            self.spot = spot #only 1 spot possible
         else:
             raise TypeError(f"Unexpected class / type for {type(spot)} when adding it to a RGP")
 
