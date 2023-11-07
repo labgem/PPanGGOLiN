@@ -4,7 +4,7 @@
 # default libraries
 import logging
 from pathlib import Path
-from typing import TextIO, Dict, Any, List
+from typing import TextIO, Dict, Any, List, Set
 
 # installed libraries
 from tables import Table
@@ -686,7 +686,7 @@ def get_pangenome_parameters(h5f: tables.File) -> Dict[str, Dict[str, Any]]:
 
 def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = False, graph: bool = False,
                    rgp: bool = False, spots: bool = False, gene_sequences: bool = False, modules: bool = False,
-                   metadata: bool = False, metatype: str = None, sources: List[str] = None,
+                   metadata: bool = False, metatypes: Set[str] = None, sources: Set[str] = None,
                    disable_bar: bool = False):
     """
     Reads a previously written pangenome, with all of its parts, depending on what is asked,
@@ -701,7 +701,7 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
     :param gene_sequences: get gene sequences
     :param modules: get modules
     :param metadata: get metadata
-    :param metatype: metatype of the metadata to get
+    :param metatypes: metatypes of the metadata to get
     :param sources: sources of the metadata to get (None means all sources)
     :param disable_bar: Allow to disable the progress bar
     """
@@ -771,26 +771,27 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
                             f"or has been improperly filled")
 
     if metadata:
-        assert metatype is not None
-        if sources is None:
-            sources = pangenome.status["metasources"][metatype]
-        if h5f.root.status._v_attrs.metadata:
-            metastatus = h5f.root.status._f_get_child("metastatus")
-            metasources = h5f.root.status._f_get_child("metasources")
-            if metastatus._v_attrs[metatype] and all(
-                    [True if source in metasources._v_attrs[metatype] else False for source in sources]):
-                logging.getLogger().info(f"Reading the {metatype} metadata from sources {sources}...")
-                read_metadata(pangenome, h5f, metatype, sources, disable_bar=disable_bar)
-        else:
-            raise Exception(f"The pangenome in file '{filename}' does not have modules information, "
-                            f"or has been improperly filled")
+        for metatype in metatypes:
+            
+            if h5f.root.status._v_attrs.metadata:
+                metastatus = h5f.root.status._f_get_child("metastatus")
+                metasources = h5f.root.status._f_get_child("metasources")
+
+                metatype_sources =  set(metasources._v_attrs[metatype]) & sources
+                if metastatus._v_attrs[metatype] and len(metatype_sources) > 0:
+                    logging.getLogger("PPanGGOLiN").info(f"Reading the {metatype} metadata from sources {metatype_sources}...")
+                    read_metadata(pangenome, h5f, metatype, metatype_sources, disable_bar=disable_bar)
+            else:
+                raise KeyError(f"The pangenome in file '{filename}' does not have metadata associated to {metatype}, ")
+        
+    
     h5f.close()
 
 
 def check_pangenome_info(pangenome, need_annotations: bool = False, need_families: bool = False,
                          need_graph: bool = False, need_partitions: bool = False, need_rgp: bool = False,
                          need_spots: bool = False, need_gene_sequences: bool = False, need_modules: bool = False,
-                         need_metadata: bool = False, metatype: str = None, sources: List[str] = None,
+                         need_metadata: bool = False, metatypes: Set[str] = None, sources: Set[str] = None,
                          disable_bar: bool = False):
     """
     Defines what needs to be read depending on what is needed, and automatically checks if the required elements
@@ -806,8 +807,8 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
     :param need_gene_sequences: get gene sequences
     :param need_modules: get modules
     :param need_metadata: get metadata
-    :param metatype: metatype of the metadata to get
-    :param sources: sources of the metadata to get (None means all sources)
+    :param metatype: metatype of the metadata to get (None means all types with metadata)
+    :param sources: sources of the metadata to get (None means all possible sources)
     :param disable_bar: Allow to disable the progress bar
     """
     annotation = False
@@ -861,24 +862,50 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
         elif pangenome.status["modules"] not in ["Computed", "Loaded"]:
             raise Exception("Your pangenome modules have not been predicted. See the 'module' subcommand")
 
+    metatypes_to_load = set()
+    sources_to_load = set()
     if need_metadata:
-        if pangenome.status["metadata"][metatype] == "inFile":
-            if sources is not None:
-                for source in sources:
-                    if source in pangenome.status["metasources"][metatype]:
-                        metadata = True
-                    else:
-                        raise Exception(
-                            f"There is no metadata assign to {metatype} for source : {source} in your pangenome.")
+        if metatypes is None:
+            # load all metadata contained in the pangenome
+            metatypes = [metatype for metatype, status in pangenome.status["metadata"].items() if status == 'inFile']
+        else:
+            # check that specified types have metadata associated
+            for metatype in metatypes:
+                if pangenome.status["metadata"][metatype] not in ["Computed", "Loaded", "inFile"]:
+                    logging.getLogger("PPanGGOLiN").warning(f"The pangenome does not have any metadata associated with {metatype}. See the 'metadata' subcommand")
+                    # raise Exception(f"Your pangenome don't have any metadata for {metatype}. See the 'metadata' subcommand")
+
+
+        
+        if sources is None:
+            # load all metadata sources for each metatype
+            for metatype in metatypes:
+                sources_to_load |= set(pangenome.status["metasources"][metatype])
+        else:
+            # check that specified source exist for at least one metatype
+            for source in set(sources):
+                if any(source in pangenome.status["metasources"][metatype] for metatype in metatypes):
+                    sources_to_load.add(source)
+                else:
+                    logging.getLogger("PPanGGOLiN").warning(f"There is no metadata assigned to any element of the pangenome with "
+                                                            f"source={source}. This source is ignored")
+
+        # select only metatypes that have a requested source .
+        for metatype in metatypes:
+            if set(pangenome.status["metasources"][metatype]) & sources_to_load:
+                metatypes_to_load.add(metatype)
             else:
-                metadata = True
-        elif pangenome.status["metastatus"][metatype] not in ["Computed", "Loaded"]:
-            raise Exception(f"Your pangenome don't have any metadata for {metatype}. See the 'metadata' subcommand")
+                logging.getLogger("PPanGGOLiN").warning(f"There is no metadata assigned to {metatype} with specified sources:"
+                                                        f" {', '.join(sources_to_load)} in the pangenome. This metatype is ignored.")
+        if metatypes_to_load and sources_to_load:
+            logging.getLogger("PPanGGOLiN").debug(f"metadata types to load: {', '.join(metatypes_to_load)}")
+            logging.getLogger("PPanGGOLiN").debug(f"metadata sources to load: {', '.join(sources_to_load)}")
+            metadata = True
 
     if any([annotation, gene_families, graph, rgp, spots, gene_sequences, modules, metadata]):
-        # if anything is true, else we need nothing.
+        # if no flag is true, then nothing is needed.
         read_pangenome(pangenome, annotation=annotation, gene_families=gene_families,
                        graph=graph, gene_sequences=gene_sequences,
                        rgp=rgp, spots=spots, modules=modules,
-                       metadata=metadata, metatype=metatype, sources=sources,
+                       metadata=metadata, metatypes=metatypes_to_load, sources=sources_to_load,
                        disable_bar=disable_bar)

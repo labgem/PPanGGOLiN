@@ -3,7 +3,7 @@
 
 # default libraries
 import logging
-from typing import Generator, List, Tuple, Union, Any
+from typing import Generator, List, Tuple, Union, Any, Dict
 from collections import defaultdict
 
 # installed libraries
@@ -116,6 +116,25 @@ class MetaFeatures:
         """
         yield from self._metadata_getter.keys()
 
+    @property
+    def formatted_metadata_dict(self) -> Dict[str, str]:
+        """
+        Format metadata by combining source and field values.
+
+        Given an object with metadata, this function creates a new dictionary where the keys
+        are formatted as 'source_field'. In some case it is possible to have multiple values for the same field, 
+        in this situation values are concatenated with '|' as the delimiter
+
+        :return: A dictionary with formatted metadata.
+        """
+
+        source_field_2_values = defaultdict(list)
+        for metadata in self.metadata:
+            for field in metadata.fields:
+                source_field_2_values[f"{metadata.source}_{field}"].append(str(getattr(metadata, field)))
+
+        return {source_field: '|'.join(values) for source_field, values in source_field_2_values.items()}
+
     def add_metadata(self, source, metadata):
         """Add metadata to metadata getter
 
@@ -186,3 +205,5 @@ class MetaFeatures:
         """
         max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
         return max_source, len(max_meta)
+
+ 

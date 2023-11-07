@@ -201,6 +201,8 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
     # sort contig by their name
     sorted_contigs = sorted(org.contigs, key= lambda x : x.name)
 
+    organism_metadata = [(f"genome_{key}", value) for key, value in  org.formatted_metadata_dict.items()]
+
     with write_compressed_or_not(outdir /  F"{org.name}.gff", compress) as outfile:
         # write gff header
         outfile.write('##gff-version 3\n')
@@ -211,6 +213,23 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
             outfile.write(f'##sequence-region {contig.name} 1 {contig.length}\n')
 
         for contig in sorted_contigs:
+
+            contig_metadata = [(f"gene_{key}", value) for key, value in  contig.formatted_metadata_dict.items()]
+            attributes = [("ID", contig.name)] + organism_metadata + contig_metadata
+            attributes_str = ';'.join([f"{k}={v}" for k,v in attributes if v != "" and v is not None])
+
+            contig_line = [contig.name,
+                           ".",
+                           "region",
+                           "1",
+                           contig.length,
+                           ".",
+                           "+",
+                           ".",
+                           attributes_str]
+            contig_line_str = '\t'.join(map(str, contig_line))
+            outfile.write(contig_line_str + "\n")
+
             contig_elements = sorted(contig_to_rgp[contig] + list(contig.genes) + list(contig.RNAs), key=lambda x: (x.start))
 
             for feature in contig_elements:
@@ -235,13 +254,21 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     
                     if type(feature) == Gene:
                         rgp = feature.RGP.name if feature.RGP else ""
+
                         attributes += [
                             ("Family", feature.family.name),
                             ("Partition", feature.family.named_partition),
                             ('RGP', rgp),
-                            ('Module', ','.join((f"module_{module.ID}" for module in feature.family.modules)) )
+                            ('Module', ','.join((f"module_{module.ID}" for module in feature.family.modules)))
                         ]
                 
+                        # adding attributes 
+                        gene_metadata = [(f"gene_{key}", value) for key, value in  feature.formatted_metadata_dict.items()]
+                        family_metadata = [(f"family_{key}", value) for key, value in feature.family.formatted_metadata_dict.items()]
+                        
+                        attributes += gene_metadata 
+                        attributes += family_metadata
+
                     # add an extra line of type gene
                     gene_line = [contig.name,
                             source, 
@@ -262,11 +289,15 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     source = "ppanggolin"
                     strand = "."
                     score = "."
+                    
+                    rgp_metadata = [(f"rgp_{key}", value) for key, value in  feature.formatted_metadata_dict.items()]
+
                     attributes = [
                             ("Name", feature.name),
                             ("Spot", rgp_to_spotid.get(feature, "No_spot")),
                             ("Note", "Region of Genomic Plasticity (RGP)")
                     ]
+                    attributes += rgp_metadata
 
                 
                 else:
@@ -274,7 +305,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
 
 
                 attributes_str = ';'.join([f"{k}={v}" for k,v in attributes if v != "" and v is not None])
-
+                print(attributes_str)
                 line = [contig.name,
                         source, # Source
                         feat_type,
@@ -340,7 +371,7 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
 
 def write_flat_genome_files(pangenome: Pangenome, output: Path,
                             table: bool = False, gff: bool = False, proksee: bool = False, compress: bool = False,
-                     disable_bar: bool = False, fasta=None, anno=None, organisms_filt: str ="all"):
+                     disable_bar: bool = False, fasta=None, anno=None, organisms_filt: str ="all", add_metadata=False):
     """
     Main function to write flat files from pangenome
 
@@ -373,10 +404,9 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
     else:
         need_graph = False
 
-    # TODO: see if we export metadata in write_genomes command
     check_pangenome_info(pangenome, need_annotations=needAnnotations, need_families=needFamilies,need_graph=need_graph,
                          need_partitions=needPartitions, need_rgp=needRegions, need_spots=needSpots,
-                         need_modules=needModules, need_metadata=None, metatype=None, sources=None,
+                         need_modules=needModules, need_metadata=add_metadata,
                          disable_bar=disable_bar)
     
 
@@ -444,7 +474,6 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
             write_proksee_organism(organism, output_file, features=['all'], module_to_colors=org_module_to_color, rgps=pangenome.regions,
                                     genome_sequences=genome_sequences, rgp_to_spot_id=rgp_to_spot_id)
         
-        
         if gff:
             write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, org_outdir, compress, annotation_sources, genome_sequences)
 
@@ -470,7 +499,7 @@ def launch(args: argparse.Namespace):
     write_flat_genome_files(pangenome, args.output,
                     table=args.table, gff=args.gff, proksee=args.proksee,
                     compress=args.compress, disable_bar=args.disable_prog_bar, fasta=args.fasta, anno=args.anno,
-                    organisms_filt=args.organisms)
+                    organisms_filt=args.organisms, add_metadata=True) # TODO make add_metadata an argument
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:

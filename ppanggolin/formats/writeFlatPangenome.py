@@ -929,7 +929,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
 
     check_pangenome_info(pangenome, need_annotations=needAnnotations, need_families=needFamilies, need_graph=needGraph,
                          need_partitions=needPartitions, need_rgp=needRegions, need_spots=needSpots,
-                         need_modules=needModules, need_metadata=needMetadata, metatype=metatype, sources=None,
+                         need_modules=needModules, need_metadata=needMetadata, metatypes=[metatype], sources=None,
                          disable_bar=disable_bar)
     pan.get_org_index()  # make the index because it will be used most likely
     with get_context('fork').Pool(processes=cpu) as p:
