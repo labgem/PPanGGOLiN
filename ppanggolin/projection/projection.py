@@ -275,7 +275,7 @@ def launch(args: argparse.Namespace):
                     contig_to_rgp[rgp.contig].append(rgp)
 
             write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, outdir=org_outdir, compress=False,
-                           annotation_sources=annotation_sources, genome_sequences=genome_sequences)
+                           annotation_sources=annotation_sources, genome_sequences=genome_sequences, metadata_sep="|")
 
 
     write_summaries(organism_2_summary, output_dir)
