@@ -7,7 +7,7 @@ import logging
 from itertools import combinations
 from collections import defaultdict
 import logging
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Tuple
 from pathlib import Path
 import csv
 import random
@@ -182,9 +182,37 @@ def palette(nb_colors: int) -> List[str]:
 
     return colors
 
+def encode_attribute_val(product: str) -> str:
+    """
+    Encode special characters forbidden in column 9 of the GFF3 format.
+    
+    :param product: The input string to encode.
+    :return: The encoded string with special characters replaced.
+    
+    Reference:
+    - GFF3 format requirement: https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
+    - Code source taken from Bakta: https://github.com/oschwengers/bakta
+    """
+    product = str(product)
+    product = product.replace('%', '%25')
+    product = product.replace(';', '%3B')
+    product = product.replace('=', '%3D')
+    product = product.replace('&', '%26')
+    product = product.replace(',', '%2C')
+    return product
+
+def encode_attributes(attributes: List[Tuple]) -> str:
+    """
+    Encode a list of attributes in GFF3 format.
+
+    :param attributes: A list of attribute key-value pairs represented as tuples.
+    :return: The encoded attributes as a semicolon-separated string.
+    """
+    return ';'.join([f"{encode_attribute_val(k)}={encode_attribute_val(v)}" for k, v in attributes if v != "" and v is not None])
+
 
 def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region], 
-                   rgp_to_spotid: Dict[Region, str], outdir: str, compress: bool,
+                   rgp_to_spotid: Dict[Region, str], outdir: str, metadata_sep:str, compress: bool,
                    annotation_sources: Dict[str, str], genome_sequences:Dict[str,str]):
     """
     Write the GFF file of the provided organism.
@@ -193,6 +221,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
     :param contig_to_rgp: Dictionary mapping Contig objects to their corresponding Region objects.
     :param rgp_to_spotid: Dictionary mapping Region objects to their corresponding spot IDs.
     :param outdir: Path to the output directory where the GFF file will be written.
+    :param metadata_sep: The separator used to join multiple metadata values for element with multiple metadata values from the same source.
     :param compress: If True, compress the output GFF file using .gz format.
     :param annotation_sources: A dictionary that maps types of features to their source information.
     :param genome_sequences: A dictionary mapping contig names to their DNA sequences (default: None).
@@ -201,7 +230,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
     # sort contig by their name
     sorted_contigs = sorted(org.contigs, key= lambda x : x.name)
 
-    organism_metadata = [(f"genome_{key}", value) for key, value in  org.formatted_metadata_dict.items()]
+    organism_metadata = [(f"genome_{key}", value) for key, value in  org.formatted_metadata_dict(metadata_sep).items()]
 
     with write_compressed_or_not(outdir /  F"{org.name}.gff", compress) as outfile:
         # write gff header
@@ -214,10 +243,10 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
 
         for contig in sorted_contigs:
 
-            contig_metadata = [(f"contig_{key}", value) for key, value in  contig.formatted_metadata_dict.items()]
-            attributes =[]# [("ID", contig.name),
-                        #   ("Is_circular", "true" if contig.is_circular else "false")] + organism_metadata + contig_metadata
-            attributes_str = ';'.join([f"{k}={v}" for k,v in attributes if v != "" and v is not None])
+            contig_metadata = [(f"contig_{key}", value) for key, value in  contig.formatted_metadata_dict(metadata_sep).items()]
+            attributes = [("ID", contig.name),
+                          ("Is_circular", "true" if contig.is_circular else "false")] + organism_metadata + contig_metadata
+            attributes_str = encode_attributes(attributes) 
 
             contig_line = [contig.name,
                            ".",
@@ -267,8 +296,8 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                         ]
                 
                         # adding attributes 
-                        gene_metadata = [(f"gene_{key}", value) for key, value in  feature.formatted_metadata_dict.items()]
-                        family_metadata = [(f"family_{key}", value) for key, value in feature.family.formatted_metadata_dict.items()]
+                        gene_metadata = [(f"gene_{key}", value) for key, value in  feature.formatted_metadata_dict(metadata_sep).items()]
+                        family_metadata = [(f"family_{key}", value) for key, value in feature.family.formatted_metadata_dict(metadata_sep).items()]
                         
                         attributes += gene_metadata 
                         attributes += family_metadata
@@ -282,7 +311,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                             '.',
                             strand,
                             ".",
-                            f'ID={parent_gene_id}'
+                            f'ID={encode_attribute_val(parent_gene_id)}'
                             ]
                     
                     line_str = '\t'.join(map(str, gene_line))
@@ -294,7 +323,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     strand = "."
                     score = "."
                     
-                    rgp_metadata = [(f"rgp_{key}", value) for key, value in  feature.formatted_metadata_dict.items()]
+                    rgp_metadata = [(f"rgp_{key}", value) for key, value in  feature.formatted_metadata_dict(metadata_sep).items()]
 
                     attributes = [
                             ("Name", feature.name),
@@ -308,7 +337,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     raise TypeError(f'The feature to write in gff file does not have an expected types. {type(feature)}')
 
 
-                attributes_str = ';'.join([f"{k}={v}" for k,v in attributes if v != "" and v is not None])
+                attributes_str = encode_attributes(attributes)
                 
                 line = [contig.name,
                         source, # Source
@@ -375,7 +404,7 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
 
 def write_flat_genome_files(pangenome: Pangenome, output: Path,
                             table: bool = False, gff: bool = False, proksee: bool = False, compress: bool = False,
-                     disable_bar: bool = False, fasta=None, anno=None, organisms_filt: str ="all", add_metadata=False):
+                     disable_bar: bool = False, fasta=None, anno=None, organisms_filt: str ="all", add_metadata=False, metadata_sep="|"):
     """
     Main function to write flat files from pangenome
 
@@ -392,6 +421,8 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
     :param fasta: File containing the list FASTA files for each organism
     :param anno: File containing the list of GBFF/GFF files for each organism
     :param organism_filt: String used to specify which organism to write. if all, all organisms are written.
+    :param metadata_sep: The separator used to join multiple metadata values for element with multiple metadata values from the same source.
+
     """
 
     if not any(x for x in [ table, gff, proksee]):
@@ -479,7 +510,8 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
                                     genome_sequences=genome_sequences, rgp_to_spot_id=rgp_to_spot_id)
         
         if gff:
-            write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, org_outdir, compress, annotation_sources, genome_sequences)
+            write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, org_outdir, metadata_sep=metadata_sep,
+                           compress=compress, annotation_sources=annotation_sources, genome_sequences=genome_sequences)
 
         if table:
             write_org_file(org=organism, output=org_outdir, compress=compress,
@@ -503,7 +535,7 @@ def launch(args: argparse.Namespace):
     write_flat_genome_files(pangenome, args.output,
                     table=args.table, gff=args.gff, proksee=args.proksee,
                     compress=args.compress, disable_bar=args.disable_prog_bar, fasta=args.fasta, anno=args.anno,
-                    organisms_filt=args.organisms, add_metadata=True) # TODO make add_metadata an argument
+                    organisms_filt=args.organisms, add_metadata=args.add_metadata, metadata_sep=args.metadata_sep)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -550,6 +582,17 @@ def parser_flat(parser: argparse.ArgumentParser):
                         help="Specify the organisms for which to generate output. "
                             "You can provide a list of organism names either directly in the command line separated by commas, "
                             "or by referencing a file containing the list of organism names, with one name per line.")
+
+    optional.add_argument("--add_metadata", 
+                        required=False, 
+                        action="store_true", 
+                        help="Include metadata information in the output files if any have been added to pangenome elements (see ppanggolin metadata command).")
+    
+    optional.add_argument("--metadata_sep", 
+                        required=False, 
+                        default='|', 
+                        help="The separator used to join multiple metadata values for elements with multiple metadata values from the same source. "
+                            "This character should not appear in metadata values.")
 
 
     context = parser.add_argument_group(title="Contextually required arguments",

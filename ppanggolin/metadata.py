@@ -116,24 +116,30 @@ class MetaFeatures:
         """
         yield from self._metadata_getter.keys()
 
-    @property
-    def formatted_metadata_dict(self) -> Dict[str, str]:
+    def formatted_metadata_dict(self, separator: str = "|") -> Dict[str, str]:
         """
         Format metadata by combining source and field values.
 
         Given an object with metadata, this function creates a new dictionary where the keys
-        are formatted as 'source_field'. In some case it is possible to have multiple values for the same field, 
-        in this situation values are concatenated with '|' as the delimiter
+        are formatted as 'source_field'. In some cases, it is possible to have multiple values for the same field, 
+        in this situation, values are concatenated with the specified separator.
 
+        :param separator: The separator used to join multiple values for the same field (default is '|').
         :return: A dictionary with formatted metadata.
         """
-
         source_field_2_values = defaultdict(list)
         for metadata in self.metadata:
             for field in metadata.fields:
-                source_field_2_values[f"{metadata.source}_{field}"].append(str(getattr(metadata, field)))
+                value = str(getattr(metadata, field))
+                if separator in value:
+                    raise ValueError(f"Metadata {field}={value} associated to {self} from source {metadata.source} "
+                                     f"contains in its value the separator character '{separator}'. "
+                                     "Please change separator in order to be able to write the metadata.")
+                source_field_2_values[f"{metadata.source}_{field}"].append(str(value))
 
-        return {source_field: '|'.join(values) for source_field, values in source_field_2_values.items()}
+
+        return {source_field: separator.join(values) for source_field, values in source_field_2_values.items()}
+
 
     def add_metadata(self, source, metadata):
         """Add metadata to metadata getter
