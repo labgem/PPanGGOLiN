@@ -404,7 +404,8 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
 
 def write_flat_genome_files(pangenome: Pangenome, output: Path,
                             table: bool = False, gff: bool = False, proksee: bool = False, compress: bool = False,
-                     disable_bar: bool = False, fasta=None, anno=None, organisms_filt: str ="all", add_metadata=False, metadata_sep="|"):
+                     disable_bar: bool = False, fasta=None, anno=None, organisms_filt: str ="all", 
+                     add_metadata=False, metadata_sep="|", metadata_sources:List[str]=None):
     """
     Main function to write flat files from pangenome
 
@@ -422,6 +423,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
     :param anno: File containing the list of GBFF/GFF files for each organism
     :param organism_filt: String used to specify which organism to write. if all, all organisms are written.
     :param metadata_sep: The separator used to join multiple metadata values for element with multiple metadata values from the same source.
+    :param metadata_sources: Sources of the metadata to use and write in the outputs. None means all sources are used.
 
     """
 
@@ -441,7 +443,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path,
 
     check_pangenome_info(pangenome, need_annotations=needAnnotations, need_families=needFamilies,need_graph=need_graph,
                          need_partitions=needPartitions, need_rgp=needRegions, need_spots=needSpots,
-                         need_modules=needModules, need_metadata=add_metadata,
+                         need_modules=needModules, need_metadata=add_metadata, sources=metadata_sources,
                          disable_bar=disable_bar)
     
 
@@ -535,7 +537,7 @@ def launch(args: argparse.Namespace):
     write_flat_genome_files(pangenome, args.output,
                     table=args.table, gff=args.gff, proksee=args.proksee,
                     compress=args.compress, disable_bar=args.disable_prog_bar, fasta=args.fasta, anno=args.anno,
-                    organisms_filt=args.organisms, add_metadata=args.add_metadata, metadata_sep=args.metadata_sep)
+                    organisms_filt=args.organisms, add_metadata=args.add_metadata, metadata_sep=args.metadata_sep, metadata_sources=args.metadata_sources)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -587,7 +589,11 @@ def parser_flat(parser: argparse.ArgumentParser):
                         required=False, 
                         action="store_true", 
                         help="Include metadata information in the output files if any have been added to pangenome elements (see ppanggolin metadata command).")
-    
+    optional.add_argument("--metadata_sources", 
+                    default=None,
+                    nargs="+",
+                    help="Which source of metadata should be written. By default all metadata sources are included.")
+
     optional.add_argument("--metadata_sep", 
                         required=False, 
                         default='|', 
