@@ -153,6 +153,11 @@ def cmd_line() -> argparse.Namespace:
         # check argument correctness and determine input mode (single or multiple files) and add it to args.
         input_mode = ppanggolin.projection.projection.check_projection_arguments(args, parser)
         setattr(args, "input_mode", input_mode)
+
+    if args.subcommand == "metadata":
+        # check argument correctness and determine input mode (single or multiple files) and add it to args.
+        input_mode = ppanggolin.meta.meta.check_metadata_arguments(args, parser)
+        setattr(args, "input_mode", input_mode)
         
     return args
 
