@@ -214,8 +214,9 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
 
         for contig in sorted_contigs:
 
-            contig_metadata = [(f"gene_{key}", value) for key, value in  contig.formatted_metadata_dict.items()]
-            attributes = [("ID", contig.name)] + organism_metadata + contig_metadata
+            contig_metadata = [(f"contig_{key}", value) for key, value in  contig.formatted_metadata_dict.items()]
+            attributes =[]# [("ID", contig.name),
+                        #   ("Is_circular", "true" if contig.is_circular else "false")] + organism_metadata + contig_metadata
             attributes_str = ';'.join([f"{k}={v}" for k,v in attributes if v != "" and v is not None])
 
             contig_line = [contig.name,
@@ -233,7 +234,9 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
             contig_elements = sorted(contig_to_rgp[contig] + list(contig.genes) + list(contig.RNAs), key=lambda x: (x.start))
 
             for feature in contig_elements:
-                
+
+                phase = "."
+
                 if type(feature) in [Gene, RNA]:
                     feat_type = feature.type
 
@@ -254,12 +257,13 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     
                     if type(feature) == Gene:
                         rgp = feature.RGP.name if feature.RGP else ""
+                        phase = "0"
 
                         attributes += [
-                            ("Family", feature.family.name),
-                            ("Partition", feature.family.named_partition),
-                            ('RGP', rgp),
-                            ('Module', ','.join((f"module_{module.ID}" for module in feature.family.modules)))
+                            ("family", feature.family.name),
+                            ("partition", feature.family.named_partition),
+                            ('rgp', rgp),
+                            ('module', ','.join((f"module_{module.ID}" for module in feature.family.modules)))
                         ]
                 
                         # adding attributes 
@@ -294,7 +298,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
 
                     attributes = [
                             ("Name", feature.name),
-                            ("Spot", rgp_to_spotid.get(feature, "No_spot")),
+                            ("spot", rgp_to_spotid.get(feature, "No_spot")),
                             ("Note", "Region of Genomic Plasticity (RGP)")
                     ]
                     attributes += rgp_metadata
@@ -305,7 +309,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
 
 
                 attributes_str = ';'.join([f"{k}={v}" for k,v in attributes if v != "" and v is not None])
-                print(attributes_str)
+                
                 line = [contig.name,
                         source, # Source
                         feat_type,
@@ -313,7 +317,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                         feature.stop,
                         score,
                         strand,
-                        ".",
+                        phase,
                         attributes_str,
                         ]
 
