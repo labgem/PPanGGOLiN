@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 from tqdm import tqdm
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 from collections import defaultdict
 
 # installed libraries
@@ -281,7 +281,7 @@ def write_modules(modules: List[Module], organism: Organism, gf2genes: Dict[str,
 def write_proksee_organism(organism: Organism, output_file: Path,
                            features: List[str] = None,
                            module_to_colors: Dict[Module, str] = None,
-                           rgps:List[Region] = None,
+                           rgps:Set[Region] = None,
                            genome_sequences: Dict[str,str] = None):
     """
     Write ProkSee data for a given organism.

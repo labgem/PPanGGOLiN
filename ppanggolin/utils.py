@@ -1000,8 +1000,7 @@ def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int]
     return windows_coordinates
 
 
-
-def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, List[str]]]:
+def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Path, List[str]]]]:
     """
     Parse an input paths file to extract genome information.
 
