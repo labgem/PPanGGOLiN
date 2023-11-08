@@ -104,7 +104,7 @@ def launch(args: argparse.Namespace):
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar,
                          need_rgp=predict_rgp, need_modules=project_modules, need_gene_sequences=False,
-                         need_spots=project_spots)
+                         need_spots=project_spots, need_metadata=True, metatypes=['families'])
     
     logging.getLogger('PPanGGOLiN').info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(
@@ -237,6 +237,7 @@ def launch(args: argparse.Namespace):
                              input_org_to_lonely_genes_count[organism])
         
         rgp_to_spot_id = {}
+        genome_sequences = None
         if (args.proksee or args.gff):
             if args.add_sequences:
                 genome_sequences = read_genome_file(genome_name_to_path[organism.name]['path'], organism)
@@ -245,8 +246,7 @@ def launch(args: argparse.Namespace):
             if organism in input_org_to_spots:
                 rgp_to_spot_id = {rgp:f"spot_{spot.ID}" for spot in input_org_to_spots[organism] for rgp in spot.regions if rgp in input_org_2_rgps[organism] }
 
-        else:
-            genome_sequences = None
+ 
 
         if args.proksee:
             org_module_to_color = {org_mod: module_to_colors[org_mod] for org_mod in input_orgs_to_modules.get(organism, [])}
@@ -255,7 +255,7 @@ def launch(args: argparse.Namespace):
 
             
             write_proksee_organism(organism, output_file, features='all', module_to_colors=org_module_to_color, 
-                                rgps=input_org_2_rgps.get(organism, None),
+                                    rgps=input_org_2_rgps.get(organism, None),
                                     genome_sequences=genome_sequences)
         
 
@@ -278,8 +278,6 @@ def launch(args: argparse.Namespace):
                            annotation_sources=annotation_sources, genome_sequences=genome_sequences)
 
 
-
-        
     write_summaries(organism_2_summary, output_dir)
     
 
