@@ -118,10 +118,12 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genes.tsv -a genes
-        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genomes.tsv -a genomes
-        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_families.tsv -a families --omit
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db1 -m metadata/metadata_genes.tsv -a genes
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db2 -m metadata/metadata_genomes.tsv -a genomes
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db3 -m metadata/metadata_families.tsv -a families --omit
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db6 -m metadata/metadata_rgps.tsv -a RGPs 
         ppanggolin write_pangenome -p mybasicpangenome/pangenome.h5 --output mybasicpangenome -f --gexf --light_gexf --cpu 1
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5
         cd -
     - name: testing config file
       shell: bash -l {0}

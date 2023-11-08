@@ -203,9 +203,9 @@ def add_rgp_metadata_to_graph(graph: nx.Graph, rgps: Set[Union[Region, Identical
     """
     for rgp in rgps:
         if isinstance(rgp, Region):
-            rgp_metadata = rgp.format_metadata_to_dict()
+            rgp_metadata = rgp.formatted_metadata_dict()
         elif isinstance(rgp, IdenticalRegions):
-            rgp_metadata_dicts = [ident_rgp.format_metadata_to_dict() for ident_rgp in rgp.rgps]
+            rgp_metadata_dicts = [ident_rgp.formatted_metadata_dict() for ident_rgp in rgp.rgps]
             rgp_metadata = join_dicts(rgp_metadata_dicts)
         else:
             raise TypeError(f'Expect Region or IdenticalRegions object, not {type(rgp)}')
