@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 from tqdm import tqdm
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Tuple
 from collections import defaultdict
 
 # installed libraries
@@ -14,12 +14,10 @@ from collections import defaultdict
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
-from ppanggolin.region import Module, Region
-from ppanggolin.pangenome import Pangenome
+from ppanggolin.region import Module
 
 
-
-def write_legend_items(features: List[str], module_to_color: Dict[Module, str]):
+def write_legend_items(features: List[str], module_to_color: Dict[Module, str] = None):
     """
     Generates legend items based on the selected features and module-to-color mapping.
 
@@ -31,29 +29,33 @@ def write_legend_items(features: List[str], module_to_color: Dict[Module, str]):
     # use https://medialab.github.io/iwanthue/ to find nice colors 
     # that associate well with established partition colors (orange, light green, light blue)    
     main_colors = {
-                    "orange": "#e59c04",
-                    "light green": "#00d860" ,
-                    "light blue": "#79deff",
-                    "purple": "#a567bb",
-                    "dark green": "#7a9a4c",
-                    "dark red": "#ca5c55",
-                    }
+        "orange": "#e59c04",
+        "light green": "#00d860",
+        "light blue": "#79deff",
+        "purple": "#a567bb",
+        "dark green": "#7a9a4c",
+        "dark red": "#ca5c55",
+    }
 
-    legend_data = {"items" : [
-                            {"name": "persistent", "swatchColor": main_colors['orange'], "decoration": "arrow"},
-                            {"name": "shell", "swatchColor": main_colors['light green'], "decoration": "arrow"},
-                            {"name": "cloud", "swatchColor": main_colors['light blue'], "decoration": "arrow"},
-                            {"name": "RNA", "swatchColor": main_colors['purple'], "decoration": "arrow"},
-                        ]
-                 }
+    legend_data = {"items": [
+        {"name": "persistent", "swatchColor": main_colors['orange'], "decoration": "arrow"},
+        {"name": "shell", "swatchColor": main_colors['light green'], "decoration": "arrow"},
+        {"name": "cloud", "swatchColor": main_colors['light blue'], "decoration": "arrow"},
+        {"name": "RNA", "swatchColor": main_colors['purple'], "decoration": "arrow"},
+    ]
+    }
     if "rgp" in features or "all" in features:
         legend_data["items"].append({"name": "RGP", "swatchColor": main_colors['dark green'], "decoration": "arc"}),
 
-    if "modules" in features or "all" in features:
+    if module_to_color is not None and ("modules" in features or "all" in features):
         for mod, color in sorted(module_to_color.items(), key=lambda x: x[0].ID):
-            legend_data["items"].append({"name": f"module_{mod.ID}", "decoration": "arc", "swatchColor": color, "visible":False})
+            legend_data["items"].append({"name": f"module_{mod.ID}",
+                                         "decoration": "arc",
+                                         "swatchColor": color,
+                                         "visible": False})
 
     return legend_data
+
 
 def write_tracks(features: List[str]):
     """
@@ -100,7 +102,7 @@ def write_tracks(features: List[str]):
     return tracks
 
 
-def initiate_proksee_data(features: List[str], org_name: str, module_to_color: Dict[Module, str]):
+def initiate_proksee_data(features: List[str], org_name: str, module_to_color: Dict[Module, str] = None):
     """
     Initializes ProkSee data structure with legends, tracks, and captions.
 
@@ -159,7 +161,6 @@ def write_contig(organism: Organism, genome_sequences: Dict[str, str] = None) ->
     return contigs_data_list
 
 
-
 def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict], Dict[str, List[Gene]]]:
     """
     Writes gene data for a given organism, including both protein-coding genes and RNA genes.
@@ -210,11 +211,10 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
     return genes_data_list, gf2gene
 
 
-def write_rgp(rgps: Pangenome, organism: Organism):
+def write_rgp(organism: Organism):
     """
     Writes RGP (Region of Genomic Plasticity) data for a given organism in proksee format.
 
-    :param pangenome: The pangenome containing information about RGPs.
     :param organism: The specific organism for which RGP data will be written.
 
     :return: A list of RGP data in a structured format.
@@ -222,27 +222,24 @@ def write_rgp(rgps: Pangenome, organism: Organism):
     rgp_data_list = []
 
     # Iterate through each RGP in the pangenome
-    for rgp in tqdm(rgps, unit="RGP", disable=True):
-        if rgp.organism == organism:
-            # Create an entry for the RGP in the data list
-            rgp_data_list.append({
-                "name": rgp.name,
-                "contig": rgp.contig.name,
-                "start": rgp.start,
-                "stop": rgp.stop,
-                "legend": "RGP",
-                "source": "RGP",
-                "tags": []
-            })
-
+    for rgp in organism.regions:
+        # Create an entry for the RGP in the data list
+        rgp_data_list.append({
+            "name": rgp.name,
+            "contig": rgp.contig.name,
+            "start": rgp.start,
+            "stop": rgp.stop,
+            "legend": "RGP",
+            "source": "RGP",
+            "tags": []
+        })
     return rgp_data_list
 
 
-def write_modules(modules: List[Module], organism: Organism, gf2genes: Dict[str, List[Gene]]):
+def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]]):
     """
     Writes module data in proksee format for a list of modules associated with a given organism.
 
-    :param modules: A list of modules for which data will be written.
     :param organism: The organism to which the modules are associated.
     :param gf2genes: A dictionary that maps gene families to the genes they contain.
 
@@ -251,7 +248,7 @@ def write_modules(modules: List[Module], organism: Organism, gf2genes: Dict[str,
     modules_data_list = []
 
     # Iterate through each module and find intersecting gene families
-    for module in modules:
+    for module in organism.modules:
         gf_intersection = set(organism.families) & set(module.families)
 
         if gf_intersection:
@@ -281,8 +278,7 @@ def write_modules(modules: List[Module], organism: Organism, gf2genes: Dict[str,
 def write_proksee_organism(organism: Organism, output_file: Path,
                            features: List[str] = None,
                            module_to_colors: Dict[Module, str] = None,
-                           rgps:Set[Region] = None,
-                           genome_sequences: Dict[str,str] = None):
+                           genome_sequences: Dict[str, str] = None):
     """
     Write ProkSee data for a given organism.
 
@@ -290,7 +286,6 @@ def write_proksee_organism(organism: Organism, output_file: Path,
     :param output_file: The output file where ProkSee data will be written.
     :param features: A list of features to include in the ProkSee data, e.g., ["rgp", "modules", "all"].
     :param module_to_colors: A dictionary mapping modules to their assigned colors.
-    :patram rgps: list of RGPs that belong to the organisms
     :param genome_sequences: The genome sequences for the organism.
 
     This function writes ProkSee data for a given organism, including contig information, genes colored by partition, RGPs,
@@ -304,11 +299,11 @@ def write_proksee_organism(organism: Organism, output_file: Path,
 
     proksee_data["cgview"]["features"] = genes_features
 
-    if "rgp" in features or "all" in features:
-        proksee_data["cgview"]["features"] += write_rgp(rgps, organism=organism)
+    if ("rgp" in features or "all" in features) and organism.regions is not None:
+        proksee_data["cgview"]["features"] += write_rgp(organism=organism)
 
-    if "modules" in features or "all" in features:
-        proksee_data["cgview"]["features"] += write_modules(modules=module_to_colors, organism=organism, gf2genes=gf2genes)
+    if module_to_colors is not None and ("modules" in features or "all" in features):
+        proksee_data["cgview"]["features"] += write_modules(organism=organism, gf2genes=gf2genes)
 
     logging.debug(f"Write ProkSee for {organism.name}")
     with open(output_file, "w") as out_json:

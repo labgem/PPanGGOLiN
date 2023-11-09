@@ -4,7 +4,7 @@
 # default libraries
 import logging
 import re
-from typing import Iterator, List, Union, Dict, Set, Iterable, Generator
+from typing import List, Union, Dict, Set, Generator
 from pathlib import Path
 
 # local libraries
@@ -363,6 +363,7 @@ class Pangenome:
                 return self.get_contig(identifier)  # Return what was expected. If geneID does not exist it will raise an error.
             except KeyError:
                 raise KeyError(f"Contig: {identifier}, does not exist in the pangenome.")
+
     def get_organism(self, name: str) -> Organism:
         """
         Get an organism that is expected to be in the pangenome using its name, which is supposedly unique.

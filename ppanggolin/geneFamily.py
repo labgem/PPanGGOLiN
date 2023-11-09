@@ -84,6 +84,10 @@ class GeneFamily(MetaFeatures):
 
 
     def __len__(self) -> int:
+        """Get the length of an object.
+
+        :return: The length of the list of genes
+        """
         return len(self._genes_getter)
 
     def __setitem__(self, identifier: str, gene: Gene):
@@ -257,6 +261,7 @@ class GeneFamily(MetaFeatures):
         """
         for module in self._modules:
             yield module
+
     @property
     def number_of_neighbors(self) -> int:
         """Get the number of neighbor for the current gene family

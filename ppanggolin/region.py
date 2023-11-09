@@ -7,7 +7,7 @@ import logging
 
 # installed libraries
 import networkx as nx
-from typing import Dict, Generator, List, Set
+from typing import Dict, Generator, List, Set, Union
 import gmpy2
 
 # local libraries
@@ -51,7 +51,7 @@ class Region(MetaFeatures):
         self.starter = None
         self.stopper = None
         self.ID = Region.id_counter
-        self.spot = None
+        self._spot = None
         Region.id_counter += 1
 
     def __str__(self):
@@ -67,10 +67,10 @@ class Region(MetaFeatures):
         """Create a hash value for the region
         """
         return id(self)
-    
+
     def __lt__(self, obj):
         return self.ID < obj.ID
-  
+
     def __gt__(self, obj):
         return self.ID > obj.ID
 
@@ -110,10 +110,10 @@ class Region(MetaFeatures):
         if len(self) > 0:
             if gene.organism != self.organism:
                 raise Exception(f"Gene {gene.name} is from a different organism than the first defined in RGP. "
-                                f"That's not possible")
+                                "That's not possible")
             if gene.contig != self.contig:
                 raise Exception(f"Gene {gene.name} is from a different contig than the first defined in RGP. "
-                                f"That's not possible")
+                                "That's not possible")
         if position in self._genes_getter and self[position] != gene:
             raise KeyError("Another gene already exist at this position")
         self._genes_getter[position] = gene
@@ -135,7 +135,12 @@ class Region(MetaFeatures):
         except KeyError:
             raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
 
-    def add_spot(self, spot: Spot):
+    @property
+    def spot(self) -> Union[Spot, None]:
+        return self._spot
+
+    @spot.setter
+    def spot(self, spot: Spot):
         """Sets the spot of the RGP
         
         :param spot: spot to which the RGP is added
@@ -143,9 +148,9 @@ class Region(MetaFeatures):
         :raise TypeError: if the given spot is not a Spot.
         """
         if isinstance(spot, Spot):
-            self.spot = spot#only 1 spot possible
+            self._spot = spot  # only 1 spot possible
         else:
-            raise TypeError(f"Unexpected class / type for {type(spot)} when adding it to a RGP")
+            raise TypeError(f"Unexpected class / type for {type(spot)} when adding spot to a RGP")
 
     def __delitem__(self, position):
         """Remove the gene at the given position
@@ -243,7 +248,7 @@ class Region(MetaFeatures):
         :return: Contig corresponding to the region
         """
         return self.starter.contig
-    
+
     @property
     def start(self) -> Contig:
         """ 
@@ -252,7 +257,7 @@ class Region(MetaFeatures):
         :return: start position in the contig of the first gene of the RGP
         """
         return self.starter.start
-    
+
     @property
     def stop(self) -> Contig:
         """ 
@@ -261,7 +266,6 @@ class Region(MetaFeatures):
         :return: start position in the contig of the last gene of the RGP
         """
         return self.stopper.stop
-
 
     @property
     def is_whole_contig(self) -> bool:
@@ -281,7 +285,7 @@ class Region(MetaFeatures):
 
         :raises AssertionError: No genes in the regions, it's not expected
         """
-        assert len(self) > 0, "Your region has no genes. Something wrong happenned."
+        assert len(self) > 0, "Your region has no genes. Something wrong happened."
 
         min_pos = min(self.contig.genes, key=lambda x: x.position).position
         max_pos = max(self.contig.genes, key=lambda x: x.position).position
@@ -345,7 +349,7 @@ class Spot(MetaFeatures):
         - 'families': the property that generates the gene families in the spot.
         - 'spot_2_families': add to Gene Families a link to spot.
         - 'borders': Extracts all the borders of all RGPs belonging to the spot
-        - 'get_uniq_to_rgp': Get dictionnary with a representing RGP as key, and all identical RGPs as value
+        - 'get_uniq_to_rgp': Get dictionary with a representing RGP as key, and all identical RGPs as value
         - 'get_uniq_ordered_set': Get an Iterable of all the unique syntenies in the spot
         - 'get_uniq_content': Get an Iterable of all the unique rgp (in terms of gene family content) in the spot
         - 'count_uniq_content':  Get a counter of uniq RGP and number of identical RGP (in terms of gene family content)
@@ -354,6 +358,7 @@ class Spot(MetaFeatures):
     Fields:
         - 'ID': Identifier of the spot
     """
+
     def __init__(self, spot_id: int):
         """Constructor method
 
@@ -387,7 +392,10 @@ class Spot(MetaFeatures):
         """
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
+        if region.spot is not None and region.spot != self:
+            raise ValueError("The region is already with a different spot. A region belongs to only one spot.")
         self._region_getter[name] = region
+        region.spot = self
 
     def __getitem__(self, name) -> Region:
         """Get the region with the given name
@@ -540,9 +548,9 @@ class Spot(MetaFeatures):
         return self._uniqOrderedSet
 
     def get_uniq_to_rgp(self) -> Dict[Region, Set[Region]]:
-        """ Get dictionnary with a representing RGP as the key, and all identical RGPs as value
+        """ Get dictionary with a representing RGP as the key, and all identical RGPs as value
 
-        :return: Dictionnary with a representing RGP as the key, and set of identical RGPs as value
+        :return: Dictionary with a representing RGP as the key, and set of identical RGPs as value
         """
         return self._get_ordered_set()
 
@@ -609,6 +617,7 @@ class Module(MetaFeatures):
     - `families`: Returns a generator that yields the gene families in the module.
     - `mk_bitarray`: Generates a bitarray representing the presence/absence of the gene families in an organism using the provided index.
     """
+
     def __init__(self, module_id: int, families: set = None):
         """Constructor method
 
@@ -697,7 +706,7 @@ class Module(MetaFeatures):
             raise KeyError(f"There isn't gene family with the name {name} in the module")
         else:
             del self._families_getter[name]
-            fam._modules.remove(self)
+            fam._modules.remove(self)  # TODO define method to remove a module from family
 
     def add(self, family: GeneFamily):
         """Add a family to the module.
@@ -736,7 +745,7 @@ class Module(MetaFeatures):
         :return: Families belonging to the module
         """
         yield from self._families_getter.values()
-    
+
     @property
     def organisms(self) -> Generator[Organism, None, None]:
         """Returns all the Organisms that have this module
@@ -746,10 +755,9 @@ class Module(MetaFeatures):
         organisms = set()
         for fam in self.families:
             organisms |= set(fam.organisms)
-        return organisms
+        yield from organisms
 
-
-    def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
+    def mk_bitarray(self, index: Dict[GeneFamily, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
@@ -782,7 +790,7 @@ class Module(MetaFeatures):
 
 class GeneContext:
     """
-    Represent a gene context which is a collection of gene families related to a specific genomic context..
+    Represent a gene context which is a collection of gene families related to a specific genomic context.
 
     Methods
     - families: Generator that yields all the gene families in the gene context.
@@ -804,7 +812,7 @@ class GeneContext:
 
         if not isinstance(gc_id, int):
             raise TypeError(f"Gene context identifier must be an integer. Given type is {type(gc_id)}")
-        
+
         self.ID = gc_id
         self._families_getter = {}
         self.families_of_interest = families_of_interest
@@ -815,14 +823,6 @@ class GeneContext:
                                 "GeneContexts are only made of GeneFamily objects.")
             self._families_getter = {family.name: family for family in families}
 
-    def __len__(self) -> int:
-        """
-        Get length of a context graph by returning the number of gene families it includes.
-
-        :return: number of family in the gene context
-        """
-        return len(self.families)
-    
     def __repr__(self) -> str:
         """Context representation
         """
@@ -911,7 +911,7 @@ class GeneContext:
 
         :param graph: The context graph.
         """
-        if not isinstance(nx.Graph, graph):
+        if not isinstance(graph, nx.Graph):
             logging.getLogger("PPanGGOLiN").debug(f"given type: {type(graph)}")
             raise TypeError("Context graph must be a networkx graph object.")
         self._graph = graph

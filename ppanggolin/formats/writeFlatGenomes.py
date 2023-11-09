@@ -3,24 +3,22 @@
 
 # default libraries
 import argparse
-import sys
 from itertools import combinations
 from collections import defaultdict
 import logging
 from typing import List, Dict, Set
 from pathlib import Path
-import csv
 import random
 from tqdm import tqdm
 import time
 from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import get_context
 import networkx as nx
 from plotly.express.colors import qualitative
+import pandas as pd
 
 # local libraries
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.genome import Organism, Gene, Contig, RNA
+from ppanggolin.genome import Organism, Gene, RNA
 from ppanggolin.region import Region, Module
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, extract_contig_window, parse_input_paths_file
@@ -33,8 +31,7 @@ def count_neighbors_partitions(gene_family: GeneFamily):
     """
     Count partition of neighbors families.
 
-    :param gene_family: Gene family forwhich we count neighbors
-
+    :param gene_family: Gene family for which we count neighbors
     """
 
     nb_pers = 0
@@ -52,68 +49,54 @@ def count_neighbors_partitions(gene_family: GeneFamily):
     return nb_pers, nb_shell, nb_cloud
 
 
-def write_org_file(org: Organism, output: Path, compress: bool = False,
-                   add_regions: bool = False, add_spots: bool = False, add_modules: bool = False):
-    """
-    Write the table of pangenome for one organism in tsv format
+def write_org_file(organism: Organism, output: Path, compress: bool = False,
+                   need_regions: bool = False, need_spots: bool = False, need_modules: bool = False):
+    """Write the table of pangenome for one organism in tsv format
 
-    :param org: Projected organism
+    :param organism: Projected organism
     :param output: Path to output directory
     :param compress: Compress the file in .gz
+    :param need_regions: Write information about regions
+    :param need_spots: Write information about spots
+    :param need_modules: Write information about modules
+    :return:
     """
 
-    with write_compressed_or_not(output / f"{org.name}.tsv", compress) as outfile:
-        fieldnames = ["gene", "contig", "start", "stop", "strand", "family", "nb_copy_in_org",
-                      "partition", "persistent_neighbors", "shell_neighbors", "cloud_neighbors"]
+    rows = defaultdict(list)
+    for gene in organism.genes:
+        nb_pers, nb_shell, nb_cloud = count_neighbors_partitions(gene.family)
 
-        if add_regions:
-            fieldnames.append("RGPs")
-        if add_spots:
-            fieldnames.append("Spots")
-        if add_modules:
-            fieldnames.append("Modules")
+        rows["gene"].append(gene.ID if gene.local_identifier == "" else gene.local_identifier)
+        rows["contig"].append(gene.contig.name)
+        rows["start"].append(gene.start)
+        rows["stop"].append(gene.stop)
+        rows["strand"].append(gene.strand)
+        rows["family"].append(gene.family.name)
+        rows["nb_copy_in_org"].append(len(list(gene.family.get_genes_per_org(organism))))
+        rows["partition"].append(gene.family.named_partition)
+        rows["persistent_neighbors"].append(nb_pers)
+        rows["shell_neighbors"].append(nb_shell)
+        rows["cloud_neighbors"].append(nb_cloud)
+        rows["RGPs"].append(str(gene.RGP) if gene.RGP is not None else None)
+        rows['Spots'].append(str(gene.spot) if gene.spot is not None else None)
+        modules = None
+        if gene.family.number_of_modules > 0:
+            modules = ','.join([str(module) for module in gene.modules])
+        rows['Modules'].append(modules)
 
-        writer = csv.DictWriter(outfile, fieldnames=fieldnames, delimiter='\t')
-        writer.writeheader()
+    if not need_regions:
+        rows.pop("RGPs")
+    if not need_spots:
+        rows.pop("Spots")
+    if not need_modules:
+        rows.pop("Modules")
 
-        for contig in org.contigs:
-            for gene in contig.genes:
+    pd.DataFrame.from_dict(rows).to_csv(output / f"{organism.name}.tsv{'.gz' if compress else ''}", sep="\t")
 
-                nb_pers, nb_shell, nb_cloud = count_neighbors_partitions(gene.family)
-
-                row = {"gene": gene.ID if gene.local_identifier == "" else gene.local_identifier,
-                       "contig": contig.name,
-                       "start": gene.start,
-                       "stop": gene.stop,
-                       "strand": gene.strand,
-                       "family": gene.family.name,
-                       "nb_copy_in_org": len(list(gene.family.get_genes_per_org(org))),
-                       "partition": gene.family.named_partition,
-                       "persistent_neighbors": nb_pers,
-                       "shell_neighbors": nb_shell,
-                       "cloud_neighbors": nb_cloud}
-
-                if add_regions:
-                    row["RGPs"] = gene.RGP.name if gene.RGP is not None else None
-
-                if add_spots:
-                    spot = None
-                    if gene.family.number_of_spots > 0:
-                        spot = ','.join([str(spot.ID) for spot in gene.family.spots])
-                    row['Spots'] = spot
-
-                if add_modules:
-                    modules = None
-                    if gene.family.number_of_modules > 0:
-                        modules = ','.join(["module_" + str(module.ID) for module in gene.family.modules])
-                    row['Modules'] = modules
-
-                writer.writerow(row)
-
-    logging.getLogger().debug(f"Done writing the table with pangenome annotation for {org.name}")
+    logging.getLogger("PPangGGOLiN").debug(f"Done writing the table with pangenome annotation for {organism.name}")
 
 
-def manage_module_colors(modules: List[Module], window_size: int = 50) -> Dict[Module, str]:
+def manage_module_colors(modules: Set[Module], window_size: int = 50) -> Dict[Module, str]:
     """
     Manages colors for a list of modules based on gene positions and a specified window size.
 
@@ -137,9 +120,10 @@ def manage_module_colors(modules: List[Module], window_size: int = 50) -> Dict[M
 
     for contig, mod_genes in contig_to_mod_genes.items():
         gene_positions = (gene.position for gene in mod_genes)
-        contig_windows = extract_contig_window(
-            contig.number_of_genes, gene_positions, window_size=window_size, is_circular=contig.is_circular
-        )
+        contig_windows = extract_contig_window(contig.number_of_genes,
+                                               gene_positions,
+                                               window_size=window_size,
+                                               is_circular=contig.is_circular)
         contig_windows = list(contig_windows)
 
         for (start, end) in contig_windows:
@@ -187,15 +171,12 @@ def palette(nb_colors: int) -> List[str]:
     return colors
 
 
-def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
-                   rgp_to_spotid: Dict[Region, str], outdir: Path, compress: bool,
-                   annotation_sources: Dict[str, str], genome_sequences: Dict[str, str]):
+def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[str, str],
+                   genome_sequences: Dict[str, str], compress: bool = False):
     """
     Write the GFF file of the provided organism.
 
-    :param org: Organism object for which the GFF file is being written.
-    :param contig_to_rgp: Dictionary mapping Contig objects to their corresponding Region objects.
-    :param rgp_to_spotid: Dictionary mapping Region objects to their corresponding spot IDs.
+    :param organism: Organism object for which the GFF file is being written.
     :param outdir: Path to the output directory where the GFF file will be written.
     :param compress: If True, compress the output GFF file using .gz format.
     :param annotation_sources: A dictionary that maps types of features to their source information.
@@ -203,9 +184,9 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
     """
 
     # sort contig by their name
-    sorted_contigs = sorted(org.contigs, key=lambda x: x.name)
+    sorted_contigs = sorted(organism.contigs, key=lambda x: x.name)
 
-    with write_compressed_or_not(outdir / F"{org.name}.gff", compress) as outfile:
+    with write_compressed_or_not(outdir / F"{organism.name}.gff", compress) as outfile:
         # write gff header
         outfile.write('##gff-version 3\n')
         for contig in sorted_contigs:
@@ -215,12 +196,12 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
             outfile.write(f'##sequence-region {contig.name} 1 {contig.length}\n')
 
         for contig in sorted_contigs:
-            contig_elements = sorted(contig_to_rgp[contig] + list(contig.genes) + list(contig.RNAs),
-                                     key=lambda x: (x.start))
+            contig_elements = sorted(list(contig.regions) + list(contig.genes) + list(contig.RNAs),
+                                     key=lambda x: x.start)
 
             for feature in contig_elements:
 
-                if type(feature) in [Gene, RNA]:
+                if isinstance(feature, (Gene, RNA)):
                     feat_type = feature.type
 
                     strand = feature.strand
@@ -238,13 +219,13 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
 
                     score = '.'
 
-                    if type(feature) == Gene:
+                    if isinstance(feature, Gene):
                         rgp = feature.RGP.name if feature.RGP else ""
                         attributes += [
                             ("Family", feature.family.name),
                             ("Partition", feature.family.named_partition),
                             ('RGP', rgp),
-                            ('Module', ','.join((f"module_{module.ID}" for module in feature.family.modules)))
+                            ('Module', ','.join((f"module_{module.ID}" for module in feature.modules)))
                         ]
 
                     # add an extra line of type gene
@@ -262,17 +243,16 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
                     line_str = '\t'.join(map(str, gene_line))
                     outfile.write(line_str + "\n")
 
-                elif type(feature) == Region:
+                elif isinstance(feature, Region):
                     feat_type = "region"
                     source = "ppanggolin"
                     strand = "."
                     score = feature.score  # TODO does RGP score make sens and do we want it in gff file?
                     attributes = [
                         ("Name", feature.name),
-                        ("Spot", rgp_to_spotid.get(feature, "No_spot")),
+                        ("Spot", feature.spot.ID if feature.spot is not None else "No_spot"),
                         ("Note", "Region of Genomic Plasticity (RGP)")
                     ]
-
 
                 else:
                     raise TypeError(
@@ -296,7 +276,7 @@ def write_gff_file(org: Organism, contig_to_rgp: Dict[Contig, Region],
 
         if genome_sequences:
             logging.getLogger("PPanGGOLiN").debug("Writing fasta section of gff file...")
-            outfile.write(f"##FASTA\n")
+            outfile.write("##FASTA\n")
             for contig in sorted_contigs:
                 outfile.write(f">{contig.name}\n")
 
@@ -312,15 +292,15 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
     :param pangenome: The pangenome from which organisms will be selected.
     :return: A set of selected Organism objects.
     """
-
+    print(Path(organisms_filt).is_file())
     if organisms_filt == "all":
         logging.getLogger("PPanGGOLiN").info("Writing output for all genomes of the pangenome.")
         organisms_list = set(pangenome.organisms)
 
     else:
         if Path(organisms_filt).is_file():
-            logging.getLogger("PPanGGOLiN").debug(
-                "Parsing the list of organisms from a file to determine which genomes should be included in the output.")
+            logging.getLogger("PPanGGOLiN").debug("Parsing the list of organisms from a file "
+                                                  "to determine which genomes should be included in the output.")
             with open(organisms_filt) as fl:
                 org_names = [line.strip() for line in fl if line and not line.startswith("#")]
         else:
@@ -345,11 +325,19 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
 
 
 def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path = None,
-                          proksee: bool = False, org_module_to_color: Dict[Module, str] = None, rgps: Set[Region] = None,
-                          gff: bool = False, contig_to_rgp: Dict[Contig, Region] = None,
-                          rgp_to_spot_id: Dict[Region, str] = None, annotation_sources: Dict[str, str] = None,
-                          table: bool = False, need_regions: bool = False, need_modules: bool = False,
-                          need_spots: bool = False, compress: bool = False) -> str:
+                          proksee: bool = False, gff: bool = False, table: bool = False, **kwargs) -> str:
+    """Wrapper for the write_genomes_file function that allows it to be used in multiprocessing.
+
+    :param organism: Specify the organism to be written
+    :param output: Specify the path to the output directory
+    :param organisms_file: Read the genome sequences from a file
+    :param proksee: Write a proksee file for the organism
+    :param gff:  Write the gff file for the organism
+    :param table: Write the organism file for the organism
+    :param kwargs: Pass any number of keyword arguments to the function
+
+    :return: The organism name
+    """
     org_outdir = output / organism.name
 
     mk_outdir(org_outdir, force=True)
@@ -361,19 +349,19 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
     if proksee:
         output_file = org_outdir / f"{organism.name}.json"
 
-        # TODO Add spot ID in attribute of RGP element in proksee
-
         # Write ProkSee data for the organism
-        write_proksee_organism(organism, output_file, features=['all'], module_to_colors=org_module_to_color,
-                               rgps=rgps, genome_sequences=genome_sequences)
+        write_proksee_organism(organism, output_file, features=['all'], genome_sequences=genome_sequences,
+                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors'}})
 
     if gff:
-        write_gff_file(organism, contig_to_rgp, rgp_to_spot_id, org_outdir, compress, annotation_sources,
-                       genome_sequences)
+        write_gff_file(organism, outdir=org_outdir, genome_sequences=genome_sequences,
+                       **{arg: kwargs[arg] for arg in kwargs.keys() & {'compress', 'annotation_sources'}})
 
     if table:
-        write_org_file(org=organism, output=org_outdir, compress=compress,
-                       add_regions=need_regions, add_modules=need_modules, add_spots=need_spots)
+        write_org_file(organism=organism, output=org_outdir, **{arg: kwargs[arg] for arg in kwargs.keys() &
+                                                                {'need_regions', 'need_modules', 'need_spots',
+                                                                 'compress'}})
+
     return organism.name
 
 
@@ -386,40 +374,34 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
     :param pangenome: Pangenome object
     :param output: Path to output directory
     :param cpu: Number of available core
-    :param soft_core: Soft core threshold to use
-    :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
     :param table: write table with pangenome annotation for each genome
-    :param gff: write a gff file with pangenome annotation for each organisms
+    :param gff: write a gff file with pangenome annotation for each organism
     :param proksee: write a proksee file with pangenome annotation for each organisms
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
     :param fasta: File containing the list FASTA files for each organism
     :param anno: File containing the list of GBFF/GFF files for each organism
-    :param organism_filt: String used to specify which organism to write. if all, all organisms are written.
+    :param organisms_filt: String used to specify which organism to write. if all, all organisms are written.
     """
 
     if not any(x for x in [table, gff, proksee]):
-        raise Exception("You did not indicate what file you wanted to write.")
+        raise argparse.ArgumentError(argument=None, message="You did not indicate what file you wanted to write.")
 
-    needAnnotations = True
-    needFamilies = True
-    needPartitions = True
-    needRegions = True if pangenome.status["predictedRGP"] == "inFile" else False
-    needSpots = True if pangenome.status["spots"] == "inFile" else False
-    needModules = True if pangenome.status["modules"] == "inFile" else False
-    if table:
-        need_graph = True
-    else:
-        need_graph = False
+    need_dict = {"need_annotations": True,
+                 "need_families": True,
+                 "need_partitions": True,
+                 "need_rgp": True if pangenome.status["predictedRGP"] == "inFile" else False,
+                 "need_spots": True if pangenome.status["spots"] == "inFile" else False,
+                 "need_modules": True if pangenome.status["modules"] == "inFile" else False,
+                 "need_graph": True if table else False,
+                 "need_metadata": None
+                 }
 
     # Place here to raise an error if file doesn't found before to read pangenome
     organisms_file = fasta if fasta is not None else anno
 
     # TODO: see if we export metadata in write_genomes command
-    check_pangenome_info(pangenome, need_annotations=needAnnotations, need_families=needFamilies, need_graph=need_graph,
-                         need_partitions=needPartitions, need_rgp=needRegions, need_spots=needSpots,
-                         need_modules=needModules, need_metadata=None, metatype=None, sources=None,
-                         disable_bar=disable_bar)
+    check_pangenome_info(pangenome, disable_bar=disable_bar, **need_dict)
 
     organisms_list = get_organism_list(organisms_filt, pangenome)
     if not organisms_list:
@@ -427,55 +409,39 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
 
     org_dict = parse_input_paths_file(organisms_file) if organisms_file and (gff or proksee) else None
 
-    org_to_modules = defaultdict(set)
-    if proksee or gff:
-        if proksee:
-            # Create a mapping of organisms and modules they have
-            for mod in pangenome.modules:
-                for org in mod.organisms:
-                    org_to_modules[org].add(mod)
+    if proksee:
+        # Generate a color mapping for modules
+        module_to_colors = manage_module_colors(set(pangenome.modules))
 
-            # Generate a color mapping for modules
-            module_to_colors = manage_module_colors(list(pangenome.modules))
+    organism2args = defaultdict(lambda: {"output": output, "table": table, "gff": gff,
+                                         "proksee": proksee, "compress": compress})
+    for organism in organisms_list:
+        organism_args = {"organisms_file": org_dict[organism.name]['path'] if org_dict else None}
+        if proksee:
+            organism_args["module_to_colors"] = {module: module_to_colors[module] for module in organism.modules}
 
         if gff:
             # prepare variable for gff output
             if pangenome.parameters["annotate"]["# read_annotations_from_file"]:
-                annotation_sources = {"rRNA": "external",
-                                      "tRNA": "external",
-                                      "CDS": "external"}
+                organism_args['annotation_sources'] = {"rRNA": "external",
+                                                       "tRNA": "external",
+                                                       "CDS": "external"}
             else:
-                annotation_sources = {}
+                organism_args["annotation_sources"] = {}
 
-            rgp_to_spot_id = {rgp: f"spot_{spot.ID}" for spot in pangenome.spots for rgp in spot.regions}
-
-        org_to_contig_to_rgp = defaultdict(lambda: defaultdict(list))
-        org_to_rgp = defaultdict(set)
-        for rgp in pangenome.regions:
-            org_to_contig_to_rgp[rgp.organism.name][rgp.contig].append(rgp)
-            org_to_rgp[rgp.organism.name].add(rgp)
+        if table:
+            organism_args.update({"need_regions": need_dict['need_rgp'],
+                                  "need_modules": need_dict['need_modules'],
+                                  "need_spots": need_dict['need_spots']})
+        organism2args[organism].update(organism_args)
 
     start_writing = time.time()
-    sys.setrecursionlimit(30000)
     with ThreadPoolExecutor(max_workers=cpu) as executor:
         with tqdm(total=(len(organisms_list)), unit="organism", disable=disable_bar) as progress:
             futures = []
-            for organism in organisms_list:
+            for organism, kwargs in organism2args.items():
                 logging.getLogger("PPanGGOLiN").debug(f"Writing genome annotations for {organism.name}")
-                args = {"organism": organism, "output": output,
-                        "organisms_file": org_dict[organism.name]['path'] if org_dict else None,
-                        "table": table, "gff": gff, "proksee": proksee, "compress": compress}
-                if proksee:
-                    # Generate a color mapping for modules specific to the organism
-                    args["org_module_to_color"] = {org_mod: module_to_colors[org_mod] for org_mod in org_to_modules[organism]}
-                    args["rgps"] = org_to_rgp[organism.name]
-                if gff:
-                    args['contig_to_rgp'] = org_to_contig_to_rgp[organism.name]
-                    args["rgp_to_spot_id"] = rgp_to_spot_id
-                    args["annotation_sources"] = annotation_sources
-                if table:
-                    args.update({"need_regions": needRegions, "need_modules": needModules, "need_spots": needSpots})
-                future = executor.submit(mp_write_genomes_file, **args)
+                future = executor.submit(mp_write_genomes_file, organism, **kwargs)
                 future.add_done_callback(lambda p: progress.update())
                 futures.append(future)
 
@@ -537,17 +503,19 @@ def parser_flat(parser: argparse.ArgumentParser):
                           help="Generate a gff file for each genome containing pangenome annotations.")
 
     optional.add_argument("--proksee", required=False, action="store_true",
-                          help="Generate JSON map files for PROKSEE for each genome containing pangenome annotations to be used in proksee.")
+                          help="Generate JSON map files for PROKSEE for each genome containing pangenome annotations "
+                               "to be used in proksee.")
 
     optional.add_argument("--compress", required=False, action="store_true",
                           help="Compress the files in .gz")
 
     optional.add_argument("--organisms",
                           required=False,
-                          default='all',
+                          default="all",
                           help="Specify the organisms for which to generate output. "
-                               "You can provide a list of organism names either directly in the command line separated by commas, "
-                               "or by referencing a file containing the list of organism names, with one name per line.")
+                               "You can provide a list of organism names either directly in the command line separated "
+                               "by commas, or by referencing a file containing the list of organism names, "
+                               "with one name per line.")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int,
                           help="Number of available cpus")
     context = parser.add_argument_group(title="Contextually required arguments",
