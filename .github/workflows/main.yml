@@ -122,6 +122,10 @@ jobs:
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db2 -m metadata/metadata_genomes.tsv -a genomes
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db3 -m metadata/metadata_families.tsv -a families --omit
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db4 -m metadata/metadata_rgps.tsv -a RGPs
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db5 -m metadata/metadata_contigs.tsv  -a contigs
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db6 -m metadata/metadata_modules.tsv  -a modules
+
+
 
         ppanggolin write_pangenome -p mybasicpangenome/pangenome.h5 --output mybasicpangenome -f --gexf --light_gexf --cpu 1 
         ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 -o rgp_cluster_with_metadata --graph_formats graphml
@@ -165,5 +169,6 @@ jobs:
                                   -f --gff --add_metadata --metadata_sep § 
 
         # Pipe separatore is found in metadata source db1. if we don't require this source then the writting with pipe is work fine. 
-        ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs_with_metadata \
-                                                                    -f --gff --add_metadata  --metadata_sources db2 db3 db4
+        ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs_with_metadata -f --gff --proksee --add_metadata  --metadata_sources db2 db3 db4
+
+
