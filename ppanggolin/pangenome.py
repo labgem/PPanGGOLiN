@@ -335,8 +335,8 @@ class Pangenome:
 
         :return: Returns the wanted contig
 
-        :raises AssertionError: If the `gene_id` is not an integer
-        :raises KeyError: If the `gene_id` is not in the pangenome
+        :raises AssertionError: If the `contig_id` is not an integer
+        :raises KeyError: If the `contig` is not in the pangenome
         """
         if identifier is None:
             if name is None:
