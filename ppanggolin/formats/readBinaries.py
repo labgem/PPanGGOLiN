@@ -646,8 +646,13 @@ def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
                 element = pangenome.get_region(identifier)
             elif metatype == "spots":
                 element = pangenome.get_spot(identifier)
-            else:  # metatype == "modules":
+            elif metatype == "modules":
                 element = pangenome.get_module(identifier)
+            elif metatype == "contigs":
+                element = pangenome.get_contig(name=identifier)
+            else:
+                expected_types = ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
+                raise KeyError(f'The metatype {metatype} is unexpected. Object associated with metadata are {expected_types}')
             for field in row.dtype.names:
                 if field not in ["ID", "name"]:
                     meta_dict[field] = row[field].decode() if isinstance(row[field], bytes) else row[field]
