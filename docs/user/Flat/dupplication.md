@@ -3,6 +3,6 @@ This file lists the gene families, their duplication ratio, their mean presence 
 
 It can be generated using the 'write' subcommand as such : 
 
-`ppanggolin write -p pangenome.h5 --stats`
+`ppanggolin write_pangenome -p pangenome.h5 --stats`
 
 This command will also generate the 'organisms_statistics.tsv' file.

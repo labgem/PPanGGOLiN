@@ -5,9 +5,9 @@ PPanGGOLiN provides multiple outputs to describe a pangenome. In this section th
 
 In most cases it will provide with a HDF-5 file named "pangenome.h5". This file stores all the information about your pangenome and the analysis that were run. If given to ppanggolin through most of the subcommands, it will read information from it. This is practical as you can regenerate figures or output files, or rerun parts of the analysis without redoing everything.
 
-In this section, each parts will describe a possible output of PPanGGOLiN, and will be commented with the command line that generates it using the HDF5 file, which is assumed to be called 'pangenome.h5'.
+In this section, each part will describe a possible output of PPanGGOLiN, and will be commented with the command line that generates it using the HDF5 file, which is assumed to be called 'pangenome.h5'.
 
-When using the same subcommand (like 'write' or 'draw' that can help you generate multiple file each), you can provide multiple options to write all of the file formats that you desire at once.
+When using the same subcommand (like 'write_pangenome' or 'draw' that can help you generate multiple file each), you can provide multiple options to write all of the file formats that you desire at once.
 
 ## PPanGGOLiN figures outputs
 
@@ -27,7 +27,10 @@ When using the same subcommand (like 'write' or 'draw' that can help you generat
 ```{include} Figures/rarefaction.md
 ```
 
-## Write
+## `write_pangeome`: Write flat output describing the pangenome
+
+Writes 'flat' files that describe the pangenome and its elements.
+
 ### Organisms statistics
 ```{include} Flat/orgStat.md
 ```
@@ -38,7 +41,6 @@ The pangenome's graph can be given through multiple data formats, in order to ma
 #### gexf and light gexf
 ```{include} graphOut/GEXF.md
 ```
-
 
 #### json
 ```{include} graphOut/JSON.md
@@ -51,14 +53,6 @@ The pangenome's graph can be given through multiple data formats, in order to ma
 ```{include} Flat/dupplication.md
 ```
 
-### partitions
-```{include} Flat/partition.md
-```
-
-### projection
-```{include} Flat/projection.md
-```
-
 ### Gene families and genes
 ```{include} Flat/fam2gen.md
 ```
@@ -69,6 +63,26 @@ The pangenome's graph can be given through multiple data formats, in order to ma
 
 ### Modules
 ```{include} Flat/module.md
+```
+
+### partitions
+```{include} Flat/partition.md
+```
+
+## `write_genomes`: Write genomes with pangenome annotations
+
+Writes 'flat' files that represent the genomes along with their associated pangenome elements.
+
+
+
+### tables
+```{include} Flat/tables.md
+```
+### gff
+```{include} Flat/gff.md
+```
+### proksee
+```{include} Flat/proksee.md
 ```
 
 ## Fasta

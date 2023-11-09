@@ -5,7 +5,7 @@ This file is basically a presence absence matrix. The columns are the genomes us
 
 It can be generated using the 'write' subcommand as such : 
 
-`ppanggolin write -p pangenome.h5 --Rtab`
+`ppanggolin write_pangenome -p pangenome.h5 --Rtab`
 
 ### matrix
 
@@ -13,4 +13,4 @@ This file is a .csv file following a format alike the gene_presence_absence.csv 
 
 It can be generated using the 'write' subcommand as such : 
 
-`ppanggolin write -p pangenome.h5 --csv`
+`ppanggolin write_pangenome -p pangenome.h5 --csv`
