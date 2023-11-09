@@ -118,10 +118,17 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genes.tsv -a genes
-        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_genomes.tsv -a genomes
-        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s test -m metadata/metadata_families.tsv -a families --omit
-        ppanggolin write_pangenome -p mybasicpangenome/pangenome.h5 --output mybasicpangenome -f --gexf --light_gexf --cpu 1
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db1 -m metadata/metadata_genes.tsv -a genes
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db2 -m metadata/metadata_genomes.tsv -a genomes
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db3 -m metadata/metadata_families.tsv -a families --omit
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db4 -m metadata/metadata_rgps.tsv -a RGPs
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db5 -m metadata/metadata_contigs.tsv  -a contigs
+        ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db6 -m metadata/metadata_modules.tsv  -a modules
+
+
+
+        ppanggolin write_pangenome -p mybasicpangenome/pangenome.h5 --output mybasicpangenome -f --gexf --light_gexf --cpu 1 
+        ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 -o rgp_cluster_with_metadata --graph_formats graphml
         cd -
     - name: testing config file
       shell: bash -l {0}
@@ -149,6 +156,19 @@ jobs:
         cd testingDataset
         head organisms.gbff.list | cut -f1  > organisms_names.gbff.head.list
 
-        ppanggolin write_genomes  -p myannopang/pangenome.h5 --output flat_genomes_from_file_org -f --anno organisms.gbff.list --gff  --organisms  organisms_names.gbff.head.list
+        ppanggolin write_genomes  -p myannopang/pangenome.h5 --output flat_genomes_from_file_org -f \
+                                  --anno organisms.gbff.list --gff  --organisms  organisms_names.gbff.head.list 
 
-        ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output flat_genomes_from_cmdline_orgs --proksee --organisms GCF_006508185.1_ASM650818v1_genomic,GCF_002088315.1_ASM208831v1_genomic
+        ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output flat_genomes_from_cmdline_orgs --proksee \
+                                --organisms GCF_006508185.1_ASM650818v1_genomic,GCF_002088315.1_ASM208831v1_genomic 
+        
+        head organisms.fasta.list | cut -f1  > organisms_names.fasta.head.list 
+        # Default separator is a pipe but a pipe is found in a value of metadata db1. That is why we use another separator here. 
+        ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs \
+                                --organisms organisms_names.fasta.head.list \
+                                  -f --gff --add_metadata --metadata_sep § 
+
+        # Pipe separatore is found in metadata source db1. if we don't require this source then the writting with pipe is work fine. 
+        ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs_with_metadata -f --gff --proksee --add_metadata  --metadata_sources db2 db3 db4
+
+

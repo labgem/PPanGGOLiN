@@ -165,6 +165,23 @@ def launch(args: argparse.Namespace):
     write_pangenome(pangenome, pangenome.file, force=args.force, disable_bar=args.disable_prog_bar)
 
 
+def check_metadata_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser ) -> str:
+    """
+    Check the arguments provided for  and raise errors if they are incompatible or missing.
+
+    :param args: An argparse.Namespace object containing parsed command-line arguments.
+    :param parser : parser of the command
+    :return: A string indicating the input mode ('single' or 'multiple').
+    """
+    
+    # check required argument
+    for required_arg in ["metadata", "source", "assign"]:
+
+        if getattr(args, required_arg) is None:
+            parser.error(f"Please specify the --{required_arg} argument, either through the command line or the config file.")
+
+
+
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """
     Subparser to launch PPanGGOLiN in Command line

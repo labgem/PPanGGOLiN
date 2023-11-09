@@ -14,7 +14,7 @@ from collections import defaultdict
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
-from ppanggolin.region import Module
+from ppanggolin.region import Module, Region
 
 
 def write_legend_items(features: List[str], module_to_color: Dict[Module, str] = None):
@@ -102,12 +102,12 @@ def write_tracks(features: List[str]):
     return tracks
 
 
-def initiate_proksee_data(features: List[str], org_name: str, module_to_color: Dict[Module, str] = None):
+def initiate_proksee_data(features: List[str], organism: Organism, module_to_color: Dict[Module, str] = None):
     """
     Initializes ProkSee data structure with legends, tracks, and captions.
 
     :param features: A list of features to include in the ProkSee data.
-    :param org_name: The name of the organism for which the ProkSee data is being generated.
+    :param organism: The organism for which the ProkSee data is being generated.
     :param module_to_color: A dictionary mapping modules to their assigned colors.
 
     :return: ProkSee data structure containing legends, tracks, and captions.
@@ -116,7 +116,7 @@ def initiate_proksee_data(features: List[str], org_name: str, module_to_color: D
     proksee_tracks = write_tracks(features)
 
     proksee_captions = {
-        "name": f"{org_name} annotated with PPanGGOLiN",
+        "name": f"{organism.name} annotated with PPanGGOLiN",
         "position": "bottom-center",
         "font": "sans-serif,plain,18",
         "backgroundColor": "rgba(255,255,255,0.4)"
@@ -130,6 +130,7 @@ def initiate_proksee_data(features: List[str], org_name: str, module_to_color: D
         "tracks": proksee_tracks,
         "sequence": {},
         'captions': [proksee_captions],
+        "meta":organism.formatted_metadata_dict() # metadata
     }
 
     return {"cgview": cgview_data}
@@ -151,6 +152,7 @@ def write_contig(organism: Organism, genome_sequences: Dict[str, str] = None) ->
             "name": contig.name,
             "length": contig.length,
             "orientation": "+",
+            "meta":contig.formatted_metadata_dict()
         }
 
         if genome_sequences:
@@ -177,8 +179,10 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
     for gene in tqdm(organism.genes, total=organism.number_of_genes(), unit="genes", disable=disable_bar):
         gf = gene.family
         gf2gene[gf.name].append(gene)
-
-        genes_data_list.append({
+        
+        metadata_for_proksee  = {f"gene_{k}":v for k, v in gene.formatted_metadata_dict().items()}
+        metadata_for_proksee.update({f"family_{k}":v for k, v in gene.family.formatted_metadata_dict().items()})
+        genes_data_list.append({    
             "name": gene.name,
             "type": "Gene",
             "contig": gene.contig.name,
@@ -189,7 +193,7 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
             "tags": [gene.family.named_partition, gene.family.name],
             "source": "Gene",
             "legend": gene.family.named_partition,
-            "meta": ""  # annotations
+            "meta": metadata_for_proksee
         })
 
     # Process RNA genes
@@ -205,7 +209,7 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
             "tags": [],
             "source": "Gene",
             "legend": "RNA",
-            "meta": ""  # annotations
+            "meta":  gene.formatted_metadata_dict()
         })
 
     return genes_data_list, gf2gene
@@ -214,7 +218,6 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
 def write_rgp(organism: Organism):
     """
     Writes RGP (Region of Genomic Plasticity) data for a given organism in proksee format.
-
     :param organism: The specific organism for which RGP data will be written.
 
     :return: A list of RGP data in a structured format.
@@ -231,7 +234,8 @@ def write_rgp(organism: Organism):
             "stop": rgp.stop,
             "legend": "RGP",
             "source": "RGP",
-            "tags": []
+            "tags": [rgp.spot.ID if rgp.spot else "No_spot"],
+            "meta": rgp.formatted_metadata_dict()
         })
     return rgp_data_list
 
@@ -253,7 +257,7 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]]):
 
         if gf_intersection:
             # Calculate the completion percentage
-            completion = round(len(gf_intersection) / len(set(module.families)), 2)
+            completion =  round(100 * len(gf_intersection) / len(set(module.families)), 1)
 
             # Create module data entries for genes within intersecting gene families
             for gf in gf_intersection:
@@ -266,10 +270,8 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]]):
                         "contig": gene.contig.name,
                         "legend": f"module_{module.ID}",
                         "source": "Module",
-                        "tags": [],
-                        "meta": {
-                            "completion": completion
-                        }
+                        "tags": [f'{completion}% complete'],
+                        "meta": module.formatted_metadata_dict()
                     })
 
     return modules_data_list
@@ -291,7 +293,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
     This function writes ProkSee data for a given organism, including contig information, genes colored by partition, RGPs,
     and modules. The resulting data is saved as a JSON file in the specified output file.
     """
-    proksee_data = initiate_proksee_data(features, organism.name, module_to_colors)
+    proksee_data = initiate_proksee_data(features, organism, module_to_colors)
 
     proksee_data["cgview"]["sequence"]["contigs"] = write_contig(organism, genome_sequences)
 

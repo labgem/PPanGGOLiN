@@ -203,9 +203,9 @@ def add_rgp_metadata_to_graph(graph: nx.Graph, rgps: Set[Union[Region, Identical
     """
     for rgp in rgps:
         if isinstance(rgp, Region):
-            rgp_metadata = format_rgp_metadata(rgp)
+            rgp_metadata = rgp.formatted_metadata_dict()
         elif isinstance(rgp, IdenticalRegions):
-            rgp_metadata_dicts = [format_rgp_metadata(ident_rgp) for ident_rgp in rgp.rgps]
+            rgp_metadata_dicts = [ident_rgp.formatted_metadata_dict() for ident_rgp in rgp.rgps]
             rgp_metadata = join_dicts(rgp_metadata_dicts)
         else:
             raise TypeError(f'Expect Region or IdenticalRegions object, not {type(rgp)}')
@@ -451,7 +451,7 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
     # check statuses and load info
     check_pangenome_info(pangenome, need_families=True, need_annotations=True,
                          disable_bar=disable_bar, need_rgp=True, need_spots=True, need_metadata=need_metadata,
-                         metatype="RGPs")
+                         metatypes=["RGPs"])
 
     if pangenome.regions == 0:
         raise Exception(

@@ -240,6 +240,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                                     proksee=args.write_genomes.proksee,
                                     table=args.write_genomes.table,
                                     gff=args.write_genomes.gff,
+                                    add_metadata=False,
                                     compress=args.write_genomes.compress,
                                     disable_bar=args.disable_prog_bar)
         else:
