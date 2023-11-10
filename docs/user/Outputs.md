@@ -84,7 +84,14 @@ Writes 'flat' files that represent the genomes along with their associated pange
 ### proksee
 ```{include} Flat/proksee.md
 ```
+### Adding Fasta Sequences into GFF and proksee JSON map Files
 
+```{include} Flat/genomes_fasta.md
+```
+
+### Incorporating Metadata into Tables, GFF, and Proksee Files
+```{include} docs/user/Flat/genomes_metadata.md
+```
 ## Fasta
 ```{include} sequence/fasta.md
 ```

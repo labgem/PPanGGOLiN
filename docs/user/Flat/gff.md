@@ -28,7 +28,7 @@ RGPs have the following attributes:
 - The 'Note' attribute specifies that this feature is an RGP.
 
 
-Here is an example showcasing the initial lines of the GFF file for the Acinetobacter baumannii AYE genomes:
+Here is an example showcasing the initial lines of the GFF file for the Acinetobacter baumannii AYE genome:
 
 ```gff
 ##gff-version 3
