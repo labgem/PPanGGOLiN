@@ -90,7 +90,7 @@ Writes 'flat' files that represent the genomes along with their associated pange
 ```
 
 ### Incorporating Metadata into Tables, GFF, and Proksee Files
-```{include} docs/user/Flat/genomes_metadata.md
+```{include} Flat/genomes_metadata.md
 ```
 ## Fasta
 ```{include} sequence/fasta.md
