@@ -23,13 +23,13 @@ When using the same subcommand (like 'write_pangenome' or 'draw' that can help y
 ```{include} Figures/spots.md
 ```
 
-## Rarefaction
+### Rarefaction
 ```{include} Figures/rarefaction.md
 ```
 
-## `write_pangeome`: Write flat output describing the pangenome
+##  Write flat outputs describing the pangenome
 
-Writes 'flat' files that describe the pangenome and its elements.
+Writes 'flat' files that describe the pangenome and its elements with the command `write_pangenome`.
 
 ### Organisms statistics
 ```{include} Flat/orgStat.md
@@ -65,23 +65,23 @@ The pangenome's graph can be given through multiple data formats, in order to ma
 ```{include} Flat/module.md
 ```
 
-### partitions
+### Partitions
 ```{include} Flat/partition.md
 ```
 
-## `write_genomes`: Write genomes with pangenome annotations
+## Write genomes with pangenome annotations
 
-Writes 'flat' files that represent the genomes along with their associated pangenome elements.
+Writes 'flat' files that represent the genomes along with their associated pangenome elements with command `write_genomes`.
 
 
 
-### tables
+### Table with pangenome annotations
 ```{include} Flat/tables.md
 ```
-### gff
+### GFF file
 ```{include} Flat/gff.md
 ```
-### proksee
+### JSON Map for Proksee visualisation
 ```{include} Flat/proksee.md
 ```
 ### Adding Fasta Sequences into GFF and proksee JSON map Files
@@ -92,6 +92,7 @@ Writes 'flat' files that represent the genomes along with their associated pange
 ### Incorporating Metadata into Tables, GFF, and Proksee Files
 ```{include} Flat/genomes_metadata.md
 ```
+
 ## Fasta
 ```{include} sequence/fasta.md
 ```

@@ -6,9 +6,9 @@ You can inject metadata, previously added with the `metadata` command, into geno
 
 Metadata is integrated into the attributes column of the GFF file. The patterns for adding metadata are as follows:
 
-- In CDS lines, metadata associated with genes follow this pattern: `gene_<source>_<column>=<value>`. Gene family metadata follows a similar pattern: `gene_<source>_<column>=<value>`.
-- In the contig lines of type `region` describing the contig, genome metadata is added with the pattern: `genome_<source>_<column>=<value>`, and contig metadata is added with: `contig_<source>_<column>=<value>`.
-- In RGP lines, metadata is added using the pattern: `rpg_<source>_<column>=<value>`.
+- In CDS lines, metadata associated with genes follow this pattern: `gene_<source>_<key>=<value>`. Gene family metadata follows a similar pattern: `gene_<source>_<key>=<value>`.
+- In the contig lines of type `region` describing the contig, genome metadata is added with the pattern: `genome_<source>_<key>=<value>`, and contig metadata is added with: `contig_<source>_<key>=<value>`.
+- In RGP lines, metadata is added using the pattern: `rpg_<source>_<key>=<value>`.
 
 For example, if we associate metadata is associated with the gene family DYB08_RS16060 with the source `pfam`:
 
@@ -35,12 +35,22 @@ A gene belonging to this family would have the following attribute in its GFF li
 NC_010404.1	external	CDS	77317	77958	.	-	0	ID=ABAYE_RS00475;Parent=gene-ABAYE_RS00475;product=putative metallopeptidase;family=DYB08_RS16060;partition=persistent;rgp=NC_010404.1_RGP_0;family_pfam_accession=PF18894;family_pfam_description=This entry represents a probable metallopeptidase domain found in a variety of phage and bacterial proteomes.;family_pfam_type=domain
 ```
 
-### Metadata in Proksee Visualization
+#### Metadata in Proksee Visualization
 
-Metadata can be seamlessly incorporated into Proksee JSON MAP files, enriching the visualization experience. These metadata details become accessible by simply hovering the mouse over the features.
+Metadata can be seamlessly incorporated into Proksee JSON MAP files. These metadata details become accessible by simply hovering the mouse over the features.
 
 For instance, with the metadata previously added to the DYB08_RS16060 gene family, the Proksee visualization would resemble the example below:
 
 ```{image} ../_static/proksee_metadata_example.png
 :align: center
 ```
+
+
+#### Metadata in Table output
+
+Metadata is seamlessly incorporated into table output with the addition of extra columns. These columns follow the GFF attribute naming: 
+
+- gene metadata: `gene_<source>_<key>`
+- family metadata: `gene_<source>_<key>`
+
+<!-- exemple -->
