@@ -58,7 +58,8 @@ class IdenticalRegions:
 
     def __eq__(self, other: 'IdenticalRegions') -> bool:
         """
-        Check if two IdenticalRegions objects are equal based on their families, identical regions, and contig border status.
+        Check if two IdenticalRegions objects are equal based on their families,
+        identical regions, and contig border status.
 
         :param other: The IdenticalRegions object to compare.
         :return: True if the objects are equal, False otherwise.
@@ -68,10 +69,12 @@ class IdenticalRegions:
             raise TypeError("'IdenticalRegions' type object was expected, "
                             f"but '{type(other)}' type object was provided.")
 
-        return self.families == other.families and self.rgps == other.rgps and self.is_contig_border == other.is_contig_border
+        return (self.families == other.families and self.rgps == other.rgps and
+                self.is_contig_border == other.is_contig_border)
 
     def __repr__(self):
-        return f"IdenticalRegions(name='{self.name}', num_rgps={len(self.rgps)}, num_families={len(self.families)}, is_contig_border={self.is_contig_border})"
+        return (f"IdenticalRegions(name='{self.name}', num_rgps={len(self.rgps)}, num_families={len(self.families)},"
+                f" is_contig_border={self.is_contig_border})")
 
     def __str__(self):
         return self.name
@@ -193,7 +196,7 @@ def format_rgp_metadata(rgp: Region) -> Dict[str, str]:
     return {col_name: '|'.join(values) for col_name, values in source_field_2_value.items()}
 
 
-def add_rgp_metadata_to_graph(graph: nx.Graph, rgps: Set[Union[Region, IdenticalRegions]]) -> None:
+def add_rgp_metadata_to_graph(graph: nx.Graph, rgps: List[Union[Region, IdenticalRegions]]) -> None:
     """
     Add metadata from Region or IdenticalRegions objects to the graph.
 
@@ -451,7 +454,7 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
     # check statuses and load info
     check_pangenome_info(pangenome, need_families=True, need_annotations=True,
                          disable_bar=disable_bar, need_rgp=True, need_spots=True, need_metadata=need_metadata,
-                         metatypes=["RGPs"])
+                         metatypes={"RGPs"})
 
     if pangenome.regions == 0:
         raise Exception(
@@ -601,11 +604,16 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
     optional.add_argument('--grr_cutoff', required=False, type=restricted_float, default=0.8,
                           help="Min gene repertoire relatedness metric used in the rgp clustering")
     optional.add_argument('--grr_metric', required=False, type=str, default="incomplete_aware_grr",
-                          help="The grr (Gene Repertoire Relatedness) is used to assess the similarity between two RGPs based on their gene families. "
-                               "There are three different modes for calculating the grr value: 'min_grr', 'max_grr' or  'incomplete_aware_grr'."
-                               " 'min_grr': Computes the number of gene families shared between the two RGPs and divides it by the smaller number of gene families among the two RGPs. "
-                               " 'max_grr': Calculates the number of gene families shared between the two RGPs and divides it by the larger number of gene families among the two RGPs. "
-                               " 'incomplete_aware_grr' (default): If at least one RGP is considered incomplete, which occurs when it is located at the border of a contig, "
+                          help="The grr (Gene Repertoire Relatedness) is used to assess the similarity between two "
+                               "RGPs based on their gene families."
+                               "There are three different modes for calculating the grr value: 'min_grr', 'max_grr' "
+                               "or  'incomplete_aware_grr'."
+                               "'min_grr': Computes the number of gene families shared between the two RGPs and "
+                               "divides it by the smaller number of gene families among the two RGPs."
+                               "'max_grr': Calculates the number of gene families shared between the two RGPs and "
+                               "divides it by the larger number of gene families among the two RGPs."
+                               "'incomplete_aware_grr' (default): If at least one RGP is considered incomplete, "
+                               "which occurs when it is located at the border of a contig,"
                                "the 'min_grr' mode is used. Otherwise, the 'max_grr' mode is applied.",
                           choices=['incomplete_aware_grr', "min_grr", "max_grr"])
 
@@ -613,7 +621,8 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
                           help="Do not cluster RGPs located on a contig border which are likely incomplete.")
 
     optional.add_argument('--no_identical_rgp_merging', required=False, action="store_true",
-                          help="Do not merge in one node identical RGP (i.e. having the same family content) before clustering.")
+                          help="Do not merge in one node identical RGP "
+                               "(i.e. having the same family content) before clustering.")
 
     optional.add_argument("--basename", required=False,
                           default="rgp_cluster", help="basename for the output file")

@@ -15,14 +15,14 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
+from ppanggolin.utils import (write_compressed_or_not, mk_outdir, read_compressed_or_not,
+                              restricted_float, detect_filetype)
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
 from ppanggolin.genome import Organism
 
 module_regex = re.compile(r'^module_[0-9]+')
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
 poss_values_log = f"Possible values are {', '.join(poss_values[:-1])}, module_X with X being a module id."
-
 
 
 def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_obj: TextIO, add: str = '',
@@ -114,7 +114,8 @@ def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_c
             if fam.number_of_organisms >= threshold:
                 genefams.add(fam)
     elif partition == "core":
-        logging.getLogger("PPanGGOLiN").info(f"Writing the representative {type_name} of the {partition} gene families...")
+        logging.getLogger("PPanGGOLiN").info(f"Writing the representative {type_name} of the {partition} "
+                                             "gene families...")
         for fam in pangenome.gene_families:
             if fam.number_of_organisms == pangenome.number_of_organisms:
                 genefams.add(fam)
@@ -151,7 +152,8 @@ def write_fasta_gene_fam(pangenome: Pangenome, output: Path, gene_families: str,
     with write_compressed_or_not(outpath, compress) as fasta:
         get_gene_sequences_from_file(pangenome.file, fasta, [fam.name for fam in genefams], disable_bar=disable_bar)
 
-    logging.getLogger("PPanGGOLiN").info(f"Done writing the representative nucleotide sequences of the gene families : '{outpath}'")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Done writing the representative nucleotide sequences of the gene families : '{outpath}'")
 
 
 def write_fasta_prot_fam(pangenome: Pangenome, output: Path, prot_families: str, soft_core: float = 0.95,
@@ -166,7 +168,8 @@ def write_fasta_prot_fam(pangenome: Pangenome, output: Path, prot_families: str,
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
     """
-    assert prot_families in poss_values, f"Selected part: {prot_families} to write protein families not in {poss_values}"
+    assert prot_families in poss_values, (f"Selected part: {prot_families} "
+                                          f"to write protein families not in {poss_values}")
 
     outpath = output / f"{prot_families}_protein_families.faa"
 
@@ -177,7 +180,8 @@ def write_fasta_prot_fam(pangenome: Pangenome, output: Path, prot_families: str,
         for fam in tqdm(genefams, unit="prot families", disable=disable_bar):
             fasta.write('>' + fam.name + "\n")
             fasta.write(fam.sequence + "\n")
-    logging.getLogger("PPanGGOLiN").info(f"Done writing the representative amino acid sequences of the gene families : '{outpath}'")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Done writing the representative amino acid sequences of the gene families : '{outpath}'")
 
 
 def read_fasta_or_gff(file_path: Path) -> Dict[str, str]:
@@ -252,7 +256,7 @@ def read_genome_file(genome_file: Path, organism: Organism) -> Dict[str, str]:
     Read the genome file associated to organism to extract sequences
 
     :param genome_file: Path to a fasta file or gbff/gff file
-    :param genome: organism object
+    :param organism: organism object
 
     :return: Dictionary with all sequences associated to contig
     """
@@ -270,6 +274,7 @@ def read_genome_file(genome_file: Path, organism: Organism) -> Dict[str, str]:
                         f"information stored in the pangenome file and the contigs found in '{genome_file}'.")
 
     return contig_to_sequence
+
 
 def write_spaced_fasta(sequence: str, space: int = 60) -> str:
     """
@@ -325,7 +330,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
     regions_to_write = sorted(regions_to_write, key=lambda x: x.organism.name)
     # order regions by organism, so that we only have to read one genome at the time
 
-    outname = output/f"{regions}_rgp_genomic_sequences.fasta"
+    outname = output / f"{regions}_rgp_genomic_sequences.fasta"
     with write_compressed_or_not(outname, compress) as fasta:
         loaded_genome = ""
         for region in tqdm(regions_to_write, unit="rgp", disable=disable_bar):
@@ -333,7 +338,8 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
                 organism = region.organism
                 genome_sequence = read_genome_file(org_dict[organism.name], organism)
             fasta.write(f">{region.name}\n")
-            fasta.write(write_spaced_fasta(genome_sequence[region.contig.name][region.starter.start:region.stopper.stop], 60))
+            fasta.write(
+                write_spaced_fasta(genome_sequence[region.contig.name][region.starter.start:region.stopper.stop], 60))
     logging.getLogger("PPanGGOLiN").info(f"Done writing the regions nucleotide sequences: '{outname}'")
 
 

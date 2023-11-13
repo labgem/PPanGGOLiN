@@ -16,7 +16,8 @@ from typing import List, Set, Tuple, Iterable
 from tqdm import tqdm
 
 # local libraries
-from ppanggolin.annotate.synta import annotate_organism, read_fasta, get_dna_sequence, init_contig_counter, contig_counter
+from ppanggolin.annotate.synta import (annotate_organism, read_fasta, get_dna_sequence,
+                                       init_contig_counter, contig_counter)
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
@@ -104,14 +105,14 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     :param organism_name: Organism name
     :param gbff_file_path: Path to corresponding GBFF file
     :param circular_contigs: list of contigs
-    :param pseudo: Allow to read pseudogène
+    :param pseudo: Allow to read pseudogenes
 
     :return: Organism complete and true for sequence in file
     """
     global ctg_counter
 
     organism = Organism(organism_name)
-    logging.getLogger("PPanGGOLiN").debug(f"Extracting genes informations from the given gbff {gbff_file_path.name}")
+    logging.getLogger("PPanGGOLiN").debug(f"Extracting genes information from the given gbff {gbff_file_path.name}")
     # revert the order of the file, to read the first line first.
     lines = read_compressed_or_not(gbff_file_path).readlines()[::-1]
     gene_counter = 0
@@ -381,7 +382,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     return org, has_fasta
 
 
-def read_anno_file(organism_name: str, filename: Path, circular_contigs: list, pseudo: bool = False) -> Tuple[Organism, bool]:
+def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
+                   pseudo: bool = False) -> Tuple[Organism, bool]:
 
     """
     Read a GBFF file for one organism
@@ -405,7 +407,7 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list, p
             return read_org_gbff(organism_name, filename, circular_contigs, pseudo)
         except Exception:
             raise Exception(f"Reading the gbff file '{filename}' raised an error.")
-    else:  # Fasta type obligatory because unknow raise an error in detect_filetype function
+    else:  # Fasta type obligatory because unknown raise an error in detect_filetype function
         raise Exception("Wrong file type provided. This looks like a fasta file. "
                         "You may be able to use --fasta instead.")
     
@@ -461,7 +463,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     :param organisms_file: List of GBFF files for each organism
     :param cpu: number of CPU cores to use
     :param pseudo: allow to read pseudogène
-    :param disable_bar: Disable the progresse bar
+    :param disable_bar: Disable the progress bar
     """
 
     logging.getLogger("PPanGGOLiN").info(f"Reading {organisms_file.name} the list of organism files ...")
@@ -509,7 +511,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
 
 
-def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: List[Path]):
+def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
     """
     Get gene sequences from fastas
 
@@ -528,7 +530,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: List[Path]
             raise KeyError(f"One of the genome in your '{fasta_files}' was not found in the pan."
                            f" This might mean that the genome names between your annotation file and "
                            f"your fasta file are different.")
-        with read_compressed_or_not(elements[1]) as currFastaFile:
+        with read_compressed_or_not(Path(elements[1])) as currFastaFile:
             fasta_dict[org] = read_fasta(org, currFastaFile)
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
@@ -566,7 +568,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     :param norna: Use to avoid annotating RNA features.
     :param allow_overlap: Use to not remove genes overlapping with RNA features
     :param procedure: prodigal procedure used
-    :param disable_bar: Disable the progresse bar
+    :param disable_bar: Disable the progress bar
     """
 
     logging.getLogger("PPanGGOLiN").info(f"Reading {fasta_list} the list of organism files")
