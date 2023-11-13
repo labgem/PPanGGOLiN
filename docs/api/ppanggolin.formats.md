@@ -11,6 +11,15 @@
    :show-inheritance:
 ```
 
+## ppanggolin.formats.writeAnnotations module
+
+```{eval-rst}
+.. automodule:: ppanggolin.formats.writeAnnotations
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
 ## ppanggolin.formats.writeBinaries module
 
 ```{eval-rst}
@@ -51,6 +60,15 @@
 
 ```{eval-rst}
 .. automodule:: ppanggolin.formats.writeSequences
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
+## ppanggolin.formats.write_proksee module
+
+```{eval-rst}
+.. automodule:: ppanggolin.formats.write_proksee
    :members:
    :undoc-members:
    :show-inheritance:
