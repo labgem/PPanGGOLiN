@@ -1,4 +1,4 @@
-This option writes in a 'projection' directory. There will be a file written in the .tsv file format for every single genome in the pangenome.
+This option writes in a 'tables' directory. There will be a file written in the .tsv file format for every single genome in the pangenome.
 The columns of this file are described in the following table : 
 
 | Column               | Description                                                                                                                    |
@@ -18,4 +18,4 @@ The columns of this file are described in the following table :
 
 Those files can be generated as such : 
 
-`ppanggolin write -p pangenome.h5 --projection`
+`ppanggolin write_genomes -p pangenome.h5 --tables`

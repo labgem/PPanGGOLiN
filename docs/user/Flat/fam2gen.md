@@ -4,4 +4,4 @@ It is basically a three-column file listing the gene family name in the first co
 
 You can obtain it as such :  
 
-`ppanggolin write -p pangenome.h5 --families_tsv`
+`ppanggolin write_pangenome -p pangenome.h5 --families_tsv`
