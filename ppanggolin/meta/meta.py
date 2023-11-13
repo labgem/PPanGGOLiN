@@ -111,7 +111,6 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
 
     if metatype == "contigs" and "genomes" not in metadata_df.columns:
             check_duplicate_contig_name()
-            org2contig = {contig.name: contig.organism.name for contig in pangenome.contigs}
 
     for row in tqdm(metadata_df.iterrows(), unit='row',
                     total=metadata_df.shape[0], disable=disable_bar):
@@ -122,8 +121,7 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
             elif metatype == "genomes":
                 element = pangenome.get_organism(row[metatype])
             elif metatype == "contigs":
-                org = row["genomes"] if "genomes" in metadata_df.columns else org2contig[row[metatype]]
-                print("pika")
+                org = row["genomes"] if "genomes" in metadata_df.columns else None
                 element = pangenome.get_contig(name=row[metatype], organism_name=org)
             elif metatype == "genes":
                 element = pangenome.get_gene(row[metatype])
@@ -140,8 +138,6 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
                 logging.getLogger().debug(f"{metatype}: {row[metatype]} doesn't exist")
         else:
             meta = Metadata(source=source, **{k: v for k, v in row.to_dict().items() if k != metatype})
-            if metatype == "contigs":
-                meta.genomes = element.organism.name
             element.add_metadata(source=source, metadata=meta)
 
     pangenome.status["metadata"][metatype] = "Computed"

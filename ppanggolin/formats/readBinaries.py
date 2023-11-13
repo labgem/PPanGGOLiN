@@ -482,7 +482,7 @@ def read_genes(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[in
                               genetic_code=genedata.genetic_code, product=genedata.product, local_identifier=local)
         gene.is_fragment = row["is_fragment"]
         if link:
-            contig = pangenome.get_contig(int(row["contig"]))
+            contig = pangenome.get_contig(identifier=int(row["contig"]))
             gene.fill_parents(contig.organism, contig)
             contig.add(gene)
 
@@ -632,10 +632,9 @@ def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
         source_table = metadata_group._f_get_child(source)
         for row in tqdm(read_chunks(source_table), total=source_table.nrows, unit='metadata', disable=disable_bar):
             meta_dict = {'source': source}
-            if "ID" in row.dtype.names:
-                identifier = row["ID"].decode() if isinstance(row["ID"], bytes) else row["ID"]
-            else:
-                identifier = row["name"].decode()
+            identifier = row["ID"].decode() if isinstance(row["ID"], bytes) else int(row["ID"])
+            # else:
+            #     identifier = row["name"].decode()
             if metatype == "families":
                 element = pangenome.get_gene_family(identifier)
             elif metatype == "genomes":
@@ -649,7 +648,7 @@ def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
             elif metatype == "modules":
                 element = pangenome.get_module(identifier)
             elif metatype == "contigs":
-                element = pangenome.get_contig(name=identifier)
+                element = pangenome.get_contig(identifier)
             else:
                 expected_types = ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
                 raise KeyError(f'The metatype {metatype} is unexpected. Object associated with metadata are {expected_types}')

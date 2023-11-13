@@ -14,7 +14,7 @@ from collections import defaultdict
 
 # local libraries
 from ppanggolin.genome import Organism, Gene
-from ppanggolin.region import Module, Region
+from ppanggolin.region import Module
 
 
 def write_legend_items(features: List[str], module_to_color: Dict[Module, str] = None):
@@ -130,7 +130,7 @@ def initiate_proksee_data(features: List[str], organism: Organism, module_to_col
         "tracks": proksee_tracks,
         "sequence": {},
         'captions': [proksee_captions],
-        "meta":organism.formatted_metadata_dict() # metadata
+        "meta": organism.formatted_metadata_dict()  # metadata
     }
 
     return {"cgview": cgview_data}
@@ -152,7 +152,7 @@ def write_contig(organism: Organism, genome_sequences: Dict[str, str] = None) ->
             "name": contig.name,
             "length": contig.length,
             "orientation": "+",
-            "meta":contig.formatted_metadata_dict()
+            "meta": contig.formatted_metadata_dict()
         }
 
         if genome_sequences:
@@ -170,7 +170,7 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
     :param organism: The organism for which gene data will be written.
     :param disable_bar: A flag to disable the progress bar when processing genes (default: True).
     
-    :return: A tuple containing a list of gene data in a structured format and a dictionary mapping gene families to genes.
+    :return: List of gene data in a structured format and a dictionary mapping gene families to genes.
     """
     genes_data_list = []
     gf2gene = defaultdict(list)
@@ -179,10 +179,10 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
     for gene in tqdm(organism.genes, total=organism.number_of_genes(), unit="genes", disable=disable_bar):
         gf = gene.family
         gf2gene[gf.name].append(gene)
-        
-        metadata_for_proksee  = {f"gene_{k}":v for k, v in gene.formatted_metadata_dict().items()}
-        metadata_for_proksee.update({f"family_{k}":v for k, v in gene.family.formatted_metadata_dict().items()})
-        genes_data_list.append({    
+
+        metadata_for_proksee = {f"gene_{k}": v for k, v in gene.formatted_metadata_dict().items()}
+        metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict().items()})
+        genes_data_list.append({
             "name": gene.name,
             "type": "Gene",
             "contig": gene.contig.name,
@@ -209,7 +209,7 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
             "tags": [],
             "source": "Gene",
             "legend": "RNA",
-            "meta":  gene.formatted_metadata_dict()
+            "meta": gene.formatted_metadata_dict()
         })
 
     return genes_data_list, gf2gene
@@ -257,7 +257,7 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]]):
 
         if gf_intersection:
             # Calculate the completion percentage
-            completion =  round(100 * len(gf_intersection) / len(set(module.families)), 1)
+            completion = round(100 * len(gf_intersection) / len(set(module.families)), 1)
 
             # Create module data entries for genes within intersecting gene families
             for gf in gf_intersection:
@@ -282,16 +282,14 @@ def write_proksee_organism(organism: Organism, output_file: Path,
                            module_to_colors: Dict[Module, str] = None,
                            genome_sequences: Dict[str, str] = None):
     """
-    Write ProkSee data for a given organism.
+    Writes ProkSee data for a given organism, including contig information, genes colored by partition,
+    RGPs, and modules. The resulting data is saved as a JSON file in the specified output file.
 
     :param organism: The organism for which ProkSee data will be written.
     :param output_file: The output file where ProkSee data will be written.
     :param features: A list of features to include in the ProkSee data, e.g., ["rgp", "modules", "all"].
     :param module_to_colors: A dictionary mapping modules to their assigned colors.
     :param genome_sequences: The genome sequences for the organism.
-
-    This function writes ProkSee data for a given organism, including contig information, genes colored by partition, RGPs,
-    and modules. The resulting data is saved as a JSON file in the specified output file.
     """
     proksee_data = initiate_proksee_data(features, organism, module_to_colors)
 

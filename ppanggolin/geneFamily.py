@@ -84,7 +84,7 @@ class GeneFamily(MetaFeatures):
 
 
     def __len__(self) -> int:
-        """Get the length of an object.
+        """Get the number of genes in the family
 
         :return: The length of the list of genes
         """

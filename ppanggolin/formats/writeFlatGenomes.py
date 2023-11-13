@@ -209,7 +209,7 @@ def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[st
 
     :param organism: Organism object for which the GFF file is being written.
     :param outdir: Path to the output directory where the GFF file will be written.
-    :param metadata_sep: The separator used to join multiple metadata values for element with multiple metadata values from the same source.
+    :param metadata_sep: The separator used to join multiple metadata values
     :param compress: If True, compress the output GFF file using .gz format.
     :param annotation_sources: A dictionary that maps types of features to their source information.
     :param genome_sequences: A dictionary mapping contig names to their DNA sequences (default: None).
@@ -360,7 +360,6 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
     :param pangenome: The pangenome from which organisms will be selected.
     :return: A set of selected Organism objects.
     """
-    print(Path(organisms_filt).is_file())
     if organisms_filt == "all":
         logging.getLogger("PPanGGOLiN").info("Writing output for all genomes of the pangenome.")
         organisms_list = set(pangenome.organisms)
@@ -371,6 +370,7 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
                                                   "to determine which genomes should be included in the output.")
             with open(organisms_filt) as fl:
                 org_names = [line.strip() for line in fl if line and not line.startswith("#")]
+                print(org_names)
         else:
             org_names = [name.strip() for name in organisms_filt.split(',') if name.strip()]
 
@@ -454,7 +454,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
     :param anno: File containing the list of GBFF/GFF files for each organism
     :param organisms_filt: String used to specify which organism to write. if all, all organisms are written.
     :param add_metadata: Add metadata to GFF files
-    :param metadata_sep: The separator used to join multiple metadata values for element with multiple metadata values from the same source.
+    :param metadata_sep: The separator used to join multiple metadata values
     :param metadata_sources: Sources of the metadata to use and write in the outputs. None means all sources are used.
     """
 
@@ -602,13 +602,14 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--metadata_sources",
                           default=None,
                           nargs="+",
-                          help="Which source of metadata should be written. By default all metadata sources are included.")
+                          help="Which source of metadata should be written. "
+                               "By default all metadata sources are included.")
 
     optional.add_argument("--metadata_sep",
                           required=False,
                           default='|',
-                          help="The separator used to join multiple metadata values for elements with multiple metadata values from the same source. "
-                               "This character should not appear in metadata values.")
+                          help="The separator used to join multiple metadata values for elements with multiple metadata"
+                               " values from the same source. This character should not appear in metadata values.")
 
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int,
                           help="Number of available cpus")

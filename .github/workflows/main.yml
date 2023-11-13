@@ -160,7 +160,7 @@ jobs:
                                   --anno organisms.gbff.list --gff  --organisms  organisms_names.gbff.head.list 
 
         ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output flat_genomes_from_cmdline_orgs --proksee \
-                                --organisms GCF_006508185.1_ASM650818v1_genomic,GCF_002088315.1_ASM208831v1_genomic 
+                                --organisms GCF_006508185.1_ASM650818v1_genomic,GCF_002088315.1_ASM208831v1_genomic
         
         head organisms.fasta.list | cut -f1  > organisms_names.fasta.head.list 
         # Default separator is a pipe but a pipe is found in a value of metadata db1. That is why we use another separator here. 

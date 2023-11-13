@@ -22,6 +22,7 @@ class Metadata:
         - source: A string representing the source of the metadata.
         - kwargs: A dictionary of attributes and values representing the metadata. The attributes can be any string, and the values can be any type except None or NaN.
     """
+
     def __init__(self, source: str, **kwargs):
         """Constructor Method
 
@@ -137,9 +138,7 @@ class MetaFeatures:
                                      "Please change separator in order to be able to write the metadata.")
                 source_field_2_values[f"{metadata.source}_{field}"].append(str(value))
 
-
         return {source_field: separator.join(values) for source_field, values in source_field_2_values.items()}
-
 
     def add_metadata(self, source, metadata):
         """Add metadata to metadata getter
@@ -211,5 +210,3 @@ class MetaFeatures:
         """
         max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
         return max_source, len(max_meta)
-
- 
