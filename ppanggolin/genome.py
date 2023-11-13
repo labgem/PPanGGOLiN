@@ -200,7 +200,7 @@ class Gene(Feature):
     Fields:
     - position: the position of the gene in the genome.
     - family: the family that the gene belongs to.
-    - RGP: a set of resistance gene profiles associated with the gene.
+    - RGP: A putative Region of Plasticity that contains the gene. 
     - genetic_code: the genetic code associated with the gene.
     - Protein: the protein sequence corresponding to the translated gene.
     """
@@ -285,7 +285,7 @@ class Gene(Feature):
         self.protein = protein
 
 
-class Contig:
+class Contig(MetaFeatures):
     """
     Describe the contig content and some information
     Methods:
@@ -299,12 +299,14 @@ class Contig:
     - RNAs: Set of RNA annotations present in the contig.
     """
 
-    def __init__(self, name: str, is_circular: bool = False):
+    def __init__(self, identifier: int, name: str, is_circular: bool = False):
         """Constructor method
 
         :param name: Name of the contig
         :param is_circular: saves if the contig is circular
         """
+        super().__init__()
+        self.ID = identifier
         self.name = name
         self.is_circular = is_circular
         self._rna_getter = set()  # Saving the rna annotations. We're not using them in the vast majority of cases.
@@ -331,7 +333,9 @@ class Contig:
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if start in self._genes_getter:
-            raise ValueError(f"Gene with start position {start} already exists in the contig")
+            raise ValueError(f"Gene '{self._genes_getter[start].ID}' with start position {start} already exists in the "
+                             f"contig '{self.name}' {f'from organism {self.organism}' if self.organism is not None else ''}, "
+                             f"cannot add gene '{gene.ID}' {f'from organism {gene.organism}' if gene.organism is not None else ''}")
         if gene.position is None:
             raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
         # Adding empty values.
@@ -355,7 +359,13 @@ class Contig:
             raise TypeError("Contig length is expected to be an integer")
         if contig_len < 0:
             raise ValueError("Contig length must be positive")
-        self._length = contig_len
+
+        if self._length is None:
+            self._length = contig_len
+        elif self.length != contig_len:
+            logging.getLogger("PPanGGOLiN").debug(f"Known contig length = {self.length}, new length = {contig_len}")
+            raise ValueError('Attempting to define a contig length different from the previously defined value.')
+        
 
     def __len__(self):
         return self.length
@@ -433,8 +443,10 @@ class Contig:
             raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
         del self[position]
 
-    def get_genes(self, begin: int, end: int) -> List[Gene]:
-        """Gets a list of genes within a range
+    def get_genes(self, begin: int = 0, end: int = None) -> List[Gene]:
+        """
+        Gets a list of genes within a range.
+        If no arguments are given it return all genes.
 
         :param begin: Position of the first gene to retrieve
         :param end: Position of the last gene to not retrieve
@@ -444,10 +456,16 @@ class Contig:
         :raises TypeError: If begin or end is not an integer
         :raises ValueError: If begin position is greater than end positon
         """
+
+        if end is None:
+            end = self.length
+
         if not isinstance(begin, int) or not isinstance(end, int):
-            raise TypeError(f"Expected type is int, given type was '{type(begin)}, {type(end)}'")
-        if end < begin:
-            raise ValueError("End position is lower than begin position")
+            raise TypeError(f"Expected type int for 'begin' and 'end', but received types '{type(begin)}' and '{type(end)}'.")
+
+        if begin >= end:
+            raise ValueError("The 'begin' position must be less than the 'end' position.")
+
         else:
             return self._genes_position[begin: end]
 
@@ -642,12 +660,28 @@ class Organism(MetaFeatures):
         for contig in self.contigs:
             yield from contig.genes
 
+    @property
+    def rna_genes(self) -> Generator[RNA, None, None]:
+        """Generator to get genes in the organism
+
+        :return: Generator of genes
+        """
+        for contig in self.contigs:
+            yield from contig.RNAs
+
     def number_of_genes(self) -> int:
         """ Get number of genes in the organism
 
         :return: Number of genes
         """
-        return sum([contig.number_of_genes for contig in self.contigs])
+        return sum((contig.number_of_genes for contig in self.contigs))
+    
+    def number_of_rnas(self) -> int:
+        """ Get number of genes in the organism
+
+        :return: Number of genes
+        """
+        return sum((contig.number_of_rnas for contig in self.contigs))
 
     @property
     def contigs(self) -> Generator[Contig, None, None]:
@@ -656,6 +690,16 @@ class Organism(MetaFeatures):
         :return: Values in contig dictionary from organism
         """
         yield from self._contigs_getter.values()
+
+
+    @property
+    def number_of_contigs(self) -> int:
+        """ Get number of contigs in organism
+
+        :return: Number of contigs in organism
+        """
+        return len(self._contigs_getter)
+
 
     def add(self, contig: Contig):
         """Add a contig to organism
@@ -672,6 +716,7 @@ class Organism(MetaFeatures):
         else:
             raise KeyError(f"Contig {contig.name} already in organism {self.name}")
 
+ 
     def get(self, name: str) -> Contig:
         """
         Get contig with the given identifier in the organism
@@ -682,6 +727,7 @@ class Organism(MetaFeatures):
         """
         return self[name]
 
+
     def remove(self, name: str) -> Contig:
         """
         Remove a contig with the given identifier in the organism
@@ -691,6 +737,7 @@ class Organism(MetaFeatures):
         :return: The contig with the given identifier
         """
         del self[name]
+
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
@@ -718,3 +765,4 @@ class Organism(MetaFeatures):
                     self.bitarray[index[fam]] = 1
         else:
             raise Exception("There is not any partition corresponding please report a github issue")
+        

@@ -92,7 +92,7 @@ class TestFeature:
 		"""Tests that 'fill_parents' method associates the object with the given organism and contig
 		"""
 		organism = Organism('org_id')
-		contig = Contig('contig_name')
+		contig = Contig(0, 'contig_name')
 		feature.fill_annotations(1, 10, '+', 'gene_type', 'name', 'product', 'local_id')
 		feature.fill_parents(organism, contig)
 		assert feature.organism == organism
@@ -102,7 +102,7 @@ class TestFeature:
 		"""Tests that Gene can be filled with only an organism or a contig
 		"""
 		organism = Organism('org')
-		contig = Contig("ctg")
+		contig = Contig(0, "ctg")
 		feature.fill_annotations(1, 10, '+', 'gene_type', 'name', 'product', 'local_id')
 		feature.fill_parents(organism=organism)
 		assert feature.organism == organism
@@ -131,7 +131,7 @@ class TestFeature:
 	def test_set_contig(self, feature):
 		"""Tests that contig setter sets contig with the valid type
 		"""
-		contig = Contig('contig')
+		contig = Contig(0, 'contig')
 		feature.contig = contig
 		assert feature.contig == contig
 
@@ -268,7 +268,7 @@ class TestContig:
 	def contig(self) -> Generator[Contig, None, None]:
 		"""Generate basic contig for tests
 		"""
-		yield Contig("contig")
+		yield Contig(0, "contig")
 
 	@pytest.fixture
 	def gene(self) -> Generator[Gene, None, None]:
@@ -446,7 +446,7 @@ class TestOrganism:
 	def contig(self) -> Generator[Contig, None, None]:
 		"""Generate a basic contig for test
 		"""
-		yield Contig("contig")
+		yield Contig(0, "contig")
 
 	@pytest.fixture
 	def gene(self) -> Generator[Gene, None, None]:
@@ -498,7 +498,7 @@ class TestOrganism:
 		"""
 		organism.add(contig)
 		with pytest.raises(KeyError):
-			organism.add(Contig('contig'))
+			organism.add(Contig(0, 'contig'))
 
 	def test_get_contig(self, organism, contig):
 		"""Tests that a contig can be retrieved from an Organism instance
@@ -521,8 +521,10 @@ class TestOrganism:
 	def test_number_of_contigs(self, organism):
 		"""Tests that the number of contigs in an organism instance can be retrieved
 		"""
-		organism.add(Contig('contig1'))
-		organism.add(Contig('contig2'))
+		organism.add(Contig(1, 'contig1'))
+		organism.add(Contig(2, 'contig2'))
+
+		assert organism.number_of_contigs == 2
 		assert isinstance(len(organism), int)
 		assert len(organism) == 2
 

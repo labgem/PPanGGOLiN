@@ -13,8 +13,8 @@ from importlib.metadata import distribution
 # local modules
 import ppanggolin.pangenome
 from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args
-import ppanggolin.nem.rarefaction
 import ppanggolin.nem.partition
+import ppanggolin.nem.rarefaction
 import ppanggolin.graph
 import ppanggolin.annotate
 import ppanggolin.cluster
@@ -65,6 +65,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    partition     Partition the pangenome graph\n"
     desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
     desc += "    msa           Compute Multiple Sequence Alignments for pangenome gene families\n"
+    desc += "    projection    Annotate an input genome with an existing pangenome\n"
     desc += "    metadata      Add metadata to elements in pangenome\n"
     desc += "  \n"
     desc += "  Output:\n"
@@ -132,20 +133,26 @@ def cmd_line() -> argparse.Namespace:
         set_verbosity_level(args)
 
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        parser.error("You must provide at least a file with the --fasta option to annotate from sequences, "
-                     "or a file with the --gff option to load annotations through the command line or the config file.")
+        parser.error("Please provide either a sequence file using the --fasta option or an annotation file using the --anno option "
+                    "to enable annotation. Use the command line or the config file.")
 
     cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
                                "context", "write", "msa", "draw", "partition",
-                               "rarefaction", "spot", "fasta", "metrics", "rgp"]
+                               "rarefaction", "spot", "fasta", "metrics", "rgp", "projection", "metadata"]
     if args.subcommand in cmds_pangenome_required and args.pangenome is None:
-        parser.error("You must provide a pangenome file with the --pangenome "
-                     "argument through the command line or the config file.")
+        parser.error("Please specify a pangenome file using the --pangenome argument, "
+                     "either through the command line or the config file.")
+
 
     if args.subcommand == "align" and args.sequences is None:
-        parser.error("You must provide sequences (nucleotides or amino acids) to align on the pangenome gene families "
-                     "with the --sequences argument through the command line or the config file.")
-
+        parser.error("Please provide sequences (nucleotides or amino acids) for alignment with the pangenome gene families "
+                    "using the --sequences argument, either through the command line or the config file.")
+    
+    if args.subcommand == "projection":
+        # check argument correctness and determine input mode (single or multiple files) and add it to args.
+        input_mode = ppanggolin.projection.projection.check_projection_arguments(args, parser)
+        setattr(args, "input_mode", input_mode)
+        
     return args
 
 
@@ -186,6 +193,8 @@ def main():
         ppanggolin.metrics.metrics.launch(args)
     elif args.subcommand == "align":
         ppanggolin.align.launch(args)
+    elif args.subcommand == "projection":
+        ppanggolin.projection.projection.launch(args)
     elif args.subcommand == "rgp":
         ppanggolin.RGP.genomicIsland.launch(args)
     elif args.subcommand == "spot":

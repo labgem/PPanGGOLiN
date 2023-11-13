@@ -6,7 +6,7 @@ import argparse
 import logging
 import re
 from pathlib import Path
-from typing import TextIO, Dict, Set
+from typing import TextIO, Dict, Set, Iterable
 
 # installed libraries
 from tqdm import tqdm
@@ -14,33 +14,34 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
+from ppanggolin.genome import Gene, Organism
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
 
-module_regex = re.compile(r'^module_[0-9]+')
+module_regex = re.compile(r'^module_\d+')  #\d == [0-9]
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
 poss_values_log = f"Possible values are {', '.join(poss_values[:-1])}, module_X with X being a module id."
 
 
-def write_gene_sequences_from_annotations(pangenome: Pangenome, file_obj: TextIO, list_cds: list = None,
-                                          add: str = '', disable_bar: bool = False):
-    """
-    Writes the CDS sequences given through list_CDS of the Pangenome object to a tmpFile object,
-    and adds the str provided through add in front of it.
-    Loads the sequences from previously computed or loaded annotations
 
-    :param pangenome: Pangenome object with gene families sequences
-    :param file_obj: Output file to write sequences
-    :param list_cds: Selected genes
-    :param add: Add prefix to gene ID
-    :param disable_bar: Disable progress bar
+def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_obj: TextIO, add: str = '',
+                                          disable_bar: bool = False):
     """
-    logging.getLogger("PPanGGOLiN").info("Writing all of the CDS sequences...")
-    for gene in tqdm(sorted(list_cds if list_cds is not None else pangenome.genes, key=lambda x: x.ID),
-                     unit="gene", disable=disable_bar):
+    Writes the CDS sequences to a File object,
+    and adds the string provided through `add` in front of it.
+    Loads the sequences from previously computed or loaded annotations.
+
+    :param genes_to_write: Genes to write.
+    :param file_obj: Output file to write sequences.
+    :param add: Add prefix to gene ID.
+    :param disable_bar: Disable progress bar.
+    """
+    logging.getLogger("PPanGGOLiN").info(f"Writing all CDS sequences in {file_obj.name}")
+    for gene in tqdm(genes_to_write, unit="gene", disable=disable_bar):
         if gene.type == "CDS":
-            file_obj.write('>' + add + gene.ID + "\n")
-            file_obj.write(gene.dna + "\n")
+            gene_id = gene.ID if gene.local_identifier == "" else gene.local_identifier
+            file_obj.write(f'>{add}{gene_id}\n')
+            file_obj.write(f'{gene.dna}\n')
     file_obj.flush()
 
 
@@ -73,7 +74,7 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
             get_gene_sequences_from_file(pangenome.file, fasta, set([gene.ID for gene in genes_to_write]),
                                          disable_bar=disable_bar)
         elif pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
-            write_gene_sequences_from_annotations(pangenome, fasta, genes_to_write, disable_bar=disable_bar)
+            write_gene_sequences_from_annotations(genes_to_write, fasta, disable_bar=disable_bar)
         else:
             # this should never happen if the pangenome has been properly checked before launching this function.
             raise Exception("The pangenome does not include gene sequences")
@@ -189,15 +190,16 @@ def read_fasta_or_gff(file_path: Path) -> Dict[str, str]:
     sequence_dict = {}
     seqname = ""
     seq = ""
-    z = False
+    in_fasta_part = False
     with read_compressed_or_not(file_path) as f:
         for line in f:
             if line.startswith(">"):
-                z = True
-            if z:
+                in_fasta_part = True
+            if in_fasta_part:
                 if line.startswith('>'):
                     if seq != "":
                         sequence_dict[seqname] = seq
+                        seq = ""
                     seqname = line[1:].strip().split()[0]
                 else:
                     seq += line.strip()
@@ -244,26 +246,33 @@ def read_fasta_gbk(file_path: Path) -> Dict[str, str]:
     return sequence_dict
 
 
-def read_genome_file(file_dict: Dict[str, Path], genome_name: str) -> Dict[str, str]:
+def read_genome_file(genome_file: Path, organism: Organism) -> Dict[str, str]:
     """
-    Read the genome file associated to organism
+    Read the genome file associated to organism to extract sequences
 
-    :param file_dict: Dictionary given association between organism and fasta file
-    :param genome_name: organism name
+    :param genome_file: Path to a fasta file or gbff/gff file
+    :param genome: organism object
 
     :return: Dictionary with all sequences associated to contig
     """
-    filetype = detect_filetype(file_dict[genome_name])
+    filetype = detect_filetype(genome_file)
     if filetype in ["fasta", "gff"]:
-        return read_fasta_or_gff(file_dict[genome_name])
+        contig_to_sequence = read_fasta_or_gff(genome_file)
     elif filetype == "gbff":
-        return read_fasta_gbk(file_dict[genome_name])
+        contig_to_sequence = read_fasta_gbk(genome_file)
     else:
-        raise Exception(f"Unknown filetype detected: '{file_dict[genome_name]}'")
+        raise Exception(f"Unknown filetype detected: '{genome_file}'")
 
+    # check_contig_names
+    if set(contig_to_sequence) != {contig.name for contig in organism.contigs}:
+        raise Exception(f"Contig name inconsistency detected in organism '{organism.name}' between the "
+                        f"information stored in the pangenome file and the contigs found in '{genome_file}'.")
+
+    return contig_to_sequence
 
 def write_spaced_fasta(sequence: str, space: int = 60) -> str:
-    """Write a maximum of element per line
+    """
+    Write a maximum of element per line
 
     :param sequence: sequence to write
     :param space: maximum of size for one line
@@ -320,8 +329,8 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
         loaded_genome = ""
         for region in tqdm(regions_to_write, unit="rgp", disable=disable_bar):
             if region.organism.name != loaded_genome:
-                loaded_genome = region.organism.name
-                genome_sequence = read_genome_file(org_dict, loaded_genome)
+                organism = region.organism
+                genome_sequence = read_genome_file(org_dict[organism.name], organism)
             fasta.write(f">{region.name}\n")
             fasta.write(write_spaced_fasta(genome_sequence[region.contig.name][region.starter.start:region.stopper.stop], 60))
     logging.getLogger("PPanGGOLiN").info(f"Done writing the regions nucleotide sequences: '{outname}'")
@@ -356,14 +365,18 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
     need_regions = False
     need_modules = False
 
-    if any(x is not None for x in [regions, genes, gene_families, prot_families]):
+    if prot_families is not None:
+        need_families = True
+
+    if any(x is not None for x in [regions, genes, gene_families]):
         need_annotations = True
         need_families = True
     if regions is not None or any(x == "rgp" for x in (genes, gene_families, prot_families)):
+        need_annotations = True
         need_regions = True
     if any(x in ["persistent", "shell", "cloud"] for x in (genes, gene_families, prot_families)):
         need_partitions = True
-    for x in (genes, gene_families, prot_families):
+    for x in (genes, gene_families):
         if x is not None and 'module_' in x:
             need_modules = True
 

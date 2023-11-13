@@ -64,8 +64,8 @@ def check_metadata_format(metadata: Path, metatype: str) -> pd.DataFrame:
 
     :return: Dataframe with metadata loaded
     """
-    assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
-    colname_check = re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')
+    assert metatype in ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
+    colname_check = re.compile('^[a-zA-Z_]\w*$')  # \w = [A-Za-z0-9_]
     metadata_df = pd.read_csv(metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE,
                               dtype={metatype: str})
     metadata_df.replace(to_replace='-', value=pd.NA, inplace=True)
@@ -95,7 +95,24 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
     :raise KeyError: element name is not find in pangenome
     :raise AssertionError: Metatype is not recognized
     """
-    assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+    assert metatype in ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
+
+    org2contig = None
+
+    def check_duplicate_contig_name():
+        contig_names = set()
+        for contig in pangenome.contigs:
+            old_len = len(contig_names)
+            contig_names.add(contig.name)
+            if len(contig_names) == old_len:
+                raise Exception("There are 2 contigs with the same name in the pangenome and "
+                                "you did not provide the genome linked to contig. "
+                                "Add a column 'genomes' to indicate to which genome the contig belongs to.")
+
+    if metatype == "contigs" and "genomes" not in metadata_df.columns:
+            check_duplicate_contig_name()
+            org2contig = {contig.name: contig.organism.name for contig in pangenome.contigs}
+
     for row in tqdm(metadata_df.iterrows(), unit='row',
                     total=metadata_df.shape[0], disable=disable_bar):
         row = row[1]
@@ -104,6 +121,10 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
                 element = pangenome.get_gene_family(row[metatype])
             elif metatype == "genomes":
                 element = pangenome.get_organism(row[metatype])
+            elif metatype == "contigs":
+                org = row["genomes"] if "genomes" in metadata_df.columns else org2contig[row[metatype]]
+                print("pika")
+                element = pangenome.get_contig(name=row[metatype], organism_name=org)
             elif metatype == "genes":
                 element = pangenome.get_gene(row[metatype])
             elif metatype == "RGPs":
@@ -119,6 +140,8 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
                 logging.getLogger().debug(f"{metatype}: {row[metatype]} doesn't exist")
         else:
             meta = Metadata(source=source, **{k: v for k, v in row.to_dict().items() if k != metatype})
+            if metatype == "contigs":
+                meta.genomes = element.organism.name
             element.add_metadata(source=source, metadata=meta)
 
     pangenome.status["metadata"][metatype] = "Computed"
@@ -169,7 +192,7 @@ def parser_meta(parser: argparse.ArgumentParser):
     required.add_argument("-s", "--source", required=False, type=str, nargs="?",
                           help='Name of the metadata source')
     required.add_argument("-a", "--assign", required=False, type=str, nargs="?",
-                          choices=["families", "genomes", "genes", "RGPs", "spots", "modules"],
+                          choices=["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"],
                           help="Select to which pangenome element metadata will be assigned")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--omit", required=False, action="store_true",

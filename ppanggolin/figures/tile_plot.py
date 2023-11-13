@@ -172,9 +172,8 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
                                              tickfont=dict(size=10)),
                        shapes=shapes,
                        plot_bgcolor='#ffffff')
-    logging.getLogger().info("Drawing the figure itself...")
+    logging.getLogger("PPanGGOLiN").info("Drawing the figure itself...")
 
-    #fig = go.Figure(data=[heatmap], layout=layout)
     fig = go.Figure(data=[heatmap])
 
     fig.add_trace(go.Scatter(x=dendro_org['icoord'],

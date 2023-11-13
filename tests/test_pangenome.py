@@ -39,15 +39,15 @@ class TestPangenome:
         """
         pangenome_attr_type = {
             "file": type(None),
-            "_famGetter": dict,
+            "_fam_getter": dict,
             "_org_index": type(None),
             "_fam_index": type(None),
             "_max_fam_id": int,
-            "_orgGetter": dict,
-            "_edgeGetter": dict,
-            "_regionGetter": dict,
-            "_spotGetter": dict,
-            "_moduleGetter": dict,
+            "_org_getter": dict,
+            "_edge_getter": dict,
+            "_region_getter": dict,
+            "_spot_getter": dict,
+            "_module_getter": dict,
             "status": dict,
             "parameters": dict
         }
@@ -335,8 +335,8 @@ class TestPangenomeGene(TestPangenome):
         """
         genes = set()
         organism = Organism(name="organism")
-        for contig_id in range(randint(2, 10)):
-            contig = Contig("k_{}".format(contig_id))
+        for ctg_counter, contig_id in enumerate(range(randint(2, 10))):
+            contig = Contig(ctg_counter, "k_{}".format(contig_id))
             organism.add(contig)
             for gene_idx in range(randint(2, 10)):
                 gene = Gene(gene_id=f"{organism.name}.{contig_id}.{gene_idx}")
@@ -455,8 +455,8 @@ class TestPangenomeEdge(TestPangenome):
         gene2 = Gene(gene_id=f"gene_{gene_id_2}")
         fam1 = GeneFamily(family_id=1, name=f"fam_{gene_id_1}")
         fam2 = GeneFamily(family_id=2, name=f"fam_{gene_id_2}")
-        ctg1 = Contig(name=f"ctg_{gene_id_1}")
-        ctg2 = Contig(name=f"ctg_{gene_id_2}")
+        ctg1 = Contig(1, name=f"ctg_{gene_id_1}")
+        ctg2 = Contig(2, name=f"ctg_{gene_id_2}")
         fam1.add(gene1)
         fam2.add(gene2)
         organism = Organism(name=f"org_{choices([gene_id_1, gene_id_2], k=1)}")
@@ -597,8 +597,8 @@ class TestPangenomeRGP(TestPangenome):
         """
         rgp = Region(name="rgp")
         pangenome.add_region(rgp)
-        assert len(pangenome._regionGetter) == 1
-        assert pangenome._regionGetter["rgp"] == rgp
+        assert len(pangenome._region_getter) == 1
+        assert pangenome._region_getter["rgp"] == rgp
 
     def test_add_region_already_in_pangenome(self, pangenome):
         """Tests that adding region already in pangenome return a KeyError.
@@ -665,8 +665,8 @@ class TestPangenomeSpot(TestPangenome):
         """
         spot = Spot(spot_id=0)
         pangenome.add_spot(spot)
-        assert len(pangenome._spotGetter) == 1
-        assert pangenome._spotGetter[0] == spot
+        assert len(pangenome._spot_getter) == 1
+        assert pangenome._spot_getter[0] == spot
 
     def test_add_spot_already_in_pangenome(self, pangenome):
         """Tests that adding spot already in pangenome return a KeyError.
@@ -734,8 +734,8 @@ class TestPangenomeModule(TestPangenome):
         """
         module = Module(module_id=0)
         pangenome.add_module(module)
-        assert len(pangenome._moduleGetter) == 1
-        assert pangenome._moduleGetter[0] == module
+        assert len(pangenome._module_getter) == 1
+        assert pangenome._module_getter[0] == module
 
     def test_add_module_already_in_pangenome(self, pangenome):
         """Tests that adding module already in pangenome return a KeyError.
@@ -808,7 +808,7 @@ class TestPangenomeMetadata(TestPangenome):
         pangenome.add_gene_family(family)
         org = Organism("Org")
         org.add_metadata(source=metadata.source, metadata=metadata)
-        ctg = Contig("Ctg")
+        ctg = Contig(0, "Ctg")
         org.add(ctg)
         gene = Gene("Gene")
         gene.position, gene.start = (0, 0)

@@ -29,15 +29,15 @@ class Pangenome:
         self.file = None
 
         # basic parameters
-        self._famGetter = {}
+        self._fam_getter = {}
         self._org_index = None
         self._fam_index = None
         self._max_fam_id = 0
-        self._orgGetter = {}
-        self._edgeGetter = {}
-        self._regionGetter = {}
-        self._spotGetter = {}
-        self._moduleGetter = {}
+        self._org_getter = {}
+        self._edge_getter = {}
+        self._region_getter = {}
+        self._spot_getter = {}
+        self._module_getter = {}
         self.status = {
             'genomesAnnotated': "No",
             'geneSequences': "No",
@@ -51,12 +51,14 @@ class Pangenome:
             'modules': 'No',
             "metadata": {"families": 'No',
                          "genes": 'No',
+                         "contigs": 'No',
                          "genomes": 'No',
                          "RGPs": 'No',
                          "spots": 'No',
                          "modules": 'No'},
             "metasources": {"families": [],
                             "genes": [],
+                            "contigs": [],
                             "genomes": [],
                             "RGPs": [],
                             "spots": [],
@@ -101,16 +103,16 @@ class Pangenome:
 
     def _mk_gene_getter(self):
         """
-        Builds the attribute _geneGetter of the pangenome
+        Builds the attribute _gene_getter of the pangenome
 
         Since the genes are never explicitly 'added' to a pangenome (but rather to a gene family, or a contig),
         the pangenome cannot directly extract a gene from a geneID since it does not 'know' them.
-        If at some point we want to extract genes from a pangenome we'll create a geneGetter.
+        If at some point we want to extract genes from a pangenome we'll create a gene_getter.
         The assumption behind this is that the pangenome has been filled and no more gene will be added.
         """
-        self._geneGetter = {}
+        self._gene_getter = {}
         for gene in self.genes:
-            self._geneGetter[gene.ID] = gene
+            self._gene_getter[gene.ID] = gene
 
     def get_gene(self, gene_id: str) -> Gene:
         """Returns the gene that has the given gene ID
@@ -125,7 +127,7 @@ class Pangenome:
         assert isinstance(gene_id, str), "Gene id should be an integer"
 
         try:
-            return self._geneGetter[gene_id]
+            return self._gene_getter[gene_id]
         except AttributeError:
             # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
             self._mk_gene_getter()  # make it
@@ -140,10 +142,10 @@ class Pangenome:
         :return: The number of genes
         """
         try:
-            return len(self._geneGetter)
+            return len(self._gene_getter)
         except AttributeError:  # in that case the gene getter has not been computed
             self._mk_gene_getter()  # make it
-            return len(self._geneGetter)
+            return len(self._gene_getter)
 
     """RNAs methods"""
     @property
@@ -185,7 +187,7 @@ class Pangenome:
         
         :return: Generator of gene families
         """
-        for family in self._famGetter.values():
+        for family in self._fam_getter.values():
             yield family
 
     @property
@@ -194,7 +196,7 @@ class Pangenome:
 
         :return: The number of gene families
         """
-        return len(self._famGetter)
+        return len(self._fam_getter)
 
     def get_gene_family(self, name: str) -> GeneFamily:
         """Returns the gene family that has the given `name`
@@ -208,7 +210,7 @@ class Pangenome:
         """
         assert isinstance(name, str), "Name of gene family should be a string"
         try:
-            fam = self._famGetter[name]
+            fam = self._fam_getter[name]
         except KeyError:
             raise KeyError(f"Gene family with name={name} is not in pangenome")
         except Exception as error:
@@ -229,7 +231,7 @@ class Pangenome:
         try:
             _ = self.get_gene_family(family.name)
         except KeyError:
-            self._famGetter[family.name] = family
+            self._fam_getter[family.name] = family
             self.max_fam_id += 1
         except Exception as error:
             raise Exception(error)
@@ -243,7 +245,7 @@ class Pangenome:
         
         :return: Generator of edge
         """
-        for edge in self._edgeGetter.values():
+        for edge in self._edge_getter.values():
             yield edge
 
     def add_edge(self, gene1: Gene, gene2: Gene) -> Edge:
@@ -265,10 +267,10 @@ class Pangenome:
             raise AttributeError("Genes are not linked to families. Check that you compute the gene families and post an"
                                  " issue on our GitHub")
         key = frozenset([family_1, family_2 ])
-        edge = self._edgeGetter.get(key)
+        edge = self._edge_getter.get(key)
         if edge is None:
             edge = Edge(gene1, gene2)
-            self._edgeGetter[key] = edge
+            self._edge_getter[key] = edge
         else:
             edge.add_genes(gene1, gene2)
         return edge
@@ -279,7 +281,7 @@ class Pangenome:
 
         :return: The number of gene families
         """
-        return len(self._edgeGetter)
+        return len(self._edge_getter)
 
     """Organism methods"""
     @property
@@ -288,7 +290,7 @@ class Pangenome:
         
         :return: Generator :class:`ppanggolin.genome.Organism`
         """
-        for organism in self._orgGetter.values():
+        for organism in self._org_getter.values():
             yield organism
 
     @property
@@ -297,7 +299,7 @@ class Pangenome:
         
         :return: The number of organism
         """
-        return len(self._orgGetter)
+        return len(self._org_getter)
 
     @property
     def contigs(self) -> Generator[Contig, None, None]:
@@ -322,28 +324,45 @@ class Pangenome:
         """
         self._contig_getter = {}
         for contig in self.contigs:
-            self._contig_getter[contig.name] = contig
+            self._contig_getter[contig.ID] = contig
 
-    def get_contig(self, name: str) -> Contig:
-        """Returns the contig that has the given name
+    def get_contig(self, identifier: int = None, name: str = None, organism_name: str = None) -> Contig:
+        """Returns the contig by his identifier or by his name. If name is given the organism name is needed
 
-        :param name: The ,ame of the contig to look for
+        :param identifier: ID of the contig to look for
+        :param name: The name of the contig to look for
+        :param organism_name: Name of the organism to which the contig belong
 
         :return: Returns the wanted contig
 
         :raises AssertionError: If the `gene_id` is not an integer
         :raises KeyError: If the `gene_id` is not in the pangenome
         """
-        assert isinstance(name, str), "Contig name should be a string"
+        if identifier is None:
+            if name is None:
+                raise ValueError("Neiher identifier or name of the contig are given.")
+            else:
+                if not isinstance(name, str):
+                    raise AssertionError("Contig name should be a string")
 
-        try:
-            return self._contig_getter[name]
-        except AttributeError:
-            # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
-            self._mk_contig_getter()  # make it
-            return self.get_contig(name)  # Return what was expected. If geneID does not exist it will raise an error.
-        except KeyError:
-            raise KeyError(f"Contig: {name}, does not exist in the pangenome.")
+                if organism_name is None:
+                    raise ValueError("You should provide the name of the organism to which the contig belong")
+                else:
+                    if not isinstance(organism_name, str):
+                        raise AssertionError("Organism name should be a string")
+                    organism = self.get_organism(organism_name)
+                    return organism.get(name)
+        else:
+            if not isinstance(identifier, int):
+                raise AssertionError("Contig ID should be an integer")
+            try:
+                return self._contig_getter[identifier]
+            except AttributeError:
+                # in that case, either the gene getter has not been computed, or the geneID is not in the pangenome.
+                self._mk_contig_getter()  # make it
+                return self.get_contig(identifier)  # Return what was expected. If geneID does not exist it will raise an error.
+            except KeyError:
+                raise KeyError(f"Contig: {identifier}, does not exist in the pangenome.")
     def get_organism(self, name: str) -> Organism:
         """
         Get an organism that is expected to be in the pangenome using its name, which is supposedly unique.
@@ -358,7 +377,7 @@ class Pangenome:
         """
         assert isinstance(name, str), "Organism name should be a string"
         try:
-            return self._orgGetter[name]
+            return self._org_getter[name]
         except KeyError:
             raise KeyError(f"{name} does not seem to be in your pangenome")
 
@@ -378,7 +397,7 @@ class Pangenome:
         try:
             self.get_organism(organism.name)
         except KeyError:
-            self._orgGetter[organism.name] = organism
+            self._org_getter[organism.name] = organism
         else:
             raise KeyError(f"Redondant organism name was found ({organism.name})."
                            f"All of your organisms must have unique names.")
@@ -450,7 +469,7 @@ class Pangenome:
 
         :return: list of RGP
         """
-        for region in self._regionGetter.values():
+        for region in self._region_getter.values():
             yield region
 
     def get_region(self, name: str) -> Region:
@@ -466,7 +485,7 @@ class Pangenome:
         assert isinstance(name, str), "RGP name should be a string"
 
         try:
-            rgp = self._regionGetter[name]
+            rgp = self._region_getter[name]
         except KeyError:  # then the region is not stored in this pangenome.
             raise KeyError(f"There is no RGP with name={name}")
         else:
@@ -507,7 +526,7 @@ class Pangenome:
         try:
             self.get_region(region.name)
         except KeyError:
-            self._regionGetter[region.name] = region
+            self._region_getter[region.name] = region
         else:
             raise KeyError(f"A RGP with this name ({region.name} already exist in pangenome")
 
@@ -517,7 +536,7 @@ class Pangenome:
 
         :return: The number of gene families
         """
-        return len(self._regionGetter)
+        return len(self._region_getter)
 
     """Spot methods"""
     @property
@@ -525,7 +544,7 @@ class Pangenome:
         """Generate spots in the pangenome
 
         :return: Spot generator"""
-        yield from self._spotGetter.values()
+        yield from self._spot_getter.values()
 
     def get_spot(self, spot_id: Union[int, str]) -> Spot:
         # TODO Change for only str or only int
@@ -549,7 +568,7 @@ class Pangenome:
                 raise ValueError(f"The provided spot ID '{spot_id}' does not have the expected format."
                                  "It should be an integer or in the format 'spot_<integer>'.")
         try:
-            spot = self._spotGetter[spot_id]
+            spot = self._spot_getter[spot_id]
         except KeyError:
             raise KeyError(f"Spot {spot_id} does not exist in the pangenome.")
         else:
@@ -567,7 +586,7 @@ class Pangenome:
         try:
             self.get_spot(spot.ID)
         except KeyError:
-            self._spotGetter[spot.ID] = spot
+            self._spot_getter[spot.ID] = spot
         except Exception as error:
             raise Exception(error)
         else:
@@ -579,14 +598,14 @@ class Pangenome:
 
         :return: The number of gene families
         """
-        return len(self._spotGetter)
+        return len(self._spot_getter)
 
     """Modules methods"""
     @property
     def modules(self) -> Generator[Module, None, None]:
         """Generate modules in the pangenome
         """
-        yield from self._moduleGetter.values()
+        yield from self._module_getter.values()
 
     def get_module(self, module_id: Union[int, str]) -> Module:
         # TODO Change for only str or only int
@@ -612,7 +631,7 @@ class Pangenome:
                                  "It should be an integer or in the format 'module_<integer>'.")
 
         try:
-            module = self._moduleGetter[module_id]
+            module = self._module_getter[module_id]
         except KeyError:
             raise KeyError(f"Module {module_id} does not exist in the pangenome.")
         else:
@@ -630,7 +649,7 @@ class Pangenome:
         try:
             self.get_module(module.ID)
         except KeyError:
-            self._moduleGetter[module.ID] = module
+            self._module_getter[module.ID] = module
         except Exception as error:
             raise Exception(error)
         else:
@@ -661,7 +680,7 @@ class Pangenome:
 
         :return: The number of modules
         """
-        return len(self._moduleGetter)
+        return len(self._module_getter)
 
     """Metadata"""
     def select_elem(self, metatype: str):
@@ -680,6 +699,8 @@ class Pangenome:
             return self.gene_families
         elif metatype == "genomes":
             return self.organisms
+        elif metatype == "contigs":
+            return self.contigs
         elif metatype == "genes":
             return self.genes
         elif metatype == "RGPs":
@@ -737,7 +758,7 @@ class Pangenome:
 
         :return: Gene families with the source
         """
-        assert metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]
+        assert metatype in ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
         for elem in self.select_elem(metatype):
             if elem.get_metadata_by_source(source) is not None:
                 yield elem

@@ -566,7 +566,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
 
     logging.getLogger("PPanGGOLiN").info("Ordering genes among regions, and drawing spots...")
 
-    multigenics = pangenome.get_multigenics(pangenome.parameters["RGP"]["dup_margin"])
+    multigenics = pangenome.get_multigenics(pangenome.parameters["rgp"]["dup_margin"])
 
     fam2mod = {}
     for mod in pangenome.modules:
@@ -647,7 +647,10 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
                          need_rgp=True, need_spots=True, need_modules=need_mod, disable_bar=disable_bar)
 
     if spot_list == 'all' or any(x == 'all' for x in spot_list):
-        logging.getLogger("PPanGGOLiN").debug("all is found in spot list, all spot are drawn.")
+        logging.getLogger("PPanGGOLiN").debug("'all' value is found in spot list, all spots are drawn.")
+        selected_spots = list(pangenome.spots)
+    elif spot_list == "synteny" or any(x == 'synteny' for x in spot_list):
+        logging.getLogger().debug("'synteny' value is found in spot list, all spots with more than 1 conserved synteny are drawn.")
         selected_spots = [s for s in pangenome.spots if len(s.get_uniq_ordered_set()) > 1]
     else:
         curated_spot_list = {'spot_' + str(s) if not s.startswith("spot_") else str(s) for s in spot_list}
@@ -666,6 +669,6 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
         logging.getLogger("PPanGGOLiN").info(f"Drawing {len(selected_spots)} spots")
 
     draw_selected_spots(selected_spots, pangenome, output,
-                        overlapping_match=pangenome.parameters["spots"]["overlapping_match"],
-                        exact_match=pangenome.parameters["spots"]["exact_match"],
-                        set_size=pangenome.parameters["spots"]["set_size"], disable_bar=disable_bar)
+                        overlapping_match=pangenome.parameters["spot"]["overlapping_match"],
+                        exact_match=pangenome.parameters["spot"]["exact_match_size"],
+                        set_size=pangenome.parameters["spot"]["set_size"], disable_bar=disable_bar)
