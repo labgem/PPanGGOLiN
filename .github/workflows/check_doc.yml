@@ -1,4 +1,4 @@
-name: CI
+name: Check documentation
 
 on:
   push:
@@ -14,6 +14,7 @@ jobs:
     - uses: ammaraskar/sphinx-action@master
       with:
         docs-folder: "docs/"
+        build-command: "sphinx-build -b html . build/"
     # Great extra actions to compose with:
     # Create an artifact of the html output.
     - uses: actions/upload-artifact@v1
