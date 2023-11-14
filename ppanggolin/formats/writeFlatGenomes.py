@@ -99,7 +99,7 @@ def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = Fal
     logging.getLogger("PPangGGOLiN").debug(f"Done writing the table with pangenome annotation for {organism.name}")
 
 
-def manage_module_colors(modules: Set[Module], window_size: int = 50) -> Dict[Module, str]:
+def manage_module_colors(modules: Set[Module], window_size: int = 100) -> Dict[Module, str]:
     """
     Manages colors for a list of modules based on gene positions and a specified window size.
 
@@ -108,6 +108,7 @@ def manage_module_colors(modules: Set[Module], window_size: int = 50) -> Dict[Mo
                         A higher value results in more module colors.
     :return: A dictionary that maps each module to its assigned color.
     """
+    random.seed(1)
 
     color_mod_graph = nx.Graph()
     color_mod_graph.add_nodes_from((module for module in modules))
@@ -136,17 +137,29 @@ def manage_module_colors(modules: Set[Module], window_size: int = 50) -> Dict[Mo
             module_edges = [(mod_a, mod_b) for mod_a, mod_b in combinations(module_in_window, 2)]
             color_mod_graph.add_edges_from(module_edges)
 
-    module_to_color_int = nx.coloring.greedy_color(color_mod_graph)
+
+    module_to_group = nx.coloring.greedy_color(color_mod_graph) 
+
+
+    # Attempt to have always the same color associated with the same module... 
+    module_to_color_int = {}
+    group_with_color = []
+    for module in sorted(modules, key=lambda x: x.ID):
+        group = module_to_group[module]
+        if group not in group_with_color:
+            group_with_color.append(group)
+        module_to_color_int[module] = group_with_color.index(group)
+        
 
     # If you want to export the graph to see the coloring:
-    # nx.set_node_attributes(color_mod_graph, color_dict, name="color")
+    # nx.set_node_attributes(color_mod_graph, module_to_color_int, name="color")
     # nx.readwrite.graphml.write_graphml(color_mod_graph, f"module_graph_window_size{window_size}.graphml")
 
     nb_colors = len(set(module_to_color_int.values()))
     logging.getLogger().debug(f"We have found that {nb_colors} colors were necessary to color Modules.")
     colors = palette(nb_colors)
     module_to_color = {mod: colors[col_i] for mod, col_i in module_to_color_int.items()}
-
+    
     return module_to_color
 
 
@@ -160,11 +173,10 @@ def palette(nb_colors: int) -> List[str]:
     """
 
     # Combine two sets of predefined colors for variety
-    colors = qualitative.Vivid + qualitative.Safe
+    colors = qualitative.Safe + qualitative.Vivid
 
     if len(colors) < nb_colors:
         # Generate random colors if not enough predefined colors are available
-        random.seed(1)
         random_colors = ["#" + ''.join([random.choice('0123456789ABCDEF') for _ in range(6)]) for _ in
                          range(nb_colors - len(colors))]
         colors += random_colors
