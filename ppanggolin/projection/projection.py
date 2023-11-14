@@ -39,7 +39,7 @@ from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot
 from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
-from ppanggolin.formats.writeFlatGenomes import write_proksee_organism, manage_module_colors, write_gff_file
+from ppanggolin.formats.writeFlatGenomes import write_proksee_organism, manage_module_colors, write_gff_file, write_tsv_genome_file
 from ppanggolin.formats.writeFlatPangenome import summarize_spots, summarize_genome, write_summaries_in_tsv
 from ppanggolin.formats.writeSequences import read_genome_file
 
@@ -233,15 +233,15 @@ def launch(args: argparse.Namespace):
         singleton_gene_count = input_org_to_lonely_genes_count[organism]
 
         org_summary = summarize_projected_genome(organism,
-                                                                    pangenome_persistent_count,
-                                                                    pangenome_persistent_single_copy_families,
-                                                                    soft_core_families=soft_core_families,
-                                                                    exact_core_families=exact_core_families,
-                                                                    input_org_rgps=input_org_2_rgps.get(organism, None), 
-                                                                    input_org_spots=input_org_to_spots.get(organism, None),
-                                                                    input_org_modules=input_orgs_to_modules.get(organism, None),
-                                                                    pangenome_file=pangenome.file,
-                                                                    singleton_gene_count=singleton_gene_count)
+                                                pangenome_persistent_count,
+                                                pangenome_persistent_single_copy_families,
+                                                soft_core_families=soft_core_families,
+                                                exact_core_families=exact_core_families,
+                                                input_org_rgps=input_org_2_rgps.get(organism, None), 
+                                                input_org_spots=input_org_to_spots.get(organism, None),
+                                                input_org_modules=input_orgs_to_modules.get(organism, None),
+                                                pangenome_file=pangenome.file,
+                                                singleton_gene_count=singleton_gene_count)
         summaries.append(org_summary)
         
         yaml_outputfile = output_dir / organism.name / "projection_summary.yaml"
@@ -260,7 +260,7 @@ def launch(args: argparse.Namespace):
             output_file = output_dir / organism.name / f"{organism.name}_proksee.json"
 
             write_proksee_organism(organism, output_file, features='all', module_to_colors=org_module_to_color,
-                                   genome_sequences=genome_sequences)
+                                   genome_sequences=genome_sequences, compress=args.compress)
 
         if args.gff:
             if input_type == "annotation":  # if the genome has not been annotated by PPanGGOLiN
@@ -270,8 +270,14 @@ def launch(args: argparse.Namespace):
             else:
                 annotation_sources = {}
 
-            write_gff_file(organism, output_dir, annotation_sources=annotation_sources, genome_sequences=genome_sequences)
+            write_gff_file(organism, output_dir / organism.name,
+                           annotation_sources=annotation_sources,
+                           genome_sequences=genome_sequences,
+                           compress=args.compress)
 
+        if args.table:
+            write_tsv_genome_file(organism, output_dir / organism.name, compress=args.compress,
+                   need_regions=predict_rgp, need_spots=project_spots, need_modules=project_modules)
 
     output_file = output_dir / "summary_projection.tsv",
 
@@ -1285,7 +1291,13 @@ def parser_projection(parser: argparse.ArgumentParser):
 
     optional.add_argument("--proksee", required=False, action="store_true",
                           help="Generate JSON map files for PROKSEE with projected pangenome annotations for each input organism.")
-
+    
+    optional.add_argument("--table", required=False, action="store_true",
+                          help="Generate a tsv file for each  input organism with pangenome annotations.")
+    
+    optional.add_argument("--compress", required=False, action="store_true",
+                          help="Compress the files in .gz")
+    
     optional.add_argument("--add_sequences", required=False, action="store_true",
                           help="Include input genome DNA sequences in GFF and Proksee output.")
 

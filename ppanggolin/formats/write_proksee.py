@@ -15,6 +15,7 @@ from collections import defaultdict
 # local libraries
 from ppanggolin.genome import Organism, Gene
 from ppanggolin.region import Module
+from ppanggolin.utils import write_compressed_or_not
 
 
 def write_legend_items(features: List[str], module_to_color: Dict[Module, str] = None):
@@ -280,7 +281,8 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]]):
 def write_proksee_organism(organism: Organism, output_file: Path,
                            features: List[str] = None,
                            module_to_colors: Dict[Module, str] = None,
-                           genome_sequences: Dict[str, str] = None):
+                           genome_sequences: Dict[str, str] = None,
+                           compress: bool = False):
     """
     Writes ProkSee data for a given organism, including contig information, genes colored by partition,
     RGPs, and modules. The resulting data is saved as a JSON file in the specified output file.
@@ -290,6 +292,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
     :param features: A list of features to include in the ProkSee data, e.g., ["rgp", "modules", "all"].
     :param module_to_colors: A dictionary mapping modules to their assigned colors.
     :param genome_sequences: The genome sequences for the organism.
+    :param compress: Compress the output file
     """
     proksee_data = initiate_proksee_data(features, organism, module_to_colors)
 
@@ -306,5 +309,5 @@ def write_proksee_organism(organism: Organism, output_file: Path,
         proksee_data["cgview"]["features"] += write_modules(organism=organism, gf2genes=gf2genes)
 
     logging.debug(f"Write ProkSee for {organism.name}")
-    with open(output_file, "w") as out_json:
+    with write_compressed_or_not(output_file, compress=compress) as out_json:
         json.dump(proksee_data, out_json, indent=2)

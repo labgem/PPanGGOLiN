@@ -51,9 +51,10 @@ def count_neighbors_partitions(gene_family: GeneFamily):
     return nb_pers, nb_shell, nb_cloud
 
 
-def write_org_file(organism: Organism, output: Path, compress: bool = False,
+def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = False,
                    need_regions: bool = False, need_spots: bool = False, need_modules: bool = False):
-    """Write the table of pangenome for one organism in tsv format
+    """
+    Write the table of pangenome for one organism in tsv format
 
     :param organism: Projected organism
     :param output: Path to output directory
@@ -93,7 +94,7 @@ def write_org_file(organism: Organism, output: Path, compress: bool = False,
     if not need_modules:
         rows.pop("Modules")
 
-    pd.DataFrame.from_dict(rows).to_csv(output / f"{organism.name}.tsv{'.gz' if compress else ''}", sep="\t")
+    pd.DataFrame.from_dict(rows).to_csv(output / f"{organism.name}.tsv{'.gz' if compress else ''}", sep="\t", index=False)
 
     logging.getLogger("PPangGGOLiN").debug(f"Done writing the table with pangenome annotation for {organism.name}")
 
@@ -429,7 +430,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
                                                                        'metadata_sep'}})
 
     if table:
-        write_org_file(organism=organism, output=org_outdir, **{arg: kwargs[arg] for arg in kwargs.keys() &
+        write_tsv_genome_file(organism=organism, output=org_outdir, **{arg: kwargs[arg] for arg in kwargs.keys() &
                                                                 {'need_regions', 'need_modules', 'need_spots',
                                                                  'compress'}})
 
