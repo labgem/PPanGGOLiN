@@ -717,16 +717,17 @@ def write_partitions(output: Path, soft_core: float = 0.95):
     logging.getLogger("PPanGGOLiN").info("Writing the list of gene families for each partition ...")
     if not os.path.exists(output / "partitions"):
         os.makedirs(output / "partitions")
-        
+
     part_sets = defaultdict(set)
     # initializing key, value pairs so that files exist even if they are empty
-    for needed_key in ["undefined", "soft_core", "exact_core", "exact_accessory",
+    for needed_key in ["soft_core", "exact_core", "exact_accessory",
                        "soft_accessory", "persistent", "shell", "cloud"]:
         part_sets[needed_key] = set()
 
     for fam in pan.gene_families:
         part_sets[fam.named_partition].add(fam.name)
 
+        # write sub shell partitions
         if fam.partition.startswith("S"):
             part_sets[fam.partition].add(fam.name)
 
