@@ -533,6 +533,27 @@ class Pangenome:
                     multigenics.add(fam)
         return multigenics
 
+    
+    def get_single_copy_persistent_families(self, dup_margin: float, exclude_fragments: bool) -> Set[GeneFamily]:
+        """
+        Retrieves gene families that are both persistent and single copy based on the provided criteria.
+
+        :param dup_margin: The maximum allowed duplication margin for a gene family to be considered single copy.
+        :param exclude_fragments: A boolean indicating whether to exclude fragments when determining single copy families.
+
+        :return: A set containing gene families that are both persistent and single copy.
+        """
+        
+        single_copy_fams = set()
+
+        # Iterate through gene families and check for persistence and single copy status
+        for fam in self.gene_families:
+            if fam.named_partition == "persistent" and fam.is_single_copy(dup_margin, exclude_fragments):
+                single_copy_fams.add(fam)
+
+        return single_copy_fams
+
+
     def add_region(self, region: Region):
         """Add a region to the pangenome
 

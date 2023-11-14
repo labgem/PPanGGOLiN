@@ -385,3 +385,26 @@ class GeneFamily(MetaFeatures):
             raise KeyError(f"Organism don't belong to the gene family: {self.name}")
         for gene in self._genePerOrg[org]:
             yield gene
+
+
+    def is_single_copy(self, dup_margin: float, exclude_fragment: bool) -> bool:
+        """
+        Checks if the gene family is considered single copy based on the provided criteria.
+
+        :param dup_margin: The maximum allowed duplication margin for a gene family to be considered single copy.
+        :param exclude_fragment: A boolean indicating whether to exclude fragments when determining single copy families.
+        :return: A boolean indicating whether the gene family is single copy.
+        """
+        orgs_with_fam_in_multicopy = 0
+
+        # Check if the family is in multicopy in all organisms
+        for fam_genes_in_org in self.get_org_dict().values():
+            if exclude_fragment:
+                genes_count = len([gene for gene in fam_genes_in_org if not gene.is_fragment])
+            else:
+                genes_count = len(fam_genes_in_org)
+
+            if genes_count > 1:
+                orgs_with_fam_in_multicopy += 1
+
+        return (orgs_with_fam_in_multicopy / self.number_of_organisms) < dup_margin

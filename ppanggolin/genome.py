@@ -2,11 +2,11 @@
 # coding: utf8
 
 from __future__ import annotations
+import logging
+from typing import Dict, Generator, List, Union, Set
+from collections import defaultdict
 
 # installed libraries
-import logging
-from typing import Dict, Generator, List, Union
-
 import gmpy2
 
 # local libraries
@@ -911,3 +911,20 @@ class Organism(MetaFeatures):
                     self.bitarray[index[fam]] = 1
         else:
             raise ValueError("There is not any partition corresponding please report a github issue")
+
+    def group_genes_by_partition(self)-> Dict[str, Set]:
+        """
+        Groups genes based on their family's named partition and returns a dictionary 
+        mapping partition names to sets of genes belonging to each partition.
+
+        :return: A dictionary containing sets of genes grouped by their family's named partition.
+        """
+        partition_to_gene = defaultdict(set)
+        contigs_count = 0
+        
+        for contig in self.contigs:
+            contigs_count += 1
+            for gene in contig.genes:
+                partition_to_gene[gene.family.named_partition].add(gene)
+                
+        return partition_to_gene
