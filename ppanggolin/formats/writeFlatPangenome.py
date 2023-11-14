@@ -15,18 +15,14 @@ from statistics import median, mean, stdev
 import os
 import csv
 
-import networkx as nx
-from plotly.express.colors import qualitative
-import yaml
 import pandas as pd
 
 # local libraries
 from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.genome import Organism, Gene, Contig, RNA
-from ppanggolin.region import Region, Spot, Module
+from ppanggolin.genome import Organism
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, flatten_nested_dict, parse_input_paths_file
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, flatten_nested_dict
 from ppanggolin.formats.readBinaries import check_pangenome_info
 
 # global variable to store the pangenome
