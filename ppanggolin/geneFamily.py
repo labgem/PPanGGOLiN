@@ -395,6 +395,20 @@ class GeneFamily(MetaFeatures):
         :param exclude_fragment: A boolean indicating whether to exclude fragments when determining single copy families.
         :return: A boolean indicating whether the gene family is single copy.
         """
+        
+        if self.duplication_ratio(exclude_fragment) < dup_margin:
+            return True
+        else:
+            return False
+
+    def duplication_ratio(self, exclude_fragment: bool) -> bool:
+        """
+        Checks if the gene family is considered single copy based on the provided criteria.
+
+        :param dup_margin: The maximum allowed duplication margin for a gene family to be considered single copy.
+        :param exclude_fragment: A boolean indicating whether to exclude fragments when determining single copy families.
+        :return: A boolean indicating whether the gene family is single copy.
+        """
         orgs_with_fam_in_multicopy = 0
 
         # Check if the family is in multicopy in all organisms
@@ -407,4 +421,4 @@ class GeneFamily(MetaFeatures):
             if genes_count > 1:
                 orgs_with_fam_in_multicopy += 1
 
-        return (orgs_with_fam_in_multicopy / self.number_of_organisms) < dup_margin
+        return orgs_with_fam_in_multicopy / self.number_of_organisms

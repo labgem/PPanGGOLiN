@@ -222,18 +222,24 @@ def launch(args: argparse.Namespace):
     pangenome_persistent_count = len([fam for fam in pangenome.gene_families if fam.named_partition == "persistent"])
     organism_2_summary = {}
 
+    soft_core_families = pangenome.soft_core_families(args.soft_core)
+    exact_core_families = pangenome.exact_core_families()
+
     for organism in organisms:
 
         # summarize projection for all input organisms
         singleton_gene_count = input_org_to_lonely_genes_count[organism]
 
         organism_2_summary[organism] = summarize_projected_genome(organism,
-                                pangenome_persistent_count,
-                                pangenome_persistent_single_copy_families,
-                                input_org_2_rgps.get(organism, None),
-                                input_org_to_spots.get(organism, None),
-                                input_orgs_to_modules.get(organism, None),
-                                pangenome.file, singleton_gene_count)
+                                                                    pangenome_persistent_count,
+                                                                    pangenome_persistent_single_copy_families,
+                                                                    soft_core_families=soft_core_families,
+                                                                    exact_core_families=exact_core_families,
+                                                                    input_org_rgps=input_org_2_rgps.get(organism, None),
+                                                                    input_org_spots=input_org_to_spots.get(organism, None),
+                                                                    input_org_modules=input_orgs_to_modules.get(organism, None),
+                                                                    pangenome_file=pangenome.file,
+                                                                    singleton_gene_count=singleton_gene_count)
 
         if (args.proksee or args.gff) and args.add_sequences:
             genome_sequences = read_genome_file(genome_name_to_path[organism.name]['path'], organism)
@@ -263,34 +269,57 @@ def launch(args: argparse.Namespace):
     write_summaries(organism_2_summary, output_dir)
 
 
-
-def summarize_projected_genome( organism: Organism,
-                                pangenome_persistent_count: int,
-                                pangenome_persistent_single_copy_families: Set[GeneFamily],
-                                input_org_rgps: List[Region],
-                                input_org_spots: List[Spot],
-                                input_org_modules: List[Module],
-                                pangenome_file:str, singleton_gene_count:int) -> dict:
+def summarize_projected_genome(organism: Organism,
+                               pangenome_persistent_count: int,
+                               pangenome_persistent_single_copy_families: Set[GeneFamily],
+                               soft_core_families: Set[GeneFamily],
+                               exact_core_families: Set[GeneFamily],
+                               input_org_rgps: List[Region],
+                               input_org_spots: List[Spot],
+                               input_org_modules: List[Module],
+                               pangenome_file: str,
+                               singleton_gene_count: int) -> Dict[str, any]:
     """
+    Summarizes the projected genome and generates an organism summary.
+
+    :param organism: The Organism object for which the summary is generated.
+    :param pangenome_persistent_count: The count of persistent genes in the pangenome.
+    :param pangenome_persistent_single_copy_families: Set of single-copy persistent gene families.
+    :param soft_core_families: Set of soft core families in the pangenome.
+    :param exact_core_families: Set of exact core families in the pangenome.
+    :param input_org_rgps: List of Region objects for the input organism.
+    :param input_org_spots: List of Spot objects for the input organism.
+    :param input_org_modules: List of Module objects for the input organism.
+    :param pangenome_file: Filepath to the pangenome file.
+    :param singleton_gene_count: Count of singleton genes in the organism.
+
+    :return: A dictionary containing summarized information about the organism.
     """
 
-    organism_summary = summarize_genome(organism, pangenome_persistent_count,
-                                                    pangenome_persistent_single_copy_families,
-                                                        input_org_rgps,
-                                                        input_org_spots,
-                                                        input_org_modules)
-    
-    # Add specific value for projected genome
+    organism_summary = summarize_genome(
+        organism=organism,
+        pangenome_persistent_count=pangenome_persistent_count,
+        pangenome_persistent_single_copy_families=pangenome_persistent_single_copy_families,
+        soft_core_families=soft_core_families,
+        exact_core_families=exact_core_families,
+        input_org_rgps=input_org_rgps,
+        input_org_spots=input_org_spots,
+        input_org_modules=input_org_modules
+    )
+
+    # Add specific values for the projected genome
     organism_summary["Pangenome file"] = pangenome_file
     cloud_without_specific_fams = organism_summary["Cloud"]["families"] - singleton_gene_count
     organism_summary["Cloud"]["families"] = cloud_without_specific_fams
     organism_summary["Cloud"]["specific families"] = singleton_gene_count
 
-    input_org_spots = input_org_spots,
+    input_org_spots = input_org_spots
     new_spot_count = "Not computed" if input_org_spots is None else sum(
         1 for spot in input_org_spots if isinstance(spot, NewSpot))
     organism_summary["New spots"] = new_spot_count
+
     return organism_summary
+
 
 def annotate_fasta_files(genome_name_to_fasta_path: Dict[str, dict], tmpdir: str, cpu: int = 1,
                          translation_table: int = 11,
@@ -480,6 +509,8 @@ def write_summaries(organism_2_summary: Dict[Organism, Dict[str, Any]], output_d
 def summarize_genome(organism: Organism,
                      pangenome_persistent_count: int,
                      pangenome_persistent_single_copy_families: Set[GeneFamily],
+                     soft_core_families:Set[GeneFamily],
+                     exact_core_families:Set[GeneFamily],
                      input_org_rgps: Region,
                      input_org_spots: Spot,
                      input_org_modules: Module) -> Dict[str, any]:
@@ -489,6 +520,8 @@ def summarize_genome(organism: Organism,
     :param input_organism: The organism for which the genome is being summarized.
     :param pangenome_persistent_count: Count of persistent genes in the pangenome.
     :param pangenome_persistent_single_copy_families: Set of gene families considered as persistent single-copy in the pangenome.
+    :param soft_core_families: soft core families of the pangenome
+    :parma exact_core_families: exact core families of the pangenome
     :param input_org_rgps: Regions of genomic plasticity in the input organism.
     :param input_org_spots: Spots in the input organism.
     :param input_org_modules: Modules in the input organism.
@@ -554,6 +587,12 @@ def summarize_genome(organism: Organism,
     if families_count > 0:
         fragmentation = round(100.0 * families_with_fragment_count / families_count, 2) 
 
+    soft_core_genes = {gene for gene in organism.genes if gene.family in soft_core_families}
+    exact_core_genes = {gene for gene in organism.genes if gene.family in exact_core_families}
+
+    soft_core_families_count = len({gene.family for gene in soft_core_genes})
+    exact_core_families_count = len({gene.family for gene in exact_core_genes})
+
     rgp_count = "Not computed" if input_org_rgps is None else len(input_org_rgps)
     spot_count = "Not computed" if input_org_spots is None else len(input_org_spots)
     module_count = "Not computed" if input_org_modules is None else len(input_org_modules)
@@ -566,6 +605,10 @@ def summarize_genome(organism: Organism,
         "Families": families_count,
         "Families with fragments":families_with_fragment_count,
         "Families in multicopy": orgs_families_in_multicopy_count,
+        "Soft core": {"families":soft_core_families_count,
+                       "genes": len(soft_core_genes) },
+        'Exact core':{"families":exact_core_families_count,
+                       "genes": len(exact_core_genes) },
         "Persistent": {
             "genes": persistent_gene_count,
             "fragmented genes": persistent_fragmented_genes_count,
@@ -1354,6 +1397,12 @@ def parser_projection(parser: argparse.ArgumentParser):
                           help="minimum ratio of organisms in which the family must have multiple genes "
                                "for it to be considered 'duplicated'. "
                                "This metric is used to compute completeness and duplication of the input genomes")
+    
+    optional.add_argument("--soft_core", required=False, type=restricted_float, default=0.95,
+                      help="Soft core threshold used when generating general statistics on the projected genome. "
+                           "This threshold does not influence PPanGGOLiN's partitioning. "
+                           "The value determines the minimum fraction of organisms that must possess a gene family "
+                           "for it to be considered part of the soft core.")
 
     optional.add_argument("--spot_graph", required=False, action="store_true",
                           help="Write the spot graph to a file, with pairs of blocks of single copy markers flanking RGPs "

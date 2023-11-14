@@ -722,6 +722,37 @@ class Pangenome:
         :return: The number of modules
         """
         return len(self._moduleGetter)
+    
+    def soft_core_families(self, soft_core_threshold: float) -> Set[GeneFamily]:
+        """
+        Retrieves gene families considered part of the soft core based on the provided threshold.
+
+        :param soft_core_threshold: The threshold to determine the minimum fraction of organisms 
+                                    required for a gene family to be considered part of the soft core.
+        :return: A set containing gene families identified as part of the soft core.
+        """
+        minimum_organism_threshold = self.number_of_organisms * soft_core_threshold
+        soft_core_families = set()
+
+        for fam in self.gene_families:
+            if fam.number_of_organisms >= minimum_organism_threshold:
+                soft_core_families.add(fam)
+
+        return soft_core_families
+    
+    def exact_core_families(self) -> Set[GeneFamily]:
+        """
+        Retrieves gene families considered as the exact core (present in all organisms).
+
+        :return: A set containing gene families identified as the exact core.
+        """
+        exact_core_families = set()
+
+        for fam in self.gene_families:
+            if fam.number_of_organisms == self.number_of_organisms:
+                exact_core_families.add(fam)
+
+        return exact_core_families
 
     """Metadata"""
     def select_elem(self, metatype: str):
