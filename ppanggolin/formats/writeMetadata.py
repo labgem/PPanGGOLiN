@@ -5,9 +5,10 @@
 import logging
 from typing import Dict, List, Tuple, Union
 
-import numpy
+
 # installed libraries
 from tqdm import tqdm
+import numpy
 import tables
 
 # local libraries

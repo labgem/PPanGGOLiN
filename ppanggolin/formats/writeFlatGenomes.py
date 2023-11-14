@@ -12,6 +12,8 @@ import random
 from tqdm import tqdm
 import time
 from concurrent.futures import ThreadPoolExecutor
+
+# installed libraries
 import networkx as nx
 from plotly.express.colors import qualitative
 import pandas as pd
