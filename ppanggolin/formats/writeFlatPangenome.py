@@ -5,21 +5,20 @@
 import argparse
 import logging
 from multiprocessing import get_context
-from itertools import combinations
 from collections import Counter, defaultdict
 import logging
-from typing import TextIO,List, Dict
+from typing import TextIO,List, Dict, Set, Any
 from pathlib import Path
 from typing import TextIO
 from importlib.metadata import distribution
 from statistics import median, mean, stdev
 import os
-import random
-
+import csv
 
 import networkx as nx
 from plotly.express.colors import qualitative
-
+import yaml
+import pandas as pd
 
 # local libraries
 from ppanggolin.edge import Edge
@@ -27,10 +26,8 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Organism, Gene, Contig, RNA
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, extract_contig_window, parse_input_paths_file
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, flatten_nested_dict, parse_input_paths_file
 from ppanggolin.formats.readBinaries import check_pangenome_info
-from ppanggolin.formats.write_proksee import write_proksee_organism
-from ppanggolin.formats.writeSequences import read_genome_file, write_spaced_fasta
 
 # global variable to store the pangenome
 pan = Pangenome()  # TODO change to pangenome:Pangenome = Pangenome=() ?
@@ -467,110 +464,250 @@ def write_gene_presence_absence(output: Path, compress: bool = False):
     logging.getLogger("PPanGGOLiN").info(f"Done writing the gene presence absence file : '{outname.as_posix()}'")
 
 
+def summarize_genome(organism: Organism,
+                     pangenome_persistent_count: int,
+                     pangenome_persistent_single_copy_families: Set[GeneFamily],
+                     soft_core_families:Set[GeneFamily],
+                     exact_core_families:Set[GeneFamily],
+                     rgp_count: int,
+                     spot_count: int,
+                     module_count: int) -> Dict[str, any]:
+    """
+    Summarizes genomic information of an organism.
+
+    :param input_organism: The organism for which the genome is being summarized.
+    :param pangenome_persistent_count: Count of persistent genes in the pangenome.
+    :param pangenome_persistent_single_copy_families: Set of gene families considered as persistent single-copy in the pangenome.
+    :param soft_core_families: soft core families of the pangenome
+    :parma exact_core_families: exact core families of the pangenome
+    :param input_org_rgps:  Number of regions of genomic plasticity in the input organism. None if not computed.
+    :param input_org_spots:  Number of spots in the input organism. None if not computed.
+    :param input_org_modules: Number of modules in the input organism. None if not computed.
+
+    :return: A dictionary containing various summary information about the genome.
+    """
+
+    partition_to_genes = organism.group_genes_by_partition()
+
+    persistent_gene_count = len(partition_to_genes['persistent'])
+    shell_gene_count = len(partition_to_genes['shell'])
+    cloud_gene_count = len(partition_to_genes['cloud'])
+
+    gene_count = persistent_gene_count + shell_gene_count + cloud_gene_count
+
+    persistent_family_count = len({g.family for g in partition_to_genes['persistent']})
+    shell_family_count = len({g.family for g in partition_to_genes['shell']})
+    cloud_family_count = len({g.family for g in partition_to_genes['cloud']})
+
+    persistent_fragmented_genes = {g for g in partition_to_genes['persistent'] if g.is_fragment}
+    shell_fragmented_genes = {g for g in partition_to_genes['shell'] if g.is_fragment}
+    cloud_fragmented_genes = {g for g in partition_to_genes['cloud'] if g.is_fragment}
+
+    persistent_fragmented_genes_count = len(persistent_fragmented_genes)
+    shell_fragmented_genes_count = len(shell_fragmented_genes)
+    cloud_fragmented_genes_count = len(cloud_fragmented_genes)
+
+    fragmented_genes_count = persistent_fragmented_genes_count + shell_fragmented_genes_count + cloud_fragmented_genes_count
+
+    persistent_fragmented_family_count = len({g.family for g in persistent_fragmented_genes})
+    shell_fragmented_family_count = len({g.family for g in shell_fragmented_genes})
+    cloud_fragmented_family_count = len({g.family for g in cloud_fragmented_genes})
+
+    families_with_fragment_count = persistent_fragmented_family_count + shell_fragmented_family_count + cloud_fragmented_family_count
+    
+    families_count = persistent_family_count + shell_family_count + cloud_family_count
+
+
+    completeness = "NA"
+    if pangenome_persistent_count > 0:
+        completeness = round((persistent_family_count / pangenome_persistent_count) * 100, 2)
+
+    
+    orgs_families_in_multicopy_by_part = defaultdict(set)
+    for family in organism.families:
+        if len(family.get_org_dict()[organism]) > 1:
+            # the family has more than one gene in the genome
+            orgs_families_in_multicopy_by_part[family.named_partition].add(family)
+
+
+    orgs_persistent_families_in_multicopy_count = len(orgs_families_in_multicopy_by_part['persistent'])
+    orgs_shell_families_in_multicopy_count = len(orgs_families_in_multicopy_by_part['shell'])
+    orgs_cloud_families_in_multicopy_count = len(orgs_families_in_multicopy_by_part['cloud'])
+
+    orgs_families_in_multicopy_count = orgs_persistent_families_in_multicopy_count + orgs_shell_families_in_multicopy_count + orgs_cloud_families_in_multicopy_count
+    
+    single_copy_families_found_in_multicopy_count = len(pangenome_persistent_single_copy_families &  orgs_families_in_multicopy_by_part['persistent'])
+    contamination = 'NA'
+    if len(pangenome_persistent_single_copy_families) > 0:
+        contamination =  round(100 * single_copy_families_found_in_multicopy_count / len(pangenome_persistent_single_copy_families) , 2)
+    
+    fragmentation = 'NA'
+    if families_count > 0:
+        fragmentation = round(100.0 * families_with_fragment_count / families_count, 2) 
+
+    soft_core_genes = {gene for gene in organism.genes if gene.family in soft_core_families}
+    exact_core_genes = {gene for gene in organism.genes if gene.family in exact_core_families}
+
+    soft_core_families_count = len({gene.family for gene in soft_core_genes})
+    exact_core_families_count = len({gene.family for gene in exact_core_genes})
+
+    rgp_count = "Not computed" if rgp_count is None else rgp_count
+    spot_count = "Not computed" if spot_count is None else spot_count
+    module_count = "Not computed" if module_count is None else module_count
+
+    summary_info = {
+        "Organism name": organism.name,
+        "Contigs": organism.number_of_contigs,
+        "Genes": gene_count,
+        "Fragmented genes": fragmented_genes_count,
+        "Families": families_count,
+        "Families with fragments":families_with_fragment_count,
+        "Families in multicopy": orgs_families_in_multicopy_count,
+        "Soft core": {"families":soft_core_families_count,
+                       "genes": len(soft_core_genes) },
+        'Exact core':{"families":exact_core_families_count,
+                       "genes": len(exact_core_genes) },
+        "Persistent": {
+            "genes": persistent_gene_count,
+            "fragmented genes": persistent_fragmented_genes_count,
+            "families": persistent_family_count,
+            "families with fragments": persistent_fragmented_family_count,
+            "families in multicopy": orgs_persistent_families_in_multicopy_count},
+        "Shell": {
+            "genes": shell_gene_count,
+            "fragmented genes": shell_fragmented_genes_count,
+            "families": shell_family_count,
+            "families with fragments": shell_fragmented_family_count,
+            "families in multicopy": orgs_shell_families_in_multicopy_count},
+        "Cloud": {
+            "genes": cloud_gene_count,
+            "fragmented genes": cloud_fragmented_genes_count,
+            "families": cloud_family_count,
+            "families with fragments": cloud_fragmented_family_count,
+            "families in multicopy": orgs_cloud_families_in_multicopy_count},
+        "Completeness": completeness,
+        "Contamination": contamination,
+        "Fragmentation": fragmentation,
+        "RGPs": rgp_count,
+        "Spots": spot_count,
+        "Modules": module_count
+    }
+    return summary_info
+
+
+def write_persistent_duplication_statistics(pangenome: Pangenome, output: Path, dup_margin: float, compress: bool) -> Set[GeneFamily]:
+    """
+    Writes statistics on persistent duplications in gene families to a specified output file.
+
+    :param pangenome: The Pangenome object containing gene families.
+    :param output: The Path specifying the output file location.
+    :param dup_margin: The duplication margin used for determining single copy markers.
+    :param compress: A boolean indicating whether to compress the output file.
+
+    :return :
+    """
+    logging.getLogger("PPanGGOLiN").info("Writing statistics on persistent duplication...")
+
+    single_copy_persistent = set()  # Could use bitarrays if speed is needed
+
+    with write_compressed_or_not(output / "mean_persistent_duplication.tsv", compress) as outfile:
+        fieldnames = ["persistent_family", "duplication_ratio", "mean_presence", "is_single_copy_marker"]
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames, delimiter='\t')
+        writer.writeheader()
+
+        for fam in pangenome.gene_families:
+            if fam.named_partition == "persistent":
+                mean_pres = len(fam) / fam.number_of_organisms
+                dup_ratio = fam.duplication_ratio(exclude_fragment=True)
+                is_scm = dup_ratio < dup_margin
+                
+                if is_scm:
+                    single_copy_persistent.add(fam)
+                
+                writer.writerow({
+                    "persistent_family": fam.name,
+                    "duplication_ratio": round(dup_ratio, 3),
+                    "mean_presence": round(mean_pres, 3),
+                    "is_single_copy_marker": is_scm
+                })
+
+    logging.getLogger("PPanGGOLiN").info("Done writing stats on persistent duplication")
+    return single_copy_persistent
+
+def write_summaries_in_tsv(summaries: List[Dict[str, Any]], output_file: Path,
+                           dup_margin:float, soft_core:float):
+    """
+    Writes summaries of organisms stored in a dictionary into a Tab-Separated Values (TSV) file.
+
+    :param summaries: A list containing organism summaries.
+    :param output_file: The Path specifying the output TSV file location.
+    :param soft_core: Soft core threshold used
+    :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
+    """
+    # Flatten the nested dictionaries within the summaries dictionary
+    flat_summaries = [flatten_nested_dict(summary_info) for summary_info in summaries]
+
+    # Create a DataFrame from the flattened summaries
+    df_summary = pd.DataFrame(flat_summaries)
+
+    with open(output_file, "w") as flout:
+        flout.write(f"#soft_core={round(soft_core, 3)}\n")
+        flout.write(f"#duplication_margin={round(dup_margin, 3)}\n")
+
+        # Write the DataFrame to a TSV file
+        df_summary.to_csv(flout, sep='\t', index=False)
+
 def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05, compress: bool = False):
     """
-    Write pangenome statistics
+    Write pangenome statistics for each genomes
 
     :param output: Path to output directory
     :param soft_core: Soft core threshold to use
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
     :param compress: Compress the file in .gz
+
+    :return: A set containing gene families identified as single copy persistent markers.
     """
     logging.getLogger("PPanGGOLiN").info("Writing pangenome statistics...")
-    logging.getLogger("PPanGGOLiN").info("Writing statistics on persistent duplication...")
-    single_copy_markers = set()  # could use bitarrays if speed is needed
-    with write_compressed_or_not(output / "mean_persistent_duplication.tsv", compress) as outfile:
-        outfile.write(f"#duplication_margin={round(dup_margin, 3)}\n")
-        outfile.write("\t".join(["persistent_family", "duplication_ratio", "mean_presence", "is_single_copy_marker"]) +
-                      "\n")
-        for fam in pan.gene_families:
-            if fam.named_partition == "persistent":
-                mean_pres = len(fam) / fam.number_of_organisms
-                nb_multi = 0
-                for gene_list in fam.get_org_dict().values():
-                    if len(gene_list) > 1:
-                        nb_multi += 1
-                dup_ratio = nb_multi / fam.number_of_organisms
-                is_scm = False
-                if dup_ratio < dup_margin:
-                    is_scm = True
-                    single_copy_markers.add(fam)
-                outfile.write("\t".join([fam.name,
-                                         str(round(dup_ratio, 3)),
-                                         str(round(mean_pres, 3)),
-                                         str(is_scm)]) + "\n")
-    logging.getLogger("PPanGGOLiN").info("Done writing stats on persistent duplication")
+
+    single_copy_persistent = write_persistent_duplication_statistics(pangenome=pan, output=output,
+                                                                     dup_margin=dup_margin, compress=compress)
+
     logging.getLogger("PPanGGOLiN").info("Writing genome per genome statistics (completeness and counts)...")
-    soft = set()  # could use bitarrays if speed is needed
-    core = set()
-    for fam in pan.gene_families:
-        if fam.number_of_organisms >= pan.number_of_organisms * soft_core:
-            soft.add(fam)
-        if fam.number_of_organisms == pan.number_of_organisms:
-            core.add(fam)
 
-    with write_compressed_or_not(output / "organisms_statistics.tsv", compress) as outfile:
-        outfile.write(f"#soft_core={round(soft_core, 3)}\n")
-        outfile.write(f"#duplication_margin={round(dup_margin, 3)}\n")
-        outfile.write("\t".join(
-            ["organism", "nb_families", "nb_persistent_families", "nb_shell_families", "nb_cloud_families",
-             "nb_exact_core", "nb_soft_core", "nb_genes", "nb_persistent_genes", "nb_shell_genes", "nb_cloud_genes",
-             "nb_exact_core_genes", "nb_soft_core_genes", "completeness", "nb_single_copy_markers"]) + "\n")
+    soft_core_families = pan.soft_core_families(soft_core)
+    exact_core_families = pan.exact_core_families()
 
-        for org in pan.organisms:
-            nb_pers = 0
-            nb_shell = 0
-            nb_cloud = 0
-            for fam in org.families:
-                if fam.named_partition == "persistent":
-                    nb_pers += 1
-                elif fam.named_partition == "shell":
-                    nb_shell += 1
-                else:
-                    nb_cloud += 1
+    pangenome_persistent_single_copy_families =  pan.get_single_copy_persistent_families(dup_margin = dup_margin, exclude_fragments=True)
+    assert pangenome_persistent_single_copy_families == single_copy_persistent
+    pangenome_persistent_count = len([fam for fam in pan.gene_families if fam.named_partition == "persistent"])
+    summaries = []
 
-            nb_gene_pers = 0
-            nb_gene_shell = 0
-            nb_gene_soft = 0
-            nb_gene_cloud = 0
-            nb_gene_core = 0
-            for gene in org.genes:
-                if gene.family.named_partition == "persistent":
-                    nb_gene_pers += 1
-                elif gene.family.named_partition == "shell":
-                    nb_gene_shell += 1
-                else:
-                    nb_gene_cloud += 1
-                if gene.family in soft:
-                    nb_gene_soft += 1
-                    if gene.family in core:
-                        nb_gene_core += 1
-            completeness = "NA"
-            org_families = set(org.families)
-            if len(single_copy_markers) > 0:
-                completeness = round((len(org_families & single_copy_markers) /
-                                      len(single_copy_markers)) * 100, 2)
-            outfile.write("\t".join(map(str, [org.name,
-                                              org.number_of_families(),
-                                              nb_pers,
-                                              nb_shell,
-                                              nb_cloud,
-                                              len(core & org_families),
-                                              len(soft & org_families),
-                                              org.number_of_genes(),
-                                              nb_gene_pers,
-                                              nb_gene_shell,
-                                              nb_gene_cloud,
-                                              nb_gene_core,
-                                              nb_gene_soft,
-                                              completeness,
-                                              len(org_families & single_copy_markers)])) + "\n")
+    for organism in pan.organisms:
+        
+        
+        rgp_count = organism.number_of_regions if pan.status["predictedRGP"] != "No" else None
+        spot_count = organism.number_of_spots if pan.status["spots"] != "No" else None
+        module_count = organism.number_of_modules if pan.status["modules"] != "No" else None
 
+        organism_summary = summarize_genome(organism=organism,
+                                            pangenome_persistent_count=pangenome_persistent_count,
+                                            pangenome_persistent_single_copy_families=pangenome_persistent_single_copy_families,
+                                            soft_core_families=soft_core_families,
+                                            exact_core_families=exact_core_families,
+                                            rgp_count=rgp_count,
+                                            spot_count=spot_count,
+                                            module_count=module_count)
+
+        summaries.append(organism_summary)
+
+    write_summaries_in_tsv(summaries, output_file= output / "organisms_statistics.tsv", dup_margin=dup_margin, soft_core=soft_core)
+    
     logging.getLogger("PPanGGOLiN").info("Done writing genome per genome statistics")
 
 
 
-def write_parts(output: Path, soft_core: float = 0.95):
+def write_partitions(output: Path, soft_core: float = 0.95):
     """
     Write the list of gene families for each partition
 
@@ -580,15 +717,19 @@ def write_parts(output: Path, soft_core: float = 0.95):
     logging.getLogger("PPanGGOLiN").info("Writing the list of gene families for each partition ...")
     if not os.path.exists(output / "partitions"):
         os.makedirs(output / "partitions")
+        
     part_sets = defaultdict(set)
     # initializing key, value pairs so that files exist even if they are empty
     for needed_key in ["undefined", "soft_core", "exact_core", "exact_accessory",
                        "soft_accessory", "persistent", "shell", "cloud"]:
         part_sets[needed_key] = set()
+
     for fam in pan.gene_families:
         part_sets[fam.named_partition].add(fam.name)
+
         if fam.partition.startswith("S"):
             part_sets[fam.partition].add(fam.name)
+
         if fam.number_of_organisms >= pan.number_of_organisms * soft_core:
             part_sets["soft_core"].add(fam.name)
             if fam.number_of_organisms == pan.number_of_organisms:
@@ -600,10 +741,10 @@ def write_parts(output: Path, soft_core: float = 0.95):
             part_sets["exact_accessory"].add(fam.name)
 
     for key, val in part_sets.items():
-        curr_key_file = open(output / f"partitions/{key}.txt", "w")
-        if len(val) > 0:
-            curr_key_file.write('\n'.join(val) + "\n")
-        curr_key_file.close()
+        with open(output / f"partitions/{key}.txt", "w") as curr_key_file:
+            if len(val) > 0:
+                curr_key_file.write('\n'.join(val) + "\n")
+
     logging.getLogger("PPanGGOLiN").info("Done writing the list of gene families for each partition")
 
 
@@ -910,7 +1051,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
         needFamilies = True
     if stats or partitions or spots or borders:
         needPartitions = True
-    if gexf or light_gexf or json:
+    if gexf or light_gexf or json or stats:
         needGraph = True
         needRegions = True if pan.status["predictedRGP"] == "inFile" else False
         needSpots = True if pan.status["spots"] == "inFile" else False
@@ -946,7 +1087,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
         if json:
             processes.append(p.apply_async(func=write_json, args=(output, compress)))
         if partitions:
-            processes.append(p.apply_async(func=write_parts, args=(output, soft_core)))
+            processes.append(p.apply_async(func=write_partitions, args=(output, soft_core)))
         if families_tsv:
             processes.append(p.apply_async(func=write_gene_families_tsv, args=(output, compress)))
         if spots:

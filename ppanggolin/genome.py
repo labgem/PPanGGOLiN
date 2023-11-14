@@ -859,6 +859,16 @@ class Organism(MetaFeatures):
                 modules.add(module)
         yield from modules
 
+
+    @property
+    def number_of_modules(self) -> int:
+        """
+        Get number of modules in organism
+
+        :return: Number of modules in organism
+        """
+        return len(list(self.modules))
+    
     @property
     def regions(self):
         """Get all RGPS belonging to this genome
@@ -873,6 +883,15 @@ class Organism(MetaFeatures):
         yield from regions
 
     @property
+    def number_of_regions(self) -> int:
+        """
+        Get number of RGP in organism
+
+        :return: Number of RGP in organism
+        """
+        return len(list(self.regions))
+    
+    @property
     def spots(self):
         """Get all spots belonging to this genome
 
@@ -885,6 +904,16 @@ class Organism(MetaFeatures):
                 spots.add(region.spot)
         yield from spots
 
+    @property
+    def number_of_spots(self) -> int:
+        """
+        Get number of spots in organism
+
+        :return: Number of spots in organism
+        """
+        return len(list(self.spots))
+    
+    
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.

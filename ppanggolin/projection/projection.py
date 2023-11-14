@@ -29,7 +29,7 @@ from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import detect_filetype, create_tmpdir, read_compressed_or_not, write_compressed_or_not, \
     restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args, \
-    check_input_files, parse_input_paths_file
+    check_input_files, parse_input_paths_file, flatten_nested_dict
 from ppanggolin.align.alignOnPang import write_gene_to_gene_family, get_input_seq_to_family_with_rep, \
     get_input_seq_to_family_with_all, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
@@ -40,7 +40,7 @@ from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.formats.writeFlatGenomes import write_proksee_organism, manage_module_colors, write_gff_file
-from ppanggolin.formats.writeFlatPangenome import summarize_spots
+from ppanggolin.formats.writeFlatPangenome import summarize_spots, summarize_genome, write_summaries_in_tsv
 from ppanggolin.formats.writeSequences import read_genome_file
 
 
@@ -220,26 +220,32 @@ def launch(args: argparse.Namespace):
 
     pangenome_persistent_single_copy_families =  pangenome.get_single_copy_persistent_families(dup_margin = args.dup_margin, exclude_fragments=True)
     pangenome_persistent_count = len([fam for fam in pangenome.gene_families if fam.named_partition == "persistent"])
-    organism_2_summary = {}
+    
 
     soft_core_families = pangenome.soft_core_families(args.soft_core)
     exact_core_families = pangenome.exact_core_families()
+
+    summaries = []
 
     for organism in organisms:
 
         # summarize projection for all input organisms
         singleton_gene_count = input_org_to_lonely_genes_count[organism]
 
-        organism_2_summary[organism] = summarize_projected_genome(organism,
+        org_summary = summarize_projected_genome(organism,
                                                                     pangenome_persistent_count,
                                                                     pangenome_persistent_single_copy_families,
                                                                     soft_core_families=soft_core_families,
                                                                     exact_core_families=exact_core_families,
-                                                                    input_org_rgps=input_org_2_rgps.get(organism, None),
+                                                                    input_org_rgps=input_org_2_rgps.get(organism, None), 
                                                                     input_org_spots=input_org_to_spots.get(organism, None),
                                                                     input_org_modules=input_orgs_to_modules.get(organism, None),
                                                                     pangenome_file=pangenome.file,
                                                                     singleton_gene_count=singleton_gene_count)
+        summaries.append(org_summary)
+        
+        yaml_outputfile = output_dir / organism.name / "projection_summary.yaml"
+        write_summary_in_yaml(org_summary, yaml_outputfile)
 
         if (args.proksee or args.gff) and args.add_sequences:
             genome_sequences = read_genome_file(genome_name_to_path[organism.name]['path'], organism)
@@ -266,7 +272,14 @@ def launch(args: argparse.Namespace):
 
             write_gff_file(organism, output_dir, annotation_sources=annotation_sources, genome_sequences=genome_sequences)
 
-    write_summaries(organism_2_summary, output_dir)
+
+    output_file = output_dir / "summary_projection.tsv",
+
+    write_summaries_in_tsv(summaries,
+                           output_file= output_dir / "organisms_statistics.tsv",
+                           dup_margin=args.dup_margin,
+                           soft_core=args.soft_core)
+    
 
 
 def summarize_projected_genome(organism: Organism,
@@ -296,15 +309,19 @@ def summarize_projected_genome(organism: Organism,
     :return: A dictionary containing summarized information about the organism.
     """
 
+    rgp_count = None if input_org_rgps is None else len(input_org_rgps)
+    spot_count = None if input_org_spots is None else len(input_org_spots)
+    module_count = None if input_org_modules is None else len(input_org_modules)
+
     organism_summary = summarize_genome(
         organism=organism,
         pangenome_persistent_count=pangenome_persistent_count,
         pangenome_persistent_single_copy_families=pangenome_persistent_single_copy_families,
         soft_core_families=soft_core_families,
         exact_core_families=exact_core_families,
-        input_org_rgps=input_org_rgps,
-        input_org_spots=input_org_spots,
-        input_org_modules=input_org_modules
+        rgp_count=rgp_count,
+        spot_count=spot_count,
+        module_count=module_count
     )
 
     # Add specific values for the projected genome
@@ -471,170 +488,22 @@ def check_input_names(pangenome, input_names):
             f"{len(duplicated_names)} provided organism names already exist in the given pangenome: {' '.join(duplicated_names)}")
 
 
-def write_summaries(organism_2_summary: Dict[Organism, Dict[str, Any]], output_dir: Path):
+def write_summary_in_yaml(summary_info:  Dict[str, Any], output_file: Path):
     """
-    Write summary information to YAML files and create a summary projection in TSV format.
+    Write summary information to a YAML file.
 
-    This function takes a dictionary where keys are input organisms and values are dictionaries containing summary
-    information. It writes this information to YAML files for each organism and creates a summary projection in TSV format.
+    This function takes a dictionary containing summary
+    information. It writes this information to a YAML file.
 
-    :param organism_2_summary: A dictionary where keys are input organisms and values are dictionaries containing
-                               summary information.
-    :param output_dir: The directory where the summary files will be written.
-    """
-    flat_summaries = []
-
-    for input_organism, summary_info in organism_2_summary.items():
-        yaml_string = yaml.dump(summary_info, default_flow_style=False, sort_keys=False, indent=4)
-
-        with open(output_dir / input_organism.name / "projection_summary.yaml", 'w') as flout:
-            flout.write('Projection_summary:')
-            flout.write(yaml_string)
-
-        flat_summary = {}
-        for key, val in summary_info.items():
-            if type(val) == dict:
-                for nest_k, nest_v in val.items():
-                    flat_summary[f"{key} {nest_k}"] = nest_v
-            else:
-                flat_summary[key] = val
-
-        flat_summaries.append(flat_summary)
-
-    df_summary = pd.DataFrame(flat_summaries)
-
-    df_summary.to_csv(output_dir / "summary_projection.tsv", sep='\t', index=False)
-
-
-def summarize_genome(organism: Organism,
-                     pangenome_persistent_count: int,
-                     pangenome_persistent_single_copy_families: Set[GeneFamily],
-                     soft_core_families:Set[GeneFamily],
-                     exact_core_families:Set[GeneFamily],
-                     input_org_rgps: Region,
-                     input_org_spots: Spot,
-                     input_org_modules: Module) -> Dict[str, any]:
-    """
-    Summarizes genomic information of an organism.
-
-    :param input_organism: The organism for which the genome is being summarized.
-    :param pangenome_persistent_count: Count of persistent genes in the pangenome.
-    :param pangenome_persistent_single_copy_families: Set of gene families considered as persistent single-copy in the pangenome.
-    :param soft_core_families: soft core families of the pangenome
-    :parma exact_core_families: exact core families of the pangenome
-    :param input_org_rgps: Regions of genomic plasticity in the input organism.
-    :param input_org_spots: Spots in the input organism.
-    :param input_org_modules: Modules in the input organism.
-
-    :return: A dictionary containing various summary information about the genome.
+    :param summary_info: A dictionary containing summary information.
+    :param output_file: The file where the summary will be written.
     """
 
-    partition_to_genes = organism.group_genes_by_partition()
+    yaml_string = yaml.dump(summary_info, default_flow_style=False, sort_keys=False, indent=4)
 
-    persistent_gene_count = len(partition_to_genes['persistent'])
-    shell_gene_count = len(partition_to_genes['shell'])
-    cloud_gene_count = len(partition_to_genes['cloud'])
-
-    gene_count = persistent_gene_count + shell_gene_count + cloud_gene_count
-
-    persistent_family_count = len({g.family for g in partition_to_genes['persistent']})
-    shell_family_count = len({g.family for g in partition_to_genes['shell']})
-    cloud_family_count = len({g.family for g in partition_to_genes['cloud']})
-
-    persistent_fragmented_genes = {g for g in partition_to_genes['persistent'] if g.is_fragment}
-    shell_fragmented_genes = {g for g in partition_to_genes['shell'] if g.is_fragment}
-    cloud_fragmented_genes = {g for g in partition_to_genes['cloud'] if g.is_fragment}
-
-    persistent_fragmented_genes_count = len(persistent_fragmented_genes)
-    shell_fragmented_genes_count = len(shell_fragmented_genes)
-    cloud_fragmented_genes_count = len(cloud_fragmented_genes)
-
-    fragmented_genes_count = persistent_fragmented_genes_count + shell_fragmented_genes_count + cloud_fragmented_genes_count
-
-    persistent_fragmented_family_count = len({g.family for g in persistent_fragmented_genes})
-    shell_fragmented_family_count = len({g.family for g in shell_fragmented_genes})
-    cloud_fragmented_family_count = len({g.family for g in cloud_fragmented_genes})
-
-    families_with_fragment_count = persistent_fragmented_family_count + shell_fragmented_family_count + cloud_fragmented_family_count
-    
-    families_count = persistent_family_count + shell_family_count + cloud_family_count
-
-
-    completeness = "NA"
-    if pangenome_persistent_count > 0:
-        completeness = round((persistent_family_count / pangenome_persistent_count) * 100, 2)
-
-    
-    orgs_families_in_multicopy_by_part = defaultdict(set)
-    for family in organism.families:
-        if len(family.get_org_dict()[organism]) > 1:
-            # the family has more than one gene in the genome
-            orgs_families_in_multicopy_by_part[family.named_partition].add(family)
-
-
-    orgs_persistent_families_in_multicopy_count = len(orgs_families_in_multicopy_by_part['persistent'])
-    orgs_shell_families_in_multicopy_count = len(orgs_families_in_multicopy_by_part['shell'])
-    orgs_cloud_families_in_multicopy_count = len(orgs_families_in_multicopy_by_part['cloud'])
-
-    orgs_families_in_multicopy_count = orgs_persistent_families_in_multicopy_count + orgs_shell_families_in_multicopy_count + orgs_cloud_families_in_multicopy_count
-    
-    single_copy_families_found_in_multicopy_count = len(pangenome_persistent_single_copy_families &  orgs_families_in_multicopy_by_part['persistent'])
-    contamination = 'NA'
-    if len(pangenome_persistent_single_copy_families) > 0:
-        contamination =  round(100 * single_copy_families_found_in_multicopy_count / len(pangenome_persistent_single_copy_families) , 2)
-    
-    fragmentation = 'NA'
-    if families_count > 0:
-        fragmentation = round(100.0 * families_with_fragment_count / families_count, 2) 
-
-    soft_core_genes = {gene for gene in organism.genes if gene.family in soft_core_families}
-    exact_core_genes = {gene for gene in organism.genes if gene.family in exact_core_families}
-
-    soft_core_families_count = len({gene.family for gene in soft_core_genes})
-    exact_core_families_count = len({gene.family for gene in exact_core_genes})
-
-    rgp_count = "Not computed" if input_org_rgps is None else len(input_org_rgps)
-    spot_count = "Not computed" if input_org_spots is None else len(input_org_spots)
-    module_count = "Not computed" if input_org_modules is None else len(input_org_modules)
-
-    summary_info = {
-        "Organism name": organism.name,
-        "Contigs": organism.number_of_contigs,
-        "Genes": gene_count,
-        "Fragmented genes": fragmented_genes_count,
-        "Families": families_count,
-        "Families with fragments":families_with_fragment_count,
-        "Families in multicopy": orgs_families_in_multicopy_count,
-        "Soft core": {"families":soft_core_families_count,
-                       "genes": len(soft_core_genes) },
-        'Exact core':{"families":exact_core_families_count,
-                       "genes": len(exact_core_genes) },
-        "Persistent": {
-            "genes": persistent_gene_count,
-            "fragmented genes": persistent_fragmented_genes_count,
-            "families": persistent_family_count,
-            "families with fragments": persistent_fragmented_family_count,
-            "families in multicopy": orgs_persistent_families_in_multicopy_count},
-        "Shell": {
-            "genes": shell_gene_count,
-            "fragmented genes": shell_fragmented_genes_count,
-            "families": shell_family_count,
-            "families with fragments": shell_fragmented_family_count,
-            "families in multicopy": orgs_shell_families_in_multicopy_count},
-        "Cloud": {
-            "genes": cloud_gene_count,
-            "fragmented genes": cloud_fragmented_genes_count,
-            "families": cloud_family_count,
-            "families with fragments": cloud_fragmented_family_count,
-            "families in multicopy": orgs_cloud_families_in_multicopy_count},
-        "Completeness": completeness,
-        "Contamination": contamination,
-        "Fragmentation": fragmentation,
-        "RGPs": rgp_count,
-        "Spots": spot_count,
-        "Modules": module_count
-    }
-    return summary_info
+    with open(output_file, 'w') as flout:
+        flout.write('Projection_summary:')
+        flout.write(yaml_string)
 
 
 def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_organisms: Iterable[Organism],

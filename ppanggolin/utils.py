@@ -1041,3 +1041,23 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
     
     return genome_name_to_genome_path
 
+
+def flatten_nested_dict(nested_dict: Dict[str, Union[Dict, int, str, float]]) -> Dict[str, Union[int, str, float]]:
+    """
+    Flattens a nested dictionary into a flat dictionary by concatenating keys at different levels.
+
+    :param nested_dict: The nested dictionary to be flattened.
+    :return: A flat dictionary with concatenated keys.
+    """
+    flat_dict = {}
+
+    def flatten(dictionary, parent_key=''):
+        for key, val in dictionary.items():
+            new_key = f"{parent_key} {key}" if parent_key else key
+            if isinstance(val, dict):
+                flatten(val, new_key)
+            else:
+                flat_dict[new_key] = val
+
+    flatten(nested_dict)
+    return flat_dict
