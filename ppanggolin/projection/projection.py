@@ -286,7 +286,7 @@ def launch(args: argparse.Namespace):
     output_file = output_dir / "summary_projection.tsv",
 
     write_summaries_in_tsv(summaries,
-                           output_file= output_dir / "organisms_statistics.tsv",
+                           output_file=output_file,
                            dup_margin=args.dup_margin,
                            soft_core=args.soft_core)
     
