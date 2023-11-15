@@ -69,13 +69,13 @@ The pangenome's graph can be given through multiple data formats, in order to ma
 ```{include} Flat/partition.md
 ```
 
-## Write genomes with pangenome annotations
+## Write genome files with pangenome annotations
 The `write_genomes` command creates 'flat' files representing genomes with their pangenome annotations.
 
 To generate output exclusively for particular genomes, users can utilize the `--organisms` argument. This argument accepts a list of organism names, either directly entered in the command line (comma-separated) or referenced from a file where each line contains a single organism name.
 
 
-### Table with pangenome annotations
+### Genes table with pangenome annotations
 ```{include} Flat/tables.md
 ```
 ### GFF file

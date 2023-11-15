@@ -1,21 +1,35 @@
-This option writes in a 'tables' directory. There will be a file written in the .tsv file format for every single genome in the pangenome.
-The columns of this file are described in the following table : 
+<!-- ### Genes table with pangenome annotations -->
 
-| Column               | Description                                                                                                                    |
-|----------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| gene                 | the unique identifier of the gene                                                                                              |
-| contig               | the contig that the gene is on                                                                                                 |
-| start                | the start position of the gene                                                                                                 |
-| stop                 | the stop position of the gene                                                                                                  |
-| strand               | The strand that the gene is on                                                                                                 |
-| ori                  | Will be T if the gene name is dnaA                                                                                                              |
-| family               | the family identifier to which the gene belongs to                                                                             |
-| nb_copy_in_org       | The number of copy of the family in the organism (basically, if 1, the gene has no closely related paralog in that organism) |
-| partition            | the partition to which the gene family of the gene belongs to                                                                  |
-| persistent_neighbors | The number of neighbors classified as 'persistent' in the pangenome graph                                                      |
-| shell_neighbors      | The number of neighbors classified as 'shell' in the pangenome graph                                                           |
-| cloud_neighbors      | The number of neighbors classidied as 'cloud' in the pangenome graph                                                           |
+The `--table` option generates a TSV file for each genome, providing pangenome annotations for the genes.  These files are stored within a directory named 'tables'.
+
+
+The table below outlines the columns found in these generated files:
+
+| Column               | Description                                                                |
+|----------------------|----------------------------------------------------------------------------|
+| gene                 | Unique identifier for the gene                                             |
+| contig               | Contig on which the gene is located                                        |
+| start                | Start position of the gene                                                 |
+| stop                 | Stop position of the gene                                                  |
+| strand               | Strand on which the gene is on                                       |
+| family               | Id of the gene's associated family within the pangenome             |
+| nb_copy_in_org       | Number of family copies present in the organism; 1 indicates no close paralogs |
+| partition            | Partition to which the gene family belongs in the pangenome                  |
+| persistent_neighbors | Number of neighbors classified as 'persistent' in the pangenome graph        |
+| shell_neighbors      | Number of neighbors classified as 'shell' in the pangenome graph             |
+| cloud_neighbors      | Number of neighbors classified as 'cloud' in the pangenome graph             |
+| RGP                  | Name of the Region of Genomic Plasticity (RGP) if the gene is within an RGP  (present only if RGPs have been predicted) |
+| spot                 | Spot ID in which the RGP is inserted (present only if RGPs and spot have been predicted)   |
+| module               | Module ID of the gene family (present if modules have been predicted)             |
+
+
+```{note}
+Columns such as RGP, spot, and module are included only when these elements have been predicted in the pangenome.
+```
 
 Those files can be generated as such : 
 
-`ppanggolin write_genomes -p pangenome.h5 --tables`
+```
+ppanggolin write_genomes -p pangenome.h5 --table -o write_genomes_output
+```
+
