@@ -706,7 +706,7 @@ class Module(MetaFeatures):
             raise KeyError(f"There isn't gene family with the name {name} in the module")
         else:
             del self._families_getter[name]
-            fam._modules.remove(self)  # TODO define method to remove a module from family
+            fam._module = None  # TODO define method to remove a module from family
 
     def add(self, family: GeneFamily):
         """Add a family to the module.

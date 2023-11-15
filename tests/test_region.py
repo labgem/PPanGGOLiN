@@ -663,7 +663,7 @@ class TestModule:
         """Tests that a gene family can be deleted from the module
         """
         module[family.name] = family
-        del module['family']
+        del module[family.name]
         assert len(module) == 0
 
     def test_delete_family_which_does_not_exist(self, module):

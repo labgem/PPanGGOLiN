@@ -26,10 +26,10 @@ class TestGeneFamily:
         """
         assert isinstance(family, GeneFamily)
         assert all(attr in ["ID", "name", "_edges", "_genePerOrg", "_genes_getter", "removed", "sequence", "partition",
-                            "_spots", "_modules", "bitarray", "_metadata_getter"] for attr in
+                            "_spots", "_module", "bitarray", "_metadata_getter"] for attr in
                    family.__dict__)  # Check that no attribute was added else it should be tested
         assert all(hasattr(family, attr) for attr in ["ID", "name", "_edges", "_genePerOrg", "_genes_getter", "removed",
-                                                      "sequence", "partition", "_spots", "_modules",
+                                                      "sequence", "partition", "_spots", "_module",
                                                       "bitarray"])  # Check that no attribute was removed else it should be tested
         assert family.ID == 1
         assert family.name == 'test'
@@ -40,7 +40,7 @@ class TestGeneFamily:
         assert family.sequence == ""
         assert family.partition == ""
         assert family._spots == set()
-        assert family._modules == set()
+        assert family._module is None
         assert family.bitarray is None
 
     @pytest.mark.parametrize("partition, name",
@@ -300,13 +300,13 @@ class TestGeneFamily:
         """Tests that a Module object can be added to a GeneFamily object
         """
         module = Module(1)
-        family.add_module(module)
-        assert module in family.modules
+        family.set_module(module)
+        assert module == family.module
 
     def test_add_non_module_as_module_in_family(self, family):
         """Tests that a non-module object cannot be added to Gene Family
         """
         with pytest.raises(TypeError):
-            family.add_module(323)
+            family.set_module(323)
 
     # TODO test mk_bitarray
