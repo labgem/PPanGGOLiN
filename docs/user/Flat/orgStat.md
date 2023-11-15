@@ -1,29 +1,65 @@
+The organisms_statistics.tsv file is a tab-separated file summarizing the content of each of the genomes used for building the pangenome. This file is useful when working with fragmented data, such as MAGs, or when investigating potential outliers within your dataset, such as chimeric or taxonomically disparate genomes.
 
-The organisms_statistics.tsv file is a tab-separated file describing the content of each of the genome used for building the pangenome. It might be useful when working with fragmented data such as MAGs or if you suspect some of your genomes to be chimeric, or to not belong to your taxonomic group (as those genomes will be outliers regarding to the numbers in this file).
 The first lines starting with a '#' are indicators of parameters used when generating the numbers describing each organisms, and should not be read if loading this into a spreadsheet. They will be skipped automatically if you load this file with R.
 
-This file is made of 15 columns described in the following table
+This file comprises 32 columns described in the following table:
 
-| Column                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| organism               | Indicates the organism's name to whom the provided genome belongs to                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| nb_families            | Indicates the number of gene families present in that genome                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| nb_persistent_families | The number of persistent families present in that genome                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| nb_shell_families      | The number of shell families present in that genome                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| nb_cloud_families      | The number of cloud families present in that genome                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| nb_exact_core          | The number of exact core families present in that genome. This number should be identical in all genomes.                                                                                                                                                                                                                                                                                                                                                                               |
-| nb_soft_core           | The number of soft core families present in that genome. The threshold used is indicated in the #soft_core line at the beginning of the file, and is 0.95 by default.                                                                                                                                                                                                                                                                                                                   |
-| nb_genes               | The number of genes in that genome                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| nb_persistent_genes    | The number of genes whose family is persistent in that genome                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| nb_shell_genes         | The number of genes whose family is shell in that genome                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| nb_cloud_genes         | The number of genes whose family is cloud in that genome                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| nb_exact_core_genes    | The number of genes whose family is exact core in that genome                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| nb_soft_core_genes     | The number of genes whose family is soft core in that genome                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| completeness           | This is an indicator of the proportion of single copy markers in the persistent that are present in the genome. While it is expected to be relatively close to 100 when working with isolates, it may be particularly interesting when working with very fragmented genomes as this provide a *de novo* estimation of the completeness based on the expectation that single copy markers within the persistent should be mostly present in all individuals of the studied taxonomic group |
-| nb_single_copy_markers | This indicates the number of present single copy markers in the genomes. They are computed using the parameter duplication_margin indicated at the beginning of the file. They correspond to all of the persistent gene families that are not present in more than one copy in 5% (or more) of the genomes by default.                                                                                                                                                                  |
+| Column                      | Description                                                                                   |
+|-----------------------------|-----------------------------------------------------------------------------------------------|
+| Organism name               | Name of the organism to which the provided genome belongs                                      |
+| Contigs                     | Number of contigs present in the genome                                                        |
+| Genes                       | Total number of genes in the genome                                                            |
+| Fragmented genes            | Number of genes flagged as fragmented. Refer to the [defragmentation](../step-by-step/clustering.md#defragmentation) section for detailed information on the fragmentation process.    |
+| Families                    | Total number of gene families present in the genome                                            |
+| Families with fragments     | Number of families containing fragmented genes                                                  |
+| Families in multicopy       | Number of families present in multiple copies                                                  |
+| Soft core families          | Number of families categorized as soft core                                                    |
+| Soft core genes             | Number of genes within soft core families                                                      |
+| Exact core families         | Number of families categorized as exact core                                                   |
+| Exact core genes            | Number of genes within exact core families                                                     |
+| Persistent genes            | Number of genes classified as persistent                                                       |
+| Persistent fragmented genes | Number of genes flagged as persistent and fragmented                                           |
+| Persistent families         | Number of families categorized as persistent                                                   |
+| Persistent families with fragments | Number of persistent families containing fragmented genes                              |
+| Persistent families in multicopy | Number of persistent families present in multiple copies                                   |
+| Shell genes                 | Number of genes classified as shell                                                            |
+| Shell fragmented genes      | Number of genes flagged as shell and fragmented                                                |
+| Shell families              | Number of families categorized as shell                                                        |
+| Shell families with fragments | Number of shell families containing fragmented genes                                          |
+| Shell families in multicopy | Number of shell families present in multiple copies                                            |
+| Cloud genes                 | Number of genes classified as cloud                                                            |
+| Cloud fragmented genes      | Number of genes flagged as cloud and fragmented                                                |
+| Cloud families              | Number of families categorized as cloud                                                        |
+| Cloud families with fragments | Number of cloud families containing fragmented genes                                          |
+| Cloud families in multicopy | Number of cloud families present in multiple copies                                            |
+| Completeness                | Proportion of persistent families present in the genome; expected to be close to 100 for isolates |
+| Contamination               | Proportion of single copy persistent families found in multiple copy in the genome.  |
+| Fragmentation               | Proportion of families with fragmented genes in the genome |
+| RGPs                        | Number of Regions of Genomic Plasticity identified                                             |
+| Spots                       | Number of spot IDs in which the RGPs are inserted                                              |
+| Modules                     | Number of module IDs within gene families                                  |
 
-It can be generated using the 'write' subcommand as such : 
 
-`ppanggolin write_pangenome -p pangenome.h5 --stats`
+
+It can be generated using the 'write_pangenome' subcommand as such : 
+
+```
+ppanggolin write_pangenome -p pangenome.h5 --stats
+```
 
 This command will also generate the 'mean_persistent_duplication.tsv' file.
+
+
+
+#### Genome Metrics Overview
+
+##### Completeness
+The completeness value is expected to be relatively close to 100 when working with isolates, it may be particularly interesting when working with very fragmented genomes as this provides a *de novo* estimation of the completeness based on the expectation that persistent genes should be mostly present in all individuals of the studied taxonomic group
+
+##### Contamination
+The Contamination value represents the proportion of single-copy persistent families found in multiple copies within the genome. These single-copy persistent families are computed using the `duplication_margin` parameter specified at the beginning of the file. They encompass all persistent gene families present in single copy in less than 5% of the genomes by default. 
+
+In this computation, fragmented genes are excluded. Therefore, if a family exists in multicopy due to fragmented genes, it will still be counted as single copy. Contamination assessment is particularly useful for identifying potential chimeric genomes, especially in lower-quality genomes.
+
+##### Fragmentation
+The fragmentation value denotes the proportion of families containing fragmented genes within the genome. A high fragmentation value may indicate a highly fragmented genome.
