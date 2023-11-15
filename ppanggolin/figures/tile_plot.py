@@ -107,13 +107,13 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
 
     logging.getLogger("PPanGGOLiN").info("Getting the gene name(s) and the number for each tile of the plot ...")
     for node in ordered_nodes:
-        fam_order.append('\u200c' + node.name)
-        data = node.organisms
+        fam_order.append(node.name)
+        data = set(node.organisms)
         binary_data.append([len(list(node.get_genes_per_org(org))) if org in data else numpy.nan for org in order_organisms])
         text_data.append([("\n".join(map(str, node.get_genes_per_org(org))))
                           if org in data else numpy.nan for org in order_organisms])
 
-    xaxis_values = ['\u200c' + org.name for org in order_organisms]
+    xaxis_values = [org.name for org in order_organisms]
 
     logging.getLogger("PPanGGOLiN").info("Done extracting names and numbers. Making the heatmap ...")
 
@@ -175,16 +175,6 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     logging.getLogger("PPanGGOLiN").info("Drawing the figure itself...")
 
     fig = go.Figure(data=[heatmap])
-
-    fig.add_trace(go.Scatter(x=dendro_org['icoord'],
-                             y=dendro_org['dcoord'],
-                             mode='lines',
-                             line=dict(color='black'),
-                             showlegend=False,
-                             xaxis='x2',
-                             yaxis='y'))
-
-
     fig.update_layout(layout)
     out_plotly.plot(fig, filename=output.as_posix() + "/tile_plot.html", auto_open=False)
     logging.getLogger("PPanGGOLiN").info(f"Done with the tile plot : '{output / 'tile_plot.html'}' ")
