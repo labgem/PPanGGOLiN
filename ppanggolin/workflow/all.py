@@ -234,15 +234,13 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         write_genomes_arguments = ['proksee', "table", "gff"]
         if any((getattr(args.write_genomes, arg) is True for arg in write_genomes_arguments)):
-            genome_outdir = args.output / 'Genomes'
-            mk_outdir(genome_outdir, force=True)
-            write_flat_genome_files(pangenome, genome_outdir,
+            write_flat_genome_files(pangenome, args.output,
                                     proksee=args.write_genomes.proksee,
                                     table=args.write_genomes.table,
                                     gff=args.write_genomes.gff,
                                     add_metadata=False,
                                     compress=args.write_genomes.compress,
-                                    disable_bar=args.disable_prog_bar)
+                                    disable_bar=args.disable_prog_bar, cpu=args.write_genomes.cpu)
         else:
             logging.getLogger("PPanGGOLiN").info('No flat file of genomes with pangenome annotation has been requested in config file. '
                                                  'Writing output genomes flat file is skipped.')

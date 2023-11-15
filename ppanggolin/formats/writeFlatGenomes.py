@@ -430,9 +430,6 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
 
     :return: The organism name
     """
-    gff_outdir = output / "gff"
-
-    mk_outdir(gff_outdir, force=True)
 
     genome_sequences = None
     if organisms_file and (gff or proksee):
@@ -441,7 +438,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
     if proksee:
 
         proksee_outdir = output / "proksee"
-        mk_outdir(proksee_outdir, force=True)
+        mk_outdir(proksee_outdir, force=True, exist_ok=True)
         output_file = proksee_outdir / f"{organism.name}.json"
 
         # Write ProkSee data for the organism
@@ -450,7 +447,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
 
     if gff:
         gff_outdir = output / "gff"
-        mk_outdir(gff_outdir, force=True)
+        mk_outdir(gff_outdir, force=True, exist_ok=True)
 
         write_gff_file(organism, outdir=gff_outdir, genome_sequences=genome_sequences,
                        **{arg: kwargs[arg] for arg in kwargs.keys() & {'compress', 'annotation_sources',
@@ -458,7 +455,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
 
     if table:
         table_outdir = output / "table"
-        mk_outdir(table_outdir, force=True)
+        mk_outdir(table_outdir, force=True, exist_ok=True)
 
         write_tsv_genome_file(organism=organism, output=table_outdir, **{arg: kwargs[arg] for arg in kwargs.keys() &
                                                                 {'need_regions', 'need_modules', 'need_spots',
@@ -554,7 +551,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
 
             for future in futures:
                 org_name = future.result()
-                logging.getLogger("PPanGGOLiN").debug(f"organism: {org_name} is Done")
+                logging.getLogger("PPanGGOLiN").debug(f"Done writing the GFF file with pangenome annotation for {org_name}.")
 
     writing_time = time.time() - start_writing
     logging.getLogger("PPanGGOLiN").debug(

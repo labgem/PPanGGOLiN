@@ -250,17 +250,18 @@ def is_compressed(file_or_file_path: Union[Path, TextIO, gzip.GzipFile]):
     return False
 
 
-def mk_outdir(output: Path, force: bool = False):
+def mk_outdir(output: Path, force: bool = False, exist_ok:bool=False):
     """ Create a directory at the given output if it doesn't exist already
 
     :param output: Path where to create directory
     :param force: Force to write in the directory
+    :param exist_ok: Does not give an error if the directory already exists.
 
     :raise FileExistError: The current path already exist and force is false
     """
     if not output.is_dir():
         logging.getLogger("PPanGGOLiN").debug(f"Create output directory {output.absolute().as_posix()}")
-        Path.mkdir(output)
+        Path.mkdir(output, exist_ok=exist_ok)
     else:
         if not force:
             raise FileExistsError(
