@@ -51,50 +51,64 @@ def count_neighbors_partitions(gene_family: GeneFamily):
     return nb_pers, nb_shell, nb_cloud
 
 
-def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = False,
+def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = False, metadata_sep:str = "|",
                    need_regions: bool = False, need_spots: bool = False, need_modules: bool = False):
     """
-    Write the table of pangenome for one organism in tsv format
+    Write the table of genes with pangenome annotation for one organism in tsv
 
-    :param organism: Projected organism
+    :param organism: An organism
     :param output: Path to output directory
     :param compress: Compress the file in .gz
     :param need_regions: Write information about regions
     :param need_spots: Write information about spots
     :param need_modules: Write information about modules
-    :return:
+
     """
 
-    rows = defaultdict(list)
+    rows = []
     for gene in organism.genes:
         nb_pers, nb_shell, nb_cloud = count_neighbors_partitions(gene.family)
 
-        rows["gene"].append(gene.ID if gene.local_identifier == "" else gene.local_identifier)
-        rows["contig"].append(gene.contig.name)
-        rows["start"].append(gene.start)
-        rows["stop"].append(gene.stop)
-        rows["strand"].append(gene.strand)
-        rows["family"].append(gene.family.name)
-        rows["nb_copy_in_org"].append(len(list(gene.family.get_genes_per_org(organism))))
-        rows["partition"].append(gene.family.named_partition)
-        rows["persistent_neighbors"].append(nb_pers)
-        rows["shell_neighbors"].append(nb_shell)
-        rows["cloud_neighbors"].append(nb_cloud)
-        rows["RGPs"].append(str(gene.RGP) if gene.RGP is not None else None)
-        rows['Spots'].append(str(gene.spot) if gene.spot is not None else None)
-        modules = None
-        if gene.family.number_of_modules > 0:
-            modules = ','.join([str(module) for module in gene.modules])
-        rows['Modules'].append(modules)
+        gene_info = {}
 
-    if not need_regions:
-        rows.pop("RGPs")
-    if not need_spots:
-        rows.pop("Spots")
-    if not need_modules:
-        rows.pop("Modules")
+        gene_info["gene"] = gene.ID if gene.local_identifier == "" else gene.local_identifier
+        gene_info["contig"] = gene.contig.name
+        gene_info["start"] = gene.start
+        gene_info["stop"] = gene.stop
+        gene_info["strand"] = gene.strand
+        gene_info["family"] = gene.family.name
+        gene_info["nb_copy_in_org"] = len(list(gene.family.get_genes_per_org(organism)))
+        gene_info["partition"] = gene.family.named_partition
+        gene_info["persistent_neighbors"] = nb_pers
+        gene_info["shell_neighbors"] = nb_shell
+        gene_info["cloud_neighbors"] = nb_cloud
 
-    pd.DataFrame.from_dict(rows).to_csv(output / f"{organism.name}.tsv{'.gz' if compress else ''}", sep="\t", index=False)
+        if need_regions:
+            gene_info["RGP"] = str(gene.RGP) if gene.RGP is not None else None
+        if need_spots:
+            gene_info['Spot'] = str(gene.spot) if gene.spot is not None else None
+        if need_modules:
+            # TODO: Check coherency.. 
+            # gene and family should not have more than one module.
+            # Why is it different here?
+            modules = None
+            if gene.family.number_of_modules > 0:
+                modules = ','.join([str(module) for module in gene.modules])
+            gene_info['Module'] = modules
+        
+        # Add metadata
+        gene_metadata = {f"gene_{key}":value for key, value in gene.formatted_metadata_dict(metadata_sep).items()}
+        gene_info.update(gene_metadata)
+
+        family_metadata = {f"family_{key}":value for key, value in gene.family.formatted_metadata_dict(metadata_sep).items()}
+        gene_info.update(family_metadata)
+        if need_regions and gene.RGP:
+            rgp_metadata = {f"rgp_{key}":value for key, value in gene.RGP.formatted_metadata_dict(metadata_sep).items()}
+            gene_info.update(rgp_metadata)
+
+        rows.append(gene_info)
+
+    pd.DataFrame(rows).to_csv(output / f"{organism.name}.tsv{'.gz' if compress else ''}", sep="\t", index=False)
 
     logging.getLogger("PPangGGOLiN").debug(f"Done writing the table with pangenome annotation for {organism.name}")
 
@@ -385,7 +399,6 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
                                                   "to determine which genomes should be included in the output.")
             with open(organisms_filt) as fl:
                 org_names = [line.strip() for line in fl if line and not line.startswith("#")]
-                print(org_names)
         else:
             org_names = [name.strip() for name in organisms_filt.split(',') if name.strip()]
 
@@ -444,7 +457,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
     if table:
         write_tsv_genome_file(organism=organism, output=org_outdir, **{arg: kwargs[arg] for arg in kwargs.keys() &
                                                                 {'need_regions', 'need_modules', 'need_spots',
-                                                                 'compress'}})
+                                                                 'compress', 'metadata_sep'}})
 
     return organism.name
 
@@ -490,7 +503,6 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
     # Place here to raise an error if file doesn't found before to read pangenome
     organisms_file = fasta if fasta is not None else anno
 
-    # TODO: see if we export metadata in write_genomes command
     check_pangenome_info(pangenome, disable_bar=disable_bar, **need_dict)
 
     organisms_list = get_organism_list(organisms_filt, pangenome)

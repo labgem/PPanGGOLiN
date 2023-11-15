@@ -29,7 +29,7 @@ from ppanggolin.annotate import subparser as annotate_subparser
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import detect_filetype, create_tmpdir, read_compressed_or_not, write_compressed_or_not, \
     restricted_float, mk_outdir, get_config_args, parse_config_file, get_default_args, \
-    check_input_files, parse_input_paths_file, flatten_nested_dict
+    check_input_files, parse_input_paths_file
 from ppanggolin.align.alignOnPang import write_gene_to_gene_family, get_input_seq_to_family_with_rep, \
     get_input_seq_to_family_with_all, project_and_write_partition
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
@@ -104,9 +104,13 @@ def launch(args: argparse.Namespace):
         raise Exception("The provided pangenome has no gene families sequences. "
                         "This is not possible to annotate an input organism to this pangenome.")
 
+    # Projected genomes have no metadata so the only element metadata that can be used in projected genomes is modules and families
+    metadata_types = ['modules', "families"]
+
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar,
                          need_rgp=predict_rgp, need_modules=project_modules, need_gene_sequences=False,
-                         need_spots=project_spots, need_metadata=True, metatypes=['families'])
+                         need_spots=project_spots, need_metadata=args.add_metadata, sources=args.metadata_sources,
+                         metatypes=metadata_types)
 
     logging.getLogger('PPanGGOLiN').info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(
@@ -272,11 +276,11 @@ def launch(args: argparse.Namespace):
 
             write_gff_file(organism, output_dir / organism.name,
                            annotation_sources=annotation_sources,
-                           genome_sequences=genome_sequences,
+                           genome_sequences=genome_sequences, metadata_sep=args.metadata_sep,
                            compress=args.compress)
 
         if args.table:
-            write_tsv_genome_file(organism, output_dir / organism.name, compress=args.compress,
+            write_tsv_genome_file(organism, output_dir / organism.name, compress=args.compress, metadata_sep=args.metadata_sep,
                    need_regions=predict_rgp, need_spots=project_spots, need_modules=project_modules)
 
     output_file = output_dir / "summary_projection.tsv",
@@ -1309,3 +1313,21 @@ def parser_projection(parser: argparse.ArgumentParser):
 
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
                           help="Keeping temporary files (useful for debugging).")
+    
+    optional.add_argument("--add_metadata",
+                            required=False,
+                            action="store_true",
+                            help="Include metadata information in the output files "
+                                "if any have been added to pangenome elements (see ppanggolin metadata command).")
+
+    optional.add_argument("--metadata_sources",
+                            default=None,
+                            nargs="+",
+                            help="Which source of metadata should be written. "
+                                "By default all metadata sources are included.")
+
+    optional.add_argument("--metadata_sep",
+                            required=False,
+                            default='|',
+                            help="The separator used to join multiple metadata values for elements with multiple metadata"
+                                " values from the same source. This character should not appear in metadata values.")
