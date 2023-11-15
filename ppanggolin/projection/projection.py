@@ -283,8 +283,7 @@ def launch(args: argparse.Namespace):
             write_tsv_genome_file(organism, output_dir / organism.name, compress=args.compress, metadata_sep=args.metadata_sep,
                    need_regions=predict_rgp, need_spots=project_spots, need_modules=project_modules)
 
-    output_file = output_dir / "summary_projection.tsv",
-
+    output_file = output_dir / "summary_projection.tsv"
     write_summaries_in_tsv(summaries,
                            output_file=output_file,
                            dup_margin=args.dup_margin,
