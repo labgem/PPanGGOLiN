@@ -88,13 +88,8 @@ def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = Fal
         if need_spots:
             gene_info['Spot'] = str(gene.spot) if gene.spot is not None else None
         if need_modules:
-            # TODO: Check coherency.. 
-            # gene and family should not have more than one module.
-            # Why is it different here?
-            modules = None
-            if gene.family.number_of_modules > 0:
-                modules = ','.join([str(module) for module in gene.modules])
-            gene_info['Module'] = modules
+            if gene.family.has_module:
+                gene_info['Module'] = str(gene.family.module)
         
         # Add metadata
         gene_metadata = {f"gene_{key}":value for key, value in gene.formatted_metadata_dict(metadata_sep).items()}
@@ -102,6 +97,7 @@ def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = Fal
 
         family_metadata = {f"family_{key}":value for key, value in gene.family.formatted_metadata_dict(metadata_sep).items()}
         gene_info.update(family_metadata)
+
         if need_regions and gene.RGP:
             rgp_metadata = {f"rgp_{key}":value for key, value in gene.RGP.formatted_metadata_dict(metadata_sep).items()}
             gene_info.update(rgp_metadata)
@@ -228,7 +224,7 @@ def encode_attributes(attributes: List[Tuple]) -> str:
     :return: The encoded attributes as a semicolon-separated string.
     """
     return ';'.join(
-        [f"{encode_attribute_val(k)}={encode_attribute_val(v)}" for k, v in attributes if v != "" and v is not None])
+        [f"{encode_attribute_val(k)}={encode_attribute_val(v)}" for k, v in attributes if str(v) != "" and v is not None])
 
 
 def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[str, str],
@@ -309,7 +305,7 @@ def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[st
                             ("family", feature.family.name),
                             ("partition", feature.family.named_partition),
                             ('rgp', rgp),
-                            ('module', ','.join((f"module_{module.ID}" for module in feature.modules)))
+                            ('module', feature.family.module) # family.module can be None... 
                         ]
 
                         # adding attributes 
@@ -434,28 +430,37 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
 
     :return: The organism name
     """
-    org_outdir = output / organism.name
+    gff_outdir = output / "gff"
 
-    mk_outdir(org_outdir, force=True)
+    mk_outdir(gff_outdir, force=True)
 
     genome_sequences = None
     if organisms_file and (gff or proksee):
         genome_sequences = read_genome_file(organisms_file, organism)
 
     if proksee:
-        output_file = org_outdir / f"{organism.name}.json"
+
+        proksee_outdir = output / "proksee"
+        mk_outdir(proksee_outdir, force=True)
+        output_file = proksee_outdir / f"{organism.name}.json"
 
         # Write ProkSee data for the organism
         write_proksee_organism(organism, output_file, features=['all'], genome_sequences=genome_sequences,
                                **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors'}})
 
     if gff:
-        write_gff_file(organism, outdir=org_outdir, genome_sequences=genome_sequences,
+        gff_outdir = output / "gff"
+        mk_outdir(gff_outdir, force=True)
+
+        write_gff_file(organism, outdir=gff_outdir, genome_sequences=genome_sequences,
                        **{arg: kwargs[arg] for arg in kwargs.keys() & {'compress', 'annotation_sources',
                                                                        'metadata_sep'}})
 
     if table:
-        write_tsv_genome_file(organism=organism, output=org_outdir, **{arg: kwargs[arg] for arg in kwargs.keys() &
+        table_outdir = output / "table"
+        mk_outdir(table_outdir, force=True)
+
+        write_tsv_genome_file(organism=organism, output=table_outdir, **{arg: kwargs[arg] for arg in kwargs.keys() &
                                                                 {'need_regions', 'need_modules', 'need_spots',
                                                                  'compress', 'metadata_sep'}})
 
@@ -640,6 +645,7 @@ def parser_flat(parser: argparse.ArgumentParser):
 
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int,
                           help="Number of available cpus")
+    
     context = parser.add_argument_group(title="Contextually required arguments",
                                         description="With --proksee and --gff, the following arguments can be "
                                                     "used to add sequence information to the output file:")

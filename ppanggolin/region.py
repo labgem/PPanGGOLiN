@@ -677,7 +677,7 @@ class Module(MetaFeatures):
         if name in self._families_getter and self[name] != family:
             raise KeyError("A different gene family with the same name already exist in the module")
         self._families_getter[name] = family
-        family.add_module(self)
+        family.set_module(self)
 
     def __getitem__(self, name) -> GeneFamily:
         """Get the gene family for the given name in the module

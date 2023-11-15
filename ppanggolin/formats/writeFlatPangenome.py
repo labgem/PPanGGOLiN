@@ -271,7 +271,7 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
             str_spot = "|".join([str(s) for s in list(fam.spots)])
             gexf.write(f'          <attvalue for="12" value="{str_spot}"/>\n')
         if pan.number_of_modules > 0:
-            str_module = "|".join([str(m) for m in list(fam.modules)])
+            str_module = str(fam.module) if fam.has_module else ""
             gexf.write(f'          <attvalue for="13" value="{str_module}"/>\n')
         shift = 14
         source_fields = {m.source: m.fields for f in pan.gene_families if len(list(f.metadata)) > 0 for m in f.metadata}

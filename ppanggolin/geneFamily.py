@@ -33,7 +33,6 @@ class GeneFamily(MetaFeatures):
         - number_of_genes: returns the number of genes.
         - number_of_organisms: returns the number of organisms.
         - number_of_spots: returns the number of spots.
-        - number_of_modules: returns the number of modules.
         - set_edge: sets an edge between the current family and a target family.
         - add_sequence: assigns a protein sequence to the gene family.
         - add_gene: adds a gene to the gene family and sets the gene's family accordingly.
@@ -73,7 +72,7 @@ class GeneFamily(MetaFeatures):
         self.sequence = ""
         self.partition = ""
         self._spots = set()
-        self._modules = set()
+        self._module = None
         self.bitarray = None
 
     def __repr__(self) -> str:
@@ -254,13 +253,12 @@ class GeneFamily(MetaFeatures):
             yield spot
 
     @property
-    def modules(self) -> Generator[Module, None, None]:
+    def module(self) -> Module:
         """Return all the modules belonging to the family
 
         :return: Generator of modules
         """
-        for module in self._modules:
-            yield module
+        return self._module
 
     @property
     def number_of_neighbors(self) -> int:
@@ -295,10 +293,13 @@ class GeneFamily(MetaFeatures):
         return len(self._spots)
 
     @property
-    def number_of_modules(self) -> int:
-        """Get the number of modules for the current gene family
+    def has_module(self) -> bool:
         """
-        return len(self._modules)
+        Check if the family is in a module
+
+        return True if it has a module else False
+        """
+        return self._module is not None
 
     def set_edge(self, target: GeneFamily, edge: Edge):
         """Set the edge between the gene family and another one
@@ -327,7 +328,7 @@ class GeneFamily(MetaFeatures):
             raise TypeError(f"A spot object is expected, you give a {type(spot)}")
         self._spots.add(spot)
 
-    def add_module(self, module: Module):
+    def set_module(self, module: Module):
         """Add the given module to the family
 
         :param module: Module belonging to the family
@@ -335,7 +336,7 @@ class GeneFamily(MetaFeatures):
         from ppanggolin.region import Module   # prevent circular import error
         if not isinstance(module, Module):
             raise TypeError(f"A module object is expected, you give a {type(module)}")
-        self._modules.add(module)
+        self._module = module
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence/absence of the family in the pangenome using the provided index

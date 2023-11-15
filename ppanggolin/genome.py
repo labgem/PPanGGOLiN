@@ -239,7 +239,7 @@ class Gene(Feature):
         """
         from ppanggolin.geneFamily import GeneFamily
         if not isinstance(family, GeneFamily):
-            raise TypeError(f'Expected type Organism, got {type(family)}')
+            raise TypeError(f'Expected type GeneFamily, got {type(family)}')
         self._family = family
 
     @property
@@ -275,13 +275,13 @@ class Gene(Feature):
             return None
 
     @property
-    def modules(self):
+    def module(self):
         """Get the modules belonging to the gene
 
         :return: get the modules linked to the gene
         :rtype: Generator[Module, None, None]
         """
-        yield from self.family.modules
+        yield from self.family.module
 
     def fill_annotations(self, position: int = None, genetic_code: int = 11, **kwargs):
         """Fill Gene annotation provide by PPanGGOLiN dependencies
@@ -848,15 +848,13 @@ class Organism(MetaFeatures):
 
     @property
     def modules(self):
-        """Get all the modules belonging to this genome
+        """
+        Get all the modules belonging to this genome
 
         :return: Generator of modules
         :rtype: Generator[Module, None, None]
         """
-        modules = set()
-        for family in self.families:
-            for module in family.modules:
-                modules.add(module)
+        modules = {family.module for family in self.families if family.has_module}
         yield from modules
 
 
