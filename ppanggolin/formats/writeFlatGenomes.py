@@ -88,8 +88,7 @@ def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = Fal
         if need_spots:
             gene_info['Spot'] = str(gene.spot) if gene.spot is not None else None
         if need_modules:
-            if gene.family.has_module:
-                gene_info['Module'] = str(gene.family.module)
+            gene_info['Module'] = str(gene.family.module) if gene.family.has_module else None
         
         # Add metadata
         gene_metadata = {f"gene_{key}":value for key, value in gene.formatted_metadata_dict(metadata_sep).items()}
@@ -494,9 +493,9 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
     need_dict = {"need_annotations": True,
                  "need_families": True,
                  "need_partitions": True,
-                 "need_rgp": True if pangenome.status["predictedRGP"] == "inFile" else False,
-                 "need_spots": True if pangenome.status["spots"] == "inFile" else False,
-                 "need_modules": True if pangenome.status["modules"] == "inFile" else False,
+                 "need_rgp": True if pangenome.status["predictedRGP"] != "No" else False,
+                 "need_spots": True if pangenome.status["spots"] != "No" else False,
+                 "need_modules": True if pangenome.status["modules"] != "No" else False,
                  "need_graph": True if table else False,
                  "need_metadata": add_metadata,
                  "sources": metadata_sources
