@@ -311,6 +311,7 @@ def write_gexf_edges(gexf: TextIO, light: bool = True):
     gexf.write('    <edges>\n')
     edgeids = 0
     index = pan.get_org_index()
+    shift = 14
 
     for edge in pan.edges:
         gexf.write(f'      <edge id="{edgeids}" source="'
@@ -321,7 +322,7 @@ def write_gexf_edges(gexf: TextIO, light: bool = True):
         if not light:
             for org, genes_pairs in edge.get_organisms_dict().items():
                 gexf.write(
-                    f'          <attvalue for="{index[org] + len(index) + len(pan.metadata_sources("families")) + 2}" value="{len(genes_pairs)}" />\n')
+                    f'          <attvalue for="{index[org] + len(index) + len(pan.metadata_sources("families")) + shift}" value="{len(genes_pairs)}" />\n')
         gexf.write('        </attvalues>\n')
         gexf.write('      </edge>\n')
         edgeids += 1
