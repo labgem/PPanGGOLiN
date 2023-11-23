@@ -53,6 +53,7 @@ Those RGPs can be further divided in conserved modules by panModule ([Bazin et a
 tutorial/prepEnv
 tutorial/inputData
 tutorial/workflows
+tutorial/AnalyseRGP
 ```
 
 ```{toctree}
