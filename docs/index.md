@@ -50,6 +50,7 @@ Those RGPs can be further divided in conserved modules by panModule ([Bazin et a
 :caption: 'Tutorial:'
 :maxdepth: 1
 
+tutorial/prepEnv
 tutorial/inputData
 tutorial/workflows
 ```
