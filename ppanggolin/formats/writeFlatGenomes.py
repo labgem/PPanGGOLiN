@@ -442,7 +442,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
 
         # Write ProkSee data for the organism
         write_proksee_organism(organism, output_file, features=['all'], genome_sequences=genome_sequences,
-                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors'}})
+                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors', 'compress'}})
 
     if gff:
         gff_outdir = output / "gff"

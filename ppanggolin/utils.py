@@ -225,7 +225,7 @@ def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gz
     :return: file-like object, compressed or not
     """
     if compress:
-        return gzip.open(file_path.with_suffix(".gz"), mode="wt")
+        return gzip.open(file_path.parent / (file_path.name + '.gz'), mode="wt")
     else:
         return open(file_path, "w")
 
