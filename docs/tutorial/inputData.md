@@ -1,15 +1,9 @@
 # How to prepare your data for PPanGGOLiN
 
-To build and partition a pangenome, PPanGGOLiN need a set of either DNA sequences or provided genome annotations. In order to help you to start with PPanGGOLiN, you can follow this step to download some genomes from _Bradyrhizobium japonicum_. These genomes will be our base line all along the tutorial. If you already have your genome you can directly go to [the input file creation](#create-your-list-of-genomes-file)
+To build and partition a pangenome, PPanGGOLiN need a set of either DNA sequences or provided genome annotations. In order to help you to start with PPanGGOLiN, you can follow this step to download some genomes from _Bradyrhizobium japonicum_. These genomes will be our baseline all along the tutorial. If you already have your genome you can directly go to [the input file creation](#create-your-list-of-genomes-file)
 
-## Get B. _japonicum_ genomics data
-
-```{tip}
-To download our genomes, we are going to use [genome_updater](https://github.com/pirovc/genome_updater).
-Other solution exist such as [ncbi genome downloading scripts](https://github.com/kblin/ncbi-genome-download). Feel free to use the best and easiest way for you.
-```
-
-### GTDB genomes
+## Get B._japonicum_ genomics data
+### Genomes from GTDB taxonomy
 
 To obtain the genomes of B. _japonicum_ from the [GTDB database](https://gtdb.ecogenomic.org/), you must use the name of the species in GTDB.
 
@@ -17,7 +11,7 @@ To obtain the genomes of B. _japonicum_ from the [GTDB database](https://gtdb.ec
 genome_updater.sh -d "refseq,genbank" -f "genomic.gbff.gz" -o "B_japonicum_genomes" -M "gtdb" -T "s__Bradyrhizobium japonicum"
 ```
 
-### NCBI/GenBank genomes
+### Genomes from NCBI taxonomy
 
 To obtain the genomes of B. _japonicum_ from the [NCBI](https://www.ncbi.nlm.nih.gov/), you must use its taxonomic ID.
 
