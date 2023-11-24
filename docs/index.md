@@ -46,33 +46,40 @@ Those RGPs can be further divided in conserved modules by panModule ([Bazin et a
 
 
 
-```{toctree}
-:caption: 'Tutorial:'
-:maxdepth: 1
+[//]: # (```{toctree})
 
-tutorial/prepEnv
-tutorial/inputData
-tutorial/workflows
-tutorial/AnalyseRGP
-```
+[//]: # (:caption: 'Tutorial:')
+
+[//]: # (:maxdepth: 1)
+
+[//]: # ()
+[//]: # (tutorial/prepEnv)
+
+[//]: # (tutorial/inputData)
+
+[//]: # (tutorial/workflows)
+
+[//]: # (tutorial/AnalyseRGP)
+
+[//]: # (```)
 
 ```{toctree}
 :caption: 'User Guide:'
-:maxdepth: 1
+:maxdepth: 2
 
-user/Introduction
-user/Installation
-user/Basic-usage-and-practical-information
-user/step-by-step-pangenome-analysis
-user/Regions-of-Genome-Plasticity
-user/Conserved-modules
-user/Align
-user/Genomic-context
+user/introduction
+user/install
+user/QuickUsage/quickAnalyses
+user/practicalInformation
+user/PangenomeAnalyses/pangenomeAnalyses
+user/RGP/rgpAnalyses
+user/Modules/moduleAnalyses
+user/writeGenomes
+user/align
 user/projection
+user/genomicContext
+user/MSA
 user/metadata
-user/Outputs
-user/citation
-user/issues.md
 ```
 
 ```{toctree}
@@ -85,7 +92,6 @@ dev/unitTest
 dev/workflows
 dev/buildDoc
 ```
-
 
 # Indices and tables
 [//]: # (- {ref}`ppanggolin package`)
