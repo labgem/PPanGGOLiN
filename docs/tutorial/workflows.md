@@ -25,13 +25,28 @@ The idea behind this is that you can store and manipulate your pangenome with PP
 Many option are available to tune your analysis. Take a look here.
 ```
 
-## PPanGGOLiN output available on the pangenome graph
-```{note}
-All the outputs available are not going to be describe here.
-To look at all PPanGGOLiN outputs go here.
-```
+## How to analyse the pangenome graph with PPanGGOLiN
 
 The workflow subcommand generate automatically some outputs, we are going to describe some of them that are useful and classic in pangenome analyses
+
+### Statistics and metrics on the pangenome
+#### Organisms statitics
+
+
+PPanGGOLiN can generate a tab-separated file describing the content of each of the genome used for building the pangenome.
+It might be useful when working with fragmented data such as *MAGs* or if you suspect some of your genomes to be chimeric,
+or to not belong to your taxonomic group (as those genomes will be outliers regarding to the numbers in this file).
+The first lines starting with a '#' are indicators of parameters used when generating the numbers describing each organisms, and should not be read if loading this into a spreadsheet. They will be skipped automatically if you load this file with R.
+
+This file is made of 15 columns described in the documentation here.
+
+It can be generated using the 'write' subcommand as such : 
+
+`ppanggolin write -p pangenome.h5 --stats`
+
+```{note}
+This command will also generate the 'mean_persistent_duplication.tsv' file.
+```
 
 ### U-shaped plot:  gene families frequency distribution in pangenome
 
