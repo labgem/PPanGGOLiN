@@ -24,9 +24,9 @@ Within the Output directory, the `summary_projection.tsv` file provides an overv
 
 | Column                      | Description                                                                                   |
 |-----------------------------|-----------------------------------------------------------------------------------------------|
-| Cloud specific families     | Number of cloud-specific families. These gene families do not match any existing families within the pangenome. |
-| Pangenome file              | The file path of the pangenome used in the projection.                                           |
-| New spots                   | Number of newly identified spots in the input genome.                                            |
+| Cloud_specific_families     | Number of cloud-specific families. These gene families do not match any existing families within the pangenome. |
+| Pangenome_file              | The file path of the pangenome used in the projection.                                           |
+| New_spots                   | Number of newly identified spots in the input genome.                                            |
 
 
 

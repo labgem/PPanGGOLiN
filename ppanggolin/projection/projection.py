@@ -334,7 +334,7 @@ def summarize_projected_genome(organism: Organism,
     )
 
     # Add specific values for the projected genome
-    organism_summary["Pangenome file"] = pangenome_file
+    organism_summary["Pangenome_file"] = pangenome_file
     cloud_without_specific_fams = organism_summary["Cloud"]["families"] - singleton_gene_count
     organism_summary["Cloud"]["families"] = cloud_without_specific_fams
     organism_summary["Cloud"]["specific families"] = singleton_gene_count
@@ -342,7 +342,7 @@ def summarize_projected_genome(organism: Organism,
     input_org_spots = input_org_spots
     new_spot_count = "Not computed" if input_org_spots is None else sum(
         1 for spot in input_org_spots if isinstance(spot, NewSpot))
-    organism_summary["New spots"] = new_spot_count
+    organism_summary["New_spots"] = new_spot_count
 
     return organism_summary
 

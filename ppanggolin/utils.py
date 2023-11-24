@@ -1054,7 +1054,7 @@ def flatten_nested_dict(nested_dict: Dict[str, Union[Dict, int, str, float]]) ->
 
     def flatten(dictionary, parent_key=''):
         for key, val in dictionary.items():
-            new_key = f"{parent_key} {key}" if parent_key else key
+            new_key = f"{parent_key}_{key}" if parent_key else key
             if isinstance(val, dict):
                 flatten(val, new_key)
             else:
