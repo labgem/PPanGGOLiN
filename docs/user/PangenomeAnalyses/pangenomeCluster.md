@@ -8,17 +8,35 @@ If you provided .fasta files or annotation files with gene sequences in them, cl
 ppanggolin cluster -p pangenome.h5
 ```
 
-PPanGGOLiN will call [MMseqs2](https://github.com/soedinglab/MMseqs2) to run the clustering on all the protein sequences by searching for connected components for the clustering step. 
-You can tune its parameters using `--identity`(default 0.8) and `--coverage`(default 0.8). 
-You can use other clustering algorithms of MMseqs by using --mode (default 1). 
-Both protein sequences have to be covered by at least the proportion indicated by --coverage.
-
 #### How to customize MMSeqs2 clustering
 ```{attention}
 All the MMSeqs2 options are not available in PPanGGOLiN if you want a complete view of MMSeqs2 option take a look at their documentation and you can provide your custom clustering as describe in the [next part](#read-clustering)
 ```
 
-[//]: # (TODO complete this part)
+PPanGGOLiN will call [MMseqs2](https://github.com/soedinglab/MMseqs2) to run the clustering on all the protein sequences by searching for connected components for the clustering step.
+
+##### How to set the identity and coverage parameters
+
+PPanGGOLiN allow to set 2 fundamental parameters to cluster genes into gene families, **identity** and **coverage**. 
+You can tune its parameters using `--identity`(default 0.8) and `--coverage`(default 0.8).
+The default value has been decided has they are the best and most common value to align and cluster sequences at the species level.
+
+Be aware that if you decrease the identity and/or the coverage, more genes will be clustered into one family, 
+in the end the number of families will be decreased and all the next step will be affected.  
+
+```{note}
+The choosen coverage mode in PPanGGOLiN is the one where both protein sequences have to be covered by at least the proportion indicated by --coverage.
+```
+
+##### How to set the clustering mode
+
+MMSeqs provide 3 different [clustering mode](https://github.com/soedinglab/MMseqs2/wiki#clustering-modes).
+By default the clustering mode is the _single linkage_ (or _connected component_) algorithm.
+
+Another option is the _set cover_ algorithm that you can use by using `--mode 1`.
+
+Moreover, you can use the _CD-Hit like_ clustering algorithms of MMseqs by using `--mode 2` or its low memory version with `--mode 3`.
+
 
 (read-clustering)=
 ### Providing your gene families
