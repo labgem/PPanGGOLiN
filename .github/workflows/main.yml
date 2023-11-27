@@ -28,19 +28,24 @@ jobs:
         channels: conda-forge,bioconda,defaults
         environment-file: ppanggolin_env.yaml
         activate-environment: ppanggolin
+
     - name: Install ppanggolin
+      shell: bash -l {0}
       run: |
-        pip install .
+        pip install .[test]
+
     # Check that it is installed and displays help without error
     - name: Check that PPanGGOLiN is installed
       shell: bash -l {0}
       run: |
         ppanggolin --version
         ppanggolin --help
+
     # Check that unit tests are all passing
     - name: Unit tests
       shell: bash -l {0}
       run: pytest
+
     # Test the complete workflow
     - name: Complete workflow
       shell: bash -l {0}
