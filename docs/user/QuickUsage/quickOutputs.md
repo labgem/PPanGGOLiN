@@ -32,7 +32,7 @@ The identifier of the gene family is the gene identifier chosen as a representat
 There is a 1 if the gene family is present in a genome, and 0 otherwise.
 It follows the exact same format than the 'gene_presence_absence.Rtab' file that you get from the pangenome analysis software [roary](https://sanger-pathogens.github.io/Roary/)
 
-More information about this file can be found [here](../PangenomeAnalyses/pangenomeStat.md#gene-presenceabsence)
+More information about this file can be found [here](../PangenomeAnalyses/pangenomeAnalyses.md#gene-presence-absence)
 
 #### mean persistent duplication
 This file is a .tsv file, with a single parameter written as a comment at the beginning of the file, 
@@ -50,7 +50,7 @@ mouseover to see numbers in more detail, and you can save what you are seeing as
 ![U-shaped plot _B.japonicum_](../../_static/tutorial/U-shape.gif)
 
 A dotted grey bar on the graph representing the **soft core threshold** which is the lower limit for which families are present in the majority of genomes. By default this value is 95% (so families are in more than 95 genomes).
-Look at [here](../PangenomeAnalyses/pangenomeFigures.md#u-shape-plot) to change the default parameters.
+Look at [here](../PangenomeAnalyses/pangenomeAnalyses.md#u-shape-plot) to change the default parameters.
 
 
 #### Tile plot: detect pangenome structure and outlier
@@ -66,7 +66,7 @@ the gene family and the organism that corresponds to the tile.
 
 [//]: # (TODO Explain the bar on the right side)
 
-With the 'workflow' subcommand, if you have more than 500 organisms, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise. Look at [here](../PangenomeAnalyses/pangenomeFigures.md#tile-plot) to add the cloud if you need.
+With the 'workflow' subcommand, if you have more than 500 organisms, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise. Look at [here](../PangenomeAnalyses/pangenomeAnalyses.md#tile-plot) to add the cloud if you need.
 
 ```{note}
 If you want the 'cloud' gene families even if a lot of data can be hard to open with a browser sometimes,
@@ -91,7 +91,7 @@ And you can find the *fitting* of the data by the **Heaps' law**, which is usual
 
 ### pangenomeGraph files
 The pangenome's graph can be given through multiple data formats, in order to manipulate it with other softwares.
-All the formats provided by PPanGGOLiN are describe [here](../PangenomeAnalyses/pangenomeGraph.md#pangenome-graph-output)
+All the formats provided by PPanGGOLiN are describe [here](../PangenomeAnalyses/pangenomeAnalyses.md#pangenome-graph-output)
 
 
 The Graph can be given through the _light.gexf files that contain the gene families as nodes and the edges between gene families describing their relationship. He is not exhaustive, but he is easier to manipulate and for most of the users, the information in it is enough.

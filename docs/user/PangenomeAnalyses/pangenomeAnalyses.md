@@ -1,15 +1,34 @@
 # Pangenome analyses
 
-```{include} ./pangenomeBuild.md
+## Workflow
+```{include} ./pangenomeWorkflow.md
 ```
 
-## Pangenome outputs
+## Annotation
 
+```{include} ./pangenomeAnnotation.md
+```
+
+(clustering)=
+## Compute pangenome gene families
+```{include} ./pangenomeCluster.md
+```
+
+## Graph
+```{include} ./pangenomeGraph.md
+```
+
+## Partition
+```{include} ./pangenomePartition.md
+```
+
+(pan-output)=
+## Pangenome outputs
 ```{include} ./pangenomeStat.md
 ```
 
 ```{include} ./pangenomeFigures.md
 ```
 
-```{include} ./pangenomeGraph.md
+```{include} ./pangenomeGraphOut.md
 ```

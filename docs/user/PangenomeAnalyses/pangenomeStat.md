@@ -3,6 +3,7 @@
 
 #### Genomic fluidity
 
+(gene-presence-absence)=
 #### Gene presence/absence
 
 #### Mean persistent duplication
