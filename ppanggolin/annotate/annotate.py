@@ -626,6 +626,7 @@ def launch(args: argparse.Namespace):
                            translation_table=args.translation_table, kingdom=args.kingdom, norna=args.norna,
                            allow_overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
+        # TODO add warning for option not compatible with read_annotations
         read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
