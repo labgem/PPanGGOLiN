@@ -4,13 +4,20 @@ This command will launch the [annotation](./pangenomeAnalyses.md#annotation), [c
 
 You need to provide a tab-separated list of either annotated files or fasta files. The expected format is detailed [here](./pangenomeAnalyses.md#annotation)
 
-You can use the workflow such as: `ppanggolin workflow --anno organism.gbff.list`
+You can use the workflow with annotated files such as: 
+```
+ppanggolin workflow --anno organism.gbff.list
+```
 
-Moreover, as its explained [here](./pangenomeAnalyses.md#read-clustering),
-it's also possible to provide your own clustering in the workflow command as such:
+For fasta files, you have to change for this command: 
+```
+ppanggolin workflow --fasta organism.fasta.list
+```
+
+Moreover, as its explained [here](./pangenomeAnalyses.md#read-clustering), it's also possible to provide your own clustering in the workflow command as such:
 
 ```
-ppanggolin workflow --annot organism.gbff.list --clusters clusters.tsv
+ppanggolin workflow --anno organism.gbff.list --clusters clusters.tsv
 ```
 
 All the option are common to the command explain below, so you can have complete information by reading them. 
