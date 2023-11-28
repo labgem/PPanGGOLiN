@@ -1,13 +1,10 @@
 # Installation
 
-## Latest version 
+## Installing PPanGGOLiN with Conda (recomended)
 
-### Install with conda (recommended)
+The best way to install PPanGGOLiN by utilizing conda, available through the bioconda channel. To ensure a smoother installation and avoid conflicting dependencies, it's highly recommended to create a dedicated environment for PPanGGOLiN:
 
-The recommended way of installing PPanGGOLiN is to do it using conda. 
-To prevent conflicting dependencies, we also recommend to install PPanGGOLiN in its own environment as such
-
-```
+```bash
 # Install into a new conda environment
 conda create -n ppanggo -c conda-forge -c bioconda ppanggolin
 
@@ -17,96 +14,137 @@ ppanggolin --version
 ```
 
 ```{tip}
-You can also use mamba, which is much quicker and sometimes help solving conflicting dependencies
-```
-
-Sometimes, installation problems come from having an unsupported python version installed by default in your environment.
-Forcing the python version solves the problem:
-
-``` 
-conda create -n ppanggo -c conda-forge -c bioconda ppanggolin python=3.10
+  For quicker installation and potential resolution of conflicting dependencies, consider using Mamba, an efficient alternative to conda.
 ```
 
 ```{note}
 Supported python version are 3.8, 3.9 and 3.10
 ```
 
-### Install from source code (GitHub)
 
-If you want to install from the source code, you should respect some step before.
+## Installing from Source Code (GitHub)
 
-```{warning}
-This is a manual installation, we can help, but not support all troubleshooting. Prefer to use the conda installation whenever possible.
+### Within a Conda Environment
+
+A straightforward method to install PPanGGOLiN from the source code is by utilizing a conda environment that includes all the necessary dependencies.
+
+**1. Clone the PPanGGOLiN Repository**
+
+```bash
+git clone https://github.com/labgem/PPanGGOLiN.git
+cd PPanGGOLiN
 ```
 
-First, you must install the python dependencies.
-For that, create a *dependencies.txt* file and copy/paste the next content.
+**2. Installing Dependencies with a Conda Environment File**
+
+Install PPanGGOLiN dependencies listed in the [ppanggolin_env.yaml](../../ppanggolin_env.yaml) file, located at the root of the repository, using conda:
+
+```bash
+conda create -n ppanggolin_source -f ppanggolin_env.yaml
+```
+
+**3. Installing PPanGGOLiN**
+
+Finally, install PPanGGOLiN using **pip**:
+
+```bash
+pip install .
+```
+
+### Manual Installation
+
+If you prefer to install PPanGGOLiN without using conda, follow these steps:
+
+```{warning}
+Please note that this method involves manual installation. While assistance is available, complete troubleshooting support may not be provided. We strongly recommend using the conda installation method whenever possible.
+```
+
+**1. Clone the PPanGGOLiN Repository**
+
+```bash
+git clone https://github.com/labgem/PPanGGOLiN.git
+cd PPanGGOLiN
+```
+
+**2. Installing PPanGGOLiN Dependencies**
+
+To ensure the tool functions correctly, you need to install all dependencies listed in the [ppanggolin_env.yaml](../../ppanggolin_env.yaml) file.
+
+**2.1. Installing Python Dependencies**
+
+Create a file named `requirements.txt` and add the following contents:
 
 ```text
-tqdm>=4.66.0
-tables>=3.8.0
+tqdm>=4.64
+pytables>=3.7
 pyrodigal>=3.0.1
 networkx>=3.0
+dataclasses>=0.8
 scipy>=1.10.0
-plotly>=5.16.0
-gmpy2>=2.1.0
-pandas>=2.0.0
+plotly>=4.14.3
+gmpy2>=2.1.2
+pandas>=2.0
 colorlover>=0.3
-numpy>=1.24.0
-bokeh>=3.1.0
+numpy>=1.24
+bokeh>=2.4.2,<3
 ```
 
-Next, you can use **pip** to install dependencies
+Then, use **pip** to install these dependencies:
 
 ```bash
-python3 -m pip install -r dependencies.txt
+python3 -m pip install -r requirements.txt
 ```
-```{warning}
-Be sure to use a python version greater than 3.8 !
-```
-Then you must install the following software:
 
+```{warning}
+Ensure you are using Python version 3.8 or higher.
+```
+
+**2.2. Installing Required Software**
+
+Install the following non-Python software:
+
+- [MMSeqs2>=13.45111](https://github.com/soedinglab/MMseqs2/wiki#installation)
 - [Aragorn>=1.2.41](http://www.ansikte.se/ARAGORN/Downloads/)
 - [Infernal>=1.1.4](http://eddylab.org/infernal/)
-- [MMSeqs2>=13.45111](https://github.com/soedinglab/MMseqs2/wiki#installation)
+- [MAFFT>=7.505](https://mafft.cbrc.jp/alignment/software/)
 
-To finish, you can install ppanggolin by cloning the GitHub repository and using **pip**
+```{note}
+- MMSeqs2 is crucial for gene clustering, while Aragorn and Infernal are used for genome annotation.
+- MAFFT is utilized in the `ppanggolin msa` command for multiple sequence alignment.
+- Skip installing Aragorn, Infernal, or MAFFT if you do not require their specific features.
+```
+
+**3. Installing PPanGGOLiN**
+
+Finally, install PPanGGOLiN using **pip**:
 
 ```bash
-git clone https://github.com/labgem/PPanGGOLiN.git
-cd PPanGGOLiN
 pip install .
 ```
 
-## Development version
+## Development Version
 
-If you want to use the development version, you can use the 'dev' branch on GitHub.
-While it is not guaranteed to work, it should most of the time.
+If you wish to utilize the development version of PPanGGOLiN, you can access the 'dev' branch on GitHub. Please note that while its functionality is not guaranteed, it typically works most of the time.
 
+Follow these steps to obtain and install the development version:
 
-You need to clone the repository on your computer, as followed:
+**1. Clone the Repository**
+
+Clone the 'dev' branch of the repository onto your local machine:
 
 ```bash
-git clone https://github.com/labgem/PPanGGOLiN.git
+git clone --branch dev https://github.com/labgem/PPanGGOLiN.git
 cd PPanGGOLiN
-git checkout -b dev
-git branch --set-upstream-to=origin/dev dev
-git pull 
 ```
 
-Then you will need to have all the dependencies.
-You can install them as described [above](#install-from-source-code-github) with **pip** or by using **conda** and the [*requirements.txt file*](https://github.com/labgem/PPanGGOLiN/blob/dev/requirements.txt) as such:
+**2. Install Dependencies**
 
-```
-conda create -n ppanggo -c conda-forge -c bioconda --file requirements.txt 
-```
+Ensure you have all the necessary dependencies installed. Refer to the [installation instructions above](#installing-from-source-code-github) for guidance on installing dependencies.
 
-Then you will need to install ppanggolin. 
-You can use pip while in your conda environment, which is the preferred way of doing. 
-For this, place yourself at the root of the repository and run : 
+**3. Install PPanGGOLiN**
 
-```
+Once dependencies are installed, proceed to install PPanGGOLiN using **pip**:
+
+```bash
 pip install .
 ```
-
-It should install PPanGGOLiN in your conda environment.
