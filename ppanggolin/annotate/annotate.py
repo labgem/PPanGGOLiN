@@ -542,7 +542,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: List[Path]
             raise KeyError(f"One of the genome in your '{fasta_files}' was not found in the pan."
                            f" This might mean that the genome names between your annotation file and "
                            f"your fasta file are different.")
-        with read_compressed_or_not(elements[1]) as currFastaFile:
+        with read_compressed_or_not(Path(elements[1])) as currFastaFile:
             fasta_dict[org] = read_fasta(org, currFastaFile)
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
