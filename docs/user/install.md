@@ -77,10 +77,9 @@ Create a file named `requirements.txt` and add the following contents:
 
 ```text
 tqdm>=4.64
-pytables>=3.7
+tables>=3.7
 pyrodigal>=3.0.1
 networkx>=3.0
-dataclasses>=0.8
 scipy>=1.10.0
 plotly>=4.14.3
 gmpy2>=2.1.2
