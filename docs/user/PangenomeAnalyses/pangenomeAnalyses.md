@@ -27,6 +27,9 @@
 ```{include} ./pangenomeStat.md
 ```
 
+```{include} ./pangenomeMetric.md
+```
+
 ```{include} ./pangenomeFigures.md
 ```
 

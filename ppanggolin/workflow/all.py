@@ -18,7 +18,8 @@ from ppanggolin.graph.makeGraph import compute_neighbors_graph
 from ppanggolin.nem.rarefaction import make_rarefaction_curve
 from ppanggolin.nem.partition import partition
 from ppanggolin.formats.writeBinaries import write_pangenome
-from ppanggolin.formats.writeFlat import write_flat_files
+from ppanggolin.formats.writeFlatPangenome import write_pangenome_flat_files
+from ppanggolin.formats.writeFlatGenomes import write_flat_genome_files
 from ppanggolin.figures.ucurve import draw_ucurve
 from ppanggolin.figures.tile_plot import draw_tile_plot
 from ppanggolin.figures.draw_spot import draw_spots
@@ -198,36 +199,51 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         start_desc = time.time()
 
-        write_out_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json']
+        write_pangenome_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json', "families_tsv"]
 
         # Check that we don't ask write to output something not computed.
-        borders, spots, regions, spot_modules, modules = (False, False, False, False, False)
+        borders, spots, spot_modules, modules = (False, False, False, False)
 
         if panmodule:
-            modules = args.write.modules
-            write_out_arguments.append('modules')
+            modules = args.write_pangenome.modules
+            write_pangenome_arguments.append('modules')
 
         if panrgp:
-            borders, spots, regions = (args.write.borders, args.write.spots, args.write.regions)
-            write_out_arguments += ["borders", "spots", 'regions']
+            borders, spots = (args.write_pangenome.borders, args.write_pangenome.spots)
+            write_pangenome_arguments += ["borders", "spots"]
 
         if panmodule and panrgp:
-            spot_modules = args.write.spot_modules
-            write_out_arguments.append('spot_modules')
+            spot_modules = args.write_pangenome.spot_modules
+            write_pangenome_arguments.append('spot_modules')
 
         # check that at least one output file is requested. if not write is not call.
-        if any((getattr(args.write, arg) is True for arg in write_out_arguments)):
+        if any((getattr(args.write_pangenome, arg) is True for arg in write_pangenome_arguments)):
             # some parameters are set to false because they have not been computed in this workflow
-            write_flat_files(pangenome, args.output, cpu=args.write.cpu, disable_bar=args.disable_prog_bar,
-                             soft_core=args.write.soft_core, dup_margin=args.write.dup_margin,
-                             csv=args.write.csv, gene_pa=args.write.Rtab, gexf=args.write.gexf,
-                             light_gexf=args.write.light_gexf, projection=args.write.projection,
-                             stats=args.write.stats, json=args.write.json, partitions=args.write.partitions,
-                             families_tsv=args.write.families_tsv,
-                             compress=args.write.compress,
-                             spot_modules=spot_modules, regions=regions, modules=modules, spots=spots, borders=borders)
+            write_pangenome_flat_files(pangenome, args.output, cpu=args.write_pangenome.cpu, disable_bar=args.disable_prog_bar,
+                             soft_core=args.write_pangenome.soft_core, dup_margin=args.write_pangenome.dup_margin,
+                             csv=args.write_pangenome.csv, gene_pa=args.write_pangenome.Rtab, gexf=args.write_pangenome.gexf,
+                             light_gexf=args.write_pangenome.light_gexf,
+                             stats=args.write_pangenome.stats, json=args.write_pangenome.json, partitions=args.write_pangenome.partitions,
+                             families_tsv=args.write_pangenome.families_tsv,
+                             compress=args.write_pangenome.compress,
+                             spot_modules=spot_modules, modules=modules, spots=spots, borders=borders)
+            
         else:
-            logging.getLogger("PPanGGOLiN").info('No flat file output has been requested in config file. Writing output flat file is skipped.')
+            logging.getLogger("PPanGGOLiN").info('No flat file describing the pangenome has been requested in config file. '
+                                                 'Writing output pangenome flat file is skipped.')
+
+        write_genomes_arguments = ['proksee', "table", "gff"]
+        if any((getattr(args.write_genomes, arg) is True for arg in write_genomes_arguments)):
+            write_flat_genome_files(pangenome, args.output,
+                                    proksee=args.write_genomes.proksee,
+                                    table=args.write_genomes.table,
+                                    gff=args.write_genomes.gff,
+                                    add_metadata=False,
+                                    compress=args.write_genomes.compress,
+                                    disable_bar=args.disable_prog_bar, cpu=args.write_genomes.cpu)
+        else:
+            logging.getLogger("PPanGGOLiN").info('No flat file of genomes with pangenome annotation has been requested in config file. '
+                                                 'Writing output genomes flat file is skipped.')
 
         desc_time = time.time() - start_desc
 

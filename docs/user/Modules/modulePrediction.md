@@ -10,7 +10,7 @@ The module prediction is launched after the pangenome partitionning with the def
 If you want to tune the module detection, you can use the `module` command after the `workflow`.
 
 
-Further details can be found in the [conserved module analysis documentation](#module-section) and in the [panModule publication](https://doi.org/10.1101/2021.12.06.471380)
+Further details can be found in the [panModule publication](https://doi.org/10.1101/2021.12.06.471380) as well as in the section.
 
 ## Predict conserved module
 

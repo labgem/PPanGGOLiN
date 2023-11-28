@@ -5,7 +5,6 @@ import ppanggolin.annotate
 import ppanggolin.cluster
 import ppanggolin.figures
 import ppanggolin.formats
-# import ppanggolin.info
 import ppanggolin.metrics
 import ppanggolin.align
 import ppanggolin.RGP
@@ -13,7 +12,6 @@ import ppanggolin.mod
 import ppanggolin.context
 import ppanggolin.workflow
 import ppanggolin.projection
-# import ppanggolin.utility
 import ppanggolin.meta
 
 SUBCOMMAND_TO_SUBPARSER = {
@@ -27,7 +25,8 @@ SUBCOMMAND_TO_SUBPARSER = {
     "panModule": ppanggolin.workflow.panModule.subparser,
     "all": ppanggolin.workflow.all.subparser,
     "draw": ppanggolin.figures.subparser,
-    "write": ppanggolin.formats.writeFlat.subparser,
+    "write_pangenome": ppanggolin.formats.writeFlatPangenome.subparser,
+    "write_genomes": ppanggolin.formats.writeFlatGenomes.subparser,
     "fasta": ppanggolin.formats.writeSequences.subparser,
     "msa": ppanggolin.formats.writeMSA.subparser,
     "metrics": ppanggolin.metrics.metrics.subparser,

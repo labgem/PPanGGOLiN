@@ -84,33 +84,33 @@ def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 
 
     :return: path to representative sequence file and path to tsv clustering result
     """
-    seq_nucdb = tmpdir/'nucleotid_sequences_db'
+    seq_nucdb = tmpdir / 'nucleotid_sequences_db'
     cmd = list(map(str, ["mmseqs", "createdb", sequences.name, seq_nucdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
-    seqdb = tmpdir/'aa_db'
+    seqdb = tmpdir / 'aa_db'
     cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", cpu, "--translation-table", code]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").info("Clustering sequences...")
-    cludb = tmpdir/'cluster_db'
+    cludb = tmpdir / 'cluster_db'
     cmd = list(map(str, ["mmseqs", "cluster", seqdb, cludb, tmpdir, "--cluster-mode", mode, "--min-seq-id",
                          identity, "-c", coverage, "--threads", cpu, "--kmer-per-seq", 80, "--max-seqs", 300]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").info("Extracting cluster representatives...")
-    repdb = tmpdir/'representative_db'
+    repdb = tmpdir / 'representative_db'
     cmd = list(map(str, ["mmseqs", "result2repseq", seqdb, cludb, repdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    reprfa = tmpdir/'representative_sequences.fasta'
+    reprfa = tmpdir / 'representative_sequences.fasta'
     cmd = list(map(str, ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").info("Writing gene to family informations")
-    outtsv = tmpdir/'families_tsv'
+    outtsv = tmpdir / 'families_tsv'
     cmd = list(map(str, ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv, "--threads", cpu, "--full-header"]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -149,18 +149,18 @@ def align_rep(faa_file: Path, tmpdir: Path, cpu: int = 1, coverage: float = 0.8,
     :return: Result of alignment
     """
     logging.getLogger("PPanGGOLiN").debug("Create database")
-    seqdb = tmpdir/'rep_sequence_db'
+    seqdb = tmpdir / 'rep_sequence_db'
     cmd = list(map(str, ["mmseqs", "createdb", faa_file, seqdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").info("Aligning cluster representatives...")
-    alndb = tmpdir/'rep_alignment_db'
+    alndb = tmpdir / 'rep_alignment_db'
     cmd = list(map(str, ["mmseqs", "search", seqdb, seqdb, alndb, tmpdir, "-a", "--min-seq-id", identity,
                          "-c", coverage, "--cov-mode", 1, "--threads", cpu]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").info("Extracting alignments...")
-    outfile = tmpdir/'rep_families.tsv'
+    outfile = tmpdir / 'rep_families.tsv'
     cmd = list(map(str, ["mmseqs", "convertalis", seqdb, seqdb, alndb, outfile,
                          "--format-output", "query,target,qlen,tlen,bits"]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
@@ -186,7 +186,8 @@ def read_tsv(tsv_file_name: Path) -> Tuple[Dict[str, Tuple[str, bool]], Dict[str
     return genes2fam, fam2genes
 
 
-def refine_clustering(tsv: str, aln_file: str, fam_to_seq: dict) -> Tuple[Dict[str, Tuple[str, bool]], Dict[str, str]]:
+def refine_clustering(tsv: Path, aln_file: Path,
+                      fam_to_seq: dict) -> Tuple[Dict[str, Tuple[str, bool]], Dict[str, str]]:
     """
     Refine clustering by removing fragment
 
@@ -302,7 +303,7 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     """
 
     if keep_tmp_files:
-        dir_name = 'clustering_tmpdir' +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime())
+        dir_name = 'clustering_tmpdir' + time.strftime("_%Y-%m-%d_%H.%M.%S", time.localtime())
         tmp_path = Path(tmpdir) / dir_name
         mk_outdir(tmp_path, force=True)
     else:
@@ -337,7 +338,7 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     pangenome.parameters["cluster"]["mode"] = mode
     pangenome.parameters["cluster"]["# defragmentation"] = defrag
     pangenome.parameters["cluster"]["no_defrag"] = not defrag
-    
+
     pangenome.parameters["cluster"]["translation_table"] = code
     pangenome.parameters["cluster"]["# read_clustering_from_file"] = False
 
@@ -441,9 +442,10 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
             if infer_singleton:
                 infer_singletons(pangenome)
             else:
-                raise Exception(f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) did not have an associated "
-                                f"cluster. Either change your cluster file so that each gene has a cluster, "
-                                f"or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
+                raise Exception(
+                    f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) did not have an associated "
+                    f"cluster. Either change your cluster file so that each gene has a cluster, "
+                    f"or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
     pangenome.status["genesClustered"] = "Computed"
     if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
@@ -526,8 +528,7 @@ def parser_clust(parser: argparse.ArgumentParser):
     optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
-                        help="Keeping temporary files (useful for debugging).")
-    
+                          help="Keeping temporary files (useful for debugging).")
 
 
 if __name__ == '__main__':

@@ -47,4 +47,4 @@ Will draw a rarefaction curve with sample sizes between 5 and 50 (between 5 and 
 
 #### ProkSee
 
-[//]: # (TODO after merge with split command)
+It is possible to 
