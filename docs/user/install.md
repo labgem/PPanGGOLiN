@@ -1,8 +1,13 @@
 # Installation
 
-## Installing PPanGGOLiN with Conda (recomended)
+```{warning}
+Supported python version are 3.8, 3.9 and 3.10
+```
 
-The best way to install PPanGGOLiN by utilizing conda, available through the bioconda channel. To ensure a smoother installation and avoid conflicting dependencies, it's highly recommended to create a dedicated environment for PPanGGOLiN:
+## Installing PPanGGOLiN with Conda (recommended)
+
+The best way to install PPanGGOLiN is through conda, accessible through the bioconda channel.
+To ensure a smoother installation and avoid conflicting dependencies, it's highly recommended to create a dedicated environment for PPanGGOLiN:
 
 ```bash
 # Install into a new conda environment
@@ -15,10 +20,6 @@ ppanggolin --version
 
 ```{tip}
   For quicker installation and potential resolution of conflicting dependencies, consider using Mamba, an efficient alternative to conda.
-```
-
-```{note}
-Supported python version are 3.8, 3.9 and 3.10
 ```
 
 
