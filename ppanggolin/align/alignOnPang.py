@@ -278,10 +278,10 @@ def project_and_write_partition(seqid_to_gene_family: Dict[str, GeneFamily], seq
 
     partition_proj = output.absolute() / "sequences_partition_projection.tsv"
     with open(partition_proj, "w") as partProjFile:
-        for input_seq, pangFam in seqid_to_gene_family.items():
-            partProjFile.write(input_seq + "\t" + pangFam.named_partition + "\n")
-        for remainingSeq in seq_set - seqid_to_gene_family.keys():
-            partProjFile.write(remainingSeq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
+        for input_seq, gene_fam in seqid_to_gene_family.items():
+            partProjFile.write(input_seq + "\t" + gene_fam.named_partition + "\n")
+        for remaining_seq in seq_set - seqid_to_gene_family.keys():
+            partProjFile.write(remaining_seq + "\tcloud\n")  # if there is no hit, it's going to be cloud genes.
     return partition_proj
 
 
@@ -298,11 +298,11 @@ def write_gene_to_gene_family(seqid_to_gene_family: Dict[str, GeneFamily], seq_s
 
     gene_fam_map_file = output.absolute() / "gene_to_gene_family.tsv"
     with open(gene_fam_map_file, "w") as partProjFile:
-        for input_seq, pangFam in seqid_to_gene_family.items():
-            partProjFile.write(f"{input_seq}\t{pangFam.name}\n")
+        for input_seq, gene_fam in seqid_to_gene_family.items():
+            partProjFile.write(f"{input_seq}\t{gene_fam.name}\n")
 
-        for remainingSeq in seq_set - seqid_to_gene_family.keys():
-            partProjFile.write(f"{remainingSeq}\t{remainingSeq}\n")  # if there is no hit, gene family is itself.
+        for remaining_seq in seq_set - seqid_to_gene_family.keys():
+            partProjFile.write(f"{remaining_seq}\t{remaining_seq}\n")  # if there is no hit, gene family is itself.
 
     return gene_fam_map_file
 
@@ -517,9 +517,8 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files: Itera
 
 def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: float = 0.8,
           coverage: float = 0.8, no_defrag: bool = False, cpu: int = 1, getinfo: bool = False,
-          use_representatives: bool = False,
-          draw_related: bool = False, translation_table: int = 11, tmpdir: Path = None,
-          disable_bar: bool = False, keep_tmp=False):
+          use_representatives: bool = False, draw_related: bool = False, translation_table: int = 11, 
+          tmpdir: Path = None, disable_bar: bool = False, keep_tmp=False):
     """
     Aligns pangenome sequences with sequences in a FASTA file using MMSeqs2.
 

@@ -198,7 +198,7 @@ def get_metadata_len(select_elem: Union[List[Gene], List[Organism], List[GeneFam
                 if isinstance(value, float) or isinstance(value, int):
                     if attr in type_dict:
                         if type_dict[attr] != type(value):
-                            if isinstance(value, float) and type_dict[attr] == int:
+                            if isinstance(value, float) and isinstance(type_dict[attr], int):
                                 type_dict[attr] = tables.Float64Col()
                     else:
                         if isinstance(value, float):

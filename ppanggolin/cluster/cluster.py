@@ -310,9 +310,7 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
         newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
         tmp_path = Path(newtmpdir.name)
 
-    # newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-    # tmp_path = Path(newtmpdir.name)
-    with open(tmp_path / 'nucleotid_sequences', "w") as sequence_file:
+    with open(tmp_path/'nucleotid_sequences', "w") as sequence_file:
         check_pangenome_for_clustering(pangenome, sequence_file, force, disable_bar=disable_bar)
         logging.getLogger("PPanGGOLiN").info("Clustering all of the genes sequences...")
         rep, tsv = first_clustering(sequence_file, tmp_path, cpu, code, coverage, identity, mode)

@@ -647,10 +647,10 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
                          need_rgp=True, need_spots=True, need_modules=need_mod, disable_bar=disable_bar)
 
     if spot_list == 'all' or any(x == 'all' for x in spot_list):
-        logging.getLogger("PPanGGOLiN").debug(f"'all' value is found in spot list, all spots are drawn.")
+        logging.getLogger("PPanGGOLiN").debug("'all' value is found in spot list, all spots are drawn.")
         selected_spots = list(pangenome.spots)
     elif spot_list == "synteny" or any(x == 'synteny' for x in spot_list):
-        logging.getLogger().debug(f"'synteny' value is found in spot list, all spots with more than 1 conserved synteny are drawn.")
+        logging.getLogger().debug("'synteny' value is found in spot list, all spots with more than 1 conserved synteny are drawn.")
         selected_spots = [s for s in pangenome.spots if len(s.get_uniq_ordered_set()) > 1]
     else:
         curated_spot_list = {'spot_' + str(s) if not s.startswith("spot_") else str(s) for s in spot_list}

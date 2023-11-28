@@ -347,16 +347,16 @@ class GeneFamily(MetaFeatures):
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
         if partition == 'all':
-            logging.getLogger("PPanGGOLiN").debug(f"all")
+            logging.getLogger("PPanGGOLiN").debug("all")
             for org in self.organisms:
                 self.bitarray[index[org]] = 1
         elif partition in ['shell', 'cloud']:
-            logging.getLogger("PPanGGOLiN").debug(f"shell, cloud")
+            logging.getLogger("PPanGGOLiN").debug("shell, cloud")
             if self.named_partition == partition:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
         elif partition == 'accessory':
-            logging.getLogger("PPanGGOLiN").debug(f"accessory")
+            logging.getLogger("PPanGGOLiN").debug("accessory")
             if self.named_partition in ['shell', 'cloud']:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1

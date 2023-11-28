@@ -486,7 +486,7 @@ def get_arg_name(arg_val: Union[str, TextIOWrapper]) -> Union[str, TextIOWrapper
     :return: Either a string or a TextIOWrapper object, depending on the type of the input argument.
     """
 
-    if type(arg_val) == TextIOWrapper:
+    if isinstance(arg_val, TextIOWrapper):
         return arg_val.name
     return arg_val
 
@@ -739,7 +739,7 @@ def check_config_consistency(config: dict, workflow_steps: list):
         """
         hashable_values = set()
         for value in values:
-            hashable_value = tuple(value) if type(value) == list else value
+            hashable_value = tuple(value) if isinstance(value, list) else value
             hashable_values.add(hashable_value)
         return len(hashable_values)
 
@@ -771,7 +771,7 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
     arguments_to_parse = []
     for param, val in config_param_val.items():
 
-        if type(val) == bool or val is None or val == "None":
+        if isinstance(val, bool) or val is None or val == "None":
             # param is a flag
             if val is True:
                 arguments_to_parse.append(f"--{param}")
@@ -779,7 +779,7 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
         else:
             arguments_to_parse.append(f"--{param}")
 
-            if type(val) == list:
+            if isinstance(val, list):
                 # range of values need to be added one by one
                 arguments_to_parse += [str(v) for v in val]
             else:
@@ -912,8 +912,6 @@ def get_cli_args(subparser_fct: Callable) -> argparse.Namespace:
     # remove argument that have not been specified
     delete_unspecified_args(cli_args)
     delattr(cli_args, 'subcommand')
-    # if 'config' in cli_args:
-    #     delattr(cli_args, 'config')
 
     return cli_args
 
