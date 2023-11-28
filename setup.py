@@ -14,7 +14,7 @@ if __name__ == "__main__":
         url="https://github.com/labgem/PPanGGOLiN",
         description="Pangenome analysis suite",
         packages=setuptools.find_packages(),
-        setup_requires==["cython<3.0.0"],
+        setup_requires=["cython<3.0.0"],
         install_requires=[],
         package_data={'': ['rRNA_DB/*cm*']},
         classifiers=["Environment :: Console",
