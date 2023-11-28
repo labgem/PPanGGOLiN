@@ -334,7 +334,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 attributes = get_gff_attributes(fields_gff)
                 pseudogene = False
                 if fields_gff[gff_type] == 'region':
-                    if fields_gff[gff_seqname] in circular_contigs:
+                    if fields_gff[gff_seqname] in circular_contigs or ('Is_circular' in attributes and
+                                                                       attributes['Is_circular']):
                         contig.is_circular = True
                 elif fields_gff[gff_type] == 'CDS' or "RNA" in fields_gff[gff_type]:
                     gene_id = attributes.get("PROTEIN_ID")
