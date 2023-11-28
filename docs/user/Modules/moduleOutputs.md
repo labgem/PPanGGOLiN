@@ -59,4 +59,4 @@ The file 'modules_RGP_lists.tsv' lists RGPs that have the same modules. Those RG
 |mod_list| a list of the modules that are in the indicated RGPs|
 |RGP_list| a list of RGP that include exactly the modules listed previously|
 
-This information can also be visualized through figures that can be drawn with `ppanggolin draw --spots` (see [Spot plots](../RGP/rgpOutputs.md/), and which can display modules).
+This information can also be visualized through figures that can be drawn with `ppanggolin draw --spots` (see [Spot plots](../RGP/rgpOutputs.md#draw-spots), and which can display modules).
