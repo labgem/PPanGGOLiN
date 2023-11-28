@@ -1218,11 +1218,11 @@ def launch(args: argparse.Namespace):
 
     predict_rgp, project_spots, project_modules = check_pangenome_for_projection(pangenome, args.fast)
 
-    
+    need_graph =True if args.table else False
 
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar,
                          need_rgp=predict_rgp, need_modules=project_modules, need_gene_sequences=False,
-                         need_spots=project_spots)
+                         need_spots=project_spots, need_graph=need_graph)
     
     logging.getLogger('PPanGGOLiN').info('Retrieving parameters from the provided pangenome file.')
     pangenome_params = argparse.Namespace(
