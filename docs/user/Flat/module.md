@@ -1,7 +1,7 @@
 #### Functional modules
 This .tsv file lists the modules and the gene families that belong to them. It lists one family per line, and there are multiple line for each module.
 It is written along with other files with the following command:
-`ppanggolin write -p pangenome.h5 --modules`
+`ppanggolin write_pangenome -p pangenome.h5 --modules`
 
 It follows the following format:
 |column|description|
@@ -12,7 +12,7 @@ It follows the following format:
 #### Modules in organisms
 This .tsv file lists for each organism the modules that are present and how complete they are. Since there are some variability that are allowed in the module predictions, occasionnally some modules can be incomplete in some of the organisms where they are found.
 This file is written along with other files with the following command:
-`ppanggolin write -p pangenome.h5 --modules`
+`ppanggolin write_pangenome -p pangenome.h5 --modules`
 
 And it follows the following format:
 |column|description|
@@ -24,7 +24,7 @@ And it follows the following format:
 #### modules summary
 This .tsv file lists a few characteristics for each detected module. There is one line for each module.
 The file is written along with other files with the following command:
-`ppanggolin write -p pangenome.h5 --modules`
+`ppanggolin write_pangenome -p pangenome.h5 --modules`
 
 And it follows the following format:
 |column|description|
@@ -39,7 +39,7 @@ And it follows the following format:
 This command is available only if both modules and spots have been computed for your pangenome (see the command `all`, or the commands `spot` and `module` for that).
 It indicates which modules are present in which spot and in which RGP.
 The files are written with the following command:
-```ppanggolin write -p pangenome.h5 --spot_modules```
+```ppanggolin write_pangenome -p pangenome.h5 --spot_modules```
 The format of the 'modules_spots.tsv' file is the following:
 
 |column|description|
@@ -56,4 +56,4 @@ The file 'modules_RGP_lists.tsv' lists RGPs that have the same modules. Those RG
 |mod_list| a list of the modules that are in the indicated RGPs|
 |RGP_list| a list of RGP that include exactly the modules listed previously|
 
-This information can also be visualized through figures that can be drawn with `ppanggolin draw --spots` (see [Spot plots](https://github.com/labgem/PPanGGOLiN/wiki/Outputs#spot-plots), and which can display modules.
+This information can also be visualized through figures that can be drawn with `ppanggolin draw --spots` (see [Spot plots](https://github.com/labgem/PPanGGOLiN/wiki/Outputs#spot-plots), and which can display modules.)

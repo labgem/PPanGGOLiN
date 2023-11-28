@@ -2,4 +2,4 @@ Those files will be stored in the 'partitions' directory and will be named after
 
 You can generate those files as such :  
 
-` ppanggolin write -p pangenome.h5 --partitions`
+` ppanggolin write_pangenome -p pangenome.h5 --partitions`

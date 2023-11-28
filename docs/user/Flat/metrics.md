@@ -23,9 +23,11 @@ It could be necessary to get more information about the modules.
 Here we provide information about families, and we separate modules in 
 function of the partition. You can get this supplementary information 
 as such :
-```
+```bash
 ppanggolin metrics -p pangenome.h5 --info_modules
-...
+```
+
+```
 Modules : 3
 Families in Modules : 22  (min : 5, max : 9, sd : 2.08, mean : 7.33)
 	Sheel specific : 36.36  (sd : 4.62, mean : 2.67)

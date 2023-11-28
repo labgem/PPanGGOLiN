@@ -16,7 +16,7 @@ readthedocs-sphinx-search==0.3.1
 sphinx-autobuild==2021.3.14
 myst-parser==1.0.0
 ```
-To build the doc you need to use an environnement with panorama installed. 
+To build the doc you need to use an environment with panorama installed. 
 To make think easier [pyproject.toml file](../../pyproject.toml) contain the same list of requirement 
 and can install everything automatically with pip.
 ```shell
@@ -35,8 +35,7 @@ sphinx-autobuild source/ build/
 ```
 
 ```{note}
-The package [readthedocs-sphinx-search](https://readthedocs-sphinx-search.readthedocs.io/en/latest/) "enable search as 
-you type for docs hosted on Read the Docs". It's only work on ReadTheDocs web site `[INFO] Docs are not being served on Read the Docs, readthedocs-sphinx-search will not work.`, don't try to make it work.
+The package [readthedocs-sphinx-search](https://readthedocs-sphinx-search.readthedocs.io/en/latest/) "enable search as you type for docs hosted on Read the Docs". It's only work on ReadTheDocs web site `[INFO] Docs are not being served on Read the Docs, readthedocs-sphinx-search will not work.`, don't try to make it work.
 ```
 
 ### Modify existing documentation

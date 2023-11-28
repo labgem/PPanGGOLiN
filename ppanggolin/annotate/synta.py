@@ -81,7 +81,8 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
     return gene_objs
 
 
-def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int = 11, use_meta: bool = False) -> defaultdict:
+def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int = 11,
+                    use_meta: bool = False) -> defaultdict:
     """
     Launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the pred genes.
 
@@ -98,7 +99,7 @@ def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int =
         meta=use_meta,  # '-p meta' if meta is true else '-p single'
         closed=True,  # -c: Closed ends. Do not allow genes to run off edges.
         mask=True,  # -m: Treat runs of N as masked sequence; don't build genes across them.
-        min_gene=120  # This is to prevent erreur with mmseqs translatenucs that cut too short sequences
+        min_gene=120  # This is to prevent error with mmseqs translatenucs that cut too short sequences
     )
     gene_finder.train(max(sequences.values(), key=len), force_nonsd=False,
                       translation_table=code)  # -g: Specify a translation table to use (default 11).
@@ -289,7 +290,7 @@ def overlap_filter(all_genes: defaultdict, allow_overlap: bool = False) -> defau
     return sorted_genes
 
 
-def get_dna_sequence(contig_seq: str, gene: Gene) -> str:
+def get_dna_sequence(contig_seq: str, gene: Union[Gene, RNA]) -> str:
     """Return the gene sequence
 
     :param contig_seq: Contig sequence

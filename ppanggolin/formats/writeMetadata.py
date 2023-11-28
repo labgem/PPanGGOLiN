@@ -5,14 +5,15 @@
 import logging
 from typing import Dict, List, Tuple, Union
 
-import numpy
+
 # installed libraries
 from tqdm import tqdm
+import numpy
 import tables
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.genome import Organism, Gene
+from ppanggolin.genome import Organism, Gene, Contig
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
 
@@ -90,7 +91,80 @@ def desc_metadata(max_len_dict: Dict[str, int], type_dict: Dict[str, tables.Col]
     return desc_dict
 
 
-def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, tables.Col], Dict[str, int], int]:
+def get_metadata_contig_len(select_ctg: List[Contig], source: str) -> Tuple[Dict[str, int], Dict[str, tables.Col], int]:
+    """Get maximum size of contig metadata information
+
+    :param select_ctg: selected elements from source
+    :param source: Name of the metadata source
+
+    :return: Maximum type and size of each element
+    """
+    type_dict = {"ID": tables.Int64Col()}
+    max_len_dict = {}
+    expected_rows = 0
+
+    for contig in select_ctg:
+        for metadata in contig.get_metadata_by_source(source):
+            for attr, value in ((k, v) for k, v in metadata.__dict__.items() if k != "source"):
+                if isinstance(value, bytes):
+                    value = value.decode('UTF-8')
+                if isinstance(value, float) or isinstance(value, int):
+                    if attr in type_dict:
+                        if type_dict[attr] != type(value):
+                            if isinstance(value, float) and type_dict[attr] == int:
+                                type_dict[attr] = tables.Float64Col()
+                    else:
+                        if isinstance(value, float):
+                            type_dict[attr] = tables.Float64Col()
+                        else:
+                            type_dict[attr] = tables.Int64Col()
+                elif isinstance(value, str):
+                    if attr in max_len_dict:
+                        if len(value) > max_len_dict[attr]:
+                            max_len_dict[attr] = len(value)
+                    else:
+                        max_len_dict[attr] = len(value)
+                else:
+                    logging.getLogger("PPanGGOLiN").debug(f"attr: {attr}, value: {value}")
+                    raise TypeError(f"{type(value)} is not acceptable")
+            expected_rows += 1
+
+    return max_len_dict, type_dict, expected_rows
+
+
+def write_metadata_contig(h5f: tables.File, source: str, select_contigs: List[Contig], disable_bar: bool = False):
+    """Writing a table containing the metadata associated to contig
+
+    :param h5f: HDF5 file to write gene families
+    :param source: name of the metadata source
+    :param select_contigs: List of contig withj metadata
+    :param disable_bar: Disable progress bar
+    """
+    metatype_group = write_metadata_group(h5f, "contigs")
+    meta_len = get_metadata_contig_len(select_contigs, source)
+    # h5f.remove_node(metatype_group, source)
+    source_table = h5f.create_table(metatype_group, source, desc_metadata(*meta_len[:-1]), expectedrows=meta_len[-1])
+    meta_row = source_table.row
+    for contig in tqdm(select_contigs, unit="contigs", desc=f'Source = {source}', disable=disable_bar):
+        for metadata in contig.get_metadata_by_source(source):
+            for desc in source_table.colnames:
+                if desc == "ID":
+                    meta_row[desc] = contig.ID
+                else:
+                    if hasattr(metadata, desc):
+                        value = metadata.__getattribute__(desc)
+                        if isinstance(value, bytes):
+                            value = value.decode('UTF-8')
+                        meta_row[desc] = value
+                    else:
+                        meta_row[desc] = None
+            meta_row.append()
+    source_table.flush()
+
+
+def get_metadata_len(select_elem: Union[List[Gene], List[Organism], List[GeneFamily],
+                                        List[Region], List[Spot], List[Module]],
+                     source: str) -> Tuple[Dict[str, int], Dict[str, tables.Col], int]:
     """Get maximum size of metadata information
 
     :param select_elem: selected elements from source
@@ -138,7 +212,7 @@ def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, 
                     else:
                         max_len_dict[attr] = len(value)
                 else:
-                    logging.getLogger().debug(f"attr: {attr}, value: {value}")
+                    logging.getLogger("PPanGGOLiN").debug(f"attr: {attr}, value: {value}")
                     raise TypeError(f"{type(value)} is not acceptable")
             expected_rows += 1
 
@@ -146,10 +220,10 @@ def get_metadata_len(select_elem: List[Module], source: str) -> Tuple[Dict[str, 
 
 
 def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
-                            select_elements: Union[List[Gene], List[Organism], List[GeneFamily], List[Region],
-                                                   List[Spot], List[Module]],
+                            select_elements: Union[List[Gene], List[Organism], List[GeneFamily],
+                                                   List[Region], List[Spot], List[Module]],
                             disable_bar: bool = False):
-    """Writing a table containing the protein sequences of each family
+    """Writing a table containing the metadata associated to element from the metatype
 
     :param h5f: HDF5 file to write gene families
     :param source: name of the metadata source
@@ -200,18 +274,18 @@ def erase_metadata(pangenome: Pangenome, h5f: tables.File, status_group: tables.
     if metatype in metadata_group:
         metatype_group = metadata_group._f_get_child(metatype)
         if source in metatype_group:
-            logging.getLogger().info(f"Erasing metadata assign to {metatype} from source {source}...")
+            logging.getLogger("PPanGGOLiN").info(f"Erasing metadata assign to {metatype} from source {source}...")
             metasources[metatype].remove(source)
             status_group.metasources._v_attrs[metatype].remove(source)
             h5f.remove_node(metatype_group, source)
         if metatype_group._v_nchildren == 0:
-            logging.getLogger().debug(f"No more source of metadata in {metatype}."
-                                      f"Erasing node {metatype} in metadata")
+            logging.getLogger("PPanGGOLiN").debug(f"No more source of metadata in {metatype}. "
+                                                  f"Erasing node {metatype} in metadata")
             metastatus[metatype] = 'No'
             status_group.metastatus.families = False
             h5f.remove_node(metadata_group, metatype)
     if metadata_group._v_nchildren == 0:
-        logging.getLogger().debug("No more metadata in pangenome. Erasing node metadata")
+        logging.getLogger("PPanGGOLiN").debug("No more metadata in pangenome. Erasing node metadata")
         status_group._v_attrs.metadata = False
         h5f.remove_node("/", "metadata")
         h5f.remove_node(status_group, "metasources")
@@ -226,7 +300,7 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
     :param disable_bar: Disable progress bar
     """
     if pangenome.status["metadata"]["families"] == "Computed":
-        logging.getLogger().info("Writing gene families metadata in pangenome")
+        logging.getLogger("PPanGGOLiN").info("Writing gene families metadata in pangenome")
         select_gf = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["families"][-1],
                                                        metatype="families"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["families"][-1],
@@ -234,7 +308,7 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
         pangenome.status["metadata"]["families"] = "Loaded"
 
     if pangenome.status["metadata"]["genomes"] == "Computed":
-        logging.getLogger().info("Writing genomes metadata in pangenome")
+        logging.getLogger("PPanGGOLiN").info("Writing genomes metadata in pangenome")
         select_genomes = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["genomes"][-1],
                                                             metatype="genomes"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["genomes"][-1],
@@ -242,15 +316,14 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
         pangenome.status["metadata"]["genomes"] = "Loaded"
 
     if pangenome.status["metadata"]["contigs"] == "Computed":
-        logging.getLogger().info("Writing contigs metadata in pangenome")
-        select_genomes = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["contigs"][-1],
+        logging.getLogger("PPanGGOLiN").info("Writing contigs metadata in pangenome")
+        select_contigs = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["contigs"][-1],
                                                             metatype="contigs"))
-        write_metadata_metatype(h5f, pangenome.status["metasources"]["contigs"][-1],
-                                "contigs", select_genomes, disable_bar)
+        write_metadata_contig(h5f, pangenome.status["metasources"]["contigs"][-1], select_contigs, disable_bar)
         pangenome.status["metadata"]["contigs"] = "Loaded"
 
     if pangenome.status["metadata"]["genes"] == "Computed":
-        logging.getLogger().info("Writing genes metadata in pangenome")
+        logging.getLogger("PPanGGOLiN").info("Writing genes metadata in pangenome")
         select_genes = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["genes"][-1],
                                                           metatype="genes"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["genes"][-1],
@@ -258,7 +331,7 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
         pangenome.status["metadata"]["genes"] = "Loaded"
 
     if pangenome.status["metadata"]["RGPs"] == "Computed":
-        logging.getLogger().info("Writing genes metadata in pangenome")
+        logging.getLogger("PPanGGOLiN").info("Writing RGPs metadata in pangenome")
         select_rgps = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["RGPs"][-1],
                                                          metatype="RGPs"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["RGPs"][-1],
@@ -266,7 +339,7 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
         pangenome.status["metadata"]["RGPs"] = "Loaded"
 
     if pangenome.status["metadata"]["spots"] == "Computed":
-        logging.getLogger().info("Writing genes metadata in pangenome")
+        logging.getLogger("PPanGGOLiN").info("Writing spots metadata in pangenome")
         select_spots = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["spots"][-1],
                                                           metatype="spots"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["spots"][-1],
@@ -274,7 +347,7 @@ def write_metadata(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = F
         pangenome.status["metadata"]["spots"] = "Loaded"
 
     if pangenome.status["metadata"]["modules"] == "Computed":
-        logging.getLogger().info("Writing genes metadata in pangenome")
+        logging.getLogger("PPanGGOLiN").info("Writing modules metadata in pangenome")
         select_modules = list(pangenome.get_elem_by_sources(source=pangenome.status["metasources"]["modules"][-1],
                                                             metatype="modules"))
         write_metadata_metatype(h5f, pangenome.status["metasources"]["modules"][-1],

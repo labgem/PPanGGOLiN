@@ -2,7 +2,7 @@
 This file is a tsv file that lists all of the detected Regions of Genome Plasticity. This requires to have run the RGP detection analysis by either using the `panrgp` command or the `rgp` command.
 
 It can be written with the following command:
-`ppanggolin write -p pangenome.h5 --regions`
+`ppanggolin write_pangenome -p pangenome.h5 --regions`
 
 The file has the following format :
 
@@ -21,7 +21,7 @@ The file has the following format :
 This is a tsv file with two column. It links the spots of 'summarize_spots' with the RGPs of 'plastic_regions'.
 
 It is written with the following command:
-`ppanggolin write -p pangenome.h5 --spots`
+`ppanggolin write_pangenome -p pangenome.h5 --spots`
 
 |column|description|
 |------|------------|
@@ -33,7 +33,7 @@ It is written with the following command:
 This is a tsv file that will associate each spot with multiple metrics that can indicate the dynamic of the spot.
 
 It is written with the following command:
-`ppanggolin write -p pangenome.h5 --spots`
+`ppanggolin write_pangenome -p pangenome.h5 --spots`
 
 |column| description|
 |-------|------------|
@@ -49,7 +49,7 @@ It is written with the following command:
 #### Borders
 
 Each spot has at least one set of gene families bordering them. To write the list of gene families bordering a spot, you need to use the following option:
-`ppanggolin write -p pangenome.h5 --borders`
+`ppanggolin write_pangenome -p pangenome.h5 --borders`
 
 It will write a .tsv file with 4 columns:
 
