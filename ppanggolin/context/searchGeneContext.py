@@ -3,7 +3,6 @@
 
 # default libraries
 import argparse
-import logging
 import tempfile
 import time
 import logging
@@ -48,7 +47,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
     :param transitive: number of genes to check on both sides of a family aligned with an input sequence
     :param identity: minimum identity threshold between sequences and gene families for the alignment
     :param coverage: minimum coverage threshold between sequences and gene families for the alignment
-    :param use_representatives: Use representative sequences of gene families rather than all sequences to align input genes
+    :param use_representatives: Use representative sequences of families rather than all sequences to align input genes
     :param jaccard_threshold: Jaccard index threshold to filter edges in graph
     :param window_size: Number of genes to consider in the gene context.
     :param no_defrag: do not use the defrag workflow if true
@@ -120,7 +119,8 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
         f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
 
     logging.getLogger().debug(
-        f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and {nx.number_of_edges(gene_context_graph)} edges")
+        f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and "
+        f"{nx.number_of_edges(gene_context_graph)} edges")
 
     compute_edge_metrics(gene_context_graph, jaccard_threshold)
 
@@ -132,7 +132,8 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
     logging.getLogger().debug(f"Filtering context graph on {filter_flag}")
     logging.getLogger().debug(
-        f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and {nx.number_of_edges(gene_context_graph)} edges")
+        f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and "
+        f"{nx.number_of_edges(gene_context_graph)} edges")
 
     gene_contexts = get_gene_contexts(gene_context_graph, families_of_interest)
 
@@ -380,7 +381,8 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
 
                 increment_attribute_counter(edge_dict, "gene_pairs")
 
-                assert gene.organism == next_gene.organism, f"Gene of the same contig have a different organism. {gene.organism} and {next_gene.organism}"
+                assert gene.organism == next_gene.organism, (f"Gene of the same contig have a different organism. "
+                                                             f"{gene.organism} and {next_gene.organism}")
 
 
 def add_val_to_dict_attribute(attr_dict: dict, attribute_key, attribute_value):
@@ -515,7 +517,8 @@ def fam_to_seq(seq_to_pan: dict) -> dict:
     return fam_2_seq
 
 
-def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int], families_of_interest: Set[GeneFamily], output: Path):
+def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int],
+                                families_of_interest: Set[GeneFamily], output: Path):
     """
     Export the results into dataFrame
 
@@ -631,7 +634,8 @@ def parser_context(parser: argparse.ArgumentParser):
     optional.add_argument('--coverage', required=False, type=float, default=0.8,
                           help="min coverage percentage threshold")
     optional.add_argument("--translation_table", required=False, default="11",
-                          help="The translation table (genetic code) to use when the input sequences are nucleotide sequences. ")
+                          help="The translation table (genetic code) to use when the input sequences are nucleotide "
+                               "sequences. ")
     optional.add_argument("-t", "--transitive", required=False, type=int, default=4,
                           help="Size of the transitive closure used to build the graph. This indicates the number of "
                                "non related genes allowed in-between two related genes. Increasing it will improve "
@@ -645,7 +649,8 @@ def parser_context(parser: argparse.ArgumentParser):
                                "will improve precision but lower sensitivity a lot.")
     optional.add_argument('--graph_format', help="Format of the context graph. Can be gexf or graphml.",
                           default='graphml', choices=['gexf', 'graphml'])
-    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int,
+                          help="Number of available cpus")
     optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",

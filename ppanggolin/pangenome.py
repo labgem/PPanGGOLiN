@@ -4,7 +4,7 @@
 # default libraries
 import logging
 import re
-from typing import Iterator, List, Union, Dict, Set, Iterable, Generator
+from typing import List, Union, Dict, Set, Generator
 from pathlib import Path
 
 # local libraries
@@ -305,6 +305,7 @@ class Pangenome:
     def contigs(self) -> Generator[Contig, None, None]:
         for organism in self.organisms:
             yield from organism.contigs
+
     @property
     def number_of_contigs(self) -> int:
         """Returns the number of contigs present in the pangenome
@@ -313,7 +314,7 @@ class Pangenome:
         """
         return sum(len(org) for org in self.organisms)
 
-    def _mk_contig_getter(self):
+    def _mk_contig_getter(self, check_name: bool = False, name: str = ""):
         """
         Builds the attribute _contig_getter of the pangenome
 
@@ -322,36 +323,26 @@ class Pangenome:
         If at some point we want to extract contig from a pangenome we'll create a contig_getter.
         The assumption behind this is that the pangenome has been filled and no more contig will be added.
         """
+        if (check_name and name == "") or (not check_name and name != ""):
+            raise AssertionError('if you search the identifier corresponding to the name, '
+                                 'check_name must be True and name different than empty string.')
+        names = set()
+        identifier = None
         self._contig_getter = {}
         for contig in self.contigs:
+            if check_name:
+                if contig.name in names:
+                    raise KeyError("Two contigs with the same name. "
+                                   "You should use the contig ID or give the organism name")
+                names.add(contig.name)
+                if contig.name == name:
+                    identifier = contig.ID
             self._contig_getter[contig.ID] = contig
+        return identifier
 
-    def get_contig(self, identifier: int = None, name: str = None, organism_name: str = None) -> Contig:
-        """Returns the contig by his identifier or by his name. If name is given the organism name is needed
-
-        :param identifier: ID of the contig to look for
-        :param name: The name of the contig to look for
-        :param organism_name: Name of the organism to which the contig belong
-
-        :return: Returns the wanted contig
-
-        :raises AssertionError: If the `gene_id` is not an integer
-        :raises KeyError: If the `gene_id` is not in the pangenome
-        """
+    def _get_contig_by_identifier(self, identifier: int = None) -> Contig:
         if identifier is None:
-            if name is None:
-                raise ValueError("Neiher identifier or name of the contig are given.")
-            else:
-                if not isinstance(name, str):
-                    raise AssertionError("Contig name should be a string")
-
-                if organism_name is None:
-                    raise ValueError("You should provide the name of the organism to which the contig belong")
-                else:
-                    if not isinstance(organism_name, str):
-                        raise AssertionError("Organism name should be a string")
-                    organism = self.get_organism(organism_name)
-                    return organism.get(name)
+            raise Exception("Unexpected error happened. Please report an issue to our GitHub.")
         else:
             if not isinstance(identifier, int):
                 raise AssertionError("Contig ID should be an integer")
@@ -363,6 +354,35 @@ class Pangenome:
                 return self.get_contig(identifier)  # Return what was expected. If geneID does not exist it will raise an error.
             except KeyError:
                 raise KeyError(f"Contig: {identifier}, does not exist in the pangenome.")
+
+    def get_contig(self, identifier: int = None, name: str = None, organism_name: str = None) -> Contig:
+        """Returns the contig by his identifier or by his name. If name is given the organism name is needed
+
+        :param identifier: ID of the contig to look for
+        :param name: The name of the contig to look for
+        :param organism_name: Name of the organism to which the contig belong
+
+        :return: Returns the wanted contig
+
+        :raises AssertionError: If the `contig_id` is not an integer
+        :raises KeyError: If the `contig` is not in the pangenome
+        """
+        assert not all(x is None for x in [identifier, name, organism_name]), ("You must provide either contig_id or "
+                                                                               "name or organism_name")
+        if name:
+            if not isinstance(name, str):
+                raise AssertionError("Contig name should be a string")
+            if organism_name:
+                if not isinstance(organism_name, str):
+                    raise AssertionError("Organism name should be a string")
+                organism = self.get_organism(organism_name)
+                return organism.get(name)
+            else:
+                identifier = self._mk_contig_getter(check_name=True, name=name)
+
+        # At this step or you already have the contig return or you have the identifier.
+        return self._get_contig_by_identifier(identifier)
+
     def get_organism(self, name: str) -> Organism:
         """
         Get an organism that is expected to be in the pangenome using its name, which is supposedly unique.
@@ -512,6 +532,27 @@ class Pangenome:
                 if (dup / fam.number_of_organisms) >= dup_margin:  # tot / nborgs >= 1.05
                     multigenics.add(fam)
         return multigenics
+
+    
+    def get_single_copy_persistent_families(self, dup_margin: float, exclude_fragments: bool) -> Set[GeneFamily]:
+        """
+        Retrieves gene families that are both persistent and single copy based on the provided criteria.
+
+        :param dup_margin: The maximum allowed duplication margin for a gene family to be considered single copy.
+        :param exclude_fragments: A boolean indicating whether to exclude fragments when determining single copy families.
+
+        :return: A set containing gene families that are both persistent and single copy.
+        """
+        
+        single_copy_fams = set()
+
+        # Iterate through gene families and check for persistence and single copy status
+        for fam in self.gene_families:
+            if fam.named_partition == "persistent" and fam.is_single_copy(dup_margin, exclude_fragments):
+                single_copy_fams.add(fam)
+
+        return single_copy_fams
+
 
     def add_region(self, region: Region):
         """Add a region to the pangenome
@@ -681,6 +722,37 @@ class Pangenome:
         :return: The number of modules
         """
         return len(self._module_getter)
+    
+    def soft_core_families(self, soft_core_threshold: float) -> Set[GeneFamily]:
+        """
+        Retrieves gene families considered part of the soft core based on the provided threshold.
+
+        :param soft_core_threshold: The threshold to determine the minimum fraction of organisms 
+                                    required for a gene family to be considered part of the soft core.
+        :return: A set containing gene families identified as part of the soft core.
+        """
+        minimum_organism_threshold = self.number_of_organisms * soft_core_threshold
+        soft_core_families = set()
+
+        for fam in self.gene_families:
+            if fam.number_of_organisms >= minimum_organism_threshold:
+                soft_core_families.add(fam)
+
+        return soft_core_families
+    
+    def exact_core_families(self) -> Set[GeneFamily]:
+        """
+        Retrieves gene families considered as the exact core (present in all organisms).
+
+        :return: A set containing gene families identified as the exact core.
+        """
+        exact_core_families = set()
+
+        for fam in self.gene_families:
+            if fam.number_of_organisms == self.number_of_organisms:
+                exact_core_families.add(fam)
+
+        return exact_core_families
 
     """Metadata"""
     def select_elem(self, metatype: str):
@@ -750,8 +822,9 @@ class Pangenome:
             if len(list(elem.get_metadata_by_attribute(**kwargs))) > 0:
                 yield elem
 
-    def get_elem_by_sources(self, source: List[str], metatype: str) -> Generator[
-        Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
+    def get_elem_by_sources(self, source: List[str],
+                            metatype: str) -> Generator[Union[GeneFamily, Gene, Contig, Organism,
+                                                              Region, Spot, Module], None, None]:
         """ Get gene famlies with a specific source in pangenome
 
         :param source: Name of the source

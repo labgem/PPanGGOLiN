@@ -1,6 +1,6 @@
 ## Classic pangenome outputs
 
-The workflow subcommand generate automatically some files and figures. 
+The complete workflow subcommand `all` generates automatically some files and figures. 
 Here, we are going to describe some of them that are useful and classic in pangenomic analyses, 
 as they describe the pangenome of your taxonomic group of interest in different ways.
 
@@ -30,7 +30,7 @@ This file is basically a presence absence matrix.
 The columns are the genomes used to build the pangenome, the lines are the gene families. 
 The identifier of the gene family is the gene identifier chosen as a representative. 
 There is a 1 if the gene family is present in a genome, and 0 otherwise.
-It follows the exact same format than the 'gene_presence_absence.Rtab' file that you get from the pangenome analysis software [roary](https://sanger-pathogens.github.io/Roary/)
+It follows the exact same format than the 'gene_presence_absence.Rtab' file that you get from the pangenome analysis software [Roary](https://sanger-pathogens.github.io/Roary/)
 
 More information about this file can be found [here](../PangenomeAnalyses/pangenomeAnalyses.md#gene-presence-absence)
 

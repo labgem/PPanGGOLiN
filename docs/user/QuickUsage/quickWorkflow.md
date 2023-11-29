@@ -1,16 +1,16 @@
 ## PPanGGOLiN complete workflow analyses
 
-We tried to make PPanGGOLiN relatively easy to use by making this **'complete workflow'** subcommand. 
+We tried to make PPanGGOLiN relatively easy to use by making a **'complete workflow'** subcommand calls `all`. 
 It runs a pangenome analysis whose exact steps will depend on the input files you provide it with.
 In the end, you will have a partitioned pangenome graph with predicted **RGP, spots and modules**. 
 
 
 [//]: # (### PPanGGOLiN: Pangenome analyses from list of annotated files)
 
-The minimal subcommand only need your own annotations files (using .gff or .gbff/.gbk files) 
-as long as they include the genomic dna sequences, such as the ones provided by prokka.
+The minimal subcommand only need your own annotations files (using `.gff` or `.gbff`/`.gbk` files) 
+as long as they include the genomic dna sequences, such as the ones provided by Prokka or Bakta.
  
-```
+```bash
 ppanggolin all --anno organism.gbff.list
 ```
 
@@ -22,10 +22,10 @@ The file **organism.gbff.list** is a tab-separated file with the following organ
 2. The second column the path to the associated annotation file
 3. Each line represents an organism
 
-An example with 50 _Chlamydia trachomatis_ genomes can be found in the [testingDataset/ directory](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/).
+An example with 50 _Chlamydia trachomatis_ genomes can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.gbff.list) directory.
 
 [//]: # (### PPanGGOLiN: Pangenome analyses from list of fasta files)
-You can also give PPanGGOLiN .fasta files, such as:
+You can also give PPanGGOLiN `.fasta` files, such as:
 
 ```
 ppanggolin all --fasta organism.fasta.list
@@ -38,7 +38,7 @@ Again you must use a tab-separated file but this time with the following organis
 3. Circular contig identifiers are indicated in the following columns
 4. Each line represents an organism
 
-Same, an example can be found in the [testingDataset/ directory](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/).
+Same, an example can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.fasta.list) directory.
 
 
 Congratulation, you build (maybe your first) pangenome graph and partitioned it in 3 different partition: **persistent**, **shell** and **cloud** (look at ([Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)) for more information about partition). 

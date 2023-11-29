@@ -1,6 +1,6 @@
 ### Pangenome graph output
 
-The Graph can be given through the .gexf and through the _light.gexf files. The _light.gexf file will contain the gene families as nodes and the edges between gene families describing their relationship, and the .gexf file will contain the same thing, but also include more informations about each gene and each relation between gene families. 
+The Graph can be given through the .gexf and through the '_light.gexf' files. The '_light.gexf' file will contain the gene families as nodes and the edges between gene families describing their relationship, and the .gexf file will contain the same thing, but also include more informations about each gene and each relation between gene families. 
 We have made two different files representing the same graph because, while the non-light file is exhaustive, it can be very heavy to manipulate and most of the information in it are not of interest to everyone. The _light.gexf file should be the one you use to manipulate the pangenome graph most of the time.
 
 They can be manipulated and visualised through a software called [Gephi](https://gephi.org/), with which we have made extensive testings, or potentially any other softwares or libraries that can read gexf files such as [networkx](https://networkx.github.io/documentation/stable/index.html) or [gexf-js](https://github.com/raphv/gexf-js) among others. 
@@ -20,15 +20,15 @@ The .gexf non-light file will contain in addition to this all the information ab
 
 The light gexf can be generated using the 'write' subcommand as such : 
 
-`ppanggolin write -p pangenome.h5 --light_gexf`
+`ppanggolin write_pangenome -p pangenome.h5 --light_gexf`
 
 while the gexf file can be generated as such : 
 
-`ppanggolin write -p pangenome.h5 --gexf`
+`ppanggolin write_pangenome -p pangenome.h5 --gexf`
 
 #### JSON
 The json's file content corresponds to the .gexf file content, but in json rather than gexf file format. It follows the 'node-link' format as shown in [this example](https://observablehq.com/@d3/force-directed-graph) in javascript, or as used in the [networkx](https://networkx.github.io/documentation/stable/reference/readwrite/json_graph.html) python library and it should be usable with both [D3js](https://d3js.org/) and [networkx](https://networkx.github.io/documentation/stable/index.html), or any other software or library that supports this format.
 
 The json can be generated using the 'write' subcommand as such : 
 
-`ppanggolin write -p pangenome.h5 --json`
+`ppanggolin write_pangenome -p pangenome.h5 --json`

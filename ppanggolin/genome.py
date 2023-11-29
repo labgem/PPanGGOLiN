@@ -2,11 +2,11 @@
 # coding: utf8
 
 from __future__ import annotations
+import logging
+from typing import Dict, Generator, List, Union, Set
+from collections import defaultdict
 
 # installed libraries
-import logging
-from typing import Dict, Generator, List
-
 import gmpy2
 
 # local libraries
@@ -35,6 +35,7 @@ class Feature(MetaFeatures):
     - contig: Parent contig of the feature.
     - dna: DNA sequence of the feature.
     """
+
     def __init__(self, identifier: str):
         """Constructor Method
 
@@ -58,6 +59,10 @@ class Feature(MetaFeatures):
         self.dna = None
 
     def __str__(self) -> str:
+        """String representation of the feature
+
+        :return: feature identifier
+        """
         return str(self.ID)
 
     def __len__(self) -> int:
@@ -204,6 +209,7 @@ class Gene(Feature):
     - genetic_code: the genetic code associated with the gene.
     - Protein: the protein sequence corresponding to the translated gene.
     """
+
     def __init__(self, gene_id: str):
         """Constructor method
 
@@ -227,13 +233,13 @@ class Gene(Feature):
 
     @family.setter
     def family(self, family):
-        """Set the GeneFamily blonging to the gene
+        """Set the GeneFamily belonging to the gene
 
         :param family: Gene family linked to the gene
         """
         from ppanggolin.geneFamily import GeneFamily
         if not isinstance(family, GeneFamily):
-            raise TypeError(f'Expected type Organism, got {type(family)}')
+            raise TypeError(f'Expected type GeneFamily, got {type(family)}')
         self._family = family
 
     @property
@@ -247,7 +253,7 @@ class Gene(Feature):
 
     @RGP.setter
     def RGP(self, region):
-        """Set the Region blonging to the gene
+        """Set the Region belonging to the gene
 
         :param region: Region linked to the gene
         """
@@ -255,6 +261,27 @@ class Gene(Feature):
         if not isinstance(region, Region):
             raise TypeError(f'Expected type Organism, got {type(region)}')
         self._RGP = region
+
+    @property
+    def spot(self):
+        """Get the spot belonging to the gene
+
+        :return: the spot linked to the gene
+        :rtype: Spot
+        """
+        if self.RGP is not None and self.RGP.spot is not None:
+            return self.RGP.spot
+        else:
+            return None
+
+    @property
+    def module(self):
+        """Get the modules belonging to the gene
+
+        :return: get the modules linked to the gene
+        :rtype: Generator[Module, None, None]
+        """
+        yield from self.family.module
 
     def fill_annotations(self, position: int = None, genetic_code: int = 11, **kwargs):
         """Fill Gene annotation provide by PPanGGOLiN dependencies
@@ -316,6 +343,10 @@ class Contig(MetaFeatures):
         self._length = None
 
     def __str__(self) -> str:
+        """Returns a string representation of the contig
+
+        :return: Name of the contig
+        """
         return self.name
 
     def __setitem__(self, start: int, gene: Gene):
@@ -329,13 +360,12 @@ class Contig(MetaFeatures):
         :raises AttributeError: If the gene position in the contig is not fill
         """
         # TODO look at change start for position
-
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if start in self._genes_getter:
             raise ValueError(f"Gene '{self._genes_getter[start].ID}' with start position {start} already exists in the "
-                             f"contig '{self.name}' {f'from organism {self.organism}' if self.organism is not None else ''}, "
-                             f"cannot add gene '{gene.ID}' {f'from organism {gene.organism}' if gene.organism is not None else ''}")
+                             f"contig '{self.name}' {f'from organism {self.organism}' if self.organism else ''}, "
+                             f"cannot add gene '{gene.ID}' {f'from organism {gene.organism}' if gene.organism else ''}")
         if gene.position is None:
             raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
         # Adding empty values.
@@ -348,13 +378,20 @@ class Contig(MetaFeatures):
     # TODO define eq function
 
     @property
-    def length(self):
+    def length(self) -> Union[int, None]:
+        """Get the length of the contig
+
+        """
         if self._length is None:
             logging.getLogger("PPanGGOLiN").warning("Contig length is unknown")
         return self._length
 
     @length.setter
     def length(self, contig_len: int):
+        """Set the length of the contig
+
+        :param contig_len: length of the contig
+        """
         if not isinstance(contig_len, int):
             raise TypeError("Contig length is expected to be an integer")
         if contig_len < 0:
@@ -367,7 +404,11 @@ class Contig(MetaFeatures):
             raise ValueError('Attempting to define a contig length different from the previously defined value.')
         
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Get the length of the contig
+
+        :return: contig length
+        """
         return self.length
 
     # retrieve gene by start position
@@ -454,14 +495,15 @@ class Contig(MetaFeatures):
         :return: List of genes between begin and end position
 
         :raises TypeError: If begin or end is not an integer
-        :raises ValueError: If begin position is greater than end positon
+        :raises ValueError: If begin position is greater than end position
         """
 
         if end is None:
             end = self.length
 
         if not isinstance(begin, int) or not isinstance(end, int):
-            raise TypeError(f"Expected type int for 'begin' and 'end', but received types '{type(begin)}' and '{type(end)}'.")
+            raise TypeError(
+                f"Expected type int for 'begin' and 'end', but received types '{type(begin)}' and '{type(end)}'.")
 
         if begin >= end:
             raise ValueError("The 'begin' position must be less than the 'end' position.")
@@ -471,6 +513,10 @@ class Contig(MetaFeatures):
 
     @property
     def number_of_genes(self) -> int:
+        """Get the number of genes in the contig
+
+        :return: the number of genes in the contig
+        """
         return len(self._genes_position)
 
     @property
@@ -531,6 +577,74 @@ class Contig(MetaFeatures):
         """
         return len(self._rna_getter)
 
+    def add_contig_length(self, contig_length: int):
+        """
+        Add contig length to Contig object.
+
+        :param contig_length: Length of the contig.
+        :raises ValueError: If trying to define a contig length different from previously defined.
+        """
+        if self.length is None:
+            self.length = contig_length
+
+        elif self.length != contig_length:
+            raise ValueError('Attempting to define a contig length different from the previously defined value.')
+
+    @property
+    def regions(self):
+        """Get the regions belonging to this contig
+
+        :return: RGP in the contig
+        :rtype: Generator[Region, None, None]
+        """
+        regions = set()
+        for gene in self.genes:
+            if gene.RGP is not None:
+                regions.add(gene.RGP)
+        yield from regions
+
+    @property
+    def spots(self):
+        """Get the spot belonging to this contig
+
+        :return: Spot in the contig
+        :rtype: Generator[Spot, None, None]
+        """
+        spots = set()
+        for region in self.regions:
+            if region.spot is not None:
+                spots.add(region.spot)
+        yield from spots
+
+    @property
+    def families(self):
+        """Get the families belonging to this contig
+
+        :return: families in the contig
+        :rtype: Generator[GeneFamily, None, None]
+        """
+        families = set()
+        for gene in self.genes:
+            if gene.family is None:
+                raise ValueError("Gene has no family, that should not happen. "
+                                 "Check if you're families has been computed or loaded."
+                                 "If it's the case, you can report an issue on our GitHub.")
+            families.add(gene.family)
+        yield from families
+
+    @property
+    def modules(self):
+        """Get the modules belonging to this contig
+
+        :return: Modules belonging to this contig
+        :rtype: Generator[Module, None, None]
+        """
+        modules = set()
+        for family in self.families:
+            for module in family.modules:
+                modules.add(module)
+        yield from modules
+
 
 class Organism(MetaFeatures):
     """
@@ -543,7 +657,8 @@ class Organism(MetaFeatures):
     - `contigs`: Returns the values in the contig dictionary from the organism.
     - `get_contig`: Gets the contig with the given identifier in the organism, adding it if it does not exist.
     - `_create_contig`: Creates a new contig object and adds it to the contig dictionary.
-    - `mk_bitarray`: Produces a bitarray representing the presence/absence of gene families in the organism using the provided index.
+    - `mk_bitarray`: Produces a bitarray representing the presence/absence of gene families
+                     in the organism using the provided index.
 
     Fields:
     - `name`: Name of the organism.
@@ -564,7 +679,11 @@ class Organism(MetaFeatures):
         self._families = None
         self.bitarray = None
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation of the genome
+
+        :return: Name of the genome
+        """
         return self.name
 
     def _set_families(self):
@@ -587,7 +706,8 @@ class Organism(MetaFeatures):
             raise TypeError(f"Contig name should be a string. You provided a '{type(name)}' type object")
         if not isinstance(contig, Contig):
             raise TypeError(f"'Contig' type was expected but you provided a '{type(contig)}' type object")
-        if name in self._contigs_getter:  # Add test if contig are equivalent when __eq__ method will be defined in Contig
+        if name in self._contigs_getter:
+            # Add test if contig are equivalent when __eq__ method will be defined in Contig
             raise KeyError(f"Contig {contig.name} already in organism {self.name}")
         self._contigs_getter[contig.name] = contig
         contig.organism = self
@@ -675,7 +795,7 @@ class Organism(MetaFeatures):
         :return: Number of genes
         """
         return sum((contig.number_of_genes for contig in self.contigs))
-    
+
     def number_of_rnas(self) -> int:
         """ Get number of genes in the organism
 
@@ -691,7 +811,6 @@ class Organism(MetaFeatures):
         """
         yield from self._contigs_getter.values()
 
-
     @property
     def number_of_contigs(self) -> int:
         """ Get number of contigs in organism
@@ -699,7 +818,6 @@ class Organism(MetaFeatures):
         :return: Number of contigs in organism
         """
         return len(self._contigs_getter)
-
 
     def add(self, contig: Contig):
         """Add a contig to organism
@@ -716,7 +834,6 @@ class Organism(MetaFeatures):
         else:
             raise KeyError(f"Contig {contig.name} already in organism {self.name}")
 
- 
     def get(self, name: str) -> Contig:
         """
         Get contig with the given identifier in the organism
@@ -727,18 +844,80 @@ class Organism(MetaFeatures):
         """
         return self[name]
 
-
-    def remove(self, name: str) -> Contig:
+    def remove(self, name: str):
         """
         Remove a contig with the given identifier in the organism
 
         :param name: Contig identifier
-
-        :return: The contig with the given identifier
         """
         del self[name]
 
+    @property
+    def modules(self):
+        """
+        Get all the modules belonging to this genome
 
+        :return: Generator of modules
+        :rtype: Generator[Module, None, None]
+        """
+        modules = {family.module for family in self.families if family.has_module}
+        yield from modules
+
+
+    @property
+    def number_of_modules(self) -> int:
+        """
+        Get number of modules in organism
+
+        :return: Number of modules in organism
+        """
+        return len(list(self.modules))
+    
+    @property
+    def regions(self):
+        """Get all RGPS belonging to this genome
+
+        :return: Generator of RGPS
+        :rtype: Generator[Region, None, None]
+        """
+        regions = set()
+        for gene in self.genes:
+            if gene.RGP is not None:
+                regions.add(gene.RGP)
+        yield from regions
+
+    @property
+    def number_of_regions(self) -> int:
+        """
+        Get number of RGP in organism
+
+        :return: Number of RGP in organism
+        """
+        return len(list(self.regions))
+    
+    @property
+    def spots(self):
+        """Get all spots belonging to this genome
+
+        :return: Generator of spots
+        :rtype: Generator[Spot, None, None]
+        """
+        spots = set()
+        for region in self.regions:
+            if region.spot is not None:
+                spots.add(region.spot)
+        yield from spots
+
+    @property
+    def number_of_spots(self) -> int:
+        """
+        Get number of spots in organism
+
+        :return: Number of spots in organism
+        """
+        return len(list(self.spots))
+    
+    
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
@@ -764,5 +943,21 @@ class Organism(MetaFeatures):
                 if fam.named_partition in ['shell', 'cloud']:
                     self.bitarray[index[fam]] = 1
         else:
-            raise Exception("There is not any partition corresponding please report a github issue")
+            raise ValueError("There is not any partition corresponding please report a github issue")
+
+    def group_genes_by_partition(self)-> Dict[str, Set]:
+        """
+        Groups genes based on their family's named partition and returns a dictionary 
+        mapping partition names to sets of genes belonging to each partition.
+
+        :return: A dictionary containing sets of genes grouped by their family's named partition.
+        """
+        partition_to_gene = defaultdict(set)
+        contigs_count = 0
         
+        for contig in self.contigs:
+            contigs_count += 1
+            for gene in contig.genes:
+                partition_to_gene[gene.family.named_partition].add(gene)
+                
+        return partition_to_gene

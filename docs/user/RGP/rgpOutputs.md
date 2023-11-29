@@ -51,7 +51,7 @@ It is written with the following command:
 
 ### Borders
 
-Each spot has at least one set of gene families bordering them. To write the list of gene families bordering a spot, you can use the following option:
+Each spot has at least one set of gene families bordering them. To write the list of gene families bordering a spot, you need to use the following option:
 `ppanggolin write_pangenome -p pangenome.h5 --borders`
 
 It will write a .tsv file with 4 columns:
@@ -89,4 +89,4 @@ The interactive figures that are drawn look like this:
 The plot represents the different gene organizations that are found in the spot. If there are RGPs with identical gene organization, the organization is represented only once (the represented RGP is picked at random among all identical RGPs). The list of RGPs with the same organization is accessible in the file written alongside the figure called 'spot_X_identical_rgps.tsv', with X the spot_id.
 
 They can be edited using the sliders and the radio buttons, to change various graphical parameters, and then the plot itself can be saved using the save button on the right of the screen, if need be.
-For the gexf file, you can see how to visualize it in the section about the [pangenome gexf](../PangenomeAnalyses/pangenomeGraph.md#pangenome-graph-output).
+For the gexf file, you can see how to visualize it in the section about the [pangenome gexf](../PangenomeAnalyses/pangenomeGraphOut.md#pangenome-graph-output).
