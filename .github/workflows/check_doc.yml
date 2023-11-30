@@ -2,6 +2,8 @@ name: Check documentation
 
 on:
   push:
+    paths:
+      - 'docs/**'
 
 jobs:
   build:
