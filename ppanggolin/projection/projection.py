@@ -914,8 +914,8 @@ def predict_spots_in_input_organisms(
                                                        graph_formats=graph_formats,
                                                        overlapping_match=overlapping_match, set_size=set_size,
                                                        exact_match=exact_match)
-
-        new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
+        if len(input_org_spots) > 0:
+            new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
 
         input_org_to_spots[input_organism] = input_org_spots
 
