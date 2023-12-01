@@ -151,6 +151,9 @@ jobs:
                               --organism_name chlam_A --fasta FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz \
                               --spot_graph --graph_formats graphml --fast --keep_tmp -f --add_sequences --gff --proksee --table --add_metadata
 
+        ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_gff_prodigal \
+                              --organism_name chlam_annotated_with_prodigal --anno GBFF/GCF_003788785.1_ct114V1_genomic_prodigal_annotation.gff.gz \
+                               --gff  --table
 
     - name: testing write_genome_cmds
       shell: bash -l {0}

@@ -318,14 +318,14 @@ def detect_filetype(filename: Path) -> str:
         first_line = f.readline()
     if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
         return "gbff"
-    elif first_line.startswith("##gff-version 3"):
+    elif first_line.startswith("##gff-version 3") or first_line.startswith("##gff-version  3"): # prodigal gff header has two spaces betwene gff-version and 3... 
         return 'gff'
     elif first_line.startswith(">"):
         return 'fasta'
     elif "\t" in first_line:
         return "tsv"
     else:
-        raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') "
+        raise Exception(f"Filetype {filename} was not gff3 (file starts with '##gff-version 3') "
                         "nor gbff/gbk (file starts with 'LOCUS       '). "
                         "Only those two file formats are supported (for now).")
 
