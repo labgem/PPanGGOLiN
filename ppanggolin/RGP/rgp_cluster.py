@@ -143,7 +143,7 @@ def add_info_to_rgp_nodes(graph, regions: List[Region], region_to_spot: dict):
     region_attributes = {}
     for region in regions:
         region_info = {"contig": region.contig.name,
-                       'organism': region.organism.name,
+                       'genome': region.organism.name,
                        "name": region.name,
                        "genes_count": len(region),
                        "is_contig_border": region.is_contig_border,

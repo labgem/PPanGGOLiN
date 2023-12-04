@@ -266,7 +266,7 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
         logging.getLogger("PPanGGOLiN").debug(f"gene_to_fam size: {len(gene_to_fam)}, "
                                               f"Pangenome nb genes: {pangenome.number_of_genes}")
         raise Exception("Something unexpected happened during clustering (have less genes clustered than genes "
-                        "in the pangenome). A probable reason is that two genes in two different organisms have "
+                        "in the pangenome). A probable reason is that two genes in two different genomes have "
                         "the same IDs; If you are sure that all of your genes have non identical IDs,  please post an "
                         "issue at https://github.com/labgem/PPanGGOLiN/")
     for gene, (family, is_frag) in tqdm(gene_to_fam.items(), unit="gene", total=len(gene_to_fam), disable=disable_bar):

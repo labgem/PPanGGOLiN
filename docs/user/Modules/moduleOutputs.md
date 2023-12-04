@@ -1,7 +1,7 @@
 ## Module outputs
 
 ### Functional modules
-This .tsv file lists the modules and the gene families that belong to them. It lists one family per line, and there are multiple line for each module.
+This `.tsv` file lists the modules and the gene families that belong to them. It lists one family per line, and there are multiple line for each module.
 It is written along with other files with the following command:
 `ppanggolin write_pangenome -p pangenome.h5 --modules`
 
@@ -54,7 +54,7 @@ The format of the 'modules_spots.tsv' file is the following:
 |module_id| The module identifier|
 |spot_id| the spot identifier|
 
-The file 'modules_RGP_lists.tsv' lists RGPs that have the same modules. Those RGPs can have different gene families, however they will not have any other module than those that are indicated. The format of the 'modules_RGP_lists.tsv' is the following:
+The file `modules_RGP_lists.tsv` lists RGPs that have the same modules. Those RGPs can have different gene families, however they will not have any other module than those that are indicated. The format of the 'modules_RGP_lists.tsv' is the following:
 
 |column|description|
 |------|------------|

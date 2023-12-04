@@ -381,7 +381,7 @@ def parser_msa(parser: argparse.ArgumentParser):
     optional.add_argument("--soft_core", required=False, type=restricted_float, default=0.95,
                           help="Soft core threshold to use if 'softcore' partition is chosen")
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
-                          help="minimum ratio of organisms in which the family must have multiple genes "
+                          help="minimum ratio of genomes in which the family must have multiple genes "
                                "for it to be considered 'duplicated'")
     optional.add_argument("--single_copy", required=False, action="store_true", default=False,
                           help="Use report gene families that are considered 'single copy', for details see "
@@ -394,8 +394,8 @@ def parser_msa(parser: argparse.ArgumentParser):
     optional.add_argument("--phylo", required=False, action='store_true',
                           help="Writes a whole genome msa file for additional phylogenetic analysis")
     optional.add_argument("--use_gene_id", required=False, action='store_true',
-                          help="Use gene identifiers rather than organism names for sequences in the family MSA"
-                               " (organism names are used by default)")
+                          help="Use gene identifiers rather than genome names for sequences in the family MSA"
+                               " (genome names are used by default)")
     optional.add_argument("--translation_table", required=False, default=11, type=int,
                           help="Translation table (genetic code) to use.")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")

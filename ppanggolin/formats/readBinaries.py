@@ -78,7 +78,7 @@ def get_number_of_organisms(pangenome: Pangenome) -> int:
 
     table = annotations.genes
     org_set = set()
-    for org in read_chunks(table, column="organism"):
+    for org in read_chunks(table, column="genome"):
         org_set.add(org)
     h5f.close()
     return len(org_set)
@@ -452,7 +452,7 @@ def read_contigs(pangenome: Pangenome, table: tables.Table, chunk_size: int = 20
         contig = Contig(identifier=int(row["ID"]), name=row["name"].decode(), is_circular=row["is_circular"])
         contig.length = int(row["length"])
         try:
-            organism = pangenome.get_organism(row["organism"].decode())
+            organism = pangenome.get_organism(row["genome"].decode())
         except KeyError:
             pass
         else:
@@ -548,8 +548,8 @@ def read_info(h5f: tables.File):
         info_group = h5f.root.info
         print("Content: ")
         print(f"\t- Genes: {info_group._v_attrs['numberOfGenes']}")
-        if "numberOfOrganisms" in info_group._v_attrs._f_list():
-            print(f"\t- Organisms: {info_group._v_attrs['numberOfOrganisms']}")
+        if "numberOfGenomes" in info_group._v_attrs._f_list():
+            print(f"\t- Genomes: {info_group._v_attrs['numberOfGenomes']}")
         if "numberOfClusters" in info_group._v_attrs._f_list():
             print(f"\t- Families: {info_group._v_attrs['numberOfClusters']}")
         if "numberOfEdges" in info_group._v_attrs._f_list():

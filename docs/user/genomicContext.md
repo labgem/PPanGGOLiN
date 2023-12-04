@@ -24,7 +24,7 @@ The second possibility is to give a list of gene families ID used to compute the
 
 This will search the common connected components in the computed pangenome and export the result in a tsv file.
 
-In this case, you can give a pangenome without gene families representatives sequences. This option is compatible with a pangenome computed with an external clustering (see the [cluster](PangenomeAnalyses/pangenomeBuild.md#clustering) subcommand).
+In this case, you can give a pangenome without gene families representatives sequences. This option is compatible with a pangenome computed with an external clustering (see the [cluster](./PangenomeAnalyses/pangenomeCluster.md) subcommand).
 
 ## Output format
 
@@ -32,14 +32,14 @@ In case of you are using families ID, you will only have as output the `gene_con
 
 There are 6 columns in `gene_context.tsv`. 
 
-1. **geneContext ID**: Identifier of the found context. It is incrementally generated, beginning with 1
-2. **Gene family name**: Identifier of the gene family, from the pangenome, correspond to the found context
-3. **Sequence ID**: Identifier of the searched sequence in the pangenome
-4. **Nb Genomes**: Number of genomes where the genomic context is found
+1. **geneContext_ID**: Identifier of the found context. It is incrementally generated, beginning with 1
+2. **Gene_family_name**: Identifier of the gene family, from the pangenome, correspond to the found context
+3. **Sequence_ID**: Identifier of the searched sequence in the pangenome
+4. **Nb_Genomes**: Number of genomes where the genomic context is found
 5. **Partition**: Partition of the gene family corresponding to the found context
-6. **Target family**: Whether the family is a target family, meaning it matches an input sequence, or a family provided as input.
+6. **Target_family**: Whether the family is a target family, meaning it matches an input sequence, or a family provided as input.
 
-In **sequence Id**, it is possible to find a NA value. This case, correspond to another gene family found in the context.
+In **sequence_Id**, it is possible to find a NA value. This case, correspond to another gene family found in the context.
 
 ## Detailed options
 

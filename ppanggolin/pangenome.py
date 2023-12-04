@@ -333,7 +333,7 @@ class Pangenome:
             if check_name:
                 if contig.name in names:
                     raise KeyError("Two contigs with the same name. "
-                                   "You should use the contig ID or give the organism name")
+                                   "You should use the contig ID or give the genome name")
                 names.add(contig.name)
                 if contig.name == name:
                     identifier = contig.ID
@@ -368,13 +368,13 @@ class Pangenome:
         :raises KeyError: If the `contig` is not in the pangenome
         """
         assert not all(x is None for x in [identifier, name, organism_name]), ("You must provide either contig_id or "
-                                                                               "name or organism_name")
+                                                                               "name or genome_name")
         if name:
             if not isinstance(name, str):
                 raise AssertionError("Contig name should be a string")
             if organism_name:
                 if not isinstance(organism_name, str):
-                    raise AssertionError("Organism name should be a string")
+                    raise AssertionError("Genome name should be a string")
                 organism = self.get_organism(organism_name)
                 return organism.get(name)
             else:
@@ -395,7 +395,7 @@ class Pangenome:
 		:raise AssertionError: If the organism name is not a string
         :raises KeyError: If the provided name is not an organism in the pangenome
         """
-        assert isinstance(name, str), "Organism name should be a string"
+        assert isinstance(name, str), "Genome name should be a string"
         try:
             return self._org_getter[name]
         except KeyError:
@@ -419,8 +419,8 @@ class Pangenome:
         except KeyError:
             self._org_getter[organism.name] = organism
         else:
-            raise KeyError(f"Redondant organism name was found ({organism.name})."
-                           f"All of your organisms must have unique names.")
+            raise KeyError(f"Redondant genome name was found ({organism.name})."
+                           f"All of your genomes must have unique names.")
 
     def get_org_index(self) -> Dict[Organism, int]:  # will not make a new index if it exists already
         """Creates an index for Organisms (each organism is assigned an Integer).

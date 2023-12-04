@@ -177,7 +177,7 @@ def parser_module(parser: argparse.ArgumentParser):
     optional.add_argument("--size", required=False, type=int, default=3,
                           help="Minimal number of gene family in a module")
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
-                          help="minimum ratio of organisms in which the family must have multiple genes"
+                          help="minimum ratio of genomes in which the family must have multiple genes"
                                " for it to be considered 'duplicated'")
     optional.add_argument("-m", "--min_presence", required=False, type=int, default=2,
                           help="Minimum number of times the module needs to be present in the pangenome to be reported."

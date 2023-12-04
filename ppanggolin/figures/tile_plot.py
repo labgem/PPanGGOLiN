@@ -35,7 +35,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     if pangenome.status["partitioned"] == "No":
         raise Exception("Cannot draw the tile plot as your pangenome has not been partitioned")
     if pangenome.number_of_organisms > 500 and nocloud is False:
-        logging.getLogger("PPanGGOLiN").warning("You asked to draw a tile plot for a lot of organisms (>500). "
+        logging.getLogger("PPanGGOLiN").warning("You asked to draw a tile plot for a lot of genomes (>500). "
                                                 "Your browser will probably not be able to open it.")
     logging.getLogger("PPanGGOLiN").info("Drawing the tile plot...")
     data = []
@@ -71,7 +71,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     hc = linkage(dist, 'single')
 
     dendro_org = dendrogram(hc, no_plot=True)
-    logging.getLogger("PPanGGOLiN").info("done with making the dendrogram to order the organisms on the plot")
+    logging.getLogger("PPanGGOLiN").info("done with making the dendrogram to order the genomes on the plot")
 
     order_organisms = [index2org[index] for index in dendro_org["leaves"]]
 
@@ -161,7 +161,7 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
 
     layout = go.Layout(title="presence/absence matrix",
                        xaxis=go.layout.XAxis(ticktext=xaxis_values,
-                                             title='organisms',
+                                             title='genomes',
                                              tickvals=xaxis_values,
                                              automargin=True,
                                              tickfont=dict(size=10)),
