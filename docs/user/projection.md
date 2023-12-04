@@ -2,7 +2,7 @@
 
 The ppanggolin projection command allows you to annotate external genomes using an existing pangenome. This process eliminates the need to recompute all components, streamlining the annotation process. Input genomes are expected to belong to the same species.
 
-Genes within the input genome are aligned with genes in the pangenome to determine their gene families and partitions. Genes that do not align with any existing gene in the pangenome are considered specific to the input genome and are assigned to the "Cloud" partition. The number of this specific cloud families are detailed in the summary table. The summary table provides a count of these specific cloud families. 
+Genes within the input genome are aligned with genes in the pangenome to determine their gene families and partitions. Genes that do not align with any existing gene in the pangenome are considered specific to the input genome and are assigned to the "Cloud" partition. The number of this specific cloud families are detailed in the summary table.
 
 Based on the alignment and partition assignment, Regions of Plasticity (RGPs) within the input genome are predicted. Each RGP that is not located on a contig border is assigned to a spot of insertion. Finally, conserved modules of the pangenome found in the input genome are reported in the output files.
 
@@ -12,16 +12,16 @@ This command supports two input modes depending on whether you want to project a
 
 Multiple Files in One TSV:
 - **Options**: `--fasta` or `--anno`
-- **Description**: You can provide a tab-separated file listing organism names alongside their respective FASTA genomic sequences or annotation filepaths, with one line per organism. This mode is suitable when you want to annotate multiple genomes in a single operation. The format of this file is identical to the format used in the annotate and workflow commands; for more details, refer here.
+- **Description**: You can provide a tab-separated file listing genome names alongside their respective FASTA genomic sequences or annotation filepaths, with one line per genome. This mode is suitable when you want to annotate multiple genomes in a single operation. The format of this file is identical to the format used in the annotate and workflow commands; for more details, refer here.
 
 Single File:
-- **Options**: `--organism_name` with `--fasta` or `--anno` and `--circular_contigs` (optional)
-- **Description**: When annotating a single genome, you can directly provide a single FASTA genomic sequence file or an annotation file in GFF/GBFF format. Additionally, specify the name of the organism using the `--organism_name` option. You can also indicate circular contigs using the `--circular_contigs` option when necessary.
+- **Options**: `--genome_name` with `--fasta` or `--anno` and `--circular_contigs` (optional)
+- **Description**: When annotating a single genome, you can directly provide a single FASTA genomic sequence file or an annotation file in GFF/GBFF format. Additionally, specify the name of the genome using the `--genome_name` option. You can also indicate circular contigs using the `--circular_contigs` option when necessary.
 
 
 ## Output Files
 
-Within the Output directory, the `summary_projection.tsv` file provides an overview of the projection, featuring one line per organism. This file includes all the columns described in the [organisms-statistics](Outputs.md#organisms-statistics) output section, along with specific projection-related columns detailed below:
+Within the Output directory, the `summary_projection.tsv` file provides an overview of the projection, featuring one line per genome. This file includes all the columns described in the [genome-statistics table](./PangenomeAnalyses/pangenomeStat.md#genome-statistics-table) section, along with specific projection-related columns detailed below:
 
 | Column                      | Description                                                                                   |
 |-----------------------------|-----------------------------------------------------------------------------------------------|
@@ -31,9 +31,8 @@ Within the Output directory, the `summary_projection.tsv` file provides an overv
 
 
 
-The `summary_projection.tsv` file contains additional columns pertinent to the projection process, supplementing the standard organism statistics with specialized information about the projection, facilitating a comprehensive understanding of the analyzed data.
-
 Additionally, within the Output directory, there is a subdirectory for each input genome, named after the input genome itself. Each of these subdirectories contains several files:
+
 
 For Gene Family and Partition of Input Genes:
 
@@ -44,12 +43,14 @@ For Gene Family and Partition of Input Genes:
 
 For RGPs and Spots:
 
-- `plastic_regions.tsv`: This file contains information about Regions of Genomic Plasticity (RGPs) within the input genome. Its format follows [this output](Outputs.md#plastic-regions).
-- `input_organism_rgp_to_spot.tsv`: It provides information about the association between RGPs and insertion spots in the input genome. Its format follows [this ouput](Outputs.md#spots).
+- `plastic_regions.tsv`: This file contains information about Regions of Genomic Plasticity (RGPs) within the input genome. Its format follows [this output](RGP/rgpOutputs.md#rgp-outputs).
+- `input_genome_rgp_to_spot.tsv`: It provides information about the association between RGPs and insertion spots in the input genome. Its format follows [this ouput](RGP/rgpOutputs.md#summarize-spots).
 
-Optionally, you can produce a graph of the RGPs using the `--spot_graph` option. This graph is similar as the one produce by the `ppanggolin spot` command.
+Optionally, you can generate a graph of the spots using the `--spot_graph` option. This graph resembles the one produced by the `ppanggolin draw --spots` command, which is detailed [here](RGP/rgpOutputs.md#draw-spots).
 
 For Modules:
 
-- `modules_in_input_organism.tsv`: This file lists the modules that have been found in the input genome. Its format follows [this ouput](Outputs.md#modules-in-organisms).
+- `modules_in_input_genome.tsv`: This file lists the modules that have been found in the input genome. Its format follows [this ouput](Modules/moduleOutputs.md#module-outputs).
+
+
 
