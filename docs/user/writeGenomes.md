@@ -7,7 +7,7 @@ To generate output exclusively for particular genomes, users can utilize the `--
 
 ### Genes table with pangenome annotations
 
-The `--table` option generates a TSV file for each genome, providing pangenome annotations for the genes.  These files are stored within a directory named 'tables'.
+The `--table` option generates a TSV file for each genome, providing pangenome annotations for the genes.  These files are stored within a directory named `tables`.
 
 
 The table below outlines the columns found in these generated files:
@@ -36,7 +36,7 @@ Columns such as RGP, spot, and module are included only when these elements have
 
 Those files can be generated as such : 
 
-```
+```bash
 ppanggolin write_genomes -p pangenome.h5 --table -o write_genomes_output
 ```
 
@@ -197,5 +197,5 @@ Metadata is seamlessly incorporated into table output with the addition of extra
 - gene metadata: `gene_<source>_<key>`
 - family metadata: `gene_<source>_<key>`
 
-<!-- exemple -->
+<!-- exemple ? -->
 
