@@ -1,13 +1,12 @@
 ### Pangenome statistics
 
-
-The command `ppanggolin write_pangenome` allows to write 'flat' files that describe the pangenome and its elements. 
+The command `ppanggolin write_pangenome` allows to write 'flat' files that describe the pangenome and its elements.
 
 #### Organism statistics table
 
-The 'organisms_statistics.tsv' file is a tab-separated file summarizing the content of each of the genomes used for building the pangenome. This file is useful when working with fragmented data, such as MAGs, or when investigating potential outliers within your dataset, such as chimeric or taxonomically disparate genomes.
+The `organisms_statistics.tsv` file is a tab-separated file summarizing the content of each of the genomes used for building the pangenome. This file is useful when working with fragmented data, such as MAGs, or when investigating potential outliers within your dataset, such as chimeric or taxonomically disparate genomes.
 
-The first lines starting with a '#' are indicators of parameters used when generating the numbers describing each organisms, and should not be read if loading this into a spreadsheet. They will be skipped automatically if you load this file with R.
+The first lines starting with a `#` are indicators of parameters used when generating the numbers describing each organisms, and should not be read if loading this into a spreadsheet. They will be skipped automatically if you load this file with R.
 
 This file comprises 32 columns described in the following table:
 
@@ -50,18 +49,18 @@ This file comprises 32 columns described in the following table:
 
 
 ```{note}
-If you already have predict RGPs, spots or modules in your pangenome, a corresponding column will be added.
+If you have predicted RGPs, spots or modules in your pangenome, corresponding columns will be added.
 ```
 
 
-It can be generated using the 'write_pangenome' subcommand as such : 
+This table can be generated using the `write_pangenome` subcommand with the flag `--stats` as such : 
 
 ```bash
 ppanggolin write_pangenome -p pangenome.h5 --stats
 ```
 
 
-This command will also generate the 'mean_persistent_duplication.tsv' file as desdcribe [here](#mean-persistent-duplication).
+The flag `--stats` will also generate the `mean_persistent_duplication.tsv` file desdcribe [here](#mean-persistent-duplication).
 
 
 
@@ -81,52 +80,97 @@ The fragmentation value denotes the proportion of families containing fragmented
 
 
 
-#### Mean persistent duplication
 
-The file `mean_persistent_duplication.tsv` is a  tab-separated file, with a single parameter written as a comment at the beginning of the file, which indicates the proportion of genomes in which a gene family must be present more than once to be considered 'duplicated' (and not single copy marker).
-This file lists the gene families, their duplication ratio, their mean presence in the pangenome and whether it is considered a 'single copy marker' or not, which is particularly useful when calculating the contamination recorded in the [organisms statistics table](#organism-statistics-table) described previously.
+#### Mean Persistent Duplication
 
-It can be generated using the 'write_pangenome' subcommand : 
+The `mean_persistent_duplication.tsv` is a tab-separated file that lists the gene families and their duplication ratio, their mean presence in the pangenome and whether it is considered a 'single copy marker'. A gene family is considered duplicated it is found in single copy in less than 5% of the genomes by default. This threshold can be adjusted with the parameter `--dup_margin`. And the value that has been used to generated this file is specififed as a comment line strating with a '#'. This notion of single copy marker is used to compute a contamination value for each genome in the [organisms statistics table](#organism-statistics-table) described previously, where the contamination is the proportion of single copy marker found in multicopy in a specified genome. 
+
+
+
+
+To generate this file, use the following `write_pangenome` subcommand:
 
 ```bash
 ppanggolin write_pangenome -p pangenome.h5 --stats
 ```
 
-This command will also generate the 'organisms_statistics.tsv' file as desdcribe [here](#mean-persistent-duplication).
+Executing this command will also create the `organisms_statistics.tsv` file, detailed in the section labeled [here](#mean-persistent-duplication).
+
+
+### Mean Persistent Duplication
+
+The `mean_persistent_duplication.tsv` file lists the gene families along with their duplication ratios, average presence in the pangenome, and classification as 'single copy markers.' In this context, a gene family is not considered in single copy if it appears in single copy in less than 5% of the genomes by default. This default threshold can be adjusted using the `--dup_margin` parameter. The chosen threshold value for generating this file is indicated within a comment line starting with a '#'.
+
+This notion of single copy markers is used for calculating contamination values in the [organisms statistics table](#organism-statistics-table) described earlier.
+
+Below an example excerpt from this file:
+
+```tsv
+#duplication_margin=0.05
+persistent_family	duplication_ratio	mean_presence	is_single_copy_marker
+J4H57_RS02250	0.0	1.0	True
+K6U54_RS13115	0.0	1.0	True
+J4H33_RS19875	0.0	1.0	True
+J4H71_RS19770	0.0	1.0	True
+NB568_RS20780	0.0	1.0	True
+JCM18904_4793	0.0	1.0	True
+JCM18904_4607	0.0	1.0	True
+JCM18904_2671	0.003	1.003	True
+JCM18904_2527	0.0	1.0	True
+K04M1_RS08450	0.698	1.698	False
+[...]
+
+```
+
+The `mean_persistent_duplication.tsv` file, can be generated using the `write_pangenome` subcommand with the flag `--stats` as such : 
+
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --stats
+```
+
+
+The flag `--stats` will also generate the `organisms_statistics.tsv` file desdcribe [here](#organism-statistics-table).
+
+
 
 (gene-presence-absence)=
-#### Gene presence absence
+### Gene Presence-Absence Matrix
 
-This file is basically a presence absence matrix. The columns are the genomes used to build the pangenome, the lines are the gene families. The identifier of the gene family is the gene identifier chosen as a representative.
- There is a 1 if the gene family is present in a genome, and 0 otherwise. It follows the exact same format than the 'gene_presence_absence.Rtab' file that you get from the pangenome analysis software [Roary](https://sanger-pathogens.github.io/Roary/)
+The `gene_presence_absence.Rtab` file represents a presence-absence matrix wherein columns are the genomes used to construct the pangenome, and rows correspond to gene families. Each gene family is identified by the identifier of their representative gene.
 
-It can be generated using the 'write' subcommand as such: 
+The matrix contains '1' if the gene family is present in a particular genome and '0' if absent. This format mirrors the structure of the `gene_presence_absence.Rtab` file obtained from the pangenome analysis software [Roary](https://sanger-pathogens.github.io/Roary/).
 
-`ppanggolin write_pangenome -p pangenome.h5 --Rtab`
+To generate this file, use the `write_pangenome` subcommand with the `--Rtab` flag as follows:
 
-#### Matrix
-
-This file is a .csv file following a format alike the  gene_presence_absence.csv file generated by [roary](https://sanger-pathogens.github.io/Roary/), and works with [scoary](https://github.com/AdmiralenOla/Scoary) if you want to do pangenome-wide association studies.
-
-It can be generated using the 'write' subcommand as such: 
-
-`ppanggolin write_pangenome -p pangenome.h5 --csv`
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --Rtab
+```
 
 
-#### Partitions
+### Matrix File
+The `matrix.csv` file, formatted as a .csv file, follows a structure similar to the `gene_presence_absence.csv` file generated by [Roary](https://sanger-pathogens.github.io/Roary/). This file format is compatible with [Scoary](https://github.com/AdmiralenOla/Scoary) for performing pangenome-wide association studies.
 
-Those files will be stored in the 'partitions' directory and will be named after the partition that they represent (like persistent.txt for the persistent partition). In each of those file there will be a list of gene family identifiers that correspond to the gene families belonging to that partition, one family per line, should you need it for your pipelines or during your analysis.
+To generate this file, use the `write_pangenome` subcommand with the `--csv` flag:
 
-You can generate those files as such:  
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --csv
+```
 
-` ppanggolin write_pangenome -p pangenome.h5 --partitions`
 
 
-#### Gene families to genes associtations
+### Partitions Files
 
-You can write a list containing the gene family assigned to every single gene of your pangenome, in a file format extactly like the one provided by [MMseqs2](https://github.com/soedinglab/MMseqs2) through its subcommand 'createtsv'.
-It is basically a three-column file listing the gene family name in the first column, and the gene names in the second. A third column is either empty, or has an "F" in it. In that case it indicates that the gene is potentially a gene fragment and not complete. This will be indicated only if the [defragmentation](./pangenomeCluster.md#defragmentation) pipeline is used.
+The 'Partitions' files are stored within the `partitions` directory and are named after the specific partition they represent (e.g., 'persistent.txt' for the persistent partition). Each file contains a list of gene family identifiers corresponding to the gene families belonging to that particular partition. The format consists of one family identifier per line, facilitating their usage in upstream analysis workflows.
 
-You can obtain it as such:  
+To generate these files, use the `write_pangenome` subcommand with the `--partitions` flag:
+
+`ppanggolin write_pangenome -p pangenome.h5 --partitions`
+
+
+### Gene Families to Genes Associations
+
+The `gene_families.tsv` file mirrors the format provided by [MMseqs2](https://github.com/soedinglab/MMseqs2) through its `createtsv` subcommand. This file structure comprises three columns: the gene family name in the first column, the gene names in the second, and a third column that remains empty or contains an "F" to denote potential gene fragments instead of complete genes. This indication appears only if the [defragmentation](./pangenomeCluster.md#defragmentation) pipeline has been used.
+
+To generate this file, use the `write_pangenome` subcommand with the `--families_tsv` flag:
 
 `ppanggolin write_pangenome -p pangenome.h5 --families_tsv`
