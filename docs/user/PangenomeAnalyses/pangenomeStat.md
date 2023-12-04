@@ -2,17 +2,17 @@
 
 The command `ppanggolin write_pangenome` allows to write 'flat' files that describe the pangenome and its elements.
 
-#### Organism statistics table
+#### Genome statistics table
 
-The `organisms_statistics.tsv` file is a tab-separated file summarizing the content of each of the genomes used for building the pangenome. This file is useful when working with fragmented data, such as MAGs, or when investigating potential outliers within your dataset, such as chimeric or taxonomically disparate genomes.
+The `genome_statistics.tsv` file is a tab-separated file summarizing the content of each of the genomes used for building the pangenome. This file is useful when working with fragmented data, such as MAGs, or when investigating potential outliers within your dataset, such as chimeric or taxonomically disparate genomes.
 
-The first lines starting with a `#` are indicators of parameters used when generating the numbers describing each organisms, and should not be read if loading this into a spreadsheet. They will be skipped automatically if you load this file with R.
+The first lines starting with a `#` are indicators of parameters used when generating the numbers describing each genomes, and should not be read if loading this into a spreadsheet. They will be skipped automatically if you load this file with R.
 
 This file comprises 32 columns described in the following table:
 
 | Column                      | Description                                                                                   |
 |-----------------------------|-----------------------------------------------------------------------------------------------|
-| Organism_name               | Name of the organism to which the provided genome belongs                                     |
+| Genome_name               | Name of the genome to which the provided genome belongs                                     |
 | Contigs                     | Number of contigs present in the genome                                                       |
 | Genes                       | Total number of genes in the genome                                                           |
 | Fragmented_genes            | Number of genes flagged as fragmented. Refer to the [defragmentation](./pangenomeCluster.md#defragmentation) section for detailed information on the fragmentation process.    |
@@ -83,7 +83,7 @@ The fragmentation value denotes the proportion of families containing fragmented
 
 #### Mean Persistent Duplication
 
-The `mean_persistent_duplication.tsv` is a tab-separated file that lists the gene families and their duplication ratio, their mean presence in the pangenome and whether it is considered a 'single copy marker'. A gene family is considered duplicated it is found in single copy in less than 5% of the genomes by default. This threshold can be adjusted with the parameter `--dup_margin`. And the value that has been used to generated this file is specififed as a comment line strating with a '#'. This notion of single copy marker is used to compute a contamination value for each genome in the [organisms statistics table](#organism-statistics-table) described previously, where the contamination is the proportion of single copy marker found in multicopy in a specified genome. 
+The `mean_persistent_duplication.tsv` is a tab-separated file that lists the gene families and their duplication ratio, their mean presence in the pangenome and whether it is considered a 'single copy marker'. A gene family is considered duplicated it is found in single copy in less than 5% of the genomes by default. This threshold can be adjusted with the parameter `--dup_margin`. And the value that has been used to generated this file is specififed as a comment line strating with a '#'. This notion of single copy marker is used to compute a contamination value for each genome in the [genome statistics table](#genome-statistics-table) described previously, where the contamination is the proportion of single copy marker found in multicopy in a specified genome. 
 
 
 
@@ -94,14 +94,14 @@ To generate this file, use the following `write_pangenome` subcommand:
 ppanggolin write_pangenome -p pangenome.h5 --stats
 ```
 
-Executing this command will also create the `organisms_statistics.tsv` file, detailed in the section labeled [here](#mean-persistent-duplication).
+Executing this command will also create the `genomes_statistics.tsv` file, detailed in the section labeled [here](#mean-persistent-duplication).
 
 
 ### Mean Persistent Duplication
 
 The `mean_persistent_duplication.tsv` file lists the gene families along with their duplication ratios, average presence in the pangenome, and classification as 'single copy markers.' In this context, a gene family is not considered in single copy if it appears in single copy in less than 5% of the genomes by default. This default threshold can be adjusted using the `--dup_margin` parameter. The chosen threshold value for generating this file is indicated within a comment line starting with a '#'.
 
-This notion of single copy markers is used for calculating contamination values in the [organisms statistics table](#organism-statistics-table) described earlier.
+This notion of single copy markers is used for calculating contamination values in the [genome statistics table](#genome-statistics-table) described earlier.
 
 Below an example excerpt from this file:
 
@@ -129,7 +129,7 @@ ppanggolin write_pangenome -p pangenome.h5 --stats
 ```
 
 
-The flag `--stats` will also generate the `organisms_statistics.tsv` file desdcribe [here](#organism-statistics-table).
+The flag `--stats` will also generate the `genomes_statistics.tsv` file desdcribe [here](#genome-statistics-table).
 
 
 
