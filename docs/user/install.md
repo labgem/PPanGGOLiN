@@ -41,7 +41,7 @@ cd PPanGGOLiN
 Install PPanGGOLiN dependencies listed in the [ppanggolin_env.yaml](../../ppanggolin_env.yaml) file, located at the root of the repository, using conda:
 
 ```bash
-conda create -n ppanggolin_source -f ppanggolin_env.yaml
+conda env create -n ppanggolin_source -f ppanggolin_env.yaml
 ```
 
 **3. Installing PPanGGOLiN**
