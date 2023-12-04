@@ -160,7 +160,7 @@ ppanggolin write_pangenome -p pangenome.h5 --csv
 
 ### Partitions Files
 
-The 'Partitions' files are stored within the `partitions` directory and are named after the specific partition they represent (e.g., 'persistent.txt' for the persistent partition). Each file contains a list of gene family identifiers corresponding to the gene families belonging to that particular partition. The format consists of one family identifier per line, facilitating their usage in upstream analysis workflows.
+The 'Partitions' files are stored within the `partitions` directory and are named after the specific partition they represent (e.g., 'persistent.txt' for the persistent partition). Each file contains a list of gene family identifiers corresponding to the gene families belonging to that particular partition. The format consists of one family identifier per line, facilitating their usage in downstream analysis workflows.
 
 To generate these files, use the `write_pangenome` subcommand with the `--partitions` flag:
 
