@@ -1,6 +1,6 @@
 # Prediction of Genomic Context
 
-The PPanGGOLiN `context` command enables the identification of genomic contexts for query proteins. These contexts signify genes commonly found in proximity to the proteins of interest in the different genomes.
+The PPanGGOLiN `context` command enables the identification of genomic contexts for query proteins. These contexts consist of genes commonly found in proximity to the proteins of interest in the different genomes.
 
 The analysis can be run on your formerly computed pangenomes and users can query one or multiple genes at once. The search can be conducted either directly with gene/protein sequences in a FASTA file or by utilizing a list of gene family IDs. Both methods are seamlessly integrated within the `context` subcommand.
 

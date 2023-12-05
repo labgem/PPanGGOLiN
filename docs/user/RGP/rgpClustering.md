@@ -1,7 +1,7 @@
 ## RGP clustering
 
 To cluster RGPs (Regions of Genome Plasticity) based on their gene families, you can use the command `panggolin rgp_cluster`.
-The panggolin rgp_cluster command performs the following steps to cluster RGPs (Regions of Genome Plasticity) based on their gene families:
+The panggolin `rgp_cluster` command performs the following steps to cluster RGPs (Regions of Genome Plasticity) based on their gene families:
 
 1. Calculation of GRR (Gene Repertoire Relatedness): The command calculates the GRR values for all pairs of RGPs. The GRR metric evaluates the similarity between two RGPs by assessing their shared gene families.
 2. Graph Construction: The command constructs a graph representation of the RGPs, where each RGP is represented as a node in the graph. The edges between the nodes are weighted using the GRR values, indicating the strength of the relationship between the RGPs.
