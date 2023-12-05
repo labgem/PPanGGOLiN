@@ -268,7 +268,7 @@ def read_genome_file(genome_file: Path, organism: Organism) -> Dict[str, str]:
 
     # check_contig_names
     if set(contig_to_sequence) != {contig.name for contig in organism.contigs}:
-        raise Exception(f"Contig name inconsistency detected in organism '{organism.name}' between the "
+        raise Exception(f"Contig name inconsistency detected in genome '{organism.name}' between the "
                         f"information stored in the pangenome file and the contigs found in '{genome_file}'.")
 
     return contig_to_sequence
@@ -469,11 +469,11 @@ def parser_seq(parser: argparse.ArgumentParser):
     context = parser.add_argument_group(title="Contextually required arguments",
                                         description="With --regions, the following arguments are required:")
     context.add_argument('--fasta', required=False, type=Path,
-                         help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
-                              "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
+                         help="A tab-separated file listing the genome names, and the fasta filepath of its genomic "
+                              "sequence(s) (the fastas can be compressed with gzip). One line per genome.")
     context.add_argument('--anno', required=False, type=Path,
-                         help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
-                              "annotations (the files can be compressed with gzip). One line per organism. "
+                         help="A tab-separated file listing the genome names, and the gff/gbff filepath of its "
+                              "annotations (the files can be compressed with gzip). One line per genome. "
                               "If this is provided, those annotations will be used.")
     onereq = parser.add_argument_group(title="Output file",
                                        description="At least one of the following argument is required. "

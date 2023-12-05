@@ -77,7 +77,7 @@ def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = Fal
         gene_info["stop"] = gene.stop
         gene_info["strand"] = gene.strand
         gene_info["family"] = gene.family.name
-        gene_info["nb_copy_in_org"] = len(list(gene.family.get_genes_per_org(organism)))
+        gene_info["nb_copy_in_genome"] = len(list(gene.family.get_genes_per_org(organism)))
         gene_info["partition"] = gene.family.named_partition
         gene_info["persistent_neighbors"] = nb_pers
         gene_info["shell_neighbors"] = nb_shell
@@ -390,7 +390,7 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
 
     else:
         if Path(organisms_filt).is_file():
-            logging.getLogger("PPanGGOLiN").debug("Parsing the list of organisms from a file "
+            logging.getLogger("PPanGGOLiN").debug("Parsing the list of genomes from a file "
                                                   "to determine which genomes should be included in the output.")
             with open(organisms_filt) as fl:
                 org_names = [line.strip() for line in fl if line and not line.startswith("#")]
@@ -406,7 +406,7 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
             except KeyError:
                 org_not_in_pangenome.add(org_name)
         if org_not_in_pangenome:
-            raise KeyError(f"{len(org_not_in_pangenome)} organism(s) specified with '--organisms' parameter were "
+            raise KeyError(f"{len(org_not_in_pangenome)} organism(s) specified with '--genomes' parameter were "
                            f"not found in the pangenome: {', '.join(org_not_in_pangenome)}")
 
         logging.getLogger("PPanGGOLiN").info(
@@ -508,7 +508,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
 
     organisms_list = get_organism_list(organisms_filt, pangenome)
     if not organisms_list:
-        raise ValueError("No genomes are selected for output. Please check the '--organisms' parameter.")
+        raise ValueError("No genomes are selected for output. Please check the '--genomes' parameter.")
 
     org_dict = parse_input_paths_file(organisms_file) if organisms_file and (gff or proksee) else None
 
@@ -519,7 +519,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
     organism2args = defaultdict(lambda: {"output": output, "table": table, "gff": gff,
                                          "proksee": proksee, "compress": compress})
     for organism in organisms_list:
-        organism_args = {"organisms_file": org_dict[organism.name]['path'] if org_dict else None}
+        organism_args = {"genome_file": org_dict[organism.name]['path'] if org_dict else None}
         if proksee:
             organism_args["module_to_colors"] = {module: module_to_colors[module] for module in organism.modules}
 
@@ -540,7 +540,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
 
     start_writing = time.time()
     with ThreadPoolExecutor(max_workers=cpu) as executor:
-        with tqdm(total=(len(organisms_list)), unit="organism", disable=disable_bar) as progress:
+        with tqdm(total=(len(organisms_list)), unit="genome", disable=disable_bar) as progress:
             futures = []
             for organism, kwargs in organism2args.items():
                 logging.getLogger("PPanGGOLiN").debug(f"Writing genome annotations for {organism.name}")
@@ -569,7 +569,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
 
     write_flat_genome_files(pangenome, args.output, table=args.table, gff=args.gff, proksee=args.proksee,
-                            compress=args.compress, fasta=args.fasta, anno=args.anno, organisms_filt=args.organisms,
+                            compress=args.compress, fasta=args.fasta, anno=args.anno, organisms_filt=args.genomes,
                             add_metadata=args.add_metadata, metadata_sep=args.metadata_sep,
                             metadata_sources=args.metadata_sources, cpu=args.cpu, disable_bar=args.disable_prog_bar)
 
@@ -613,12 +613,12 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--compress", required=False, action="store_true",
                           help="Compress the files in .gz")
 
-    optional.add_argument("--organisms",
+    optional.add_argument("--genomes",
                           required=False,
                           default="all",
-                          help="Specify the organisms for which to generate output. "
-                               "You can provide a list of organism names either directly in the command line separated "
-                               "by commas, or by referencing a file containing the list of organism names, "
+                          help="Specify the genomes for which to generate output. "
+                               "You can provide a list of genome names either directly in the command line separated "
+                               "by commas, or by referencing a file containing the list of genome names, "
                                "with one name per line.")
 
     optional.add_argument("--add_metadata",
@@ -647,12 +647,12 @@ def parser_flat(parser: argparse.ArgumentParser):
                                                     "used to add sequence information to the output file:")
 
     context.add_argument('--fasta', required=False, type=Path,
-                         help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
-                              "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
+                         help="A tab-separated file listing the genome names, and the fasta filepath of its genomic "
+                              "sequence(s) (the fastas can be compressed with gzip). One line per genome.")
 
     context.add_argument('--anno', required=False, type=Path,
-                         help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
-                              "annotations (the files can be compressed with gzip). One line per organism. "
+                         help="A tab-separated file listing the genome names, and the gff/gbff filepath of its "
+                              "annotations (the files can be compressed with gzip). One line per genome. "
                               "If this is provided, those annotations will be used.")
 
 

@@ -168,7 +168,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                         partitions_list[i] = parti[positions_max_prob.pop()]
     except IOError:
         logging.getLogger("PPanGGOLiN").debug(
-            "partitioning did not work (the number of organisms used is probably too low), "
+            "partitioning did not work (the number of genomes used is probably too low), "
             "see logs here to obtain more details " + nem_dir_path.as_posix() + "/nem_file_" +
             str(kval) + ".log")
         return {}, None, None  # return empty objects
@@ -474,8 +474,8 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
     tmp_path = Path(tmp_dir.name)
 
     if len(organisms) <= 10:
-        logging.getLogger("PPanGGOLiN").warning(f"The number of selected organisms is too low ({len(organisms)} "
-                                                f"organisms used) to robustly partition the graph")
+        logging.getLogger("PPanGGOLiN").warning(f"The number of selected genomes is too low ({len(organisms)} "
+                                                f"genomes used) to robustly partition the graph")
 
     pangenome.parameters["partition"] = {}
     pangenome.parameters["partition"]["beta"] = beta
@@ -658,9 +658,9 @@ def parser_partition(parser: argparse.ArgumentParser):
                           help="Output directory")
     optional.add_argument("-fd", "--free_dispersion", required=False, default=False, action="store_true",
                           help="use if the dispersion around the centroid vector of each partition during must be free."
-                               " It will be the same for all organisms by default.")
+                               " It will be the same for all genomes by default.")
     optional.add_argument("-ck", "--chunk_size", required=False, default=500, type=int,
-                          help="Size of the chunks when performing partitioning using chunks of organisms. "
+                          help="Size of the chunks when performing partitioning using chunks of genomes. "
                                "Chunk partitioning will be used automatically "
                                "if the number of genomes is above this number.")
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,

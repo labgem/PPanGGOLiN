@@ -495,7 +495,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     :param disable_bar: Disable the progress bar
     """
 
-    logging.getLogger("PPanGGOLiN").info(f"Reading {organisms_file.name} the list of organism files ...")
+    logging.getLogger("PPanGGOLiN").info(f"Reading {organisms_file.name} the list of genome files ...")
 
     pangenome.status["geneSequences"] = "Computed"
     # we assume there are gene sequences in the annotation files,
@@ -551,7 +551,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
     for line in read_compressed_or_not(fasta_files):
         elements = [el.strip() for el in line.split("\t")]
         if len(elements) <= 1:
-            logging.getLogger("PPanGGOLiN").error("No tabulation separator found in organisms file")
+            logging.getLogger("PPanGGOLiN").error("No tabulation separator found in genome file")
             exit(1)
         try:
             org = pangenome.get_organism(elements[0])
@@ -563,7 +563,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
             fasta_dict[org] = read_fasta(org, currFastaFile)
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
-        raise Exception(f"Not all of your pangenome organisms are present within the provided fasta file. "
+        raise Exception(f"Not all of your pangenome genomes are present within the provided fasta file. "
                         f"{missing} are missing (out of {pangenome.number_of_organisms}).")
 
     for org in pangenome.organisms:
@@ -574,7 +574,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
                 for rna in contig.RNAs:
                     rna.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], rna))
             except KeyError:
-                msg = f"Fasta file for organism {org.name} did not have the contig {contig.name} " \
+                msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
                       f"that was read from the annotation file. "
                 msg += f"The provided contigs in the fasta were : " \
                        f"{', '.join([contig for contig in fasta_dict[org].keys()])}."
@@ -600,7 +600,7 @@ def annotate_pangenome(pangenome: Pangenome, fasta_list: Path, tmpdir: str, cpu:
     :param disable_bar: Disable the progress bar
     """
 
-    logging.getLogger("PPanGGOLiN").info(f"Reading {fasta_list} the list of organism files")
+    logging.getLogger("PPanGGOLiN").info(f"Reading {fasta_list} the list of genome files")
 
     arguments = []  # Argument given to annotate organism in same order than prototype
     for line in read_compressed_or_not(fasta_list):
@@ -699,11 +699,11 @@ def parser_annot(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('--fasta', required=False, type=Path,
-                          help="A tab-separated file listing the organism names, and the fasta filepath of its genomic "
-                               "sequence(s) (the fastas can be compressed with gzip). One line per organism.")
+                          help="A tab-separated file listing the genome names, and the fasta filepath of its genomic "
+                               "sequence(s) (the fastas can be compressed with gzip). One line per genome.")
     required.add_argument('--anno', required=False, type=Path,
-                          help="A tab-separated file listing the organism names, and the gff/gbff filepath of its "
-                               "annotations (the files can be compressed with gzip). One line per organism. "
+                          help="A tab-separated file listing the genome names, and the gff/gbff filepath of its "
+                               "annotations (the files can be compressed with gzip). One line per genome. "
                                "If this is provided, those annotations will be used.")
 
     optional = parser.add_argument_group(title="Optional arguments")

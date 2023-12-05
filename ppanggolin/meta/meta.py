@@ -51,7 +51,7 @@ def check_pangenome_metadata(pangenome: Pangenome, source: str, metatype: str, f
             erase_pangenome(pangenome, metadata=True, source=source, metatype=metatype)
         else:
             raise Exception(
-                f"An metadata corresponding to the source : '{source}' already exist in pangenome organims."
+                f"An metadata corresponding to the source : '{source}' already exist in genomes of the pangenome."
                 "Add the option --force to erase")
     check_pangenome_info(pangenome, disable_bar=disable_bar, **need_dic)
 

@@ -383,7 +383,7 @@ class GeneFamily(MetaFeatures):
         if len(self._genePerOrg) == 0:
             _ = self.get_org_dict()
         if org not in self._genePerOrg:
-            raise KeyError(f"Organism don't belong to the gene family: {self.name}")
+            raise KeyError(f"Genome does not have the gene family: {self.name}")
         for gene in self._genePerOrg[org]:
             yield gene
 

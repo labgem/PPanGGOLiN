@@ -29,7 +29,7 @@ from ppanggolin.geneFamily import GeneFamily
 
 # all input params that exists in ppanggolin
 ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', 
-                    "fasta_file", "annot_file", "organism_name"] # the last three params is for projection cmd
+                    "fasta_file", "annot_file", "genome_name"] # the last three params is for projection cmd
 
 # all params that should be in the general_parameters section of the config file
 ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log',
@@ -1012,7 +1012,7 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
     :raises FileNotFoundError: If a specified genome file path does not exist.
     :raises Exception: If there are no genomes in the provided file.
     """
-    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process organism files")
+    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process genome files")
     genome_name_to_genome_path = {}
 
     for line in read_compressed_or_not(path_list_file):
