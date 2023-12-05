@@ -1,4 +1,4 @@
-# Conserved module prediction
+<!-- # Conserved module prediction -->
 
 PPanGGOLiN is able to predict and work with conserved modules. Modules are groups of genes that are part of the variable genome, and often found together across the genomes of the pangenome. As such, they are conserved modules and potential functional modules.
 
