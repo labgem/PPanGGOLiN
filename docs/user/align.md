@@ -12,16 +12,24 @@ The default way of using this command is the following:
 ## Output files
 By default the command if successful will always write two files:
 
-- The file 'sequences_partition_projection.tsv' which is a .tsv file with two columns which indicates the partition of the most similar gene family of the pangenome to which the given input sequence is closest to. It follows the following format:
+### 1. 'sequences_partition_projection.tsv'
 
-| column | description |
+The file 'sequences_partition_projection.tsv' which is a .tsv file with two columns which indicates the partition of the most similar gene family of the pangenome to which the given input sequence is closest to. It follows the following format:
+
+| column | description |    
 |--------|-------------|
 | input | the header of the sequence in the given .fasta file|
 |partition| predicted partition based on the most similar gene family, or 'cloud' if there are no similar enough gene family|
 
-- The file 'input_to_pangenome_associations.blast-tab' is a .tsv file which follows the tabular blast format which many alignment softwares (such as blast, diamond, mmseqs etc.) use, with two additional columns: the length of query sequence which was aligned, and the length of the subject sequence which was aligned (provided with qlen and slen with the softwares I previously named). You can find a detailed description of the format in [this blog post](https://www.metagenomics.wiki/tools/blast/blastn-output-format-6) for example (and there are many other descriptions of this format on internet, if you search for 'tabular blast format'). The query are the provided sequences, and the subjet are the pangenome gene families.
 
-As options, you can also write additional files which give you alternative informations. If your pangenome has predicted RGP and spots (see [Regions of Genome Plasticity](RGP/rgpAnalyses.md) if you do not know what those are) 
+### 2. 'input_to_pangenome_associations.blast-tab'
+
+The file 'input_to_pangenome_associations.blast-tab' is a .tsv file which follows the tabular blast format which many alignment softwares (such as blast, diamond, mmseqs etc.) use, with two additional columns: the length of query sequence which was aligned, and the length of the subject sequence which was aligned (provided with qlen and slen with the softwares I previously named). You can find a detailed description of the format in [this blog post](https://www.metagenomics.wiki/tools/blast/blastn-output-format-6) for example (and there are many other descriptions of this format on internet, if you search for 'tabular blast format'). The query are the provided sequences, and the subjet are the pangenome gene families.
+
+
+### 3. Optional outputs 
+
+Optionally, you can also write additional files which give you alternative informations. If RGP and spots have been predicted in your pangenome (see [Regions of Genome Plasticity](RGP/rgpAnalyses.md) if you do not know what those are) 
 you can use `--getinfo` as such:
 
 `ppanggolin align -p pangenome.h5 -o MYOUTPUTDIR --sequences MY_SEQUENCSE_OF_INTEREST.fasta --getinfo`
