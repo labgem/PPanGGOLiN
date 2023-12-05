@@ -903,7 +903,7 @@ def write_org_modules(output: Path, compress: bool = False):
     """
     logging.getLogger("PPanGGOLiN").info("Writing modules to genomes associations...")
     with write_compressed_or_not(output / "modules_in_genomes.tsv", compress) as fout:
-        fout.write("module_id\genome\tcompletion\n")
+        fout.write("module_id\tgenome\tcompletion\n")
         for mod in pan.modules:
             mod_orgs = set()
             for fam in mod.families:
