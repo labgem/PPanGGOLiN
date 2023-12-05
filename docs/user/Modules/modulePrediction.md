@@ -1,35 +1,37 @@
-## panModule
+# Conserved module prediction
 
-Again, it works like 'workflow' but you can detect the conserved modules in your pangenome, you can use the **panModule** workflow, as such:
+PPanGGOLiN is able to predict and work with conserved modules. Modules are groups of genes that are part of the variable genome, and often found together across the genomes of the pangenome. As such, they are conserved modules and potential functional modules.
+
+Further details can be found in the [panModule preprint](https://doi.org/10.1101/2021.12.06.471380)
+
+## The panModule workflow
+
+The panModule workflow facilitates the generation of a pangenome with predicted conserved modules from a specified set of genomes. This command extends the functionality of the `workflow` command by detecting conserved modules. Additionally, it generates descriptive TSV files detailing the predicted modules, whose format are detailed [here](./moduleOutputs.md).
+
+To execute the panModule workflow, use the following command: 
 
 ```bash
-ppanggolin panmodule --fasta ORGANISMS_FASTA_LIST
+ppanggolin panmodule --fasta GENOME_LIST_FILE
 ```
+Replace `GENOME_LIST_FILE` with a tab-separated file listing the genome names, and the fasta filepath of its genomic sequences as described [here](../PangenomeAnalyses/pangenomeAnnotation.md#annotate-fasta-file). Alternatively, provide a list of GFF/GBFF files as input by utilizing the `--anno` parameter, similar to how it's used in the workflow and annotate commands.
 
-The module prediction is launched after the pangenome partitionning with the default parameters. 
-If you want to tune the module detection, you can use the `module` command after the `workflow`.
+The panmodule workflow predict modules with default parameters. To fine-tune the detection, you have the option to use the `module` command on a partionned pangenome acquired through the `workflow` for example or use a configuration file, detailed further [here](../practicalInformation.md#configuration-file). 
 
-
-Further details can be found in the [panModule publication](https://doi.org/10.1101/2021.12.06.471380) as well as in the section.
 
 ## Predict conserved module
 
-
-It is possible to predict and work with conserved modules using PPanGGOLiN. Modules are groups of genes that are part of the variable genome, and often found together in the different genomes. As such, they are conserved modules and potential functional modules.
-
-Once partitions have been computed, you can predict conserved modules. All the options of the `module` subcommand are for tuning the parameters for the analysis.
-Details about each parameter and what they do is available in the related [preprint](https://www.biorxiv.org/content/10.1101/2021.12.06.471380v1).
+The `module` command predicts conserved modules on an partioned pangenome. The command has several options for tuning the prediction. Details about each parameter are available in the related [preprint](https://www.biorxiv.org/content/10.1101/2021.12.06.471380v1).
 
 The command can be used simply as such:
 
 `ppanggolin module -p pangenome.h5`
 
-This will predict modules and store the results in the HDF5 file. If you wish to have descriptive tsv files, whose format is detailed [here](./moduleOutputs.md), you can use:
+This will predict modules and store the results in the HDF5 pangenome file. If you wish to have descriptive tsv files, whose format is detailed [here](./moduleOutputs.md), you can use the `write_pangenome` command with the flag `--modules`:
 
-`ppanggolin write -p pangenome.h5 --modules --output MYOUTPUTDIR`.
+`ppanggolin write_pangenome -p pangenome.h5 --modules --output MYOUTPUTDIR`.
 
-If your pangenome has spots of insertion that were predicted using the `spot` command (or the `panrgp` or `all` commands), you can also list the associations between the predicted spots and the predicted modules as such:
+If spots of insertion have been predicited in you pangenome using the `spot` command (or inside the `panrgp` or `all` workflow commands), you can also list the associations between the predicted spots and the predicted modules as such:
 
-`ppanggolin write -p pangenome.h5 --spot_modules --output MYOUTPUTDIR`
+`ppanggolin write_pangenome -p pangenome.h5 --spot_modules --output MYOUTPUTDIR`
 
 The format of each file is given [here](./moduleOutputs.md)
