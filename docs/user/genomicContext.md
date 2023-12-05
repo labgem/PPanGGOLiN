@@ -1,10 +1,9 @@
-# Prediction of genomic context
+# Prediction of Genomic Context
 
-It is possible to search genomic context in a pangenome graph using PPanGGOLiN. A genomic context corresponds to a group of genes/proteins with a functional interest, often found together in the genomes. They are detected by extracting a subgraph obtained by filtering edges connecting the sequences of interest in the pangenome.
+The PPanGGOLiN `context` command enables the identification of genomic contexts for query proteins. These contexts signify genes commonly found in proximity to the proteins of interest in the different genomes.
 
-The analysis can be run on your formerly computed pangenomes and one or more genomic context. 
+The analysis can be run on your formerly computed pangenomes and users can query one or multiple genes at once. The search can be conducted either directly with gene/protein sequences in a FASTA file or by utilizing a list of gene family IDs. Both methods are seamlessly integrated within the `context` subcommand.
 
-To search your genomic context of interest, there are two possibilities. You can search directly with genes/proteins sequences in a fasta file or use a list of the gene family ID. Both possibilities can be run in the same subcommand `context` and all the options are for tuning the parameters for the analysis.
 
 ## Search Genomic context with sequences
 
@@ -12,9 +11,7 @@ The first possibility to search your genomic context, you can use a fasta file w
 
 `ppanggolin context -p pangenome.h5 --sequences protein.fasta`
 
-This will search the genomic context in the computed pangenome and export the result in a tsv file.
-
-To use this subcommand, be sure that your pangenome have gene families representatives sequences associated to it.
+To utilize this subcommand, ensure that your pangenome contains sequences associated with gene family representatives. This is the case with a pangenome computed with an external clustering (see the [cluster](./PangenomeAnalyses/pangenomeCluster.md) subcommand).
 
 ## Search with gene family ID.
 
@@ -22,13 +19,12 @@ The second possibility is to give a list of gene families ID used to compute the
 
 `ppanggolin context -p pangenome.h5 --family families.txt`
 
-This will search the common connected components in the computed pangenome and export the result in a tsv file.
 
-In this case, you can give a pangenome without gene families representatives sequences. This option is compatible with a pangenome computed with an external clustering (see the [cluster](./PangenomeAnalyses/pangenomeCluster.md) subcommand).
+In this scenario, you can give a pangenome without gene families representatives sequences. This option is compatible with a pangenome computed with an external clustering (see the [cluster](./PangenomeAnalyses/pangenomeCluster.md) subcommand).
 
 ## Output format
 
-In case of you are using families ID, you will only have as output the `gene_context.tsv` file. In the other case, you use sequences, you will have another output file to report the alignment between sequences and pangenome families (see detail in align subcommand).
+In case of you are using families ID, you will only have as output the `gene_context.tsv` file. In the other case, you use sequences, you will have another output file to report the alignment between sequences and pangenome families (see detail in [align subcommand](align.md#align-external-genes-to-a-pangenome)).
 
 There are 6 columns in `gene_context.tsv`. 
 
