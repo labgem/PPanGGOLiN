@@ -67,7 +67,7 @@ jobs:
         ppanggolin spot -p stepbystep/pangenome.h5 --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots -o stepbystep -f
         ppanggolin module -p stepbystep/pangenome.h5 --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05
-        ppanggolin write_pangenome -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06  --gexf --light_gexf --csv --Rtab --stats --partitions --compress --json --spots --borders --families_tsv --cpu 1 
+        ppanggolin write_pangenome -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06  --gexf --light_gexf --csv --Rtab --stats --partitions --compress --json --regions --spots --borders --families_tsv --cpu 1 
         ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output stepbystep -f --fasta organisms.fasta.list --gff --proksee --table
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta organisms.fasta.list
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
