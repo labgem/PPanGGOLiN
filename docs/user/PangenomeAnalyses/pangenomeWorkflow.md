@@ -27,6 +27,6 @@ If you are not familiar with the outputs available in PPanGGOLiN, we recommend r
  not using this option to have all the result automatically generated despite it cool be time consuming.
 
 ```{tip}
-In the workflow CLI, it is not possible to tune all the options available in all the step. 
+In the workflow CLI, it is not possible to tune all the options available in all the steps. 
 For a fully optimized analysis, we recommend to use the configuration file as described [here](../practicalInformation.md#configuration-file)
 ```
