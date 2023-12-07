@@ -20,11 +20,8 @@ Moreover, as explained [here](./pangenomeAnalyses.md#read-clustering), it is als
 ppanggolin workflow --anno organism.gbff.list --clusters clusters.tsv
 ```
 
-All options are common to the command explain below, so you can have complete information by reading them.
-The only workflow specific option is `--no_flat_files`. 
-This option prevents the automatic generation of the output files listed and described [here](./pangenomeAnalyses.md#pangenome-outputs).
-If you are not familiar with the outputs available in PPanGGOLiN, we recommend reading this section and 
- not using this option to have all the result automatically generated despite it cool be time consuming.
+All the workflow parameters are obtained from the commands explained below, except for the 'no_flat_files' parameter, which solely pertains to it. This option prevents the automatic generation of the output files listed and described [here](./pangenomeAnalyses.md#pangenome-outputs).
+If you are unfamiliar with the output available in PPanGGOLiN, we recommend that you do not use this option, so that all results are automatically generated, even though this may take some time.
 
 ```{tip}
 In the workflow CLI, it is not possible to tune all the options available in all the steps. 
