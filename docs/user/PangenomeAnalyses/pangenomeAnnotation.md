@@ -30,7 +30,7 @@ To annotate the genomes, you can easily change the translation table (or genetic
 Prodigal can predict gene in [single/normal mode](https://github.com/hyattpd/prodigal/wiki/gene-prediction-modes#normal-mode) that include a training step on your genomes or in [meta/anonymous mode](https://github.com/hyattpd/prodigal/wiki/gene-prediction-modes#anonymous-mode) which use pre-calculated training files. 
 As recommended in the Prodigal documentation: "Anonymous mode should be used on metagenomic data sets, or on sequences too short to provide good training data."
 
-By default PPanGGOLiN will determine the best mode based on of the contig length.
+By default PPanGGOLiN will determine the best mode based on the contig length.
 The procedure can be overriden with the option `-p, --prodigal_procedure`.
 The option only accepts  **single** or **meta** keywords, corresponding to the Prodigal procedure name.
 
