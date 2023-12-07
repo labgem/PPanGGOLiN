@@ -210,7 +210,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         if panrgp:
             borders, spots = (args.write_pangenome.borders, args.write_pangenome.spots)
-            write_pangenome_arguments += ["borders", "spots"]
+            write_pangenome_arguments += ["borders", "spots", "regions"]
 
         if panmodule and panrgp:
             spot_modules = args.write_pangenome.spot_modules
