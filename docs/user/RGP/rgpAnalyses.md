@@ -1,4 +1,4 @@
-# Region of genomic plasticity analyses
+# Regions of genome plasticity analyses
 
 ```{include} ./rgpPrediction.md
 ```
