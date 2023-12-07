@@ -1,3 +1,10 @@
+## Purpose
+
+Regions of Genome Plasticity (RGPs) are clusters of genes made of shell and cloud genomes in the pangenome graph. Most of them arise from Horizontal gene transfer (HGT) and correspond to Genomic Islands (GIs). RGP from different genomes can be grouped in spots of insertion based on their conserved flanking persistent genes, rather than their gene content, to find out which are located in the same locations in the genome. The panRGP methods and its subcommands and subsequent output files are made to detect describe as thoroughly as possible those Regions of Genome Plasticity accross all genomes of the pangenome.
+
+Those methods were supported by the [panRGP publication](https://doi.org/10.1093/bioinformatics/btaa792) which can be read to have their methodological descriptions and justifications.
+
+
 ## PanRGP
 
 This command works exactly like [workflow](./pangenomeAnalyses.md#workflow). The difference is that it will run additional analyses to characterize Regions of Genome Plasticity (RGP).
