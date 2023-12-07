@@ -13,9 +13,9 @@ ppanggolin panrgp --fasta organism.fasta.list
 ```
 
 Just like [workflow](./pangenomeAnalyses.md#workflow), this command will deal with the [annotation](./pangenomeAnalyses.md#annotation), [clustering](./pangenomeAnalyses.md#clustering), [graph](./pangenomeAnalyses.md#graph) and [partition](./pangenomeAnalyses.md#partition) commands by itself.
-Then, the RGP detection is ran using [rgp](./rgpPrediction#rgp-detection) after the pangenome partitionning. Once all RGP have been computed, those found in similar genomic contexts in the genomes are gathered into spots of insertion used [spot](./rgpPrediction.md#spot-prediction).
+Then, the RGP detection is ran using [rgp](./rgpAnalyses.md#rgp-detection) after the pangenome partitionning. Once all RGP have been computed, those found in similar genomic contexts in the genomes are gathered into spots of insertion used [spot](./rgpAnalyses.md#spot-prediction).
 
-If you want to tune the rgp detection, you can use the `rgp` command after the `workflow` command. If you wish to tune the spot detection, you can use the `spot` command after the `rgp`.
+If you want to tune the rgp detection, you can use the `rgp` command after the `workflow` command. If you wish to tune the spot detection, you can use the `spot` command after the `rgp` command.
 
 More detail about RGP detection and the spot of insertion prediction can be found in the [panRGP publication](https://doi.org/10.1093/bioinformatics/btaa792)
 
@@ -36,11 +36,11 @@ Users looking to change those 3 parameters should consider reading the Materials
 
 The two other options are more straightforward. The `--min_length` will indicate the minimal size in base pair that a RGP should be to be predicted. The `--dup_margin` is a filter used to identify persistent gene families to consider as multigenic. Gene families that have more than one gene in more than `--dup_margin` genomes will be classified as multigenic, and as such considered as "variable" genes.
 
-After this command is ran, a single output file that will list all of the predictions can be written, the [plastic_regions.tsv](./rgpOutputs.md#rgp) file.
+After this command is ran, a single output file that will list all of the predictions can be written, the [plastic_regions.tsv](./rgpAnalyses.md#rgp) file.
 
 ## Spot prediction
 
-To study RGP that are found in the same area in different genomes, we gather them into 'spots of insertion'. Those spots are groups of RGP that do not necessarily have the same gene content but have similar bordering _persistent_ genes. We run those analyses to study the dynamic of gene turnover of large regions in bacterial genomes. In this way, spots of the same pangenome can be compared and their dynamic can be established by comparing their different metrics together. Those metrics are described in the [RGP and spot output section](rgpOutputs.md#Spots).
+To study RGP that are found in the same area in different genomes, we gather them into 'spots of insertion'. Those spots are groups of RGP that do not necessarily have the same gene content but have similar bordering _persistent_ genes. We run those analyses to study the dynamic of gene turnover of large regions in bacterial genomes. In this way, spots of the same pangenome can be compared and their dynamic can be established by comparing their different metrics together. Those metrics are described in the [RGP and spot output section](rgpAnalyses.md#Spots).
 
 Spots can be computed once RGP have been predicted. You can do that using:
 
@@ -57,6 +57,6 @@ The two other options are related to the 'spot graph' used to predict spots of i
 - `--spot_graph` writes the spot graph once predictions are computed
 - `--graph_formats` defines the format in which the spot graph is written. Can be either gexf or graphml. (default: gexf)
 
-You can the use the dedicated subcommand [draw](./rgpOutputs.md#draw-spots) to draw interactive figures for any given spot with the python library [bokeh](http://docs.bokeh.org/en/latest/). Those figures can can be visualized and modified directly in the browser. This plot is described [here](rgpOutputs.md#draw-spots)
+You can the use the dedicated subcommand [draw](./rgpAnalyses.md#draw-spots) to draw interactive figures for any given spot with the python library [bokeh](http://docs.bokeh.org/en/latest/). Those figures can can be visualized and modified directly in the browser. This plot is described [here](./rgpAnalyses.md#draw-spots)
 
-Multiple files can then be written describing the predicted spots and their linked RGP, such as a [file linking RGPs with their spots](rgpOutputs.md#Spots) and a [file showing multiple metrics for each spot](rgpOutputs.md#summarize-spots).
+Multiple files can then be written describing the predicted spots and their linked RGP, such as a [file linking RGPs with their spots](./rgpAnalyses.md#Spots) and a [file showing multiple metrics for each spot](./rgpAnalyses.md#summarize-spots).
