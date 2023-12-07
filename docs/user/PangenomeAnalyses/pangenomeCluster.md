@@ -1,55 +1,51 @@
 ### Cluster genes into gene families
+ 
+After annotating genomes, we must compare them to determine any similarities and build gene families using this information.
 
-Once we have annotated genomes, we need to compare them to know which are similar, and to build gene families through this information. 
-
-If you provided .fasta files or annotation files with gene sequences in them, clustering can be run directly by providing the .h5 file that was generated, as such : 
+If .fasta files or annotation files containing gene sequences were provided, clustering can be executed by using the generated .h5 file, as such:
 
 ```
 ppanggolin cluster -p pangenome.h5
 ```
 
 #### How to customize MMSeqs2 clustering
-```{attention}
-All the MMSeqs2 options are not available in PPanGGOLiN if you want a complete view of MMSeqs2 option take a look at their documentation and you can provide your custom clustering as describe in the [next part](#read-clustering)
+```{warning}
+Not all MMSeqs2 options are available in PPanGGOLiN. For a comprehensive overview of MMSeqs2 options, please refer to their documentation. To create your own custom clustering, please follow the instructions detailed in the [dedicated section](#read-clustering).
 ```
 
-PPanGGOLiN will call [MMseqs2](https://github.com/soedinglab/MMseqs2) to run the clustering on all the protein sequences by searching for connected components for the clustering step.
+PPanGGOLiN will run [MMseqs2](https://github.com/soedinglab/MMseqs2) to perform clustering on all the protein sequences by searching for connected components for the clustering step.
 
 ##### How to set the identity and coverage parameters
 
-PPanGGOLiN allow to set 2 fundamental parameters to cluster genes into gene families, **identity** and **coverage**. 
-You can tune its parameters using `--identity`(default 0.8) and `--coverage`(default 0.8).
-The default value has been decided has they are the best and most common value to align and cluster sequences at the species level.
-
-Be aware that if you decrease the identity and/or the coverage, more genes will be clustered into one family, 
-in the end the number of families will be decreased and all the next step will be affected.  
+PPanGGOLiN enables the setting of two essential parameters for gene clustering: **identity** and **coverage**. These parameters can be easily adjusted using `--identity` (default: 0.8) and `--coverage` (default: 0.8). The default values were selected as they are the most widely used and effective parameters for aligning and clustering sequences at the species level.
+ 
+Be aware that if you decrease identity and/or coverage, more genes will be clustered together in the same family. 
+This will ultimately decrease the number of families and affect all subsequent steps.  
 
 ```{note}
-The choosen coverage mode in PPanGGOLiN is the one where both protein sequences have to be covered by at least the proportion indicated by --coverage.
+The chosen coverage mode in PPanGGOLiN requires both protein sequences to be covered by at least the proportion specified by --coverage.
 ```
 
 ##### How to set the clustering mode
 
-MMSeqs provide 3 different [clustering mode](https://github.com/soedinglab/MMseqs2/wiki#clustering-modes).
-By default the clustering mode is the _single linkage_ (or _connected component_) algorithm.
+MMSeqs provides 3 different [clustering mode](https://github.com/soedinglab/MMseqs2/wiki#clustering-modes).
+By default the clustering mode utilises the _single linkage_ (or _connected component_) algorithm.
 
-Another option is the _set cover_ algorithm that you can use by using `--mode 1`.
+Another option is the _set cover_ algorithm, which can be employed using `--mode 1`.
 
-Moreover, you can use the _CD-Hit like_ clustering algorithms of MMseqs by using `--mode 2` or its low memory version with `--mode 3`.
-
+Additionally, the clustering algorithms of MMseqs, similar to CD-Hit, can be selected with `--mode 2` or its low memory version through `--mode 3`.
 
 (read-clustering)=
 ### Providing your gene families
+ 
+If you want to provide your own clusters (or gene families), you must have provided the annotations in the first step. 
+For gff3 files, the expected gene id is the 'ID' field in the 9th column. 
+In the case of gbff or gbk files, use 'locus_tag' as a gene id, unless you are working with files from MaGe/MicroScope or SEED, where the id in the 'db_xref' field is used instead.
 
-If you do not want to use MMseqs2 and provide your clusters (or gene families) you can do so only if you provided the annotations in the first step. 
-In the case of gff3 files, the 'ID' field in the 9th column is expected as a gene id. 
-In the case of gbff or gbk files, the 'locus_tag' is used as a gene id, except with files coming from MaGe or from SEED, where the id provided in the 'db_xref' field is used.
+You will need to provide a .tsv file with a single gene id per line.
+The first column should indicate the cluster id, and the second column should indicate the unique gene id used in the annotation files.
 
-You will need to provide a .tsv file. 
-The first column indicates the cluster id, and the second column indicates a unique gene id that is used in the annotation files. 
-There is a single gene id per line.
-
-You can do that through the command line : 
+You can do this from the command line: 
 
 `ppanggolin cluster -p pangenome.h5 --clusters MY_CLUSTERS_FILE`
 
@@ -58,16 +54,16 @@ An example of what MY_CLUSTERS_FILE should look like is provided [here](https://
 
 ### Defragmentation
 
-We noticed that most of the cloud genes in the pangenome are fragments of 'shell' or 'persistent' genes, and so not informative on the pangenome's diversity. 
-We added another workflow to reduce the number of gene families and reduce the computational load by trying to associate fragments to their original gene families.
-It adds a step to the clustering described previously. 
-It will compare all the gene families representative protein sequences using the same identity threshold as the first step. 
-It will also use the same coverage threshold, but only the smallest of both protein sequences have to be covered by at least the value indicated by `--coverage`.
+Most cloud genes in the pangenome are fragments of 'shell' or 'persistent' genes. Therefore, they do not provide informative data on the pangenome's diversity. 
+To address this, we implemented an additional workflow to reduce the number of gene families and computational load by associating fragments with their original gene families.
+This step is added to the previously described clustering process. 
+The new workflow compares all representative protein sequences of gene families using the same identity threshold as the first step. 
+It also uses the same coverage threshold, but only the smallest of the two protein sequences must be covered by at least the value specified by `--coverage`.
 
-After that, we build a similarity graph where the edges are the hits given by the comparison, and the nodes are the original gene families. 
-Then we iterate on all nodes and compare them to their neighbors. 
-If the neighbor of a node is more numerous (has more members in the cluster it represents) and its representative sequence is longer, that node (and all the genes associated) is associated with the neighbor. 
-The genes associated with this node are defined as 'fragments' of the gene family represented by the longer and more numerous neighboring node.
+We then build a similarity graph, where the edges are the hits given by the comparison, and the nodes are the original gene families. 
+Next, we iterate over all the nodes and compare them to their neighbors. 
+If a node's neighbor has more members in its cluster and a longer representative sequence, we associate that node (and all the associated genes) with the neighbor. 
+The genes linked to this node are considered as 'fragments' of the gene family represented by the neighboring node that is longer and more abundant.
 
 To avoid using it, you can run the following:
 
@@ -75,4 +71,4 @@ To avoid using it, you can run the following:
 ppanggolin cluster -p pangenome.h5 --no_defrag
 ```
 
-In any case and whichever pipeline you use, in the end, the gene families will be saved in the 'pangenome.h5' given as input.
+In all cases, whichever pipeline you use, the gene families will end up in the 'pangenome.h5' file you enter as input.
