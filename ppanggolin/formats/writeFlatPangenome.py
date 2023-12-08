@@ -89,7 +89,7 @@ def write_json_gene_fam(gene_fam: GeneFamily, json: TextIO):
     json.write(f', "name": "{name_counts.most_common(1)[0][0]}", "product": "{product_counts.most_common(1)[0][0]}", '
                f'"length": {length_counts.most_common(1)[0][0]}')
 
-    json.write(', "organisms": {')
+    json.write(', "genomes": {')
     orgstr = []
     for org in org_dict:
         orgstr.append('"' + org.name + '": {')
@@ -196,7 +196,7 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
     gexf.write('      <attribute id="7" title="partition_soft" type="string" />\n')
     gexf.write('      <attribute id="8" title="length_avg" type="double" />\n')
     gexf.write('      <attribute id="9" title="length_med" type="long" />\n')
-    gexf.write('      <attribute id="10" title="nb_organisms" type="long" />\n')
+    gexf.write('      <attribute id="10" title="nb_genomes" type="long" />\n')
 
     if pan.number_of_spots > 0:
         gexf.write('      <attribute id="12" title="spot" type="string" />\n')
