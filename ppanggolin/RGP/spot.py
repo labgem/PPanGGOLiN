@@ -137,7 +137,7 @@ def write_spot_graph(graph_spot, outdir, graph_formats, file_basename="spotGraph
             graph_spot.nodes[node]["border0"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border0"]])
             graph_spot.nodes[node]["border1"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border1"]])
 
-            graph_spot.nodes[node]["organisms"] = ';'.join({rgp.organism.name for rgp in graph_spot.nodes[node]["rgp"]})
+            graph_spot.nodes[node]["genomes"] = ';'.join({rgp.organism.name for rgp in graph_spot.nodes[node]["rgp"]})
             graph_spot.nodes[node]["rgp"] = ';'.join([rgp.name for rgp in graph_spot.nodes[node]["rgp"]])
 
         if "gexf" in graph_formats:

@@ -29,7 +29,7 @@ from ppanggolin.geneFamily import GeneFamily
 
 # all input params that exists in ppanggolin
 ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', 
-                    "fasta_file", "annot_file", "organism_name"] # the last three params is for projection cmd
+                    "fasta_file", "annot_file", "genome_name"] # the last three params is for projection cmd
 
 # all params that should be in the general_parameters section of the config file
 ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log',
@@ -318,14 +318,14 @@ def detect_filetype(filename: Path) -> str:
         first_line = f.readline()
     if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
         return "gbff"
-    elif first_line.startswith("##gff-version 3"):
+    elif first_line.startswith("##gff-version 3") or first_line.startswith("##gff-version  3"): # prodigal gff header has two spaces betwene gff-version and 3... 
         return 'gff'
     elif first_line.startswith(">"):
         return 'fasta'
     elif "\t" in first_line:
         return "tsv"
     else:
-        raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') "
+        raise Exception(f"Filetype {filename} was not gff3 (file starts with '##gff-version 3') "
                         "nor gbff/gbk (file starts with 'LOCUS       '). "
                         "Only those two file formats are supported (for now).")
 
@@ -1012,7 +1012,7 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
     :raises FileNotFoundError: If a specified genome file path does not exist.
     :raises Exception: If there are no genomes in the provided file.
     """
-    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process organism files")
+    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process genome files")
     genome_name_to_genome_path = {}
 
     for line in read_compressed_or_not(path_list_file):

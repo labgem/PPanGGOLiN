@@ -192,7 +192,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                 draw_tile_plot(pangenome, args.output, nocloud=nocloud, disable_bar=args.disable_prog_bar)
             else:
                 logging.getLogger("PPanGGOLiN").warning(
-                    'Tile plot output have been requested but there are too many organisms to produce a viewable tile plot.')
+                    'Tile plot output have been requested but there are too many genomes to produce a viewable tile plot.')
 
         if args.draw.ucurve:
             draw_ucurve(pangenome, args.output, disable_bar=args.disable_prog_bar, soft_core=args.draw.soft_core)
@@ -300,13 +300,13 @@ def add_workflow_args(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
 
     required.add_argument('--fasta', required=False, type=Path,
-                          help="A tab-separated file listing the organism names, "
+                          help="A tab-separated file listing the genome names, "
                                "and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). "
-                               "One line per organism. This option can be used alone.")
+                               "One line per genome. This option can be used alone.")
 
     required.add_argument('--anno', required=False, type=Path,
-                          help="A tab-separated file listing the organism names, and the gff filepath of "
-                               "its annotations (the gffs can be compressed). One line per organism. "
+                          help="A tab-separated file listing the genome names, and the gff filepath of "
+                               "its annotations (the gffs can be compressed). One line per genome. "
                                "This option can be used alone IF the fasta sequences are in the gff files, "
                                "otherwise --fasta needs to be used.")
 

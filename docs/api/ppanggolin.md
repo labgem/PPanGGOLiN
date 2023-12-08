@@ -1,5 +1,4 @@
-(ppanggolin-api)=
-# PPanGGOLiN Package
+# ppanggolin package
 
 ## Subpackages
 
@@ -19,6 +18,7 @@ ppanggolin.meta
 ppanggolin.metrics
 ppanggolin.mod
 ppanggolin.nem
+ppanggolin.projection
 ppanggolin.utility
 ppanggolin.workflow
 ```

@@ -48,7 +48,7 @@ def write_json_header(json: TextIO):
     """
     json.write('{"directed": false, "multigraph": false,')
     json.write(' "graph": {')
-    json.write(' "organisms": {')
+    json.write(' "genomes": {')
     orgstr = []
     for org in pan.organisms:
         orgstr.append('"' + org.name + '": {')
@@ -90,7 +90,7 @@ def write_json_gene_fam(gene_fam: GeneFamily, json: TextIO):
     json.write(f', "name": "{name_counts.most_common(1)[0][0]}", "product": "{product_counts.most_common(1)[0][0]}", '
                f'"length": {length_counts.most_common(1)[0][0]}')
 
-    json.write(', "organisms": {')
+    json.write(', "genomes": {')
     orgstr = []
     for org in org_dict:
         orgstr.append('"' + org.name + '": {')
@@ -132,7 +132,7 @@ def write_json_edge(edge: Edge, json: TextIO):
     """
     json.write("{")
     json.write(f'"weight": {len(edge.gene_pairs)}, "source": "{edge.source.name}", "target": "{edge.target.name}"')
-    json.write(', "organisms": {')
+    json.write(', "genomes": {')
     orgstr = []
     for org in edge.organisms:
         orgstr.append('"' + org.name + '": [')
@@ -197,7 +197,7 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
     gexf.write('      <attribute id="7" title="partition_soft" type="string" />\n')
     gexf.write('      <attribute id="8" title="length_avg" type="double" />\n')
     gexf.write('      <attribute id="9" title="length_med" type="long" />\n')
-    gexf.write('      <attribute id="10" title="nb_organisms" type="long" />\n')
+    gexf.write('      <attribute id="10" title="nb_genomes" type="long" />\n')
 
     if pan.number_of_spots > 0:
         gexf.write('      <attribute id="12" title="spot" type="string" />\n')
@@ -555,7 +555,7 @@ def summarize_genome(organism: Organism,
     module_count = "Not computed" if module_count is None else module_count
 
     summary_info = {
-        "Organism_name": organism.name,
+        "Genome_name": organism.name,
         "Contigs": organism.number_of_contigs,
         "Genes": gene_count,
         "Fragmented_genes": fragmented_genes_count,
@@ -700,7 +700,7 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
 
         summaries.append(organism_summary)
 
-    write_summaries_in_tsv(summaries, output_file= output / "organisms_statistics.tsv", dup_margin=dup_margin, soft_core=soft_core)
+    write_summaries_in_tsv(summaries, output_file= output / "genomes_statistics.tsv", dup_margin=dup_margin, soft_core=soft_core)
     
     logging.getLogger("PPanGGOLiN").info("Done writing genome per genome statistics")
 
@@ -908,7 +908,7 @@ def write_module_summary(output: Path, compress: bool = False):
     """
     logging.getLogger("PPanGGOLiN").info("Writing functional modules summary...")
     with write_compressed_or_not(output / "modules_summary.tsv", compress) as fout:
-        fout.write("module_id\tnb_families\tnb_organisms\tpartition\tmean_number_of_occurrence\n")
+        fout.write("module_id\tnb_families\tnb_genomes\tpartition\tmean_number_of_occurrence\n")
         for mod in pan.modules:
             org_dict = defaultdict(set)
             partition_counter = Counter()
@@ -948,9 +948,9 @@ def write_org_modules(output: Path, compress: bool = False):
     :param output: Path to output directory
     :param compress: Compress the file in .gz
     """
-    logging.getLogger("PPanGGOLiN").info("Writing modules to organisms associations...")
-    with write_compressed_or_not(output / "modules_in_organisms.tsv", compress) as fout:
-        fout.write("module_id\torganism\tcompletion\n")
+    logging.getLogger("PPanGGOLiN").info("Writing modules to genomes associations...")
+    with write_compressed_or_not(output / "modules_in_genomes.tsv", compress) as fout:
+        fout.write("module_id\tgenome\tcompletion\n")
         for mod in pan.modules:
             mod_orgs = set()
             for fam in mod.families:
@@ -960,7 +960,7 @@ def write_org_modules(output: Path, compress: bool = False):
                 fout.write(f"module_{mod.ID}\t{org.name}\t{completion:.2}\n")
         fout.close()
     logging.getLogger("PPanGGOLiN").info(
-        f"Done writing modules to organisms associations to: '{output.as_posix() + '/modules_in_organisms.tsv'}'")
+        f"Done writing modules to genomes associations to: '{output.as_posix() + '/modules_in_genomes.tsv'}'")
 
 
 def write_spot_modules(output: Path, compress: bool = False):
@@ -1201,7 +1201,7 @@ def parser_flat(parser: argparse.ArgumentParser):
                           help="Soft core threshold to use")
     
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
-                          help="minimum ratio of organisms in which the family must have multiple genes "
+                          help="minimum ratio of genomes in which the family must have multiple genes "
                                "for it to be considered 'duplicated'")
     
 

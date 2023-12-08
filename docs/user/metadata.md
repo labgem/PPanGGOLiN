@@ -1,6 +1,6 @@
-# Adding metadata to pangenome elements
+# Add metadata to pangenome elements
 
-From version 2.0.0, it is possible to add metadata link to pangenome elements using PPanGGOLiN. 
+It is possible to add metadata link to pangenome elements using PPanGGOLiN. 
 Metadata can be associated with: genes, genomes, families, RGPs, spots and modules from a simple TSV file. 
 To add metadata in your pangenome you can launch the command is as follows:
 
@@ -29,7 +29,7 @@ For example the TSV file to assign metadata to gene families to functional annot
 ### Command specifiq option details
 
 #### `--metadata`
-PPanGGOLiN enables to give one TSV at a time to add metadata. Look at [Metadata Format](<https://github.com/labgem/PPanGGOLiN/wiki/Metadata#Metadata Format>)
+PPanGGOLiN enables to give one TSV at a time to add metadata.
 
 #### `--source` 
 The source is the key use to access to metadata in pangenome. 

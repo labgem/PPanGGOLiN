@@ -32,7 +32,7 @@ def gen_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
         pangenome.compute_org_bitarrays(part=subset)
         # Compute binaries corresponding to presence / absence of families in organisms
         g_sum = 0
-        logging.getLogger("PPanGGOLiN").debug("Get number of families in each organisms")
+        logging.getLogger("PPanGGOLiN").debug("Get number of families in each genomes")
         org2_nb_fam = nb_fam_per_org(pangenome, disable_bar)
         logging.getLogger("PPanGGOLiN").info(f"Compute rate of unique family for each genome combination in {subset}")
         for c_organisms in tqdm(list(combinations(pangenome.organisms, 2)), unit="combination", disable=disable_bar):
@@ -54,7 +54,7 @@ def nb_fam_per_org(pangenome: Pangenome, disable_bar: bool = False) -> dict:
     :return: Dictionary with organisms as key and number of families as value
     """
     org2_nb_fam = dict()
-    for org in tqdm(pangenome.organisms, unit='organism', disable=disable_bar):
+    for org in tqdm(pangenome.organisms, unit='genome', disable=disable_bar):
         org2_nb_fam[org.name] = popcount(org.bitarray)
     return org2_nb_fam
 
@@ -82,7 +82,7 @@ def fam_fluidity(pangenome: Pangenome, disable_bar: bool = False) -> dict:
         pangenome.compute_family_bitarrays(part=subset)
         # Compute binaries corresponding to presence / absence of families in organisms
         f_sum = 0
-        logging.getLogger("PPanGGOLiN").debug("Get number of families in each organisms")
+        logging.getLogger("PPanGGOLiN").debug("Get number of families in each genome")
         fam_2_nb_org = nb_org_per_fam(pangenome, disable_bar)
         logging.getLogger("PPanGGOLiN").info("Compute rate of unique organism for each family combination")
         for c_fam in tqdm(list(combinations(pangenome.gene_families, 2)), unit="combination", disable=disable_bar):

@@ -88,7 +88,7 @@ def contig_desc(contig_len: int, org_len: int) -> Dict[str, Union[tables.StringC
             'name': tables.StringCol(itemsize=contig_len),
             "is_circular": tables.BoolCol(dflt=False),
             'length': tables.UInt32Col(),
-            "organism": tables.StringCol(itemsize=org_len)}
+            "genome": tables.StringCol(itemsize=org_len)}
 
 
 def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Group,
@@ -109,7 +109,7 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
         contig_row["name"] = contig.name
         contig_row["is_circular"] = contig.is_circular
         contig_row["length"] = len(contig)
-        contig_row["organism"] = contig.organism.name
+        contig_row["genome"] = contig.organism.name
         contig_row.append()
     contig_table.flush()
 

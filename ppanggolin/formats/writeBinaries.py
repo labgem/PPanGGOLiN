@@ -447,7 +447,7 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
         info_group = h5f.create_group("/", "info", "Informations about the pangenome content")
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfGenes = pangenome.number_of_genes
-        info_group._v_attrs.numberOfOrganisms = pangenome.number_of_organisms
+        info_group._v_attrs.numberOfGenomes = pangenome.number_of_organisms
     if pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfClusters = pangenome.number_of_gene_families
     if pangenome.status["neighborsGraph"] in ["Computed", "Loaded"]:

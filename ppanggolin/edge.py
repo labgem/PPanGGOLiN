@@ -101,8 +101,8 @@ class Edge:
             raise TypeError(f"Genes are expected to be added to edge. "
                             f"Given type for source: {type(source_gene)} and target: {type(target_gene)}")
         if source_gene.organism is None or target_gene.organism is None:
-            raise ValueError("Genes are not associated to organism. It's needed to create add genes to edge")
+            raise ValueError("Genes are not associated to genome. It's needed to create add genes to edge")
         if source_gene.organism != target_gene.organism:
-            raise Exception(f"You tried to create an edge between two genes that are not even in the same organism ! "
+            raise Exception(f"You tried to create an edge between two genes that are not even in the same genome ! "
                             f"(genes are '{source_gene.ID}' and '{target_gene.ID}')")
         self._organisms[source_gene.organism].append((source_gene, target_gene))

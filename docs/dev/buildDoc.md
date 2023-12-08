@@ -1,7 +1,7 @@
 # Build the documentation
 This partdescribe the guidelines to build the documentation of PPanGGOLiN.
 
-```{danger}
+```{warning}
 When you will merge or pull request your branch on master, a bot from readthedoc will see it and update the doc online.
 Be sure that your doc is clean and without error. 
 ```
@@ -16,20 +16,20 @@ readthedocs-sphinx-search==0.3.1
 sphinx-autobuild==2021.3.14
 myst-parser==1.0.0
 ```
-To build the doc you need to use an environment with panorama installed. 
+To build the doc you need to use an environnement with ppanggolin installed. 
 To make think easier [pyproject.toml file](../../pyproject.toml) contain the same list of requirement 
 and can install everything automatically with pip.
 ```shell
-# PANORAMA=/path/to/panorama/
-pip install $PANORAMA[doc]  # You can add -e to install in editable mode
+# PPanGGOLiN=/path/to/ppanggolin/
+pip install $PPanGGOLiN[doc]  # You can add -e to install in editable mode
 ```
 ## Build documentation with sphinx
 
 You can look at your modification in live by using **sphinx-autobuild** (installed previously).
 
 ```shell
-cd $PANORAMA/.docs
-sphinx-autobuild source/ build/
+cd $PPanGGOLiN/docs
+sphinx-autobuild . build/
 #copy server adresse, for me (as example) http://127.0.0.1:8000
 #paste the adresse in your browser
 ```
@@ -70,9 +70,9 @@ The API documentation is build automatically.
 To update the API documentation and keep the automatic update when a new package, module, submodules is added follow the
 next lines:
 ```shell
-sphinx-apidoc -o api $PANORAMA/panorama -f
+sphinx-apidoc -o api $PPanGGOLiN/ppanggolin -f
 ```
-```{attention}
+```{warning}
 *sphinx-apidoc* will generate ReStructeredText files. You need to convert them in markdown. For this follow the guides 
 [here](#rst2md)
 ```
@@ -113,14 +113,14 @@ sphinx-quickstart $DOCS
 #https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-language.
 #> Project language [en]: 
 #
-#Creating file /home/jarnoux/Projects/PANORAMA/docs_scratch/source/conf.py.
-#Creating file /home/jarnoux/Projects/PANORAMA/docs_scratch/source/index.rst.
-#Creating file /home/jarnoux/Projects/PANORAMA/docs_scratch/Makefile.
-#Creating file /home/jarnoux/Projects/PANORAMA/docs_scratch/make.bat.
+#Creating file /your/path/PPanGGOLiN/docs_scratch/source/conf.py.
+#Creating file /your/path/Projects/PPanGGOLiN/docs_scratch/source/index.rst.
+#Creating file /your/path/Projects/PPanGGOLiN/docs_scratch/Makefile.
+#Creating file /your/path/Projects/PPanGGOLiN/docs_scratch/make.bat.
 #
 #Finished: An initial directory structure has been created.
 #
-#You should now populate your master file /home/jarnoux/Projects/PANORAMA/docs_scratch/source/index.rst and create other documentation
+#You should now populate your master file /home/jarnoux/Projects/PPanGGOLiN/docs_scratch/source/index.rst and create other documentation
 #source files. Use the Makefile to build the docs, like so:
 #   make builder
 #where "builder" is one of the supported builders, e.g. html, latex or linkcheck.
@@ -205,7 +205,7 @@ For this case we will need to install a new package `rst-to-myst`.
 pip install rst-to-myst[sphinx]
 # Go to your environment with rst2myst
 rst2myst convert source/index.rst
-# Go back to your environment with panorama
+# Go back to your environment with ppanggolin
 rm source/index.rst
 ```
 #### README in index.md
@@ -224,7 +224,7 @@ The user documentation is completely handwritten. Moreover, we advise respecting
 1. One file per topic/command with an explicit text on the feature
 2. One file for the installation guidelines
 3. One file on how to report issue or enhancement
-4. Don't ref to any function in the panorama code. This is reserved for developper documentation
+4. Don't ref to any function in the ppanggolin code. This is reserved for developper documentation
 
 #### Developper documentation
 The developper documentation is handwritten too. We advise respecting the following guidelines:
@@ -238,13 +238,13 @@ The developper documentation is handwritten too. We advise respecting the follow
 #### API documentation
 To build the API documentation and use the docstring in code, you can use the command `sphinx-apidoc` as follows:
 ```shell
-sphinx-apidoc -o api $PANORAMA/panorama
+sphinx-apidoc -o api $PPanGGOLiN/ppanggolin
 # Go to your environment with rst2myst
 rst2myst convert api/*.rst
 # Go back to your environment with sphinx
 rm api/*.rst
 ```
-You have now documentation for PPanGGOLiN api. To ref api in your doc you can paste **\{ref\}\`package panorama\`**
+You have now documentation for PPanGGOLiN api. To ref api in your doc you can paste **\{ref\}\`package ppanggolin\`**
 
 ```{tip}
 With the "sphinx.ext.autosectionlabel", you will certainly get multiple warning for duplicate label. 
