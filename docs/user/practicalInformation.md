@@ -1,5 +1,17 @@
 # Practical information
 
+## Pangenome file
+
+
+PPanGGOLiN operates by creating and managing pangenomes within a specialized file format known as HDF-5 (identified by the .h5 extension in the result directory). This unique file serves as a central repository, recording the outcomes of pangenome analyses along with the associated parameters and complete pangenomic content.
+
+The benefit of this approach is the ability to exclusively store and manipulate pangenomes using PPanGGOLiN through this single file. It encapsulates all pertinent information regarding the analysis performed, including parameters applied and the entirety of the pangenomic data. It can be used to generate or regenerate flat output files describing the pangenomes content with dedicated commands (`write_pangenome`, `write_genomes`, `fasta` and `draw`). 
+
+Once the pangenome is established, including gene clustering, partitioning, optional prediction of Regions of Genomic Plasticity (RGPs), Spots of insertions, and functional modules, it becomes a versatile input for various PPanGGOLiN commands. For instance, the [`msa` command](MSA.md) generates multiple sequence alignments of genes, the [`projection` command](./projection.md) annotates with external genomes with pangenome content, and the [`context` command](./genomicContext.md) identifies genomic contexts of protein of interest.
+
+PPanGGOLiN utilizes the [pytable](https://www.pytables.org/index.html) Python library for handling the pangenome HDF-5 file. While graphical user interface tools like ['ViTables'](https://vitables.org/index.html) allow manual exploration and editing of the file, it's cautioned against, as it may compromise compatibility with PPanGGOLiN.
+
+
 ## Required computing resources
 
 Most of PPanGGOLiN's commands should be run with as many CPUs as you can give them by using the --cpu option as PPanGGOLiN's speed increases relatively well with the number of CPUs. 
@@ -53,12 +65,12 @@ In addition, there is a section for each subcommand that contains its specific p
 
 You can generate a configuration file template with default values by using the `ppanggolin utils` command as follows:
 
-```
+```bash
 ppanggolin utils --default_config CMD
 ```
 
 For example, to generate a configuration file for the panrgp command with default values, use the command 
-```
+```bash
 ppanggolin utils --default_config panrgp
 ```
  
