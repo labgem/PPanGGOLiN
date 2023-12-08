@@ -40,9 +40,29 @@ Again you must use a tab-separated file but this time with the following organis
 
 Same, an example can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.fasta.list) directory.
 
+```{tip}
+To easily download genomes of a species of interest from the NCBI assemblies refseq or genbank, you can use the CLI tools  [NCBI Genome Downloading Scripts](https://github.com/kblin/ncbi-genome-download) or the [genome updater](https://github.com/pirovc/genome_updater) bash script. 
 
-Congratulation, you build (maybe your first) pangenome graph and partitioned it in 3 different partition: **persistent**, **shell** and **cloud** (look at ([Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)) for more information about partition). 
-You also detect **RGP, spots and modules** in your pangenome.
+For instance to download with genome updater the GTDB refseq genomes of Bradyrhizobium japonicum, you can run the folowing command 
+```bash
+genome_updater.sh -d "refseq"  -o "B_japonicum_genomes" -M "gtdb" -T "s__Bradyrhizobium japonicum"
+```
+
+```
+
+
+```{tip}
+Downloading genomes from NCBI assemblies refseq or genbank for a species of interest can be easily accomplished using CLI tools like [NCBI Genome Downloading Scripts](https://github.com/kblin/ncbi-genome-download) or the [genome updater](https://github.com/pirovc/genome_updater) script.
+
+For example, to download GTDB refseq genomes of Bradyrhizobium japonicum using genome updater, you can execute the following command:
+```bash
+genome_updater.sh -d "refseq" -o "B_japonicum_genomes" -M "gtdb" -T "s__Bradyrhizobium japonicum"
+```
+
+```
+
+
+After the completion of the `all` command, a pangenome graph has been successfully constructed and partitioned into three distinct paritions: **persistent**, **shell**, and **cloud** (for further details on partitions, refer to [Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)). Additionally, **RGPs, spots, and modules** have been detected within your pangenome.
 
 The results of the workflow is saved in the  **pangenome.h5** file, which is in the HDF-5 file format.
 When you run an analysis using this file as input, the results of that analysis will be added to the file to supplement the data that are already stored in it. 
