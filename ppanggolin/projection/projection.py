@@ -830,7 +830,8 @@ def predict_spots_in_input_organisms(
         graph_formats: List[str] = ['gexf'],
         overlapping_match: int = 2,
         set_size: int = 3,
-        exact_match: int = 1) -> Dict[Organism, Set[Spot]]:
+        exact_match: int = 1,
+        compress: bool = False) -> Dict[Organism, Set[Spot]]:
     """
     Create a spot graph from pangenome RGP and predict spots for input organism RGPs.
 
@@ -844,6 +845,7 @@ def predict_spots_in_input_organisms(
     :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes. Default is 2.
     :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation. Default is 3.
     :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs. Default is 1.
+    :param compress: Flag to compress output files
 
     :return: A dictionary mapping input organism RGPs to their predicted spots.
     """
@@ -880,7 +882,7 @@ def predict_spots_in_input_organisms(
                                                        output=outdir_org, write_graph_flag=write_graph_flag,
                                                        graph_formats=graph_formats,
                                                        overlapping_match=overlapping_match, set_size=set_size,
-                                                       exact_match=exact_match)
+                                                       exact_match=exact_match, compress=compress)
 
         new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
 
@@ -901,7 +903,8 @@ def predict_spot_in_one_organism(
         graph_formats: List[str] = ['gexf'],
         overlapping_match: int = 2,
         set_size: int = 3,
-        exact_match: int = 1) -> Set[Spot]:
+        exact_match: int = 1,
+        compress:bool = False) -> Set[Spot]:
     """
     Predict spots for input organism RGPs.
 
@@ -917,6 +920,7 @@ def predict_spot_in_one_organism(
     :param overlapping_match: Number of missing persistent genes allowed when comparing flanking genes. Default is 2.
     :param set_size: Number of single copy markers to use as flanking genes for RGP during hotspot computation. Default is 3.
     :param exact_match: Number of perfectly matching flanking single copy markers required to associate RGPs. Default is 1.
+    :param compress: Flag to compress output files
 
     Returns:
         Set[Spot]: The predicted spots for the input organism RGPs.
@@ -1022,7 +1026,7 @@ def predict_spot_in_one_organism(
                          file_basename='projected_spotGraph')
 
     write_rgp_to_spot_table(input_rgp_to_spots, output=output,
-                            filename='input_organism_rgp_to_spot.tsv')
+                            filename='input_organism_rgp_to_spot.tsv', compress=compress)
 
     input_org_spots = {spot for spots in input_rgp_to_spots.values()
                  for spot in spots }
@@ -1032,7 +1036,7 @@ def predict_spot_in_one_organism(
         f'{organism_name}: {len(new_spots)} new spots have been created for the input genome.')
 
     if new_spots:
-        summarize_spots(new_spots, output, compress=False,
+        summarize_spots(new_spots, output, compress=compress,
                         file_name="new_spots_summary.tsv")
 
     return input_org_spots
@@ -1239,10 +1243,11 @@ def launch(args: argparse.Namespace):
                                                             graph_formats=args.graph_formats,
                                                             overlapping_match=pangenome_params.spot.overlapping_match,
                                                             set_size=pangenome_params.spot.set_size,
-                                                            exact_match=pangenome_params.spot.exact_match_size)
+                                                            exact_match=pangenome_params.spot.exact_match_size,
+                                                            compress=args.compress)
 
     if project_modules:
-        input_orgs_to_modules = project_and_write_modules(pangenome, organisms, output_dir)
+        input_orgs_to_modules = project_and_write_modules(pangenome, organisms, output_dir, compress=args.compress)
 
     write_projection_results(pangenome, organisms, input_org_2_rgps,
                             input_org_to_spots,
