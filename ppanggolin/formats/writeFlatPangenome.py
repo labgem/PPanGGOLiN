@@ -837,7 +837,7 @@ def write_rgp_table(regions: Set[Region],
         for region in regions:
             row = {
                 "region": region.name,
-                "organism": region.organism,
+                "genome": region.organism,
                 "contig": region.contig,
                 "start": region.starter,
                 "stop": region.stopper,
@@ -1074,7 +1074,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
     """
     # TODO Add force parameter to check if output already exist
     if not any(x for x in [csv, gene_pa, gexf, light_gexf, stats, json, partitions, spots, borders,
-                           families_tsv, modules, spot_modules]):
+                           families_tsv, modules, spot_modules, regions]):
         raise Exception("You did not indicate what file you wanted to write.")
 
     processes = []
@@ -1093,7 +1093,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
     pan = pangenome
 
     if csv or gene_pa or gexf or light_gexf or stats or json or partitions or spots or \
-            families_tsv or borders or modules or spot_modules:
+            families_tsv or borders or modules or spot_modules or regions:
         needAnnotations = True
         needFamilies = True
     if stats or partitions or spots or borders:
@@ -1108,7 +1108,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
             metatype = "families"
         else:
             needMetadata = False
-    if spots or borders or spot_modules:
+    if spots or borders or spot_modules or regions:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
         needSpots = True

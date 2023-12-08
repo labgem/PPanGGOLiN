@@ -224,7 +224,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                              csv=args.write_pangenome.csv, gene_pa=args.write_pangenome.Rtab, gexf=args.write_pangenome.gexf,
                              light_gexf=args.write_pangenome.light_gexf,
                              stats=args.write_pangenome.stats, json=args.write_pangenome.json, partitions=args.write_pangenome.partitions,
-                             families_tsv=args.write_pangenome.families_tsv,
+                             families_tsv=args.write_pangenome.families_tsv, regions=args.write_pangenome.regions,
                              compress=args.write_pangenome.compress,
                              spot_modules=spot_modules, modules=modules, spots=spots, borders=borders)
             
