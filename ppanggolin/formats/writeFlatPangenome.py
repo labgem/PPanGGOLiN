@@ -22,6 +22,7 @@ import pandas as pd
 from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Organism
+from ppanggolin.region import Region
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, flatten_nested_dict
 from ppanggolin.formats.readBinaries import check_pangenome_info
@@ -804,17 +805,48 @@ def summarize_spots(spots: set, output: Path, compress: bool = False, file_name=
 def write_regions(output: Path, compress: bool = False):
     """
     Write the file providing information about RGP content
+
     :param output: Path to output directory
     :param compress: Compress the file in .gz
     """
-    with write_compressed_or_not(output / "plastic_regions.tsv", compress) as tab:
-        tab.write("region\torganism\tcontig\tstart\tstop\tgenes\tcontigBorder\twholeContig\n")
-        regions = sorted(pan.regions, key=lambda x: (x.organism.name, x.contig.name, x.starter.start))
-        for region in regions:
-            tab.write('\t'.join(map(str, [region.name, region.organism, region.contig, region.starter.start,
-                                          region.stopper.stop, len(region), region.is_contig_border,
-                                          region.is_whole_contig])) + "\n")
 
+    write_rgp_table(pan.regions, output, compress)
+
+
+
+def write_rgp_table(regions: Set[Region],
+                            output: Path, compress: bool = False):
+    """
+    Write the file providing information about regions of genomic plasticity.
+
+    :param regions: Set of Region objects representing regions.
+    :param output: Path to the output directory.
+    :param compress: Whether to compress the file in .gz format.
+    """
+    fname = output / "regions_of_genomic_plasticity.tsv"
+    with write_compressed_or_not(fname, compress) as tab:
+        fieldnames = ["region", "genome", "contig", "start",
+                      "stop", "genes", "contigBorder", "wholeContig"]
+
+        writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
+        writer.writeheader()
+
+        regions = sorted(regions, key=lambda x: (
+            x.organism.name, x.contig.name, x.ID))
+        
+        for region in regions:
+            row = {
+                "region": region.name,
+                "organism": region.organism,
+                "contig": region.contig,
+                "start": region.starter,
+                "stop": region.stopper,
+                "genes": len(region),
+                "contigBorder": region.is_contig_border,
+                "wholeContig": region.is_whole_contig
+            }
+
+            writer.writerow(row)
 
 def spot2rgp(spots: set, output: Path, compress: bool = False):
     """Write a tsv file providing association between spot and rgp

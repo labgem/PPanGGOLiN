@@ -40,7 +40,7 @@ from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.formats.writeFlatGenomes import write_proksee_organism, manage_module_colors, write_gff_file, write_tsv_genome_file
-from ppanggolin.formats.writeFlatPangenome import summarize_spots, summarize_genome, write_summaries_in_tsv
+from ppanggolin.formats.writeFlatPangenome import summarize_spots, summarize_genome, write_summaries_in_tsv, write_rgp_table
 from ppanggolin.formats.writeSequences import read_genome_file
 
 
@@ -626,7 +626,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
 def predict_RGP(pangenome: Pangenome, input_organisms: List[Organism], persistent_penalty: int, variable_gain: int,
                 min_length: int, min_score: int, multigenics: Set[GeneFamily],
-                output_dir: Path, disable_bar: bool) -> Dict[Organism, Set[Region]]:
+                output_dir: Path, disable_bar: bool, compress: bool) -> Dict[Organism, Set[Region]]:
     """
     Compute Regions of Genomic Plasticity (RGP) for the given input organisms.
 
@@ -639,6 +639,7 @@ def predict_RGP(pangenome: Pangenome, input_organisms: List[Organism], persisten
     :param multigenics: multigenic families.
     :param output_dir: Output directory where predicted rgps are going to be written.
     :param disable_bar: Flag to disable the progress bar.
+    :param compress: Flag to compress the rgp table in gz.
 
     :return: Dictionary mapping organism with the set of predicted regions
     """
@@ -656,44 +657,10 @@ def predict_RGP(pangenome: Pangenome, input_organisms: List[Organism], persisten
 
         org_outdir = output_dir / input_organism.name
 
-        write_predicted_regions(rgps, output=org_outdir, compress=False)
+        write_rgp_table(rgps, output=org_outdir, compress=compress)
         organism_to_rgps[input_organism] = rgps
 
     return organism_to_rgps
-
-
-def write_predicted_regions(regions: Set[Region],
-                            output: Path, compress: bool = False):
-    """
-    Write the file providing information about predicted regions.
-
-    :param regions: Set of Region objects representing predicted regions.
-    :param output: Path to the output directory.
-    :param compress: Whether to compress the file in .gz format.
-    """
-    fname = output / "plastic_regions.tsv"
-    with write_compressed_or_not(fname, compress) as tab:
-        fieldnames = ["region", "organism", "contig", "start",
-                      "stop", "genes", "contigBorder", "wholeContig"]
-
-        writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
-        writer.writeheader()
-
-        regions = sorted(regions, key=lambda x: (
-            x.organism.name, x.contig.name, x.ID))
-        for region in regions:
-            row = {
-                "region": region.name,
-                "organism": region.organism,
-                "contig": region.contig,
-                "start": region.starter,
-                "stop": region.stopper,
-                "genes": len(region),
-                "contigBorder": region.is_contig_border,
-                "wholeContig": region.is_whole_contig
-            }
-
-            writer.writerow(row)
 
 
 def write_rgp_to_spot_table(rgp_to_spots: Dict[Region, Set[str]], output: Path, filename: str, compress: bool = False):
@@ -1259,7 +1226,7 @@ def launch(args: argparse.Namespace):
 
         input_org_2_rgps = predict_RGP(pangenome, organisms,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
                                      min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, output_dir=output_dir,
-                                     disable_bar=args.disable_prog_bar)
+                                     disable_bar=args.disable_prog_bar, compress=args.compress)
 
         if project_spots:
             logging.getLogger('PPanGGOLiN').info('Predicting spot of insertion in input genomes.')
