@@ -663,43 +663,6 @@ def predict_RGP(pangenome: Pangenome, input_organisms: List[Organism], persisten
     return organism_to_rgps
 
 
-<<<<<<< HEAD
-=======
-def write_predicted_regions(regions: Set[Region],
-                            output: Path, compress: bool = False):
-    """
-    Write the file providing information about predicted regions.
-
-    :param regions: Set of Region objects representing predicted regions.
-    :param output: Path to the output directory.
-    :param compress: Whether to compress the file in .gz format.
-    """
-    fname = output / "plastic_regions.tsv"
-    with write_compressed_or_not(fname, compress) as tab:
-        fieldnames = ["region", "genome", "contig", "start",
-                      "stop", "genes", "contigBorder", "wholeContig"]
-
-        writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
-        writer.writeheader()
-
-        regions = sorted(regions, key=lambda x: (
-            x.organism.name, x.contig.name, x.ID))
-        for region in regions:
-            row = {
-                "region": region.name,
-                "genome": region.organism,
-                "contig": region.contig,
-                "start": region.starter,
-                "stop": region.stopper,
-                "genes": len(region),
-                "contigBorder": region.is_contig_border,
-                "wholeContig": region.is_whole_contig
-            }
-
-            writer.writerow(row)
-
-
->>>>>>> origin/update_doc
 def write_rgp_to_spot_table(rgp_to_spots: Dict[Region, Set[str]], output: Path, filename: str, compress: bool = False):
     """
     Write a table mapping RGPs to corresponding spot IDs.
@@ -919,15 +882,10 @@ def predict_spots_in_input_organisms(
                                                        output=outdir_org, write_graph_flag=write_graph_flag,
                                                        graph_formats=graph_formats,
                                                        overlapping_match=overlapping_match, set_size=set_size,
-<<<<<<< HEAD
                                                        exact_match=exact_match, compress=compress)
 
-        new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
-=======
-                                                       exact_match=exact_match)
         if len(input_org_spots) > 0:
             new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
->>>>>>> origin/update_doc
 
         input_org_to_spots[input_organism] = input_org_spots
 
@@ -1069,11 +1027,7 @@ def predict_spot_in_one_organism(
                          file_basename='projected_spotGraph')
 
     write_rgp_to_spot_table(input_rgp_to_spots, output=output,
-<<<<<<< HEAD
                             filename='input_organism_rgp_to_spot.tsv', compress=compress)
-=======
-                            filename='input_genome_rgp_to_spot.tsv')
->>>>>>> origin/update_doc
 
     input_org_spots = {spot for spots in input_rgp_to_spots.values()
                  for spot in spots }
