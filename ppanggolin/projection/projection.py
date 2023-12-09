@@ -36,7 +36,7 @@ from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotati
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.RGP.genomicIsland import naming_scheme, compute_org_rgp
 from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot_graph, write_spot_graph
-from ppanggolin.genome import 
+from ppanggolin.genome import Organism
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.formats.writeFlatGenomes import write_proksee_organism, manage_module_colors, write_gff_file, write_tsv_genome_file
