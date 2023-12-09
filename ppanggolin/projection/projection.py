@@ -36,10 +36,10 @@ from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotati
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.RGP.genomicIsland import naming_scheme, compute_org_rgp
 from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot_graph, write_spot_graph
-from ppanggolin.genome import Organism
+from ppanggolin.genome import 
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
-from ppanggolin.formats.writeFlatGenomes import write_proksee_organism, manage_module_colors, write_gff_file, write_tsv_genome_file
+from ppanggolin.formats.writeFlatGenomes import write_proksee_, manage_module_colors, write_gff_file, write_tsv_genome_file
 from ppanggolin.formats.writeFlatPangenome import summarize_spots, summarize_genome, write_summaries_in_tsv, write_rgp_table
 from ppanggolin.formats.writeSequences import read_genome_file
 
@@ -113,7 +113,7 @@ def check_pangenome_for_projection(pangenome: Pangenome, fast_aln:bool):
 
 
 def manage_input_genomes_annotation(pangenome, input_mode, anno, fasta, 
-                                    organism_name, circular_contigs, pangenome_params, 
+                                    _name, circular_contigs, pangenome_params, 
                                     cpu, use_pseudo, disable_bar, tmpdir, config):
     """
     """
@@ -133,12 +133,12 @@ def manage_input_genomes_annotation(pangenome, input_mode, anno, fasta,
         circular_contigs = circular_contigs if circular_contigs else []
         if anno:
             input_type = "annotation"
-            genome_name_to_path = {organism_name: {"path": anno,
+            genome_name_to_path = {_name: {"path": anno,
                                                             "circular_contigs": circular_contigs}}
         
         elif fasta:
             input_type = "fasta"
-            genome_name_to_path = {organism_name: {"path": fasta,
+            genome_name_to_path = {_name: {"path": fasta,
                                                             "circular_contigs": circular_contigs}}
 
     if input_type == "annotation":
@@ -1027,7 +1027,7 @@ def predict_spot_in_one_organism(
                          file_basename='projected_spotGraph')
 
     write_rgp_to_spot_table(input_rgp_to_spots, output=output,
-                            filename='input_organism_rgp_to_spot.tsv', compress=compress)
+                            filename='input_genome_rgp_to_spot.tsv', compress=compress)
 
     input_org_spots = {spot for spots in input_rgp_to_spots.values()
                  for spot in spots }
