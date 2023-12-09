@@ -39,7 +39,7 @@ from ppanggolin.RGP.spot import make_spot_graph, check_sim, add_new_node_in_spot
 from ppanggolin.genome import 
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
-from ppanggolin.formats.writeFlatGenomes import write_proksee_, manage_module_colors, write_gff_file, write_tsv_genome_file
+from ppanggolin.formats.writeFlatGenomes import write_proksee_organism, manage_module_colors, write_gff_file, write_tsv_genome_file
 from ppanggolin.formats.writeFlatPangenome import summarize_spots, summarize_genome, write_summaries_in_tsv, write_rgp_table
 from ppanggolin.formats.writeSequences import read_genome_file
 
@@ -113,7 +113,7 @@ def check_pangenome_for_projection(pangenome: Pangenome, fast_aln:bool):
 
 
 def manage_input_genomes_annotation(pangenome, input_mode, anno, fasta, 
-                                    _name, circular_contigs, pangenome_params, 
+                                    organism_name, circular_contigs, pangenome_params, 
                                     cpu, use_pseudo, disable_bar, tmpdir, config):
     """
     """
@@ -133,12 +133,12 @@ def manage_input_genomes_annotation(pangenome, input_mode, anno, fasta,
         circular_contigs = circular_contigs if circular_contigs else []
         if anno:
             input_type = "annotation"
-            genome_name_to_path = {_name: {"path": anno,
+            genome_name_to_path = {organism_name: {"path": anno,
                                                             "circular_contigs": circular_contigs}}
         
         elif fasta:
             input_type = "fasta"
-            genome_name_to_path = {_name: {"path": fasta,
+            genome_name_to_path = {organism_name: {"path": fasta,
                                                             "circular_contigs": circular_contigs}}
 
     if input_type == "annotation":
