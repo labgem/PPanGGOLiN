@@ -1,9 +1,8 @@
 ## PPanGGOLiN complete workflow analyses
 
-We tried to make PPanGGOLiN relatively easy to use by making a **'complete workflow'** subcommand calls `all`. 
+We tried to make PPanGGOLiN relatively easy to use by making a **'complete workflow'** subcommand called `all`. 
 It runs a pangenome analysis whose exact steps will depend on the input files you provide it with.
 In the end, you will have a partitioned pangenome graph with predicted **RGP, spots and modules**. 
-
 
 [//]: # (### PPanGGOLiN: Pangenome analyses from list of annotated files)
 
@@ -18,9 +17,9 @@ It uses parameters that we found to be generally the best when working with spec
 
 The file **organism.gbff.list** is a tab-separated file with the following organisation :
 
-1. The first column contains a unique organism name
+1. The first column contains a unique genome name
 2. The second column the path to the associated annotation file
-3. Each line represents an organism
+3. Each line represents a genome
 
 An example with 50 _Chlamydia trachomatis_ genomes can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.gbff.list) directory.
 
@@ -33,36 +32,24 @@ ppanggolin all --fasta organism.fasta.list
 
 Again you must use a tab-separated file but this time with the following organisation:
 
-1. The first column contains a unique organism name
+1. The first column contains a unique genome name
 2. The second column the path to the associated FASTA file
 3. Circular contig identifiers are indicated in the following columns
-4. Each line represents an organism
+4. Each line represents a genome
 
 Same, an example can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.fasta.list) directory.
 
 ```{tip}
-To easily download genomes of a species of interest from the NCBI assemblies refseq or genbank, you can use the CLI tools  [NCBI Genome Downloading Scripts](https://github.com/kblin/ncbi-genome-download) or the [genome updater](https://github.com/pirovc/genome_updater) bash script. 
+Downloading genomes from NCBI refseq or genbank for a species of interest can be easily accomplished using CLI tools like [ncbi-genome-download](https://github.com/kblin/ncbi-genome-download) or the [genome updater](https://github.com/pirovc/genome_updater) script.
 
-For instance to download with genome updater the GTDB refseq genomes of Bradyrhizobium japonicum, you can run the folowing command 
+For instance to download the GTDB refseq genomes of Bradyrhizobium japonicum with genome updater, you can run the following command 
 ```bash
 genome_updater.sh -d "refseq"  -o "B_japonicum_genomes" -M "gtdb" -T "s__Bradyrhizobium japonicum"
 ```
 
 ```
 
-
-```{tip}
-Downloading genomes from NCBI assemblies refseq or genbank for a species of interest can be easily accomplished using CLI tools like [NCBI Genome Downloading Scripts](https://github.com/kblin/ncbi-genome-download) or the [genome updater](https://github.com/pirovc/genome_updater) script.
-
-For example, to download GTDB refseq genomes of Bradyrhizobium japonicum using genome updater, you can execute the following command:
-```bash
-genome_updater.sh -d "refseq" -o "B_japonicum_genomes" -M "gtdb" -T "s__Bradyrhizobium japonicum"
-```
-
-```
-
-
-After the completion of the `all` command, a pangenome graph has been successfully constructed and partitioned into three distinct paritions: **persistent**, **shell**, and **cloud** (for further details on partitions, refer to [Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)). Additionally, **RGPs, spots, and modules** have been detected within your pangenome.
+After the completion of the `all` command, all of your genomes have had their genes predicted, the genes have been clustered into gene families, a pangenome graph has been successfully constructed and partitioned into three distinct paritions: **persistent**, **shell**, and **cloud**. Additionally, **RGP, spots, and modules** have been detected within your pangenome.
 
 The results of the workflow is saved in the  **pangenome.h5** file, which is in the HDF-5 file format.
 When you run an analysis using this file as input, the results of that analysis will be added to the file to supplement the data that are already stored in it. 
