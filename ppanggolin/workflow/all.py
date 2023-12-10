@@ -202,15 +202,15 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
         write_pangenome_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json', "families_tsv"]
 
         # Check that we don't ask write to output something not computed.
-        borders, spots, spot_modules, modules = (False, False, False, False)
+        borders, spots, spot_modules, modules, regions = (False, False, False, False, False)
 
         if panmodule:
             modules = args.write_pangenome.modules
             write_pangenome_arguments.append('modules')
 
         if panrgp:
-            borders, spots = (args.write_pangenome.borders, args.write_pangenome.spots)
-            write_pangenome_arguments += ["borders", "spots"]
+            borders, spots, regions = (args.write_pangenome.borders, args.write_pangenome.spots, args.write_pangenome.regions)
+            write_pangenome_arguments += ["borders", "spots", "regions"]
 
         if panmodule and panrgp:
             spot_modules = args.write_pangenome.spot_modules
@@ -224,7 +224,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                              csv=args.write_pangenome.csv, gene_pa=args.write_pangenome.Rtab, gexf=args.write_pangenome.gexf,
                              light_gexf=args.write_pangenome.light_gexf,
                              stats=args.write_pangenome.stats, json=args.write_pangenome.json, partitions=args.write_pangenome.partitions,
-                             families_tsv=args.write_pangenome.families_tsv,
+                             families_tsv=args.write_pangenome.families_tsv, regions=regions,
                              compress=args.write_pangenome.compress,
                              spot_modules=spot_modules, modules=modules, spots=spots, borders=borders)
             

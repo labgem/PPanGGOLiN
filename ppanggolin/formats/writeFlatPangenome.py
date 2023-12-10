@@ -22,6 +22,7 @@ import pandas as pd
 from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Organism
+from ppanggolin.region import Region
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, restricted_float, flatten_nested_dict
 from ppanggolin.formats.readBinaries import check_pangenome_info
@@ -801,6 +802,52 @@ def summarize_spots(spots: set, output: Path, compress: bool = False, file_name=
     logging.getLogger("PPanGGOLiN").info(f"Done writing spots in '{file_path}'")
 
 
+def write_regions(output: Path, compress: bool = False):
+    """
+    Write the file providing information about RGP content
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
+
+    write_rgp_table(pan.regions, output, compress)
+
+
+
+def write_rgp_table(regions: Set[Region],
+                            output: Path, compress: bool = False):
+    """
+    Write the file providing information about regions of genomic plasticity.
+
+    :param regions: Set of Region objects representing regions.
+    :param output: Path to the output directory.
+    :param compress: Whether to compress the file in .gz format.
+    """
+    fname = output / "regions_of_genomic_plasticity.tsv"
+    with write_compressed_or_not(fname, compress) as tab:
+        fieldnames = ["region", "genome", "contig", "start",
+                      "stop", "genes", "contigBorder", "wholeContig"]
+
+        writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
+        writer.writeheader()
+
+        regions = sorted(regions, key=lambda x: (
+            x.organism.name, x.contig.name, x.ID))
+        
+        for region in regions:
+            row = {
+                "region": region.name,
+                "genome": region.organism,
+                "contig": region.contig,
+                "start": region.starter,
+                "stop": region.stopper,
+                "genes": len(region),
+                "contigBorder": region.is_contig_border,
+                "wholeContig": region.is_whole_contig
+            }
+
+            writer.writerow(row)
+
 def spot2rgp(spots: set, output: Path, compress: bool = False):
     """Write a tsv file providing association between spot and rgp
 
@@ -998,7 +1045,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
                                 dup_margin: float = 0.05, csv: bool = False, gene_pa: bool = False, gexf: bool = False,
                                 light_gexf: bool = False,
                                 stats: bool = False, json: bool = False,
-                                partitions: bool = False, families_tsv: bool = False, spots: bool = False,
+                                partitions: bool = False, families_tsv: bool = False, regions: bool = False, spots: bool = False,
                                 borders: bool = False, modules: bool = False, spot_modules: bool = False, compress: bool = False,
                                 disable_bar: bool = False):
     """
@@ -1017,6 +1064,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
     :param json: write pangenome graph in json file
     :param partitions: write the gene families for each partition
     :param families_tsv: write gene families information
+    :param regions: write RGP information
     :param spots: write information on spots
     :param borders: write gene families bordering spots
     :param modules: write information about modules
@@ -1026,7 +1074,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
     """
     # TODO Add force parameter to check if output already exist
     if not any(x for x in [csv, gene_pa, gexf, light_gexf, stats, json, partitions, spots, borders,
-                           families_tsv, modules, spot_modules]):
+                           families_tsv, modules, spot_modules, regions]):
         raise Exception("You did not indicate what file you wanted to write.")
 
     processes = []
@@ -1045,7 +1093,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
     pan = pangenome
 
     if csv or gene_pa or gexf or light_gexf or stats or json or partitions or spots or \
-            families_tsv or borders or modules or spot_modules:
+            families_tsv or borders or modules or spot_modules or regions:
         needAnnotations = True
         needFamilies = True
     if stats or partitions or spots or borders:
@@ -1060,7 +1108,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
             metatype = "families"
         else:
             needMetadata = False
-    if spots or borders or spot_modules:
+    if spots or borders or spot_modules or regions:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
         needSpots = True
@@ -1091,6 +1139,8 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
             processes.append(p.apply_async(func=write_gene_families_tsv, args=(output, compress)))
         if spots:
             processes.append(p.apply_async(func=write_spots, args=(output, compress)))
+        if regions:
+            processes.append(p.apply_async(func=write_regions, args=(output, compress)))
         if borders:
             processes.append(p.apply_async(func=write_borders, args=(output, dup_margin, compress)))
         if modules:
@@ -1117,7 +1167,7 @@ def launch(args: argparse.Namespace):
     write_pangenome_flat_files(pan, args.output, cpu=args.cpu, soft_core=args.soft_core, dup_margin=args.dup_margin, csv=args.csv,
                      gene_pa=args.Rtab, gexf=args.gexf, light_gexf=args.light_gexf,
                      stats=args.stats, json=args.json, partitions=args.partitions,
-                     families_tsv=args.families_tsv, spots=args.spots, borders=args.borders, modules=args.modules,
+                     families_tsv=args.families_tsv, regions=args.regions, spots=args.spots, borders=args.borders, modules=args.modules,
                      spot_modules=args.spot_modules, compress=args.compress, disable_bar=args.disable_prog_bar)
 
 
@@ -1177,7 +1227,9 @@ def parser_flat(parser: argparse.ArgumentParser):
     
     optional.add_argument("--families_tsv", required=False, action="store_true",
                           help="Write a tsv file providing the association between genes and gene families")
-    
+
+    optional.add_argument("--regions", required=False, action="store_true",
+                          help="Writes the predicted RGP and descriptive metrics in 'plastic_regions.tsv'")
     optional.add_argument("--spots", required=False, action="store_true",
                           help="Write spot summary and a list of all RGP in each spot")
     optional.add_argument("--borders", required=False, action="store_true", help="List all borders of each spot")
