@@ -46,8 +46,7 @@ For instance to download the GTDB refseq genomes of Bradyrhizobium japonicum wit
 ```bash
 genome_updater.sh -d "refseq"  -o "B_japonicum_genomes" -M "gtdb" -T "s__Bradyrhizobium japonicum"
 ```
-```
-```
+
 
 After the completion of the `all` command, all of your genomes have had their genes predicted, the genes have been clustered into gene families, a pangenome graph has been successfully constructed and partitioned into three distinct paritions: **persistent**, **shell**, and **cloud**. Additionally, **RGP, spots, and modules** have been detected within your pangenome.
 
@@ -55,7 +54,6 @@ The results of the workflow is saved in the  **pangenome.h5** file, which is in 
 When you run an analysis using this file as input, the results of that analysis will be added to the file to supplement the data that are already stored in it. 
 The idea behind this is that you can store and manipulate your pangenome with PPanGGOLiN by using this file only. It will keep all the information about what was done, all the parameters used, and all the pangenome's content.
 
-[//]:
 ```{tip}
 Many option are available to tune your analysis. Take a look [here](../PangenomeAnalyses/pangenomeAnalyses.md#workflow).
 ```
