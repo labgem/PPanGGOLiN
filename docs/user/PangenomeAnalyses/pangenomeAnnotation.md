@@ -8,7 +8,7 @@ If you do so, the provided genomes will be annotated using the following tools:
 - [ARAGORN](http://www.ansikte.se/ARAGORN/) to annotate tRNAs
 - [Infernal](http://eddylab.org/infernal/) coupled with HMM of the bacterial and archaeal rRNAs downloaded from [RFAM](https://rfam.xfam.org/) to annotate rRNAs.
 
-To proceed with this stage of the pipeline, you need to create an ORGANISMS_FASTA_LIST. This file should be tab-separated with each line depicting an individual genome and its pertinent information with the following organisation:
+To proceed with this stage of the pipeline, you need to create an organisms.fasta.list file. This file should be tab-separated with each line depicting an individual genome and its pertinent information with the following organisation:
 Only the first two columns are mandatory:
 - The first column contains a unique genome name
 - The second column contains the path to the associated FASTA file
