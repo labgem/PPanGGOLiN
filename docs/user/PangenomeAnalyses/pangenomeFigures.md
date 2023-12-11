@@ -1,7 +1,7 @@
 ### Pangenome figures output
 
 #### U-shape plot
-A U-shaped plot is a figure presenting the number of families (y axis) per number of organisms (x axis).
+A U-shaped plot is a figure presenting the number of families (y axis) per number of genomes (x axis). The grey dashed vertical line represents the threshold used to define the soft_core.
 It is a .html file that can be opened with any browser and with which you can interact, zoom, move around, mouseover to see numbers in more detail, and you can save what you are seeing as a .png image file.
 
 It can be generated using the 'draw' subcommand as such : 
@@ -10,11 +10,11 @@ It can be generated using the 'draw' subcommand as such :
 
 #### tile plot
 
-A tile plot is a heatmap representing the gene families (y axis) in the organisms (x axis) making up your pangenome. The tiles on the graph will be colored if the gene family is present in an organism and uncolored if absent. The gene families are ordered by partition, and the genomes are ordered by a hierarchical clustering based on their shared gene families (basically two genomes that are close together in terms of gene family composition will be close together on the figure).
+A tile plot is a heatmap representing the gene families (y axis) in the genome (x axis) making up your pangenome. The tiles on the graph will be colored if the gene family is present in an genome (depending on the number of gene copies) and uncolored if absent. The gene families are ordered by partition and then by a hierarchical clustering, and the genomes are ordered by a hierarchical clustering based on their shared gene families (basically two genomes that are close together in terms of gene family composition will be close together on the figure).
 
-This plot is quite helpful to observe potential structures in your pangenome, and can also help you to identify eventual outliers. You can interact with it, and mousing over a tile in the plot will indicate to you which is the gene identifier(s), the gene family and the organism that corresponds to the tile.
+This plot is quite helpful to observe potential structures in your pangenome, and can also help you to identify eventual outliers. You can interact with it, and mousing over a tile in the plot will indicate to you which is the gene identifier(s), the gene family and the genome that corresponds to the tile.
 
-If you build your pangenome using the 'workflow' subcommand and you have more than 500 organisms, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise.
+If you build your pangenome using the 'workflow' subcommand and you have more than 500 genomes, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise.
 
 It can be generated using the 'draw' subcommand as such : 
 
@@ -36,9 +36,9 @@ It can be generated using the 'rarefaction' subcommand, which is dedicated to dr
 A lot of options can be used with this subcommand to tune your rarefaction curves, most of them are the same as with the `partition` workflow.
 The following 3 are related to the rarefaction alone:
 
-- `--depth` defines the number of sampling for each number of organism (default 30)
-- `--min` defines the minimal number of organisms in a sample (default 1)
-- `--max` defines the maximal number of organisms in a sample (default 100)
+- `--depth` defines the number of sampling for each number of genomes (default 30)
+- `--min` defines the minimal number of genomes in a sample (default 1)
+- `--max` defines the maximal number of genomes in a sample (default 100)
 
 So for example the following command:
 `ppanggolin rarefaction -p pangenome.h5 --min 5 --max 50 --depth 30`
