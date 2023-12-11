@@ -21,6 +21,43 @@ from ppanggolin.genome import Feature, Gene
 from ppanggolin.formats.readBinaries import read_genedata, Genedata
 
 
+
+def getmean(arg: iter) -> float:
+    """ Compute the mean of arguments if exist 0 else
+
+    :param arg: list of values
+
+    :return: return the mean
+    """
+    return 0 if len(arg) == 0 else round(statistics.mean(arg), 2)
+
+def getstdev(arg: iter) -> float:
+    """ Compute the standard deviation of arguments if exist 0 else
+
+    :param arg: list of values
+
+    :return: return the sd
+    """
+    return 0 if len(arg) <= 1 else round(statistics.stdev(arg), 2)
+
+def getmax(arg: iter) -> float:
+    """ Get the maximum of arguments if exist 0 else
+
+    :param arg: list of values
+
+    :return: return the maximum
+    """
+    return 0 if len(arg) == 0 else round(max(arg), 2)
+
+def getmin(arg: iter) -> float:
+    """ Get the minimum of arguments if exist 0 else
+
+    :param arg: list of values
+
+    :return: return the minimum
+    """
+    return 0 if len(arg) == 0 else round(min(arg), 2)
+
 def gene_fam_desc(max_name_len: int, max_sequence_length: int, max_part_len: int) -> dict:
     """
     Create a formated table for gene families description
@@ -362,6 +399,7 @@ def write_modules(pangenome: Pangenome, h5f: tables.File, force: bool = False, d
             mod_row.append()
     mod_table.flush()
 
+    write_info_modules(pangenome, h5f)
 
 def write_status(pangenome: Pangenome, h5f: tables.File):
     """
@@ -405,42 +443,6 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
     :param h5f: Pangenome file to save information
     """
 
-    def getmean(arg: iter) -> float:
-        """ Compute the mean of arguments if exist 0 else
-
-        :param arg: list of values
-
-        :return: return the mean
-        """
-        return 0 if len(arg) == 0 else round(statistics.mean(arg), 2)
-
-    def getstdev(arg: iter) -> float:
-        """ Compute the standard deviation of arguments if exist 0 else
-
-        :param arg: list of values
-
-        :return: return the sd
-        """
-        return 0 if len(arg) <= 1 else round(statistics.stdev(arg), 2)
-
-    def getmax(arg: iter) -> float:
-        """ Get the maximum of arguments if exist 0 else
-
-        :param arg: list of values
-
-        :return: return the maximum
-        """
-        return 0 if len(arg) == 0 else round(max(arg), 2)
-
-    def getmin(arg: iter) -> float:
-        """ Get the minimum of arguments if exist 0 else
-
-        :param arg: list of values
-
-        :return: return the minimum
-        """
-        return 0 if len(arg) == 0 else round(min(arg), 2)
-
     if "/info" in h5f:
         info_group = h5f.root.info
     else:
@@ -470,113 +472,87 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
                                                "max": getmax(part_distribs["persistent"]),
                                                "sd": getstdev(part_distribs["persistent"]),
                                                "mean": getmean(part_distribs["persistent"])}
+        
         info_group._v_attrs.numberOfShell = named_part_counter["shell"]
-        info_group._v_attrs.shellStats = {"min": getmin(part_distribs["shell"]), "max": getmax(part_distribs["shell"]),
+        info_group._v_attrs.shellStats = {"min": getmin(part_distribs["shell"]),
+                                          "max": getmax(part_distribs["shell"]),
                                           "sd": getstdev(part_distribs["shell"]),
                                           "mean": getmean(part_distribs["shell"])}
+        
         info_group._v_attrs.numberOfCloud = named_part_counter["cloud"]
-        info_group._v_attrs.cloudStats = {"min": getmin(part_distribs["cloud"]), "max": getmax(part_distribs["cloud"]),
+        info_group._v_attrs.cloudStats = {"min": getmin(part_distribs["cloud"]),
+                                          "max": getmax(part_distribs["cloud"]),
                                           "sd": getstdev(part_distribs["cloud"]),
                                           "mean": getmean(part_distribs["cloud"])}
+        
         info_group._v_attrs.numberOfPartitions = len(part_set)
         info_group._v_attrs.numberOfSubpartitions = subpart_counter
+
     if pangenome.status["predictedRGP"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfRGP = pangenome.number_of_rgp
+
     if pangenome.status["spots"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfSpots = pangenome.number_of_spots
+    
     if pangenome.status["modules"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfModules = pangenome.number_of_modules
         info_group._v_attrs.numberOfFamiliesInModules = sum([len(mod) for mod in pangenome.modules])
 
     info_group._v_attrs.parameters = pangenome.parameters  # saving the pangenome parameters
 
-
 def write_info_modules(pangenome: Pangenome, h5f: tables.File):
     """
-    Writes more information about modules if computed by metrics subpackage
+    Writes information about modules
 
     :param pangenome: Pangenome object with some information computed
     :param h5f: Pangenome file to save information
     """
 
-    def getmean(arg: iter) -> float:
-        """ Compute the mean of arguments if exist 0 else
-
-        :param arg: list of values
-
-        :return: return the mean
+    def part_spec(part: str) -> list:
         """
-        return 0 if len(arg) == 0 else round(statistics.mean(arg), 2)
+        Get the list of module for a specific partition of pangenome
 
-    def getstdev(arg: iter) -> float:
-        """ Compute the standard deviation of arguments if exist 0 else
+        :param part: pangenome partition name
 
-        :param arg: list of values
-
-        :return: return the sd
+        :return: list of module specific to partition
         """
-        return 0 if len(arg) <= 1 else round(statistics.stdev(arg), 2)
-
-    def getmax(arg: iter) -> float:
-        """ Get the maximum of arguments if exist 0 else
-
-        :param arg: list of values
-
-        :return: return the maximum
-        """
-        return 0 if len(arg) == 0 else round(max(arg), 2)
-
-    def getmin(arg: iter) -> float:
-        """ Get the minimum of arguments if exist 0 else
-
-        :param arg: list of values
-
-        :return: return the minimum
-        """
-        return 0 if len(arg) == 0 else round(min(arg), 2)
-
+        pangenome.compute_mod_bitarrays(part)
+        return [popcount(module.bitarray) for module in pangenome.modules]
+    
+    
     if "/info" not in h5f:
         write_info(pangenome, h5f)
     info_group = h5f.root.info
 
-    if pangenome.status["modules"] in ["Computed", "Loaded"]:
-        def part_spec(part: str) -> list:
-            """
-            Get the list of module for a specific partition of pangenome
 
-            :param part: pangenome partition name
+    mod_fam = [len(module) for module in pangenome.modules]
+    
+    info_group._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
+                                                    "max": getmax(mod_fam),
+                                                    "sd": getstdev(mod_fam),
+                                                    "mean": getmean(mod_fam)}
+    
+    spec_pers = part_spec(part='persistent')
+    spec_shell = part_spec(part='shell')
+    spec_cloud = part_spec(part='cloud')
 
-            :return: list of module specific to partition
-            """
-            pangenome.compute_mod_bitarrays(part)
-            return [popcount(module.bitarray) for module in pangenome.modules]
-
-        mod_fam = [len(module) for module in pangenome.modules]
-        info_group._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
-                                                       "max": getmax(mod_fam),
-                                                       "sd": getstdev(mod_fam),
-                                                       "mean": getmean(mod_fam)}
-        spec_pers = part_spec(part='persistent')
-        spec_shell = part_spec(part='shell')
-        spec_cloud = part_spec(part='cloud')
-        info_group._v_attrs.PersistentSpecInModules = {"percent": round((sum(spec_pers) / sum(mod_fam)) * 100, 2),
-                                                       "min": getmin(spec_pers),
-                                                       "max": getmax(spec_pers),
-                                                       "sd": getstdev(spec_pers),
-                                                       "mean": getmean(spec_pers)}
-        info_group._v_attrs.ShellSpecInModules = {"percent": round((sum(spec_shell) / sum(mod_fam)) * 100, 2),
-                                                  "min": getmin(spec_shell),
-                                                  "max": getmax(spec_shell),
-                                                  "sd": getstdev(spec_shell),
-                                                  "mean": getmean(spec_shell)}
-        info_group._v_attrs.CloudSpecInModules = {"percent": round((sum(spec_cloud) / sum(mod_fam)) * 100, 2),
-                                                  "min": getmin(spec_cloud),
-                                                  "max": getmax(spec_cloud),
-                                                  "sd": getstdev(spec_cloud),
-                                                  "mean": getmean(spec_cloud)}
-    else:
-        raise Exception("Modules were not computed in your pangenome. Please see the module subcommand.")
-
+    info_group._v_attrs.PersistentSpecInModules = {"percent": round((sum(spec_pers) / sum(mod_fam)) * 100, 2),
+                                                    "min": getmin(spec_pers),
+                                                    "max": getmax(spec_pers),
+                                                    "sd": getstdev(spec_pers),
+                                                    "mean": getmean(spec_pers)}
+    
+    info_group._v_attrs.ShellSpecInModules = {"percent": round((sum(spec_shell) / sum(mod_fam)) * 100, 2),
+                                                "min": getmin(spec_shell),
+                                                "max": getmax(spec_shell),
+                                                "sd": getstdev(spec_shell),
+                                                "mean": getmean(spec_shell)}
+    
+    info_group._v_attrs.CloudSpecInModules = {"percent": round((sum(spec_cloud) / sum(mod_fam)) * 100, 2),
+                                                "min": getmin(spec_cloud),
+                                                "max": getmax(spec_cloud),
+                                                "sd": getstdev(spec_cloud),
+                                                "mean": getmean(spec_cloud)}
 
 def update_gene_fam_partition(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
     """
