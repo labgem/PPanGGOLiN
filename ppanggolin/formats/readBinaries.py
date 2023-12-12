@@ -621,7 +621,7 @@ def read_info(h5f):
     if "/info" in h5f:
         info_group = h5f.root.info
         content = create_info_dict(info_group)
-        yaml_output = yaml.dump(content, default_flow_style=False, sort_keys=False, indent=4)
+        yaml_output = yaml.dump({"Content":content}, default_flow_style=False, sort_keys=False, indent=4)
         print(yaml_output)
 
 
@@ -675,12 +675,16 @@ def read_parameters(h5f: tables.File):
     :param h5f: Pangenome HDF5 file
     """
     step_to_parameters = get_pangenome_parameters(h5f)
+    print("Parameters:")
 
     for step, param_name_to_value in step_to_parameters.items():
-        print(f"{step}:")
+        print(f"    {step}:")
         for param_name, val in param_name_to_value.items():
-            print(f"    {param_name}: {val}")
-
+            print(f"        {param_name}: {val}")
+    print()
+    # Cannot use yaml package because some of the parameters are yaml comment
+    # yaml_output = yaml.dump({"Parameters":step_to_parameters}, default_flow_style=False, sort_keys=False, indent=4)
+    # print(yaml_output)
 
 def get_pangenome_parameters(h5f: tables.File) -> Dict[str, Dict[str, Any]]:
     """

@@ -451,6 +451,11 @@ def parse_config_file(yaml_config_file: str) -> dict:
     with yaml_config_file as yaml_fh:
         config = yaml.safe_load(yaml_fh)
 
+    # if config has a Parameters key. Update its content as config
+    if "Parameters" in config:
+        config.update(config['Parameters'])
+        del config['Parameters']
+        
     # remove empty section that have no parameter specified in it. In this case they have a None value
     config = {section: param_val_dict for section, param_val_dict in config.items() if param_val_dict is not None}
     return config
