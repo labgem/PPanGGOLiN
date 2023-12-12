@@ -1,13 +1,13 @@
 # Align external genes to a pangenome
 
 
-The PPanGGOLiN `align` command allows to use a pangenome as a reference to get information about a set of sequences of interest. It requires a HDF-5 file of a previously computed pangenome as input, as well as either a set of sequences, nucleotides or proteins, as a `.fasta` file.
-The command will use MMseqs to compare the given input sequences to the pangenome gene family representatives, and will assign a gene family to each input sequence, if there is one which is close enough (the 'closeness' can be defined by some of the command parameters). If there are multiple assignable families, the closest one in bitscore is chosen.
+The PPanGGOLiN `align` command allows to use a pangenome as a reference to get information about a set of sequences of interest. It requires a previously computed pangenome in HDF-5 format as input, along with a `.fasta` file containing either nucleotide or protein sequences.
+The command utilizes MMseqs to compare input sequences to representatives of the pangenome gene family. It assigns a gene family to each input sequence if there is one that is sufficiently similar (as defined by command parameters). If multiple families are assignable, the one with the highest bitscore is selected.
 
 The default way of using this command is the following:
-
-`ppanggolin align -p pangenome.h5 -o MYOUTPUTDIR --sequences MY_SEQUENCSE_OF_INTEREST.fasta`
-
+```bash
+ppanggolin align -p pangenome.h5 -o MYOUTPUTDIR --sequences MY_SEQUENCSE_OF_INTEREST.fasta
+```
 
 ## Output files
 By default the command if successful will always write two files:
