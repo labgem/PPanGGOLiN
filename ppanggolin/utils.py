@@ -274,14 +274,14 @@ def create_tmpdir(main_dir, basename="tmpdir", keep_tmp=False):
         dir_name = basename +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime()) 
 
         new_tmpdir = main_dir / dir_name
-        logging.debug(f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
+        logging.getLogger("PPanGGOLiN").debug(f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
 
         mk_outdir(new_tmpdir, force=True)
         yield new_tmpdir
         
     else:
         with tempfile.TemporaryDirectory(dir=main_dir, prefix=basename) as new_tmpdir:
-            logging.debug(f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
+            logging.getLogger("PPanGGOLiN").debug(f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
             yield Path(new_tmpdir)
                   
 
@@ -450,12 +450,15 @@ def parse_config_file(yaml_config_file: str) -> dict:
 
     with yaml_config_file as yaml_fh:
         config = yaml.safe_load(yaml_fh)
+    
+    if config is None:
+        config = {}
 
-    # if config has a Parameters key. Update its content as config
-    if "Parameters" in config:
+    # if config has a Parameters key. Update config with its content
+    if config and "Parameters" in config:
         config.update(config['Parameters'])
         del config['Parameters']
-        
+
     # remove empty section that have no parameter specified in it. In this case they have a None value
     config = {section: param_val_dict for section, param_val_dict in config.items() if param_val_dict is not None}
     return config
