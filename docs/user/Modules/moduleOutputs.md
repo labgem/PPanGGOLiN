@@ -42,6 +42,7 @@ The structure of the `modules_in_genomes.tsv` file is outlined as follows:
 #### 3. modules summary
 
 The `modules_summary.tsv` file lists  characteristics for each detected module, with one line for each module.
+
 The format is as follows:
 
 |column|description|
@@ -86,10 +87,10 @@ The `modules_RGP_lists.tsv` file lists RGPs that contain the same modules. These
 
 | Column             | Description                                                                                       |
 |--------------------|---------------------------------------------------------------------------------------------------|
-| representative_RGP | An RGP considered representative for the group, serving as a randomly chosen 'group of RGP IDs'   |
+| representative_RGP | An RGP considered representative for the group, serving as a randomly chosen <br> 'group of RGP IDs'   |
 | nb_spots           | The number of spots where the RGPs containing the listed modules are observed                     |
-| mod_list           | A list of the modules present in the indicated RGPs                                                 |
-| RGP_list           | A list of RGPs that specifically include the previously listed modules                             |
+| mod_list           | A list of modules present in the indicated RGPs                                                 |
+| RGP_list           | A list of RGPs that specifically includes the previously listed modules                             |
 
 
 
