@@ -468,22 +468,22 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
                 part_set.add(fam.partition)
 
         info_group._v_attrs.numberOfPersistent = named_part_counter["persistent"]
-        info_group._v_attrs.persistentStats = {"min": getmin(part_distribs["persistent"]),
-                                               "max": getmax(part_distribs["persistent"]),
-                                               "sd": getstdev(part_distribs["persistent"]),
-                                               "mean": getmean(part_distribs["persistent"])}
+        info_group._v_attrs.persistentStats = {"min_genomes_frequency": getmin(part_distribs["persistent"]),
+                                               "max_genomes_frequency": getmax(part_distribs["persistent"]),
+                                               "sd_genomes_frequency": getstdev(part_distribs["persistent"]),
+                                               "mean_genomes_frequency": getmean(part_distribs["persistent"])}
         
         info_group._v_attrs.numberOfShell = named_part_counter["shell"]
-        info_group._v_attrs.shellStats = {"min": getmin(part_distribs["shell"]),
-                                          "max": getmax(part_distribs["shell"]),
-                                          "sd": getstdev(part_distribs["shell"]),
-                                          "mean": getmean(part_distribs["shell"])}
+        info_group._v_attrs.shellStats = {"min_genomes_frequency": getmin(part_distribs["shell"]),
+                                          "max_genomes_frequency": getmax(part_distribs["shell"]),
+                                          "sd_genomes_frequency": getstdev(part_distribs["shell"]),
+                                          "mean_genomes_frequency": getmean(part_distribs["shell"])}
         
         info_group._v_attrs.numberOfCloud = named_part_counter["cloud"]
-        info_group._v_attrs.cloudStats = {"min": getmin(part_distribs["cloud"]),
-                                          "max": getmax(part_distribs["cloud"]),
-                                          "sd": getstdev(part_distribs["cloud"]),
-                                          "mean": getmean(part_distribs["cloud"])}
+        info_group._v_attrs.cloudStats = {"min_genomes_frequency": getmin(part_distribs["cloud"]),
+                                          "max_genomes_frequency": getmax(part_distribs["cloud"]),
+                                          "sd_genomes_frequency": getstdev(part_distribs["cloud"]),
+                                          "mean_genomes_frequency": getmean(part_distribs["cloud"])}
         
         info_group._v_attrs.numberOfPartitions = len(part_set)
         info_group._v_attrs.numberOfSubpartitions = subpart_counter
