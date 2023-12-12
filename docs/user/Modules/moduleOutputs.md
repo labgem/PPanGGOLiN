@@ -50,7 +50,7 @@ The format is as follows:
 |nb_families| The number of families which are included in the module The families <br> themselves are listed in the 'functional_modules.tsv' file.|
 |nb_genomes|The number of genomes in which the module is found. Those genomes are <br> listed in the 'modules_in_genomes.tsv' file.|
 |partition| The average partition of the families in the module.|
-|mean_number_of_occurrence| the mean number of time a module is present in each genome. <br> The expected value is around one, but it can be more if it is a module often repeated in the genomes (like a phage).|
+|mean_number_of_occurrence| the mean number of time a module is present in each genome. <br> The expected value is around one, but it can be more if it is a module <br> often repeated in the genomes (like a phage).|
 
 
 ### Mapping Modules with Spots and Regions of Genomic Plasticity (RGPs)
