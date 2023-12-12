@@ -41,9 +41,8 @@ The structure of the `modules_in_genomes.tsv` file is outlined as follows:
 
 #### 3. modules summary
 
-The `modules_summary.tsv` file lists a few characteristics for each detected module. There is one line for each module.
-
-And it follows the following format:
+The `modules_summary.tsv` file lists  characteristics for each detected module, with one line for each module.
+The format is as follows:
 
 |column|description|
 |------|------------|
