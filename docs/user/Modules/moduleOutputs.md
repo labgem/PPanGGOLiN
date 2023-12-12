@@ -3,7 +3,7 @@
 
 ### Descriptive Tables for Predicted Modules
 
-To describe predicted modules, various files can be generated, each delineating distinct characteristics of these modules.
+To describe predicted modules, various files can be generated, each describing different characteristics of these modules.
 
 To generate these tables, use the `write_pangenome` command with the `--module` :
 
@@ -36,7 +36,7 @@ The structure of the `modules_in_genomes.tsv` file is outlined as follows:
 |--------------|-----------------------------------------------|
 | module_id    | Identifier for the module                      |
 | genome       | Genome in which the indicated module is found  |
-| completion   | Indicates the level of completeness (0.0 to 1.0) of the module in the specified genome based on gene family representation |
+| completion   | Indicates the level of completeness (0.0 to 1.0) of the module in the <br> specified genome based on gene family representation |
 
 
 #### 3. modules summary
