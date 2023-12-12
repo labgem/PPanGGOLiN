@@ -44,7 +44,7 @@ ppanggolin write_genomes -p pangenome.h5 --table -o write_genomes_output
 ### GFF file
 
 
-The `--gff` argument generates GFF files, each containing pangenome annotations for individual genomes within the pangenome. The GFF file format is a widely recognized standard in bioinformatics and can seamlessly integrate into downstream analysis tools.
+The `--gff` argument generates GFF files, each containing pangenome annotations for individual genomes within the pangenome. The GFF file format is a widely recognized standard in bioinformatics and can easily integrate into downstream analysis tools.
 
 To generate GFF files from a pangenome HDF5 file, you can use the following command:
 
@@ -61,7 +61,7 @@ For CDS features, pangenome annotations are recorded in the attribute column of 
 CDS features have the following attributes:
 
 - **family:** ID of the gene family to which the gene belongs.
-- **partition:** The partition of the gene family, categorized as persistent, shell, or cloud.
+- **partition:** Partition of the gene family, categorized as persistent, shell, or cloud.
 - **module:** If the gene family belongs to a module, the module ID is specified with the key 'module.'
 - **rgp:** If the gene is part of a Region of Genomic Plasticity (RGP), the RGP name is specified with the key 'rgp.'
 
@@ -69,11 +69,11 @@ For Regions of Genomic Plasticity (RGPs), RGPs are specified under the feature t
 
 RGPs have the following attributes:
 
-- The attribute 'spot' designates the spot ID where the RGP is inserted. When the RGP has no spot, the term 'No_spot' is used.
-- The 'Note' attribute specifies that this feature is an RGP.
+- **'spot'** designates the spot ID where the RGP is inserted. When the RGP has no spot, the term 'No_spot' is used.
+- **'Note'** specifies that this feature is an RGP.
 
 
-Here is an example showcasing the initial lines of the GFF file for the Acinetobacter baumannii AYE genome:
+Here is an example showcasing the initial lines of the GFF file for the _Acinetobacter baumannii_ AYE genome:
 
 ```gff
 ##gff-version 3
@@ -103,7 +103,7 @@ To generate JSON map files, you can use the following command:
 ppanggolin write_genomes -p pangenome.h5 --proksee -o output
 ```
 
-This command will create a proksee directory within the output directory, with one JSON file per genome. 
+This command creates a proksee directory within the output directory and generates one JSON file per genome. 
 
 
 To load a JSON map file on Proksee, follow these steps:
@@ -121,9 +121,9 @@ A genome visualized by Proksee with PPanGGOLiN annotation appears as depicted be
 *Image: Genome visualized by Proksee with PPanGGOLiN annotation.*
 
 
-The visualization consists of three tracks:
+The visualization is composed of three tracks:
 - **Genes:** Color-coded by their gene family partition.
-- **RGP (Region of Genomic Plasticity):** Spot associated to the RGPs are specified in the annotation of the object.
+- **RGP:** The annotation of the object specifies the spot associated with the RGPs.
 - **Module:** Displaying modules within the genome. The completion of the module is specified in the annotation of the object.
 
 
@@ -137,7 +137,7 @@ PPanGGOLiN allows the incorporation of fasta sequences into GFF files and prokse
 
 Since PPanGGOLiN does not retain genomic sequences, it is necessary to provide the original genomic files used to construct the pangenome through either the `--anno` or `--fasta` argument. These arguments mirror those used in workflow commands (`workflow`, `all`, `panrgp`, `panmodule`) and the `annotate` command.
 
-- `--anno`: This option requires a tab-separated file containing organism names and the corresponding GFF/GBFF filepaths of their annotations. If `--anno` is utilized, GFF files should include fasta sequences.
+- `--anno`: This option requires a tab-separated file containing organism names and the corresponding GFF/GBFF file paths of their annotations. If `--anno` is utilized, GFF files should include fasta sequences.
 
 - `--fasta`: Use this option with a tab-separated file that lists organism names alongside the filepaths of their genomic sequences in fasta format.
 
@@ -154,7 +154,7 @@ Metadata is integrated into the attributes column of the GFF file. The patterns 
 - In the contig lines of type `region` describing the contig, genome metadata is added with the pattern: `genome_<source>_<key>=<value>`, and contig metadata is added with: `contig_<source>_<key>=<value>`.
 - In RGP lines, metadata is added using the pattern: `rpg_<source>_<key>=<value>`.
 
-For example, if we associate metadata is associated with the gene family DYB08_RS16060 with the source `pfam`:
+For example, if we associate the metadata of the gene family DYB08_RS16060 with the source `pfam`:
 
 ```tsv
 families	accession	type	description
@@ -183,7 +183,7 @@ NC_010404.1	external	CDS	77317	77958	.	-	0	ID=ABAYE_RS00475;Parent=gene-ABAYE_RS
 
 Metadata can be seamlessly incorporated into Proksee JSON MAP files. These metadata details become accessible by simply hovering the mouse over the features.
 
-For instance, with the metadata previously added to the DYB08_RS16060 gene family, the Proksee visualization would resemble the example below:
+For instance, with the metadata previously added to the DYB08_RS16060 gene family, the Proksee visualization would look like the following figure:
 
 ```{image} ../_static/proksee_metadata_example.png
 :align: center
