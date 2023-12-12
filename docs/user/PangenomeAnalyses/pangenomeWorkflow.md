@@ -1,5 +1,6 @@
 PPanGGOLiN was created with the idea to make it both easy to use for beginners, and fully customizable for experts.
-The ease-of-use was achieved by incorporating a 'workflow' command that enables the construction and partitioning of a pangenome using genomic data with only a single mandatory option, and preset parameters adapted for pangenomes at the scope of a bacterial species.
+Ease of use has been achieved by incorporating a workflow command that allows the construction and partitioning of a pangenome using genomic data.
+The command has only one mandatory option, and predefined parameters adapted to pangenomes at the scale of a bacterial species.
 This command launches the [annotation](./pangenomeAnalyses.md#annotation), [clustering](./pangenomeAnalyses.md#clustering), [graph](./pangenomeAnalyses.md#graph) and [partition](./pangenomeAnalyses.md#partition) commands described below.
 
 To use this command, you need to provide a tab-separated list of either annotation files (gff3 or gbff) or fasta files. The expected format is detailed [in the annotation section](./pangenomeAnalyses.md#annotation)
@@ -9,12 +10,14 @@ You can use the workflow with annotation files as such:
 ppanggolin workflow --anno organism.gbff.list
 ```
 
-For fasta files, you have to change for this command: 
+For fasta files, you have to change for: 
 ```
 ppanggolin workflow --fasta organism.fasta.list
 ```
 
-Moreover, as detailed [in the section about providing your gene families](./pangenomeAnalyses.md#read-clustering), if you wish to use different gene clustering methods than those provided by PPanGGOLiN, it is also possible to provide your own clustering results with the workflow command as such:
+Moreover, as detailed [in the section about providing your gene families](./pangenomeAnalyses.md#read-clustering), 
+if you wish to use different gene clustering methods than those provided by PPanGGOLiN,
+it is also possible to provide your own clustering results with the workflow command as such:
 
 ```
 ppanggolin workflow --anno organism.gbff.list --clusters clusters.tsv
