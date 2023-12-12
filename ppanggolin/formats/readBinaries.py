@@ -85,26 +85,6 @@ def get_number_of_organisms(pangenome: Pangenome) -> int:
     return len(org_set)
 
 
-# TODO Remove this function
-def fix_partitioned(pangenome_file: str):
-    """
-    Fixes pangenomes with the 'partitionned' typo.
-
-    :param pangenome_file: path to the pangenome file
-    """
-    h5f = tables.open_file(pangenome_file, "a")
-    status_group = h5f.root.status
-    if 'Partitionned' in status_group._v_attrs._f_list():
-        # if Partitionned is still in use, fix it
-        status_group = h5f.root.status
-        if status_group._v_attrs.Partitionned:
-            status_group._v_attrs.Partitioned = True
-        else:
-            status_group._v_attrs.Partitioned = False
-        del status_group._v_attrs.Partitionned
-    h5f.close()
-
-
 def get_status(pangenome: Pangenome, pangenome_file: Path):
     """
     Checks which elements are already present in the file.
@@ -112,7 +92,6 @@ def get_status(pangenome: Pangenome, pangenome_file: Path):
     :param pangenome: Blank pangenome
     :param pangenome_file: path to the pangenome file
     """
-    fix_partitioned(pangenome_file)
     h5f = tables.open_file(pangenome_file, "r")
     logging.getLogger("PPanGGOLiN").info("Getting the current pangenome status")
     status_group = h5f.root.status
@@ -725,8 +704,6 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         filename = pangenome.file
     else:
         raise FileNotFoundError("The provided pangenome does not have an associated .h5 file")
-
-    fix_partitioned(pangenome.file)
 
     h5f = tables.open_file(filename, "r")
 

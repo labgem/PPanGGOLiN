@@ -10,7 +10,7 @@ import tables
 import yaml
 
 # local libraries
-from ppanggolin.formats import read_info, read_parameters,  fix_partitioned
+from ppanggolin.formats import read_info, read_parameters
 
 
 def read_status(h5f: tables.File):
