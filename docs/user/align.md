@@ -50,6 +50,7 @@ The written file will be called 'info_input_seq.tsv', and follows the following 
 |rgp_list| the list of RGP in which the sequence is found|
 
 You can use `--draw_related` as such:
+
 ```bash
 ppanggolin align -p pangenome.h5 -o MYOUTPUTDIR --sequences MY_SEQUENCSE_OF_INTEREST.fasta --draw_related
 ```
