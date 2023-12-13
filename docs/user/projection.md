@@ -12,7 +12,7 @@ This command supports two input modes depending on whether you want to project a
 
 Multiple Files in One TSV:
 - **Options**: `--fasta` or `--anno`
-- **Description**: You can provide a tab-separated file listing genome names alongside their respective FASTA genomic sequences or annotation filepaths, with one line per genome. This mode is suitable when you want to annotate multiple genomes in a single operation. The format of this file is identical to the format used in the annotate and workflow commands; for more details, refer here.
+- **Description**: You can provide a tab-separated file listing genome names alongside their respective FASTA genomic sequences or annotation filepaths, with one line per genome. This mode is suitable when you want to annotate multiple genomes in a single operation. The format of this file is identical to the format used in the annotate and workflow commands; for more details, refer [here](./PangenomeAnalyses/pangenomeAnnotation.md).
 
 Single File:
 - **Options**: `--genome_name` with `--fasta` or `--anno` and `--circular_contigs` (optional)
@@ -37,9 +37,9 @@ Additionally, within the Output directory, there is a subdirectory for each inpu
 For Gene Family and Partition of Input Genes:
 
 - `cds_sequences.fasta`: This file contains the sequences of coding regions (CDS) from the input genome.
-- `gene_to_gene_family.tsv`: It provides the mapping of genes to gene families of the pangenome. its format follows [this output](Outputs.md#gene-families-and-genes)
+- `gene_to_gene_family.tsv`: It provides the mapping of genes to gene families of the pangenome. Its format follows [this output](Outputs.md#gene-families-and-genes)
 - `sequences_partition_projection.tsv`: This file maps the input genes to its partition (Persistent, Shell or Cloud).
-- `specific_genes.tsv`: This file list the gene of the input genomes that do not align to any gene of the pangenome. These genes are assigned to Cloud parititon. 
+- `specific_genes.tsv`: This file lists the gene of the input genomes that do not align to any gene of the pangenome. These genes are assigned to Cloud parititon. 
 
 For RGPs and Spots:
 
