@@ -27,11 +27,6 @@ Single File:
 - **Options**: `--genome_name` with `--fasta` or `--anno` and `--circular_contigs` (optional)
 - **Description**: When annotating a single genome, you can directly provide a single FASTA genomic sequence file or an annotation file in GFF/GBFF format. Additionally, specify the name of the genome using the `--genome_name` option. You can also indicate circular contigs using the `--circular_contigs` option when necessary.
 
-For instance you can launch a projection on a single fasta file of an external genome as follow:
-```bash
-ppanggolin projection -p pangenome.h5 --anno external_genome_A.fasta --genome_name genome_A
-```
-
 **Example Usage:**
 Suppose you have a single fasta file named `genome_A.fasta` of an external genome. To execute the projection, use the following command:
 ```bash
