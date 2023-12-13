@@ -12,6 +12,13 @@ Once the pangenome is established, including gene clustering, partitioning, opti
 PPanGGOLiN utilizes the [pytable](https://www.pytables.org/index.html) Python library for handling the pangenome HDF-5 file. While graphical user interface tools like ['ViTables'](https://vitables.org/index.html) allow manual exploration and editing of the file, it's cautioned against, as it may compromise compatibility with PPanGGOLiN.
 
 
+You can use the command `info` to get comprehensive insights into the contents and construction process of a pangenome file. 
+
+```bash
+ppanggolin info -p pangenome.h5
+```
+
+
 ## Required computing resources
 
 Most of PPanGGOLiN's commands should be run with as many CPUs as you can give them by using the --cpu option as PPanGGOLiN's speed increases relatively well with the number of CPUs. 
@@ -48,7 +55,6 @@ Then you can also remove the progress bars with the option `--disable_prog_bar`
 Finaly, you can also save PPanGGOLiN logs in a file by indicating its path with the option `--log`.
 
 ## Configuration file
-
 
 Advanced users can provide a configuration file containing any or all parameters to PPanGGolin commands. 
 This feature is particularly useful for workflow commands such as `workflow`, `all`, `panrgp`, and `panmodule`, as it allows for the specification of all parameters for each subcommand launched in a workflow. 
