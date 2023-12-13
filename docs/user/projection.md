@@ -43,7 +43,7 @@ For Gene Family and Partition of Input Genes:
 
 For RGPs and Spots:
 
-- `plastic_regions.tsv`: This file contains information about Regions of Genomic Plasticity (RGPs) within the input genome. Its format follows [this output](RGP/rgpOutputs.md#rgp-outputs).
+- `plastic_regions.tsv`: This file contains information about RGPs within the input genome. Its format follows [this output](RGP/rgpOutputs.md#rgp-outputs).
 - `input_genome_rgp_to_spot.tsv`: It provides information about the association between RGPs and insertion spots in the input genome. Its format follows [this ouput](RGP/rgpOutputs.md#summarize-spots).
 
 Optionally, you can generate a graph of the spots using the `--spot_graph` option. This graph resembles the one produced by the `ppanggolin draw --spots` command, which is detailed [here](RGP/rgpOutputs.md#draw-spots).
