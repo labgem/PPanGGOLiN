@@ -35,7 +35,10 @@ There are 6 columns in `gene_context.tsv`.
 5. **Partition**: Partition of the gene family corresponding to the found context
 6. **Target_family**: Whether the family is a target family, meaning it matches an input sequence, or a family provided as input.
 
-In **sequence_Id**, it is possible to find a NA value. This case, correspond to another gene family found in the context.
+```{note}
+In **sequence_ID**, it is possible to find a NA value. This corresponds to cases where a gene family other than the one specified by the user is found in the context.
+```
+
 
 ## Detailed options
 
