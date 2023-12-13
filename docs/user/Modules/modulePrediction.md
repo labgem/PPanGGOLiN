@@ -13,7 +13,7 @@ To execute the panModule workflow, use the following command:
 ```bash
 ppanggolin panmodule --fasta GENOME_LIST_FILE
 ```
-Replace `GENOME_LIST_FILE` with a tab-separated file listing the genome names, and the fasta file path of their genomic sequences as described [here](../PangenomeAnalyses/pangenomeAnnotation.md#annotate-fasta-file). Alternatively, you can provide a list of GFF/GBFF files as input by using the `--anno` parameter, similar to how it is used in the workflow and annotate commands.
+Replace `GENOME_LIST_FILE` with a tab-separated file listing the genome names, and the fasta file path of their genomic sequences as described [here](../PangenomeAnalyses/pangenomeAnnotation.md#annotate-from-fasta-files). Alternatively, you can provide a list of GFF/GBFF files as input by using the `--anno` parameter, similar to how it is used in the workflow and annotate commands.
 
 The panmodule workflow predicts modules using default parameters. To fine-tune the detection, you can use the `module` command on a partioned pangenome acquired through the `workflow` for example or use a configuration file, as described [here](../practicalInformation.md#configuration-file). 
 
