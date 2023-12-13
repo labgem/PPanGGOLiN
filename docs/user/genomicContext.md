@@ -2,12 +2,12 @@
 
 The PPanGGOLiN `context` command enables the identification of genomic contexts for query proteins. These contexts consist of genes commonly found in proximity to the proteins of interest in the different genomes.
 
-The analysis can be run on your formerly computed pangenomes and users can query one or multiple genes at once. The search can be conducted either directly with gene/protein sequences in a FASTA file or by utilizing a list of gene family IDs. Both methods are seamlessly integrated within the `context` subcommand.
+The analysis can be run on a formerly computed pangenomes and users can query one or multiple genes at once. The search can be conducted either directly with gene/protein sequences in a FASTA file or by utilizing a list of gene family IDs. Both methods are seamlessly integrated within the `context` subcommand.
 
 
 ## Search Genomic context with sequences
 
-The first possibility to search your genomic context, you can use a fasta file with genes or proteins. The command can be launched as such:
+To search your genomic context, you can use a FASTA file containing genes or proteins. The command can be launched as such:
 
 `ppanggolin context -p pangenome.h5 --sequences protein.fasta`
 
@@ -15,7 +15,7 @@ To utilize this subcommand, ensure that your pangenome contains sequences associ
 
 ## Search with gene family ID.
 
-The second possibility is to give a list of gene families ID used to compute the pangenome. You can run the subcommand like this:
+Another possibility is to give a list of gene families ID used to compute the pangenome. You can run the subcommand like this:
 
 `ppanggolin context -p pangenome.h5 --family families.txt`
 
@@ -24,7 +24,7 @@ In this scenario, you can give a pangenome without gene families representatives
 
 ## Output format
 
-In case of you are using families ID, you will only have as output the `gene_context.tsv` file. In the other case, you use sequences, you will have another output file to report the alignment between sequences and pangenome families (see detail in [align subcommand](align.md#align-external-genes-to-a-pangenome)).
+If you are using families IDs, the only output you will receive is the `gene_context.tsv` file. If you use sequences, you will have another output file that report the alignment between sequences and pangenome families (see detail in [align subcommand](align.md#align-external-genes-to-a-pangenome)).
 
 There are 6 columns in `gene_context.tsv`. 
 
