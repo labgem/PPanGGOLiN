@@ -73,7 +73,7 @@ jobs:
         ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output stepbystep -f --fasta genomes.fasta.list --gff --proksee --table
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta genomes.fasta.list
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
-        ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --info_modules --no_print_info -f --log metrics.log
+        ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --no_print_info --recompute_metrics --log metrics.log
         cd - 
     - name: gbff parsing and MSA computing
       shell: bash -l {0}

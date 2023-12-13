@@ -22,7 +22,7 @@ SUBCOMMAND_TO_SUBPARSER = {
     "rarefaction": ppanggolin.nem.rarefaction.subparser,
     "workflow": ppanggolin.workflow.workflow.subparser,
     "panrgp": ppanggolin.workflow.panRGP.subparser,
-    "panModule": ppanggolin.workflow.panModule.subparser,
+    "panmodule": ppanggolin.workflow.panModule.subparser,
     "all": ppanggolin.workflow.all.subparser,
     "draw": ppanggolin.figures.subparser,
     "write_pangenome": ppanggolin.formats.writeFlatPangenome.subparser,

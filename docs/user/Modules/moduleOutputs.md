@@ -96,25 +96,30 @@ The `modules_RGP_lists.tsv` file lists RGPs that contain the same modules. These
 
 ### Module Information
 
-To gather additional insights into the modules, including information about families and their distribution across different partitions, you can use the following command:
+
+Once module have been predicted, the `info` command can present overall statistics regarding the predicted modules, including details about the families found within the modules and their distribution across various partitions.
+
 
 ```bash
-ppanggolin metrics -p pangenome.h5 --info_modules
+ppanggolin info -p pangenome.h5 --content
 ```
 
-The command output provides the following details:
+The command output provides the following details about modules:
 
 ```yaml
-- Modules: 3
-	- Families in Modules: 15
-	- Percent of Families: 
-		- persistent: 0.0
-		- shell 53.33
-		- cloud 46.67
-	- Number of Families per Modules:
-		- min: 3
-		- max: 8
-		- sd: 2.65
-		- mean: 5
+[...]
+Modules:
+	Number_of_modules: 380
+	Families_in_Modules: 2242
+	Partition_composition:
+		Persitent: 0.27
+		Shell: 37.69
+		Cloud: 62.04
+	Number_of_Families_per_Modules:
+		min: 3
+		max: 65
+		sd: 5.84
+		mean: 5.9
+
 ```
 

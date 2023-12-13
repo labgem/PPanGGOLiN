@@ -10,6 +10,7 @@ from typing import TextIO, Dict, Any, List, Set
 from tables import Table
 from tqdm import tqdm
 import tables
+import yaml
 
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA, Contig
@@ -84,26 +85,6 @@ def get_number_of_organisms(pangenome: Pangenome) -> int:
     return len(org_set)
 
 
-# TODO Remove this function
-def fix_partitioned(pangenome_file: str):
-    """
-    Fixes pangenomes with the 'partitionned' typo.
-
-    :param pangenome_file: path to the pangenome file
-    """
-    h5f = tables.open_file(pangenome_file, "a")
-    status_group = h5f.root.status
-    if 'Partitionned' in status_group._v_attrs._f_list():
-        # if Partitionned is still in use, fix it
-        status_group = h5f.root.status
-        if status_group._v_attrs.Partitionned:
-            status_group._v_attrs.Partitioned = True
-        else:
-            status_group._v_attrs.Partitioned = False
-        del status_group._v_attrs.Partitionned
-    h5f.close()
-
-
 def get_status(pangenome: Pangenome, pangenome_file: Path):
     """
     Checks which elements are already present in the file.
@@ -111,7 +92,6 @@ def get_status(pangenome: Pangenome, pangenome_file: Path):
     :param pangenome: Blank pangenome
     :param pangenome_file: path to the pangenome file
     """
-    fix_partitioned(pangenome_file)
     h5f = tables.open_file(pangenome_file, "r")
     logging.getLogger("PPanGGOLiN").info("Getting the current pangenome status")
     status_group = h5f.root.status
@@ -538,7 +518,80 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, load_organisms: bool
     pangenome.status["genomesAnnotated"] = "Loaded"
 
 
-def read_info(h5f: tables.File):
+def create_info_dict(info_group: tables.group.Group):
+    """
+    Read the pangenome content
+
+    :param h5f: Pangenome HDF5 file
+    """
+    attributes = info_group._v_attrs._f_list()
+
+    info_dict = {}
+    info_dict["Genes"] =  int(info_group._v_attrs['numberOfGenes'])
+
+    if "numberOfGenomes" in attributes:
+        info_dict["Genomes"] = int(info_group._v_attrs['numberOfGenomes'])
+
+    if "numberOfClusters" in attributes:
+        info_dict["Families"] = int(info_group._v_attrs['numberOfClusters'])
+
+    if "numberOfEdges" in attributes:
+        info_dict["Edges"] = int(info_group._v_attrs['numberOfEdges'])
+
+    if 'numberOfCloud' in attributes:  # then all the others are there
+
+        persitent_stat = {}
+        persitent_stat["Family_count"] = int(info_group._v_attrs['numberOfPersistent'])
+        persitent_stat.update(info_group._v_attrs['persistentStats'])
+        info_dict["Persistent"] = persitent_stat
+        
+        
+        shell_stat = {}
+        shell_stat["Family_count"] = int(info_group._v_attrs['numberOfShell'])
+        shell_stat.update(info_group._v_attrs['shellStats'])
+        info_dict["Shell"] = shell_stat
+
+        cloud_stat = {}
+        cloud_stat["Family_count"] = int(info_group._v_attrs['numberOfCloud'])
+        cloud_stat.update(info_group._v_attrs['cloudStats'])
+        info_dict["Cloud"] = cloud_stat
+
+        info_dict["Number_of_partitions"] = int(info_group._v_attrs['numberOfPartitions'])
+
+        if info_group._v_attrs['numberOfPartitions'] != 3:
+            subpartition_stat = {f"Shell_{key}": int(val) for key, val in info_group._v_attrs['numberOfSubpartitions'].items()}
+            info_dict.update(subpartition_stat)
+
+
+    if 'genomes_fluidity' in attributes:
+        info_dict["Genomes_fluidity"] = {key:round(val,3) for key, val in info_group._v_attrs['genomes_fluidity'].items()}
+
+    if 'family_fluidity' in attributes:
+        info_dict["Family_fluidity"] = info_group._v_attrs['family_fluidity']
+
+    if 'numberOfRGP' in attributes:
+        info_dict["RGP"] = int(info_group._v_attrs['numberOfRGP'])
+    
+    if 'numberOfSpots' in attributes:
+        info_dict["Spots"] = int(info_group._v_attrs['numberOfSpots'])
+    
+    if 'numberOfModules' in attributes:
+        module_info = {}
+        info_dict["Modules"] = module_info
+        
+        module_info['Number_of_modules'] = int(info_group._v_attrs['numberOfModules'])
+        module_info['Families_in_Modules'] = int(info_group._v_attrs['numberOfFamiliesInModules'])
+        module_info['Partition_composition'] = {
+            "Persitent":info_group._v_attrs['PersistentSpecInModules']['percent'],
+            "Shell":info_group._v_attrs['ShellSpecInModules']['percent'],
+            "Cloud":info_group._v_attrs['CloudSpecInModules']['percent'],
+        }
+        module_info['Number_of_Families_per_Modules'] = info_group._v_attrs['StatOfFamiliesInModules']
+
+    return info_dict
+
+
+def read_info(h5f):
     """
     Read the pangenome content
 
@@ -546,75 +599,9 @@ def read_info(h5f: tables.File):
     """
     if "/info" in h5f:
         info_group = h5f.root.info
-        print("Content: ")
-        print(f"\t- Genes: {info_group._v_attrs['numberOfGenes']}")
-        if "numberOfGenomes" in info_group._v_attrs._f_list():
-            print(f"\t- Genomes: {info_group._v_attrs['numberOfGenomes']}")
-        if "numberOfClusters" in info_group._v_attrs._f_list():
-            print(f"\t- Families: {info_group._v_attrs['numberOfClusters']}")
-        if "numberOfEdges" in info_group._v_attrs._f_list():
-            print(f"\t- Edges: {info_group._v_attrs['numberOfEdges']}")
-        if 'numberOfCloud' in info_group._v_attrs._f_list():  # then all the others are there
-            print(f"\t- Persistent: \n"
-                  f"\t\t- count : {info_group._v_attrs['numberOfPersistent']}")
-            for key, val in info_group._v_attrs['persistentStats'].items():
-                print(f"\t\t- {key}: {str(round(val, 2))}")
-            print(f"\t- Shell: \n"
-                  f"\t\t- count : {info_group._v_attrs['numberOfShell']}")
-            for key, val in info_group._v_attrs['shellStats'].items():
-                print(f"\t\t- {key}: {str(round(val, 2))}")
-            print(f"\t- Cloud: \n"
-                  f"\t\t- count : {info_group._v_attrs['numberOfCloud']}")
-            for key, val in info_group._v_attrs['cloudStats'].items():
-                print(f"\t\t- {key}: {str(round(val, 2))}")
-            print(f"\t- Number of partitions: {info_group._v_attrs['numberOfPartitions']}")
-            if info_group._v_attrs['numberOfPartitions'] != 3:
-                for key, val in info_group._v_attrs['numberOfSubpartitions'].items():
-                    print(f"\t\t- Shell {key} : {val}")
-        if 'genomes_fluidity' in info_group._v_attrs._f_list():
-            print("\t- Genomes fluidity: ")
-            for subset, value in info_group._v_attrs['genomes_fluidity'].items():
-                print(f"\t\t- {subset}: {round(value, 3)}")
-        if 'family_fluidity' in info_group._v_attrs._f_list():
-            out = "\t- Families fluidity: " + \
-                  ", ".join(f"{subset}={round(value, 3)}" for subset, value in
-                            info_group._v_attrs['families_fluidity'].items())
-            print(out)
-        if 'numberOfRGP' in info_group._v_attrs._f_list():
-            print(f"\t- RGPs: {info_group._v_attrs['numberOfRGP']}")
-        if 'numberOfSpots' in info_group._v_attrs._f_list():
-            print(f"\t- Spots: {info_group._v_attrs['numberOfSpots']}")
-        if 'numberOfModules' in info_group._v_attrs._f_list():
-            if all(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'ShellSpecInModules',
-                                                                'numberOfFamiliesInModules']):
-                read_modules_info(h5f)
-            else:
-                print(f"\t- Modules: {info_group._v_attrs['numberOfModules']}")
-                print(f"\t- Families in Modules: {info_group._v_attrs['numberOfFamiliesInModules']}")
-
-
-def read_modules_info(h5f: tables.File):
-    """
-    Read modules information in pangenome hdf5 file
-
-    :param h5f: Pangenome HDF5 file with RGP computed
-    """
-    if "/info" in h5f:
-        info_group = h5f.root.info
-        if all(x in info_group._v_attrs._f_list() for x in ['CloudSpecInModules', 'PersistentSpecInModules',
-                                                            'ShellSpecInModules', 'numberOfFamiliesInModules',
-                                                            'StatOfFamiliesInModules']):
-            print(f"\t- Modules: {info_group._v_attrs['numberOfModules']}")
-            print(f"\t\t- Families in Modules: {info_group._v_attrs['numberOfFamiliesInModules']}")
-            print(f"\t\t- Percent of Families: \n"
-                  f"\t\t\t- persistent: {info_group._v_attrs['PersistentSpecInModules']['percent']}\n"
-                  f"\t\t\t- shell {info_group._v_attrs['ShellSpecInModules']['percent']}\n"
-                  f"\t\t\t- cloud {info_group._v_attrs['CloudSpecInModules']['percent']}")
-            print(f"\t\t- Number of Families per Modules:\n"
-                  f"\t\t\t- min: {info_group._v_attrs['StatOfFamiliesInModules']['min']}\n"
-                  f"\t\t\t- max: {info_group._v_attrs['StatOfFamiliesInModules']['max']}\n"
-                  f"\t\t\t- sd: {info_group._v_attrs['StatOfFamiliesInModules']['sd']}\n"
-                  f"\t\t\t- mean: {info_group._v_attrs['StatOfFamiliesInModules']['mean']}")
+        content = create_info_dict(info_group)
+        yaml_output = yaml.dump({"Content":content}, default_flow_style=False, sort_keys=False, indent=4)
+        print(yaml_output)
 
 
 def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
@@ -667,12 +654,16 @@ def read_parameters(h5f: tables.File):
     :param h5f: Pangenome HDF5 file
     """
     step_to_parameters = get_pangenome_parameters(h5f)
+    print("Parameters:")
 
     for step, param_name_to_value in step_to_parameters.items():
-        print(f"{step}:")
+        print(f"    {step}:")
         for param_name, val in param_name_to_value.items():
-            print(f"    {param_name} : {val}")
-
+            print(f"        {param_name}: {val}")
+    print()
+    # Cannot use yaml package because some of the parameters are yaml comment
+    # yaml_output = yaml.dump({"Parameters":step_to_parameters}, default_flow_style=False, sort_keys=False, indent=4)
+    # print(yaml_output)
 
 def get_pangenome_parameters(h5f: tables.File) -> Dict[str, Dict[str, Any]]:
     """
@@ -713,8 +704,6 @@ def read_pangenome(pangenome, annotation: bool = False, gene_families: bool = Fa
         filename = pangenome.file
     else:
         raise FileNotFoundError("The provided pangenome does not have an associated .h5 file")
-
-    fix_partitioned(pangenome.file)
 
     h5f = tables.open_file(filename, "r")
 
