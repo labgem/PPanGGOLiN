@@ -2,10 +2,12 @@
 
 ### RGP
 
-The `plastic_regions.tsv` is a tsv file that lists all of the detected Regions of Genome Plasticity. This requires to have run the RGP detection analysis by either using the `panrgp` command or the `rgp` command.
+The `regions_of_genomic_plasticity.tsv` is a tsv file that lists all the detected Regions of Genome Plasticity. This requires to have run the RGP detection analysis by either using the `panrgp` command or the `rgp` command.
 
 It can be written with the following command:
-`ppanggolin write_pangenome -p pangenome.h5 --regions`
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --regions -o rgp_outputs
+```
 
 The file has the following format :
 
@@ -21,22 +23,27 @@ The file has the following format :
 
 ### Spots
 
-The `spots.tsv` is a tsv file with two column. It links the spots of `summarize_spots.tsv` with the RGPs of `plastic_regions.tsv`.
+The `spots.tsv` is a tsv file that links the spots in `summarize_spots.tsv` with the RGPs in `regions_of_genomic_plasticity.tsv`.
 
-It is written with the following command:
-`ppanggolin write_pangenome -p pangenome.h5 --spots`
+It can be created with the following command:
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --spots -o rgp_outputs
+```
 
 |Column|Description|
 |------|------------|
 |spot_id| The spot identifier (found in the 'spot' column of `summarize_spots.tsv`).|
-|rgp_id| The RGP identifier (found in 'region' column of `plastic_regions.tsv`).|
+|rgp_id| The RGP identifier (found in 'region' column of `regions_of_genomic_plasticity.tsv`).|
 
 ### Summarize spots
 
 The `summarize_spots.tsv` file is a tsv file that will associate each spot with multiple metrics that can indicate the dynamic of the spot.
 
-It is written with the following command:
-`ppanggolin write_pangenome -p pangenome.h5 --spots`
+It can be created with the following command:
+
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --spots -o rgp_outputs
+```
 
 |Column|Description|
 |-------|------------|
@@ -51,8 +58,11 @@ It is written with the following command:
 
 ### Borders
 
-Each spot has at least one set of gene families bordering them. To write the list of gene families bordering a spot, you need to use the following option:
-`ppanggolin write_pangenome -p pangenome.h5 --borders`
+Each spot has at least one set of gene families bordering them. To write the list of gene families bordering spots, you can use the `--borders` option as follow:
+
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --borders -o rgp_outputs
+```
 
 It will write a .tsv file with 4 columns:
 
@@ -66,17 +76,26 @@ It will write a .tsv file with 4 columns:
 As there can be some variation in the borders, some spots will have multiple borders and as such multiple lines in this file.
 The sum of the number for each spot_id should be exactly the number of RGPs in the spot.
 
+The flag `--borders` also creates a file call `border_protein_genes.fasta` that are the protein sequences of the gene family found in borders.
+
+In addition, the `--borders` option also generates a file named `border_protein_genes.fasta`, containing protein sequences corresponding to the gene families of the spot borders.
+
 ## Draw spots
 
 The `draw` command can draw specific spots of interest, whose ID are provided, or all the spots if you wish.
 It will also write a gexf file, which corresponds to the gene families and their organization within the spots. It is basically a subgraph of the pangenome, consisting of the spot itself.
 The command can be used as such:
 
-`ppanggolin draw -p pangenome.h5 --spots all` will draw an interactive `.html` figure and a `gexf` graph file for all the spots.
+```bash
+ppanggolin draw -p pangenome.h5 --spots all
+``` 
+This command draws an interactive `.html` figure and a `.gexf` graph file for all the spots.
 
-If you are interested in only a single spot, you can use its identifier to draw it, as such:
+If you are interested in only a single spot, you can use its identifier to draw it. For example for the `spot_34`:
 
-`ppanggolin draw -p pangenome.h5 --spots spot_34` for spot_34, for example.
+```bash
+ppanggolin draw -p pangenome.h5 --spots spot_34
+```
 
 The interactive figures that are drawn look like this:
 
