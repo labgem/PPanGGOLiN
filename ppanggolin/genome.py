@@ -364,8 +364,8 @@ class Contig(MetaFeatures):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
         if start in self._genes_getter:
             raise ValueError(f"Gene '{self._genes_getter[start].ID}' with start position {start} already exists in the "
-                             f"contig '{self.name}' {f'from organism {self.organism}' if self.organism else ''}, "
-                             f"cannot add gene '{gene.ID}' {f'from organism {gene.organism}' if gene.organism else ''}")
+                             f"contig '{self.name}' {f'from genome {self.organism}' if self.organism else ''}, "
+                             f"cannot add gene '{gene.ID}' {f'from genome {gene.organism}' if gene.organism else ''}")
         if gene.position is None:
             raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
         # Adding empty values.
@@ -708,7 +708,7 @@ class Organism(MetaFeatures):
             raise TypeError(f"'Contig' type was expected but you provided a '{type(contig)}' type object")
         if name in self._contigs_getter:
             # Add test if contig are equivalent when __eq__ method will be defined in Contig
-            raise KeyError(f"Contig {contig.name} already in organism {self.name}")
+            raise KeyError(f"Contig {contig.name} already in genome {self.name}")
         self._contigs_getter[contig.name] = contig
         contig.organism = self
 
@@ -727,7 +727,7 @@ class Organism(MetaFeatures):
         try:
             return self._contigs_getter[name]
         except KeyError:
-            raise KeyError(f"Contig with the name: {name} does not exist in the organism")
+            raise KeyError(f"Contig with the name: {name} does not exist in the genome")
 
     def __delitem__(self, name):
         """Remove the contig for the given name
@@ -832,7 +832,7 @@ class Organism(MetaFeatures):
         except KeyError:
             self[contig.name] = contig
         else:
-            raise KeyError(f"Contig {contig.name} already in organism {self.name}")
+            raise KeyError(f"Contig {contig.name} already in genome {self.name}")
 
     def get(self, name: str) -> Contig:
         """

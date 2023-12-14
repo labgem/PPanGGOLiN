@@ -346,7 +346,7 @@ def parser_rgp(parser: argparse.ArgumentParser):
     optional.add_argument('--min_length', required=False, type=int, default=3000,
                           help="Minimum length (bp) of a region to be considered a RGP")
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
-                          help="Minimum ratio of organisms where the family is present in which the family must "
+                          help="Minimum ratio of genomes where the family is present in which the family must "
                                "have multiple genes for it to be considered 'duplicated'")
 
 

@@ -29,13 +29,13 @@ from ppanggolin.geneFamily import GeneFamily
 
 # all input params that exists in ppanggolin
 ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', 
-                    "fasta_file", "annot_file", "organism_name"] # the last three params is for projection cmd
+                    "fasta_file", "annot_file", "genome_name"] # the last three params is for projection cmd
 
 # all params that should be in the general_parameters section of the config file
 ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log',
                       'disable_prog_bar', 'force', "config"]
 
-WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panModule'}
+WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panmodule'}
 
 # command that can be launched inside a workflow subcommand
 ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "rarefaction", "rgp", "spot", "module",
@@ -274,14 +274,14 @@ def create_tmpdir(main_dir, basename="tmpdir", keep_tmp=False):
         dir_name = basename +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime()) 
 
         new_tmpdir = main_dir / dir_name
-        logging.debug(f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
+        logging.getLogger("PPanGGOLiN").debug(f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
 
         mk_outdir(new_tmpdir, force=True)
         yield new_tmpdir
         
     else:
         with tempfile.TemporaryDirectory(dir=main_dir, prefix=basename) as new_tmpdir:
-            logging.debug(f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
+            logging.getLogger("PPanGGOLiN").debug(f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
             yield Path(new_tmpdir)
                   
 
@@ -318,14 +318,14 @@ def detect_filetype(filename: Path) -> str:
         first_line = f.readline()
     if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
         return "gbff"
-    elif first_line.startswith("##gff-version 3"):
+    elif first_line.startswith("##gff-version 3") or first_line.startswith("##gff-version  3"): # prodigal gff header has two spaces betwene gff-version and 3... 
         return 'gff'
     elif first_line.startswith(">"):
         return 'fasta'
     elif "\t" in first_line:
         return "tsv"
     else:
-        raise Exception("Filetype was not gff3 (file starts with '##gff-version 3') "
+        raise Exception(f"Filetype {filename} was not gff3 (file starts with '##gff-version 3') "
                         "nor gbff/gbk (file starts with 'LOCUS       '). "
                         "Only those two file formats are supported (for now).")
 
@@ -450,6 +450,14 @@ def parse_config_file(yaml_config_file: str) -> dict:
 
     with yaml_config_file as yaml_fh:
         config = yaml.safe_load(yaml_fh)
+    
+    if config is None:
+        config = {}
+
+    # if config has a Parameters key. Update config with its content
+    if config and "Parameters" in config:
+        config.update(config['Parameters'])
+        del config['Parameters']
 
     # remove empty section that have no parameter specified in it. In this case they have a None value
     config = {section: param_val_dict for section, param_val_dict in config.items() if param_val_dict is not None}
@@ -663,12 +671,9 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     workflow_steps = []
     if subcommand in WORKFLOW_SUBCOMMANDS:
 
-        workflow_steps = [wf_step for wf_step in ALL_WORKFLOW_DEPENDENCIES if not (wf_step in ["rgp", "spot"] and subcommand in ["workflow", "panmodule"]) or \
-                    not (wf_step == "module" and subcommand in ["workflow", "panmodule"])]
-
-        for workflow_step in workflow_steps:
+        for workflow_step in ALL_WORKFLOW_DEPENDENCIES:
             if (workflow_step in ["rgp", "spot"] and subcommand in ["workflow", "panmodule"]) or \
-                    (workflow_step == "module" and subcommand in ["workflow", "panmodule"]):
+                    (workflow_step == "module" and subcommand in ["workflow", "panrgp"]):
                 continue
             logging.getLogger("PPanGGOLiN").debug(f'Parsing {workflow_step} arguments in config file.')
             step_subparser = subcommand_to_subparser[workflow_step]
@@ -1012,7 +1017,7 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
     :raises FileNotFoundError: If a specified genome file path does not exist.
     :raises Exception: If there are no genomes in the provided file.
     """
-    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process organism files")
+    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process genome files")
     genome_name_to_genome_path = {}
 
     for line in read_compressed_or_not(path_list_file):

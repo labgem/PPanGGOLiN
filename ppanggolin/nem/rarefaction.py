@@ -163,7 +163,7 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
     logging.getLogger("PPanGGOLiN").info("Drawing the rarefaction curve ...")
     raref_name = output/"rarefaction.csv"
     raref = open(raref_name, "w")
-    raref.write(",".join(["nb_org", "persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory",
+    raref.write(",".join(["genomes_count", "persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory",
                           "soft_core", "soft_accessory", "pangenome", "K"]) + "\n")
     for part in data:
         raref.write(",".join(map(str, [part["nborgs"], part["persistent"], part["shell"], part["cloud"],
@@ -185,17 +185,17 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
     params_file.write("partition,kappa,gamma,kappa_std_error,gamma_std_error,IQR_area\n")
     for partition in ["persistent", "shell", "cloud", "undefined", "exact_core", "exact_accessory", "soft_core",
                       "soft_accessory", "pangenome"]:
-        percentiles_75 = Series({i: numpy.nanpercentile(data_raref[data_raref["nb_org"] == i][partition], 75) for i in
+        percentiles_75 = Series({i: numpy.nanpercentile(data_raref[data_raref["genomes_count"] == i][partition], 75) for i in
                                  range(1, max_sampling + 1)}).dropna()
-        percentiles_25 = Series({i: numpy.nanpercentile(data_raref[data_raref["nb_org"] == i][partition], 25) for i in
+        percentiles_25 = Series({i: numpy.nanpercentile(data_raref[data_raref["genomes_count"] == i][partition], 25) for i in
                                  range(1, max_sampling + 1)}).dropna()
-        mins = Series({i: numpy.min(data_raref[data_raref["nb_org"] == i][partition]) for i in
+        mins = Series({i: numpy.min(data_raref[data_raref["genomes_count"] == i][partition]) for i in
                        range(1, max_sampling + 1)}).dropna()
-        maxs = Series({i: numpy.max(data_raref[data_raref["nb_org"] == i][partition]) for i in
+        maxs = Series({i: numpy.max(data_raref[data_raref["genomes_count"] == i][partition]) for i in
                        range(1, max_sampling + 1)}).dropna()
-        medians = Series({i: numpy.median(data_raref[data_raref["nb_org"] == i][partition]) for i in
+        medians = Series({i: numpy.median(data_raref[data_raref["genomes_count"] == i][partition]) for i in
                           range(1, max_sampling + 1)}).dropna()
-        means = Series({i: numpy.mean(data_raref[data_raref["nb_org"] == i][partition]) for i in
+        means = Series({i: numpy.mean(data_raref[data_raref["genomes_count"] == i][partition]) for i in
                         range(1, max_sampling + 1)}).dropna()
         initial_kappa_gamma = numpy.array([0.0, 0.0])
         x = percentiles_25.index.tolist()
@@ -206,8 +206,8 @@ def draw_curve(output: Path, data: list, max_sampling: int = 10):
                   "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
                   "undefined": "#828282"}
         try:
-            all_values = data_raref[data_raref["nb_org"] > nb_org_min_fitting][partition].dropna()
-            res = optimization.curve_fit(heap_law, data_raref.loc[all_values.index]["nb_org"], all_values,
+            all_values = data_raref[data_raref["genomes_count"] > nb_org_min_fitting][partition].dropna()
+            res = optimization.curve_fit(heap_law, data_raref.loc[all_values.index]["genomes_count"], all_values,
                                          initial_kappa_gamma)
             kappa, gamma = res[0]
             error_k, error_g = numpy.sqrt(numpy.diag(res[1]))  # to calculate the fitting error.
@@ -392,7 +392,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
     for i in range(min_sampling, max_sampling):  # each point
         for _ in range(depth):  # number of samples per points
             all_samples.append(set(random.sample(set(pangenome.organisms), i + 1)))
-    logging.getLogger("PPanGGOLiN").info(f"Done sampling organisms in the pan, there are {len(all_samples)} samples")
+    logging.getLogger("PPanGGOLiN").info(f"Done sampling genomes in the pan, there are {len(all_samples)} samples")
     samp_nb_per_part = []
 
     logging.getLogger("PPanGGOLiN").info("Computing bitarrays for each family...")

@@ -233,7 +233,7 @@ def make_graph_writable(context_graph):
 
     # on top of attributes already contained in node of context graph
     # add organisms and genes count that have the family, the partition and if the family was in initially requested 
-    nodes_family_data = {f.name: {"organisms": f.number_of_organisms,
+    nodes_family_data = {f.name: {"genomes": f.number_of_organisms,
                                   "partition": f.named_partition,
                                   "genes": f.number_of_genes} for f in context_graph.nodes()}
 
@@ -278,7 +278,7 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
     """
     # compute jaccard on organism and on genes
     for f1, f2, data in context_graph.edges(data=True):
-        data['jaccard_organism'] = len(data['organisms']) / len(set(f1.organisms) | set(f2.organisms))
+        data['jaccard_genome'] = len(data['genomes']) / len(set(f1.organisms) | set(f2.organisms))
 
         f1_gene_proportion = len(data['genes'][f1]) / f1.number_of_genes
         f2_gene_proportion = len(data['genes'][f2]) / f2.number_of_genes
@@ -301,8 +301,8 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
 
         # the following commented out lines are additional metrics that could be used
 
-        # data['min_jaccard_organism'] = len(data['organisms'])/min(len(f1.organisms), len(f2.organisms))
-        # data['max_jaccard_organism'] = len(data['organisms'])/max(len(f1.organisms), len(f2.organisms))
+        # data['min_jaccard_genome'] = len(data['genomes'])/min(len(f1.genomes), len(f2.genomes))
+        # data['max_jaccard_genome'] = len(data['genomes'])/max(len(f1.genomes), len(f2.genomes))
         # f1_gene_proportion_partial = len(data['genes'][f1])/len(context_graph.nodes[f1]['genes'])
         # f2_gene_proportion_partial = len(data['genes'][f2])/len(context_graph.nodes[f2]['genes'])
         # data[f'f1_jaccard_gene_partital'] = f1_gene_proportion_partial
@@ -377,11 +377,11 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                 add_val_to_dict_attribute(genes_edge_dict, gene.family, gene)
                 add_val_to_dict_attribute(genes_edge_dict, next_gene.family, next_gene)
 
-                add_val_to_dict_attribute(edge_dict, "organisms", gene.organism)
+                add_val_to_dict_attribute(edge_dict, "genomes", gene.organism)
 
                 increment_attribute_counter(edge_dict, "gene_pairs")
 
-                assert gene.organism == next_gene.organism, (f"Gene of the same contig have a different organism. "
+                assert gene.organism == next_gene.organism, (f"Gene of the same contig have a different genome. "
                                                              f"{gene.organism} and {next_gene.organism}")
 
 
@@ -536,18 +536,18 @@ def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int],
             else:
                 sequence_id = ','.join(fam2seq.get(family))
 
-            family_info = {"GeneContext ID": gene_context.ID,
-                           "Gene family name": family.name,
-                           "Sequence ID": sequence_id,
-                           "Nb Genomes": family.number_of_organisms,
+            family_info = {"GeneContext_ID": gene_context.ID,
+                           "Gene_family_name": family.name,
+                           "Sequence_ID": sequence_id,
+                           "Nb_Genomes": family.number_of_organisms,
                            "Partition": family.named_partition,
-                           "Target family": family in families_of_interest}
+                           "Target_family": family in families_of_interest}
             
             lines.append(family_info)
 
-    df = pd.DataFrame(lines).set_index("GeneContext ID")
+    df = pd.DataFrame(lines).set_index("GeneContext_ID")
 
-    df = df.sort_values(["GeneContext ID", "Sequence ID"], na_position='last')
+    df = df.sort_values(["GeneContext_ID", "Sequence_ID"], na_position='last')
 
     df.to_csv(output, sep="\t", na_rep='NA')
 

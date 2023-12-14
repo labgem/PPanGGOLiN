@@ -143,7 +143,7 @@ def add_info_to_rgp_nodes(graph, regions: List[Region], region_to_spot: dict):
     region_attributes = {}
     for region in regions:
         region_info = {"contig": region.contig.name,
-                       'organism': region.organism.name,
+                       'genome': region.organism.name,
                        "name": region.name,
                        "genes_count": len(region),
                        "is_contig_border": region.is_contig_border,
@@ -235,7 +235,7 @@ def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List
                            families_count=len(identical_rgp_obj.families),
                            identical_rgp_count=len(identical_rgp_obj.rgps),
                            identical_rgp_names=';'.join([i_rgp.name for i_rgp in identical_rgp_obj.rgps]),
-                           identical_rgp_organisms=';'.join({i_rgp.organism.name for i_rgp in identical_rgp_obj.rgps}),
+                           identical_rgp_genomes=';'.join({i_rgp.organism.name for i_rgp in identical_rgp_obj.rgps}),
                            identical_rgp_contig_border_count=len(
                                [True for i_rgp in identical_rgp_obj.rgps if i_rgp.is_contig_border]),
                            identical_rgp_whole_contig_count=len(

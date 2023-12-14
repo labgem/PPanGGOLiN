@@ -42,5 +42,5 @@ jobs:
         shell: bash -l {0}
         run: |
           cd testingDataset/
-          ppanggolin all --cpu 1 --anno organisms.gbff.list -o pango
+          ppanggolin all --cpu 1 --anno genomes.gbff.list -o pango
           ppanggolin info -p pango/pangenome.h5 --content --parameters --status

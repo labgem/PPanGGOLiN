@@ -109,7 +109,7 @@ class Region(MetaFeatures):
         """
         if len(self) > 0:
             if gene.organism != self.organism:
-                raise Exception(f"Gene {gene.name} is from a different organism than the first defined in RGP. "
+                raise Exception(f"Gene {gene.name} is from a different genome than the first defined in RGP. "
                                 "That's not possible")
             if gene.contig != self.contig:
                 raise Exception(f"Gene {gene.name} is from a different contig than the first defined in RGP. "

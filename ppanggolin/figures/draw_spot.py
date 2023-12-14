@@ -579,7 +579,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
 
         # write rgps representatives and the rgps they are identical to
         out_struc = open(fname.absolute().as_posix() + '_identical_rgps.tsv', 'w')
-        out_struc.write('representative_rgp\trepresentative_rgp_organism\tidentical_rgp\tidentical_rgp_organism\n')
+        out_struc.write('representative_rgp\trepresentative_rgp_genome\tidentical_rgp\tidentical_rgp_genome\n')
         for key_rgp, other_rgps in spot.get_uniq_to_rgp().items():
             for rgp in other_rgps:
                 out_struc.write(f"{key_rgp.name}\t{key_rgp.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")

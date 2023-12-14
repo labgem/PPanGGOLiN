@@ -192,7 +192,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                 draw_tile_plot(pangenome, args.output, nocloud=nocloud, disable_bar=args.disable_prog_bar)
             else:
                 logging.getLogger("PPanGGOLiN").warning(
-                    'Tile plot output have been requested but there are too many organisms to produce a viewable tile plot.')
+                    'Tile plot output have been requested but there are too many genomes to produce a viewable tile plot.')
 
         if args.draw.ucurve:
             draw_ucurve(pangenome, args.output, disable_bar=args.disable_prog_bar, soft_core=args.draw.soft_core)
@@ -202,15 +202,15 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
         write_pangenome_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json', "families_tsv"]
 
         # Check that we don't ask write to output something not computed.
-        borders, spots, spot_modules, modules = (False, False, False, False)
+        borders, spots, spot_modules, modules, regions = (False, False, False, False, False)
 
         if panmodule:
             modules = args.write_pangenome.modules
             write_pangenome_arguments.append('modules')
 
         if panrgp:
-            borders, spots = (args.write_pangenome.borders, args.write_pangenome.spots)
-            write_pangenome_arguments += ["borders", "spots"]
+            borders, spots, regions = (args.write_pangenome.borders, args.write_pangenome.spots, args.write_pangenome.regions)
+            write_pangenome_arguments += ["borders", "spots", "regions"]
 
         if panmodule and panrgp:
             spot_modules = args.write_pangenome.spot_modules
@@ -224,7 +224,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                              csv=args.write_pangenome.csv, gene_pa=args.write_pangenome.Rtab, gexf=args.write_pangenome.gexf,
                              light_gexf=args.write_pangenome.light_gexf,
                              stats=args.write_pangenome.stats, json=args.write_pangenome.json, partitions=args.write_pangenome.partitions,
-                             families_tsv=args.write_pangenome.families_tsv,
+                             families_tsv=args.write_pangenome.families_tsv, regions=regions,
                              compress=args.write_pangenome.compress,
                              spot_modules=spot_modules, modules=modules, spots=spots, borders=borders)
             
@@ -300,13 +300,13 @@ def add_workflow_args(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Input arguments", description="The possible input arguments :")
 
     required.add_argument('--fasta', required=False, type=Path,
-                          help="A tab-separated file listing the organism names, "
+                          help="A tab-separated file listing the genome names, "
                                "and the fasta filepath of its genomic sequence(s) (the fastas can be compressed). "
-                               "One line per organism. This option can be used alone.")
+                               "One line per genome. This option can be used alone.")
 
     required.add_argument('--anno', required=False, type=Path,
-                          help="A tab-separated file listing the organism names, and the gff filepath of "
-                               "its annotations (the gffs can be compressed). One line per organism. "
+                          help="A tab-separated file listing the genome names, and the gff filepath of "
+                               "its annotations (the gffs can be compressed). One line per genome. "
                                "This option can be used alone IF the fasta sequences are in the gff files, "
                                "otherwise --fasta needs to be used.")
 
