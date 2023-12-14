@@ -46,7 +46,7 @@ We've set up a CI workflow in the Actions tab, which executes a series of PPanGG
 
 ### Unit Tests
 
-While not mandatory for all PPanGGOLiN code, incorporating tests for your additions can be advantageous. The test suite is located in the 'tests' directory at the root of the project. Execute pytest at the project root: 
+While not mandatory for all PPanGGOLiN code, incorporating unit tests for your additions can be advantageous. The test suite is located in the 'tests' directory at the root of the project.
 
 ## Creating a Pull Request
 
