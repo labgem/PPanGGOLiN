@@ -73,7 +73,7 @@ It will write a .tsv file with 4 columns:
 |border1| Comma-separated list of gene families of the 1st border.|
 |border2| Comma-separated list of gene families of the 2nd border.|
 
-As there can be some variation in the borders, some spots will have multiple borders and as such multiple lines in this file.
+Since there can be some variation in the borders, some spots will have multiple borders and thus multiple lines in this file.
 The sum of the number for each spot_id should be exactly the number of RGPs in the spot.
 
 The flag `--borders` also creates a file call `border_protein_genes.fasta` that are the protein sequences of the gene family found in borders.
@@ -82,19 +82,19 @@ In addition, the `--borders` option also generates a file named `border_protein_
 
 ## Draw spots
 
-The `draw` command can draw specific spots of interest, whose ID are provided, or all the spots if you wish.
+The `draw` command with the option `--draw_spots` can draw specific spots of interest, whose ID are provided, or all the spots if you wish.
 It will also write a gexf file, which corresponds to the gene families and their organization within the spots. It is basically a subgraph of the pangenome, consisting of the spot itself.
 The command can be used as such:
 
 ```bash
-ppanggolin draw -p pangenome.h5 --spots all
+ppanggolin draw -p pangenome.h5 --draw_spots --spots all
 ``` 
 This command draws an interactive `.html` figure and a `.gexf` graph file for all the spots.
 
 If you are interested in only a single spot, you can use its identifier to draw it. For example for the `spot_34`:
 
 ```bash
-ppanggolin draw -p pangenome.h5 --spots spot_34
+ppanggolin draw -p pangenome.h5 --draw_spots --spots spot_34
 ```
 
 The interactive figures that are drawn look like this:
