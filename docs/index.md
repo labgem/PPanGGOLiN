@@ -19,7 +19,6 @@
 ```{image} _static/logo.png
 :alt: ppangolin logo
 :align: center
-:height: 350
 :width: 437
 ```
 
@@ -85,10 +84,7 @@ user/metadata
 :caption: 'Developper Guide:'
 :maxdepth: 1
 
-dev/devRules
-dev/git
-dev/unitTest
-dev/workflows
+dev/contribute
 dev/buildDoc
 ```
 
