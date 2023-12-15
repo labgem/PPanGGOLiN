@@ -3,8 +3,7 @@ Ease of use has been achieved by incorporating a workflow command that allows th
 The command has only one mandatory option, and predefined parameters adapted to pangenomes at the scale of a bacterial species.
 This command launches the [annotation](./pangenomeAnalyses.md#annotation), [clustering](./pangenomeCluster.md#cluster-genes-into-gene-families), [graph](./pangenomeAnalyses.md#graph) and [partition](./pangenomeAnalyses.md#partition) commands described below.
 
-<br>
-<br>
+
 
 ```{mermaid}
 
@@ -41,8 +40,6 @@ graph LR
 
 ```
 
-<br>
-<br>
 
 To use this command, you need to provide a tab-separated list of either annotation files (gff3 or gbff) or fasta files. The expected format is detailed [in the annotation section](./pangenomeAnalyses.md#annotation)
 
