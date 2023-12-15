@@ -52,7 +52,7 @@ graph LR
     m --> f[pangenome.f5]
 
         
-    classDef panrgp fill:#4066d4
+    classDef panrgp fill:#84d191
     classDef panmodule fill:#d44066
     classDef workflow fill:#d4ae40
 
