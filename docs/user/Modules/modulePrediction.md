@@ -2,6 +2,50 @@
 
 PPanGGOLiN can predict and work with conserved modules, which are groups of genes that are part of the variable genome, and often found together across the genomes of the pangenome. These conserved modules may also be potential functional modules.
 
+
+
+```{mermaid}
+
+---
+title: "Workflow Overview: Steps launched by the panmodule command"
+align: center
+---
+
+%%{init: {'theme':'default'}}%%
+
+
+graph LR
+
+    i[input genomes] --> a
+   
+        m:::panmodule
+
+        subgraph Pangenome creation
+            a:::workflow
+            c:::workflow
+            g:::workflow
+            p:::workflow
+            a("annotate") --> c
+            c(cluster) --> g(graph)
+            g(graph) --> p(partition)
+        end
+
+        subgraph Functional module
+        p --> m(module)
+        end
+
+
+    p --> f[pangenome.f5]
+    m --> f[pangenome.f5]
+
+        
+    classDef panrgp fill:#4066d4
+    classDef panmodule fill:#d44066
+    classDef workflow fill:#d4ae40
+
+
+```
+
 Further details can be found in the [panModule preprint](https://doi.org/10.1101/2021.12.06.471380)
 
 ## The panModule workflow

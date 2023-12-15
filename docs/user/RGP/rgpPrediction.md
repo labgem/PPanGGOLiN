@@ -9,6 +9,54 @@ Those methods were supported by the [panRGP publication](https://doi.org/10.1093
 
 This command works exactly like [workflow](../PangenomeAnalyses/pangenomeAnalyses.md#workflow). The difference is that it will run additional analyses to characterize Regions of Genome Plasticity (RGP).
 
+
+
+```{mermaid}
+
+---
+title: "Workflow Overview: Steps launched by the panrgp command"
+align: center
+---
+
+%%{init: {'theme':'default'}}%%
+
+
+graph LR
+
+    i[input genomes] --> a
+   
+
+        r:::panrgp
+        s:::panrgp
+
+        subgraph Pangenome creation
+            a:::workflow
+            c:::workflow
+            g:::workflow
+            p:::workflow
+            a("annotate") --> c
+            c(cluster) --> g(graph)
+            g(graph) --> p(partition)
+        end
+        
+        subgraph Region of Genomic Plasticity
+        
+        p --> r(rgp)
+        r --> s(spot)
+        end
+
+    p --> f[pangenome.f5]
+    s --> f[pangenome.f5]
+
+        
+    classDef panrgp fill:#4066d4
+    classDef panmodule fill:#d44066
+    classDef workflow fill:#d4ae40
+
+
+```
+
+
 You can use the `panrgp` with annotation (gff3 or gbff) files with `--anno` option, as such: 
 ```bash
 ppanggolin panrgp --anno organism.gbff.list
