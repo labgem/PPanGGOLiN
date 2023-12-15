@@ -13,6 +13,11 @@ import yaml
 from ppanggolin.formats import read_info, read_parameters
 
 
+def print_yaml(yaml_dict: dict) -> None:
+    yaml_output = yaml.dump(yaml_dict, default_flow_style=False, sort_keys=False, indent=4)
+    print(yaml_output)
+
+
 def read_status(h5f: tables.File):
     """
     Read status on what have been computed in the pangenome file
@@ -29,17 +34,18 @@ def read_status(h5f: tables.File):
         "Neighbors_Graph": status_group._v_attrs.NeighborsGraph,
         "Pangenome_Partitioned": status_group._v_attrs.Partitioned,
         "RGP_Predicted": status_group._v_attrs.predictedRGP,
-        "Spots_Predicted": status_group._v_attrs.predictedRGP, # Please confirm if this should be different from "RGP Predicted"
+        "Spots_Predicted": status_group._v_attrs.predictedRGP,
+        # Please confirm if this should be different from "RGP Predicted"
         "Modules_Predicted": status_group._v_attrs.modules
     }
-    status_to_print = {key:bool(val) for key, val in status_to_print.items()}
+    status_to_print = {key: bool(val) for key, val in status_to_print.items()}
 
     status_to_print["PPanGGOLiN_Version"] = str(status_group._v_attrs.version)
 
-    yaml_output = yaml.dump({"Status":status_to_print}, default_flow_style=False, sort_keys=False, indent=4)
-    print(yaml_output)
+    return {"Status": status_to_print}
 
-def read_metadata(h5f: tables.File):
+
+def read_metadata_status(h5f: tables.File):
     """
     Print which object has metadata and the source of the metadata
 
@@ -51,11 +57,9 @@ def read_metadata(h5f: tables.File):
     if hasattr(status_group._v_attrs, "metadata") and status_group._v_attrs.metadata:
         metastatus = status_group.metastatus
         metasources = status_group.metasources
-        metadata_info = {attr:', '.join(metasources._v_attrs[attr]) for attr in metastatus._v_attrs._f_list()}
-        
-    yaml_output = yaml.dump({"Metadata":metadata_info}, default_flow_style=False, sort_keys=False, indent=4)
+        metadata_info = {attr: ', '.join(metasources._v_attrs[attr]) for attr in metastatus._v_attrs._f_list()}
 
-    print(yaml_output)
+    return {"Metadata": metadata_info}
 
 
 def print_info(pangenome: str, status: bool = False, content: bool = False, parameters: bool = False,
@@ -73,14 +77,15 @@ def print_info(pangenome: str, status: bool = False, content: bool = False, para
 
     h5f = tables.open_file(pangenome, "r+")
     if status:
-        read_status(h5f)
+        print_yaml(read_status(h5f))
     if content:
-        read_info(h5f)
+        print_yaml(read_info(h5f))
     if parameters:
         read_parameters(h5f)
     if metadata:
-        read_metadata(h5f)
+        print_yaml(read_metadata_status(h5f))
     h5f.close()
+
 
 def launch(args: argparse.Namespace):
     """

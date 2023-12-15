@@ -600,8 +600,7 @@ def read_info(h5f):
     if "/info" in h5f:
         info_group = h5f.root.info
         content = create_info_dict(info_group)
-        yaml_output = yaml.dump({"Content":content}, default_flow_style=False, sort_keys=False, indent=4)
-        print(yaml_output)
+        return {"Content":content}
 
 
 def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
@@ -664,6 +663,7 @@ def read_parameters(h5f: tables.File):
     # Cannot use yaml package because some of the parameters are yaml comment
     # yaml_output = yaml.dump({"Parameters":step_to_parameters}, default_flow_style=False, sort_keys=False, indent=4)
     # print(yaml_output)
+
 
 def get_pangenome_parameters(h5f: tables.File) -> Dict[str, Dict[str, Any]]:
     """
