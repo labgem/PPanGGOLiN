@@ -11,6 +11,7 @@ import sys
 from typing import List, Set, Union
 from pathlib import Path
 
+import bokeh.models
 # installed libraries
 from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
@@ -339,12 +340,13 @@ def add_gene_tools(recs: GlyphRenderer, source_data: ColumnDataSource) -> Column
 
     radio_line_color = RadioGroup(labels=["partition", "family", "module"], active=0)
     radio_fill_color = RadioGroup(labels=["partition", "family", "module"], active=1)
+    radio_line_color.js_on_change('streaming',
+                                  CustomJS(args=dict(recs=recs, source=source_data),
+                                           code=color_str("line_color")))
 
-    radio_line_color.js_on_click(CustomJS(args=dict(recs=recs, source=source_data),
-                                          code=color_str("line_color")))
-
-    radio_fill_color.js_on_click(CustomJS(args=dict(recs=recs, source=source_data),
-                                          code=color_str("fill_color")))
+    radio_fill_color.js_on_change('streaming',
+                                  CustomJS(args=dict(recs=recs, source=source_data),
+                                           code=color_str("fill_color")))
 
     color_header = Div(text="<b>Genes:</b>")
     line_title = Div(text="""Color to use for gene outlines:""",
@@ -370,8 +372,7 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
     :param source_data:
     :return:
     """
-    labels = LabelSet(x='x_label', y='y_label', text='label', source=source_data, render_mode='canvas',
-                      text_font_size="18px")
+    labels = LabelSet(x='x_label', y='y_label', text='label', source=source_data, text_font_size="18px")
     slider_font = Slider(start=0, end=64, value=16, step=1, title="Gene label font size in px")
     slider_angle = Slider(start=0, end=pi / 2, value=0, step=0.01, title="Gene label angle in radian")
 
@@ -386,8 +387,9 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
                                       )
                              )
 
-    radio_label_type.js_on_click(CustomJS(args=dict(other=labels, source=source_data),
-                                          code="""
+    radio_label_type.js_on_change('streaming',
+                                  CustomJS(args=dict(other=labels, source=source_data),
+                                           code="""
                 if(this.active == 5){
                     source.data['label'] = [];
                     for(var i=0;i<source.data['name'].length;i++){
@@ -404,7 +406,7 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
                 other.source = source;
                 source.change.emit();
                 """
-                                          ))
+                                           ))
 
     label_header = Div(text="<b>Gene labels:</b>")
     radio_title = Div(text="""Gene labels to use:""",
@@ -459,8 +461,8 @@ def add_genome_tools(fig, gene_recs: GlyphRenderer, genome_recs: GlyphRenderer, 
     :return:
     """
     # add genome labels
-    genome_labels = LabelSet(x='x_label', y='y', x_offset=-20, text='name', text_align="right", source=genome_source,
-                             render_mode='canvas', text_font_size="16px")
+    genome_labels = LabelSet(x='x_label', y='y', x_offset=-20, text='name', text_align="right",
+                             source=genome_source, text_font_size="16px")
     fig.add_layout(genome_labels)
 
     slider_font = Slider(start=0, end=64, value=16, step=1, title="Genome label font size in px")
@@ -520,7 +522,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
 
     # generate the figure and add some tools to it
     wheel_zoom = WheelZoomTool()
-    fig = figure(title="spot graphic", plot_width=1600, plot_height=600,
+    fig = figure(title="spot graphic", width=1600, height=600,
                  tools=["pan", "box_zoom", "reset", "save", wheel_zoom, "ywheel_zoom", "xwheel_zoom"])
     fig.axis.visible = True
     fig.toolbar.active_scroll = wheel_zoom
@@ -650,7 +652,8 @@ def draw_spots(pangenome: Pangenome, output: Path, spot_list: str, disable_bar: 
         logging.getLogger("PPanGGOLiN").debug("'all' value is found in spot list, all spots are drawn.")
         selected_spots = list(pangenome.spots)
     elif spot_list == "synteny" or any(x == 'synteny' for x in spot_list):
-        logging.getLogger().debug("'synteny' value is found in spot list, all spots with more than 1 conserved synteny are drawn.")
+        logging.getLogger().debug(
+            "'synteny' value is found in spot list, all spots with more than 1 conserved synteny are drawn.")
         selected_spots = [s for s in pangenome.spots if len(s.get_uniq_ordered_set()) > 1]
     else:
         curated_spot_list = {'spot_' + str(s) if not s.startswith("spot_") else str(s) for s in spot_list}
