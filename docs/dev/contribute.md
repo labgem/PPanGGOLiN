@@ -16,7 +16,7 @@ For minor changes like fixing typos or making small edits, feel free to create a
 
 3. **Get an Environment:** Create an environment with all PPanGGOLiN prerequisites installed. For that, you can follow installation instructions [here](../user/install.md#installing-from-source-code-github).
 
-4. **Branch from 'dev':** Begin your changes from the 'dev' branch, where we incorporate alterations for the upcoming release.
+4. **Branch from 'dev':** Begin your changes from the 'dev' branch, where we incorporate changes for the upcoming release.
 
 5. **Install in Editable Mode:** To enable seamless code editing and testing of new functionality, install PPanGGOLiN in editable mode using the following command:
 
