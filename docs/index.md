@@ -86,9 +86,11 @@ user/metadata
 
 dev/contribute
 dev/buildDoc
+api/modules
 ```
 
-# API Reference
+
+# Indices and tables
 [//]: # (- {ref}`ppanggolin package`)
 
 - {ref}`genindex`
