@@ -30,7 +30,7 @@ graph LR
             g(graph) --> p(partition)
         end
 
-    p --> f[pangenome.f5]
+    p --> f[pangenome.h5]
 
         
     classDef panrgp fill:#4066d4
