@@ -47,9 +47,9 @@ graph LR
         r --> s(spot)
         end
 
-    p --> f[pangenome.f5]
-    s --> f[pangenome.f5]
-    m --> f[pangenome.f5]
+    p --> f[pangenome.h5]
+    s --> f
+    m --> f
 
         
     classDef panrgp fill:#84d191

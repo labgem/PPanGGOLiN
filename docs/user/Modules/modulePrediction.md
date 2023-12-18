@@ -35,8 +35,8 @@ graph LR
         end
 
 
-    p --> f[pangenome.f5]
-    m --> f[pangenome.f5]
+    p --> f[pangenome.h5]
+    m --> f
 
         
     classDef panrgp fill:#4066d4
