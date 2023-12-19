@@ -17,10 +17,6 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.8"
-#     python: "mambaforge-22.9"
-
-# conda:
-#   environment: ppanggolin_env.yaml
 
   
 # Build documentation in the "docs/" directory with Sphinx
