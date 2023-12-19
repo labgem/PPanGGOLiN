@@ -344,7 +344,7 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
     txt += "light gexf file for the pangenome graph..." if light else "gexf file for the pangenome graph..."
 
     logging.getLogger("PPanGGOLiN").info(txt)
-    outname = output / f"pangenomeGraph{'_light' if light else ''}.gexf{'.gz' if compress else ''}"
+    outname = output / f"pangenomeGraph{'_light' if light else ''}.gexf"
     with write_compressed_or_not(outname, compress) as gexf:
         graph_type = 'ligth gexf' if light else 'gexf'
         logging.getLogger("PPanGGOLiN").debug(f"Writing the {graph_type} header...")
