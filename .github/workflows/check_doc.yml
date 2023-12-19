@@ -5,7 +5,8 @@ on:
     paths:
       - 'docs/**'
       - '.readthedocs.yaml'
-
+      - '.github/workflows/check_doc.yml'
+      
 jobs:
   build:
 
@@ -14,15 +15,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
+      name: install ppanggolin with python deps and doc deps
       with:
         python-version: '3.8'
     - run: pip install .[doc,python_deps]
 
-    # Standard drop-in approach that should work for most people.
-    - uses: ammaraskar/sphinx-action@master
-      with:
-        docs-folder: "docs/"
-        build-command: "sphinx-build -b html . build/"
+    - name: Complete workflow
+      shell: bash -l {0}
+      run: |
+        cd docs/
+        sphinx-build -b html . build/
     # Great extra actions to compose with:
     # Create an artifact of the html output.
     - uses: actions/upload-artifact@v1
