@@ -10,6 +10,7 @@ python:
       path: .
       extra_requirements:
         - doc
+        - python_deps
 
 # Set the OS, Python version and other tools you might need
 build:
