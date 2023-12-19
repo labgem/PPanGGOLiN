@@ -1,6 +1,6 @@
 # Multiple Sequence Alignment
 
-The commande msa compute multiple sequence alignement of any partition of the pangenome. The command uses [mafft](https://mafft.cbrc.jp/alignment/software/) with default options to perform the alignment. Using multiple cpus is recommended as multiple alignment can be quite demanding in computational resources.
+The commande `msa` compute multiple sequence alignement of any partition of the pangenome. The command uses [mafft](https://mafft.cbrc.jp/alignment/software/) with default options to perform the alignment. Using multiple cpus with the `--cpu` argument is recommended as multiple alignment can be quite demanding in computational resources.
 
 This command can be used as follow:
 
@@ -22,19 +22,19 @@ for example will compute MSA for all the persistent gene families.
 ppanggolin msa -p pangenome.h5 --partition persistent
 ``` 
 
-Supported partitions are `core`, `persistent`, `shell`, `cloud`, `softcore`, `accessory`. If you wish to have additional filters, you can raise an issue in the [issue tracker](https://github.com/labgem/PPanGGOLiN/issues) with your demand, or write a PR directly (see [here](../dev/contribute.md) for instruction on how to contribute), most possibilites should be quite straightforward to add.
+Supported partitions are `core`, `persistent`, `shell`, `cloud`, `softcore`, `accessory`. If you need specific filters, you can submit a request in the [issue tracker](https://github.com/labgem/PPanGGOLiN/issues) with your requirements. You can also directly implement the new filter and submit a Pull Request (instructions for contribution can be found [here](../dev/contribute.md)). Most filters should be quite straightforward to add.
 
-### source
+### Chose to align dna or protein sequences with `--source`
 
-You can specify whether to use dna or protein sequences for the MSA by using --source. It uses protein sequences by default.
+You can specify whether to use `dna` or `protein` sequences for the MSA by using `--source`. It uses protein sequences by default.
 
 ```bash
 ppanggolin msa -p pangenome.h5 --source dna
 ```
 
-### phylo
+### Write a single whole MSA file with `--phylo` 
 
-It is also possible to write a single whole genome MSA file, which many phylogenetic softwares accept as input, by using the --phylo option as such:
+It is also possible to write a single whole genome MSA file, which many phylogenetic softwares accept as input, by using the `--phylo` option as such:
 
 ```bash
 ppanggolin msa -p pangenome.h5 --phylo
