@@ -86,13 +86,5 @@ user/metadata
 
 dev/contribute
 dev/buildDoc
+api/api_ref
 ```
-
-# API Reference
-[//]: # (- {ref}`ppanggolin package`)
-
-- {ref}`genindex`
-
-- {ref}`modindex`
-
-- {ref}`search`
