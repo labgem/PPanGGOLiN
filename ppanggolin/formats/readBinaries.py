@@ -105,6 +105,13 @@ def get_status(pangenome: Pangenome, pangenome_file: Path):
         pangenome.status["geneFamilySequences"] = "inFile"
     if status_group._v_attrs.NeighborsGraph:
         pangenome.status["neighborsGraph"] = "inFile"
+    
+    if hasattr(status_group._v_attrs, "version"):
+        pangenome.status["ppanggolin_version"] = str(status_group._v_attrs.version)
+    else:
+        logging.getLogger("PPanGGOLiN").error(f'The provided pangenome file {pangenome_file} does not have a version stored in its status.'
+                         ' This issue may indicate that the file is corrupted.')
+        pangenome.status["ppanggolin_version"] = None
 
     if status_group._v_attrs.Partitioned:
         pangenome.status["partitioned"] = "inFile"
