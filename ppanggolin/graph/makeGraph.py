@@ -134,7 +134,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     :return : parser arguments for graph command
     """
-    parser = sub_parser.add_parser("graph", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = sub_parser.add_parser("graph", formatter_class=argparse.RawTextHelpFormatter)
     parser_graph(parser)
     return parser
 

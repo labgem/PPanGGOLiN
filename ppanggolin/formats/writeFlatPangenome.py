@@ -1179,7 +1179,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     :return : parser arguments for align command
     """
-    parser = sub_parser.add_parser("write_pangenome", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = sub_parser.add_parser("write_pangenome", formatter_class=argparse.RawTextHelpFormatter)
     parser_flat(parser)
     return parser
 

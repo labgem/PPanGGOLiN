@@ -480,7 +480,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :return : parser arguments for align command
     """
     parser = sub_parser.add_parser("rarefaction", description='Compute the rarefaction curve of the pangenome',
-                                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                                   formatter_class=argparse.RawTextHelpFormatter)
     parser_rarefaction(parser)
     return parser
 

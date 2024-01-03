@@ -60,7 +60,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :return : parser arguments for align command
     """
 
-    parser = sub_parser.add_parser("draw", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = sub_parser.add_parser("draw", formatter_class=argparse.RawTextHelpFormatter)
     parser_draw(parser)
     return parser
 

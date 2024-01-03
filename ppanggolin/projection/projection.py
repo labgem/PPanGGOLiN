@@ -1271,7 +1271,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :return : parser arguments for projection command
     """
     parser = sub_parser.add_parser(
-        "projection", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        "projection", formatter_class=argparse.RawTextHelpFormatter)
     parser_projection(parser)
     return parser
 
