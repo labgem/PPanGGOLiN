@@ -661,6 +661,7 @@ def launch(args: argparse.Namespace):
         read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
+                logging.getLogger("PPanGGOLiN").info(f"Get sequences from FASTA file: {args.fasta}")
                 get_gene_sequences_from_fastas(pangenome, args.fasta)
             else:
                 logging.getLogger("PPanGGOLiN").warning("You provided gff files without sequences, "

@@ -260,6 +260,15 @@ class GeneFamily(MetaFeatures):
         """
         return self._module
 
+    @module.setter
+    def module(self, module: Module):
+        """Set the modules belonging to the family
+        :param module: module to set
+        """
+        if not isinstance(module, Module):
+            raise TypeError("Module object is expected to be set")
+        self._module = module
+
     @property
     def number_of_neighbors(self) -> int:
         """Get the number of neighbor for the current gene family
