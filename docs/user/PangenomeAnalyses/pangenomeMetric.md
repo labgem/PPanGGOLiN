@@ -13,8 +13,8 @@ The genomic fluidity is described as *a robust metric to categorize the
 gene-level similarity among groups of sequenced isolates.* 
 [more information here](https://bmcgenomics.biomedcentral.com/articles/10.1186/1471-2164-12-32)
 
-We add the possibility to get genomic fluidity for all the pangenome or 
-for specific partition. The genomic fluidity is computable like that :
+We have added the possibility to get genomic fluidity for the whole pangenome or 
+for a specific partition. Genomic fluidity is computable as follows:
 
 ```bash
 ppanggolin metrics -p pangenome --genome_fluidity
@@ -32,6 +32,6 @@ Genomes_fluidity:
 
 
 ```{note}
-At the moment, only the fluidity is computed by the `metrics` command. But we migth add other metrics in the future. If you have some idea of metric describing the pangenome, please open an issue ! 
+Currently, the `metrics` command only computes fluidity. However, additional metrics may be added in the future. If you have any ideas for metrics that describe the pangenome, please open an issue! 
 ```
 

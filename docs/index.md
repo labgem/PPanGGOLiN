@@ -19,7 +19,6 @@
 ```{image} _static/logo.png
 :alt: ppangolin logo
 :align: center
-:heigth: 350
 :width: 437
 ```
 
@@ -67,7 +66,6 @@ Those RGPs can be further divided in conserved modules by panModule ([Bazin et a
 :caption: 'User Guide:'
 :maxdepth: 2
 
-user/introduction
 user/install
 user/QuickUsage/quickAnalyses
 user/practicalInformation
@@ -86,18 +84,7 @@ user/metadata
 :caption: 'Developper Guide:'
 :maxdepth: 1
 
-dev/devRules
-dev/git
-dev/unitTest
-dev/workflows
+dev/contribute
 dev/buildDoc
+api/api_ref
 ```
-
-# Indices and tables
-[//]: # (- {ref}`ppanggolin package`)
-
-- {ref}`genindex`
-
-- {ref}`modindex`
-
-- {ref}`search`

@@ -4,7 +4,7 @@ The complete workflow subcommand `all` automatically generates some files and fi
 Here, we are going to describe several of these key outputs that are commonly used in pangenomic studies as these files illustrate the pangenome from your taxonomic group of interest in different ways.
 
 ### Statistics and metrics on the pangenome
-#### Organisms statistics
+#### Statistics about genomes
 
 [//]: # (TODO change this subsection after merge of split_write)
 
@@ -36,12 +36,12 @@ More information about this file can be found [here](../PangenomeAnalyses/pangen
 This file is a .tsv file, with a single parameter written as a comment at the beginning of the file, 
 which indicates the proportion of genomes in which a gene family must be present more than once to be considered 'duplicated' (and not a single copy marker). 
 This file lists the gene families, their duplication ratio, their mean presence in the pangenome and whether it is considered a 'single copy marker' or not, 
-which is particularly useful when calculating the completeness recorded in the [organisms statistics file](#organisms-statitics) described previously.
+which is particularly useful when calculating the completeness recorded in the [genomes statistics file](#statistics-about-genomes) described previously.
 
 ### Figures
 #### U-shaped plot:  gene families frequency distribution in pangenome
 
-A U-shaped plot is a figure presenting the number of families (y-axis) per number of organisms (x-axis). 
+A U-shaped plot is a figure presenting the number of families (y-axis) per number of genomes (x-axis). 
 It is a _.html_ file that can be opened with any browser and with which you can interact, zoom, move around, 
 mouseover to see numbers in more detail, and you can save what you are seeing as a .png image file.
 
@@ -52,19 +52,19 @@ Look at [here](../PangenomeAnalyses/pangenomeAnalyses.md#u-shape-plot) to change
 
 
 #### Tile plot: detect pangenome structure and outlier
-A tile plot is a heatmap representing the gene families (y-axis) in the organisms (x-axis) making up your pangenome. 
-The tiles on the graph will be colored if the gene family is present in an organism and uncolored if absent. 
+A tile plot is a heatmap representing the gene families (y-axis) in the genomes (x-axis) making up your pangenome. 
+The tiles on the graph will be colored if the gene family is present in a genome and uncolored if absent. 
 The gene families are ordered by partition, and the genomes are ordered by a hierarchical clustering based on their shared gene families (basically two genomes that are close together in terms of gene family composition will be close together on the figure).
 
 This plot is quite helpful to observe potential structures in your pangenome, and can also help you to identify eventual outliers.
 You can interact with it, and mousing over a tile in the plot will indicate to you which is the gene identifier(s),
-the gene family and the organism that corresponds to the tile.
+the gene family and the genome that corresponds to the tile.
 
 ![tile_plot](../../_static/tutorial/tile_plot.png)
 
 [//]: # (TODO Explain the bar on the right side)
 
-With the 'workflow' subcommand, if you have more than 500 organisms, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise. Look at [here](../PangenomeAnalyses/pangenomeAnalyses.md#tile-plot) to add the cloud if you need.
+With the 'workflow' subcommand, if you have more than 500 genomes, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise. Look at [here](../PangenomeAnalyses/pangenomeAnalyses.md#tile-plot) to add the cloud if you need.
 
 ```{note}
 If you want the 'cloud' gene families even if a lot of data can be hard to open with a browser sometimes,

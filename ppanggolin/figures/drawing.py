@@ -27,7 +27,7 @@ def check_spot_args(args: argparse.Namespace):
     """
     default_arg_spots = 'all'
     if not args.draw_spots and args.spots != default_arg_spots:
-        raise argparse.ArgumentError(None, "The --spots argument cannot be used when --draw-spots is not specified.")
+        raise argparse.ArgumentError(None, "The --spots argument cannot be used when --draw_spots is not specified.")
 
 
 def launch(args: argparse.Namespace):

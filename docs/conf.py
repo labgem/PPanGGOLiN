@@ -34,7 +34,13 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.autodoc",
     'sphinx_search.extension',
+    'sphinxcontrib.mermaid'
 ]
+
+
+source_suffix = {
+    '.md': 'markdown'
+}
 
 # Prefix document path to section labels, to use:
 # `path/to/file:heading` instead of just `heading`
