@@ -1,250 +1,175 @@
-# Build the documentation
-This partdescribe the guidelines to build the documentation of PPanGGOLiN.
+# Building the Documentation
 
-```{warning}
-When you will merge or pull request your branch on master, a bot from readthedoc will see it and update the doc online.
-Be sure that your doc is clean and without error. 
+This section provides guidelines for building the PPanGGOLiN documentation locally.
+
+## Setting Up the Environment
+
+Before proceeding, ensure that you have installed PPanGGOLiN from the source code. For detailed instructions, refer to [this section](../user/install.md#installing-from-source-code-github).
+
+The necessary packages to build the documentation are listed in the 'requirements.txt' file located in the `doc/` folder.
+
+```bash
+pip install -r docs/requirements.txt
 ```
 
-## Install required packages
+Alternatively, the same list of requirements is available in the [pyproject.toml file](../../pyproject.toml), which allows for automatic installation using `pip`.
 
-Required packages are listed below :
-```text
-sphinx==6.2.1
-sphinx_rtd_theme==1.2.2
-readthedocs-sphinx-search==0.3.1
-sphinx-autobuild==2021.3.14
-myst-parser==1.0.0
-```
-To build the doc you need to use an environnement with ppanggolin installed. 
-To make think easier [pyproject.toml file](../../pyproject.toml) contain the same list of requirement 
-and can install everything automatically with pip.
 ```shell
-# PPanGGOLiN=/path/to/ppanggolin/
-pip install $PPanGGOLiN[doc]  # You can add -e to install in editable mode
+# Replace '/path/to/ppanggolin/' with your actual path
+pip install /path/to/ppanggolin/[doc]
 ```
-## Build documentation with sphinx
 
-You can look at your modification in live by using **sphinx-autobuild** (installed previously).
+## Building Documentation with Sphinx
+### Build and produce an html
+
+Building the documentation is as simple as :
+
+
+```bash
+# Replace '/path/to/ppanggolin/' with your actual path
+cd /path/to/ppanggolin/docs/
+sphinx-build -b html . build/
+```
+You can also use the makefile as follow
+
+
+```bash
+# Replace '/path/to/ppanggolin/' with your actual path
+cd /path/to/ppanggolin/docs/
+make html
+```
+
+
+### Build with autobuild 
+
+You can visualize your modifications in real-time using **sphinx-autobuild**, a tool previously installed.
 
 ```shell
 cd $PPanGGOLiN/docs
 sphinx-autobuild . build/
-#copy server adresse, for me (as example) http://127.0.0.1:8000
-#paste the adresse in your browser
+# Copy the server address, for example: http://127.0.0.1:8000
+# Paste the address in your browser
 ```
 
 ```{note}
-The package [readthedocs-sphinx-search](https://readthedocs-sphinx-search.readthedocs.io/en/latest/) "enable search as you type for docs hosted on Read the Docs". It's only work on ReadTheDocs web site `[INFO] Docs are not being served on Read the Docs, readthedocs-sphinx-search will not work.`, don't try to make it work.
+The package [readthedocs-sphinx-search](https://readthedocs-sphinx-search.readthedocs.io/en/latest/) enables "search as you type" functionality for docs hosted on Read the Docs. Please note that it only functions on the ReadTheDocs website. `[INFO] Docs are not being served on Read the Docs, readthedocs-sphinx-search will not work.`
 ```
 
-### Modify existing documentation
-In this part we will speak about how to change the already existing documentation files.
-To add files for command, package, ... See [Adding section](#heading-adding)
+### Editing or Adding Documentation
 
-To modify the existing user or developper documentation, you simply need to go to the file where you want to make a change and modify it.
 
-The API documentation is automatically update when you modify the docstring in the code. 
-It's also working when you add function, method, class, ect, in an already existing package,
-but not if you add new package (new file in the ppanggolin), for this look at [Update API documentation](#add-api-doc).
+To modify existing documentation:
 
-(heading-adding)=
-### Adding to existing documentation
-#### Adding user documentation file
-User documentation should contain files relative to new command, example and information about PPanGGOLiN. 
-To ensure efficency, file name should correspond to the main topic.
-A file should not be long, prefer to split in multiple files.
+1. **Navigate to the Document**: Go to the file you wish to edit and make necessary changes.
 
-When the file is created, you can add it to the index in the *toctree UserGuide* by adding a line `user/filename` 
-without the file extension (.md) in the **index file**.
+To add a new page:
 
-#### New guidelines for development
-All new guidelines that seems interesting are welcomed.
+1. **Create Markdown File**: Place the new markdown file in the relevant folder within the 'docs' directory—'user' for user documentation or 'dev' for developer documentation.
+2. **Update Table of Contents (TOC)**: Add a reference to the newly added file in the 'index.md' file at the root of the docs folder under the 'user' or 'dev' TOC tree.
 
-If you think that the guidelines could not be added to an existing file, you can create a new one.   
-Use an explicit name for your file and add it to the *toctree DevelopperGuide* 
+
 
 (add-api-doc)=
 #### Update API documentation
-The API documentation is build automatically. 
+The API reference documentation is automatically updated as it is build each time the doc is build by sphinx.
+In case you added a new file in the ppanggolin code base 
+
 To update the API documentation and keep the automatic update when a new package, module, submodules is added follow the
 next lines:
 ```shell
 sphinx-apidoc -o api $PPanGGOLiN/ppanggolin -f
 ```
-```{warning}
+```{note}
 *sphinx-apidoc* will generate ReStructeredText files. You need to convert them in markdown. For this follow the guides 
 [here](#rst2md)
 ```
 
-### Creating a new documentation from scratch
-#### Quickstart with sphinx
-```{warning}
-This must be discuss with repository administrators.
-```
-To create the documentation from scratch, rename the existing documentation (or use another name for the new one)
-and follow the next steps.
+
+### Creating a New Documentation from Scratch
+
+This section documents how the current documentation has been created. 
+
+#### Quickstart with Sphinx
+
+To start the documentation process from scratch, follow these steps to either rename the existing documentation or provide a new name for the upcoming documentation.
 
 ```shell
 DOCS=path/to/PPanGGOLiN/docs
 sphinx-quickstart $DOCS
-#Welcome to the Sphinx 6.2.1 quickstart utility.
-#
-#Please enter values for the following settings (just press Enter to
-#accept a default value, if one is given in brackets).
-#
-#Selected root path: docs_scratch
-#
-#You have two options for placing the build directory for Sphinx output.
-#Either, you use a directory "_build" within the root path, or you separate
-#"source" and "build" directories within the root path.
-#> Separate source and build directories (y/n) [n]: y
-#
-#The project name will occur in several places in the built documentation.
-#> Project name: PPanGGOLiN
-#> Author name(s): Jérôme Arnoux
-#> Project release []: 1.2.174
-#
-#If the documents are to be written in a language other than English,
-#you can select a language here by its language code. Sphinx will then
-#translate text that it generates into that language.
-#
-#For a list of supported codes, see
-#https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-language.
-#> Project language [en]: 
-#
-#Creating file /your/path/PPanGGOLiN/docs_scratch/source/conf.py.
-#Creating file /your/path/Projects/PPanGGOLiN/docs_scratch/source/index.rst.
-#Creating file /your/path/Projects/PPanGGOLiN/docs_scratch/Makefile.
-#Creating file /your/path/Projects/PPanGGOLiN/docs_scratch/make.bat.
-#
-#Finished: An initial directory structure has been created.
-#
-#You should now populate your master file /home/jarnoux/Projects/PPanGGOLiN/docs_scratch/source/index.rst and create other documentation
-#source files. Use the Makefile to build the docs, like so:
-#   make builder
-#where "builder" is one of the supported builders, e.g. html, latex or linkcheck.
 ```
 
-Now you have a documentation folder ready to use.
+Upon executing the command, you will be prompted with a series of settings in order to setup the new documentation folder.
+
+We used so far the default settings as follow:
+
+- Separate source and build directories (y/n) [n]: **n**
+
+-  Project name: **PPanGGOLiN**
+-  Author name(s): **Your name**
+-  Project release []: **The current version of PPanGGOLiN**
+
+
+
 #### Configuration file
-In the *source* directory you should find a `conf.py` file. Replace the code inside by the following.
-```python
-# Configuration file for the Sphinx documentation builder.
-#
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Path setup --------------------------------------------------------------
+Locate the conf.py file within the docs directory. You can modify this file similarly to the adjustments made in the current `conf.py` file.
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-from pathlib import Path
-
-# -- Project information -----------------------------------------------------
-
-project = 'PPanGGOLiN'
-copyright = 'LABGeM'
-author = 'Jérôme Arnoux'
-
-# The full version, including alpha/beta/rc tags
-release = open(Path(__file__).resolve().parents[2]/"VERSION").read().rstrip()  # Get release number in the VERSION file
-
-
-# -- General configuration ---------------------------------------------------
-
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
-extensions = [
-    "myst_parser",
-    # "sphinxcontrib.jquery",
-    "sphinx.ext.duration",
-    "sphinx.ext.autosectionlabel",
-    "sphinx.ext.autodoc",
-    'sphinx_search.extension',
-]
-
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
-
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
-
-
-# -- Options for HTML output -------------------------------------------------
-
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-html_theme = 'sphinx_rtd_theme'
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
-
-```
 (rst2md)=
 #### ReStructeredText to markdown
-reStructuredText (rst) is the default plaintext markup language used by both Docutils and Sphinx. 
-More complete but a little bit older than Markdown, which is easier to use too.
-We are going to change rst for Markdown (md). 
-To translate rst and keep all the features, we will use [MyST](https://mystmd.org/guide).
 
-For this case we will need to install a new package `rst-to-myst`.
-```{note} We advice to use another environment, because as far as we know today, this package is not compatible with our sphinx version
-```
+reStructuredText (rst) is the default plaintext markup language used by both Docutils and Sphinx. 
+Despite being more comprehensive, it's considered slightly older and less user-friendly compared to Markdown.
+
+We have decided to use Markdown (md) instead of reStructuredText for our documentation
+We will use [MyST](https://mystmd.org/guide) to translate RST files to Markdown while preserving all features provided by reStructuredText.
+
+For this we will need to install the package `rst-to-myst`.
+
 
 ```shell
-pip install rst-to-myst[sphinx]
-# Go to your environment with rst2myst
-rst2myst convert source/index.rst
-# Go back to your environment with ppanggolin
-rm source/index.rst
-```
-#### README in index.md
-It's possible to add the **README** file in the index to don't have to rewrite it in the doc. 
-Simply add the following line in `index.md`
-```markdown
-    ```{include} ../../README.md
-    :relative-images: % To
-    ```
-% Without tabulation
+pip install rst-to-myst
+
+rst2myst convert index.rst
+
+# remove rst file(s)
+rm index.rst 
 ```
 
 #### User documentation
-The user documentation is completely handwritten. Moreover, we advise respecting the following guidelines:
+Here are some general guidelines to write user documentation:
 
-1. One file per topic/command with an explicit text on the feature
-2. One file for the installation guidelines
-3. One file on how to report issue or enhancement
-4. Don't ref to any function in the ppanggolin code. This is reserved for developper documentation
+1. **Topic/Command Separation**: Create individual files for each topic or command, offering explicit explanations of the feature's functionality.
+    - **Enhance with Examples**: Include example code snippets and output figures or initial lines of output files wherever applicable.
 
-#### Developper documentation
-The developper documentation is handwritten too. We advise respecting the following guidelines:
-1. Spoke about the PEP rules
-2. Give guidelines on how to use git and GitHub for version control
-3. Explain how to write unit test and modify GitHub workflows
-4. Write how to enhance the documentation
-5. Select some function, class or command that are central in the code and provide a more complete description of them.
+2. **Clarity and Precision**: Strive for utmost clarity by defining acronyms and jargon used within the documentation.
 
 
 #### API documentation
-To build the API documentation and use the docstring in code, you can use the command `sphinx-apidoc` as follows:
-```shell
+
+To generate the API documentation using the docstrings in your code, follow these steps:
+
+1. Using `sphinx-apidoc`:
+
+Generate the API documentation files with the `sphinx-apidoc` command:
+
+```bash
+# Generate API doc files
 sphinx-apidoc -o api $PPanGGOLiN/ppanggolin
-# Go to your environment with rst2myst
+```
+
+This command creates an 'api' folder containing the skeleton of the API reference pages.
+
+2. Translating to MyST with `rst-to-myst`:
+
+Translate these generated files into MyST markdown using `rst-to-myst`:
+
+```bash
+# Translate them into MyST
 rst2myst convert api/*.rst
-# Go back to your environment with sphinx
+
+# Remove remaining RST files
 rm api/*.rst
 ```
-You have now documentation for PPanGGOLiN api. To ref api in your doc you can paste **\{ref\}\`package ppanggolin\`**
 
 ```{tip}
 With the "sphinx.ext.autosectionlabel", you will certainly get multiple warning for duplicate label. 

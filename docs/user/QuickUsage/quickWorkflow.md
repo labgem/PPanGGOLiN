@@ -6,6 +6,59 @@ In the end, you will have a partitioned pangenome graph with predicted **RGP, sp
 
 [//]: # (### PPanGGOLiN: Pangenome analyses from list of annotated files)
 
+
+
+```{mermaid}
+
+---
+title: "Workflow Overview: Steps launched by the all command"
+align: center
+---
+
+%%{init: {'theme':'default'}}%%
+
+
+graph LR
+
+    i[input genomes] --> a
+   
+
+        r:::panrgp
+        s:::panrgp
+        m:::panmodule
+
+        subgraph Pangenome creation
+            a:::workflow
+            c:::workflow
+            g:::workflow
+            p:::workflow
+            a("annotate") --> c
+            c(cluster) --> g(graph)
+            g(graph) --> p(partition)
+        end
+
+        subgraph Functional module
+        p --> m(module)
+        end
+        
+        subgraph Region of Genomic Plasticity
+        
+        p --> r(rgp)
+        r --> s(spot)
+        end
+
+    p --> f[pangenome.h5]
+    s --> f
+    m --> f
+
+        
+    classDef panrgp fill:#84d191
+    classDef panmodule fill:#d44066
+    classDef workflow fill:#d4ae40
+
+
+```
+
 The minimal subcommand only need your own annotations files (using `.gff` or `.gbff`/`.gbk` files) 
 as long as they include the genomic dna sequences, such as the ones provided by Prokka or Bakta.
  
