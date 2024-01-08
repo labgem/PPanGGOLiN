@@ -1065,3 +1065,41 @@ def flatten_nested_dict(nested_dict: Dict[str, Union[Dict, int, str, float]]) ->
 
     flatten(nested_dict)
     return flat_dict
+
+def get_major_version(version: str) -> int:
+    """
+    Extracts the major version number from a version string.
+
+    :param version: A string representing the version number.
+    :return: The major version extracted from the input version string.
+    :raises ValueError: If the input version does not have the expected format.
+    """
+    try:
+        major_version = int(version.split('.')[0])
+    except ValueError:
+        raise ValueError(f"Version {version} does not have the expected format.")
+
+    return major_version
+
+
+def check_version_compatibility(file_version: str) -> None:
+    """
+    Checks the compatibility of the provided pangenome file version with the current PPanGGOLiN version.
+
+    :param file_version: A string representing the version of the pangenome file.
+    """
+    # Get the current PPanGGOLiN version
+    current_version = distribution('ppanggolin').version
+
+    current_version_major = get_major_version(current_version)
+    file_major_version = get_major_version(file_version)
+
+    # Check for compatibility issues
+    if file_major_version != current_version_major:
+        logging.getLogger("PPanGGOLiN").error('Your pangenome file has been created with a different major version '
+                                              'of PPanGGOLiN than the one installed in the system. This mismatch may lead to compatibility issues.')
+
+    if file_major_version < 2 and current_version_major >= 2:
+        raise ValueError(f'The provided pangenome file was created by PPanGGOLiN version {file_version}, which is '
+                         f'incompatible with the current PPanGGOLiN version {current_version}.')
+
