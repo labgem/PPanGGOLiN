@@ -25,15 +25,15 @@ class TestGeneFamily:
         """Tests that a GeneFamily object can be created with valid family_id and name
         """
         assert isinstance(family, GeneFamily)
-        assert all(attr in ["ID", "name", "_edges", "_genePerOrg", "_genes_getter", "removed", "sequence", "partition",
+        assert all(attr in ["ID", "name", "_edges_getter", "_genePerOrg", "_genes_getter", "removed", "sequence", "partition",
                             "_spots", "_module", "bitarray", "_metadata_getter"] for attr in
                    family.__dict__)  # Check that no attribute was added else it should be tested
-        assert all(hasattr(family, attr) for attr in ["ID", "name", "_edges", "_genePerOrg", "_genes_getter", "removed",
+        assert all(hasattr(family, attr) for attr in ["ID", "name", "_edges_getter", "_genePerOrg", "_genes_getter", "removed",
                                                       "sequence", "partition", "_spots", "_module",
                                                       "bitarray"])  # Check that no attribute was removed else it should be tested
         assert family.ID == 1
         assert family.name == 'test'
-        assert family._edges == {}
+        assert family._edges_getter == {}
         assert family._genePerOrg == {}
         assert family._genes_getter == dict()
         assert not family.removed  # for the repeated family not added in the main graph

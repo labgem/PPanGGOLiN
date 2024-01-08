@@ -65,7 +65,7 @@ class GeneFamily(MetaFeatures):
         super().__init__()
         self.name = str(name)
         self.ID = family_id
-        self._edges = {}
+        self._edges_getter = {}
         self._genePerOrg = defaultdict(set)
         self._genes_getter = {}
         self.removed = False  # for the repeated family not added in the main graph
@@ -205,14 +205,6 @@ class GeneFamily(MetaFeatures):
         else:
             return "undefined"
 
-    @property
-    def neighbors(self) -> Generator[GeneFamily, None, None]:
-        """Returns all the GeneFamilies that are linked with an edge
-
-        :return: Neighbors
-        """
-        for neighbor in self._edges.keys():
-            yield neighbor
 
     @property
     def edges(self) -> Generator[Edge, None, None]:
@@ -220,8 +212,17 @@ class GeneFamily(MetaFeatures):
 
         :return: Edges of the gene family
         """
-        for edge in self._edges.values():
+        for edge in self._edges_getter.values():
             yield edge
+
+    @property
+    def neighbors(self) -> Generator[GeneFamily, None, None]:
+        """Returns all the GeneFamilies that are linked with an edge
+
+        :return: Neighbors
+        """
+        for neighbor in self._edges_getter.keys():
+            yield neighbor
 
     @property
     def genes(self):
@@ -273,13 +274,13 @@ class GeneFamily(MetaFeatures):
     def number_of_neighbors(self) -> int:
         """Get the number of neighbor for the current gene family
         """
-        return len(self._edges.keys())
+        return len(self._edges_getter.keys())
 
     @property
     def number_of_edges(self) -> int:
         """Get the number of edges for the current gene family
         """
-        return len(self._edges.values())
+        return len(self._edges_getter.values())
 
     @property
     def number_of_genes(self) -> int:
@@ -316,7 +317,12 @@ class GeneFamily(MetaFeatures):
         :param target: Neighbor family
         :param edge: Edge connecting families
         """
-        self._edges[target] = edge
+        self._edges_getter[target] = edge
+
+    def get_edge(self, target: GeneFamily) -> Edge:
+        """Get the edge by the target gene family neighbor
+        """
+        return self._edges_getter[target]
 
     def add_sequence(self, seq: str):
         """Assigns a protein sequence to the gene family.
