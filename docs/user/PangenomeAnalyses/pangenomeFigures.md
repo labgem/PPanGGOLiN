@@ -46,7 +46,7 @@ So for example the following command:
 Will draw a rarefaction curve with sample sizes between 5 and 50 (between 5 and 50 genomes will be used), and with 30 samples at each point (so 30 samples of 5 genomes, 30 samples or 6 genomes ... up to 50 genomes).
 
 
-## Spot plots
+#### Spot plots
 
 For versions 1.2.30 and above, the 'draw' command can draw specific spots of interest, whose ID are provided, or all the spots if you wish.
 It will also write a gexf file, which corresponds to the gene families and their organization within the spots. It is basically a subgraph of the pangenome, consisting of the spot itself.
