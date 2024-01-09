@@ -1,22 +1,16 @@
-## Usal pangenome outputs
+## Usual pangenome outputs
 
 The complete workflow subcommand `all` automatically generates some files and figures. 
-Here, we are going to describe several of these key outputs that are commonly used in pangenomic studies as these files illustrate the pangenome from your taxonomic group of interest in different ways.
+Here, we are going to describe several of these key outputs that are commonly used in pangenomic studies as these files illustrate the pangenome in different ways.
 
 ### Statistics and metrics on the pangenome
 #### Statistics about genomes
 
-[//]: # (TODO change this subsection after merge of split_write)
-
-PPanGGOLiN can generate a tab-separated file describing the content of each genome used for building the pangenome.
+PPanGGOLiN generates a tab-separated file called `genome_statistics.tsv` describing the content of each genome used for building the pangenome.
 It might be useful when working with fragmented data such as *MAGs* or in cases where there is a suspicion that some genomes might be chimeric or fall outside the intended taxonomic group (as those genomes will be outliers regarding the numbers in this file).
 The first lines starting with a '#' are indicators of parameters used when generating the numbers describing each genome, and should not be included when loading the file into a spreadsheet. However, if you load this file using R, these lines will be automatically skipped
 
-This file is made of 15 columns described in the documentation here.
-
-It can be generated using the 'write' subcommand as such : 
-
-`ppanggolin write -p pangenome.h5 --stats -o path/to/your/results/directory/`
+This file is described in the documentation [here](../PangenomeAnalyses/pangenomeStat.md#genome-statistics-table).
 
 ```{note}
 This command will also generate the 'mean_persistent_duplication.tsv' file.
@@ -24,19 +18,17 @@ This command will also generate the 'mean_persistent_duplication.tsv' file.
 
 #### Gene presence absence
 
-This file is basically a presence absence matrix. 
-The columns are the genomes used to build the pangenome, the lines are the gene families. 
-The identifier of the gene family is the gene identifier chosen as a representative. 
-There is a 1 if the gene family is present in a genome, and 0 otherwise.
-It follows the exact same format as the 'gene_presence_absence.Rtab' file that you get from the pangenome analysis software [Roary](https://sanger-pathogens.github.io/Roary/)
+PPanGGOLiN generates presence absence matrix of genomes and gene families. This format mirrors the structure of the `gene_presence_absence.Rtab` file obtained from the pangenome analysis software [Roary](https://sanger-pathogens.github.io/Roary/).
 
-More information about this file can be found [here](../PangenomeAnalyses/pangenomeAnalyses.md#gene-presence-absence)
+More information about this file can be found [here](../PangenomeAnalyses/pangenomeStat.md#gene-presence-absence-matrix)
+
 
 #### mean persistent duplication
-This file is a .tsv file, with a single parameter written as a comment at the beginning of the file, 
-which indicates the proportion of genomes in which a gene family must be present more than once to be considered 'duplicated' (and not a single copy marker). 
-This file lists the gene families, their duplication ratio, their mean presence in the pangenome and whether it is considered a 'single copy marker' or not, 
-which is particularly useful when calculating the completeness recorded in the [genomes statistics file](#statistics-about-genomes) described previously.
+
+PPanGGOLiN generates a TSV file called `mean_persistent_duplication.tsv`. This file lists the gene families along with their duplication ratios, average presence in the pangenome, and classification as 'single copy markers'. 
+
+More information about this file can be found [here](../PangenomeAnalyses/pangenomeStat.md#mean-persistent-duplication)
+
 
 ### Figures
 #### U-shaped plot:  gene families frequency distribution in pangenome
@@ -52,6 +44,7 @@ Look at [here](../PangenomeAnalyses/pangenomeAnalyses.md#u-shape-plot) to change
 
 
 #### Tile plot: detect pangenome structure and outlier
+
 A tile plot is a heatmap representing the gene families (y-axis) in the genomes (x-axis) making up your pangenome. 
 The tiles on the graph will be colored if the gene family is present in a genome and uncolored if absent. 
 The gene families are ordered by partition, and the genomes are ordered by a hierarchical clustering based on their shared gene families (basically two genomes that are close together in terms of gene family composition will be close together on the figure).
