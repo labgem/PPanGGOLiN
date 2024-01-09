@@ -18,7 +18,7 @@ This command will also generate the 'mean_persistent_duplication.tsv' file.
 
 #### Gene presence absence
 
-PPanGGOLiN generates presence absence matrix of genomes and gene families. This format mirrors the structure of the `gene_presence_absence.Rtab` file obtained from the pangenome analysis software [Roary](https://sanger-pathogens.github.io/Roary/).
+PPanGGOLiN generates presence absence matrix of genomes and gene families called `gene_presence_absence.Rtab`. This format mirrors the structure of the `gene_presence_absence.Rtab` file obtained from the pangenome analysis software [Roary](https://sanger-pathogens.github.io/Roary/).
 
 More information about this file can be found [here](../PangenomeAnalyses/pangenomeStat.md#gene-presence-absence-matrix)
 
@@ -33,14 +33,17 @@ More information about this file can be found [here](../PangenomeAnalyses/pangen
 ### Figures
 #### U-shaped plot:  gene families frequency distribution in pangenome
 
+
+PPanGGOLiN generates a U-shaped plot called `Ushaped_plot.html`.
 A U-shaped plot is a figure presenting the number of families (y-axis) per number of genomes (x-axis). 
-It is a _.html_ file that can be opened with any browser and with which you can interact, zoom, move around, 
-mouseover to see numbers in more detail, and you can save what you are seeing as a .png image file.
+The file can be opened in any browser and allows for interaction, zooming, panning, and hovering over numbers for more detail. 
+Additionally, it is possible to save the displayed content as a .png image file.
 
 ![U-shaped plot _B.japonicum_](../../_static/tutorial/U-shape.gif)
 
 A dotted grey bar on the graph represents the **soft core threshold** which is the lower limit for which families are present in the majority of genomes. By default, this value is 95% (so families are in more than 95 genomes).
-Look at [here](../PangenomeAnalyses/pangenomeAnalyses.md#u-shape-plot) to change the default parameters.
+
+Additional information on this file and instructions for modifying default parameters can be found at [here](../PangenomeAnalyses/pangenomeFigures.md#u-shape-plot).
 
 
 #### Tile plot: detect pangenome structure and outlier
@@ -57,19 +60,10 @@ the gene family and the genome that corresponds to the tile.
 
 [//]: # (TODO Explain the bar on the right side)
 
-With the 'workflow' subcommand, if you have more than 500 genomes, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise. Look at [here](../PangenomeAnalyses/pangenomeAnalyses.md#tile-plot) to add the cloud if you need.
-
-```{note}
-If you want the 'cloud' gene families even if a lot of data can be hard to open with a browser sometimes,
-you can generate the tile plot as explain [here](../PangenomeAnalyses/pangenomeFigures.md#tile-plot)
-```
+With the workflow subcommands (`all`, `workflow`, `rgp` and `module`), if you have more than 500 genomes, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise.Refer to [here](../PangenomeAnalyses/pangenomeFigures.md#tile-plot) for instructions on how to add the cloud if necessary.
 
 #### Rarefaction curve: an indicator of the taxonomic group diversity
 
-```{note}
-The rarefaction curve is not drawn by default in the 'workflow' subcommand as it requires heavy computation. 
-To compute it add the option `--rarefaction` to the subcommand or look at [here](../PangenomeAnalyses/pangenomeFigures.md#rarefaction-curve) for more information. 
-```
 The rarefaction curve represents the evolution of the number of gene families for each partition as you add more genomes to the pangenome.
 It has been used a lot in the literature as an indicator of the diversity that you are missing with your dataset on your taxonomic group.
 The idea is that if at some point when you keep adding genomes to your pangenome you do not add any more gene families,
@@ -80,12 +74,18 @@ There are 8 partitions represented. For each of the partitions, there are multip
 You can find the observed: *means*, *medians*, *1st* and *3rd quartiles* of the number of gene families per number of genomes used. 
 And you can find the *fitting* of the data by the **Heaps' law**, which is usually used to represent this evolution of the diversity in terms of gene families in each of the partitions.
 
+
+```{note}
+The rarefaction curve is not drawn by default in the 'workflow' subcommand as it requires heavy computation. 
+To compute it add the option `--rarefaction` to any workflow subcommands (`all`, `workflow`, `rgp` and `module`) or refer to [here](../PangenomeAnalyses/pangenomeFigures.md#rarefaction-curve) to generate it from a pangenome file.
+```
+
 ### pangenomeGraph files
+
 The pangenome's graph can be given through multiple data formats, in order to manipulate it with other software.
-All the formats provided by PPanGGOLiN are describe [here](../PangenomeAnalyses/pangenomeAnalyses.md#pangenome-graph-output)
+All the formats provided by PPanGGOLiN are describe [here](../PangenomeAnalyses/pangenomeGraphOut.md)
 
-
-The Graph can be given through the _light.gexf files that contain the gene families as nodes and the edges between gene families describing their relationship. He is not exhaustive, but he is easier to manipulate and for most of the users, the information in it is enough.
+The graph can be given through the _light.gexf files that contain the gene families as nodes and the edges between gene families describing their relationship. He is not exhaustive, but he is easier to manipulate and for most of the users, the information in it is enough.
 
 ```{note}
 They can be manipulated and visualised through a software called [Gephi](https://gephi.org/). 
