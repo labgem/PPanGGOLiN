@@ -583,7 +583,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :return : Parser arguments for cluster_rgp command
     """
     parser = sub_parser.add_parser(
-        "rgp_cluster", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        "rgp_cluster", formatter_class=argparse.RawTextHelpFormatter)
     parser_cluster_rgp(parser)
     return parser
 

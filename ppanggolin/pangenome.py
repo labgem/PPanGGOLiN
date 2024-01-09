@@ -7,6 +7,8 @@ import re
 from typing import List, Union, Dict, Set, Generator
 from pathlib import Path
 
+import tables
+
 # local libraries
 from ppanggolin.genome import Organism, Contig, Gene
 from ppanggolin.region import Region, Spot, Module
@@ -80,7 +82,8 @@ class Pangenome:
         from ppanggolin.formats.readBinaries import get_status
         from ppanggolin.utils import check_version_compatibility
         # importing on call instead of importing on top to avoid cross-reference problems.
-
+        if not tables.is_hdf5_file(pangenome_file):
+            raise TypeError("Pangenome file should be an HDF5 file type")
         get_status(self, pangenome_file)
 
         check_version_compatibility(self.status["ppanggolin_version"])

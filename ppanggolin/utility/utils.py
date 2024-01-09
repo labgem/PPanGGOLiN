@@ -241,7 +241,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     :return : parser arguments for info command
     """
-    parser = sub_parser.add_parser("utils", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = sub_parser.add_parser("utils", formatter_class=argparse.RawTextHelpFormatter)
     parser_default_config(parser)
     return parser
 

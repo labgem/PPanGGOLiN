@@ -46,8 +46,8 @@ class TestEdge:
         edge = Edge(gene1, gene2)
         assert edge.source == gene1.family
         assert edge.target == gene2.family
-        assert edge.source._edges[edge.target] == edge
-        assert edge.target._edges[edge.source] == edge
+        assert edge.source._edges_getter[edge.target] == edge
+        assert edge.target._edges_getter[edge.source] == edge
         assert edge._organisms == {organism: [(gene1, gene2)]}
 
     def test_constructor_attribute_error(self):
