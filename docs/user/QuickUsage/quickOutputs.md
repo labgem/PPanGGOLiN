@@ -80,15 +80,15 @@ The rarefaction curve is not drawn by default in the 'workflow' subcommand as it
 To compute it add the option `--rarefaction` to any workflow subcommands (`all`, `workflow`, `rgp` and `module`) or refer to [here](../PangenomeAnalyses/pangenomeFigures.md#rarefaction-curve) to generate it from a pangenome file.
 ```
 
-### pangenomeGraph files
+### Pangenome graph outputs
 
 The pangenome's graph can be given through multiple data formats, in order to manipulate it with other software.
 All the formats provided by PPanGGOLiN are describe [here](../PangenomeAnalyses/pangenomeGraphOut.md)
 
-The graph can be given through the _light.gexf files that contain the gene families as nodes and the edges between gene families describing their relationship. He is not exhaustive, but he is easier to manipulate and for most of the users, the information in it is enough.
+The `pangenomeGraph_light.gexf` file is a simplified version of the graph, containing gene families as nodes and edges describing their relationships. While not exhaustive, it is easier to manipulate and provides sufficient information for most users.
 
 ```{note}
-They can be manipulated and visualised through a software called [Gephi](https://gephi.org/). 
+Pangenome graphs can be manipulated and visualised through a software called [Gephi](https://gephi.org/). 
 Find more information on how to use Gephi [here](../PangenomeAnalyses/pangenomeGraph.md#gephi)
 ```
 
