@@ -14,7 +14,7 @@ dependencies:
   - gmpy2=2
   - pandas=2.0
   - colorlover=0.3
-  - numpy=1.26
+  - numpy=1.24
   - bokeh=3
   # Tool that are not in python 
   - infernal=1
