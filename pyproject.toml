@@ -60,7 +60,7 @@ python_deps = [
     "gmpy2==2",
     "pandas==2",
     "colorlover==0.3",
-    "numpy==1.26",
+    "numpy==1.24",
     "bokeh==3"
 ]
 #
