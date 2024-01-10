@@ -191,8 +191,6 @@ class GeneFamily(MetaFeatures):
 
     @partition.setter
     def partition(self, partition: str):
-        if partition == "":
-            raise ValueError("Partition name should not be empty")
         self._partition = partition
 
     @property
