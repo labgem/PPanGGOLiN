@@ -30,9 +30,9 @@ Those RGPs can be further divided in conserved modules by panModule ([Bazin et a
 <!-- ![PPanGGOLiN logo](docs/_static/logo.png) -->
 
 <!-- center the image with html syntax -->
-<img src="docs/_static/logo.png" 
-        alt="logo" 
-        style="display: block; margin: 0 auto" />
+<p align="center">
+  <img src="docs/_static/logo.png" alt="logo">
+</p>
 
 
 # Installation
