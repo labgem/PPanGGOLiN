@@ -101,9 +101,9 @@ write and draw different representations of the pangenome, or perform additional
 
 PPanGGOLiN offers additional workflow commands that perform more specialized functions:
 
-- **`workflow`**: Generates a partitioned pangenome graph. For detailed information, refer to its [documentation](https://ppanggolin.readthedocs.io/en/latest/user/PangenomeAnalyses/pangenomeAnalyses.html#workflow).
-- **`panrgp`**: Similar to the `workflow` command, this predicts RGPs (Regions of Genomic Plasticity) and insertion spots on top of the partitioned pangenome graph. Refer to its [documentation](https://ppanggolin.readthedocs.io/en/latest/user/Modules/moduleAnalyses.html#the-panmodule-workflow) for more insights.
-- **`panmodule`**: Similar to the `workflow` command, this predicts Modules on top of the partitioned pangenome graph. Refer to its [documentation](https://ppanggolin.readthedocs.io/en/latest/user/RGP/rgpAnalyses.html#panrgp) for detailed information.
+- [**`workflow`**](https://ppanggolin.readthedocs.io/en/latest/user/PangenomeAnalyses/pangenomeAnalyses.html#workflow): Generates a partitioned pangenome graph.
+- [**`panrgp`**](https://ppanggolin.readthedocs.io/en/latest/user/Modules/moduleAnalyses.html#the-panmodule-workflow): Similar to the `workflow` command, this predicts RGPs (Regions of Genomic Plasticity) and insertion spots on top of the partitioned pangenome graph.
+- [**`panmodule`**](https://ppanggolin.readthedocs.io/en/latest/user/RGP/rgpAnalyses.html#panrgp): Similar to the `workflow` command, this predicts Modules on top of the partitioned pangenome graph.
 
 These workflow commands utilize the same type of file input as the `all` command.
 
