@@ -37,99 +37,79 @@ Those RGPs can be further divided in conserved modules by panModule ([Bazin et a
 
 # Installation
 
-**PPanGGOLiN** is easily installed via conda. 
-You will need the following conda channels if you don't have them already:
+**PPanGGOLiN** can be is easily installed via conda, accessible through the bioconda channel.
+
+To ensure a smoother installation and avoid conflicting dependencies, it's highly recommended to create a dedicated environment for PPanGGOLiN:
 
 ```bash
-conda config --add channels defaults
-conda config --add channels bioconda
-conda config --add channels conda-forge
-```
+# Install PPanGGOLiN into a new conda environment
+conda create -n ppanggo -c conda-forge -c bioconda ppanggolin
 
-Then, you can just run :
-
-```bash
-conda install -c bioconda ppanggolin
+# Check PPanGGOLiN install
+conda activate ppanggo
+ppanggolin --version
 ```
 
 # Quick usage
 
-**PPanGGOLiN** integrates some workflows to build and analyse easily and rapidly a pangenome. 
-These commands can be tuned with some parameters but are mostly automatic.
-All workflow parameters are described [here](https://ppanggolin.readthedocs.io/en/updateenv/user/Basic-usage-and-practical-information.html#the-workflow-subcommand).
+## Run a complete pangenome analysis
 
-## Pangenome graph construction and partition
+A complete pangenomic analysis with PPanGGOLiN can be performed using the `all` subcommand of the `complete workflow'. It runs a series of PPanGGOLiN commands to generate a **partitioned pangenome graph** with predicted **RGPs** (Regions of Genomic Plasticity), **spots** of insertion and **modules**.
 
-To build and partition a pangenome, you can use the following command:
+
+Execute the following command to run the `all` workflow:
+
 ```bash
-ppanggolin workflow --fasta ORGANISMS_FASTA_LIST
+ppanggolin all --fasta GENOMES_FASTA_LIST
 ```
 
-It uses parameters that we found to be generally the best when working with species pangenomes.
+By default, it uses parameters that we have found to be generally the best for working with species pangenomes. For further customization, you can adjust some parameters directly on the command line. Alternatively, you can use a configuration file to fine-tune the parameters of each subcommand used by the workflow (see [here](https://ppanggolin.readthedocs.io/en/latest/user/practicalInformation.html#configuration-file) for more details).
 
-The file ORGANISMS_FASTA_LIST is a tsv-separated file with the following organization :
-1. The first column contains a unique organism name **(without space)**
+### Input files
+
+The file `GENOMES_FASTA_LIST` is a tsv-separated file with the following organization :
+
+1. The first column contains a unique genome name **(without space)**
 2. The second column the path to the associated FASTA file
 3. Circular contig identifiers are indicated in the following columns
-4. Each line represents an organism
+4. Each line represents a genome
 
-An [example](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.fasta.list) with 50 *Chlamydia trachomatis* genomes can be found in the testingDataset/ directory.
+An [example](testingDataset/genomes.fasta.list) with 50 *Chlamydia trachomatis* genomes can be found in the [testingDataset/](testingDataset/) directory.
 
 
 You can also give **PPanGGOLiN** your own annotations using *.gff* or *.gbff/.gbk* files instead of *.fasta* files,
-such as the ones provided by prokka using the following command :
+such as the ones provided by [Bakta](https://github.com/oschwengers/bakta) with the following command :
 
 ```bash
-ppanggolin workflow --anno ORGANISMS_ANNOTATION_LIST
+ppanggolin all --anno GENOMES_ANNOTATION_LIST
 ```
 
-Another [example](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.gbff.list) of such a file can be found in the testingDataset/ directory.
-
-Both of those commands write several output files and graphics (more information [here](https://ppanggolin.readthedocs.io/en/updateenv/user/Outputs.html#ppanggolin-outputs)). Most notably, an HDF-5 (pangenome.h5) file is written.
-It can be used as input for any of the subcommands to rerun parts of the analysis with different parameters,
-write and draw different representations of the pangenome or run additional analysis with **PPanGGOLiN**.
-
-A minimum of 5 genomes is generally required to perform a pangenomics analysis using the traditional *core genome*/*accessory genome* paradigm.
-It is advised to use at least 15 genomes having genomic variations (and not only SNPs) to obtain robust results with the **PPanGGOLiN** statistical approach.
-
-If you want to use personalized parameters for each subcommand, most options should be self-descriptive.
-If you want to know more about what each output file is, or briefly how each subcommand works,
-you can check the [steb by step documentation](https://github.com/labgem/PPanGGOLiN/wiki)
+Another [example](testingDataset/genomes.gbff.list) of such a file can be found in the [testingDataset/](testingDataset/) directory.
 
 
-## Region of plasticity detection
+A minimum of 5 genomes is generally required to perform a pangenomic analysis using the traditional *core genome*/*accessory genome* paradigm.
+It is recommended to use at least 15 genomes with genomic variation (and not only SNPs) to obtain robust results with the **PPanGGOLiN** statistical approach.
 
-Furthermore, you can also predict genomic islands and cluster them into spots of insertion using the **panRGP** pipeline.
-The usage is identical to the previous 'workflow' command:
+### Results files
 
-```bash
-ppanggolin panrgp --fasta ORGANISMS_FASTA_LIST
-```
-
-It will run more analyses after the pangenome has been partitioned. Further details are available [here](https://ppanggolin.readthedocs.io/en/updateenv/user/Basic-usage-and-practical-information.html#the-panrgp-subcommand) and in the [panRPG publication](https://doi.org/10.1093/bioinformatics/btaa792)
-
-## Conserved module prediction
-To detect the conserved modules in your pangenome, you can use the panModule workflow, as such:
-
-```bash
-ppanggolin panmodule --fasta ORGANISMS_FASTA_LIST
-```
-
-Further details can be found [here](https://ppanggolin.readthedocs.io/en/updateenv/user/Basic-usage-and-practical-information.html#the-panmodule-subcommand) and in the [panModule publication](https://doi.org/10.1101/2021.12.06.471380)
+Upon executing the `all` command, multiple output files and graphics are generated  (more information [here](https://ppanggolin.readthedocs.io/en/latest/user/QuickUsage/quickAnalyses.html#usual-pangenome-outputs)). Most notably, it writes an HDF-5 file (`pangenome.h5`).
+This file can be used as input to any of the subcommands to rerun parts of the analysis with different parameters,
+write and draw different representations of the pangenome, or perform additional analyses with **PPanGGOLiN**.
 
 
-Alternatively, to run all the possible analysis that **PPanGGOLiN** can run, you can use:
+## Other Workflow Commands
 
-```bash
-ppanggolin all --fasta ORGANISMS_FASTA_LIST
-```
+PPanGGOLiN offers additional workflow commands that perform more specialized functions:
 
-Overall, ppanggolin has a lot of subcommands and possibilities.
-Don't hesitate to check the command line help, and the [GitHub wiki](https://github.com/labgem/PPanGGOLiN/wiki) to see all the possible analysis, if you are missing a file you're looking for, or do not understand an output.
-You can also raise an `issue` if you wish!
+- **`workflow`**: Generates a partitioned pangenome graph. For detailed information, refer to its [documentation](https://ppanggolin.readthedocs.io/en/latest/user/PangenomeAnalyses/pangenomeAnalyses.html#workflow).
+- **`panrgp`**: Similar to the `workflow` command, this predicts RGPs (Regions of Genomic Plasticity) and insertion spots on top of the partitioned pangenome graph. Refer to its [documentation](https://ppanggolin.readthedocs.io/en/latest/user/Modules/moduleAnalyses.html#the-panmodule-workflow) for more insights.
+- **`panmodule`**: Similar to the `workflow` command, this predicts Modules on top of the partitioned pangenome graph. Refer to its [documentation](https://ppanggolin.readthedocs.io/en/latest/user/RGP/rgpAnalyses.html#panrgp) for detailed information.
+
+These workflow commands utilize the same type of file input as the `all` command.
+
 
 # Issues, Questions, Remarks
-If you have any question or issue with installing,
+If you have any questions or issues with installing,
 using or understanding **PPanGGOLiN**, please do not hesitate to post an issue!
 We cannot correct bugs if we do not know about them, and will try to help you the best we can.
 
