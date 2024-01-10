@@ -70,7 +70,7 @@ class GeneFamily(MetaFeatures):
         self._genes_getter = {}
         self.removed = False  # for the repeated family not added in the main graph
         self.sequence = ""
-        self.partition = ""
+        self._partition = None
         self._spots = set()
         self._module = None
         self.bitarray = None
@@ -185,6 +185,15 @@ class GeneFamily(MetaFeatures):
         del self[identifier]
 
     #TODO define __eq__
+    @property
+    def partition(self):
+        return self._partition if self._partition is not None else ""
+
+    @partition.setter
+    def partition(self, partition: str):
+        if not partition.startswith(("P", "S", "C")):
+            raise ValueError("Partition name should start with P, S or C")
+        self._partition = partition
 
     @property
     def named_partition(self) -> str:
