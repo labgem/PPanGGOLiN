@@ -191,8 +191,8 @@ class GeneFamily(MetaFeatures):
 
     @partition.setter
     def partition(self, partition: str):
-        if not partition.startswith(("P", "S", "C")):
-            raise ValueError("Partition name should start with P, S or C")
+        if partition == "":
+            raise ValueError("Partition name should not be empty")
         self._partition = partition
 
     @property
@@ -204,7 +204,7 @@ class GeneFamily(MetaFeatures):
         :raises ValueError: If the gene family has no partition assigned
         """
         if self.partition == "":
-            raise ValueError("The gene family has not beed associated to a partition")
+            raise ValueError("The gene family has not beed associated to a partition.")
         if self.partition.startswith("P"):
             return "persistent"
         elif self.partition.startswith("C"):
