@@ -1,8 +1,8 @@
 ### Pangenome figures output
 
 #### U-shape plot
-A U-shaped plot is a figure presenting the number of families (y-axis) per number of genomes (x-axis). The grey dashed vertical line represents the threshold used to define the soft_core.
-It is a .html file that can be opened with any browser and with which you can interact, zoom, move around, mouseover to see numbers in more detail, and you can save what you are seeing as a .png image file.
+A U-shaped plot is a figure showing the number of families (y-axis) per number of genomes (x-axis). The grey dashed vertical line represents the threshold used to define the soft_core.
+It is a .html file that can be opened with any browser and with which you can interact, zoom, move around, mouseover to see numbers in more detail, and you can save what you see as a .png image file.
 
 It can be generated using the `draw` subcommand as such : 
 
@@ -76,12 +76,12 @@ The command can be utilized as follows:
 
 - To generate an interactive .html figure and a corresponding gexf file for all spots:
 ```bash
-ppanggolin draw -p pangenome.h5 --spots all
+ppanggolin draw -p pangenome.h5 --draw_spots --spots all
 ```
 
 - If your focus is on a particular spot, you can utilize its identifier to draw it. For example, to draw spot_34:
 ```bash
-ppanggolin draw -p pangenome.h5 --spots spot_34
+ppanggolin draw -p pangenome.h5 --draw_spots --spots spot_34 
 ```
 
 
