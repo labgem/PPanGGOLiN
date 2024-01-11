@@ -21,7 +21,7 @@ A tile plot is similar to a heatmap representing the gene families (y-axis) in t
 
 This plot is quite helpful to observe potential structures in your pangenome, and can help you identify eventual outliers. You can interact with it, and mousing over a tile in the plot will indicate to you the gene identifier(s), the gene family and the genome corresponding to the tile.
 
-If you build your pangenome using the 'workflow' subcommand and you have more than 500 genomes, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise.
+If you build your pangenome using a workflow subcommands (`all`, `workflow`, `panrgp`, `panmodule`) and you have more than 500 genomes, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise.
 
 It can be generated using the 'draw' subcommand as such : 
 
@@ -69,15 +69,21 @@ Will draw a rarefaction curve with sample sizes between 5 and 50 (between 5 and 
 
 #### Spot plots
 
-For versions 1.2.30 and above, the 'draw' command can draw specific spots of interest, whose ID are provided, or all the spots if you wish.
-It will also write a gexf file, which corresponds to the gene families and their organization within the spots. It is basically a subgraph of the pangenome, consisting of the spot itself.
-The command can be used as such:
+The 'draw' command can draw specific spots of interest, whose ID are provided, or all the spots if you wish.
+It will also write a graph file in GEXF format, which corresponds to the gene families and their organization within the spots. It is basically a subgraph of the pangenome, consisting of the spot itself.
 
-`ppanggolin draw -p pangenome.h5 --spots all` will draw an interactive .html figure and a gexf file for all the spots.
+The command can be utilized as follows:
 
-If you are interested in only a single spot, you can use its identifier to draw it, as such:
+- To generate an interactive .html figure and a corresponding gexf file for all spots:
+```bash
+ppanggolin draw -p pangenome.h5 --spots all
+```
 
-`ppanggolin draw -p pangenome.h5 --spots spot_34` for spot_34, for example.
+- If your focus is on a particular spot, you can utilize its identifier to draw it. For example, to draw spot_34:
+```bash
+ppanggolin draw -p pangenome.h5 --spots spot_34
+```
+
 
 The interactive figures that are drawn look like this:
 
