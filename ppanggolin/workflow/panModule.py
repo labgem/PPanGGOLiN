@@ -26,7 +26,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :param sub_parser : sub_parser for all command
     :return : parser arguments for all command
     """
-    parser = sub_parser.add_parser("panmodule", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = sub_parser.add_parser("panmodule", formatter_class=argparse.RawTextHelpFormatter)
 
     add_workflow_args(parser)
 

@@ -29,10 +29,19 @@
    :show-inheritance:
 ```
 
-## ppanggolin.formats.writeFlat module
+## ppanggolin.formats.writeFlatGenomes module
 
 ```{eval-rst}
-.. automodule:: ppanggolin.formats.writeFlat
+.. automodule:: ppanggolin.formats.writeFlatGenomes
+   :members:
+   :undoc-members:
+   :show-inheritance:
+```
+
+## ppanggolin.formats.writeFlatPangenome module
+
+```{eval-rst}
+.. automodule:: ppanggolin.formats.writeFlatPangenome
    :members:
    :undoc-members:
    :show-inheritance:

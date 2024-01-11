@@ -1,3 +1,4 @@
+from importlib.metadata import distribution
 import ppanggolin.nem.rarefaction
 import ppanggolin.nem.partition
 import ppanggolin.graph
@@ -39,3 +40,27 @@ SUBCOMMAND_TO_SUBPARSER = {
     "rgp_cluster":ppanggolin.RGP.rgp_cluster.subparser,
     "metadata": ppanggolin.meta.subparser
 }
+
+
+version = distribution("ppanggolin").version
+
+epilog = f"""
+PPanGGOLiN ({version}) is an opensource bioinformatic tools, developed by the LABEGeM team, under CeCILL FREE SOFTWARE LICENSE AGREEMENT
+"""
+
+pan_epilog = """
+For pangenome analyses, please cite: 
+Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. 
+PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
+"""
+rgp_epilog = """
+For genomic islands and spots of insertion detection, please cite:
+Bazin et al., panRGP: a pangenome-based method to predict genomic islands and explore their diversity,
+Bioinformatics, Volume 36, Issue Supplement_2, December 2020, Pages i651–i658, https://doi.org/10.1093/bioinformatics/btaa792
+"""
+
+mod_epilog = """
+For module prediction, please cite:
+Bazin et al., panModule: detecting conserved modules in the variable regions of a pangenome graph. 
+biorxiv. https://doi.org/10.1101/2021.12.06.471380
+"""

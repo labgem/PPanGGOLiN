@@ -628,8 +628,11 @@ class Module(MetaFeatures):
             raise TypeError(f"Module identifier must be an integer. Given type is {type(module_id)}")
         super().__init__()
         self.ID = module_id
-        self._families_getter = {family.name: family for family in families} if families is not None else {}
+        self._families_getter = {}
         self.bitarray = None
+        if families is not None:
+            for family in families:
+                self.add(family)
 
     def __repr__(self) -> str:
         """Module representation

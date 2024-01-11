@@ -238,6 +238,8 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
               'cloud': 'a="0" b="255" g="222" r="121"'}
     if not light:
         index = pan.get_org_index()
+    
+    pan_metadata_sources = pan.metadata_sources("families")
 
     for fam in pan.gene_families:
         name = Counter()
@@ -276,7 +278,7 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
             gexf.write(f'          <attvalue for="13" value="{str_module}"/>\n')
         shift = 14
         source_fields = {m.source: m.fields for f in pan.gene_families if len(list(f.metadata)) > 0 for m in f.metadata}
-        for source_metadata_families in pan.metadata_sources("families"):
+        for source_metadata_families in  pan_metadata_sources:
             to_concat = defaultdict(list)
             for m in fam.metadata:
                 if m.source == source_metadata_families:
@@ -307,7 +309,7 @@ def write_gexf_edges(gexf: TextIO, light: bool = True):
     edgeids = 0
     index = pan.get_org_index()
     shift = 14
-
+    metadata_count = len(pan.metadata_sources("families"))
     for edge in pan.edges:
         gexf.write(f'      <edge id="{edgeids}" source="'
                    f'{edge.source.ID}" target="{edge.target.ID}" weight="{edge.number_of_organisms}">\n')
@@ -316,8 +318,7 @@ def write_gexf_edges(gexf: TextIO, light: bool = True):
         gexf.write(f'          <attvalue for="11" value="{len(edge.gene_pairs)}" />\n')
         if not light:
             for org, genes_pairs in edge.get_organisms_dict().items():
-                gexf.write(
-                    f'          <attvalue for="{index[org] + len(index) + len(pan.metadata_sources("families")) + shift}" value="{len(genes_pairs)}" />\n')
+                gexf.write(f'          <attvalue for="{index[org] + len(index) + metadata_count + shift}" value="{len(genes_pairs)}" />\n')
         gexf.write('        </attvalues>\n')
         gexf.write('      </edge>\n')
         edgeids += 1
@@ -344,7 +345,7 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
     txt += "light gexf file for the pangenome graph..." if light else "gexf file for the pangenome graph..."
 
     logging.getLogger("PPanGGOLiN").info(txt)
-    outname = output / f"pangenomeGraph{'_light' if light else ''}.gexf{'.gz' if compress else ''}"
+    outname = output / f"pangenomeGraph{'_light' if light else ''}.gexf"
     with write_compressed_or_not(outname, compress) as gexf:
         graph_type = 'ligth gexf' if light else 'gexf'
         logging.getLogger("PPanGGOLiN").debug(f"Writing the {graph_type} header...")
@@ -1179,7 +1180,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     :return : parser arguments for align command
     """
-    parser = sub_parser.add_parser("write_pangenome", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = sub_parser.add_parser("write_pangenome", formatter_class=argparse.RawTextHelpFormatter)
     parser_flat(parser)
     return parser
 

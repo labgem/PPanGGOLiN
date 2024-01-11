@@ -7,6 +7,8 @@ import re
 from typing import List, Union, Dict, Set, Generator
 from pathlib import Path
 
+import tables
+
 # local libraries
 from ppanggolin.genome import Organism, Contig, Gene
 from ppanggolin.region import Region, Spot, Module
@@ -66,19 +68,26 @@ class Pangenome:
         }
         self.parameters = {}
 
-    def add_file(self, pangenome_file: Path):
-        """Links an HDF5 file to the pangenome. If needed elements will be loaded from this file,
+    def add_file(self, pangenome_file: Path, check_version:bool=True):
+        """
+        Links an HDF5 file to the pangenome. If needed elements will be loaded from this file,
         and anything that is computed will be saved to this file when
         :func:`ppanggolin.formats.writeBinaries.writePangenome` is called.
 
         :param pangenome_file: A string representing filepath to hdf5 pangenome file to be either used or created
-
+        :param check_version: Check ppanggolin version of the pangenome file to be compatible with the current version of ppaggolin being used.
         :raises AssertionError: If the `pangenome_file` is not an instance of the Path class
         """
         assert isinstance(pangenome_file, Path), "pangenome file should be a Path object type"
         from ppanggolin.formats.readBinaries import get_status
+        from ppanggolin.utils import check_version_compatibility
         # importing on call instead of importing on top to avoid cross-reference problems.
+        if not tables.is_hdf5_file(pangenome_file):
+            raise TypeError("Pangenome file should be an HDF5 file type")
         get_status(self, pangenome_file)
+
+        check_version_compatibility(self.status["ppanggolin_version"])
+
         self.file = pangenome_file.absolute().as_posix()
 
     """ Gene Methods"""

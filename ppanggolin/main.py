@@ -8,7 +8,6 @@ if sys.version_info < (3, 8):  # minimum is python3.8
     raise AssertionError("Minimum python version to run PPanGGOLiN is 3.8. Your current python version is " +
                          ".".join(map(str, sys.version_info)))
 import argparse
-from importlib.metadata import distribution
 
 # local modules
 import ppanggolin.pangenome
@@ -30,15 +29,7 @@ import ppanggolin.workflow
 import ppanggolin.meta
 import ppanggolin.utility
 
-from ppanggolin import SUBCOMMAND_TO_SUBPARSER
-
-version = distribution("ppanggolin").version
-epilog = f"""
-PPanGGOLiN ({version}) is an opensource bioinformatic tools under CeCILL FREE SOFTWARE LICENSE AGREEMENT
-LABGeM
-Please cite: Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. 
-PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
-"""
+from ppanggolin import SUBCOMMAND_TO_SUBPARSER, epilog, pan_epilog, rgp_epilog, mod_epilog, version
 
 def cmd_line() -> argparse.Namespace:
     """ Manage the command line argument given by user
@@ -88,12 +79,12 @@ def cmd_line() -> argparse.Namespace:
     desc += "    projection   Annotates external genomes with an existing pangenome.\n"
     desc += "  \n"
     desc += "  Utility command:\n"
-    desc += "    utils      Helper side commands.\n"
+    desc += "    utils      Helper side commands."
 
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter,
-        epilog=epilog)
+        epilog=epilog + pan_epilog + rgp_epilog + mod_epilog)
 
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s ' + version)
@@ -108,10 +99,18 @@ def cmd_line() -> argparse.Namespace:
 
     # manage command parser to use command arguments
     subs = []
-    for sub_fct in SUBCOMMAND_TO_SUBPARSER.values():
+    for sub_cmd, sub_fct in SUBCOMMAND_TO_SUBPARSER.items():
         sub = sub_fct(subparsers)
         # add options common to all subcommands
         add_common_arguments(sub)
+        sub.epilog = epilog
+        if sub_cmd not in ["rgp", "spot", "module", "rgp_cluster"]:
+            sub.epilog += pan_epilog
+        if sub_cmd not in ["annotate", "cluster", "graph", "partition", "rarefaction", "workflow"]:
+            if sub_cmd not in ["module", "panmodule"]:
+                sub.epilog += rgp_epilog
+            if sub_cmd not in ["rgp", "spot", "rgp_cluster", "panrgp"]:
+                sub.epilog += mod_epilog
         subs.append(sub)
 
     # manage command without common arguments
@@ -134,8 +133,9 @@ def cmd_line() -> argparse.Namespace:
         set_verbosity_level(args)
 
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        parser.error("Please provide either a sequence file using the --fasta option or an annotation file using the --anno option "
-                    "to enable annotation. Use the command line or the config file.")
+        parser.error("Please provide either a sequence file using the --fasta option or "
+                     "an annotation file using the --anno option to enable annotation. "
+                     "Use the command line or the config file.")
 
     cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
                                "context", "write_pangenome", "write_genomes", "msa", "draw", "partition",
@@ -144,11 +144,11 @@ def cmd_line() -> argparse.Namespace:
         parser.error("Please specify a pangenome file using the --pangenome argument, "
                      "either through the command line or the config file.")
 
-
     if args.subcommand == "align" and args.sequences is None:
-        parser.error("Please provide sequences (nucleotides or amino acids) for alignment with the pangenome gene families "
-                    "using the --sequences argument, either through the command line or the config file.")
-    
+        parser.error("Please provide sequences (nucleotides or amino acids) for alignment "
+                     "with the pangenome gene families using the --sequences argument, "
+                     "either through the command line or the config file.")
+
     if args.subcommand == "projection":
         # check argument correctness and determine input mode (single or multiple files) and add it to args.
         input_mode = ppanggolin.projection.projection.check_projection_arguments(args, parser)
@@ -158,7 +158,7 @@ def cmd_line() -> argparse.Namespace:
         # check argument correctness and determine input mode (single or multiple files) and add it to args.
         input_mode = ppanggolin.meta.meta.check_metadata_arguments(args, parser)
         setattr(args, "input_mode", input_mode)
-        
+
     return args
 
 

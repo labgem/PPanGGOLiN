@@ -27,7 +27,7 @@ def check_spot_args(args: argparse.Namespace):
     """
     default_arg_spots = 'all'
     if not args.draw_spots and args.spots != default_arg_spots:
-        raise argparse.ArgumentError(None, "The --spots argument cannot be used when --draw-spots is not specified.")
+        raise argparse.ArgumentError(None, "The --spots argument cannot be used when --draw_spots is not specified.")
 
 
 def launch(args: argparse.Namespace):
@@ -60,7 +60,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :return : parser arguments for align command
     """
 
-    parser = sub_parser.add_parser("draw", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = sub_parser.add_parser("draw", formatter_class=argparse.RawTextHelpFormatter)
     parser_draw(parser)
     return parser
 

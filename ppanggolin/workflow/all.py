@@ -12,7 +12,8 @@ import tempfile
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_file_name, mk_outdir, check_option_workflow, restricted_float
-from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas, check_annotate_args
+from ppanggolin.annotate.annotate import annotate_pangenome, read_annotations, get_gene_sequences_from_fastas, \
+    check_annotate_args
 from ppanggolin.cluster.cluster import clustering, read_clustering
 from ppanggolin.graph.makeGraph import compute_neighbors_graph
 from ppanggolin.nem.rarefaction import make_rarefaction_curve
@@ -181,8 +182,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         if panrgp and args.draw.spots:
             start_spot_drawing = time.time()
-            mk_outdir(args.output/'spot_figures', force=True)
-            draw_spots(pangenome=pangenome, output=args.output/'spot_figures', spot_list='all',
+            mk_outdir(args.output / 'spot_figures', force=True)
+            draw_spots(pangenome=pangenome, output=args.output / 'spot_figures', spot_list='all',
                        disable_bar=args.disable_prog_bar)
             spot_time += time.time() - start_spot_drawing
 
@@ -209,7 +210,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
             write_pangenome_arguments.append('modules')
 
         if panrgp:
-            borders, spots, regions = (args.write_pangenome.borders, args.write_pangenome.spots, args.write_pangenome.regions)
+            borders, spots, regions = (
+            args.write_pangenome.borders, args.write_pangenome.spots, args.write_pangenome.regions)
             write_pangenome_arguments += ["borders", "spots", "regions"]
 
         if panmodule and panrgp:
@@ -219,18 +221,23 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
         # check that at least one output file is requested. if not write is not call.
         if any((getattr(args.write_pangenome, arg) is True for arg in write_pangenome_arguments)):
             # some parameters are set to false because they have not been computed in this workflow
-            write_pangenome_flat_files(pangenome, args.output, cpu=args.write_pangenome.cpu, disable_bar=args.disable_prog_bar,
-                             soft_core=args.write_pangenome.soft_core, dup_margin=args.write_pangenome.dup_margin,
-                             csv=args.write_pangenome.csv, gene_pa=args.write_pangenome.Rtab, gexf=args.write_pangenome.gexf,
-                             light_gexf=args.write_pangenome.light_gexf,
-                             stats=args.write_pangenome.stats, json=args.write_pangenome.json, partitions=args.write_pangenome.partitions,
-                             families_tsv=args.write_pangenome.families_tsv, regions=regions,
-                             compress=args.write_pangenome.compress,
-                             spot_modules=spot_modules, modules=modules, spots=spots, borders=borders)
-            
+            write_pangenome_flat_files(pangenome, args.output, cpu=args.write_pangenome.cpu,
+                                       disable_bar=args.disable_prog_bar,
+                                       soft_core=args.write_pangenome.soft_core,
+                                       dup_margin=args.write_pangenome.dup_margin,
+                                       csv=args.write_pangenome.csv, gene_pa=args.write_pangenome.Rtab,
+                                       gexf=args.write_pangenome.gexf,
+                                       light_gexf=args.write_pangenome.light_gexf,
+                                       stats=args.write_pangenome.stats, json=args.write_pangenome.json,
+                                       partitions=args.write_pangenome.partitions,
+                                       families_tsv=args.write_pangenome.families_tsv, regions=regions,
+                                       compress=args.write_pangenome.compress,
+                                       spot_modules=spot_modules, modules=modules, spots=spots, borders=borders)
+
         else:
-            logging.getLogger("PPanGGOLiN").info('No flat file describing the pangenome has been requested in config file. '
-                                                 'Writing output pangenome flat file is skipped.')
+            logging.getLogger("PPanGGOLiN").info(
+                'No flat file describing the pangenome has been requested in config file. '
+                'Writing output pangenome flat file is skipped.')
 
         write_genomes_arguments = ['proksee', "table", "gff"]
         if any((getattr(args.write_genomes, arg) is True for arg in write_genomes_arguments)):
@@ -242,8 +249,9 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                                     compress=args.write_genomes.compress,
                                     disable_bar=args.disable_prog_bar, cpu=args.write_genomes.cpu)
         else:
-            logging.getLogger("PPanGGOLiN").info('No flat file of genomes with pangenome annotation has been requested in config file. '
-                                                 'Writing output genomes flat file is skipped.')
+            logging.getLogger("PPanGGOLiN").info(
+                'No flat file of genomes with pangenome annotation has been requested in config file. '
+                'Writing output genomes flat file is skipped.')
 
         desc_time = time.time() - start_desc
 
@@ -262,7 +270,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
     logging.getLogger("PPanGGOLiN").info(f"Writing the pangenome data in HDF5 took : {round(writing_time, 2)} seconds")
 
     if not args.no_flat_files:
-        logging.getLogger("PPanGGOLiN").info(f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
+        logging.getLogger("PPanGGOLiN").info(
+            f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds")
 
     print_info(filename, content=True)
 
@@ -283,7 +292,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :param sub_parser : sub_parser for all command
     :return : parser arguments for all command
     """
-    parser = sub_parser.add_parser("all", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = sub_parser.add_parser("all", formatter_class=argparse.RawTextHelpFormatter)
 
     add_workflow_args(parser)
 

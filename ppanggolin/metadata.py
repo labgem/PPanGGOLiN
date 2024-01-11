@@ -56,16 +56,16 @@ class Metadata:
         """
         return len(self.__dict__) - 1
 
-    def __getattr__(self, item: str) -> Any:
+    def __getattr__(self, attr: str) -> Any:
         """Get the value corresponding to the given attibute
 
         :return: Value of the attribute
 
         :raises AttributeError: The attribute does not exist in the metadata
         """
-        if item not in self.__dict__:
-            raise AttributeError(f"{item} is not an attribute of metadata")
-        return self.__dict__[item]
+        if attr not in self.__dict__:
+            raise AttributeError(f"{attr} is not an attribute of metadata")
+        return self[attr]
 
     @property
     def fields(self) -> List[str]:
