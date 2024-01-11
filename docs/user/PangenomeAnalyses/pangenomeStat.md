@@ -6,7 +6,7 @@ The command `ppanggolin write_pangenome` allows to write 'flat' files that descr
 
 The `genome_statistics.tsv` file is a tab-separated file summarizing the content of each of the genomes used for building the pangenome. This file is useful when working with fragmented data, such as MAGs, or when investigating potential outliers within your dataset, such as chimeric or taxonomically disparate genomes.
 
-The first lines starting with a `#` are indicators of parameters used when generating the numbers describing each genomes, and should not be read if loading this into a spreadsheet. They will be skipped automatically if you load this file with R.
+The first lines starting with a `#` are indicators of parameters used when generating the numbers describing each genome, and should not be read if loading this into a spreadsheet. They will be skipped automatically if you load this file with R.
 
 This file comprises 32 columns described in the following table:
 
@@ -39,7 +39,7 @@ This file comprises 32 columns described in the following table:
 | Cloud_families_with_fragments | Number of cloud families containing fragmented genes                                        |
 | Cloud_families_in_multicopy | Number of cloud families present in multiple copies                                           |
 | Completeness                | Proportion of persistent families present in the genome; expected to be close to 100 for isolates |
-| Contamination               | Proportion of single copy persistent families found in multiple copy in the genome.  |
+| Contamination               | Proportion of single-copy persistent families found in multiple copies in the genome.  |
 | Fragmentation               | Proportion of families with fragmented genes in the genome |
 | RGPs                        | Number of Regions of Genomic Plasticity identified                                            |
 | Spots                       | Number of spot IDs in which the RGPs are inserted                                             |
@@ -52,17 +52,13 @@ This file comprises 32 columns described in the following table:
 If you have predicted RGPs, spots or modules in your pangenome, corresponding columns will be added.
 ```
 
-
 This table can be generated using the `write_pangenome` subcommand with the flag `--stats` as such : 
 
 ```bash
 ppanggolin write_pangenome -p pangenome.h5 --stats
 ```
 
-
 The flag `--stats` will also generate the `mean_persistent_duplication.tsv` file desdcribe [here](#mean-persistent-duplication).
-
-
 
 ##### Genome Metrics Overview
 
@@ -70,16 +66,12 @@ The flag `--stats` will also generate the `mean_persistent_duplication.tsv` file
 The completeness value is expected to be relatively close to 100 when working with isolates, it may be particularly interesting when working with very fragmented genomes as this provides a *de novo* estimation of the completeness based on the expectation that persistent genes should be mostly present in all individuals of the studied taxonomic group
 
 **- Contamination**
-The Contamination value represents the proportion of single-copy persistent families found in multiple copies within the genome. These single-copy persistent families are computed using the `duplication_margin` parameter specified at the beginning of the file. They encompass all persistent gene families present in single copy in less than 5% of the genomes by default. 
+The Contamination value represents the proportion of single-copy persistent families found in multiple copies within the genome. These single-copy persistent families are computed using the `duplication_margin` parameter specified at the beginning of the file. They encompass all persistent gene families present in a single copy in less than 5% of the genomes by default. 
 
-In this computation, fragmented genes are excluded. Therefore, if a family exists in multicopy due to fragmented genes, it will still be counted as single copy. Contamination assessment is particularly useful for identifying potential chimeric genomes, especially in lower-quality genomes.
+In this computation, fragmented genes are excluded. Therefore, if a family exists in multiple copies due to fragmented genes, it will still be counted as a single copy. Contamination assessment is particularly useful for identifying potential chimeric genomes, especially in lower-quality genomes.
 
 **- Fragmentation**
 The fragmentation value denotes the proportion of families containing fragmented genes within the genome. A high fragmentation value may indicate a highly fragmented genome.
-
-
-
-
 
 
 #### Mean Persistent Duplication
