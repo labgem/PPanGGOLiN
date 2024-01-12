@@ -912,7 +912,6 @@ def check_pangenome_info(pangenome, need_annotations: bool = False, need_familie
     need_info = get_need_info(pangenome, need_annotations, need_families, need_graph, need_partitions,
                               need_rgp, need_spots, need_gene_sequences, need_modules, need_metadata,
                               metatypes, sources)
-    print([v for k, v in need_info.items() if k not in ["metatypes", "sources"]])
     if any([v for k, v in need_info.items() if k not in ["metatypes", "sources"]]):
         # if no flag is true, then nothing is needed.
         read_pangenome(pangenome, disable_bar=disable_bar, **need_info)
