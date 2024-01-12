@@ -71,9 +71,7 @@ cd PPanGGOLiN
 
 To ensure the tool functions correctly, you need to install all dependencies listed in the [ppanggolin_env.yaml](../../ppanggolin_env.yaml) file.
 
-**2.1. Installing Required Software**
-
-Install the following non-Python software:
+Next, install the following non-Python software:
 
 - [MMSeqs2>=13.45111](https://github.com/soedinglab/MMseqs2/wiki#installation)
 - [Aragorn>=1.2.41](http://www.ansikte.se/ARAGORN/Downloads/)
