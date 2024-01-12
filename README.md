@@ -70,7 +70,7 @@ By default, it uses parameters that we have found to be generally the best for w
 The file `GENOMES_FASTA_LIST` is a tsv-separated file with the following organization :
 
 1. The first column contains a unique genome name **(without space)**
-2. The second column the path to the associated FASTA file
+2. The second column contains the path to the associated FASTA file
 3. Circular contig identifiers are indicated in the following columns
 4. Each line represents a genome
 
