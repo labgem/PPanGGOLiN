@@ -358,7 +358,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                     
                     name = attributes.pop('NAME', attributes.pop('GENE', ""))
                     
-                    if "pseudo" in attributes or "pseudogene" in attributes:
+                    if "PSEUDO" in attributes or "PSEUDOGENE" in attributes:
                         pseudogene = True
                     
                     product = attributes.pop('PRODUCT', "")
@@ -376,7 +376,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                             org.add(contig)
                             if attr_prodigal is not None:
                                 contig.length = int(attr_prodigal["seqlen"])
-
                     if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                         gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
