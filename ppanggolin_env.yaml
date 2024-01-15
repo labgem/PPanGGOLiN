@@ -1,0 +1,23 @@
+name: ppanggolin
+channels:
+  - bioconda
+  - defaults
+  - conda-forge
+dependencies:
+  - tqdm=4
+  - pytables=3
+  - pyrodigal=3
+  - networkx=3
+  - dataclasses=0.8
+  - scipy=1
+  - plotly=5
+  - gmpy2=2
+  - pandas=2.0
+  - colorlover=0.3
+  - numpy=1.24
+  - bokeh=3
+  # Tool that are not in python 
+  - infernal=1
+  - aragorn=1
+  - mmseqs2=15
+  - mafft=7
