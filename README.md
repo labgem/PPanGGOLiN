@@ -14,7 +14,7 @@ It is designed to scale up to tens of thousands of genomes.
 It has the specificity to partition the pangenome using a statistical approach rather than using fixed thresholds which gives it the ability to work with low-quality data such as *Metagenomic Assembled Genomes (MAGs)* or *Single-cell Amplified Genomes (SAGs)* thus taking advantage of large scale environmental studies and letting users study the pangenome of uncultivable species.
 
 **PPanGGOLiN** builds pangenomes through a graphical model and a statistical method to partition gene families in persistent, shell and cloud genomes.
-It integrates both information on protein-coding genes and their genomic neighborhood to build a graph of gene families where each node is a gene family, and each edge is a relation of genetic contiguity.
+It integrates both information on the presence/absence of protein-coding genes and their genomic neighborhood to build a graph of gene families where each node is a gene family, and each edge is a relation of genetic contiguity.
 The partitioning method promotes that two gene families that are consistent neighbors in the graph are more likely to belong to the same partition.
 It results in a Partitioned Pangenome Graph (PPG) made of persistent, shell and cloud nodes drawing genomes on rails like a subway map to help biologists navigate the great diversity of microbial life.
 
@@ -43,10 +43,10 @@ To ensure a smoother installation and avoid conflicting dependencies, it's highl
 
 ```bash
 # Install PPanGGOLiN into a new conda environment
-conda create -n ppanggo -c conda-forge -c bioconda ppanggolin
+conda create -n ppanggolin -c conda-forge -c bioconda ppanggolin
 
 # Check PPanGGOLiN install
-conda activate ppanggo
+conda activate ppanggolin
 ppanggolin --version
 ```
 
@@ -54,7 +54,7 @@ ppanggolin --version
 
 ## Run a complete pangenome analysis
 
-A complete pangenomic analysis with PPanGGOLiN can be performed using the `all` subcommand of the `complete workflow'. It runs a series of PPanGGOLiN commands to generate a **partitioned pangenome graph** with predicted **RGPs** (Regions of Genomic Plasticity), **spots** of insertion and **modules**.
+A complete pangenomic analysis with PPanGGOLiN can be performed using the `all` subcommand. This workflow runs a series of PPanGGOLiN commands to generate a **partitioned pangenome graph** with predicted **RGPs** (Regions of Genomic Plasticity), **spots** of insertion and **modules**.
 
 
 Execute the following command to run the `all` workflow:
@@ -102,10 +102,10 @@ write and draw different representations of the pangenome, or perform additional
 PPanGGOLiN offers additional workflow commands that perform more specialized functions:
 
 - [**`workflow`**](https://ppanggolin.readthedocs.io/en/latest/user/PangenomeAnalyses/pangenomeAnalyses.html#workflow): Generates a partitioned pangenome graph.
-- [**`panrgp`**](https://ppanggolin.readthedocs.io/en/latest/user/Modules/moduleAnalyses.html#the-panmodule-workflow): Similar to the `workflow` command, this predicts RGPs (Regions of Genomic Plasticity) and insertion spots on top of the partitioned pangenome graph.
-- [**`panmodule`**](https://ppanggolin.readthedocs.io/en/latest/user/RGP/rgpAnalyses.html#panrgp): Similar to the `workflow` command, this predicts Modules on top of the partitioned pangenome graph.
+- [**`panrgp`**](https://ppanggolin.readthedocs.io/en/latest/user/RGP/rgpAnalyses.html#panrgp): Combine the `workflow` command and the prediction of RGPs (Regions of Genomic Plasticity) and insertion spots on top of the partitioned pangenome graph.
+- [**`panmodule`**](https://ppanggolin.readthedocs.io/en/latest/user/Modules/moduleAnalyses.html#the-panmodule-workflow): Combine the `workflow` command and the prediction of Modules on top of the partitioned pangenome graph.
 
-These workflow commands utilize the same type of file input as the `all` command.
+These commands utilize the same type of file input as the `all` command.
 
 
 # Issues, Questions, Remarks
