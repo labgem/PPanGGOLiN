@@ -71,37 +71,7 @@ cd PPanGGOLiN
 
 To ensure the tool functions correctly, you need to install all dependencies listed in the [ppanggolin_env.yaml](../../ppanggolin_env.yaml) file.
 
-**2.1. Installing Python Dependencies**
-
-Create a file named `requirements.txt` and add the following contents:
-
-```text
-tqdm>=4.64
-tables>=3.7
-pyrodigal>=3.0.1
-networkx>=3.0
-scipy>=1.10.0
-plotly>=4.14.3
-gmpy2>=2.1.2
-pandas>=2.0
-colorlover>=0.3
-numpy>=1.24
-bokeh>=2.4.2,<3
-```
-
-Then, use **pip** to install these dependencies:
-
-```bash
-python3 -m pip install -r requirements.txt
-```
-
-```{warning}
-Ensure you are using Python version 3.8 or higher.
-```
-
-**2.2. Installing Required Software**
-
-Install the following non-Python software:
+Next, install the following non-Python software:
 
 - [MMSeqs2>=13.45111](https://github.com/soedinglab/MMseqs2/wiki#installation)
 - [Aragorn>=1.2.41](http://www.ansikte.se/ARAGORN/Downloads/)
@@ -114,13 +84,16 @@ Install the following non-Python software:
 - Skip installing Aragorn, Infernal, or MAFFT if you do not require their specific features.
 ```
 
-**3. Installing PPanGGOLiN**
+**3. Installing PPanGGOLiN with its Python Dependencies**
 
-Finally, install PPanGGOLiN using **pip**:
+PPanGGOLiN's Python dependencies are specified in the `pyproject.toml` file under the optional dependencies category named `python_deps`. This configuration file is situated at the root of the PPanGGOLiN repository.
+
+To install PPanGGOLiN along with its Python dependencies, you can use the following pip command:
 
 ```bash
-pip install .
+pip install .[python_deps]
 ```
+
 
 ## Development Version
 

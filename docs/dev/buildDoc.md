@@ -6,13 +6,7 @@ This section provides guidelines for building the PPanGGOLiN documentation local
 
 Before proceeding, ensure that you have installed PPanGGOLiN from the source code. For detailed instructions, refer to [this section](../user/install.md#installing-from-source-code-github).
 
-The necessary packages to build the documentation are listed in the 'requirements.txt' file located in the `doc/` folder.
-
-```bash
-pip install -r docs/requirements.txt
-```
-
-Alternatively, the same list of requirements is available in the [pyproject.toml file](../../pyproject.toml), which allows for automatic installation using `pip`.
+The necessary packages to build the documentation are listed in the [pyproject.toml file](../../pyproject.toml), which allows for automatic installation using `pip`.
 
 ```shell
 # Replace '/path/to/ppanggolin/' with your actual path
