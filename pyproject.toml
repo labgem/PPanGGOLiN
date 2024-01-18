@@ -35,7 +35,7 @@ classifiers=[
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Bio-Informatics"]
 requires-python = ">=3.8"
-license = {file="LICENCE.txt"}
+license = {file="LICENSE.txt"}
 
 [project.optional-dependencies]
 doc = [
@@ -67,9 +67,8 @@ python_deps = [
 [project.urls]
 Homepage = "https://labgem.genoscope.cns.fr/2023/04/27/ppanggolin/"
 Repository = "https://github.com/labgem/PPanGGOLiN/"
+Documentation = "https://ppanggolin.readthedocs.io"
 #Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
-#Documentation = "https://readthedocs.org"
-#
 #
 [project.scripts]
 ppanggolin = "ppanggolin.main:main"

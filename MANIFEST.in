@@ -1,5 +1,6 @@
-include README.rst
+include README.md
 include VERSION
 include LICENSE.txt
-recursive-include images *.png *.gif
+recursive-exclude docs *
+recursive-exclude testingDataset *
 recursive-include ppanggolin *
