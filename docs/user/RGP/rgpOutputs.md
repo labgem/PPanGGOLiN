@@ -80,7 +80,7 @@ The flag `--borders` also creates a file call `border_protein_genes.fasta` that 
 
 In addition, the `--borders` option also generates a file named `border_protein_genes.fasta`, containing protein sequences corresponding to the gene families of the spot borders.
 
-## Draw spots
+### Draw spots
 
 The `draw` command with the option `--draw_spots` can draw specific spots of interest, whose ID are provided, or all the spots if you wish.
 It will also write a gexf file, which corresponds to the gene families and their organization within the spots. It is basically a subgraph of the pangenome, consisting of the spot itself.
