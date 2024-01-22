@@ -65,33 +65,3 @@ ppanggolin rarefaction -p pangenome.h5 --min 5 --max 50 --depth 30
 ```
 
 Will draw a rarefaction curve with sample sizes between 5 and 50 (between 5 and 50 genomes will be used), and with 30 samples at each point (so 30 samples of 5 genomes, 30 samples or 6 genomes ... up to 50 genomes).
-
-
-#### Spot plots
-
-The 'draw' command can draw specific spots of interest, whose ID are provided, or all the spots if you wish.
-It will also write a graph file in GEXF format, which corresponds to the gene families and their organization within the spots. It is basically a subgraph of the pangenome, consisting of the spot itself.
-
-The command can be utilized as follows:
-
-- To generate an interactive .html figure and a corresponding gexf file for all spots:
-```bash
-ppanggolin draw -p pangenome.h5 --draw_spots --spots all
-```
-
-- If your focus is on a particular spot, you can utilize its identifier to draw it. For example, to draw spot_34:
-```bash
-ppanggolin draw -p pangenome.h5 --draw_spots --spots spot_34 
-```
-
-
-The interactive figures that are drawn look like this:
-
-
-![spot plot figure](../../_static/drawspot_example.png)
-
-The plot represents the different gene organizations that are found in the spot. If there are RGPs with identical gene organization, the organization is represented only once (the represented RGP is picked at random among all identical RGPs). The list of RGPs with the same organization is accessible in the file written alongside the figure called 'spot_X_identical_rgps.tsv', with X the spot_id.
-
-They can be edited using the sliders and the radio buttons, to change various graphical parameters, and then the plot itself can be saved using the save button on the right of the screen, if need be.
-
-For the gexf file, you can see how to visualize it in the section about the [pangenome gexf](./pangenomeGraphOut.md#pangenome-graph-output).
