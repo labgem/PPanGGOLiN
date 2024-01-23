@@ -26,13 +26,12 @@ jobs:
       # Setting up miniconda
       - uses: conda-incubator/setup-miniconda@v2
         with:
-          condarc-file: .condarc.yml
           activate-environment: test
           python-version: ${{ matrix.python-version }}
       - name: Set up test environment
         shell: bash -l {0}
         run: |
-            conda install -y ppanggolin
+            conda install -c conda-forge -c bioconda -y ppanggolin
       - name: check installation
         shell: bash -l {0}
         run: |
