@@ -43,7 +43,7 @@ To ensure a smoother installation and avoid conflicting dependencies, it's highl
 
 ```bash
 # Install PPanGGOLiN into a new conda environment
-conda create -n ppanggolin -c conda-forge -c bioconda ppanggolin
+conda create -n ppanggolin -c defaults -c conda-forge -c bioconda ppanggolin
 
 # Check PPanGGOLiN install
 conda activate ppanggolin
