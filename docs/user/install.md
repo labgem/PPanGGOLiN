@@ -11,7 +11,7 @@ To ensure a smoother installation and avoid conflicting dependencies, it's highl
 
 ```bash
 # Install into a new conda environment
-conda create -n ppanggo -c conda-forge -c bioconda ppanggolin
+conda create -n ppanggo -c defaults -c conda-forge -c bioconda ppanggolin
 
 # Check PPanGGOLiN install
 conda activate ppanggo
