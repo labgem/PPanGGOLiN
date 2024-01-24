@@ -31,7 +31,7 @@ jobs:
       - name: Set up test environment
         shell: bash -l {0}
         run: |
-            conda install -c conda-forge -c bioconda -y ppanggolin
+            conda install -y ppanggolin
       - name: check installation
         shell: bash -l {0}
         run: |
