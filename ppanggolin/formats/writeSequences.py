@@ -38,8 +38,7 @@ def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_o
     logging.getLogger("PPanGGOLiN").info(f"Writing all CDS sequences in {file_obj.name}")
     for gene in tqdm(genes_to_write, unit="gene", disable=disable_bar):
         if gene.type == "CDS":
-            gene_id = gene.ID if gene.local_identifier == "" else gene.local_identifier
-            file_obj.write(f'>{add}{gene_id}\n')
+            file_obj.write(f'>{add}{gene.ID}\n')
             file_obj.write(f'{gene.dna}\n')
     file_obj.flush()
 
