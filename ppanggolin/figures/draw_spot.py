@@ -22,7 +22,9 @@ from tqdm import tqdm
 from bokeh.plotting import ColumnDataSource, figure, save
 from bokeh.io import output_file
 from bokeh.layouts import column, row
-from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer
+from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer, RadioButtonGroup
+from bokeh.io import show
+
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
@@ -320,32 +322,37 @@ def add_gene_tools(recs: GlyphRenderer, source_data: ColumnDataSource) -> Column
     """
 
     def color_str(color_element: str) -> str:
-        """ Javascript code to switch between partition, family and module color for the given 'color_element'
+        """ 
+        Javascript code to switch between partition, family and module color for the given 'color_element'
 
         :param color_element:
 
         :return: Javascript code
         """
         return f"""
-            if(this.active == 0){{
+            if(btn.active == 0){{
                 source.data['{color_element}'] = source.data['partition_color'];
-            }}else if(this.active == 1){{
+                console.log('partition_color')
+            }}else if(btn.active == 1){{
                 source.data['{color_element}'] = source.data['family_color'];
-            }}else if(this.active == 2){{
+                console.log('family_color')
+            }}else if(btn.active == 2){{
                 source.data['{color_element}'] = source.data['module_color'];
+                console.log('module_color')
             }}
             recs.{color_element} = source.data['{color_element}'];
             source.change.emit();
         """
 
-    radio_line_color = RadioGroup(labels=["partition", "family", "module"], active=0)
-    radio_fill_color = RadioGroup(labels=["partition", "family", "module"], active=1)
-    radio_line_color.js_on_change('streaming',
-                                  CustomJS(args=dict(recs=recs, source=source_data),
+    radio_line_color = RadioButtonGroup(labels=["partition", "family", "module"], active=0)
+    radio_fill_color = RadioButtonGroup(labels=["partition", "family", "module"], active=1)
+
+    radio_line_color.js_on_event("button_click",
+                                  CustomJS(args=dict(recs=recs, source=source_data, btn=radio_line_color),
                                            code=color_str("line_color")))
 
-    radio_fill_color.js_on_change('streaming',
-                                  CustomJS(args=dict(recs=recs, source=source_data),
+    radio_fill_color.js_on_event("button_click",
+                                  CustomJS(args=dict(recs=recs, source=source_data, btn=radio_fill_color),
                                            code=color_str("fill_color")))
 
     color_header = Div(text="<b>Genes:</b>")
@@ -358,6 +365,7 @@ def add_gene_tools(recs: GlyphRenderer, source_data: ColumnDataSource) -> Column
     gene_outline_size.js_on_change('value', CustomJS(args=dict(other=recs),
                                                      code="""
                 other.glyph.line_width = this.value;
+                console.log('SLIDER: active=' + this.value, this.toString())
                 """
                                                      ))
 
@@ -376,8 +384,8 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
     slider_font = Slider(start=0, end=64, value=16, step=1, title="Gene label font size in px")
     slider_angle = Slider(start=0, end=pi / 2, value=0, step=0.01, title="Gene label angle in radian")
 
-    radio_label_type = RadioGroup(labels=["name", "product", "family", "local identifier", "gene ID", "none"],
-                                  active=0)
+    radio_label_type = RadioButtonGroup(labels=["name", "product", "family", "local identifier", "gene ID", "none"],
+                                  active=1)
 
     slider_angle.js_link('value', labels, 'angle')
 
@@ -387,21 +395,21 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
                                       )
                              )
 
-    radio_label_type.js_on_change('streaming',
-                                  CustomJS(args=dict(other=labels, source=source_data),
+    radio_label_type.js_on_event("button_click",
+                                  CustomJS(args=dict(other=labels, source=source_data, btn=radio_label_type),
                                            code="""
-                if(this.active == 5){
+                if(btn.active == 5){
                     source.data['label'] = [];
                     for(var i=0;i<source.data['name'].length;i++){
                         source.data['label'].push('');
                     }
-                }else if(this.active == 3){
+                }else if(btn.active == 3){
                     source.data['label'] = source.data['gene_local_ID'];
-                }else if(this.active == 4){
+                }else if(btn.active == 4){
                     source.data['label'] = source.data['gene_ID'];
                 }
                 else{
-                    source.data['label'] = source.data[this.labels[this.active]];
+                    source.data['label'] = source.data[btn.labels[btn.active]];
                 }
                 other.source = source;
                 source.change.emit();
