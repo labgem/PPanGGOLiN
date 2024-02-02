@@ -356,10 +356,8 @@ def add_gene_tools(recs: GlyphRenderer, source_data: ColumnDataSource) -> Column
                                            code=color_str("fill_color")))
 
     color_header = Div(text="<b>Genes:</b>")
-    line_title = Div(text="""Color to use for gene outlines:""",
-                     width=200, height=100)
-    fill_title = Div(text="""Color to fill genes with:""",
-                     width=200, height=100)
+    line_title = Div(text="""Color to use for gene outlines:""")
+    fill_title = Div(text="""Color to fill genes with:""")
 
     gene_outline_size = Slider(start=0, end=10, value=5, step=0.1, title="Gene outline size:")
     gene_outline_size.js_on_change('value', CustomJS(args=dict(other=recs),
@@ -417,8 +415,7 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
                                            ))
 
     label_header = Div(text="<b>Gene labels:</b>")
-    radio_title = Div(text="""Gene labels to use:""",
-                      width=200, height=100)
+    radio_title = Div(text="""Gene labels to use:""",)
     labels_block = column(label_header, row(slider_font, slider_angle), column(radio_title, radio_label_type))
 
     fig.add_layout(labels)
