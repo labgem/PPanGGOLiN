@@ -103,7 +103,7 @@ def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int =
     )
 
     if not use_meta:
-        gene_finder.train(max(sequences.values(), key=len), force_nonsd=False,
+        gene_finder.train(*contig_sequences.values(), force_nonsd=False,
                         translation_table=code)  # -g: Specify a translation table to use (default 11).
     gene_counter = 1
     for contig_name, sequence in sequences.items():
