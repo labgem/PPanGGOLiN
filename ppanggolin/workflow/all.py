@@ -79,7 +79,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
             clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cluster.cpu, force=args.force,
                        disable_bar=args.disable_prog_bar,
                        defrag=not args.cluster.no_defrag, code=args.cluster.translation_table,
-                       coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode)
+                       coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode,
+                       keep_tmp_files=args.cluster.keep_tmp)
         clust_time = time.time() - start_clust
 
     elif args.fasta is not None:
@@ -101,7 +102,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
         clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cluster.cpu, force=args.force,
                    disable_bar=args.disable_prog_bar,
                    defrag=not args.cluster.no_defrag, code=args.cluster.translation_table,
-                   coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode)
+                   coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode,
+                   keep_tmp_files=args.cluster.keep_tmp)
         clust_time = time.time() - start_clust
 
     write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)

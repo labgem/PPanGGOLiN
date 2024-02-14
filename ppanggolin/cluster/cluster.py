@@ -303,7 +303,9 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     """
 
     if keep_tmp_files:
-        dir_name = 'clustering_tmpdir' + time.strftime("_%Y-%m-%d_%H.%M.%S", time.localtime())
+        date = time.strftime("_%Y-%m-%d_%H-%M-%S", time.localtime())
+
+        dir_name = f'clustering_tmpdir_{date}_PID{os.getpid()}'
         tmp_path = Path(tmpdir) / dir_name
         mk_outdir(tmp_path, force=True)
     else:
