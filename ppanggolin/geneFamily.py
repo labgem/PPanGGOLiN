@@ -386,12 +386,12 @@ class GeneFamily(MetaFeatures):
     def get_org_dict(self) -> Dict[Organism, Set[Gene]]:
         """Returns the organisms and the genes belonging to the gene family
 
-        :return: A dictionnary of organism as key and set of genes as values
+        :return: A dictionary of organism as key and set of genes as values
         """
         if len(self._genePerOrg) == 0:
             for gene in self.genes:
                 if gene.organism is None:
-                    raise AttributeError(f"Gene: {gene.name} is not fill with organism")
+                    raise AttributeError(f"Gene: {gene.name} is not fill with genome")
                 self._genePerOrg[gene.organism].add(gene)
         return self._genePerOrg
 

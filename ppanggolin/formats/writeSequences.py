@@ -55,7 +55,6 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
     """
-    assert genes in poss_values, f"Selected part to write genes not in {poss_values}"
 
     logging.getLogger("PPanGGOLiN").info("Writing all the gene nucleotide sequences...")
     outpath = output / f"{genes}_genes.fna"
@@ -94,15 +93,18 @@ def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_c
     if partition == 'all':
         logging.getLogger("PPanGGOLiN").info(f"Writing all of the {type_name}...")
         genefams = pangenome.gene_families
+    
     elif partition in ['persistent', 'shell', 'cloud']:
         logging.getLogger("PPanGGOLiN").info(f"Writing the {type_name} of the {partition}...")
         for fam in pangenome.gene_families:
             if fam.named_partition == partition:
                 genefams.add(fam)
+    
     elif partition == "rgp":
         logging.getLogger("PPanGGOLiN").info(f"Writing the {type_name} in RGPs...")
         for region in pangenome.regions:
-            genefams |= region.families
+            genefams |= set(region.families)
+
     elif partition == "softcore":
         logging.getLogger("PPanGGOLiN").info(
             f"Writing the {type_name} in {partition} genome, that are present in more than {soft_core} of genomes")
@@ -110,19 +112,21 @@ def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_c
         for fam in pangenome.gene_families:
             if fam.number_of_organisms >= threshold:
                 genefams.add(fam)
+
     elif partition == "core":
         logging.getLogger("PPanGGOLiN").info(f"Writing the representative {type_name} of the {partition} "
                                              "gene families...")
         for fam in pangenome.gene_families:
             if fam.number_of_organisms == pangenome.number_of_organisms:
                 genefams.add(fam)
+
     elif "module_" in partition:
         logging.getLogger("PPanGGOLiN").info(f"Writing the representation {type_name} of {partition} gene families...")
         mod_id = int(partition.replace("module_", ""))
         for mod in pangenome.modules:
             # could be way more efficient with a dict structure instead of a set
             if mod.ID == mod_id:
-                genefams |= mod.families
+                genefams |= set(mod.families)
                 break
     return genefams
 
@@ -139,7 +143,6 @@ def write_fasta_gene_fam(pangenome: Pangenome, output: Path, gene_families: str,
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
     """
-    assert gene_families in poss_values, f"Selected part to write gene families not in {poss_values}"
 
     outpath = output / f"{gene_families}_nucleotide_families.fasta"
 
@@ -165,8 +168,6 @@ def write_fasta_prot_fam(pangenome: Pangenome, output: Path, prot_families: str,
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
     """
-    assert prot_families in poss_values, (f"Selected part: {prot_families} "
-                                          f"to write protein families not in {poss_values}")
 
     outpath = output / f"{prot_families}_protein_families.faa"
 
@@ -371,6 +372,8 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
 
     if prot_families is not None:
         need_families = True
+        if prot_families in ["core", "softcore"]:
+            need_annotations = True
 
     if any(x is not None for x in [regions, genes, gene_families]):
         need_annotations = True
@@ -380,7 +383,7 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
         need_regions = True
     if any(x in ["persistent", "shell", "cloud"] for x in (genes, gene_families, prot_families)):
         need_partitions = True
-    for x in (genes, gene_families):
+    for x in (genes, gene_families, prot_families):
         if x is not None and 'module_' in x:
             need_modules = True
 
@@ -452,6 +455,21 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser_seq(parser)
     return parser
 
+def filter_values(arg_value: str):
+    """
+    Check filter value to ensure they are in the expected format.
+
+    :param arg_value: Argument value that is being tested.
+
+    :return: The same argument if it is valid.
+
+    :raises argparse.ArgumentTypeError: If the argument value is not in the expected format.
+    """
+    if arg_value in poss_values or module_regex.match(arg_value):
+        return arg_value
+    else:
+        raise argparse.ArgumentTypeError(f"Invalid choice '{arg_value}'. {poss_values_log}")
+
 
 def parser_seq(parser: argparse.ArgumentParser):
     """
@@ -459,6 +477,7 @@ def parser_seq(parser: argparse.ArgumentParser):
 
     :param parser: parser for align argument
     """
+    
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
@@ -474,18 +493,20 @@ def parser_seq(parser: argparse.ArgumentParser):
                          help="A tab-separated file listing the genome names, and the gff/gbff filepath of its "
                               "annotations (the files can be compressed with gzip). One line per genome. "
                               "If this is provided, those annotations will be used.")
+    
     onereq = parser.add_argument_group(title="Output file",
                                        description="At least one of the following argument is required. "
                                                    "Indicating 'all' writes all elements. Writing a partition "
                                                    "('persistent', 'shell' or 'cloud') write the elements associated "
                                                    "to said partition. Writing 'rgp' writes elements associated to RGPs"
                                        )
-    onereq.add_argument("--genes", required=False, type=str, choices=poss_values,
+    onereq.add_argument("--genes", required=False, type=filter_values,
                         help=f"Write all nucleotide CDS sequences. {poss_values_log}")
-    onereq.add_argument("--prot_families", required=False, type=str, choices=poss_values,
+    onereq.add_argument("--prot_families", required=False, type=filter_values,
                         help=f"Write representative amino acid sequences of gene families. {poss_values_log}")
-    onereq.add_argument("--gene_families", required=False, type=str, choices=poss_values,
+    onereq.add_argument("--gene_families", required=False, type=filter_values,
                         help=f"Write representative nucleotide sequences of gene families. {poss_values_log}")
+    
     optional = parser.add_argument_group(title="Optional arguments")
     # could make choice to allow customization
     optional.add_argument("--regions", required=False, type=str, choices=["all", "complete"],
