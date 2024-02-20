@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 import logging
-from typing import Dict, Generator, List, Union, Set
+from typing import Dict, Generator, List, Union, Set, Tuple
 from collections import defaultdict
 
 # installed libraries
@@ -349,31 +349,37 @@ class Contig(MetaFeatures):
         """
         return self.name
 
-    def __setitem__(self, start: int, gene: Gene):
-        """ Set gene to Contig
+    def __setitem__(self, coordinate: Tuple[int, int, str], gene: Gene):
+        """ 
+        Set gene to Contig
 
-        :param start: Start position of the gene
+        Check if a gene with the same coordinate exists already in the contig. 
+
+        :param coordinate: Tuple containing start, stop and strand of the gene
         :param gene: Gene object to add
 
         :raises TypeError: If the gene is not instance Gene
         :raises ValueError: If a gene in getter already exists at the start
         :raises AttributeError: If the gene position in the contig is not fill
         """
-        # TODO look at change start for position
+
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
-        if start in self._genes_getter:
-            raise ValueError(f"Gene '{self._genes_getter[start].ID}' with start position {start} already exists in the "
+        
+        if coordinate in self._genes_getter:
+            raise ValueError(f"Gene '{self._genes_getter[coordinate].ID}' with coordinate {coordinate} already exists in the "
                              f"contig '{self.name}' {f'from genome {self.organism}' if self.organism else ''}, "
                              f"cannot add gene '{gene.ID}' {f'from genome {gene.organism}' if gene.organism else ''}")
+        
         if gene.position is None:
             raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
+        
         # Adding empty values.
         # They should be filled by the end of the parsing.
         # Doing this because genes are not always met in order.
         self._genes_position.extend([None] * (gene.position - len(self._genes_position) + 1))
         self._genes_position[gene.position] = gene
-        self._genes_getter[gene.start] = gene
+        self._genes_getter[coordinate] = gene
 
     # TODO define eq function
 
@@ -451,27 +457,35 @@ class Contig(MetaFeatures):
         """
         if not isinstance(gene, Gene):
             raise TypeError(f"Unexpected class / type for {type(gene)} when adding it to a contig")
-        if gene.start is None:
-            raise AttributeError(f'Gene {gene.name} is not fill with start')
-        if gene.position is None:
-            raise AttributeError(f'Gene {gene.name} is not fill with position')
-        self[gene.start] = gene
+        
+        for attr in ['start', 'stop', 'position', 'strand']:
+            if getattr(gene, attr) is None:
+                raise AttributeError(f'Gene {gene.name} is not fill with {attr}')
+        
+        if gene.strand not in ['+', '-']:
+            raise AttributeError(f"Strand of Gene {gene.name} does not have the expected format. Expect '-' or '+' got {gene.strand}")
+        
+        self[(gene.start, gene.stop, gene.strand)] = gene
 
-    def get(self, position: int) -> Gene:
-        """Get a gene by its position
 
-        :param position: Position of the gene in the contig
+    def get_by_coordinate(self, coordinate: Tuple[int, int, str]) -> Gene:
+        """
+        Get a gene by its coordinate
 
-        :return: Wanted gene
+        :param coordinate: Tuple containing start, stop and strand of the gene
+
+        :return: The gene with the specified coordinate.
 
         :raises TypeError: Position is not an integer
         """
-        if not isinstance(position, int):
-            raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
-        gene = self[position]
+        if not isinstance(coordinate, Tuple):
+            raise TypeError(f"Coordinate to get gene must be a tuple. The provided type was {type(coordinate)}")
+        
+        gene = self[coordinate]
         if gene is None:
             logging.getLogger("PPanGGOLiN").debug("Given position result with a None Gene")
         return gene
+
 
     def remove(self, position):
         """Remove a gene by its position
