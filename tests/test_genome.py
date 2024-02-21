@@ -311,7 +311,7 @@ class TestContig:
 		contig.add(gene)
 		assert len(contig._genes_getter) == 1
 		assert len(contig._genes_position) == 1
-		assert contig._genes_getter[gene.start] == gene
+		assert contig._genes_getter[(gene.start, gene.stop, gene.strand)] == gene
 		assert contig._genes_position[0] == gene
 
 	def test_add_gene_at_far_position(self, gene, contig):
@@ -332,14 +332,16 @@ class TestContig:
 		with pytest.raises(TypeError):
 			contig[1] = '4'
 
-	def test_add_gene_with_start_already_taken(self, contig, gene):
+	def test_add_gene_with_start_already_taken(self, contig):
 		"""Tests that the contig cannot be fill with a non-gene object
 		"""
-		contig.add(gene)
+		initial_gene = Gene('test_gene')
+		initial_gene.fill_annotations(start=1, stop=12, strand='+', position=4, genetic_code=4)
+		contig.add(initial_gene)		
 		with pytest.raises(ValueError):
-			new_gene = Gene('test_gene')
-			new_gene.fill_annotations(start=1, stop=12, strand='+', position=2, genetic_code=4)
-			contig.add(new_gene)
+			new_identical_gene = Gene('test_gene')
+			new_identical_gene.fill_annotations(start=1, stop=12, strand='+', position=2, genetic_code=4)
+			contig.add(new_identical_gene)
 
 	def test_add_gene_without_position(self, contig):
 		"""Test that adding a gene not fill with position raise an AttributeError
