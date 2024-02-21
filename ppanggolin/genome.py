@@ -324,6 +324,9 @@ class Contig(MetaFeatures):
     - name: Name of the contig.
     - is_circular: Boolean value indicating whether the contig is circular or not.
     - RNAs: Set of RNA annotations present in the contig.
+
+    TODO: Getter gene should be based on gene ID, and 2 other attributes should exist to get them by start or position. 
+          Also, when set a new gene in contig, start, stop and strand should be check to check difference, maybe define __eq__ method in gene class. 
     """
 
     def __init__(self, identifier: int, name: str, is_circular: bool = False):
