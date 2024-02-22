@@ -101,8 +101,10 @@ def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int =
         mask=True,  # -m: Treat runs of N as masked sequence; don't build genes across them.
         min_gene=120  # This is to prevent error with mmseqs translatenucs that cut too short sequences
     )
-    gene_finder.train(max(sequences.values(), key=len), force_nonsd=False,
-                      translation_table=code)  # -g: Specify a translation table to use (default 11).
+
+    if not use_meta:
+        gene_finder.train(*contig_sequences.values(), force_nonsd=False,
+                        translation_table=code)  # -g: Specify a translation table to use (default 11).
     gene_counter = 1
     for contig_name, sequence in sequences.items():
         for pred in gene_finder.find_genes(sequence):
@@ -333,6 +335,8 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str
         max_contig_len = max(len(contig) for contig in org.contigs)
         if max_contig_len < 20000:  # case of short sequence
             use_meta = True
+            logging.getLogger("PPanGGOLiN").info(f"Using the metagenomic mode to predict genes for {org_name}, as all its contigs are < 20KB in size.")
+
         else:
             use_meta = False
     else:
