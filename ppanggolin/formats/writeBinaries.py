@@ -526,6 +526,7 @@ def write_info_modules(pangenome: Pangenome, h5f: tables.File):
 
 
     mod_fam = [len(module) for module in pangenome.modules]
+    sum_mod_fam = sum(mod_fam)
     
     info_group._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
                                                     "max": getmax(mod_fam),
@@ -536,19 +537,19 @@ def write_info_modules(pangenome: Pangenome, h5f: tables.File):
     spec_shell = part_spec(part='shell')
     spec_cloud = part_spec(part='cloud')
 
-    info_group._v_attrs.PersistentSpecInModules = {"percent": round((sum(spec_pers) / sum(mod_fam)) * 100, 2),
+    info_group._v_attrs.PersistentSpecInModules = {"percent": round((sum(spec_pers) / sum_mod_fam) * 100, 2) if sum_mod_fam > 0 else 0,
                                                     "min": getmin(spec_pers),
                                                     "max": getmax(spec_pers),
                                                     "sd": getstdev(spec_pers),
                                                     "mean": getmean(spec_pers)}
     
-    info_group._v_attrs.ShellSpecInModules = {"percent": round((sum(spec_shell) / sum(mod_fam)) * 100, 2),
+    info_group._v_attrs.ShellSpecInModules = {"percent": round((sum(spec_shell) / sum_mod_fam) * 100, 2) if sum_mod_fam > 0 else 0,
                                                 "min": getmin(spec_shell),
                                                 "max": getmax(spec_shell),
                                                 "sd": getstdev(spec_shell),
                                                 "mean": getmean(spec_shell)}
     
-    info_group._v_attrs.CloudSpecInModules = {"percent": round((sum(spec_cloud) / sum(mod_fam)) * 100, 2),
+    info_group._v_attrs.CloudSpecInModules = {"percent": round((sum(spec_cloud) / sum_mod_fam) * 100, 2) if sum_mod_fam > 0 else 0,
                                                 "min": getmin(spec_cloud),
                                                 "max": getmax(spec_cloud),
                                                 "sd": getstdev(spec_cloud),
