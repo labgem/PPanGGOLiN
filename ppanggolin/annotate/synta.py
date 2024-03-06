@@ -169,7 +169,7 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
     :param org: Organism corresponding to fasta file
     :param fna_file: Input fasta file with sequences or list of each line as sequence
 
-    :return: Dictionnary with contig_name as keys and contig sequence in values
+    :return: Dictionary with contig_name as keys and contig sequence in values
     """
     global contig_counter
     try:
@@ -199,8 +199,8 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
         raise AttributeError(f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
                              f"One possibility for this error is that the file did not start with a '>' "
                              f"as it would be expected from a fna file.")
-    except Exception:  # To manage other exception which can occur
-        raise Exception("Unexpected error. Please check your input file and if everything looks fine, "
+    except Exception as err:  # To manage other exception which can occur
+        raise Exception(f"{err}: Please check your input file and if everything looks fine, "
                         "please post an issue on our github")
     return contigs
 
