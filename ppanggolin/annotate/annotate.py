@@ -419,7 +419,7 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     :param organism_name: Name of the organism
     :param filename: Path to the corresponding file
     :param circular_contigs: list of sequence in contig
-    :param pseudo: allow to read pseudogène
+    :param pseudo: allow to read pseudogene
 
     :return: Annotated organism for pangenome and true for sequence in file
     """
@@ -440,7 +440,7 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
         raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' looks like a fasta file. "
                         "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
 
-    else:  # Fasta type obligatory because unknown raise an error in detect_filetype function
+    else:
         raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' appears to be of type '{filetype}'. "
                         "Please use .gff or .gbff files.")
 
