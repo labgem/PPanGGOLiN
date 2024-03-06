@@ -14,6 +14,7 @@ from contextlib import contextmanager
 import tempfile
 import time
 from itertools import zip_longest
+import re
 
 import networkx as nx
 from importlib.metadata import distribution
@@ -318,7 +319,7 @@ def detect_filetype(filename: Path) -> str:
         first_line = f.readline()
     if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
         return "gbff"
-    elif first_line.startswith("##gff-version 3") or first_line.startswith("##gff-version  3"): # prodigal gff header has two spaces betwene gff-version and 3... 
+    elif re.match(r"##gff-version\s{1,3}3", first_line):  # prodigal gff header has two spaces betwene gff-version and 3... some gff user can have a tab 
         return 'gff'
     elif first_line.startswith(">"):
         return 'fasta'
