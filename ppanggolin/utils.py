@@ -14,6 +14,7 @@ from contextlib import contextmanager
 import tempfile
 import time
 from itertools import zip_longest
+import re
 
 import networkx as nx
 from importlib.metadata import distribution
@@ -307,7 +308,7 @@ def mk_file_name(basename: str, output: Path, force: bool = False) -> Path:
 
 def detect_filetype(filename: Path) -> str:
     """
-    Detects whether the current file is gff3, gbk/gbff, fasta or unknown.
+    Detects whether the current file is gff3, gbk/gbff, fasta, tsv or unknown.
     If unknown, it will raise an error
 
     :param filename: path to file
@@ -318,7 +319,7 @@ def detect_filetype(filename: Path) -> str:
         first_line = f.readline()
     if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
         return "gbff"
-    elif first_line.startswith("##gff-version 3") or first_line.startswith("##gff-version  3"): # prodigal gff header has two spaces betwene gff-version and 3... 
+    elif re.match(r"##gff-version\s{1,3}3", first_line):  # prodigal gff header has two spaces between gff-version and 3... some gff user can have a tab 
         return 'gff'
     elif first_line.startswith(">"):
         return 'fasta'
@@ -326,8 +327,8 @@ def detect_filetype(filename: Path) -> str:
         return "tsv"
     else:
         raise Exception(f"Filetype {filename} was not gff3 (file starts with '##gff-version 3') "
-                        "nor gbff/gbk (file starts with 'LOCUS       '). "
-                        "Only those two file formats are supported (for now).")
+                        "nor gbff/gbk (file starts with 'LOCUS       ') "
+                        "nor fasta (file starts with '>') nor tsv (file has '\t' in the first line). ")
 
 
 def restricted_float(x: Union[int, float]) -> float:

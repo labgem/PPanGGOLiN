@@ -76,8 +76,6 @@ def check_metadata_format(metadata: Path, metatype: str) -> pd.DataFrame:
         if not colname_check.match(column):
             raise ValueError(f"column name is not a valid identifier: {column}; "
                              f"it does not match the pattern {colname_check.pattern}")
-        if column != metatype and metadata_df.dtypes[column] == object:
-            pd.to_numeric(metadata_df[column], downcast='integer', errors='ignore')
 
     return metadata_df
 

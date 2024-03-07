@@ -238,7 +238,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             line = lines.pop()
 
         if contig.length != len(sequence):
-            raise ValueError("The contig lenght defined is different than the sequence length")
+            raise ValueError("The contig length defined is different than the sequence length")
         # get each gene's sequence.
         for gene in contig.genes:
             gene.add_sequence(get_dna_sequence(sequence, gene))
@@ -253,7 +253,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     :param organism: Organism name
     :param gff_file_path: Path corresponding to GFF file
     :param circular_contigs: List of circular contigs
-    :param pseudo: Allow to read pseudogène
+    :param pseudo: Allow to read pseudogene
 
     :return: Organism object and if there are sequences associated or not
     """
@@ -293,7 +293,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
         element_id = attributes_dict.get("ID")
         if not element_id:
             raise Exception(f"Each CDS type of the gff files must own a unique ID attribute. "
-                            f"Not the case for file: {gff_file_path}")
+                            f"Not the case for file: {gff_file_path} with ID {element_id}")
         return element_id
 
     contig = None  # initialize contig
@@ -419,7 +419,7 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     :param organism_name: Name of the organism
     :param filename: Path to the corresponding file
     :param circular_contigs: list of sequence in contig
-    :param pseudo: allow to read pseudogène
+    :param pseudo: allow to read pseudogene
 
     :return: Annotated organism for pangenome and true for sequence in file
     """
@@ -428,16 +428,22 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     if filetype == "gff":
         try:
             return read_org_gff(organism_name, filename, circular_contigs, pseudo)
-        except Exception:
-            raise Exception(f"Reading the gff3 file '{filename}' raised an error.")
+        except Exception as err:
+            raise Exception(f"Reading the gff3 file '{filename}' raised an error. {err}")
     elif filetype == "gbff":
         try:
             return read_org_gbff(organism_name, filename, circular_contigs, pseudo)
-        except Exception:
-            raise Exception(f"Reading the gbff file '{filename}' raised an error.")
-    else:  # Fasta type obligatory because unknown raise an error in detect_filetype function
-        raise Exception("Wrong file type provided. This looks like a fasta file. "
-                        "You may be able to use --fasta instead.")
+        except Exception as err:
+            raise Exception(f"Reading the gbff file '{filename}' raised an error. {err}")
+        
+    elif filetype == "fasta":
+        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' looks like a fasta file. "
+                        "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
+
+    else:
+        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' appears to be of type '{filetype}'. "
+                        "Please use .gff or .gbff files.")
+
 
 
 def chose_gene_identifiers(pangenome: Pangenome) -> bool:
