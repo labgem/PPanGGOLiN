@@ -103,12 +103,13 @@ def get_status(pangenome: Pangenome, pangenome_file: Path):
         pangenome.status["geneFamilySequences"] = "inFile"
     if status_group._v_attrs.NeighborsGraph:
         pangenome.status["neighborsGraph"] = "inFile"
-    
+
     if hasattr(status_group._v_attrs, "version"):
         pangenome.status["ppanggolin_version"] = str(status_group._v_attrs.version)
     else:
-        logging.getLogger("PPanGGOLiN").error(f'The provided pangenome file {pangenome_file} does not have a version stored in its status.'
-                         ' This issue may indicate that the file is corrupted.')
+        logging.getLogger("PPanGGOLiN").error(
+            f'The provided pangenome file {pangenome_file} does not have a version stored in its status.'
+            ' This issue may indicate that the file is corrupted.')
         pangenome.status["ppanggolin_version"] = None
 
     if status_group._v_attrs.Partitioned:
@@ -221,8 +222,8 @@ def get_non_redundant_gene_sequences_from_file(pangenome_filename: str, file_obj
         file_obj.flush()
 
 
-def get_gene_sequences_from_file(pangenome_filename: str, file_obj: TextIO, list_cds: iter = None, add: str = '',
-                                 disable_bar: bool = False):
+def write_gene_sequences_from_pangenome_file(pangenome_filename: str, file_obj: TextIO, list_cds: iter = None,
+                                             add: str = '', disable_bar: bool = False):
     """
     Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
     and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
