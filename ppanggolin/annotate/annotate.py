@@ -35,10 +35,10 @@ def check_annotate_args(args: argparse.Namespace):
         raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
                         "or a file with the --gff option to load annotations from.")
 
-    if hasattr(args, "fasta") and args.fasta is not None:
+    if args.fasta is not None:
         check_input_files(args.fasta, True)
 
-    if hasattr(args, "anno") and args.anno is not None:
+    if args.anno is not None:
         check_input_files(args.anno, True)
 
 
@@ -117,15 +117,18 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     while len(lines) != 0:
         line = lines.pop()
         # beginning of contig
-        is_circ = False
         contig_id = None
         contig_len = None
         if line.startswith('LOCUS'):
             if "CIRCULAR" in line.upper():
                 # this line contains linear/circular word telling if the dna sequence is circularized or not
                 is_circ = True
-            # TODO maybe it could be a good thing to add a elif for linear
-            #  and if circular or linear are not found raise a warning
+            elif "LINEAR" in line.upper():
+                is_circ = False
+            else:
+                raise ValueError("It's impossible to identify if your contig is circular or linear."
+                                 f"Please check the file {gbff_file_path}. "
+                                 f"If everything seems in order don't hesitate to post an issue in our github.")
             contig_id = line.split()[1]
             contig_len = int(line.split()[2])
             # If contig_id is not specified in VERSION afterward like with Prokka, in that case we use the one in LOCUS
@@ -257,9 +260,11 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
     :return: Organism object and if there are sequences associated or not
     """
-    # TODO: This function would need some refactoring. 
+    # TODO: This function would need some refactoring.
 
     global ctg_counter
+
+    logging.getLogger("PPanGGOLiN").debug(f"Extracting genes information from the given gff {gff_file_path.name}")
 
     (gff_seqname, _, gff_type, gff_start, gff_end, _, gff_strand, _, gff_attribute) = range(0, 9)
 
@@ -293,7 +298,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
         element_id = attributes_dict.get("ID")
         if not element_id:
             raise Exception(f"Each CDS type of the gff files must own a unique ID attribute. "
-                            f"Not the case for file: {gff_file_path} with ID {element_id}")
+                            f"Not the case for file: {gff_file_path}")
         return element_id
 
     contig = None  # initialize contig
@@ -342,7 +347,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 if fields_gff[gff_type] == 'region':
                     if fields_gff[gff_seqname] in circular_contigs or ('Is_circular' in attributes and
                                                                        attributes['Is_circular']):
-                        # WARNING: In case we have prodigal gff with is_circular attributes. 
+                        # WARNING: In case we have prodigal gff with is_circular attributes.
                         # This would fail as contig is not defined. However is_circular should not be found in prodigal gff
                         contig.is_circular = True
                         assert contig.name == fields_gff[gff_seqname]
@@ -355,15 +360,15 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         # if it's not found, we get the one under the 'ID' field which must exist
                         # (otherwise not a gff3 compliant file)
                         gene_id = get_id_attribute(attributes)
-                    
+
                     name = attributes.pop('NAME', attributes.pop('GENE', ""))
-                    
+
                     if "PSEUDO" in attributes or "PSEUDOGENE" in attributes:
                         pseudogene = True
-                    
+
                     product = attributes.pop('PRODUCT', "")
                     genetic_code = int(attributes.pop("TRANSL_TABLE", 11))
-                    
+
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig
                         try:
@@ -381,7 +386,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
                         gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                               strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
-                                              position=contig.number_of_genes, product=product, local_identifier=gene_id,
+                                              position=contig.number_of_genes, product=product,
+                                              local_identifier=gene_id,
                                               genetic_code=genetic_code)
                         gene.fill_parents(org, contig)
                         gene_counter += 1
@@ -428,22 +434,16 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     if filetype == "gff":
         try:
             return read_org_gff(organism_name, filename, circular_contigs, pseudo)
-        except Exception as err:
-            raise Exception(f"Reading the gff3 file '{filename}' raised an error. {err}")
+        except Exception:
+            raise Exception(f"Reading the gff3 file '{filename}' raised an error.")
     elif filetype == "gbff":
         try:
             return read_org_gbff(organism_name, filename, circular_contigs, pseudo)
-        except Exception as err:
-            raise Exception(f"Reading the gbff file '{filename}' raised an error. {err}")
-        
-    elif filetype == "fasta":
-        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' looks like a fasta file. "
-                        "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
-
-    else:
-        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' appears to be of type '{filetype}'. "
-                        "Please use .gff or .gbff files.")
-
+        except Exception:
+            raise Exception(f"Reading the gbff file '{filename}' raised an error.")
+    else:  # Fasta type obligatory because unknown raise an error in detect_filetype function
+        raise Exception("Wrong file type provided. This looks like a fasta file. "
+                        "You may be able to use --fasta instead.")
 
 
 def chose_gene_identifiers(pangenome: Pangenome) -> bool:
@@ -566,24 +566,32 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
                            f"your fasta file are different.")
         with read_compressed_or_not(Path(elements[1])) as currFastaFile:
             fasta_dict[org] = read_fasta(org, currFastaFile)
-    if set(pangenome.organisms) > set(fasta_dict.keys()):
-        missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
+    if pangenome.number_of_organisms > len(fasta_dict):
+        missing = set(pangenome.organisms).difference(set(fasta_dict.keys()))
+        logging.getLogger("PPanGGOLiN").error(f"Missing genomes: {missing}")
         raise Exception(f"Not all of your pangenome genomes are present within the provided fasta file. "
-                        f"{missing} are missing (out of {pangenome.number_of_organisms}).")
-
+                        f"{len(missing)} are missing (out of {pangenome.number_of_organisms}).")
+    progress = tqdm(total=pangenome.number_of_genes + pangenome.number_of_rnas,
+                    desc="Add sequence to gene/RNA", unit="gene-RNA")
     for org in pangenome.organisms:
         for contig in org.contigs:
             try:
-                for gene in contig.genes:
-                    gene.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], gene))
-                for rna in contig.RNAs:
-                    rna.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], rna))
+                ctg_sequence = fasta_dict[org][contig.name]
             except KeyError:
-                msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
-                      f"that was read from the annotation file. "
-                msg += f"The provided contigs in the fasta were : " \
-                       f"{', '.join([contig for contig in fasta_dict[org].keys()])}."
+                msg = (f"Fasta file for genome {org.name} did not have the contig {contig.name} "
+                       f"that was read from the annotation file."
+                       f"The provided contigs in the fasta were : "
+                       f"{', '.join([contig for contig in fasta_dict[org].keys()])}.")
                 raise KeyError(msg)
+            else:
+                for gene in contig.genes:
+                    gene.add_sequence(get_dna_sequence(ctg_sequence, gene))
+                    progress.update()
+                for rna in contig.RNAs:
+                    rna.add_sequence(get_dna_sequence(ctg_sequence, rna))
+                    progress.update()
+
+    progress.close()
     pangenome.status["geneSequences"] = "Computed"
 
 
