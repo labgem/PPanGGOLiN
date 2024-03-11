@@ -177,7 +177,7 @@ jobs:
         # Default separator is a pipe but a pipe is found in a value of metadata db1. That is why we use another separator here. 
         ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs \
                                 --genomes genome_names.fasta.head.list \
-                                  -f --gff --add_metadata --table --metadata_sep § 
+                                  -f --gff --add_metadata --table --metadata_sep § --proksee
 
         # Pipe separatore is found in metadata source db1. if we don't require this source then the writting with pipe is work fine. 
         ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs_with_metadata -f --gff --proksee --table --add_metadata  --metadata_sources db2 db3 db4 
