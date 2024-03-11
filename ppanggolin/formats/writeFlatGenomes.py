@@ -442,7 +442,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
 
         # Write ProkSee data for the organism
         write_proksee_organism(organism, output_file, features=['all'], genome_sequences=genome_sequences,
-                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors', 'compress'}})
+                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors', 'compress', 'metadata_sep'}})
 
     if gff:
         gff_outdir = output / "gff"
@@ -532,6 +532,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
             else:
                 organism_args["annotation_sources"] = {}
             organism_args["metadata_sep"] = metadata_sep
+     
         if table:
             organism_args.update({"need_regions": need_dict['need_rgp'],
                                   "need_modules": need_dict['need_modules'],
