@@ -519,7 +519,9 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
     organism2args = defaultdict(lambda: {"output": output, "table": table, "gff": gff,
                                          "proksee": proksee, "compress": compress})
     for organism in organisms_list:
-        organism_args = {"genome_file": org_dict[organism.name]['path'] if org_dict else None}
+        organism_args = {"genome_file": org_dict[organism.name]['path'] if org_dict else None,
+                         "metadata_sep":  metadata_sep}
+
         if proksee:
             organism_args["module_to_colors"] = {module: module_to_colors[module] for module in organism.modules}
 
@@ -531,7 +533,6 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
                                                        "CDS": "external"}
             else:
                 organism_args["annotation_sources"] = {}
-            organism_args["metadata_sep"] = metadata_sep
      
         if table:
             organism_args.update({"need_regions": need_dict['need_rgp'],
