@@ -59,12 +59,12 @@ graph LR
 
 You can use the `panrgp` with annotation (gff3 or gbff) files with `--anno` option, as such: 
 ```bash
-ppanggolin panrgp --anno organism.gbff.list
+ppanggolin panrgp --anno genome.gbff.list
 ```
 
 For fasta files, you need to use the alternative `--fasta` option, as such:
 ```bash
-ppanggolin panrgp --fasta organism.fasta.list
+ppanggolin panrgp --fasta genome.fasta.list
 ```
 
 Just like [workflow](../PangenomeAnalyses/pangenomeAnalyses.md#workflow), this command will deal with the [annotation](../PangenomeAnalyses/pangenomeAnalyses.md#annotation), [clustering](../PangenomeAnalyses/pangenomeAnalyses.md#compute-pangenome-gene-families), [graph](../PangenomeAnalyses/pangenomeAnalyses.md#graph) and [partition](../PangenomeAnalyses/pangenomeAnalyses.md#partition) commands by itself.
