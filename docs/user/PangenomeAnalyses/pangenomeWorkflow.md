@@ -45,12 +45,12 @@ To use this command, you need to provide a tab-separated list of either annotati
 
 You can use the workflow with annotation files as such: 
 ```
-ppanggolin workflow --anno organism.gbff.list
+ppanggolin workflow --anno genome.gbff.list
 ```
 
 For fasta files, you have to change for: 
 ```
-ppanggolin workflow --fasta organism.fasta.list
+ppanggolin workflow --fasta genome.fasta.list
 ```
 
 Moreover, as detailed [in the section about providing your gene families](./pangenomeAnalyses.md#read-clustering), 
@@ -58,7 +58,7 @@ if you wish to use different gene clustering methods than those provided by PPan
 it is also possible to provide your own clustering results with the workflow command as such:
 
 ```
-ppanggolin workflow --anno organism.gbff.list --clusters clusters.tsv
+ppanggolin workflow --anno genome.gbff.list --clusters clusters.tsv
 ```
 
 All the workflow parameters are obtained from the commands explained below, except for the `--no_flat_files` option, which solely pertains to it. This option prevents the automatic generation of the output files listed and described [in the pangenome output section](./pangenomeAnalyses.md#pangenome-outputs).
