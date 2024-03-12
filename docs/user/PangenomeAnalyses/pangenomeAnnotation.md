@@ -8,7 +8,7 @@ If you do so, the provided genomes will be annotated using the following tools:
 - [ARAGORN](http://www.ansikte.se/ARAGORN/) to annotate tRNAs
 - [Infernal](http://eddylab.org/infernal/) coupled with HMM of the bacterial and archaeal rRNAs downloaded from [RFAM](https://rfam.xfam.org/) to annotate rRNAs.
 
-To proceed with this stage of the pipeline, you need to create an **organisms.fasta.list** file. 
+To proceed with this stage of the pipeline, you need to create an **genomes.fasta.list** file. 
 This file should be tab-separated with each line depicting an individual genome and
 its pertinent information with the following organization (only the first two columns are mandatory):
 
@@ -17,12 +17,12 @@ its pertinent information with the following organization (only the first two co
 - The following columns contain Contig identifiers present in the associated FASTA file that should be analyzed as being circular.
 For the 'circular contig identifiers,' if you do not have access to this information, you can safely ignore this part as it does not have a big impact on the resulting pangenome.
 
-You can check [this example input file](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.fasta.list).
+You can check [this example input file](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.fasta.list).
 
 To run the annotation part, you can use this minimal command:
 
 ```
-ppanggolin annotate --fasta organisms.fasta.list
+ppanggolin annotate --fasta genomes.fasta.list
 ```
 
 #### Use a different genetic code in my annotation step
@@ -48,7 +48,7 @@ to specify Infernal's RNA annotation model.
 
 ### Use annotation files for your pangenome
 
-You can provide annotation files in either gff3 files or .gbk/.gbff files, or a mix of them. They should be provided through as a list in a tab-separated file that follows the same format as described for the fasta files. You can check [this example input file](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.gbff.list).
+You can provide annotation files in either gff3 files or .gbk/.gbff files, or a mix of them. They should be provided through as a list in a tab-separated file that follows the same format as described for the fasta files. You can check [this example input file](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.gbff.list).
 
 ```{note}
 Use your own annotation for your genome is highly recommended, particularly if you already
@@ -58,7 +58,7 @@ have functional annotations, as they can be added to the pangenome.
 You can provide them using the following command: 
 
 ```
-ppanggolin annotate --anno organisms.gbff.list
+ppanggolin annotate --anno genomes.gbff.list
 ```
 
 #### How to deal with annotation files without sequences
@@ -67,7 +67,7 @@ If your annotation files do not contain the genome sequence,
 you can use both options simultaneously to obtain the gene annotations and gene sequences, as follows: 
 
 ```
-ppanggolin annotate --anno organisms.gbff.list --fasta organisms.fasta.list
+ppanggolin annotate --anno genomes.gbff.list --fasta genomes.fasta.list
 ```
 
 #### Take the pseudogenes into account for pangenome analyses
