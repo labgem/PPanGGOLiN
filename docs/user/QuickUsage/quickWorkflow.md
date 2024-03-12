@@ -63,24 +63,24 @@ The minimal subcommand only need your own annotations files (using `.gff` or `.g
 as long as they include the genomic dna sequences, such as the ones provided by Prokka or Bakta.
  
 ```bash
-ppanggolin all --anno organism.gbff.list
+ppanggolin all --anno genomes.gbff.list
 ```
 
 It uses parameters that we found to be generally the best when working with species pangenomes.
 
-The file **organism.gbff.list** is a tab-separated file with the following organisation :
+The file **genomes.gbff.list** is a tab-separated file with the following organisation :
 
 1. The first column contains a unique genome name
 2. The second column the path to the associated annotation file
 3. Each line represents a genome
 
-An example with 50 _Chlamydia trachomatis_ genomes can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.gbff.list) directory.
+An example with 50 _Chlamydia trachomatis_ genomes can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.gbff.list) directory.
 
 [//]: # (### PPanGGOLiN: Pangenome analyses from list of fasta files)
 You can also give PPanGGOLiN `.fasta` files, such as:
 
 ```
-ppanggolin all --fasta organism.fasta.list
+ppanggolin all --fasta genomes.fasta.list
 ```
 
 Again you must use a tab-separated file but this time with the following organisation:
@@ -90,7 +90,7 @@ Again you must use a tab-separated file but this time with the following organis
 3. Circular contig identifiers are indicated in the following columns
 4. Each line represents a genome
 
-Same, an example can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/organisms.fasta.list) directory.
+Same, an example can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.fasta.list) directory.
 
 ```{tip}
 Downloading genomes from NCBI refseq or genbank for a species of interest can be easily accomplished using CLI tools like [ncbi-genome-download](https://github.com/kblin/ncbi-genome-download) or the [genome updater](https://github.com/pirovc/genome_updater) script.
