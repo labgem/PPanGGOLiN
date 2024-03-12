@@ -63,12 +63,12 @@ The minimal subcommand only need your own annotations files (using `.gff` or `.g
 as long as they include the genomic dna sequences, such as the ones provided by Prokka or Bakta.
  
 ```bash
-ppanggolin all --anno genome.gbff.list
+ppanggolin all --anno genomes.gbff.list
 ```
 
 It uses parameters that we found to be generally the best when working with species pangenomes.
 
-The file **genome.gbff.list** is a tab-separated file with the following organisation :
+The file **genomes.gbff.list** is a tab-separated file with the following organisation :
 
 1. The first column contains a unique genome name
 2. The second column the path to the associated annotation file
@@ -80,7 +80,7 @@ An example with 50 _Chlamydia trachomatis_ genomes can be found in the [testingD
 You can also give PPanGGOLiN `.fasta` files, such as:
 
 ```
-ppanggolin all --fasta genome.fasta.list
+ppanggolin all --fasta genomes.fasta.list
 ```
 
 Again you must use a tab-separated file but this time with the following organisation:
