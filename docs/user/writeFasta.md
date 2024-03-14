@@ -1,20 +1,20 @@
 
-# Fasta
+# Write pangenome sequences
 
-This command can be used to write fasta sequences of the pangenome or specific parts of the pangenome. 
+The `fasta` command can be used to write sequences of the pangenome or specific parts of the pangenome in FASTA format. 
 
 Most options require a partition.
 
 Available partitions are:
-* 'all' for the entire pangenome.
-* 'Persistent' for persistent families
-* 'Shell' for shell genes or families
-* 'Cloud' for cloud genes or families
-* 'rgp' for genes or families found in RGPs
-* 'core' for core genes or families
-* 'softcore' for softcore genes or families
+* `all` for the entire pangenome.
+* `Persistent` for persistent families
+* `Shell` for shell genes or families
+* `Cloud` for cloud genes or families
+* `rgp` for genes or families found in RGPs
+* `core` for core genes or families
+* `softcore` for softcore genes or families
 
-When using the 'softcore' filter, the '--soft_core' option can be used to modify the threshold used to determine what is part of the softcore. It is set to 0.95 by default.
+When using the `softcore` filter, the `--soft_core` option can be used to modify the threshold used to determine what is part of the softcore. It is set to 0.95 by default.
 
 ## Genes
 
