@@ -73,6 +73,7 @@ user/PangenomeAnalyses/pangenomeAnalyses
 user/RGP/rgpAnalyses
 user/Modules/moduleAnalyses
 user/writeGenomes
+user/writeFasta
 user/align
 user/projection
 user/genomicContext
