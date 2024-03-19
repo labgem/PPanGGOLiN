@@ -35,10 +35,10 @@ def check_annotate_args(args: argparse.Namespace):
         raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
                         "or a file with the --gff option to load annotations from.")
 
-    if args.fasta is not None:
+    if hasattr(args, "fasta") and args.fasta is not None:
         check_input_files(args.fasta, True)
 
-    if args.anno is not None:
+    if hasattr(args, "anno") and args.anno is not None:
         check_input_files(args.anno, True)
 
 
@@ -119,6 +119,9 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         # beginning of contig
         contig_id = None
         contig_len = None
+
+        is_circ = False
+
         if line.startswith('LOCUS'):
             if "CIRCULAR" in line.upper():
                 # this line contains linear/circular word telling if the dna sequence is circularized or not
@@ -126,7 +129,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             elif "LINEAR" in line.upper():
                 is_circ = False
             else:
-                raise ValueError("It's impossible to identify if your contig is circular or linear."
+                logging.getLogger("PPanGGOLiN").warning("It's impossible to identify if your contig is circular or linear."
                                  f"Please check the file {gbff_file_path}. "
                                  f"If everything seems in order don't hesitate to post an issue in our github.")
             contig_id = line.split()[1]
@@ -260,11 +263,9 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
     :return: Organism object and if there are sequences associated or not
     """
-    # TODO: This function would need some refactoring.
+    # TODO: This function would need some refactoring. 
 
     global ctg_counter
-
-    logging.getLogger("PPanGGOLiN").debug(f"Extracting genes information from the given gff {gff_file_path.name}")
 
     (gff_seqname, _, gff_type, gff_start, gff_end, _, gff_strand, _, gff_attribute) = range(0, 9)
 
@@ -347,7 +348,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 if fields_gff[gff_type] == 'region':
                     if fields_gff[gff_seqname] in circular_contigs or ('Is_circular' in attributes and
                                                                        attributes['Is_circular']):
-                        # WARNING: In case we have prodigal gff with is_circular attributes.
+                        # WARNING: In case we have prodigal gff with is_circular attributes. 
                         # This would fail as contig is not defined. However is_circular should not be found in prodigal gff
                         contig.is_circular = True
                         assert contig.name == fields_gff[gff_seqname]
@@ -362,13 +363,13 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         gene_id = get_id_attribute(attributes)
 
                     name = attributes.pop('NAME', attributes.pop('GENE', ""))
-
+                    
                     if "PSEUDO" in attributes or "PSEUDOGENE" in attributes:
                         pseudogene = True
-
+                    
                     product = attributes.pop('PRODUCT', "")
                     genetic_code = int(attributes.pop("TRANSL_TABLE", 11))
-
+                    
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig
                         try:
@@ -434,16 +435,22 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     if filetype == "gff":
         try:
             return read_org_gff(organism_name, filename, circular_contigs, pseudo)
-        except Exception:
-            raise Exception(f"Reading the gff3 file '{filename}' raised an error.")
+        except Exception as err:
+            raise Exception(f"Reading the gff3 file '{filename}' raised an error. {err}")
     elif filetype == "gbff":
         try:
             return read_org_gbff(organism_name, filename, circular_contigs, pseudo)
-        except Exception:
-            raise Exception(f"Reading the gbff file '{filename}' raised an error.")
-    else:  # Fasta type obligatory because unknown raise an error in detect_filetype function
-        raise Exception("Wrong file type provided. This looks like a fasta file. "
-                        "You may be able to use --fasta instead.")
+        except Exception as err:
+            raise Exception(f"Reading the gbff file '{filename}' raised an error. {err}")
+        
+    elif filetype == "fasta":
+        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' looks like a fasta file. "
+                        "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
+
+    else:
+        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' appears to be of type '{filetype}'. "
+                        "Please use .gff or .gbff files.")
+
 
 
 def chose_gene_identifiers(pangenome: Pangenome) -> bool:
@@ -566,9 +573,8 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
                            f"your fasta file are different.")
         with read_compressed_or_not(Path(elements[1])) as currFastaFile:
             fasta_dict[org] = read_fasta(org, currFastaFile)
-    if pangenome.number_of_organisms > len(fasta_dict):
-        missing = set(pangenome.organisms).difference(set(fasta_dict.keys()))
-        logging.getLogger("PPanGGOLiN").error(f"Missing genomes: {missing}")
+    if set(pangenome.organisms) > set(fasta_dict.keys()):
+        missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome genomes are present within the provided fasta file. "
                         f"{len(missing)} are missing (out of {pangenome.number_of_organisms}).")
     progress = tqdm(total=pangenome.number_of_genes + pangenome.number_of_rnas,
