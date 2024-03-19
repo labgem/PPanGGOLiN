@@ -573,10 +573,19 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
                            f"your fasta file are different.")
         with read_compressed_or_not(Path(elements[1])) as currFastaFile:
             fasta_dict[org] = read_fasta(org, currFastaFile)
+
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome genomes are present within the provided fasta file. "
                         f"{len(missing)} are missing (out of {pangenome.number_of_organisms}).")
+    
+    elif pangenome.number_of_organisms < len(fasta_dict):
+        # Indicates that all organisms in the pangenome are present in the provided FASTA file, 
+        # but additional genomes are also detected in the file.
+        diff_genomes = len(fasta_dict) - pangenome.number_of_organisms
+        logging.getLogger("PPanGGOLiN").warning(f"The provided fasta file contains {diff_genomes} "
+                                                "additional genomes compared to the pangenome.")
+
     progress = tqdm(total=pangenome.number_of_genes + pangenome.number_of_rnas,
                     desc="Add sequence to gene/RNA", unit="gene-RNA")
     for org in pangenome.organisms:
