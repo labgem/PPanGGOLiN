@@ -30,8 +30,12 @@ from ppanggolin.projection.projection import write_gene_to_gene_family
 
 
 def check_search_context_args(args: argparse.Namespace) -> Dict[str, Any]:
-    def show_warning(option: str):
-        logging.getLogger("PPanGGOLiN").warning(f"--{option} is not compatible with --family")
+    """Check that all arguments are legit in the command line
+
+    :param args: All arguments provide by user
+
+    :return: A dictionary containing all arguments for alignment
+    """
     align_args = {
         "no_defrag": False,
         "use_representatives": False,
@@ -60,24 +64,89 @@ def check_search_context_args(args: argparse.Namespace) -> Dict[str, Any]:
         }
     else:
         if args.fast:
-            show_warning("fasta")
+            logging.getLogger("PPanGGOLiN").warning("--fasta is not compatible with --family")
         for arg in ["no_defrag", "identity", "coverage", "translation_table", "keep_tmp", "tmpdir", "cpu"]:
             print(getattr(args, arg), align_args[arg])
             if getattr(args, arg) != align_args[arg]:
-                show_warning(arg)
+                logging.getLogger("PPanGGOLiN").warning(f"--{arg} is not compatible with --family")
     return align_args
 
 
-
-
 def check_pangenome_for_searching(pangenome: Pangenome, sequences: bool = False):
-    # check statuses and load info
+    """ Check pangenome status and information to search context
+
+    :param pangenome: The pangenome object
+    :param sequences: True if search contexts with sequences
+    """
     if pangenome.status["genesClustered"] not in ["inFile", "Loaded", "Computed"]:
         raise AttributeError("Cannot use this function as pangenome genes has not been clustered yet. "
                              "See the 'ppanggolin cluster' if you want to do that.")
     if sequences and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
         raise AttributeError("Your pangenome gene families does not have representatives sequences associated. "
                              "For now this works only if the clustering has been made by PPanGGOLiN.")
+
+
+def align_sequences_to_families(pangenome: Pangenome, output: Path, sequence_file: Path = None,
+                                identity: float = 0.5, coverage: float = 0.8, use_representatives: bool = False,
+                                no_defrag: bool = False, cpu: int = 1, translation_table: int = 11,
+                                tmpdir: Path = None, keep_tmp: bool = False, disable_bar=True) -> Set[GeneFamily]:
+    """ Align sequences to pangenome gene families to get families of interest
+
+    :param pangenome: Pangenome containing GeneFamilies to align with sequence set
+    :param sequence_file: Path to file containing the sequences
+    :param output: Path to output directory
+    :param tmpdir: Path to temporary directory
+    :param identity: minimum identity threshold between sequences and gene families for the alignment
+    :param coverage: minimum coverage threshold between sequences and gene families for the alignment
+    :param use_representatives: Use representative sequences of families rather than all sequences to align input genes
+    :param no_defrag: do not use the defragmentation workflow if true
+    :param cpu: Number of core used to process
+    :param disable_bar: Allow preventing bar progress print
+    :param translation_table: The translation table to use when the input sequences are nucleotide sequences.
+    :param keep_tmp: If True, keep temporary files.
+
+    :return: Set of gene families of interest
+    """
+    # Alignment of sequences on pangenome families
+    families_of_interest = set()
+    with read_compressed_or_not(sequence_file) as seqFileObj:
+        seq_set, is_nucleotide = get_seq_ids(seqFileObj)
+
+    logging.debug(f"Input sequences are {'nucleotide' if is_nucleotide else 'protein'} sequences")
+    if tmpdir is None:
+        tmpdir = Path(tempfile.gettempdir())
+        logging.getLogger("PPanGGOLiN").warning("Temporary directory is not specified. "
+                                                f"Using default temporary directory: {tmpdir}.")
+    with create_tmpdir(tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
+
+        if use_representatives:
+            _, seqid2fam = get_input_seq_to_family_with_rep(pangenome=pangenome,
+                                                            sequence_files=[sequence_file],
+                                                            output=output, tmpdir=new_tmpdir,
+                                                            is_input_seq_nt=is_nucleotide,
+                                                            cpu=cpu, no_defrag=no_defrag,
+                                                            identity=identity, coverage=coverage,
+                                                            translation_table=translation_table,
+                                                            disable_bar=disable_bar)
+        else:
+            _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome,
+                                                            sequence_files=[sequence_file],
+                                                            output=output, tmpdir=new_tmpdir,
+                                                            is_input_seq_nt=is_nucleotide,
+                                                            cpu=cpu, no_defrag=no_defrag,
+                                                            identity=identity, coverage=coverage,
+                                                            translation_table=translation_table,
+                                                            disable_bar=disable_bar)
+            project_and_write_partition(seqid2fam, seq_set, output)
+            write_gene_to_gene_family(seqid2fam, seq_set, output)
+
+            family_2_input_seqid = defaultdict(set)
+            for seqid, gf in seqid2fam.items():
+                family_2_input_seqid[gf].add(seqid)
+
+            for pan_family in seqid2fam.values():
+                families_of_interest.add(pan_family)
+    return families_of_interest
 
 
 def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequence_file: Path = None,
@@ -104,36 +173,8 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequenc
     families_of_interest = set()
     family_2_input_seqid = {}
     if sequence_file is not None:
-        # Alignment of sequences on pangenome families
-        with read_compressed_or_not(sequence_file) as seqFileObj:
-            seq_set, is_nucleotide = get_seq_ids(seqFileObj)
-
-        logging.debug(f"Input sequences are {'nucleotide' if is_nucleotide else 'protein'} sequences")
-
-        with create_tmpdir(kwargs.pop("tmpdir"), basename="align_input_seq_tmpdir",
-                           keep_tmp=kwargs.pop("keep_tmp")) as new_tmpdir:
-
-            if kwargs.pop("use_representatives"):
-                _, seqid2fam = get_input_seq_to_family_with_rep(pangenome, [sequence_file], output,
-                                                                new_tmpdir, is_input_seq_nt=is_nucleotide,
-                                                                disable_bar=disable_bar, **kwargs)
-            else:
-                _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome,
-                                                                sequence_files=[sequence_file],
-                                                                output=output, tmpdir=new_tmpdir,
-                                                                is_input_seq_nt=is_nucleotide,
-                                                                disable_bar=disable_bar, **kwargs)
-
-        project_and_write_partition(seqid2fam, seq_set, output)
-        write_gene_to_gene_family(seqid2fam, seq_set, output)
-
-        family_2_input_seqid = defaultdict(set)
-        for seqid, gf in seqid2fam.items():
-            family_2_input_seqid[gf].add(seqid)
-
-        for pan_family in seqid2fam.values():
-            families_of_interest.add(pan_family)
-
+        families_of_interest |= align_sequences_to_families(pangenome, output, sequence_file,
+                                                            disable_bar=disable_bar, **kwargs)
     if families is not None:
         with read_compressed_or_not(families) as f:
             for fam_name in f.read().splitlines():
@@ -289,12 +330,12 @@ def write_graph(G: nx.Graph, output_dir: Path, graph_format: str):
 
     if "graphml" == graph_format:
         out_file = output_dir / "graph_context.graphml"
-        logging.info(f'Writting context graph in {out_file}')
+        logging.info(f'Writing context graph in {out_file}')
         nx.write_graphml_lxml(G, out_file)
 
     elif "gexf" == graph_format:
         out_file = output_dir / "graph_context.gexf"
-        logging.info(f'Writting context graph in {out_file}')
+        logging.info(f'Writing context graph in {out_file}')
         nx.readwrite.gexf.write_gexf(G, out_file)
     else:
         raise ValueError(f'The given graph format ({graph_format}) is not correct. it should be "graphml" or gexf')
@@ -338,8 +379,8 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
         # data['max_jaccard_genome'] = len(data['genomes'])/max(len(f1.genomes), len(f2.genomes))
         # f1_gene_proportion_partial = len(data['genes'][f1])/len(context_graph.nodes[f1]['genes'])
         # f2_gene_proportion_partial = len(data['genes'][f2])/len(context_graph.nodes[f2]['genes'])
-        # data[f'f1_jaccard_gene_partital'] = f1_gene_proportion_partial
-        # data[f'f2_jaccard_gene_partital'] = f2_gene_proportion_partial
+        # data[f'f1_jaccard_gene_partial'] = f1_gene_proportion_partial
+        # data[f'f2_jaccard_gene_partial'] = f2_gene_proportion_partial
 
 
 def add_edges_to_context_graph(context_graph: nx.Graph,
@@ -557,7 +598,7 @@ def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int],
 
     :param gene_contexts: connected components found in the pangenome
     :param fam2seq: Dictionary with gene families ID as keys and list of sequence ids as values
-    :param families_of_interest: families of interest that are at the origine of the context.
+    :param families_of_interest: families of interest that are at the origin of the context.
     :param output: output path
     """
 
