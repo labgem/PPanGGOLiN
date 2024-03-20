@@ -129,9 +129,8 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             elif "LINEAR" in line.upper():
                 is_circ = False
             else:
-                logging.getLogger("PPanGGOLiN").warning("It's impossible to identify if your contig is circular or linear."
-                                 f"Please check the file {gbff_file_path}. "
-                                 f"If everything seems in order don't hesitate to post an issue in our github.")
+                logging.getLogger("PPanGGOLiN").warning("It's impossible to identify if contigs are circular or linear."
+                                 f"in file {gbff_file_path}.")
             contig_id = line.split()[1]
             contig_len = int(line.split()[2])
             # If contig_id is not specified in VERSION afterward like with Prokka, in that case we use the one in LOCUS
@@ -263,7 +262,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
     :return: Organism object and if there are sequences associated or not
     """
-    # TODO: This function would need some refactoring. 
+    # TODO: This function would need some refactoring.
 
     global ctg_counter
 
