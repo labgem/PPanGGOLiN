@@ -44,7 +44,7 @@ def check_annotate_args(args: argparse.Namespace):
 
 
 def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: Set[str],
-                start: int, stop: int, strand: str, gene_type: str, position: int = None, gene_name: str = "",
+                coordinates: List[Tuple[int]], strand: str, gene_type: str, position: int = None, gene_name: str = "",
                 product: str = "", genetic_code: int = 11, protein_id: str = ""):
     """
     Create a Gene object and associate to contig and Organism
@@ -55,8 +55,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     :param rna_counter: RNA counter to name RNA
     :param gene_id: local identifier
     :param dbxref: cross-reference to external DB
-    :param start: Gene start position
-    :param stop: Gene stop position
+    :param coordinates: Gene start and stop positions
     :param strand: gene strand association
     :param gene_type: gene type
     :param position: position in contig
@@ -65,6 +64,9 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     :param genetic_code: Genetic code used
     :param protein_id: Protein identifier
     """
+
+    start, stop = coordinates[0][0], coordinates[-1][1]
+    
     if any('MaGe' or 'SEED' in dbref for dbref in dbxref):
         if gene_name == "":
             gene_name = gene_id
@@ -83,13 +85,13 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
             # but was when cases like this were encountered)
 
         new_gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
-        new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
+        new_gene.fill_annotations(start=start, stop=stop, strand=strand, coordinates=coordinates, gene_type=gene_type, name=gene_name,
                                   position=position, product=product, local_identifier=gene_id,
                                   genetic_code=genetic_code)
         contig.add(new_gene)
     else:  # if not CDS, it is RNA
         new_gene = RNA(org.name + f"_{gene_type}_" + str(rna_counter).zfill(4))
-        new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
+        new_gene.fill_annotations(start=start, stop=stop, strand=strand, coordinates=coordinates, gene_type=gene_type, name=gene_name,
                                   product=product)
         contig.add_rna(new_gene)
     new_gene.fill_parents(org, contig)
@@ -205,8 +207,6 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         protein_id = ""
         genetic_code = ""
         useful_info = False
-        start = None
-        stop = None
         coordinates = None
         strand = None
         line = lines.pop()
@@ -214,7 +214,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             curr_type = line[5:21].strip()
             if curr_type != "":
                 if useful_info:
-                    create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand,
+                    create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, coordinates, strand,
                                 obj_type, contig.number_of_genes, gene_name, product, genetic_code, protein_id)
                     if obj_type == "CDS":
                         gene_counter += 1
@@ -233,8 +233,6 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                     
                     if is_pseudo and not pseudo:
                         useful_info = False
-
-                    start, stop = coordinates[0][0], coordinates[-1][1]
 
             elif useful_info:  # current info goes to current objtype, if it's useful.
                 if line[21:].startswith("/db_xref"):
@@ -264,7 +262,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             line = lines.pop()
             # end of contig
         if useful_info:  # saving the last element...
-            create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
+            create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, coordinates, strand, obj_type,
                         contig.number_of_genes, gene_name, product, genetic_code, protein_id)
             if obj_type == "CDS":
                 gene_counter += 1

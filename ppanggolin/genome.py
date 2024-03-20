@@ -50,6 +50,7 @@ class Feature(MetaFeatures):
         self.type = ""
         self.start = None
         self.stop = None
+        self.coordinates = None
         self.strand = None
         self.product = None
         self.name = None
@@ -79,6 +80,13 @@ class Feature(MetaFeatures):
                 raise ValueError("Stop is not known")
         else:
             raise ValueError("Start is not known")
+
+    @property
+    def has_joined_coordinates(self) -> bool:
+        if len(self.coordinates) > 1:
+            return True
+        else:
+            return False
 
     @property
     def organism(self) -> Organism:
@@ -116,13 +124,14 @@ class Feature(MetaFeatures):
             raise TypeError(f'Expected type Contig, got {type(contig)}')
         self._contig = contig
 
-    def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
-                         product: str = "", local_identifier: str = ""):
+    def fill_annotations(self, start: int, stop: int, strand: str,  gene_type: str = "", name: str = "",
+                         product: str = "", local_identifier: str = "", coordinates:List[Tuple[int]] = None):
         """
         Fill general annotation for child classes
 
         :param start: Start position
         :param stop: Stop position
+        :param coordinates: start and stop positions. in a list of tuple. Can have multiple tuple in case of join gene
         :param strand: associated strand
         :param gene_type: Type of gene
         :param name: Name of the feature
@@ -132,6 +141,9 @@ class Feature(MetaFeatures):
         :raises TypeError: If attribute value does not correspond to the expected type
         :raises ValueError: If strand is not '+' or '-'
         """
+        if coordinates is None:
+            coordinates = [(start, stop)]
+
         if not isinstance(start, int):
             raise TypeError("Start should be int")
         if not isinstance(stop, int):
@@ -148,6 +160,9 @@ class Feature(MetaFeatures):
             raise TypeError("Local identifier should be str")
         if strand not in ["+", "-"]:
             raise ValueError("Strand should be + or -")
+        if not isinstance(coordinates, list):
+            raise ValueError(f"coordinates should be of type list. Type {type(coordinates)} was given instead")
+        
         self.start = start
         self.stop = stop
         self.strand = strand
@@ -155,6 +170,7 @@ class Feature(MetaFeatures):
         self.product = product
         self.name = name
         self.local_identifier = local_identifier
+        self.coordinates = coordinates
 
     def fill_parents(self, organism: Organism = None, contig: Contig = None):
         """ Associate object to an organism and a contig
