@@ -19,7 +19,7 @@ import pandas as pd
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
-from ppanggolin.genome import Gene, Contig
+from ppanggolin.genome import Gene, Contig, Organism
 from ppanggolin.utils import mk_outdir, restricted_float, create_tmpdir, read_compressed_or_not, extract_contig_window
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import project_and_write_partition, get_input_seq_to_family_with_rep, \
@@ -66,7 +66,6 @@ def check_search_context_args(args: argparse.Namespace) -> Dict[str, Any]:
         if args.fast:
             logging.getLogger("PPanGGOLiN").warning("--fasta is not compatible with --family")
         for arg in ["no_defrag", "identity", "coverage", "translation_table", "keep_tmp", "tmpdir", "cpu"]:
-            print(getattr(args, arg), align_args[arg])
             if getattr(args, arg) != align_args[arg]:
                 logging.getLogger("PPanGGOLiN").warning(f"--{arg} is not compatible with --family")
     return align_args
@@ -539,7 +538,7 @@ def get_contig_to_genes(gene_families: Iterable[GeneFamily]) -> Dict[Contig, Set
 
 
 def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int = 4, window_size: int = 0,
-                               disable_bar: bool = False) -> nx.Graph:
+                               disable_bar: bool = False) -> Tuple[nx.Graph, Dict[Organism, Set[Tuple[GeneFamily]]]]:
     """
     Construct the graph of gene contexts between families of the pangenome.
 
@@ -555,8 +554,10 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
 
     contig_to_genes_of_interest = get_contig_to_genes(families)
 
+    orgs2combs = defaultdict(set)
     for contig, genes_of_interest in tqdm(contig_to_genes_of_interest.items(), unit="contig",
                                           total=len(contig_to_genes_of_interest), disable=disable_bar):
+        orgs2combs[contig.organism].add(tuple(gene.family for gene in genes_of_interest if gene.family in families))
         genes_count = contig.number_of_genes
 
         genes_of_interest_positions = [g.position for g in genes_of_interest]
@@ -569,7 +570,7 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
                                    contig_windows,
                                    transitive,
                                    contig.is_circular)
-    return context_graph
+    return context_graph, orgs2combs
 
 
 def fam_to_seq(seq_to_pan: dict) -> dict:
