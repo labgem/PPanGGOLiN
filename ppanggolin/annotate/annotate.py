@@ -11,6 +11,7 @@ from pathlib import Path
 import tempfile
 import time
 from typing import List, Set, Tuple, Iterable
+import re
 
 # installed libraries
 from tqdm import tqdm
@@ -94,6 +95,51 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     new_gene.fill_parents(org, contig)
 
 
+def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
+    """
+    Extracts start and stop positions from a string and determines whether it is complement and pseudogene.
+    
+    Exemple of strings that the function is able to process: 
+
+    "join(190..7695,7695..12071)",
+    "complement(join(4359800..4360707,4360707..4360962))",
+    "join(6835405..6835731,1..1218)",
+    "join(1375484..1375555,1375557..1376579)",
+    "complement(6815492..6816265)",
+    "6811501..6812109",
+    "complement(6792573..>6795461)"
+    
+
+    :param string: The input string containing position information.
+
+    :return: A tuple containing a list of tuples representing start and stop positions,
+             a boolean indicating whether it is complement, and
+             a boolean indicating whether it is likely a pseudogene.
+    """
+    complement = False
+    positions = []
+    pseudogene = False
+    
+    # Check if 'complement' exists in the string
+    if 'complement' in string:
+        complement = True
+    
+    # Check if '>' or '<' exists in the string to identify pseudogene
+    if '>' in string or '<' in string:
+        pseudogene = True
+    
+    # Extract positions using regular expressions
+    pattern = r'[<>]{0,1}(\d+)\.\.[<>]{0,1}(\d+)'
+    matches = re.finditer(pattern, string)
+    
+    for match in matches:
+        start = int(match.group(1))
+        stop = int(match.group(2))
+        positions.append((start, stop))
+    
+    return positions, complement, pseudogene
+
+
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
                   pseudo: bool = False) -> Tuple[Organism, bool]:
     """
@@ -161,6 +207,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         useful_info = False
         start = None
         stop = None
+        coordinates = None
         strand = None
         line = lines.pop()
         while not line.startswith("ORIGIN"):
@@ -178,27 +225,17 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 if obj_type in ['CDS', 'rRNA', 'tRNA']:
                     dbxref = set()
                     gene_name = ""
-                    try:
-                        if 'join' not in line[21:]:
-                            useful_info = True
-                            if line[21:].startswith('complement('):
-                                strand = "-"
-                                start, stop = line[32:].strip().replace(')', '').split("..")
-                            else:
-                                strand = "+"
-                                start, stop = line[21:].strip().split('..')
-                            if '>' in start or '<' in start or '>' in stop or '<' in stop:
-                                if not pseudo:
-                                    # pseudogene likely
-                                    useful_info = False
-                                else:
-                                    start = start.replace('>', '').replace('<', '')
-                                    stop = stop.replace('>', '').replace('<', '')
-                            start, stop = map(int, [start, stop])
-                    except ValueError:
-                        pass
-                        # don't know what to do with that, ignoring for now.
-                        # there is a protein with a frameshift mecanism.
+                    useful_info = True
+
+                    coordinates, is_complement, is_pseudo = extract_positions(line[21:])
+                    
+                    strand = "-" if is_complement else "+"
+                    
+                    if is_pseudo and not pseudo:
+                        useful_info = False
+
+                    start, stop = coordinates[0][0], coordinates[-1][1]
+
             elif useful_info:  # current info goes to current objtype, if it's useful.
                 if line[21:].startswith("/db_xref"):
                     dbxref.add(line.split("=")[1].replace('"', '').strip())
@@ -513,11 +550,18 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     # unless a gff file without fasta is met (which is the only case where sequences can be absent)
     args = []
     for line in read_compressed_or_not(organisms_file):
+        if not line.strip() or line.strip().startswith('#'):
+            continue
         elements = [el.strip() for el in line.split("\t")]
         org_path = Path(elements[1])
+        name = elements[0]
+        circular_contigs = elements[2:]
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
-        args.append((elements[0], org_path, elements[2:], pseudo))
+
+        args.append((name, org_path, circular_contigs, pseudo))
+
+        # read_anno_file(name, org_path, circular_contigs, pseudo)
 
     with ProcessPoolExecutor(mp_context=get_context('fork'), max_workers=cpu,
                              initializer=init_contig_counter, initargs=(contig_counter,)) as executor:
