@@ -4,7 +4,7 @@
 # default libraries
 import logging
 from pathlib import Path
-from typing import TextIO, Dict, Any, Set
+from typing import TextIO, Dict, Any, Set, List, Tuple
 
 # installed libraries
 from tqdm import tqdm
@@ -25,7 +25,7 @@ class Genedata:
     """
 
     def __init__(self, start: int, stop: int, strand: str, gene_type: str, position: int, name: str, product: str,
-                 genetic_code: int):
+                 genetic_code: int, coordinates:List[Tuple[int]] = None):
         """Constructor method
 
         :param start: Gene start position
@@ -45,6 +45,8 @@ class Genedata:
         self.name = name
         self.product = product
         self.genetic_code = genetic_code
+        self.has_joined_coordinates = len(coordinates) > 1
+        self.coordinates = coordinates
 
     def __eq__(self, other):
         return self.start == other.start \
@@ -54,11 +56,12 @@ class Genedata:
             and self.position == other.position \
             and self.name == other.name \
             and self.product == other.product \
-            and self.genetic_code == other.genetic_code
+            and self.genetic_code == other.genetic_code \
+            and self.coordinates == other.coordinates \
 
     def __hash__(self):
         return hash((self.start, self.stop, self.strand, self.gene_type, self.position,
-                     self.name, self.product, self.genetic_code))
+                     self.name, self.product, self.genetic_code, tuple(self.coordinates)))
 
 
 def get_number_of_organisms(pangenome: Pangenome) -> int:

@@ -229,8 +229,23 @@ def genedata_desc(type_len: int, name_len: int, product_len: int) -> Dict[str, U
         'name': tables.StringCol(itemsize=name_len),
         'product': tables.StringCol(itemsize=product_len),
         'genetic_code': tables.UInt32Col(dflt=11),
+        'has_joined_coordinates':tables.BoolCol(dflt=False),
     }
 
+def gene_joined_coordinates_desc() -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
+    """
+    Creates a table for gene-related data
+
+    :param type_len: Maximum size of gene Type.
+    :param name_len: Maximum size of gene name
+    :param product_len: Maximum size of gene product
+    :return: Formatted table for gene metadata
+    """
+    return {
+        'genedata_id': tables.UInt32Col(),
+        'start': tables.UInt32Col(),
+        'stop': tables.UInt32Col()
+    }
 
 def get_max_len_genedata(pangenome: Pangenome) -> Tuple[int, int, int]:
     """
@@ -276,7 +291,40 @@ def get_genedata(feature: Union[Gene, RNA]) -> Genedata:
         position = feature.position
         genetic_code = feature.genetic_code
     return Genedata(feature.start, feature.stop, feature.strand, feature.type, position, feature.name,
-                    feature.product, genetic_code)
+                    feature.product, genetic_code, coordinates = feature.coordinates)
+
+def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates_2_id, disable_bar):
+    """Writting genedata information in pangenome file
+
+    :param h5f: Pangenome file
+    :param annotation: Annotation group in Table
+    :param genedata2gene: Dictionnary linking genedata to gene identifier.
+    :param disable_bar: Allow disabling progress bar
+    """
+    print(genes_with_joined_coordinates_2_id)
+    number_of_gene_pieces = sum([len(gene.coordinates) for gene in genes_with_joined_coordinates_2_id])
+
+    try:
+        joined_coordinates_tables = annotation.geneCoordinates
+    except tables.exceptions.NoSuchNodeError:
+        joined_coordinates_tables = h5f.create_table(annotation, "geneCoordinates", gene_joined_coordinates_desc(),
+                                            expectedrows=number_of_gene_pieces)
+        
+
+    logging.getLogger("PPanGGOLiN").debug(f"Writing {number_of_gene_pieces} piece of genes from "
+                                          f"{len(genes_with_joined_coordinates_2_id)} genes that have joined coordinates ")
+    
+    genedata_row = joined_coordinates_tables.row
+    for genedata, genedata_id in tqdm(genes_with_joined_coordinates_2_id.items(), unit="genedata", disable=disable_bar):
+        for start, stop in genedata.coordinates:
+
+            genedata_row["genedata_id"] = genedata_id
+            genedata_row["start"] = start
+            genedata_row["stop"] = stop
+        
+            genedata_row.append()
+
+    joined_coordinates_tables.flush()
 
 
 def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group,
@@ -294,6 +342,7 @@ def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.G
     except tables.exceptions.NoSuchNodeError:
         genedata_table = h5f.create_table(annotation, "genedata", genedata_desc(*get_max_len_genedata(pangenome)),
                                           expectedrows=len(genedata2gene))
+
     logging.getLogger("PPanGGOLiN").debug(f"Writing {len(genedata2gene)} gene-related data "
                                           "(can be lower than the number of genes)")
     genedata_row = genedata_table.row
@@ -303,12 +352,17 @@ def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.G
         genedata_row["stop"] = genedata.stop
         genedata_row["strand"] = genedata.strand
         genedata_row["gene_type"] = genedata.gene_type
+
         if genedata.gene_type == "CDS":
             genedata_row["position"] = genedata.position
             genedata_row["genetic_code"] = genedata.genetic_code
+
         genedata_row["name"] = genedata.name
         genedata_row["product"] = genedata.product
+        genedata_row["has_joined_coordinates"] = genedata.has_joined_coordinates
+        
         genedata_row.append()
+
     genedata_table.flush()
 
 
@@ -340,11 +394,16 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: boo
         desc = gene_desc(gene_id_len, gene_local_id)
         genedata2gene = write_genes(pangenome, h5f, annotation, desc, disable_bar)
         write_genedata(pangenome, h5f, annotation, genedata2gene, disable_bar)
+
     if rec_rnas:
         desc = rna_desc(rna_id_len)
         genedata2rna = write_rnas(pangenome, h5f, annotation, desc, disable_bar)
         write_genedata(pangenome, h5f, annotation, genedata2rna, disable_bar)
 
+    genes_with_joined_coordinates_2_id = {gene : gene_id for gene, gene_id in genedata2gene.items() if gene.has_joined_coordinates} 
+    genes_with_joined_coordinates_2_id.update({gene : gene_id for gene, gene_id in genedata2rna.items() if gene.has_joined_coordinates})
+    
+    write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates_2_id, disable_bar)
 
 def get_gene_sequences_len(pangenome: Pangenome) -> Tuple[int, int]:
     """
