@@ -5,6 +5,7 @@
 import logging
 from pathlib import Path
 from typing import TextIO, Dict, Any, Set, List, Tuple
+from collections import defaultdict
 
 # installed libraries
 from tqdm import tqdm
@@ -161,20 +162,57 @@ def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
 
     :return: dictionary linking genedata to the genedata identifier
     """
+
+    genedata_id_to_coordinates = read_join_coordinates(h5f)
+
     table = h5f.root.annotations.genedata
     genedata_id2genedata = {}
     for row in read_chunks(table, chunk=20000):
-        genedata = Genedata(start=int(row["start"]),
-                            stop=int(row["stop"]),
+        start = int(row["start"])
+        stop = int(row["stop"])
+        
+        if row["has_joined_coordinates"]: # manage gene with joined coordinates
+            
+            try:
+                coordinates = genedata_id_to_coordinates[row["genedata_id"]]
+            except KeyError:
+                raise KeyError(f'Genedata {row["genedata_id"]} is supposed to have joined '
+                               'coordinates but is not found in annotations.joinCoordinates table')
+        else:
+            coordinates = [(start, stop)]
+
+
+        genedata = Genedata(start=start,
+                            stop=stop,
                             strand=row["strand"].decode(),
                             gene_type=row["gene_type"].decode(),
                             position=int(row["position"]),
                             name=row["name"].decode(),
                             product=row["product"].decode(),
-                            genetic_code=int(row["genetic_code"]))
+                            genetic_code=int(row["genetic_code"]),
+                            coordinates=coordinates)
+
         genedata_id = row["genedata_id"]
         genedata_id2genedata[genedata_id] = genedata
+
     return genedata_id2genedata
+
+def read_join_coordinates(h5f: tables.File) -> Dict[str, List[Tuple[int, int]]]:
+    """
+    Read join coordinates from a HDF5 file and return a dictionary mapping genedata_id to coordinates.
+
+    :param h5f: An HDF5 file object.
+    :return: A dictionary mapping genedata_id to a list of tuples representing start and stop coordinates.
+    """
+    genedata_id_to_coordinates = defaultdict(list)
+    table = h5f.root.annotations.joinedCoordinates
+
+    for row in read_chunks(table, chunk=20000):
+        genedata_id = row["genedata_id"]
+
+        genedata_id_to_coordinates[genedata_id].append((int(row["start"]), int(row["stop"])))
+
+    return dict(genedata_id_to_coordinates)
 
 
 def read_sequences(h5f: tables.File) -> dict:

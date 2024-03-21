@@ -301,13 +301,12 @@ def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates
     :param genedata2gene: Dictionnary linking genedata to gene identifier.
     :param disable_bar: Allow disabling progress bar
     """
-    print(genes_with_joined_coordinates_2_id)
     number_of_gene_pieces = sum([len(gene.coordinates) for gene in genes_with_joined_coordinates_2_id])
 
     try:
-        joined_coordinates_tables = annotation.geneCoordinates
+        joined_coordinates_tables = annotation.joinedCoordinates
     except tables.exceptions.NoSuchNodeError:
-        joined_coordinates_tables = h5f.create_table(annotation, "geneCoordinates", gene_joined_coordinates_desc(),
+        joined_coordinates_tables = h5f.create_table(annotation, "joinedCoordinates", gene_joined_coordinates_desc(),
                                             expectedrows=number_of_gene_pieces)
         
 
