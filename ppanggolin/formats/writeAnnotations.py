@@ -244,7 +244,8 @@ def gene_joined_coordinates_desc() -> Dict[str, Union[tables.UIntCol, tables.Str
     return {
         'genedata_id': tables.UInt32Col(),
         'start': tables.UInt32Col(),
-        'stop': tables.UInt32Col()
+        'stop': tables.UInt32Col(),
+        'coordinate_rank': tables.UInt32Col(),
     }
 
 def get_max_len_genedata(pangenome: Pangenome) -> Tuple[int, int, int]:
@@ -315,11 +316,12 @@ def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates
     
     genedata_row = joined_coordinates_tables.row
     for genedata, genedata_id in tqdm(genes_with_joined_coordinates_2_id.items(), unit="genedata", disable=disable_bar):
-        for start, stop in genedata.coordinates:
+        for index, (start, stop) in enumerate(genedata.coordinates):
 
             genedata_row["genedata_id"] = genedata_id
             genedata_row["start"] = start
             genedata_row["stop"] = stop
+            genedata_row['coordinate_rank'] = index
         
             genedata_row.append()
 

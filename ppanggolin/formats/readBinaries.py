@@ -210,9 +210,15 @@ def read_join_coordinates(h5f: tables.File) -> Dict[str, List[Tuple[int, int]]]:
     for row in read_chunks(table, chunk=20000):
         genedata_id = row["genedata_id"]
 
-        genedata_id_to_coordinates[genedata_id].append((int(row["start"]), int(row["stop"])))
+        genedata_id_to_coordinates[genedata_id].append((int(row["coordinate_rank"]), int(row["start"]), int(row["stop"])))
 
-    return dict(genedata_id_to_coordinates)
+    # sort coordinate by their rank
+    genedata_id_to_sorted_coordinates = {}
+    for genedata_id, coordinates in genedata_id_to_coordinates.items():
+        sorted_coordinates = [(start, stop) for rank, start, stop in sorted(coordinates)]
+        genedata_id_to_sorted_coordinates[genedata_id] = sorted_coordinates
+
+    return genedata_id_to_sorted_coordinates
 
 
 def read_sequences(h5f: tables.File) -> dict:
