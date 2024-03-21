@@ -109,7 +109,8 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
     "join(1375484..1375555,1375557..1376579)",
     "complement(6815492..6816265)",
     "6811501..6812109",
-    "complement(6792573..>6795461)"
+    "complement(6792573..>6795461)",
+    "join(1038313,1..1016)"
     
 
     :param string: The input string containing position information.
@@ -119,7 +120,7 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
              a boolean indicating whether it is likely a pseudogene.
     """
     complement = False
-    positions = []
+    coordinates = []
     pseudogene = False
     
     # Check if 'complement' exists in the string
@@ -129,17 +130,37 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
     # Check if '>' or '<' exists in the string to identify pseudogene
     if '>' in string or '<' in string:
         pseudogene = True
+
+    if "(" in string:
+        # Extract positions found inside the parenthesis
+        inner_parentheses_regex = r'\(([^()]+)\)'
+        inner_matches = re.findall(inner_parentheses_regex, string)
+
+        try:
+            positions = inner_matches[-1]
+        except IndexError:
+            raise ValueError(f'Gene position {string} is not formatted as expected.')
+    else:
+        positions = string.rstrip()
     
-    # Extract positions using regular expressions
-    pattern = r'[<>]{0,1}(\d+)\.\.[<>]{0,1}(\d+)'
-    matches = re.finditer(pattern, string)
+    for position in positions.split(','):
+
+        try:
+            start, stop = position.replace(">", "").replace("<", "").split('..')
+        except ValueError:
+            # in some case there is only one position meaning that the gene is long of only one nt in this piece. 
+            # for instance : join(1038313,1..1016) 
+            start = position.replace(">", "").replace("<", "")
+            stop = start
+        try:    
+            start, stop = int(start), int(stop)
+        except ValueError:
+            raise ValueError(f"Error parsing position '{position}' extracted from GBFF string '{string}'. "
+                            f"Start position ({start}) and/or stop position ({stop}) are not valid integers.")
+
+        coordinates.append((start, stop))
     
-    for match in matches:
-        start = int(match.group(1))
-        stop = int(match.group(2))
-        positions.append((start, stop))
-    
-    return positions, complement, pseudogene
+    return coordinates, complement, pseudogene
 
 
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],

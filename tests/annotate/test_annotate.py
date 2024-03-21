@@ -10,7 +10,9 @@ from ppanggolin.annotate.annotate import extract_positions, read_anno_file
     ("join(1375484..1375555,1375557..1376579)", [(1375484, 1375555), (1375557, 1376579)], False, False),
     ("complement(6815492..6816265)", [(6815492, 6816265)], True, False),
     ("6811501..6812109", [(6811501, 6812109)], False, False),
-    ("complement(6792573..>6795461)", [(6792573,6795461)], True, True)
+    ("complement(6792573..>6795461)", [(6792573,6795461)], True, True),
+    ("join(1038313,1..1016)", [(1038313,1038313), (1,1016)], False, False),
+    ("1038313", [(1038313,1038313)], False, False)
 ])
 def test_extract_positions(input_string, expected_positions, expected_complement, expected_pseudogene):
     positions, is_complement, is_pseudo = extract_positions(input_string)
@@ -18,6 +20,18 @@ def test_extract_positions(input_string, expected_positions, expected_complement
     assert is_complement == expected_complement
     assert is_pseudo == expected_pseudogene
 
+def test_extract_positions_with_wrong_positions_format():
+
+    with pytest.raises(ValueError):
+        extract_positions("join(1038313,1..1016") # string misses a closing parenthesis
+ 
+def test_extract_positions_with_wrong_positions_format2():
+
+    with pytest.raises(ValueError):
+        extract_positions("start..stop") # start and stop are not integer 
+    with pytest.raises(ValueError):
+        extract_positions("complement(join(start..6816265, 1..stop))") # start and stop are not integer 
+ 
 
 @pytest.fixture
 def genome_data():
