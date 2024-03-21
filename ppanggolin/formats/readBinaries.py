@@ -506,7 +506,7 @@ def read_genes(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[in
             local = ""
         gene.fill_annotations(start=genedata.start, stop=genedata.stop, strand=genedata.strand,
                               gene_type=genedata.gene_type, name=genedata.name, position=genedata.position,
-                              genetic_code=genedata.genetic_code, product=genedata.product, local_identifier=local)
+                              genetic_code=genedata.genetic_code, product=genedata.product, local_identifier=local, coordinates=genedata.coordinates)
         gene.is_fragment = row["is_fragment"]
         if link:
             contig = pangenome.get_contig(identifier=int(row["contig"]))
