@@ -267,9 +267,6 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
     if link and len(gene_to_fam) != pangenome.number_of_genes:  # then maybe there are genes with identical IDs
         logging.getLogger("PPanGGOLiN").debug(f"gene_to_fam size: {len(gene_to_fam)}, "
                                               f"Pangenome nb genes: {pangenome.number_of_genes}")
-        print(list(gene_to_fam.keys())[0:10], [gene.ID for gene in pangenome.genes][0:10])
-        diff = {gene.ID for gene in pangenome.genes}.difference(set(gene_to_fam.keys()))
-        print(len(diff), {gene for gene in diff})
         raise Exception("Something unexpected happened during clustering (have less genes clustered than genes "
                         "in the pangenome). A probable reason is that two genes in two different genomes have "
                         "the same IDs; If you are sure that all of your genes have non identical IDs,  please post an "
@@ -450,9 +447,11 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
                 infer_singletons(pangenome)
             else:
                 raise Exception(
-                    f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) did not have an associated "
-                    f"cluster. Either change your cluster file so that each gene has a cluster, "
-                    f"or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
+                    f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) were not associated with a cluster. "
+                    f"You can either update your cluster file to ensure each gene has a cluster assignment, "
+                    f"or use the '--infer_singletons' option to automatically infer a cluster for each non-clustered gene."
+                )
+
     pangenome.status["genesClustered"] = "Computed"
     if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
