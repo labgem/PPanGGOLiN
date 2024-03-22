@@ -119,7 +119,7 @@ jobs:
         ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context --fast
 
         # test from gene family ids. Test here with one family of module 1. The context should find all families of module 1
-        echo AP288_RS05055 > one_family_of_module_1.txt 
+        echo AQ193_RS05030 > one_family_of_module_1.txt 
         ppanggolin context --pangenome myannopang/pangenome.h5 --family one_family_of_module_1.txt  --output test_context_from_id
         cd -
     - name: testing metadata command
