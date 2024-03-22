@@ -183,6 +183,9 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
 
         metadata_for_proksee = {f"gene_{k}": v for k, v in gene.formatted_metadata_dict().items()}
         metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict().items()})
+
+        #Proksee deals well with circularity. So when a gene overlep the edge of the contig
+        # Proksee display correctly the gene with the initial start (at the end of the contig) and the final stop (at the begining of the contig)
         genes_data_list.append({
             "name": gene.name,
             "type": "Gene",
@@ -198,6 +201,9 @@ def write_genes(organism: Organism, disable_bar: bool = True) -> Tuple[List[Dict
         })
 
     # Process RNA genes
+        
+    #Proksee deals well with circularity. So when a gene overlep the edge of the contig
+    # Proksee display correctly the gene with the initial start (at the end of the contig) and the final stop (at the begining of the contig)
     for gene in tqdm(organism.rna_genes, total=organism.number_of_rnas(), unit="rnas", disable=disable_bar):
         genes_data_list.append({
             "name": gene.name,
