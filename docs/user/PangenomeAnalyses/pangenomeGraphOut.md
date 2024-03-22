@@ -12,7 +12,7 @@ Using Gephi, the layout can be tuned as illustrated below:
 We advise the Gephi "Force Atlas 2" algorithm to compute the graph layout with "Stronger Gravity: on" and "scaling: 4000" but don't hesitate to tinker with the layout parameters.
 
 In the _light.gexf file : 
-The nodes will contain the number of genes belonging to the gene family, the most common gene name (if you provided annotations), the most common product name (if you provided annotations in your GFF or GBFF input files), the partitions it belongs to, its average and median size in nucleotides, and the number of organisms that have this gene family. If spots or modules are computed, it also indicates if a node belongs to them. Finally, this file also outputs the imported metadata regarding each gene family.
+The nodes will contain the number of genes belonging to the gene family, the most common gene name (if you provided annotations), the most common product name (if you provided annotations in your GFF or GBFF input files), the partitions it belongs to, its average and median size in nucleotides, and the number of genomes that have this gene family. If spots or modules are computed, it also indicates if a node belongs to them. Finally, this file also outputs the imported metadata regarding each gene family.
 
 The edges contain the number of times they are present in the pangenome.
 

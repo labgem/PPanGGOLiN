@@ -2,7 +2,7 @@
 
 The `write_genomes` command creates 'flat' files representing genomes with their pangenome annotations.
 
-To generate output for specific genomes, use the `--organisms` argument. This argument accepts a list of organism names, either directly entered in the command line (comma-separated) or referenced from a file where each line contains a single organism name.
+To generate output for specific genomes, use the `--genomes` argument. This argument accepts a list of genome names, either directly entered in the command line (comma-separated) or referenced from a file where each line contains a single genome name.
 
 
 ### Genes table with pangenome annotations
@@ -20,7 +20,7 @@ The following table outlines the columns present in the generated files:
 | stop                 | Stop position of the gene                                                  |
 | strand               | Gene location strand                                      |
 | family               | ID of the gene's associated family in the pangenome             |
-| nb_copy_in_org       | Number of copies of a family present in the organism; 1 indicates no close paralogs |
+| nb_copy_in_org       | Number of copies of a family present in the genome; 1 indicates no close paralogs |
 | partition            | Gene family partition in the pangenome                  |
 | persistent_neighbors | Number of neighbors classified as 'persistent' in the pangenome graph        |
 | shell_neighbors      | Number of neighbors classified as 'shell' in the pangenome graph             |
@@ -137,9 +137,9 @@ PPanGGOLiN allows the incorporation of fasta sequences into GFF files and prokse
 
 Since PPanGGOLiN does not retain genomic sequences, it is necessary to provide the original genomic files used to construct the pangenome through either the `--anno` or `--fasta` argument. These arguments mirror those used in workflow commands (`workflow`, `all`, `panrgp`, `panmodule`) and the `annotate` command.
 
-- `--anno`: This option requires a tab-separated file containing organism names and the corresponding GFF/GBFF file paths of their annotations. If `--anno` is utilized, GFF files should include fasta sequences.
+- `--anno`: This option requires a tab-separated file containing genome names and the corresponding GFF/GBFF file paths of their annotations. If `--anno` is utilized, GFF files should include fasta sequences.
 
-- `--fasta`: Use this option with a tab-separated file that lists organism names alongside the filepaths of their genomic sequences in fasta format.
+- `--fasta`: Use this option with a tab-separated file that lists genome names alongside the filepaths of their genomic sequences in fasta format.
 
 
 ### Incorporating Metadata into Tables, GFF, and Proksee Files
