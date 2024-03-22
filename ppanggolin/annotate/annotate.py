@@ -392,7 +392,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 else:  # comment lines to be ignores by parsers
                     continue
 
-            elif line == "":  # empty lines are not expected, but they do not carry information, so we'll ignore them
+            elif line.rstrip() == "":  # empty lines are not expected, but they do not carry information, so we'll ignore them
                 continue
 
             else:
