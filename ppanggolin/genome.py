@@ -71,15 +71,13 @@ class Feature(MetaFeatures):
 
         :return: gene length
 
-        :raises ValueError: If start or stop are not defined in gene
+        :raises ValueError: If coordinates are not defined in gene
         """
-        if self.start is not None:
-            if self.stop is not None:
-                return self.stop - self.start + 1
-            else:
-                raise ValueError("Stop is not known")
-        else:
-            raise ValueError("Start is not known")
+
+        try:
+            return sum([(stop - start +1) for start, stop in self.coordinates ])
+        except TypeError:
+            raise ValueError(f"Cooridnates of gene {self} has not been defined. Geting is length is then impossible.")
 
     @property
     def has_joined_coordinates(self) -> bool:
