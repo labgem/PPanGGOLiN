@@ -227,11 +227,15 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
     :param outdir: output directory name for families alignment
     :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
     """
+
+    # sort familes by ID, so the gene order is consistent
+    families = sorted(families, key = lambda fam: fam.ID)
+
     phylo_dict = {}
     for org in pangenome.organisms:
         phylo_dict[org.name] = ""
     for fam in families:
-        missing_genomes = set(phylo_dict.keys())
+        observed_genomes = set()
         with open(outdir / f"{fam.name}.aln", "r") as fin:
             genome_id = ""
             seq = ""
@@ -240,14 +244,15 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
 
             for line in fin:
                 if line.startswith('>'):
+                    # Save sequence of previous record
                     if genome_id != "":
-                        if genome_id not in missing_genomes:
+                        if genome_id in observed_genomes:
                             # duplicated genes. Replacing them with gaps.
                             curr_phylo_dict[genome_id] = "-" * curr_len
                         else:
                             curr_phylo_dict[genome_id] = seq
-                            missing_genomes -= {genome_id}
                             curr_len = len(seq)
+                            observed_genomes.add(genome_id)
                     if use_gene_id:
                         genome_id = pangenome.get_gene(line[1:].strip()).organism.name
                     else:
@@ -255,13 +260,19 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
                     seq = ""
                 else:
                     seq += line.strip()
+
+            # process the final record
             if genome_id != "":
-                if genome_id not in missing_genomes:
+                if genome_id in observed_genomes:
                     # duplicated genes. Replacing them with gaps.
                     curr_phylo_dict[genome_id] = "-" * curr_len
                 else:
                     curr_phylo_dict[genome_id] = seq
                     curr_len = len(seq)
+                    observed_genomes.add(genome_id)
+
+        # write gaps for all missing genomes
+        missing_genomes = [g for g in set(phylo_dict.keys()) if g not in observed_genomes]
         for genome in missing_genomes:
             curr_phylo_dict[genome] = "-" * curr_len
 
