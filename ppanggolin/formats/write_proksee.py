@@ -186,16 +186,10 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
 
         metadata_for_proksee = {f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()}
         metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict(metadata_sep).items()})
-<<<<<<< HEAD
         
         #Proksee deals well with circularity. So when a gene overlep the edge of the contig
         # Proksee display correctly the gene with the initial start (at the end of the contig) and the final stop (at the begining of the contig)
 
-=======
-
-        #Proksee deals well with circularity. So when a gene overlep the edge of the contig
-        # Proksee display correctly the gene with the initial start (at the end of the contig) and the final stop (at the begining of the contig)
->>>>>>> 19a9211 (add comment to deal with coordinate in proksee)
         genes_data_list.append({
             "name": gene.name,
             "type": "Gene",
