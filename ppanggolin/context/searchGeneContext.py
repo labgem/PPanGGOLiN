@@ -85,10 +85,10 @@ def check_pangenome_for_searching(pangenome: Pangenome, sequences: bool = False)
                              "For now this works only if the clustering has been made by PPanGGOLiN.")
 
 
-def align_sequences_to_families(pangenome: Pangenome, output: Path, sequence_file: Path = None,
-                                identity: float = 0.5, coverage: float = 0.8, use_representatives: bool = False,
-                                no_defrag: bool = False, cpu: int = 1, translation_table: int = 11,
-                                tmpdir: Path = None, keep_tmp: bool = False, disable_bar=True) -> Set[GeneFamily]:
+def align_sequences_to_families(pangenome: Pangenome, output: Path, sequence_file: Path = None, identity: float = 0.5,
+                                coverage: float = 0.8, use_representatives: bool = False, no_defrag: bool = False,
+                                cpu: int = 1, translation_table: int = 11, tmpdir: Path = None, keep_tmp: bool = False,
+                                disable_bar=True) -> Tuple[Set[GeneFamily], Dict[GeneFamily, Set[str]]]:
     """ Align sequences to pangenome gene families to get families of interest
 
     :param pangenome: Pangenome containing GeneFamilies to align with sequence set
@@ -104,7 +104,7 @@ def align_sequences_to_families(pangenome: Pangenome, output: Path, sequence_fil
     :param translation_table: The translation table to use when the input sequences are nucleotide sequences.
     :param keep_tmp: If True, keep temporary files.
 
-    :return: Set of gene families of interest
+    :return: Set of gene families of interest and dict which link gene families to sequence ID
     """
     # Alignment of sequences on pangenome families
     families_of_interest = set()
@@ -136,16 +136,16 @@ def align_sequences_to_families(pangenome: Pangenome, output: Path, sequence_fil
                                                             identity=identity, coverage=coverage,
                                                             translation_table=translation_table,
                                                             disable_bar=disable_bar)
-            project_and_write_partition(seqid2fam, seq_set, output)
-            write_gene_to_gene_family(seqid2fam, seq_set, output)
+        project_and_write_partition(seqid2fam, seq_set, output)
+        write_gene_to_gene_family(seqid2fam, seq_set, output)
 
-            family_2_input_seqid = defaultdict(set)
-            for seqid, gf in seqid2fam.items():
-                family_2_input_seqid[gf].add(seqid)
+        family_2_input_seqid = defaultdict(set)
+        for seqid, gf in seqid2fam.items():
+            family_2_input_seqid[gf].add(seqid)
 
-            for pan_family in seqid2fam.values():
-                families_of_interest.add(pan_family)
-    return families_of_interest
+        for pan_family in seqid2fam.values():
+            families_of_interest.add(pan_family)
+    return families_of_interest, family_2_input_seqid
 
 
 def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequence_file: Path = None,
@@ -172,8 +172,9 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequenc
     families_of_interest = set()
     family_2_input_seqid = {}
     if sequence_file is not None:
-        families_of_interest |= align_sequences_to_families(pangenome, output, sequence_file,
-                                                            disable_bar=disable_bar, **kwargs)
+        fams_of_interest, family_2_input_seqid = align_sequences_to_families(pangenome, output, sequence_file,
+                                                                             disable_bar=disable_bar, **kwargs)
+        families_of_interest |= fams_of_interest
     if families is not None:
         with read_compressed_or_not(families) as f:
             for fam_name in f.read().splitlines():
@@ -185,14 +186,13 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequenc
     logging.getLogger().info("Building the graph...")
 
     gene_context_graph, _ = compute_gene_context_graph(families=families_of_interest, transitive=transitive,
-                                                    window_size=window_size, disable_bar=disable_bar)
+                                                       window_size=window_size, disable_bar=disable_bar)
 
-    logging.getLogger().info(
-        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
+    logging.getLogger().info(f"Took {round(time.time() - start_time, 2)} "
+                             f"seconds to build the graph to find common gene contexts")
 
-    logging.getLogger().debug(
-        f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and "
-        f"{nx.number_of_edges(gene_context_graph)} edges")
+    logging.getLogger().debug(f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and "
+                              f"{nx.number_of_edges(gene_context_graph)} edges")
 
     compute_edge_metrics(gene_context_graph, jaccard_threshold)
 
@@ -292,15 +292,16 @@ def make_graph_writable(context_graph):
         """
         return {k: v for k, v in data.items() if type(v) not in [set, dict, list]}
 
-    G = nx.Graph()
+    writable_graph = nx.Graph()
 
-    G.add_edges_from((f1.name, f2.name, filter_attribute(d)) for f1, f2, d in context_graph.edges(data=True))
+    writable_graph.add_edges_from((f1.name, f2.name, filter_attribute(d))
+                                  for f1, f2, d in context_graph.edges(data=True))
 
     # convert transitivity dict to str
     edges_with_transitivity_str = {(f1.name, f2.name): str(d['transitivity']) for f1, f2, d in
                                    context_graph.edges(data=True)}
 
-    nx.set_edge_attributes(G, edges_with_transitivity_str, name="transitivity")
+    nx.set_edge_attributes(writable_graph, edges_with_transitivity_str, name="transitivity")
 
     nodes_attributes_filtered = {f.name: filter_attribute(d) for f, d in context_graph.nodes(data=True)}
 
@@ -310,18 +311,18 @@ def make_graph_writable(context_graph):
                                   "partition": f.named_partition,
                                   "genes": f.number_of_genes} for f in context_graph.nodes()}
 
-    for f, d in G.nodes(data=True):
+    for f, d in writable_graph.nodes(data=True):
         d.update(nodes_family_data[f])
         d.update(nodes_attributes_filtered[f])
 
-    return G
+    return writable_graph
 
 
-def write_graph(G: nx.Graph, output_dir: Path, graph_format: str):
+def write_graph(graph: nx.Graph, output_dir: Path, graph_format: str):
     """
     Write a graph to file in the GraphML format or/and in GEXF format. 
 
-    :param G: Graph to write
+    :param graph: Graph to write
     :param output_dir: The output directory where the graph file will be written.
     :param graph_format: Formats of the output graph. Can be graphml or gexf 
 
@@ -330,12 +331,12 @@ def write_graph(G: nx.Graph, output_dir: Path, graph_format: str):
     if "graphml" == graph_format:
         out_file = output_dir / "graph_context.graphml"
         logging.info(f'Writing context graph in {out_file}')
-        nx.write_graphml_lxml(G, out_file)
+        nx.write_graphml_lxml(graph, out_file)
 
     elif "gexf" == graph_format:
         out_file = output_dir / "graph_context.gexf"
         logging.info(f'Writing context graph in {out_file}')
-        nx.readwrite.gexf.write_gexf(G, out_file)
+        nx.readwrite.gexf.write_gexf(graph, out_file)
     else:
         raise ValueError(f'The given graph format ({graph_format}) is not correct. it should be "graphml" or gexf')
 
@@ -407,13 +408,13 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
             for i, next_gene_index in enumerate(next_genes):
                 # Check if the next gene is within the contig windows
                 if not any(lower <= next_gene_index <= upper for (lower, upper) in contig_windows):
-                    # next_gene_index is not in any range of genes in the context
+                    # next_gene_index is not in any range of genes in the context,
                     # so it is ignored along with all following genes
                     break
 
                 next_gene = contig_genes[next_gene_index]
                 if next_gene.family == gene.family:
-                    # If the next gene has the same family, the two genes refer to the same node
+                    # If the next gene has the same family, the two genes refer to the same node,
                     # so they are ignored
                     continue
 
@@ -444,7 +445,7 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                 edge_dict = context_graph[gene.family][next_gene.family]
                 try:
                     genes_edge_dict = edge_dict['genes']
-                except Exception:
+                except KeyError:
                     genes_edge_dict = {}
                     edge_dict['genes'] = genes_edge_dict
 
@@ -463,7 +464,7 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
 
 def add_val_to_dict_attribute(attr_dict: dict, attribute_key, attribute_value):
     """
-    Add an attribute value to a edge or node dictionary set.
+    Add an attribute value to an edge or node dictionary set.
 
     :param attr_dict: The dictionary containing the edge/node attributes.
     :param attribute_key: The key of the attribute.
@@ -596,13 +597,13 @@ def fam_to_seq(seq_to_pan: dict) -> dict:
     return fam_2_seq
 
 
-def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int],
+def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[GeneFamily, Set[str]],
                                 families_of_interest: Set[GeneFamily], output: Path):
     """
     Export the results into dataFrame
 
     :param gene_contexts: connected components found in the pangenome
-    :param fam2seq: Dictionary with gene families ID as keys and list of sequence ids as values
+    :param fam2seq: Dictionary with gene families as keys and set of sequence ids as values
     :param families_of_interest: families of interest that are at the origin of the context.
     :param output: output path
     """
@@ -613,7 +614,7 @@ def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int],
             if fam2seq.get(family) is None:
                 sequence_id = None
             else:
-                sequence_id = ','.join(fam2seq.get(family))
+                sequence_id = ','.join(fam2seq.get(family))  # Should we sort this ?
 
             family_info = {"GeneContext_ID": gene_context.ID,
                            "Gene_family_name": family.name,
