@@ -81,10 +81,29 @@ class Feature(MetaFeatures):
 
     @property
     def has_joined_coordinates(self) -> bool:
+        """
+        Whether or not the feature has joined coordinates.
+
+        """
         if len(self.coordinates) > 1:
             return True
         else:
             return False
+    
+    @property
+    def overlaps_contig_edge(self) -> bool:
+        """
+        Check based on the coordinates of the feature, if the gene seems to overlap contig edge.
+
+        """
+        
+        start_stop = self.coordinates[0]
+        for start_stop_next in self.coordinates[1:]:
+            if start_stop > start_stop_next:
+                return True
+            start_stop = start_stop_next
+
+        return False
 
     @property
     def organism(self) -> Organism:
