@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import tempfile
 import time
-from typing import List, Set, Tuple, Iterable
+from typing import List, Set, Tuple, Iterable, Dict
 import re
 
 # installed libraries
@@ -364,6 +364,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     gene_counter = 0
     rna_counter = 0
     attr_prodigal = None
+    
+    id_attr_to_gene_id = {}
 
     with read_compressed_or_not(gff_file_path) as gff_file:
         for line in gff_file:
@@ -409,14 +411,16 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         assert contig.name == fields_gff[gff_seqname]
 
                 elif fields_gff[gff_type] == 'CDS' or "RNA" in fields_gff[gff_type]:
+
+                    id_attribute = get_id_attribute(attributes)
+
                     gene_id = attributes.get("PROTEIN_ID")
                     # if there is a 'PROTEIN_ID' attribute, it's where the ncbi stores the actual gene ids, so we use that.
-
                     if gene_id is None:
                         # if it's not found, we get the one under the 'ID' field which must exist
                         # (otherwise not a gff3 compliant file)
-                        gene_id = get_id_attribute(attributes)
-
+                        gene_id = id_attribute
+                    
                     name = attributes.pop('NAME', attributes.pop('GENE', ""))
                     
                     if "PSEUDO" in attributes or "PSEUDOGENE" in attributes:
@@ -437,8 +441,32 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                             org.add(contig)
                             if attr_prodigal is not None:
                                 contig.length = int(attr_prodigal["seqlen"])
+
                     if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
+                        
+                        if id_attribute in id_attr_to_gene_id: # the ID has already been seen at least once in this genome
+                            
+                            existing_gene = id_attr_to_gene_id[id_attribute]
+
+                            new_gene_info = {"strand":fields_gff[gff_strand], 
+                                            "type":fields_gff[gff_type],
+                                            "name":name,
+                                            "position":contig.number_of_genes,
+                                            "product":product,
+                                            "local_identifier":gene_id,
+                                            "start": int(fields_gff[gff_start]),
+                                            "stop": int(fields_gff[gff_end]),
+                                            "ID": id_attribute}
+                            
+                            check_and_add_extra_gene_part(existing_gene, new_gene_info)
+          
+                            continue
+
+
                         gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
+
+                        id_attr_to_gene_id[id_attribute] = gene
+                        
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
                         gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                               strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
@@ -450,14 +478,19 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         contig.add(gene)
 
                     elif "RNA" in fields_gff[gff_type]:
+
                         rna_type = fields_gff[gff_type]
                         rna = RNA(org.name + f"_{rna_type}_" + str(rna_counter).zfill(4))
+
                         rna.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                              strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                              product=product, local_identifier=gene_id)
                         rna.fill_parents(org, contig)
                         rna_counter += 1
                         contig.add_rna(rna)
+
+    # Correct coordinates of genes that overlapp the edge of circulars contig
+    correct_putative_overlaps(org.contigs) 
 
     # GET THE FASTA SEQUENCES OF THE GENES
     if has_fasta and fasta_string != "":
@@ -470,7 +503,96 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             for rna in contig.RNAs:
                 rna.add_sequence(get_dna_sequence(contig_sequences[contig.name], rna))
+
     return org, has_fasta
+
+
+
+def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separation: int = 10):
+    """
+    Checks and potentially adds extra gene parts based on new gene information.
+    This is done before checking for potential overlapping edge genes. Gene coordinates are expected to be in ascending order, and no circularity is taken into account here.
+
+    :param gene: Gene object to be compared and potentially merged with new_gene_info.
+    :param new_gene_info: Dictionary containing information about the new gene.
+    :param max_separation: Maximum allowed separation between gene coordinates for merging. Default is 10.
+    """
+
+    # Compare attributes of the existing gene with new_gene_info
+    comparison = [
+        gene.strand == new_gene_info['strand'],
+        gene.type == new_gene_info["type"],
+        gene.product == new_gene_info['product'],
+        gene.name == new_gene_info['name'],
+        gene.local_identifier == new_gene_info['local_identifier']
+    ]
+    
+    if all(comparison):
+        # The new gene info seems concordant with the gene object. We can try to merge them
+        assert new_gene_info['start'] <= new_gene_info['stop'], "Start is greater than stop. Incorrect coordinates."
+
+        # Add new coordinates to gene's coordinates
+        gene.coordinates = sorted(gene.coordinates + [(new_gene_info['start'], new_gene_info['stop'])])
+
+        # Check if the coordinates are within the allowed maximum separation
+        first_stop = gene.coordinates[0][1]
+        for start, _ in gene.coordinates[1:]:
+            if abs(start - first_stop) > max_separation:
+                # This is maybe to restrictive but lets go with that first. 
+                raise ValueError(f"The coordinates of genes are too far apart ({abs(start - first_stop)}nt). This is unexpected. "
+                                 f"Gene coordinates : {gene.coordinates}")
+
+        # Update start and stop positions based on new coordinates
+        gene.start, gene.stop = gene.coordinates[0][0], gene.coordinates[-1][1]
+
+        
+        logging.getLogger("PPanGGOLiN").debug(
+            f"Gene {new_gene_info['ID']} is found in multiple parts. "
+            "These parts are merged into one gene. "
+            f"New gene coordinates: {gene.coordinates}")
+
+    else:
+        raise ValueError(f"Two genes have the same ID attributes but different info in some key attribute. {comparison}")
+
+
+def correct_putative_overlaps(contigs: Iterable[Contig]):
+    """
+    Corrects putative overlaps in gene coordinates for circular contigs.
+
+    :param contigs: Iterable of Contig objects representing circular contigs.
+    """
+
+    for contig in contigs:
+        for gene in contig.genes:
+            if gene.stop > len(contig):
+                # Adjust gene coordinates to handle circular contig
+                gene.start = 1  # Start gene at the beginning of the contig
+
+                new_coordinates = []
+                for start, stop in gene.coordinates:
+                    if start > len(contig):
+                        raise ValueError(f"A gene start position ({start}) is higher than contig length ({len(contig)}). This case is not handled.")
+
+                    elif stop > len(contig):
+                        # Handle overlapping gene
+                        new_stop = len(contig)
+                        next_stop = stop - len(contig)
+                        next_start = 1
+
+                        new_coordinates.append((start, new_stop))
+                        new_coordinates.append((next_start, next_stop))
+
+                    else:
+                        new_coordinates.append((start, stop))
+
+                    logging.getLogger("PPanGGOLiN").debug(
+                        f"Gene ({gene.ID} {gene.local_identifier}) coordinates ({gene.coordinates}) exceeded contig length ({len(contig)}). "
+                        f"This is likely because the gene overlaps the edge of the contig. "
+                        f"Adjusted gene coordinates: {new_coordinates}"
+                    )
+
+                gene.coordinates = new_coordinates
+
 
 
 def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
@@ -664,6 +786,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
                 for gene in contig.genes:
                     gene.add_sequence(get_dna_sequence(ctg_sequence, gene))
                     progress.update()
+
                 for rna in contig.RNAs:
                     rna.add_sequence(get_dna_sequence(ctg_sequence, rna))
                     progress.update()

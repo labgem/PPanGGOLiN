@@ -293,14 +293,25 @@ def overlap_filter(all_genes: defaultdict, allow_overlap: bool = False) -> defau
 
 
 def get_dna_sequence(contig_seq: str, gene: Union[Gene, RNA]) -> str:
-    """Return the gene sequence
+    """
+    Return the gene sequence
 
     :param contig_seq: Contig sequence
     :param gene: Gene
 
     :return: str
     """
+
+    # check contig coordinate is in scope of contig seq length
+    highest_position = max((stop for _, stop in gene.coordinates))
+    assert highest_position <= len(contig_seq), f"Gene coordinates exceed contig length. gene coordinates {gene.coordinates} vs contig length {len(contig_seq)}"
+
+    # Extract gene seq
     seq = ''.join([contig_seq[start - 1:stop] for start, stop in gene.coordinates])
+    
+    # check length of extracted seq
+    assert len(seq) == len(gene), ("The gene sequence extracted from the contig does not have the expected length: "
+                                  f"extracted seq length {len(seq)}nt vs expected length based on gene coordinates ({gene.coordinates}) {len(gene)}nt ")
 
     if gene.strand == "+":
         return seq
