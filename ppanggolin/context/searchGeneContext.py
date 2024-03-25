@@ -7,7 +7,7 @@ import tempfile
 import time
 import logging
 import os
-from typing import Any, List, Dict, Tuple, Iterable, Hashable, Iterator, Set
+from typing import Any, List, Dict, Tuple, Iterable, Hashable, Iterator, Set, FrozenSet
 from itertools import chain
 from collections import defaultdict
 from pathlib import Path
@@ -184,7 +184,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequenc
 
     logging.getLogger().info("Building the graph...")
 
-    gene_context_graph = compute_gene_context_graph(families=families_of_interest, transitive=transitive,
+    gene_context_graph, _ = compute_gene_context_graph(families=families_of_interest, transitive=transitive,
                                                     window_size=window_size, disable_bar=disable_bar)
 
     logging.getLogger().info(
@@ -383,25 +383,25 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
 
 
 def add_edges_to_context_graph(context_graph: nx.Graph,
-                               contig_genes: List[Gene],
+                               contig: Contig,
                                contig_windows: List[Tuple[int, int]],
-                               transitivity: int,
-                               is_circular: bool):
+                               transitivity: int) -> nx.Graph:
     """
     Add edges to the context graph based on contig genes and windows.
 
     :param context_graph: The context graph to which edges will be added.
-    :param contig_genes: An iterable of genes in the contig.
+    :param contig: contig containing genes to add the edges
     :param contig_windows: A list of tuples representing the start and end positions of contig windows.
     :param transitivity: The number of next genes to consider when adding edges.
-    :param is_circular: A boolean indicating if the contig is circular.
 
     """
+    contig_graph = nx.Graph()
+    contig_genes = contig.get_genes()
     for window_start, window_end in contig_windows:
         for gene_index in range(window_start, window_end + 1):
             gene = contig_genes[gene_index]
             next_genes = get_n_next_genes_index(gene_index, next_genes_count=transitivity + 1,
-                                                contig_size=len(contig_genes), is_circular=is_circular)
+                                                contig_size=len(contig_genes), is_circular=contig.is_circular)
             next_genes = list(next_genes)
 
             for i, next_gene_index in enumerate(next_genes):
@@ -418,6 +418,7 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                     continue
 
                 context_graph.add_edge(gene.family, next_gene.family)
+                contig_graph.add_edge(gene.family, next_gene.family)
 
                 edge_dict = context_graph[gene.family][next_gene.family]
 
@@ -456,6 +457,8 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
 
                 assert gene.organism == next_gene.organism, (f"Gene of the same contig have a different genome. "
                                                              f"{gene.organism} and {next_gene.organism}")
+
+    return contig_graph
 
 
 def add_val_to_dict_attribute(attr_dict: dict, attribute_key, attribute_value):
@@ -538,7 +541,7 @@ def get_contig_to_genes(gene_families: Iterable[GeneFamily]) -> Dict[Contig, Set
 
 
 def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int = 4, window_size: int = 0,
-                               disable_bar: bool = False) -> Tuple[nx.Graph, Dict[Organism, Set[Tuple[GeneFamily]]]]:
+                               disable_bar: bool = False) -> Tuple[nx.Graph, Dict[FrozenSet[GeneFamily], Set[Organism]]]:
     """
     Construct the graph of gene contexts between families of the pangenome.
 
@@ -549,15 +552,13 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
 
     :return: The constructed gene context graph.
     """
-
     context_graph = nx.Graph()
 
     contig_to_genes_of_interest = get_contig_to_genes(families)
 
-    orgs2combs = defaultdict(set)
+    combs2orgs = defaultdict(set)
     for contig, genes_of_interest in tqdm(contig_to_genes_of_interest.items(), unit="contig",
                                           total=len(contig_to_genes_of_interest), disable=disable_bar):
-        orgs2combs[contig.organism].add(tuple(gene.family for gene in genes_of_interest if gene.family in families))
         genes_count = contig.number_of_genes
 
         genes_of_interest_positions = [g.position for g in genes_of_interest]
@@ -565,12 +566,15 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
         contig_windows = extract_contig_window(genes_count, genes_of_interest_positions,
                                                window_size=window_size, is_circular=contig.is_circular)
 
-        add_edges_to_context_graph(context_graph,
-                                   contig.get_genes(),
-                                   contig_windows,
-                                   transitive,
-                                   contig.is_circular)
-    return context_graph, orgs2combs
+        contig_graph = add_edges_to_context_graph(context_graph, contig, contig_windows, transitive)
+
+        for cc in nx.connected_components(contig_graph):
+            combination = []
+            for family in cc.intersection({gene.family for gene in genes_of_interest}):
+                combination.append(family)
+            combs2orgs[frozenset(combination)].add(contig.organism)
+
+    return context_graph, combs2orgs
 
 
 def fam_to_seq(seq_to_pan: dict) -> dict:
