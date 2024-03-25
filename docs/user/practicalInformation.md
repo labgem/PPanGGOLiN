@@ -85,12 +85,12 @@ ppanggolin utils --default_config panrgp
 
 ```yaml
 input_parameters:
-    # A tab-separated file listing the organism names, and the fasta filepath of its
-    # genomic sequence(s) (the fastas can be compressed with gzip). One line per organism.
+    # A tab-separated file listing the genome names, and the fasta filepath of its
+    # genomic sequence(s) (the fastas can be compressed with gzip). One line per genome.
   # fasta: <fasta file>
-    # A tab-separated file listing the organism names, and the gff/gbff filepath of
+    # A tab-separated file listing the genome names, and the gff/gbff filepath of
     # its annotations (the files can be compressed with gzip). One line
-    # per organism. If this is provided, those annotations will be used.
+    # per genome. If this is provided, those annotations will be used.
   # anno: <anno file>
 
 general_parameters:
