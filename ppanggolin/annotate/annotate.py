@@ -10,7 +10,8 @@ import os
 from pathlib import Path
 import tempfile
 import time
-from typing import List, Set, Tuple, Iterable
+from typing import List, Set, Tuple, Iterable, Dict
+import re
 
 # installed libraries
 from tqdm import tqdm
@@ -44,7 +45,7 @@ def check_annotate_args(args: argparse.Namespace):
 
 
 def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: Set[str],
-                start: int, stop: int, strand: str, gene_type: str, position: int = None, gene_name: str = "",
+                coordinates: List[Tuple[int]], strand: str, gene_type: str, position: int = None, gene_name: str = "",
                 product: str = "", genetic_code: int = 11, protein_id: str = ""):
     """
     Create a Gene object and associate to contig and Organism
@@ -55,8 +56,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     :param rna_counter: RNA counter to name RNA
     :param gene_id: local identifier
     :param dbxref: cross-reference to external DB
-    :param start: Gene start position
-    :param stop: Gene stop position
+    :param coordinates: Gene start and stop positions
     :param strand: gene strand association
     :param gene_type: gene type
     :param position: position in contig
@@ -65,6 +65,9 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     :param genetic_code: Genetic code used
     :param protein_id: Protein identifier
     """
+
+    start, stop = coordinates[0][0], coordinates[-1][1]
+    
     if any('MaGe' or 'SEED' in dbref for dbref in dbxref):
         if gene_name == "":
             gene_name = gene_id
@@ -83,16 +86,82 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
             # but was when cases like this were encountered)
 
         new_gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
-        new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
+        new_gene.fill_annotations(start=start, stop=stop, strand=strand, coordinates=coordinates, gene_type=gene_type, name=gene_name,
                                   position=position, product=product, local_identifier=gene_id,
                                   genetic_code=genetic_code)
         contig.add(new_gene)
     else:  # if not CDS, it is RNA
         new_gene = RNA(org.name + f"_{gene_type}_" + str(rna_counter).zfill(4))
-        new_gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type=gene_type, name=gene_name,
+        new_gene.fill_annotations(start=start, stop=stop, strand=strand, coordinates=coordinates, gene_type=gene_type, name=gene_name,
                                   product=product)
         contig.add_rna(new_gene)
     new_gene.fill_parents(org, contig)
+
+
+def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
+    """
+    Extracts start and stop positions from a string and determines whether it is complement and pseudogene.
+    
+    Exemple of strings that the function is able to process: 
+
+    "join(190..7695,7695..12071)",
+    "complement(join(4359800..4360707,4360707..4360962))",
+    "join(6835405..6835731,1..1218)",
+    "join(1375484..1375555,1375557..1376579)",
+    "complement(6815492..6816265)",
+    "6811501..6812109",
+    "complement(6792573..>6795461)",
+    "join(1038313,1..1016)"
+    
+
+    :param string: The input string containing position information.
+
+    :return: A tuple containing a list of tuples representing start and stop positions,
+             a boolean indicating whether it is complement, and
+             a boolean indicating whether it is likely a pseudogene.
+    """
+    complement = False
+    coordinates = []
+    pseudogene = False
+    
+    # Check if 'complement' exists in the string
+    if 'complement' in string:
+        complement = True
+    
+    # Check if '>' or '<' exists in the string to identify pseudogene
+    if '>' in string or '<' in string:
+        pseudogene = True
+
+    if "(" in string:
+        # Extract positions found inside the parenthesis
+        inner_parentheses_regex = r'\(([^()]+)\)'
+        inner_matches = re.findall(inner_parentheses_regex, string)
+
+        try:
+            positions = inner_matches[-1]
+        except IndexError:
+            raise ValueError(f'Gene position {string} is not formatted as expected.')
+    else:
+        positions = string.rstrip()
+    
+    for position in positions.split(','):
+
+        try:
+            start, stop = position.replace(">", "").replace("<", "").split('..')
+        except ValueError:
+            # in some case there is only one position meaning that the gene is long of only one nt in this piece. 
+            # for instance : join(1038313,1..1016) 
+            start = position.replace(">", "").replace("<", "")
+            stop = start
+        try:    
+            start, stop = int(start), int(stop)
+        except ValueError:
+            raise ValueError(f"Error parsing position '{position}' extracted from GBFF string '{string}'. "
+                            f"Start position ({start}) and/or stop position ({stop}) are not valid integers.")
+
+        coordinates.append((start, stop))
+    
+    return coordinates, complement, pseudogene
 
 
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
@@ -118,15 +187,20 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     while len(lines) != 0:
         line = lines.pop()
         # beginning of contig
-        is_circ = False
         contig_id = None
         contig_len = None
+
+        is_circ = False
+
         if line.startswith('LOCUS'):
             if "CIRCULAR" in line.upper():
                 # this line contains linear/circular word telling if the dna sequence is circularized or not
                 is_circ = True
-            # TODO maybe it could be a good thing to add a elif for linear
-            #  and if circular or linear are not found raise a warning
+            elif "LINEAR" in line.upper():
+                is_circ = False
+            else:
+                logging.getLogger("PPanGGOLiN").warning("It's impossible to identify if contigs are circular or linear."
+                                 f"in file {gbff_file_path}.")
             contig_id = line.split()[1]
             contig_len = int(line.split()[2])
             # If contig_id is not specified in VERSION afterward like with Prokka, in that case we use the one in LOCUS
@@ -155,15 +229,14 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         protein_id = ""
         genetic_code = ""
         useful_info = False
-        start = None
-        stop = None
+        coordinates = None
         strand = None
         line = lines.pop()
         while not line.startswith("ORIGIN"):
             curr_type = line[5:21].strip()
             if curr_type != "":
                 if useful_info:
-                    create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand,
+                    create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, coordinates, strand,
                                 obj_type, contig.number_of_genes, gene_name, product, genetic_code, protein_id)
                     if obj_type == "CDS":
                         gene_counter += 1
@@ -174,27 +247,15 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 if obj_type in ['CDS', 'rRNA', 'tRNA']:
                     dbxref = set()
                     gene_name = ""
-                    try:
-                        if 'join' not in line[21:]:
-                            useful_info = True
-                            if line[21:].startswith('complement('):
-                                strand = "-"
-                                start, stop = line[32:].strip().replace(')', '').split("..")
-                            else:
-                                strand = "+"
-                                start, stop = line[21:].strip().split('..')
-                            if '>' in start or '<' in start or '>' in stop or '<' in stop:
-                                if not pseudo:
-                                    # pseudogene likely
-                                    useful_info = False
-                                else:
-                                    start = start.replace('>', '').replace('<', '')
-                                    stop = stop.replace('>', '').replace('<', '')
-                            start, stop = map(int, [start, stop])
-                    except ValueError:
-                        pass
-                        # don't know what to do with that, ignoring for now.
-                        # there is a protein with a frameshift mecanism.
+                    useful_info = True
+
+                    coordinates, is_complement, is_pseudo = extract_positions(line[21:])
+                    
+                    strand = "-" if is_complement else "+"
+                    
+                    if is_pseudo and not pseudo:
+                        useful_info = False
+
             elif useful_info:  # current info goes to current objtype, if it's useful.
                 if line[21:].startswith("/db_xref"):
                     dbxref.add(line.split("=")[1].replace('"', '').strip())
@@ -223,7 +284,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             line = lines.pop()
             # end of contig
         if useful_info:  # saving the last element...
-            create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, start, stop, strand, obj_type,
+            create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, coordinates, strand, obj_type,
                         contig.number_of_genes, gene_name, product, genetic_code, protein_id)
             if obj_type == "CDS":
                 gene_counter += 1
@@ -258,7 +319,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
     :return: Organism object and if there are sequences associated or not
     """
-    # TODO: This function would need some refactoring. 
+    # TODO: This function would need some refactoring.
 
     global ctg_counter
 
@@ -294,7 +355,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
         element_id = attributes_dict.get("ID")
         if not element_id:
             raise Exception(f"Each CDS type of the gff files must own a unique ID attribute. "
-                            f"Not the case for file: {gff_file_path} with ID {element_id}")
+                            f"Not the case for file: {gff_file_path}")
         return element_id
 
     contig = None  # initialize contig
@@ -304,6 +365,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     gene_counter = 0
     rna_counter = 0
     attr_prodigal = None
+    
+    id_attr_to_gene_id = {}
 
     with read_compressed_or_not(gff_file_path) as gff_file:
         for line in gff_file:
@@ -332,7 +395,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 else:  # comment lines to be ignores by parsers
                     continue
 
-            elif line == "":  # empty lines are not expected, but they do not carry information, so we'll ignore them
+            elif line.rstrip() == "":  # empty lines are not expected, but they do not carry information, so we'll ignore them
                 continue
 
             else:
@@ -349,14 +412,21 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         assert contig.name == fields_gff[gff_seqname]
 
                 elif fields_gff[gff_type] == 'CDS' or "RNA" in fields_gff[gff_type]:
+
+                    id_attribute = get_id_attribute(attributes)
+
                     gene_id = attributes.get("PROTEIN_ID")
                     # if there is a 'PROTEIN_ID' attribute, it's where the ncbi stores the actual gene ids, so we use that.
-
                     if gene_id is None:
                         # if it's not found, we get the one under the 'ID' field which must exist
                         # (otherwise not a gff3 compliant file)
+<<<<<<< HEAD
                         gene_id = get_id_attribute(attributes)
 
+=======
+                        gene_id = id_attribute
+                    
+>>>>>>> AnnotJoin
                     name = attributes.pop('NAME', attributes.pop('GENE', ""))
 
                     if "PSEUDO" in attributes or "PSEUDOGENE" in attributes:
@@ -377,8 +447,32 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                             org.add(contig)
                             if attr_prodigal is not None:
                                 contig.length = int(attr_prodigal["seqlen"])
+
                     if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
+                        
+                        if id_attribute in id_attr_to_gene_id: # the ID has already been seen at least once in this genome
+                            
+                            existing_gene = id_attr_to_gene_id[id_attribute]
+
+                            new_gene_info = {"strand":fields_gff[gff_strand], 
+                                            "type":fields_gff[gff_type],
+                                            "name":name,
+                                            "position":contig.number_of_genes,
+                                            "product":product,
+                                            "local_identifier":gene_id,
+                                            "start": int(fields_gff[gff_start]),
+                                            "stop": int(fields_gff[gff_end]),
+                                            "ID": id_attribute}
+                            
+                            check_and_add_extra_gene_part(existing_gene, new_gene_info)
+          
+                            continue
+
+
                         gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
+
+                        id_attr_to_gene_id[id_attribute] = gene
+                        
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
                         gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                               strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
@@ -390,14 +484,19 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         contig.add(gene)
 
                     elif "RNA" in fields_gff[gff_type]:
+
                         rna_type = fields_gff[gff_type]
                         rna = RNA(org.name + f"_{rna_type}_" + str(rna_counter).zfill(4))
+
                         rna.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                              strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                              product=product, local_identifier=gene_id)
                         rna.fill_parents(org, contig)
                         rna_counter += 1
                         contig.add_rna(rna)
+
+    # Correct coordinates of genes that overlapp the edge of circulars contig
+    correct_putative_overlaps(org.contigs) 
 
     # GET THE FASTA SEQUENCES OF THE GENES
     if has_fasta and fasta_string != "":
@@ -410,7 +509,96 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
             for rna in contig.RNAs:
                 rna.add_sequence(get_dna_sequence(contig_sequences[contig.name], rna))
+
     return org, has_fasta
+
+
+
+def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separation: int = 10):
+    """
+    Checks and potentially adds extra gene parts based on new gene information.
+    This is done before checking for potential overlapping edge genes. Gene coordinates are expected to be in ascending order, and no circularity is taken into account here.
+
+    :param gene: Gene object to be compared and potentially merged with new_gene_info.
+    :param new_gene_info: Dictionary containing information about the new gene.
+    :param max_separation: Maximum allowed separation between gene coordinates for merging. Default is 10.
+    """
+
+    # Compare attributes of the existing gene with new_gene_info
+    comparison = [
+        gene.strand == new_gene_info['strand'],
+        gene.type == new_gene_info["type"],
+        gene.product == new_gene_info['product'],
+        gene.name == new_gene_info['name'],
+        gene.local_identifier == new_gene_info['local_identifier']
+    ]
+    
+    if all(comparison):
+        # The new gene info seems concordant with the gene object. We can try to merge them
+        assert new_gene_info['start'] <= new_gene_info['stop'], "Start is greater than stop. Incorrect coordinates."
+
+        # Add new coordinates to gene's coordinates
+        gene.coordinates = sorted(gene.coordinates + [(new_gene_info['start'], new_gene_info['stop'])])
+
+        # Check if the coordinates are within the allowed maximum separation
+        first_stop = gene.coordinates[0][1]
+        for start, _ in gene.coordinates[1:]:
+            if abs(start - first_stop) > max_separation:
+                # This is maybe to restrictive but lets go with that first. 
+                raise ValueError(f"The coordinates of genes are too far apart ({abs(start - first_stop)}nt). This is unexpected. "
+                                 f"Gene coordinates : {gene.coordinates}")
+
+        # Update start and stop positions based on new coordinates
+        gene.start, gene.stop = gene.coordinates[0][0], gene.coordinates[-1][1]
+
+        
+        logging.getLogger("PPanGGOLiN").debug(
+            f"Gene {new_gene_info['ID']} is found in multiple parts. "
+            "These parts are merged into one gene. "
+            f"New gene coordinates: {gene.coordinates}")
+
+    else:
+        raise ValueError(f"Two genes have the same ID attributes but different info in some key attribute. {comparison}")
+
+
+def correct_putative_overlaps(contigs: Iterable[Contig]):
+    """
+    Corrects putative overlaps in gene coordinates for circular contigs.
+
+    :param contigs: Iterable of Contig objects representing circular contigs.
+    """
+
+    for contig in contigs:
+        for gene in contig.genes:
+            if gene.stop > len(contig):
+                # Adjust gene coordinates to handle circular contig
+                gene.start = 1  # Start gene at the beginning of the contig
+
+                new_coordinates = []
+                for start, stop in gene.coordinates:
+                    if start > len(contig):
+                        raise ValueError(f"A gene start position ({start}) is higher than contig length ({len(contig)}). This case is not handled.")
+
+                    elif stop > len(contig):
+                        # Handle overlapping gene
+                        new_stop = len(contig)
+                        next_stop = stop - len(contig)
+                        next_start = 1
+
+                        new_coordinates.append((start, new_stop))
+                        new_coordinates.append((next_start, next_stop))
+
+                    else:
+                        new_coordinates.append((start, stop))
+
+                    logging.getLogger("PPanGGOLiN").debug(
+                        f"Gene ({gene.ID} {gene.local_identifier}) coordinates ({gene.coordinates}) exceeded contig length ({len(contig)}). "
+                        f"This is likely because the gene overlaps the edge of the contig. "
+                        f"Adjusted gene coordinates: {new_coordinates}"
+                    )
+
+                gene.coordinates = new_coordinates
+
 
 
 def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
@@ -512,11 +700,18 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     # unless a gff file without fasta is met (which is the only case where sequences can be absent)
     args = []
     for line in read_compressed_or_not(organisms_file):
+        if not line.strip() or line.strip().startswith('#'):
+            continue
         elements = [el.strip() for el in line.split("\t")]
         org_path = Path(elements[1])
+        name = elements[0]
+        circular_contigs = elements[2:]
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
-        args.append((elements[0], org_path, elements[2:], pseudo))
+
+        args.append((name, org_path, circular_contigs, pseudo))
+
+        # read_anno_file(name, org_path, circular_contigs, pseudo)
 
     with ProcessPoolExecutor(mp_context=get_context('fork'), max_workers=cpu,
                              initializer=init_contig_counter, initargs=(contig_counter,)) as executor:
@@ -578,6 +773,13 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
         raise KeyError(f"Not all of your pangenome genomes are present within the provided fasta file. "
                        f"{missing} are missing (out of {pangenome.number_of_organisms}).")
 
+    elif pangenome.number_of_organisms < len(fasta_dict):
+        # Indicates that all organisms in the pangenome are present in the provided FASTA file,
+        # but additional genomes are also detected in the file.
+        diff_genomes = len(fasta_dict) - pangenome.number_of_organisms
+        logging.getLogger("PPanGGOLiN").warning(f"The provided fasta file contains {diff_genomes} "
+                                                "additional genomes compared to the pangenome.")
+
     with tqdm(total=pangenome.number_of_genes, unit="gene", disable=disable_bar,
               desc="Add sequences to genes-RNAs") as progress:
         for org in pangenome.organisms:
@@ -598,6 +800,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
                     for rna in contig.RNAs:
                         rna.add_sequence(get_dna_sequence(ctg_sequence, rna))
                         progress.update()
+
     pangenome.status["geneSequences"] = "Computed"
 
 
