@@ -125,9 +125,11 @@ class GeneFamily(MetaFeatures):
         if not isinstance(identifier, str):
             raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
         try:
-            return self._genes_getter[identifier]
+            gene = self._genes_getter[identifier]
         except KeyError:
             raise KeyError(f"Gene with the ID: {identifier} does not exist in the family")
+        else:
+            return gene
 
     def __delitem__(self, identifier: str):
         """Remove the gene for the given name in the gene family
