@@ -32,8 +32,9 @@ def check_annotate_args(args: argparse.Namespace):
     :raise Exception:
     """
     if args.fasta is None and args.anno is None:
-        raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
-                        "or a file with the --gff option to load annotations from.")
+        raise argparse.ArgumentError(argument=None,
+                                     message="You must provide at least a file with the --fasta option to annotate "
+                                             "from sequences, or a file with the --gff option to load annotations from.")
 
     if hasattr(args, "fasta") and args.fasta is not None:
         check_input_files(args.fasta, True)
@@ -355,15 +356,15 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         # if it's not found, we get the one under the 'ID' field which must exist
                         # (otherwise not a gff3 compliant file)
                         gene_id = get_id_attribute(attributes)
-                    
+
                     name = attributes.pop('NAME', attributes.pop('GENE', ""))
-                    
+
                     if "PSEUDO" in attributes or "PSEUDOGENE" in attributes:
                         pseudogene = True
-                    
+
                     product = attributes.pop('PRODUCT', "")
                     genetic_code = int(attributes.pop("TRANSL_TABLE", 11))
-                    
+
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig
                         try:
@@ -381,7 +382,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
                         gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
                                               strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
-                                              position=contig.number_of_genes, product=product, local_identifier=gene_id,
+                                              position=contig.number_of_genes, product=product,
+                                              local_identifier=gene_id,
                                               genetic_code=genetic_code)
                         gene.fill_parents(org, contig)
                         gene_counter += 1
@@ -435,15 +437,16 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
             return read_org_gbff(organism_name, filename, circular_contigs, pseudo)
         except Exception as err:
             raise Exception(f"Reading the gbff file '{filename}' raised an error. {err}")
-        
+
     elif filetype == "fasta":
-        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' looks like a fasta file. "
-                        "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
+        raise ValueError(
+            f"Invalid file type provided for parameter '--anno'. The file '{filename}' looks like a fasta file. "
+            "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
 
     else:
-        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' appears to be of type '{filetype}'. "
-                        "Please use .gff or .gbff files.")
-
+        raise ValueError(
+            f"Invalid file type provided for parameter '--anno'. The file '{filename}' appears to be of type '{filetype}'. "
+            "Please use .gff or .gbff files.")
 
 
 def chose_gene_identifiers(pangenome: Pangenome) -> bool:
@@ -545,7 +548,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
 
 
-def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
+def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disable_bar: bool = False):
     """
     Get gene sequences from fastas
 
@@ -566,24 +569,32 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
                            f"your fasta file are different.")
         with read_compressed_or_not(Path(elements[1])) as currFastaFile:
             fasta_dict[org] = read_fasta(org, currFastaFile)
+
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise Exception(f"Not all of your pangenome genomes are present within the provided fasta file. "
                         f"{missing} are missing (out of {pangenome.number_of_organisms}).")
 
-    for org in pangenome.organisms:
-        for contig in org.contigs:
-            try:
-                for gene in contig.genes:
-                    gene.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], gene))
-                for rna in contig.RNAs:
-                    rna.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], rna))
-            except KeyError:
-                msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
-                      f"that was read from the annotation file. "
-                msg += f"The provided contigs in the fasta were : " \
-                       f"{', '.join([contig for contig in fasta_dict[org].keys()])}."
-                raise KeyError(msg)
+    with tqdm(total=pangenome.number_of_genes, unit="gene", disable=disable_bar,
+              desc="Add sequences to genes") as progress:
+        for org in pangenome.organisms:
+            for contig in org.contigs:
+                try:
+                    ctg_sequence = fasta_dict[org][contig.name]
+                except KeyError:
+                    msg = (f"Fasta file for genome {org.name} did not have the contig {contig.name} "
+                           f"that was read from the annotation file."
+                           f"The provided contigs in the fasta were : "
+                           f"{', '.join([contig for contig in fasta_dict[org].keys()])}.")
+                    raise KeyError(msg)
+                else:
+                    for gene in contig.genes:
+                        gene.add_sequence(get_dna_sequence(ctg_sequence, gene))
+                        progress.update()
+
+                    for rna in contig.RNAs:
+                        rna.add_sequence(get_dna_sequence(ctg_sequence, rna))
+                        progress.update()
     pangenome.status["geneSequences"] = "Computed"
 
 
@@ -667,7 +678,7 @@ def launch(args: argparse.Namespace):
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 logging.getLogger("PPanGGOLiN").info(f"Get sequences from FASTA file: {args.fasta}")
-                get_gene_sequences_from_fastas(pangenome, args.fasta)
+                get_gene_sequences_from_fastas(pangenome, args.fasta, disable_bar=args.disable_prog_bar)
             else:
                 logging.getLogger("PPanGGOLiN").warning("You provided gff files without sequences, "
                                                         "and you did not provide fasta sequences. "

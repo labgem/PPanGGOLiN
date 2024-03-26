@@ -50,6 +50,7 @@ class Feature(MetaFeatures):
         self.type = ""
         self.start = None
         self.stop = None
+        self.coordinates = None
         self.strand = None
         self.product = None
         self.name = None
@@ -70,15 +71,39 @@ class Feature(MetaFeatures):
 
         :return: gene length
 
-        :raises ValueError: If start or stop are not defined in gene
+        :raises ValueError: If coordinates are not defined in gene
         """
-        if self.start is not None:
-            if self.stop is not None:
-                return self.stop - self.start + 1
-            else:
-                raise ValueError("Stop is not known")
+
+        try:
+            return sum([(stop - start +1) for start, stop in self.coordinates ])
+        except TypeError:
+            raise ValueError(f"Cooridnates of gene {self} has not been defined. Geting is length is then impossible.")
+
+    @property
+    def has_joined_coordinates(self) -> bool:
+        """
+        Whether or not the feature has joined coordinates.
+
+        """
+        if len(self.coordinates) > 1:
+            return True
         else:
-            raise ValueError("Start is not known")
+            return False
+    
+    @property
+    def overlaps_contig_edge(self) -> bool:
+        """
+        Check based on the coordinates of the feature, if the gene seems to overlap contig edge.
+
+        """
+        
+        start_stop = self.coordinates[0]
+        for start_stop_next in self.coordinates[1:]:
+            if start_stop > start_stop_next:
+                return True
+            start_stop = start_stop_next
+
+        return False
 
     @property
     def organism(self) -> Organism:
@@ -116,13 +141,14 @@ class Feature(MetaFeatures):
             raise TypeError(f'Expected type Contig, got {type(contig)}')
         self._contig = contig
 
-    def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
-                         product: str = "", local_identifier: str = ""):
+    def fill_annotations(self, start: int, stop: int, strand: str,  gene_type: str = "", name: str = "",
+                         product: str = "", local_identifier: str = "", coordinates:List[Tuple[int]] = None):
         """
         Fill general annotation for child classes
 
         :param start: Start position
         :param stop: Stop position
+        :param coordinates: start and stop positions. in a list of tuple. Can have multiple tuple in case of join gene
         :param strand: associated strand
         :param gene_type: Type of gene
         :param name: Name of the feature
@@ -132,6 +158,9 @@ class Feature(MetaFeatures):
         :raises TypeError: If attribute value does not correspond to the expected type
         :raises ValueError: If strand is not '+' or '-'
         """
+        if coordinates is None:
+            coordinates = [(start, stop)]
+
         if not isinstance(start, int):
             raise TypeError("Start should be int")
         if not isinstance(stop, int):
@@ -148,6 +177,9 @@ class Feature(MetaFeatures):
             raise TypeError("Local identifier should be str")
         if strand not in ["+", "-"]:
             raise ValueError("Strand should be + or -")
+        if not isinstance(coordinates, list):
+            raise ValueError(f"coordinates should be of type list. Type {type(coordinates)} was given instead")
+        
         self.start = start
         self.stop = stop
         self.strand = strand
@@ -155,6 +187,7 @@ class Feature(MetaFeatures):
         self.product = product
         self.name = name
         self.local_identifier = local_identifier
+        self.coordinates = coordinates
 
     def fill_parents(self, organism: Organism = None, contig: Contig = None):
         """ Associate object to an organism and a contig
@@ -433,9 +466,11 @@ class Contig(MetaFeatures):
         if not isinstance(position, int):
             raise TypeError(f"Expected type is int, given type was '{type(position)}'")
         try:
-            return self._genes_position[position]
+            gene = self._genes_position[position]
         except KeyError:
             raise KeyError("Position of the gene in the contig does not exist")
+        else:
+            return gene
 
     def __delitem__(self, position):
         """Remove the gene for the given position in the contig
@@ -742,9 +777,11 @@ class Organism(MetaFeatures):
         if not isinstance(name, str):
             raise TypeError(f"Expected type is string, given type was '{type(name)}'")
         try:
-            return self._contigs_getter[name]
+            contig = self._contigs_getter[name]
         except KeyError:
             raise KeyError(f"Contig with the name: {name} does not exist in the genome")
+        else:
+            return contig
 
     def __delitem__(self, name):
         """Remove the contig for the given name
