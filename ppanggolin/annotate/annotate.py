@@ -420,13 +420,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                     if gene_id is None:
                         # if it's not found, we get the one under the 'ID' field which must exist
                         # (otherwise not a gff3 compliant file)
-<<<<<<< HEAD
-                        gene_id = get_id_attribute(attributes)
-
-=======
                         gene_id = id_attribute
-                    
->>>>>>> AnnotJoin
+
                     name = attributes.pop('NAME', attributes.pop('GENE', ""))
 
                     if "PSEUDO" in attributes or "PSEUDOGENE" in attributes:
@@ -450,7 +445,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
                     if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
                         
-                        if id_attribute in id_attr_to_gene_id: # the ID has already been seen at least once in this genome
+                        if id_attribute in id_attr_to_gene_id:  # the ID has already been seen at least once in this genome
                             
                             existing_gene = id_attr_to_gene_id[id_attribute]
 
