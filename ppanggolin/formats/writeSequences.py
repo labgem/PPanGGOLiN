@@ -59,8 +59,14 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     logging.getLogger("PPanGGOLiN").info("Writing all the gene nucleotide sequences...")
     outpath = output / f"{genes}_genes.fna"
 
-    genefams = select_families(pangenome, genes, "gene nucleotide sequences", soft_core)
+    genefams = set()
     genes_to_write = []
+    if genes == "rgp":
+        logging.getLogger("PPanGGOLiN").info(f"Writing the gene nucleotide sequences in RGPs...")
+        for region in pangenome.regions:
+            genes_to_write.extend(region.genes)
+    else:
+        genefams = select_families(pangenome, genes, "gene nucleotide sequences", soft_core)
 
     for fam in genefams:
         genes_to_write.extend(fam.genes)
@@ -100,11 +106,6 @@ def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_c
             if fam.named_partition == partition:
                 genefams.add(fam)
     
-    elif partition == "rgp":
-        logging.getLogger("PPanGGOLiN").info(f"Writing the {type_name} in RGPs...")
-        for region in pangenome.regions:
-            genefams |= set(region.families)
-
     elif partition == "softcore":
         logging.getLogger("PPanGGOLiN").info(
             f"Writing the {type_name} in {partition} genome, that are present in more than {soft_core} of genomes")
