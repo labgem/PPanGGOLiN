@@ -131,9 +131,11 @@ class Region(MetaFeatures):
         :raises KeyError: Gene at the given position does not exist
         """
         try:
-            return self._genes_getter[position]
+            gene = self._genes_getter[position]
         except KeyError:
             raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
+        else:
+            return gene
 
     @property
     def spot(self) -> Union[Spot, None]:
@@ -410,9 +412,11 @@ class Spot(MetaFeatures):
         if not isinstance(name, str):
             raise TypeError(f"Name of the region must be a string. The provided type was {type(name)}")
         try:
-            return self._region_getter[name]
+            region = self._region_getter[name]
         except KeyError:
             raise KeyError(f"Region with {name} does not exist in spot")
+        else:
+            return region
 
     def __delitem__(self, name):
         """Delete the region for the given name
@@ -692,9 +696,11 @@ class Module(MetaFeatures):
         :raises KeyError: Family with the given name does not exist in the module
         """
         try:
-            return self._families_getter[name]
+            family = self._families_getter[name]
         except KeyError:
             raise KeyError(f"There isn't gene family with the name {name} in the module")
+        else:
+            return family
 
     def __delitem__(self, name):
         """Remove the gene family for the given name in the module
@@ -885,9 +891,11 @@ class GeneContext:
         :raises KeyError: Family with the given name does not exist in the context
         """
         try:
-            return self._families_getter[name]
+            family = self._families_getter[name]
         except KeyError:
             raise KeyError(f"There isn't gene family with the name {name} in the gene context")
+        else:
+            return family
 
     def __delitem__(self, name):
         """Remove the gene family for the given name in the context
