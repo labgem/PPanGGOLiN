@@ -183,7 +183,6 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
         gf = gene.family
         gf2gene[gf.name].append(gene)
 
-
         metadata_for_proksee = {f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()}
         metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict(metadata_sep).items()})
 
@@ -206,8 +205,6 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
 
     # Process RNA genes
 
-    #Proksee deals well with circularity. So when a gene overlep the edge of the contig
-    # Proksee display correctly the gene with the initial start (at the end of the contig) and the final stop (at the begining of the contig)
     for gene in tqdm(organism.rna_genes, total=organism.number_of_rnas(), unit="rnas", disable=disable_bar):
         genes_data_list.append({
             "name": gene.name,

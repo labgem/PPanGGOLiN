@@ -429,24 +429,26 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     filetype = detect_filetype(filename)
     if filetype == "gff":
         try:
-            return read_org_gff(organism_name, filename, circular_contigs, pseudo)
+            org, has_fasta = read_org_gff(organism_name, filename, circular_contigs, pseudo)
         except Exception as err:
             raise Exception(f"Reading the gff3 file '{filename}' raised an error. {err}")
+        else:
+            return org, has_fasta
     elif filetype == "gbff":
         try:
-            return read_org_gbff(organism_name, filename, circular_contigs, pseudo)
+            org, has_fasta = read_org_gbff(organism_name, filename, circular_contigs, pseudo)
         except Exception as err:
             raise Exception(f"Reading the gbff file '{filename}' raised an error. {err}")
-
+        else:
+            return org, has_fasta
     elif filetype == "fasta":
-        raise ValueError(
-            f"Invalid file type provided for parameter '--anno'. The file '{filename}' looks like a fasta file. "
-            "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
+        raise ValueError(f"Invalid file type provided for parameter '--anno'. "
+                         f"The file '{filename}' looks like a fasta file. "
+                         "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
 
     else:
-        raise ValueError(
-            f"Invalid file type provided for parameter '--anno'. The file '{filename}' appears to be of type '{filetype}'. "
-            "Please use .gff or .gbff files.")
+        raise ValueError(f"Invalid file type provided for parameter '--anno'. "
+                         f"The file '{filename}' appears to be of type '{filetype}'. Please use .gff or .gbff files.")
 
 
 def chose_gene_identifiers(pangenome: Pangenome) -> bool:
@@ -554,6 +556,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
 
     :param pangenome: Input pangenome
     :param fasta_files: list of fasta file
+    :param disable_bar: Flag to disable progress bar
     """
     fasta_dict = {}
     for line in read_compressed_or_not(fasta_files):
@@ -572,11 +575,11 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
 
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
-        raise Exception(f"Not all of your pangenome genomes are present within the provided fasta file. "
-                        f"{missing} are missing (out of {pangenome.number_of_organisms}).")
+        raise KeyError(f"Not all of your pangenome genomes are present within the provided fasta file. "
+                       f"{missing} are missing (out of {pangenome.number_of_organisms}).")
 
     with tqdm(total=pangenome.number_of_genes, unit="gene", disable=disable_bar,
-              desc="Add sequences to genes") as progress:
+              desc="Add sequences to genes-RNAs") as progress:
         for org in pangenome.organisms:
             for contig in org.contigs:
                 try:
