@@ -5,7 +5,8 @@
 import logging
 import argparse
 from pathlib import Path
-from typing import Set, Iterable
+from typing import Set, Iterable, List, Tuple
+
 # installed libraries
 from tqdm import tqdm
 
@@ -29,6 +30,70 @@ class MatriceNode:
         self.state = 1 if score >= 0 else 0
         # current score of the node. If the given score is negative, set to 0.
         self.score = score if score >= 0 else 0
+
+
+def find_consecutive_sequences(sequence: List[int]) -> List[List[int]]:
+    """
+    Find consecutive sequences in a list of integers.
+    
+    :param sequence: The input list of integers.
+    
+    :return: A list of lists containing consecutive sequences of integers.
+    """
+    s_sequence = sorted(sequence)
+
+    consecutive_sequences = [[s_sequence[0]]]
+
+    for i in s_sequence[1:]:
+        if i == consecutive_sequences[-1][-1] + 1:
+            consecutive_sequences[-1].append(i)
+        else:
+            # there is a break in the consecutivity
+            consecutive_sequences.append([i])
+            
+    return consecutive_sequences
+
+
+def find_region_border_position(region_positions: List[int], contig_length: int) -> Tuple[int, int]:
+    """
+    Find the start and stop integers of the region considering circularity of the contig.
+    
+    :param region_positions: List of positions that belong to the region.
+    :param contig_length: Total length of the contig. The contig is considered circular.
+    
+    :return: A tuple containing the start and stop integers of the region.
+    
+    :raises ValueError: If unexpected conditions are encountered.
+    """
+    if len(region_positions) == 0:
+        raise ValueError('Region has no position. This is unexpected.')
+        
+    consecutive_sequences = sorted(find_consecutive_sequences(region_positions))
+    
+    if len(consecutive_sequences) == 0:
+        raise ValueError('No consecutive sequences found in the region. This is unexpected.')
+        
+    elif len(consecutive_sequences) == 1:
+        return consecutive_sequences[0][0], consecutive_sequences[0][-1]
+
+    elif len(consecutive_sequences) == 2:
+        # Check for overlaps at the edge of the contig
+        if consecutive_sequences[0][0] != 0:
+            raise ValueError(f'Two sequences of consecutive positions ({consecutive_sequences}) '
+                             f'indicate an overlap on the edge of the contig, but neither starts at the beginning of the contig (0).')
+
+        elif consecutive_sequences[-1][-1] != contig_length - 1:
+            raise ValueError(f'Two sequences of consecutive positions ({consecutive_sequences}) '
+                             f'indicate an overlap on the edge of the contig, but neither ends at the end of the contig ({contig_length - 1}).')
+
+        start = consecutive_sequences[-1][0]
+        stop = consecutive_sequences[0][-1]
+        return start, stop
+        
+    elif len(consecutive_sequences) > 2:
+        raise ValueError(f'More than two consecutive sequences found ({len(consecutive_sequences)}). '
+                         f'This is unexpected. Consecutive sequences: {consecutive_sequences}. '
+                         'The region should consist of consecutive positions along the contig.')
 
 
 def extract_rgp(contig, node, rgp_id, naming) -> Region:
