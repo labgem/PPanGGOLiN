@@ -18,11 +18,11 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Organism
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, \
+    detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
 
-
-module_regex = re.compile(r'^module_\d+')  #\d == [0-9]
+module_regex = re.compile(r'^module_\d+')  # \d == [0-9]
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
 poss_values_log = f"Possible values are {', '.join(poss_values[:-1])}, module_X with X being a module id."
 
@@ -134,8 +134,18 @@ def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_o
             file_obj.write(f'{gene.dna}\n')
     file_obj.flush()
 
+
 def translate_genes(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 11) -> Path:
-    seq_nucdb = tmpdir / 'nucleotid_sequences_db'
+    """Translate nucleotide sequences into MMSeqs2 amino acid sequences database
+
+    :param sequences: File with the nucleotide sequences
+    :param tmpdir: Temporary directory to save the MMSeqs2 files
+    :param cpu: Number of available CPU cores to use
+    :param code: Translation code to use
+
+    :return: Path to the MMSeqs2 database
+    """
+    seq_nucdb = tmpdir / 'nucleotide_sequences_db'
     cmd = list(map(str, ["mmseqs", "createdb", sequences.name, seq_nucdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
@@ -159,6 +169,8 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     :param soft_core: Soft core threshold to use
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
+
+    :raises AttributeError: If the pangenome does not contain gene sequences
     """
 
     logging.getLogger("PPanGGOLiN").info("Writing all the gene nucleotide sequences...")
@@ -179,7 +191,7 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
             write_gene_sequences_from_annotations(genes_to_write, fasta, disable_bar=disable_bar)
         else:
             # this should never happen if the pangenome has been properly checked before launching this function.
-            raise Exception("The pangenome does not include gene sequences")
+            raise AttributeError("The pangenome does not include gene sequences")
     logging.getLogger("PPanGGOLiN").info(f"Done writing the gene sequences : '{outpath}'")
 
 
@@ -199,14 +211,14 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, genes_prot:
     :param code: Genetic code use to translate nucleotide sequences to protein sequences
     :param disable_bar: Disable progress bar
     """
-    tmpdir = tmp/"translateGenes" if tmp is not None else Path(f"{tempfile.gettempdir()}/translateGenes")
+    tmpdir = tmp / "translateGenes" if tmp is not None else Path(f"{tempfile.gettempdir()}/translateGenes")
     mk_outdir(tmpdir, True, True)
 
     write_gene_sequences(pangenome, tmpdir, genes_prot, soft_core, compress, disable_bar)
 
-    with open(tmpdir/f"{genes_prot}_genes.fna") as sequences:
+    with open(tmpdir / f"{genes_prot}_genes.fna") as sequences:
         translate_db = translate_genes(sequences, tmpdir, cpu, code)
-    outpath = output/f"{genes_prot}_protein_genes.fna"
+    outpath = output / f"{genes_prot}_protein_genes.fna"
     cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -396,6 +408,9 @@ def read_genome_file(genome_file: Path, organism: Organism) -> Dict[str, str]:
     :param organism: organism object
 
     :return: Dictionary with all sequences associated to contig
+
+    :raises TypeError: If the file containing sequences is not recognized
+    :raises KeyError: If their inconsistency between pangenome contigs and the given contigs
     """
     filetype = detect_filetype(genome_file)
     if filetype in ["fasta", "gff"]:
@@ -403,12 +418,12 @@ def read_genome_file(genome_file: Path, organism: Organism) -> Dict[str, str]:
     elif filetype == "gbff":
         contig_to_sequence = read_fasta_gbk(genome_file)
     else:
-        raise Exception(f"Unknown filetype detected: '{genome_file}'")
+        raise TypeError(f"Unknown filetype detected: '{genome_file}'")
 
     # check_contig_names
     if set(contig_to_sequence) != {contig.name for contig in organism.contigs}:
-        raise Exception(f"Contig name inconsistency detected in genome '{organism.name}' between the "
-                        f"information stored in the pangenome file and the contigs found in '{genome_file}'.")
+        raise KeyError(f"Contig name inconsistency detected in genome '{organism.name}' between the "
+                       f"information stored in the pangenome file and the contigs found in '{genome_file}'.")
 
     return contig_to_sequence
 
@@ -420,7 +435,7 @@ def write_spaced_fasta(sequence: str, space: int = 60) -> str:
     :param sequence: sequence to write
     :param space: maximum of size for one line
 
-    :return: a sequence of maximum space caracter
+    :return: a sequence of maximum space character
     """
     seq = ""
     j = 0
@@ -442,6 +457,8 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
     :param anno: A tab-separated file listing the organism names, and the gff/gbff filepath of its annotations
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
+
+    :raises SyntaxError: if no tabulation are found in list genomes file
     """
     assert fasta is not None or anno is not None, "Write regions requires to use anno or fasta, not any provided"
 
@@ -450,7 +467,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
     for line in read_compressed_or_not(organisms_file):
         elements = [el.strip() for el in line.split("\t")]
         if len(elements) <= 1:
-            raise Exception(f"No tabulation separator found in given --fasta or --anno file: '{organisms_file}'")
+            raise SyntaxError(f"No tabulation separator found in given --fasta or --anno file: '{organisms_file}'")
         org_dict[elements[0]] = Path(elements[1])
         if not org_dict[elements[0]].exists():  # Check tsv sanity test if it's not one it's the other
             org_dict[elements[0]] = organisms_file.parent.joinpath(org_dict[elements[0]])
@@ -527,7 +544,8 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
-                         regions=args.regions, genes=args.genes, genes_prot=args.genes_prot, gene_families=args.gene_families,
+                         regions=args.regions, genes=args.genes, genes_prot=args.genes_prot,
+                         gene_families=args.gene_families,
                          prot_families=args.prot_families, compress=args.compress, disable_bar=args.disable_prog_bar)
 
 
@@ -542,6 +560,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser("fasta", formatter_class=argparse.RawTextHelpFormatter)
     parser_seq(parser)
     return parser
+
 
 def filter_values(arg_value: str):
     """
