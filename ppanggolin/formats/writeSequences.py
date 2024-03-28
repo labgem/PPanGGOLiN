@@ -500,7 +500,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
 def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None, anno: Path = None,
                          soft_core: float = 0.95, regions: str = None, genes: str = None, genes_prot: str = None,
                          gene_families: str = None, prot_families: str = None, compress: bool = False,
-                         disable_bar: bool = False):
+                         disable_bar: bool = False, **translate_kwgs):
     """
     Main function to write sequence file from pangenome
 
@@ -528,7 +528,7 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
         write_gene_sequences(pangenome, output, genes, soft_core, compress, disable_bar)
     if genes_prot is not None:
         write_gene_protein_sequences(pangenome, output, genes_prot, soft_core, compress,
-                                     disable_bar=disable_bar)
+                                     disable_bar=disable_bar, **translate_kwgs)
     if regions is not None:
         write_regions_sequences(pangenome, output, regions, fasta, anno, compress, disable_bar)
 
@@ -540,13 +540,17 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
     check_write_sequences_args(args)
+    translate_kwgs = {"code": args.translation_table,
+                      "cpu": args.cpu,
+                      "tmp": args.tmpdir,
+                      "keep_tmp": args.keep_tmp}
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
                          regions=args.regions, genes=args.genes, genes_prot=args.genes_prot,
-                         gene_families=args.gene_families,
-                         prot_families=args.prot_families, compress=args.compress, disable_bar=args.disable_prog_bar)
+                         gene_families=args.gene_families, prot_families=args.prot_families, compress=args.compress,
+                         disable_bar=args.disable_prog_bar, **translate_kwgs)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -627,7 +631,7 @@ def parser_seq(parser: argparse.ArgumentParser):
     optional.add_argument("--translation_table", required=False, default="11",
                           help="Translation table (genetic code) to use.")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
-    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+    optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
                           help="Keeping temporary files (useful for debugging).")
