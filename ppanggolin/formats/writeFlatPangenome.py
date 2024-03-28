@@ -17,6 +17,7 @@ import csv
 
 # installed libraries
 import pandas as pd
+from tqdm import tqdm
 
 # local libraries
 from ppanggolin.edge import Edge
@@ -749,20 +750,21 @@ def write_partitions(output: Path, soft_core: float = 0.95):
     logging.getLogger("PPanGGOLiN").info("Done writing the list of gene families for each partition")
 
 
-def write_gene_families_tsv(output: Path, compress: bool = False):
+def write_gene_families_tsv(output: Path, compress: bool = False, disable_bar: bool = False):
     """
     Write the file providing the association between genes and gene families
 
     :param output: Path to output directory
     :param compress: Compress the file in .gz
+    :param disable_bar: Flag to disable progress bar
     """
     logging.getLogger("PPanGGOLiN").info(
         "Writing the file providing the association between genes and gene families...")
     outname = output / "gene_families.tsv"
     with write_compressed_or_not(outname, compress) as tsv:
-        for fam in pan.gene_families:
+        for fam in tqdm(pan.gene_families, total=pan.number_of_gene_families, unit='family', disable=disable_bar):
             for gene in fam.genes:
-                tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier,
+                tsv.write("\t".join([fam.name, gene.ID, gene.local_identifier,
                                      "F" if gene.is_fragment else ""]) + "\n")
     logging.getLogger("PPanGGOLiN").info("Done writing the file providing the association between genes and "
                                          f"gene families: '{outname}'")
@@ -1137,7 +1139,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
         if partitions:
             processes.append(p.apply_async(func=write_partitions, args=(output, soft_core)))
         if families_tsv:
-            processes.append(p.apply_async(func=write_gene_families_tsv, args=(output, compress)))
+            processes.append(p.apply_async(func=write_gene_families_tsv, args=(output, compress, disable_bar)))
         if spots:
             processes.append(p.apply_async(func=write_spots, args=(output, compress)))
         if regions:
