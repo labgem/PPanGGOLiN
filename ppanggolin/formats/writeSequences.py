@@ -27,6 +27,94 @@ poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core',
 poss_values_log = f"Possible values are {', '.join(poss_values[:-1])}, module_X with X being a module id."
 
 
+def check_write_sequences_args(args: argparse.Namespace) -> None:
+    """Check arguments compatibility in CLI
+
+    :param args: argparse namespace arguments from CLI
+
+    :raises argparse.ArgumentTypeError: if region is given but neither fasta or anno is given
+    """
+    if args.regions is not None and args.fasta is None and args.anno is None:
+        raise argparse.ArgumentError(argument=None,
+                                     message="The --regions options requires the use of --anno or --fasta "
+                                             "(You need to provide the same file used to compute the pangenome)")
+
+
+def check_pangenome_to_write_sequences(pangenome: Pangenome, regions: str = None, genes: str = None,
+                                       genes_prot: str = None, gene_families: str = None,
+                                       prot_families: str = None, disable_bar: bool = False):
+    """Check and load required information from pangenome
+
+    :param pangenome: Empty pangenome
+    :param regions: Check and load the RGP
+    :param genes: Check and load the genes
+    :param genes_prot: Write amino acid CDS sequences.
+    :param gene_families: Check and load the gene families to write representative nucleotide sequences.
+    :param prot_families: Check and load the gene families to write representative amino acid sequences.
+    :param disable_bar: Disable progress bar
+
+    :raises AssertionError: if not any arguments to write any file is given
+    :raises ValueError: if the given filter is not recognized
+    :raises AttributeError: if the pangenome does not contain the required information
+    """
+    if not any(x for x in [regions, genes, genes_prot, prot_families, gene_families]):
+        raise AssertionError("You did not indicate what file you wanted to write.")
+
+    need_annotations = False
+    need_families = False
+    need_graph = False
+    need_partitions = False
+    need_spots = False
+    need_regions = False
+    need_modules = False
+
+    if prot_families is not None:
+        need_families = True
+        if prot_families in ["core", "softcore"]:
+            need_annotations = True
+
+    if any(x is not None for x in [regions, genes, genes_prot, gene_families]):
+        need_annotations = True
+        need_families = True
+    if regions is not None or any(x == "rgp" for x in (genes, gene_families, prot_families)):
+        need_annotations = True
+        need_regions = True
+    if any(x in ["persistent", "shell", "cloud"] for x in (genes, gene_families, prot_families)):
+        need_partitions = True
+    for x in (genes, gene_families, prot_families):
+        if x is not None and 'module_' in x:
+            need_modules = True
+
+    if not (need_annotations or need_families or need_graph or need_partitions or
+            need_spots or need_regions or need_modules):
+        # then nothing is needed, then something is wrong.
+        # find which filter was provided
+        provided_filter = ''
+        if genes is not None:
+            provided_filter = genes
+        if genes_prot is not None:
+            provided_filter = genes_prot
+        if gene_families is not None:
+            provided_filter = gene_families
+        if prot_families is not None:
+            provided_filter = prot_families
+        if regions is not None:
+            provided_filter = regions
+        raise ValueError(f"The filter that you indicated '{provided_filter}' was not understood by PPanGGOLiN. "
+                         f"{poss_values_log}")
+
+    if pangenome.status["geneSequences"] not in ["inFile"] and (genes or gene_families):
+        raise AttributeError("The provided pangenome has no gene sequences. "
+                             "This is not compatible with any of the following options : --genes, --gene_families")
+    if pangenome.status["geneFamilySequences"] not in ["Loaded", "Computed", "inFile"] and prot_families:
+        raise AttributeError("The provided pangenome has no gene families. This is not compatible with any of "
+                             "the following options : --prot_families, --gene_families")
+
+    check_pangenome_info(pangenome, need_annotations=need_annotations, need_families=need_families,
+                         need_graph=need_graph, need_partitions=need_partitions, need_rgp=need_regions,
+                         need_spots=need_spots, need_modules=need_modules, disable_bar=disable_bar)
+
+
 def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_obj: TextIO, add: str = '',
                                           disable_bar: bool = False):
     """
@@ -45,7 +133,6 @@ def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_o
             file_obj.write(f'>{add}{gene.ID}\n')
             file_obj.write(f'{gene.dna}\n')
     file_obj.flush()
-
 
 def translate_genes(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 11) -> Path:
     seq_nucdb = tmpdir / 'nucleotid_sequences_db'
@@ -395,7 +482,8 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
 
 def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None, anno: Path = None,
                          soft_core: float = 0.95, regions: str = None, genes: str = None, genes_prot: str = None,
-                         gene_families: str = None, prot_families: str = None, compress: bool = False, disable_bar: bool = False):
+                         gene_families: str = None, prot_families: str = None, compress: bool = False,
+                         disable_bar: bool = False):
     """
     Main function to write sequence file from pangenome
 
@@ -406,69 +494,14 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
     :param soft_core: Soft core threshold to use
     :param regions: Write the RGP nucleotide sequences
     :param genes: Write all nucleotide CDS sequences
+    :param genes_prot: Write amino acid CDS sequences.
     :param gene_families: Write representative nucleotide sequences of gene families.
     :param prot_families: Write representative amino acid sequences of gene families.
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
     """
-    if not any(x for x in [regions, genes, genes_prot, prot_families, gene_families]):
-        raise Exception("You did not indicate what file you wanted to write.")
 
-    need_annotations = False
-    need_families = False
-    need_graph = False
-    need_partitions = False
-    need_spots = False
-    need_regions = False
-    need_modules = False
-
-    if prot_families is not None:
-        need_families = True
-        if prot_families in ["core", "softcore"]:
-            need_annotations = True
-
-    if any(x is not None for x in [regions, genes, genes_prot, gene_families]):
-        need_annotations = True
-        need_families = True
-    if regions is not None or any(x == "rgp" for x in (genes, gene_families, prot_families)):
-        need_annotations = True
-        need_regions = True
-    if any(x in ["persistent", "shell", "cloud"] for x in (genes, gene_families, prot_families)):
-        need_partitions = True
-    for x in (genes, gene_families, prot_families):
-        if x is not None and 'module_' in x:
-            need_modules = True
-
-    if not (need_annotations or need_families or need_graph or need_partitions or
-            need_spots or need_regions or need_modules):
-        # then nothing is needed, then something is wrong.
-        # find which filter was provided
-        provided_filter = ''
-        if genes is not None:
-            provided_filter = genes
-        if genes_prot is not None:
-            provided_filter = genes_prot
-        if gene_families is not None:
-            provided_filter = gene_families
-        if prot_families is not None:
-            provided_filter = prot_families
-        if regions is not None:
-            provided_filter = regions
-        raise Exception(f"The filter that you indicated '{provided_filter}' was not understood by PPanGGOLiN. "
-                        f"{poss_values_log}")
-    ex_gene_sequences = Exception("The provided pangenome has no gene sequences. "
-                                  "This is not compatible with any of the following options : --genes, --gene_families")
-    ex_gene_family_sequences = Exception("The provided pangenome has no gene families. "
-                                         "This is not compatible with any of the following options : "
-                                         "--prot_families, --gene_families")
-    if pangenome.status["geneSequences"] not in ["inFile"] and (genes or gene_families):
-        raise ex_gene_sequences
-    if pangenome.status["geneFamilySequences"] not in ["Loaded", "Computed", "inFile"] and prot_families:
-        raise ex_gene_family_sequences
-
-    check_pangenome_info(pangenome, need_annotations=need_annotations, need_families=need_families,
-                         need_graph=need_graph, need_partitions=need_partitions, need_rgp=need_regions,
-                         need_spots=need_spots, need_modules=need_modules, disable_bar=disable_bar)
+    check_pangenome_to_write_sequences(pangenome, regions, genes, genes_prot, gene_families, prot_families, disable_bar)
 
     if prot_families is not None:
         write_fasta_prot_fam(pangenome, output, prot_families, soft_core, compress, disable_bar)
@@ -489,9 +522,7 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
-    if args.regions is not None and args.fasta is None and args.anno is None:
-        raise Exception("The --regions options requires the use of --anno or --fasta "
-                        "(You need to provide the same file used to compute the pangenome)")
+    check_write_sequences_args(args)
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
