@@ -775,7 +775,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
         logging.getLogger("PPanGGOLiN").warning(f"The provided fasta file contains {diff_genomes} "
                                                 "additional genomes compared to the pangenome.")
 
-    with tqdm(total=pangenome.number_of_genes, unit="gene", disable=disable_bar,
+    with tqdm(total=pangenome.number_of_genes + pangenome.number_of_rnas, unit="gene", disable=disable_bar,
               desc="Add sequences to genes-RNAs") as progress:
         for org in pangenome.organisms:
             for contig in org.contigs:

@@ -421,7 +421,7 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                 context_graph.add_edge(gene.family, next_gene.family)
                 contig_graph.add_edge(gene.family, next_gene.family)
 
-                edge_dict = context_graph[gene.family][next_gene.family]
+                edge_dict = context_graph.get_edge_data(gene.family, next_gene.family, default={})
 
                 if i == 0:
                     edge_dict['adjacent_family'] = True
