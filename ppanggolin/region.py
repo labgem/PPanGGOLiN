@@ -51,6 +51,7 @@ class Region(MetaFeatures):
         self._starter = None
         self._stopper = None
         self._coordinates = None
+        self._overlaps_contig_edge = None
         self.ID = Region.id_counter
         self._spot = None
         Region.id_counter += 1
@@ -127,6 +128,7 @@ class Region(MetaFeatures):
         self._starter = None
         self._stopper = None
         self._coordinates = None
+        self._overlaps_contig_edge = None
 
         gene.RGP = self
     
@@ -155,8 +157,10 @@ class Region(MetaFeatures):
                                  f'but the contig is not circular. This is unexpected. {rgp_genes_positions}')
 
             self._coordinates = [(self._starter.start, self._starter.contig.length), (1, self._stopper.stop)]
+            self._overlaps_contig_edge = True
         else:
             self._coordinates = [(self._starter.start, self._stopper.stop)]
+            self._overlaps_contig_edge = False
 
 
     def __getitem__(self, position: int) -> Gene:
@@ -203,7 +207,12 @@ class Region(MetaFeatures):
             self.identify_rgp_last_and_first_genes() 
         return self._coordinates
 
-
+    @property
+    def overlaps_contig_edge(self) -> bool:
+        if self._overlaps_contig_edge is None:
+            self.identify_rgp_last_and_first_genes() 
+        return self._overlaps_contig_edge
+    
     @property
     def spot(self) -> Union[Spot, None]:
         return self._spot
