@@ -5,8 +5,11 @@
 import argparse
 import logging
 import re
+import subprocess
 from pathlib import Path
 from typing import TextIO, Dict, Set, Iterable
+import tempfile
+import shutil
 
 # installed libraries
 from tqdm import tqdm
@@ -17,6 +20,7 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Organism
 from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
 from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
+
 
 module_regex = re.compile(r'^module_\d+')  #\d == [0-9]
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
@@ -41,6 +45,20 @@ def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_o
             file_obj.write(f'>{add}{gene.ID}\n')
             file_obj.write(f'{gene.dna}\n')
     file_obj.flush()
+
+
+def translate_genes(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 11) -> Path:
+    seq_nucdb = tmpdir / 'nucleotid_sequences_db'
+    cmd = list(map(str, ["mmseqs", "createdb", sequences.name, seq_nucdb]))
+    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
+    logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
+    seqdb = tmpdir / 'aa_db'
+    cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", cpu, "--translation-table", code]))
+    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    return seqdb
 
 
 def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_core: float = 0.95,
@@ -78,6 +96,40 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     logging.getLogger("PPanGGOLiN").info(f"Done writing the gene sequences : '{outpath}'")
 
 
+def write_gene_protein_sequences(pangenome: Pangenome, output: Path, genes_prot: str, soft_core: float = 0.95,
+                                 compress: bool = False, keep_tmp: bool = False, tmp: Path = None,
+                                 cpu: int = 1, code: int = 11, disable_bar: bool = False):
+    """ Write all amino acid sequences from given genes in pangenome
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param output: Path to output directory
+    :param genes_prot: Selected partition of gene
+    :param soft_core: Soft core threshold to use
+    :param compress: Compress the file in .gz
+    :param keep_tmp: Keep temporary directory
+    :param tmp: Path to temporary directory
+    :param cpu: Number of CPU available
+    :param code: Genetic code use to translate nucleotide sequences to protein sequences
+    :param disable_bar: Disable progress bar
+    """
+    tmpdir = tmp/"translateGenes" if tmp is not None else Path(f"{tempfile.gettempdir()}/translateGenes")
+    mk_outdir(tmpdir, True, True)
+
+    write_gene_sequences(pangenome, tmpdir, genes_prot, soft_core, compress, disable_bar)
+
+    with open(tmpdir/f"{genes_prot}_genes.fna") as sequences:
+        translate_db = translate_genes(sequences, tmpdir, cpu, code)
+    outpath = output/f"{genes_prot}_protein_genes.fna"
+    cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
+    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    logging.getLogger("PPanGGOLiN").info(f"Done writing the gene sequences : '{outpath}'")
+
+    if not keep_tmp:
+        logging.getLogger("PPanGGOLiN").debug("Clean temporary directory")
+        shutil.rmtree(tmpdir)
+
+
 def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_core: float = 0.95) -> Set[GeneFamily]:
     """
     function used to filter down families to the given partition
@@ -93,13 +145,13 @@ def select_families(pangenome: Pangenome, partition: str, type_name: str, soft_c
     if partition == 'all':
         logging.getLogger("PPanGGOLiN").info(f"Writing all of the {type_name}...")
         genefams = pangenome.gene_families
-    
+
     elif partition in ['persistent', 'shell', 'cloud']:
         logging.getLogger("PPanGGOLiN").info(f"Writing the {type_name} of the {partition}...")
         for fam in pangenome.gene_families:
             if fam.named_partition == partition:
                 genefams.add(fam)
-    
+
     elif partition == "rgp":
         logging.getLogger("PPanGGOLiN").info(f"Writing the {type_name} in RGPs...")
         for region in pangenome.regions:
@@ -342,8 +394,8 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
 
 
 def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None, anno: Path = None,
-                         soft_core: float = 0.95, regions: str = None, genes: str = None, gene_families: str = None,
-                         prot_families: str = None, compress: bool = False, disable_bar: bool = False):
+                         soft_core: float = 0.95, regions: str = None, genes: str = None, genes_prot: str = None,
+                         gene_families: str = None, prot_families: str = None, compress: bool = False, disable_bar: bool = False):
     """
     Main function to write sequence file from pangenome
 
@@ -359,7 +411,7 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
     """
-    if not any(x for x in [regions, genes, prot_families, gene_families]):
+    if not any(x for x in [regions, genes, genes_prot, prot_families, gene_families]):
         raise Exception("You did not indicate what file you wanted to write.")
 
     need_annotations = False
@@ -375,7 +427,7 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
         if prot_families in ["core", "softcore"]:
             need_annotations = True
 
-    if any(x is not None for x in [regions, genes, gene_families]):
+    if any(x is not None for x in [regions, genes, genes_prot, gene_families]):
         need_annotations = True
         need_families = True
     if regions is not None or any(x == "rgp" for x in (genes, gene_families, prot_families)):
@@ -394,6 +446,8 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
         provided_filter = ''
         if genes is not None:
             provided_filter = genes
+        if genes_prot is not None:
+            provided_filter = genes_prot
         if gene_families is not None:
             provided_filter = gene_families
         if prot_families is not None:
@@ -422,6 +476,9 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
         write_fasta_gene_fam(pangenome, output, gene_families, soft_core, compress, disable_bar)
     if genes is not None:
         write_gene_sequences(pangenome, output, genes, soft_core, compress, disable_bar)
+    if genes_prot is not None:
+        write_gene_protein_sequences(pangenome, output, genes_prot, soft_core, compress,
+                                     disable_bar=disable_bar)
     if regions is not None:
         write_regions_sequences(pangenome, output, regions, fasta, anno, compress, disable_bar)
 
@@ -439,7 +496,7 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
-                         regions=args.regions, genes=args.genes, gene_families=args.gene_families,
+                         regions=args.regions, genes=args.genes, genes_prot=args.genes_prot, gene_families=args.gene_families,
                          prot_families=args.prot_families, compress=args.compress, disable_bar=args.disable_prog_bar)
 
 
@@ -477,7 +534,7 @@ def parser_seq(parser: argparse.ArgumentParser):
 
     :param parser: parser for align argument
     """
-    
+
     required = parser.add_argument_group(title="Required arguments",
                                          description="One of the following arguments is required :")
     required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
@@ -493,7 +550,7 @@ def parser_seq(parser: argparse.ArgumentParser):
                          help="A tab-separated file listing the genome names, and the gff/gbff filepath of its "
                               "annotations (the files can be compressed with gzip). One line per genome. "
                               "If this is provided, those annotations will be used.")
-    
+
     onereq = parser.add_argument_group(title="Output file",
                                        description="At least one of the following argument is required. "
                                                    "Indicating 'all' writes all elements. Writing a partition "
@@ -502,11 +559,13 @@ def parser_seq(parser: argparse.ArgumentParser):
                                        )
     onereq.add_argument("--genes", required=False, type=filter_values,
                         help=f"Write all nucleotide CDS sequences. {poss_values_log}")
+    onereq.add_argument("--genes_prot", required=False, type=filter_values,
+                        help=f"Write representative amino acid sequences of genes. {poss_values_log}")
     onereq.add_argument("--prot_families", required=False, type=filter_values,
                         help=f"Write representative amino acid sequences of gene families. {poss_values_log}")
     onereq.add_argument("--gene_families", required=False, type=filter_values,
                         help=f"Write representative nucleotide sequences of gene families. {poss_values_log}")
-    
+
     optional = parser.add_argument_group(title="Optional arguments")
     # could make choice to allow customization
     optional.add_argument("--regions", required=False, type=str, choices=["all", "complete"],
@@ -515,6 +574,13 @@ def parser_seq(parser: argparse.ArgumentParser):
     optional.add_argument("--soft_core", required=False, type=restricted_float, default=0.95,
                           help="Soft core threshold to use if 'softcore' partition is chosen")
     optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
+    optional.add_argument("--translation_table", required=False, default="11",
+                          help="Translation table (genetic code) to use.")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+                          help="directory for storing temporary files")
+    optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
+                          help="Keeping temporary files (useful for debugging).")
 
 
 if __name__ == '__main__':
