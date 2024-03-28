@@ -1,4 +1,4 @@
-from ppanggolin.RGP.genomicIsland import find_consecutive_sequences, find_region_border_position
+from ppanggolin.utils import find_consecutive_sequences, find_region_border_position
 import pytest
 
 def test_find_consecutive_sequences_single_sequence():
