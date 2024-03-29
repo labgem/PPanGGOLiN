@@ -77,7 +77,7 @@ jobs:
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families module_0
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families core
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --gene_families module_0 --genes module_0
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --genes_prot -c 1 --keep_tmp 
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --genes_prot cloud -c 1 --keep_tmp 
 
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --no_print_info --recompute_metrics --log metrics.log
