@@ -426,7 +426,7 @@ def read_annotation_files(genome_name_to_annot_path: Dict[str, dict], cpu: int =
                 organisms.append(org)
                 org_to_has_fasta_flag[org] = has_fasta
 
-    genes = (gene for org in organisms for gene in org.genes)
+    genes = [gene for org in organisms for gene in org.genes]
 
     if local_identifiers_are_unique(genes):
         for gene in genes:
@@ -538,7 +538,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     """
     seq_fasta_files = []
 
-    logging.getLogger('PPanGGOLiN').info(f'Writting gene sequences of input genomes.')
+    logging.getLogger('PPanGGOLiN').info('Writting gene sequences of input genomes.')
 
     for input_organism in input_organisms:
         seq_outdir = output / input_organism.name
@@ -548,7 +548,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
         with open(seq_fasta_file, "w") as fh_out_faa:
             write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa, disable_bar=True,
-                                                  add=f"ppanggolin_")
+                                                  add="ppanggolin_")
 
         seq_fasta_files.append(seq_fasta_file)
 
@@ -582,7 +582,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
         lonely_genes = set()
         for gene in input_organism.genes:
-            gene_id = gene.ID if gene.local_identifier == "" else gene.local_identifier
+            gene_id = gene.ID
 
             try:
                 gene_family = seqid_to_gene_family[gene_id]
