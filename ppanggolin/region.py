@@ -52,6 +52,8 @@ class Region(MetaFeatures):
         self._stopper = None
         self._coordinates = None
         self._overlaps_contig_edge = None
+        self._contig = None
+        self._organism = None
         self.ID = Region.id_counter
         self._spot = None
         Region.id_counter += 1
@@ -113,6 +115,11 @@ class Region(MetaFeatures):
         if position != gene.position:
             raise ValueError(f"The given gene position ({position}) to set the gene in the region and the position of the gene ({gene.position})  are different. ")
         
+        if len(self) == 0:
+            # first gene to be added to the region
+            self._organism = gene.organism
+            self._contig = gene.contig
+
         if len(self) > 0:
             if gene.organism != self.organism:
                 raise Exception(f"Gene {gene.name} is from a different genome than the first defined in RGP. "
@@ -309,7 +316,7 @@ class Region(MetaFeatures):
 
         :return: Size of the region
         """
-        return self.stopper.stop - self.starter.start
+        return sum([(stop - start +1) for start, stop in self.coordinates ])
 
     @property
     def organism(self) -> Organism:
@@ -317,7 +324,7 @@ class Region(MetaFeatures):
 
         :return: Organism corresponding to the region
         """
-        return self.starter.organism
+        return self._organism
 
     @property
     def contig(self) -> Contig:
@@ -325,7 +332,7 @@ class Region(MetaFeatures):
 
         :return: Contig corresponding to the region
         """
-        return self.starter.contig
+        return self._contig
 
     @property
     def start(self) -> int:
