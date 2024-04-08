@@ -219,7 +219,7 @@ class TestRegion:
         """Tests that the length of the region can be retrieved
         """
         gene1, gene2 = Gene('gene_1'), Gene('gene_2')
-        gene1.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene1.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene1.contig = contig
         gene2.fill_annotations(start=11, stop=20, strand='+', position=1)
         gene2.contig = contig
