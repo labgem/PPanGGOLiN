@@ -164,7 +164,6 @@ def write_contig(organism: Organism, genome_sequences: Dict[str, str] = None, me
 
     return contigs_data_list
 
-
 def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool = True) -> Tuple[List[Dict], Dict[str, List[Gene]]]:
     """
     Writes gene data for a given organism, including both protein-coding genes and RNA genes.
@@ -183,8 +182,27 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
         gf = gene.family
         gf2gene[gf.name].append(gene)
 
+        # Add gene info in meta of proksee
+        metadata_for_proksee = {"ID":gene.ID ,
+                                "family":gene.family.name}
 
-        metadata_for_proksee = {f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()}
+        if gene.product:
+            metadata_for_proksee['product'] = gene.product
+             
+        if gene.spot:
+            metadata_for_proksee['spot'] = gene.spot.ID
+
+        if gene.module:
+            metadata_for_proksee['module'] = gene.module.ID
+
+        if gene.has_joined_coordinates:
+            metadata_for_proksee['coordinates'] = gene.string_coordinates()
+        
+        if gene.overlaps_contig_edge:
+            metadata_for_proksee['overlaps_contig_edge'] = gene.overlaps_contig_edge
+
+
+        metadata_for_proksee.update({f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()})
         metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict(metadata_sep).items()})
         
         
@@ -194,7 +212,7 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
 
 
         #In case of frameshift we don't want to split the gene by its coordinates
-        # When the gene overlaps_contig_edge the gene is split in two piece for correct visualition
+        # When the gene overlaps_contig_edge the gene is split in two piece for correct visualisation
         coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
         for start, stop in coordinates_to_display:
             genes_data_list.append({
@@ -205,7 +223,7 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
                 "stop": stop,
                 "strand": 1 if gene.strand == "+" else -1,
                 "product": gene.product,
-                "tags": [gene.family.named_partition, gene.family.name],
+                "tags": [gene.family.named_partition],
                 "source": "Gene",
                 "legend": gene.family.named_partition,
                 "meta": metadata_for_proksee
@@ -213,6 +231,13 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
 
     # Process RNA genes
     for gene in tqdm(organism.rna_genes, total=organism.number_of_rnas(), unit="rnas", disable=disable_bar):
+        
+        metadata_for_proksee = {"ID":gene.ID}
+        
+        if gene.product:
+            metadata_for_proksee['product'] = gene.product
+        
+        metadata_for_proksee.update(gene.formatted_metadata_dict(metadata_sep))
 
         coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
         for start, stop in coordinates_to_display:
@@ -227,7 +252,7 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
                 "tags": [],
                 "source": "Gene",
                 "legend": "RNA",
-                "meta": gene.formatted_metadata_dict(metadata_sep)
+                "meta": metadata_for_proksee
             })
 
     return genes_data_list, gf2gene
