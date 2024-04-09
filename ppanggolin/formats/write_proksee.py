@@ -187,41 +187,48 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
         metadata_for_proksee = {f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()}
         metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict(metadata_sep).items()})
         
-        #Proksee deals well with circularity. So when a gene overlep the edge of the contig
-        # Proksee display correctly the gene with the initial start (at the end of the contig) and the final stop (at the begining of the contig)
+        
+        # Proksee handles circularity effectively. When a gene extends beyond the edge of the contig,
+        # Proksee correctly displays the gene with its initial start (at the end of the contig) and final stop (at the beginning of the contig).
+        # However, this only applies when there's a single contig. If there are multiple contigs, the feature overlaps all contigs, causing confusion.
 
-        genes_data_list.append({
-            "name": gene.name,
-            "type": "Gene",
-            "contig": gene.contig.name,
-            "start": gene.start,
-            "stop": gene.stop,
-            "strand": 1 if gene.strand == "+" else -1,
-            "product": gene.product,
-            "tags": [gene.family.named_partition, gene.family.name],
-            "source": "Gene",
-            "legend": gene.family.named_partition,
-            "meta": metadata_for_proksee
-        })
+
+        #In case of frameshift we don't want to split the gene by its coordinates
+        # When the gene overlaps_contig_edge the gene is split in two piece for correct visualition
+        coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
+        for start, stop in coordinates_to_display:
+            genes_data_list.append({
+                "name": gene.name,
+                "type": "Gene",
+                "contig": gene.contig.name,
+                "start": start,
+                "stop": stop,
+                "strand": 1 if gene.strand == "+" else -1,
+                "product": gene.product,
+                "tags": [gene.family.named_partition, gene.family.name],
+                "source": "Gene",
+                "legend": gene.family.named_partition,
+                "meta": metadata_for_proksee
+            })
 
     # Process RNA genes
-        
-    #Proksee deals well with circularity. So when a gene overlep the edge of the contig
-    # Proksee display correctly the gene with the initial start (at the end of the contig) and the final stop (at the begining of the contig)
     for gene in tqdm(organism.rna_genes, total=organism.number_of_rnas(), unit="rnas", disable=disable_bar):
-        genes_data_list.append({
-            "name": gene.name,
-            "type": "Gene",
-            "contig": gene.contig.name,
-            "start": gene.start,
-            "stop": gene.stop,
-            "strand": 1 if gene.strand == "+" else -1,
-            "product": gene.product,
-            "tags": [],
-            "source": "Gene",
-            "legend": "RNA",
-            "meta": gene.formatted_metadata_dict(metadata_sep)
-        })
+
+        coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
+        for start, stop in coordinates_to_display:
+            genes_data_list.append({
+                "name": gene.name,
+                "type": "Gene",
+                "contig": gene.contig.name,
+                "start": start,
+                "stop": stop,
+                "strand": 1 if gene.strand == "+" else -1,
+                "product": gene.product,
+                "tags": [],
+                "source": "Gene",
+                "legend": "RNA",
+                "meta": gene.formatted_metadata_dict(metadata_sep)
+            })
 
     return genes_data_list, gf2gene
 
@@ -235,7 +242,7 @@ def write_rgp(organism: Organism, metadata_sep:str = "|"):
     :return: A list of RGP data in a structured format.
     """
     rgp_data_list = []
-
+    
     # Iterate through each RGP in the pangenome
     for rgp in organism.regions:
         # Create an entry for the RGP in the data list
