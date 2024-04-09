@@ -1200,6 +1200,11 @@ def launch(args: argparse.Namespace):
     pangenome_params = argparse.Namespace(
         **{step: argparse.Namespace(**k_v) for step, k_v in pangenome.parameters.items()})
 
+    if predict_rgp:
+        #computing multigenics for rgp prediction first to have original family.number_of_genomes 
+        # and the same multigenics list as when rgp and spot were predicted
+        multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
+    
     organisms, genome_name_to_path, input_type = manage_input_genomes_annotation(pangenome=pangenome, 
                                                                     input_mode=args.input_mode, 
                                                                     anno=args.anno, fasta=args.fasta,
@@ -1226,8 +1231,6 @@ def launch(args: argparse.Namespace):
     if predict_rgp:
 
         logging.getLogger('PPanGGOLiN').info('Detecting RGPs in input genomes.')
-
-        multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
 
         input_org_2_rgps = predict_RGP(pangenome, organisms,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
                                      min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, output_dir=output_dir,
