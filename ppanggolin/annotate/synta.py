@@ -301,9 +301,9 @@ def get_dna_sequence(contig_seq: str, gene: Union[Gene, RNA]) -> str:
     :return: str
     """
     if gene.strand == "+":
-        return contig_seq[gene.start - 1:gene.stop]
+        return contig_seq[gene.start - 1: gene.stop]
     elif gene.strand == "-":
-        return reverse_complement(contig_seq[gene.start - 1:gene.stop])
+        return reverse_complement(contig_seq[gene.start - 1: gene.stop])
 
 
 def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str], tmpdir: str,

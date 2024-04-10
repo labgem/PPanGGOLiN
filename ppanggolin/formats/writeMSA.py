@@ -15,6 +15,7 @@ from typing import Dict, Set, List, Tuple
 from tqdm import tqdm
 
 # local libraries
+from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir, restricted_float
@@ -95,10 +96,10 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
         return families
 
 
-def translate(seq: str, code: Dict[str, Dict[str, str]]) -> str:
+def translate(gene: Gene, code: Dict[str, Dict[str, str]]) -> str:
     """translates the given dna sequence with the given translation table
 
-    :param seq: given dna sequence
+    :param gene: given gene
     :param code: translation table corresponding to genetic code to use
 
     :return: protein sequence
@@ -106,17 +107,17 @@ def translate(seq: str, code: Dict[str, Dict[str, str]]) -> str:
     # code:  https://www.bioinformatics.org/sms/iupac.html
     start_table = code["start_table"]
     table = code["trans_table"]
-
-    if len(seq) % 3 == 0:
-        protein = start_table[seq[0: 3]]
-        for i in range(3, len(seq), 3):
-            codon = seq[i: i + 3]
+    if len(gene.dna) % 3 == 0:
+        protein = start_table[gene.dna[0: 3]]
+        for i in range(3, len(gene.dna), 3):
+            codon = gene.dna[i: i + 3]
             try:
                 protein += table[codon]
             except KeyError:  # codon was not planned for. Probably can't determine it.
                 protein += 'X'  # X is for unknown
     else:
-        raise IndexError("Given sequence length modulo 3 was different than 0, which is unexpected.")
+        logging.getLogger("PPANGGOLIN").error(f"Found gene length is {len(gene.dna)}")
+        raise IndexError(f"Gene {gene.ID} sequence length modulo 3 was different than 0, which is unexpected.")
     return protein
 
 
@@ -150,7 +151,7 @@ def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory
         if source == "dna":
             f_obj.write(gene.dna + '\n')
         elif source == "protein":
-            f_obj.write(translate(gene.dna, code_table) + "\n")
+            f_obj.write(translate(gene, code_table) + "\n")
         else:
             raise AssertionError("Unknown sequence source given (expected 'dna' or 'protein')")
     f_obj.flush()
@@ -229,7 +230,7 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
     """
 
     # sort familes by ID, so the gene order is consistent
-    families = sorted(families, key = lambda fam: fam.ID)
+    families = sorted(families, key=lambda f: f.ID)
 
     phylo_dict = {}
     for org in pangenome.organisms:
