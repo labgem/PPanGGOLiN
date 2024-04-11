@@ -171,7 +171,7 @@ def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
         start = int(row["start"])
         stop = int(row["stop"])
         
-        if "has_joined_coordinates" in row and row["has_joined_coordinates"]: # manage gene with joined coordinates if the info exists
+        if "has_joined_coordinates" in row.dtype.names and row["has_joined_coordinates"]: # manage gene with joined coordinates if the info exists
             
             try:
                 coordinates = genedata_id_to_coordinates[row["genedata_id"]]
