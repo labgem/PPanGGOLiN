@@ -171,7 +171,7 @@ def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
         start = int(row["start"])
         stop = int(row["stop"])
         
-        if row["has_joined_coordinates"]: # manage gene with joined coordinates
+        if "has_joined_coordinates" in row and row["has_joined_coordinates"]: # manage gene with joined coordinates if the info exists
             
             try:
                 coordinates = genedata_id_to_coordinates[row["genedata_id"]]
@@ -205,6 +205,12 @@ def read_join_coordinates(h5f: tables.File) -> Dict[str, List[Tuple[int, int]]]:
     :return: A dictionary mapping genedata_id to a list of tuples representing start and stop coordinates.
     """
     genedata_id_to_coordinates = defaultdict(list)
+    
+    if not hasattr(h5f.root.annotations, "joinedCoordinates"):
+        # then the pangenome file has no joined annotations 
+        # or has been made before the joined annotations coordinates
+        return {}
+
     table = h5f.root.annotations.joinedCoordinates
 
     for row in read_chunks(table, chunk=20000):
