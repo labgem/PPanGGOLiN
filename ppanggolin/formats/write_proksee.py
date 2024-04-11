@@ -195,8 +195,8 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
         if gene.module:
             metadata_for_proksee['module'] = gene.module.ID
 
-        if gene.has_joined_coordinates:
-            metadata_for_proksee['coordinates'] = gene.string_coordinates()
+        # if gene.has_joined_coordinates:
+        #     metadata_for_proksee['coordinates'] = gene.string_coordinates()
         
         if gene.overlaps_contig_edge:
             metadata_for_proksee['overlaps_contig_edge'] = gene.overlaps_contig_edge
@@ -233,7 +233,6 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
     for gene in tqdm(organism.rna_genes, total=organism.number_of_rnas(), unit="rnas", disable=disable_bar):
         
         metadata_for_proksee = {"ID":gene.ID}
-        
         if gene.product:
             metadata_for_proksee['product'] = gene.product
         
@@ -271,16 +270,24 @@ def write_rgp(organism: Organism, metadata_sep:str = "|"):
     # Iterate through each RGP in the pangenome
     for rgp in organism.regions:
         # Create an entry for the RGP in the data list
-        rgp_data_list.append({
-            "name": rgp.name,
-            "contig": rgp.contig.name,
-            "start": rgp.start,
-            "stop": rgp.stop,
-            "legend": "RGP",
-            "source": "RGP",
-            "tags": [rgp.spot.ID if rgp.spot else "No_spot"],
-            "meta": rgp.formatted_metadata_dict(metadata_sep)
-        })
+        metadata_for_proksee = {"spot":f"{rgp.spot.ID}" if rgp.spot else "No_spot"}
+
+        if rgp.overlaps_contig_edge:
+            metadata_for_proksee['overlaps_contig_edge'] = rgp.overlaps_contig_edge
+
+        metadata_for_proksee.update(rgp.formatted_metadata_dict(metadata_sep))
+        
+        for start, stop in rgp.coordinates:
+            rgp_data_list.append({
+                "name": rgp.name,
+                "contig": rgp.contig.name,
+                "start": start,
+                "stop": stop,
+                "legend": "RGP",
+                "source": "RGP",
+                "tags": [f"spot_{rgp.spot.ID}" if rgp.spot else "No_spot"],
+                "meta": metadata_for_proksee
+            })
     return rgp_data_list
 
 
