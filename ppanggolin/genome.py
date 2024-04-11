@@ -180,6 +180,15 @@ class Feature(MetaFeatures):
         if not isinstance(coordinates, list):
             raise ValueError(f"coordinates should be of type list. Type {type(coordinates)} was given instead")
         
+        for start_i, stop_i in coordinates:
+            if not isinstance(start_i, int):
+                raise TypeError("Start should be int")
+            if not isinstance(stop_i, int):
+                raise TypeError("Stop should be int")
+            if stop_i < start_i:
+                raise ValueError(f"Wrong coordinates: {coordinates}. start ({start_i}) should not be greater than stop ({stop_i}).")
+
+        
         self.start = start
         self.stop = stop
         self.strand = strand
@@ -216,6 +225,12 @@ class Feature(MetaFeatures):
         assert isinstance(sequence, str), f"'str' type was expected but you provided a '{type(sequence)}' type object"
         self.dna = sequence
 
+    def string_coordinates(self) -> str:
+        """
+        Return a string representation of the coordinates
+        """
+        return ','.join([f'{start}..{stop}' for start, stop in self.coordinates])
+    
 
 class RNA(Feature):
     """Save RNA from genome as an Object with some information for Pangenome
