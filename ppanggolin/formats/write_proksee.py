@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 from tqdm import tqdm
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 from collections import defaultdict
 
 # installed libraries
@@ -16,6 +16,7 @@ from collections import defaultdict
 from ppanggolin.genome import Organism, Gene
 from ppanggolin.region import Module
 from ppanggolin.utils import write_compressed_or_not
+from ppanggolin.geneFamily import GeneFamily
 
 
 def write_legend_items(features: List[str], module_to_color: Dict[Module, str] = None):
@@ -164,7 +165,7 @@ def write_contig(organism: Organism, genome_sequences: Dict[str, str] = None, me
 
     return contigs_data_list
 
-def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool = True) -> Tuple[List[Dict], Dict[str, List[Gene]]]:
+def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: str = "|", disable_bar: bool = True) -> Tuple[List[Dict], Dict[str, List[Gene]]]:
     """
     Writes gene data for a given organism, including both protein-coding genes and RNA genes.
 
@@ -185,6 +186,12 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
         # Add gene info in meta of proksee
         metadata_for_proksee = {"ID":gene.ID ,
                                 "family":gene.family.name}
+        
+        if gf in multigenics:
+            metadata_for_proksee['multigenic'] = True
+
+        if gene.name:
+            metadata_for_proksee['name'] = gene.name
 
         if gene.product:
             metadata_for_proksee['product'] = gene.product
@@ -195,8 +202,8 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
         if gene.module:
             metadata_for_proksee['module'] = gene.module.ID
 
-        # if gene.has_joined_coordinates:
-        #     metadata_for_proksee['coordinates'] = gene.string_coordinates()
+        if gene.has_joined_coordinates:
+            metadata_for_proksee['coordinates'] = gene.string_coordinates()
         
         if gene.overlaps_contig_edge:
             metadata_for_proksee['overlaps_contig_edge'] = gene.overlaps_contig_edge
@@ -210,13 +217,12 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
         # Proksee correctly displays the gene with its initial start (at the end of the contig) and final stop (at the beginning of the contig).
         # However, this only applies when there's a single contig. If there are multiple contigs, the feature overlaps all contigs, causing confusion.
 
-
         #In case of frameshift we don't want to split the gene by its coordinates
         # When the gene overlaps_contig_edge the gene is split in two piece for correct visualisation
         coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
         for start, stop in coordinates_to_display:
             genes_data_list.append({
-                "name": gene.name,
+                "name": gene.name if gene.name else gene.ID,
                 "type": "Gene",
                 "contig": gene.contig.name,
                 "start": start,
@@ -276,7 +282,7 @@ def write_rgp(organism: Organism, metadata_sep:str = "|"):
             metadata_for_proksee['overlaps_contig_edge'] = rgp.overlaps_contig_edge
 
         metadata_for_proksee.update(rgp.formatted_metadata_dict(metadata_sep))
-        
+
         for start, stop in rgp.coordinates:
             rgp_data_list.append({
                 "name": rgp.name,
@@ -333,6 +339,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
                            features: List[str] = None,
                            module_to_colors: Dict[Module, str] = None,
                            genome_sequences: Dict[str, str] = None,
+                           multigenics:  Set[GeneFamily] = None,
                            metadata_sep: str = "|",
                            compress: bool = False):
     """
@@ -351,7 +358,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
 
     proksee_data["cgview"]["sequence"]["contigs"] = write_contig(organism, genome_sequences, metadata_sep=metadata_sep)
 
-    genes_features, gf2genes = write_genes(organism, metadata_sep=metadata_sep)
+    genes_features, gf2genes = write_genes(organism, multigenics=multigenics, metadata_sep=metadata_sep)
 
     proksee_data["cgview"]["features"] = genes_features
 
