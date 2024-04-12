@@ -14,7 +14,7 @@ import gmpy2
 from ppanggolin.genome import Gene, Organism, Contig
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.metadata import MetaFeatures
-from ppanggolin.utils import find_region_border_position
+from ppanggolin.utils import find_region_border_position, get_consecutive_region_positions
 
 class Region(MetaFeatures):
     """
@@ -160,7 +160,8 @@ class Region(MetaFeatures):
         if self._starter.start > self._stopper.stop: 
             # this means region is overlapping the contig edge
             if not gene.contig.is_circular:
-                raise ValueError(f'Region seems to be overlapping the contig (first gene {self._starter.position}:{self._starter.coordinates} and last gene {self._stopper.position}:{self._stopper.coordinates} ) '
+                raise ValueError(f'Region seems to be overlapping the contig (first gene {self._starter.position}:{self._starter.coordinates} '
+                                 f'and last gene {self._stopper.position}:{self._stopper.coordinates} ) '
                                  f'but the contig is not circular. This is unexpected. {rgp_genes_positions}')
 
             self._coordinates = [(self._starter.start, self._starter.contig.length), (1, self._stopper.stop)]
@@ -168,6 +169,22 @@ class Region(MetaFeatures):
         else:
             self._coordinates = [(self._starter.start, self._stopper.stop)]
             self._overlaps_contig_edge = False
+
+    def get_ordered_genes(self):
+        """
+        Get ordered genes of the rgp by taking into account the circularity of contigs. 
+        
+        """
+        
+        rgp_genes_positions = list(self._genes_getter.keys() )
+        
+        gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
+
+        consecutive_region_positions = get_consecutive_region_positions(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
+        
+        ordered_genes = [self._genes_getter[position] for ordered_positions in consecutive_region_positions for position in ordered_positions]
+
+        return ordered_genes
 
 
     def __getitem__(self, position: int) -> Gene:
@@ -380,11 +397,16 @@ class Region(MetaFeatures):
                 return True
         return False
 
-    def get_bordering_genes(self, n: int, multigenics: Set[GeneFamily]) -> List[List[Gene], List[Gene]]:
-        """ Get the bordered genes in the region
+    def get_bordering_genes(self, n: int, multigenics: Set[GeneFamily], return_only_persistents:bool = True) -> List[List[Gene], List[Gene]]:
+        """ 
+        Get the bordered genes in the region. Find the n persistent and single copy gene bordering the region.
+        If return_only_persistents is False, the method return all genes included between the n single copy and persistent genes.
 
         :param n: Number of genes to get
         :param multigenics: pangenome graph multigenic persistent families
+        :param return_only_persistents: return only non multgenic persistent genes identify as the region. 
+                                        If False return all genes included between 
+                                        the borders made of n persistent and single copy genes around the region. 
 
         :return: A list of bordering genes in start and stop position
         """
@@ -393,8 +415,8 @@ class Region(MetaFeatures):
         left_border = []
         pos = self.starter.position
         init = pos
-
-        while len(left_border) < n and (pos != 0 or self.contig.is_circular):
+        single_copy_persistent_count = 0
+        while single_copy_persistent_count < n and (pos != 0 or self.contig.is_circular):
             curr_gene = None
             if pos == 0:
                 if self.contig.is_circular:
@@ -405,6 +427,10 @@ class Region(MetaFeatures):
             if curr_gene is not None and curr_gene.family not in multigenics and \
                     curr_gene.family.named_partition == "persistent" and curr_gene not in genes_in_region:
                 left_border.append(curr_gene)
+                single_copy_persistent_count +=1
+            elif curr_gene is not None and curr_gene not in genes_in_region and not return_only_persistents:
+                left_border.append(curr_gene)
+
             pos -= 1
             if pos == -1 and self.contig.is_circular:
                 pos = self.contig.number_of_genes
@@ -415,7 +441,8 @@ class Region(MetaFeatures):
         right_border = []
         pos = self.stopper.position
         init = pos
-        while len(right_border) < n and (pos != self.contig.number_of_genes - 1 or self.contig.is_circular):
+        single_copy_persistent_count = 0
+        while single_copy_persistent_count < n and (pos != self.contig.number_of_genes - 1 or self.contig.is_circular):
             curr_gene = None
             if pos == self.contig.number_of_genes - 1:
                 if self.contig.is_circular:
@@ -424,6 +451,9 @@ class Region(MetaFeatures):
                 curr_gene = self.contig[pos + 1]
             if curr_gene is not None and curr_gene.family not in multigenics and \
                 curr_gene.family.named_partition == "persistent" and curr_gene not in genes_in_region:
+                right_border.append(curr_gene)
+                single_copy_persistent_count +=1
+            elif curr_gene is not None and curr_gene not in genes_in_region and not return_only_persistents:
                 right_border.append(curr_gene)
             pos += 1
             if pos == self.contig.number_of_genes and self.contig.is_circular:
@@ -488,7 +518,8 @@ class Spot(MetaFeatures):
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
         if region.spot is not None and region.spot != self:
-            raise ValueError("The region is already with a different spot. A region belongs to only one spot.")
+            # raise ValueError("The region is already with a different spot. A region belongs to only one spot.")
+            pass
         self._region_getter[name] = region
         region.spot = self
 

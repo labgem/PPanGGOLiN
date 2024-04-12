@@ -26,7 +26,7 @@ from scipy.sparse import csc_matrix
 import yaml
 from collections import defaultdict
 
-from ppanggolin.geneFamily import GeneFamily
+# from ppanggolin.geneFamily import GeneFamily
 
 # all input params that exists in ppanggolin
 ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', 
@@ -376,7 +376,7 @@ def connected_components(g: nx.Graph, removed: set, weight: float):
             removed.update(c)
 
 
-def _plain_bfs(g: nx.Graph, source: GeneFamily, removed: set, weight: float):
+def _plain_bfs(g: nx.Graph, source, removed: set, weight: float):
     """
     A fast BFS node generator, copied from networkx then adapted to the current use case
 
@@ -1135,6 +1135,21 @@ def find_region_border_position(region_positions: List[int], contig_gene_count: 
     :param contig_gene_count: Number of gene in the contig. The contig is considered circular.
     
     :return: A tuple containing the start and stop integers of the region.
+    """
+
+    consecutive_region_positions = get_consecutive_region_positions(region_positions, contig_gene_count)
+                        
+    return consecutive_region_positions[0][0], consecutive_region_positions[-1][-1]
+        
+    
+def get_consecutive_region_positions(region_positions: List[int], contig_gene_count: int) -> List[List[int]]:
+    """
+    Order integers position of the region considering circularity of the contig.
+    
+    :param region_positions: List of positions that belong to the region.
+    :param contig_gene_count: Number of gene in the contig. The contig is considered circular.
+    
+    :return: An ordered list of integers of the region.
     
     :raises ValueError: If unexpected conditions are encountered.
     """
@@ -1147,7 +1162,7 @@ def find_region_border_position(region_positions: List[int], contig_gene_count: 
         raise ValueError('No consecutive sequences found in the region. This is unexpected.')
         
     elif len(consecutive_sequences) == 1:
-        return consecutive_sequences[0][0], consecutive_sequences[0][-1]
+        return consecutive_sequences
 
     elif len(consecutive_sequences) == 2:
         # Check for overlaps at the edge of the contig
@@ -1159,11 +1174,10 @@ def find_region_border_position(region_positions: List[int], contig_gene_count: 
             raise ValueError(f'Two sequences of consecutive positions ({consecutive_sequences}) '
                              f'indicate an overlap on the edge of the contig, but neither ends at the end of the contig ({contig_gene_count - 1}).')
 
-        start = consecutive_sequences[-1][0]
-        stop = consecutive_sequences[0][-1]
-        return start, stop
+        return [consecutive_sequences[-1], consecutive_sequences[0]]
         
     elif len(consecutive_sequences) > 2:
         raise ValueError(f'More than two consecutive sequences found ({len(consecutive_sequences)}). '
                          f'This is unexpected. Consecutive sequences: {consecutive_sequences}. '
                          'The region should consist of consecutive positions along the contig.')
+

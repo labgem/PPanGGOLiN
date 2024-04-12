@@ -11,7 +11,7 @@ import gmpy2
 
 # local libraries
 from ppanggolin.metadata import MetaFeatures
-
+from ppanggolin.utils import get_consecutive_region_positions
 
 class Feature(MetaFeatures):
     """This is a general class representation of Gene, RNA
@@ -231,6 +231,22 @@ class Feature(MetaFeatures):
         """
         return ','.join([f'{start}..{stop}' for start, stop in self.coordinates])
     
+    def start_relative_to(self, gene):
+        """
+        """
+        if gene.start <= self.start:
+            return self.start
+        if gene.start > self.start:
+            return self.start + self.contig.length 
+    
+    def stop_relative_to(self, gene):
+        """
+        """
+        if gene.start <= self.stop:
+            return self.stop
+        
+        if gene.start > self.stop:
+            return self.stop + self.contig.length 
 
 class RNA(Feature):
     """Save RNA from genome as an Object with some information for Pangenome
@@ -711,6 +727,18 @@ class Contig(MetaFeatures):
                 modules.add(module)
         yield from modules
 
+
+    def get_ordered_consecutive_genes(self, genes:List):
+        """
+        
+        """
+        gene_positions = [gene.position for gene in genes]
+        
+        consecutive_region_positions = get_consecutive_region_positions(region_positions=gene_positions, contig_gene_count=self.number_of_genes)
+
+        consecutive_genes_lists = [ [self[position] for position in consecutive_positions ] for consecutive_positions in  consecutive_region_positions ]
+
+        return consecutive_genes_lists
 
 class Organism(MetaFeatures):
     """

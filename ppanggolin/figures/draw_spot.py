@@ -29,7 +29,8 @@ from bokeh.io import show
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
-from ppanggolin.utils import jaccard_similarities
+from ppanggolin.genome import Gene, Contig
+from ppanggolin.utils import jaccard_similarities, get_consecutive_region_positions, complete_sequence_positions
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.RGP.spot import comp_border
 
@@ -71,6 +72,7 @@ def order_gene_lists(gene_lists: list, overlapping_match: int, exact_match: int,
 
     :return: List of ordered genes
     """
+
     line_order_gene_lists(gene_lists, overlapping_match, exact_match, set_size)
     return row_order_gene_lists(gene_lists)
 
@@ -215,6 +217,20 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
 
     nx.write_gexf(g, outname)
 
+def is_gene_list_ordered(genes):
+    """
+    """
+    first_gene = genes[0]
+    second_gene = genes[1]
+
+    if first_gene.start < second_gene.start:
+        return True
+    if first_gene.start > second_gene.start:
+        if second_gene.start_relative_to(first_gene) < first_gene.contig.length:
+            return True
+        else:
+            return False
+    
 
 def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnDataSource, list):
     """
@@ -232,22 +248,26 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
           "gene_local_ID": []}
 
     for index, gene_list in enumerate(genelists):
+        
         genelist = gene_list[0]
-
-        if genelist[0].start < genelist[1].start:
+        first_gene = genelist[0]
+        last_gene = genelist[-1]
+        
+        if is_gene_list_ordered(genelist): #genelist[0].start < genelist[1].start:
             # if the order has been inverted, positionning elements on the figure is different
             ordered = True
-            start = genelist[0].start
+            start = first_gene.start
         else:
             ordered = False
-            start = genelist[0].stop
-
+            start = first_gene.stop
         for gene in genelist:
+            relative_start = gene.start_relative_to(first_gene if ordered else last_gene)
+            relative_stop = gene.stop_relative_to(first_gene if ordered else last_gene)
             df["ordered"].append(str(ordered))
             df["strand"].append(gene.strand)
-            df["start"].append(gene.start)
-            df["stop"].append(gene.stop)
-            df["length"].append(max([gene.stop, gene.start]) - min([gene.stop, gene.start]))
+            df["start"].append(relative_start)
+            df["stop"].append(relative_stop)
+            df["length"].append(len(gene))
             df["gene_type"].append(gene.type)
             df["product"].append(gene.product)
             df["gene_local_ID"].append(gene.local_identifier)
@@ -268,8 +288,11 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
                 df["partition_color"].append(partition_colors[gene.family.named_partition])
                 df["module"].append(fam_to_mod.get(gene.family, "none"))
 
-            df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
-            df["width"].append(gene.stop - gene.start)
+            # df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
+            # df["width"].append(gene.stop - gene.start)
+            df["x"].append((abs(relative_start - start) + abs(relative_stop - start)) / 2)
+            df["width"].append(len(gene))
+
             df["x_label"].append(str(int(df["x"][-1]) - int(int(df["width"][-1]) / 2)))
             if ordered:
                 if gene.strand == "+":
@@ -436,12 +459,18 @@ def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, lis
         genelist = gene_list[0]
         df["occurrences"].append(ordered_counts[index])
         df["y"].append(index * 10)
-        if genelist[0].start < genelist[1].start:
+        first_gene = genelist[0]
+        last_gene =  genelist[-1]
+        if is_gene_list_ordered(genelist):# genelist[0].start < genelist[1].start:
             # if the order has been inverted, positionning elements on the figure is different
-            df["width"].append(abs(genelist[-1].stop - genelist[0].start))
+            width = abs(last_gene.stop_relative_to(first_gene ) - genelist[0].start) 
+            df["width"].append(width)
+                               
         else:
             # order has been inverted
-            df["width"].append(abs(genelist[0].stop - genelist[-1].start))
+            width = abs(last_gene.stop_relative_to(last_gene ) - last_gene.start) 
+            df["width"].append(width)
+
         df["x"].append((df["width"][-1]) / 2)
         df["x_label"].append(0)
         df["name"].append(genelist[0].organism.name)
@@ -557,6 +586,20 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
 
 
+def complete_borders(border_genes:List[Gene], contig:Contig):
+    """
+    """
+    border_positions = [gene.position for gene in border_genes]
+    
+    positions = complete_sequence_positions(border_positions, contig.number_of_genes, contig.is_circular)
+
+    completed_border_genes = [contig[position] for position in positions]
+
+    assert set(border_genes) - set(completed_border_genes) == 0
+
+    return completed_border_genes
+    
+
 def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome: Pangenome, output: Path,
                         overlapping_match: int, exact_match: int, set_size: int, disable_bar: bool = False):
     """
@@ -585,37 +628,70 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
         fname = output / f"spot_{str(spot.ID)}"
 
         # write rgps representatives and the rgps they are identical to
-        out_struc = open(fname.absolute().as_posix() + '_identical_rgps.tsv', 'w')
-        out_struc.write('representative_rgp\trepresentative_rgp_genome\tidentical_rgp\tidentical_rgp_genome\n')
-        for key_rgp, other_rgps in spot.get_uniq_to_rgp().items():
-            for rgp in other_rgps:
-                out_struc.write(f"{key_rgp.name}\t{key_rgp.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
-        out_struc.close()
-
+        with open(fname.absolute().as_posix() + '_identical_rgps.tsv', 'w') as out_struc:
+            out_struc.write('representative_rgp\trepresentative_rgp_genome\tidentical_rgp\tidentical_rgp_genome\n')
+            for key_rgp, other_rgps in spot.get_uniq_to_rgp().items():
+                for rgp in other_rgps:
+                    out_struc.write(f"{key_rgp.name}\t{key_rgp.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
+        
         fams = set()
         gene_lists = []
 
         for rgp in spot.regions:
-            borders = rgp.get_bordering_genes(set_size, multigenics)
-            minpos = min([gene.position for border in borders for gene in border])
-            maxpos = max([gene.position for border in borders for gene in border])
-            gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
-            minstart = min([gene.start for border in borders for gene in border])
-            maxstop = max([gene.stop for border in borders for gene in border])
-            rnas_toadd = set()
-            for rna in rgp.contig.RNAs:
-                if minstart < rna.start < maxstop:
-                    rnas_toadd.add(rna)
-            gene_list.extend(rnas_toadd)
-            gene_list = sorted(gene_list, key=lambda x: x.start)
+            # print('dealing with rgp', rgp)
+            contig = rgp.contig
+            left_border_and_in_between_genes, right_border_and_in_between_genes = rgp.get_bordering_genes(set_size, multigenics, return_only_persistents=False)
 
-            fams |= {gene.family for gene in gene_list if gene.type == "CDS"}
+            # clean borders from multigenic and non persistent genes
+            left_border = [gene for gene in left_border_and_in_between_genes if gene.family.partition == "partition" and gene.family not in multigenics]
+            right_border = [gene for gene in right_border_and_in_between_genes if gene.family.partition == "partition" and gene.family not in multigenics]
 
-            gene_lists.append([gene_list, borders, rgp])
+
+            # print('left_border')
+            # for gene in left_border:
+            #     print("GENE", gene.ID, gene.position)
+            # print('RGP genes')
+            # for gene in rgp.genes:
+            #     print("GENE", gene.position)
+            # print("right_border")
+            # for gene in right_border:
+            #     print("GENE", gene.position)
+            # input()
+            consecutive_genes_lists = contig.get_ordered_consecutive_genes(left_border + right_border + list(rgp.genes) )
+
+            consecutive_genes_and_rnas_lists = []
+        
+            for consecutive_genes in consecutive_genes_lists: 
+                
+                start, stop = consecutive_genes[0].start, consecutive_genes[-1].stop
+
+                rnas_toadd = []
+                for rna in rgp.contig.RNAs:
+                    if start < rna.start < stop:
+                        rnas_toadd.append(rna)
+                
+                
+    
+                ordered_genes_with_rnas = sorted(consecutive_genes + rnas_toadd, key=lambda x: x.start)
+                consecutive_genes_and_rnas_lists.append(ordered_genes_with_rnas)
+            
+            # for i, genes in enumerate(consecutive_genes_and_rnas_lists):
+            #     print(f'======= CONSECUTIVE GENES {i}')
+            #     for gene in genes:
+            #         print(gene.string_coordinates(), type(gene) )
+
+            ordered_genes = [gene for genes in consecutive_genes_and_rnas_lists for gene in genes]
+
+            fams |= {gene.family for gene in ordered_genes if gene.type == "CDS"}
+
+            gene_lists.append([ordered_genes, [left_border, right_border], rgp])
+
+        
         famcolors = make_colors_for_iterable(fams)
         # order all rgps the same way, and order them by similarity in gene content
+        # print('Starting odering list of genes')
         gene_lists = order_gene_lists(gene_lists, overlapping_match, exact_match, set_size)
-
+        # print('spot count uniq ordered set')
         count_uniq = spot.count_uniq_ordered_set()
 
         # keep only the representative rgps for the figure
@@ -626,6 +702,8 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             if curr_genelist_count is not None:
                 uniq_gene_lists.append(genelist)
                 ordered_counts.append(curr_genelist_count)
+        
+        # print("START DRAW draw_curr_spot", uniq_gene_lists, ordered_counts )
 
         draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname.absolute().as_posix())
         subgraph(spot, fname.absolute().as_posix() + ".gexf", set_size=set_size,
