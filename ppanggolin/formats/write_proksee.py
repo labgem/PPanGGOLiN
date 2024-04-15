@@ -187,7 +187,7 @@ def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: 
         metadata_for_proksee = {"ID":gene.ID ,
                                 "family":gene.family.name}
         
-        if gf in multigenics:
+        if multigenics and gf in multigenics:
             metadata_for_proksee['multigenic'] = True
 
         if gene.name:
@@ -339,7 +339,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
                            features: List[str] = None,
                            module_to_colors: Dict[Module, str] = None,
                            genome_sequences: Dict[str, str] = None,
-                           multigenics:  Set[GeneFamily] = None,
+                           multigenics:  Set[GeneFamily] = [],
                            metadata_sep: str = "|",
                            compress: bool = False):
     """
