@@ -393,7 +393,10 @@ class Spot(MetaFeatures):
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
         if region.spot is not None and region.spot != self:
-            raise ValueError("The region is already with a different spot. A region belongs to only one spot.")
+            logging.getLogger("PPanGGOLiN").warning(f"The region '{region.name}' is already associated with spot '{region.spot.ID}' while being associated with spot '{self.ID}'. "
+                                            "A region should only belong to one spot. The exception to this rule occurs in the projection command, where a projected RGP "
+                                            "can link two spots in the spot graph.")
+
         self._region_getter[name] = region
         region.spot = self
 
