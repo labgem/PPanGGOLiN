@@ -652,6 +652,10 @@ def predict_RGP(pangenome: Pangenome, input_organisms: List[Organism], persisten
     for input_organism in input_organisms:
         rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
                                min_score, naming=name_scheme, disable_bar=disable_bar)
+        # turn on projected attribut in rgp objects
+        # useful when associating spot to prevent failure when multiple spot are associated to a projected RGP
+        for rgp in rgps:
+            rgp.projected = True
 
         logging.getLogger('PPanGGOLiN').info(f"{len(rgps)} RGPs have been predicted in the input genomes.")
 
