@@ -518,8 +518,8 @@ class Spot(MetaFeatures):
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
         if region.spot is not None and region.spot != self:
-            # raise ValueError("The region is already with a different spot. A region belongs to only one spot.")
-            pass
+            raise ValueError("The region is already with a different spot. A region belongs to only one spot.")
+
         self._region_getter[name] = region
         region.spot = self
 

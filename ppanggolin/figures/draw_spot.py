@@ -11,26 +11,22 @@ import sys
 from typing import List, Set, Union
 from pathlib import Path
 
-import bokeh.models
 # installed libraries
 from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
 from scipy.cluster.hierarchy import linkage, dendrogram
 import networkx as nx
-
 from tqdm import tqdm
 from bokeh.plotting import ColumnDataSource, figure, save
 from bokeh.io import output_file
 from bokeh.layouts import column, row
-from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer, RadioButtonGroup
-from bokeh.io import show
+from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, Div, Column, GlyphRenderer, RadioButtonGroup
 
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
-from ppanggolin.genome import Gene, Contig
-from ppanggolin.utils import jaccard_similarities, get_consecutive_region_positions, complete_sequence_positions
+from ppanggolin.utils import jaccard_similarities
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.RGP.spot import comp_border
 
@@ -584,20 +580,6 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     genome_tools = add_genome_tools(fig, recs, genome_recs, gene_source, genome_source, len(gene_lists), labels)
 
     save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
-
-
-def complete_borders(border_genes:List[Gene], contig:Contig):
-    """
-    """
-    border_positions = [gene.position for gene in border_genes]
-    
-    positions = complete_sequence_positions(border_positions, contig.number_of_genes, contig.is_circular)
-
-    completed_border_genes = [contig[position] for position in positions]
-
-    assert set(border_genes) - set(completed_border_genes) == 0
-
-    return completed_border_genes
     
 
 def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome: Pangenome, output: Path,

@@ -1180,4 +1180,4 @@ def get_consecutive_region_positions(region_positions: List[int], contig_gene_co
         raise ValueError(f'More than two consecutive sequences found ({len(consecutive_sequences)}). '
                          f'This is unexpected. Consecutive sequences: {consecutive_sequences}. '
                          'The region should consist of consecutive positions along the contig.')
-
+    
