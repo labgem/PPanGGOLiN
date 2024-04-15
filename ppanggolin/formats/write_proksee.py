@@ -222,7 +222,7 @@ def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: 
         coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
         for start, stop in coordinates_to_display:
             genes_data_list.append({
-                "name": gene.name if gene.name else gene.ID,
+                "name": gene.name,
                 "type": "Gene",
                 "contig": gene.contig.name,
                 "start": start,
