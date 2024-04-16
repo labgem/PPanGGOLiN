@@ -556,7 +556,74 @@ class TestRegion:
 
         assert borders == [[], []] # no border
 
+
+    def test_get_bordering_genes_with_multigenic(self, region):
+        """
+        Test border with multigenic for a non circular contig with 10 genes. 
+        Add gene from 3 to 7 into the region.
+        gene 2 and 8 are mulitgenic
+        Gene at the border are 1 on the left and 9
+        """
+
+        contig = Contig(0, 'contig_name')
+        contig.length = 200
+
+        family = GeneFamily(1, "test")
+        family.partition = "Persistent"
+
+        multigenic_family = GeneFamily(1, "test_mutligenic")
+        multigenic_family.partition = "Persistent"
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            if i == 2 or i == 8:
+                gene.family = multigenic_family
+            else:
+                gene.family = family
+            contig.add(gene)
+
+            genes.append(gene)
+        
+        for gene in genes[3:8]:
+            region.add(gene)
+
+
+        borders = region.get_bordering_genes(1, {multigenic_family})
+
+        assert borders == [[genes[1]], [genes[9]]]
     
+
+    def test_get_bordering_genes_with_all_multigenic(self, region):
+        """
+        Test simple border but with all gene family are multigenic.
+        for a contig with 10 genes. Add gene from 1 to 8 into the region. no border as families are multigenic
+        """
+
+        contig = Contig(0, 'contig_name')
+        contig.length = 200
+
+        family = GeneFamily(1, "test")
+        family.partition = "Persistent"
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            gene.family = family
+            contig.add(gene)
+
+            genes.append(gene)
+        
+        for gene in genes[1:-1]:
+            region.add(gene)
+
+        borders = region.get_bordering_genes(1, {family})
+
+        assert borders == [[], []] # no border
 
 class TestSpot:
     @pytest.fixture

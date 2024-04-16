@@ -1,4 +1,4 @@
-from ppanggolin.utils import find_consecutive_sequences, find_region_border_position
+from ppanggolin.utils import find_consecutive_sequences, find_region_border_position, get_consecutive_region_positions
 import pytest
 
 def test_find_consecutive_sequences_single_sequence():
@@ -45,3 +45,19 @@ def test_find_region_border_position_fragmented_but_wrong_max_po():
     contig_length = 10
     with pytest.raises(ValueError):
         find_region_border_position(region_positions, contig_length)
+
+def test_get_consecutive_region_positions_regular():
+    region_positions = [2, 3, 4, 5, 6]
+    contig_length = 15
+    assert get_consecutive_region_positions(region_positions, contig_length) == [[2, 3, 4, 5, 6]]
+
+
+def test_get_consecutive_region_positions_overlap():
+    region_positions = [0, 1, 2, 3, 7, 8, 9, 10, 11, 12, 13, 14]
+    contig_length = 15
+    assert get_consecutive_region_positions(region_positions, contig_length) == [[7, 8, 9, 10, 11, 12, 13, 14], [0, 1, 2, 3]]
+
+def test_get_consecutive_region_positions_all_genes():
+    region_positions = [4, 5, 6, 7, 0, 1, 2, 3]
+    contig_length = 8
+    assert get_consecutive_region_positions(region_positions, contig_length) == [[0, 1, 2, 3, 4, 5, 6, 7]]
