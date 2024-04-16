@@ -170,7 +170,7 @@ class Region(MetaFeatures):
             self._coordinates = [(self._starter.start, self._stopper.stop)]
             self._overlaps_contig_edge = False
 
-    def get_ordered_genes(self):
+    def get_ordered_genes(self) -> List[List[Gene]]:
         """
         Get ordered genes of the rgp by taking into account the circularity of contigs. 
         

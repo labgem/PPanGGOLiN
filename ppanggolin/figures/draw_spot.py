@@ -606,7 +606,6 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             fam2mod[fam] = f"module_{mod.ID}"
 
     for spot in tqdm(selected_spots, total=len(selected_spots), unit="spot", disable=disable_bar):
-
         fname = output / f"spot_{str(spot.ID)}"
 
         # write rgps representatives and the rgps they are identical to
@@ -620,27 +619,18 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
         gene_lists = []
 
         for rgp in spot.regions:
-            # print('dealing with rgp', rgp)
+
             contig = rgp.contig
             left_border_and_in_between_genes, right_border_and_in_between_genes = rgp.get_bordering_genes(set_size, multigenics, return_only_persistents=False)
 
             # clean borders from multigenic and non persistent genes
-            left_border = [gene for gene in left_border_and_in_between_genes if gene.family.partition == "partition" and gene.family not in multigenics]
-            right_border = [gene for gene in right_border_and_in_between_genes if gene.family.partition == "partition" and gene.family not in multigenics]
+            left_border = [gene for gene in left_border_and_in_between_genes if gene.family.named_partition == "persistent" and gene.family not in multigenics]
+            right_border = [gene for gene in right_border_and_in_between_genes if gene.family.named_partition == "persistent" and gene.family not in multigenics]
 
-
-            # print('left_border')
-            # for gene in left_border:
-            #     print("GENE", gene.ID, gene.position)
-            # print('RGP genes')
-            # for gene in rgp.genes:
-            #     print("GENE", gene.position)
-            # print("right_border")
-            # for gene in right_border:
-            #     print("GENE", gene.position)
-            # input()
-            consecutive_genes_lists = contig.get_ordered_consecutive_genes(left_border + right_border + list(rgp.genes) )
-
+            # in some rare case with plasmid left and rigth border can be made of the same genes
+            # we use a set to only have one gene represented.  
+            consecutive_genes_lists = contig.get_ordered_consecutive_genes(set(left_border_and_in_between_genes + right_border_and_in_between_genes + list(rgp.genes)))
+            
             consecutive_genes_and_rnas_lists = []
         
             for consecutive_genes in consecutive_genes_lists: 
@@ -652,28 +642,18 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
                     if start < rna.start < stop:
                         rnas_toadd.append(rna)
                 
-                
-    
                 ordered_genes_with_rnas = sorted(consecutive_genes + rnas_toadd, key=lambda x: x.start)
                 consecutive_genes_and_rnas_lists.append(ordered_genes_with_rnas)
-            
-            # for i, genes in enumerate(consecutive_genes_and_rnas_lists):
-            #     print(f'======= CONSECUTIVE GENES {i}')
-            #     for gene in genes:
-            #         print(gene.string_coordinates(), type(gene) )
 
             ordered_genes = [gene for genes in consecutive_genes_and_rnas_lists for gene in genes]
 
             fams |= {gene.family for gene in ordered_genes if gene.type == "CDS"}
 
             gene_lists.append([ordered_genes, [left_border, right_border], rgp])
-
         
         famcolors = make_colors_for_iterable(fams)
         # order all rgps the same way, and order them by similarity in gene content
-        # print('Starting odering list of genes')
         gene_lists = order_gene_lists(gene_lists, overlapping_match, exact_match, set_size)
-        # print('spot count uniq ordered set')
         count_uniq = spot.count_uniq_ordered_set()
 
         # keep only the representative rgps for the figure
@@ -684,8 +664,6 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             if curr_genelist_count is not None:
                 uniq_gene_lists.append(genelist)
                 ordered_counts.append(curr_genelist_count)
-        
-        # print("START DRAW draw_curr_spot", uniq_gene_lists, ordered_counts )
 
         draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname.absolute().as_posix())
         subgraph(spot, fname.absolute().as_posix() + ".gexf", set_size=set_size,

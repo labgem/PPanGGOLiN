@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 import logging
-from typing import Dict, Generator, List, Union, Set, Tuple
+from typing import Dict, Generator, List, Union, Set, Tuple, Iterable
 from collections import defaultdict
 
 # installed libraries
@@ -728,15 +728,16 @@ class Contig(MetaFeatures):
         yield from modules
 
 
-    def get_ordered_consecutive_genes(self, genes:List):
+    def get_ordered_consecutive_genes(self, genes: Iterable) -> List[List[Gene]]: 
         """
-        
+        Order given genes considering circularity of the contig. 
+        The genes are supposed to be consecutive along the contig. 
         """
         gene_positions = [gene.position for gene in genes]
         
         consecutive_region_positions = get_consecutive_region_positions(region_positions=gene_positions, contig_gene_count=self.number_of_genes)
 
-        consecutive_genes_lists = [ [self[position] for position in consecutive_positions ] for consecutive_positions in  consecutive_region_positions ]
+        consecutive_genes_lists = [ [self[position] for position in consecutive_positions ] for consecutive_positions in consecutive_region_positions ]
 
         return consecutive_genes_lists
 
