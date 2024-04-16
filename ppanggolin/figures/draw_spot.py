@@ -11,7 +11,6 @@ import sys
 from typing import List, Set, Union
 from pathlib import Path
 
-import bokeh.models
 # installed libraries
 from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
@@ -22,9 +21,8 @@ from tqdm import tqdm
 from bokeh.plotting import ColumnDataSource, figure, save
 from bokeh.io import output_file
 from bokeh.layouts import column, row
-from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer, RadioButtonGroup
-from bokeh.io import show
-
+from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer, \
+    RadioButtonGroup
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
@@ -221,7 +219,7 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
 
     :param genelists:
     :param fam_col: Dictionary with for each family the corresponding color
-    :param fam_to_mod: Dictionary with the correspondance modules families
+    :param fam_to_mod: Dictionary with the correspondence modules families
     :return:
     """
     partition_colors = {"shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF"}
@@ -235,7 +233,7 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
         genelist = gene_list[0]
 
         if genelist[0].start < genelist[1].start:
-            # if the order has been inverted, positionning elements on the figure is different
+            # if the order has been inverted, positioning elements on the figure is different
             ordered = True
             start = genelist[0].start
         else:
@@ -348,12 +346,12 @@ def add_gene_tools(recs: GlyphRenderer, source_data: ColumnDataSource) -> Column
     radio_fill_color = RadioButtonGroup(labels=["partition", "family", "module"], active=1)
 
     radio_line_color.js_on_event("button_click",
-                                  CustomJS(args=dict(recs=recs, source=source_data, btn=radio_line_color),
-                                           code=color_str("line_color")))
+                                 CustomJS(args=dict(recs=recs, source=source_data, btn=radio_line_color),
+                                          code=color_str("line_color")))
 
     radio_fill_color.js_on_event("button_click",
-                                  CustomJS(args=dict(recs=recs, source=source_data, btn=radio_fill_color),
-                                           code=color_str("fill_color")))
+                                 CustomJS(args=dict(recs=recs, source=source_data, btn=radio_fill_color),
+                                          code=color_str("fill_color")))
 
     color_header = Div(text="<b>Genes:</b>")
     line_title = Div(text="""Color to use for gene outlines:""")
@@ -383,7 +381,7 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
     slider_angle = Slider(start=0, end=pi / 2, value=0, step=0.01, title="Gene label angle in radian")
 
     radio_label_type = RadioButtonGroup(labels=["name", "product", "family", "local identifier", "gene ID", "none"],
-                                  active=1)
+                                        active=1)
 
     slider_angle.js_link('value', labels, 'angle')
 
@@ -394,8 +392,8 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
                              )
 
     radio_label_type.js_on_event("button_click",
-                                  CustomJS(args=dict(other=labels, source=source_data, btn=radio_label_type),
-                                           code="""
+                                 CustomJS(args=dict(other=labels, source=source_data, btn=radio_label_type),
+                                          code="""
                 if(btn.active == 5){
                     source.data['label'] = [];
                     for(var i=0;i<source.data['name'].length;i++){
@@ -412,10 +410,10 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
                 other.source = source;
                 source.change.emit();
                 """
-                                           ))
+                                          ))
 
     label_header = Div(text="<b>Gene labels:</b>")
-    radio_title = Div(text="""Gene labels to use:""",)
+    radio_title = Div(text="""Gene labels to use:""", )
     labels_block = column(label_header, row(slider_font, slider_angle), column(radio_title, radio_label_type))
 
     fig.add_layout(labels)
@@ -437,7 +435,7 @@ def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, lis
         df["occurrences"].append(ordered_counts[index])
         df["y"].append(index * 10)
         if genelist[0].start < genelist[1].start:
-            # if the order has been inverted, positionning elements on the figure is different
+            # if the order has been inverted, positioning elements on the figure is different
             df["width"].append(abs(genelist[-1].stop - genelist[0].start))
         else:
             # order has been inverted
@@ -517,7 +515,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     :param gene_lists:
     :param ordered_counts:
     :param fam_to_mod:
-    :param fam_col: Dictionnary with for each family the corresponding color
+    :param fam_col: Dictionary with for each family the corresponding color
     :param file_name:
     :return:
     """
@@ -539,7 +537,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
                                   point_policy="follow_mouse")
     fig.add_tools(genome_recs_hover)
 
-    # gene rectanges
+    # gene rectangles
     gene_source, gene_tooltips = mk_source_data(gene_lists, fam_col, fam_to_mod)
     recs = fig.rect(x='x', y='y', line_color='line_color', fill_color='fill_color', width='width', height=2,
                     line_width=5, source=gene_source)

@@ -110,7 +110,8 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
     start_time = time.time()
     logging.getLogger("PPanGGOLiN").info("Building the graph...")
     g = compute_mod_graph(pangenome, t=transitive, disable_bar=disable_bar)
-    logging.getLogger("PPanGGOLiN").info(f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
     logging.getLogger("PPanGGOLiN").info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     start_time = time.time()
