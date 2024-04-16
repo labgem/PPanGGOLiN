@@ -417,6 +417,8 @@ class Contig(MetaFeatures):
         """Get the length of the contig
 
         :return: contig length
+
+        :todo: It could be better that len return the number of genes in the contig
         """
         return self.length
 
@@ -501,30 +503,39 @@ class Contig(MetaFeatures):
             raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
         del self[position]
 
-    def get_genes(self, begin: int = 0, end: int = None) -> List[Gene]:
+    def get_genes(self, begin: int = 0, end: int = None, outrange_ok: bool = False) -> List[Gene]:
         """
-        Gets a list of genes within a range.
+        Gets a list of genes within a range of gene position.
         If no arguments are given it return all genes.
 
         :param begin: Position of the first gene to retrieve
         :param end: Position of the last gene to not retrieve
+        :param outrange_ok: If True even is the last position is out of range return all the genes from begin to last position
 
         :return: List of genes between begin and end position
 
         :raises TypeError: If begin or end is not an integer
         :raises ValueError: If begin position is greater than end position
+        :raises IndexError: If end position is greater than last gene position in contig
         """
-
         if end is None:
-            end = self.length
+            end = self._genes_position[-1].position
 
         if not isinstance(begin, int) or not isinstance(end, int):
-            raise TypeError(
-                f"Expected type int for 'begin' and 'end', but received types '{type(begin)}' and '{type(end)}'.")
+            raise TypeError(f"Expected type int for 'begin' and 'end', "
+                            f"but received types '{type(begin)}' and '{type(end)}'.")
 
         if begin >= end:
             raise ValueError("The 'begin' position must be less than the 'end' position.")
 
+        if end > self._genes_position[-1].position:
+            if outrange_ok:
+                end = self._genes_position[-1].position
+            else:
+                raise IndexError(f"Gene at position {end} is out of range")
+
+        if end == self._genes_position[-1].position:
+            return self._genes_position[begin:]
         else:
             return self._genes_position[begin: end]
 

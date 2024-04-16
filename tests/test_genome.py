@@ -373,7 +373,7 @@ class TestContig:
 		contig.add(gene1)
 		contig.add(gene2)
 		contig.add(gene3)
-		assert set(contig.get_genes(0, 3)) == set(genes)
+		assert set(contig.get_genes(0, 2)) == set(genes)
 
 	def test_get_gene_with_non_integer_index(self, contig):
 		"""Tests that a gene cannot be retrieved with an index that is not an integer
@@ -389,7 +389,7 @@ class TestContig:
 		contig.add(gene2)
 		contig.add(gene3)
 		with pytest.raises(TypeError):
-			contig.get_genes('a', 4)
+			contig.get_genes('a', 2)
 		with pytest.raises(TypeError):
 			contig.get_genes(5, 'b')
 		with pytest.raises(TypeError):
@@ -404,6 +404,23 @@ class TestContig:
 		contig.add(gene3)
 		with pytest.raises(ValueError):
 			contig.get_genes(2, 0)
+
+	def test_get_genes_with_end_position_greater_than_last_position(self, genes, contig):
+		"""Tests that genes cannot be retrieved with given end position greater than last gene position in the contig
+		"""
+		gene1, gene2, gene3 = genes
+		contig.add(gene1)
+		contig.add(gene2)
+		contig.add(gene3)
+		with pytest.raises(IndexError):
+			contig.get_genes(0, 3)
+
+	def test_get_genes_with_end_position_greater_than_last_position_with_outrange_ok(self, genes, contig):
+		gene1, gene2, gene3 = genes
+		contig.add(gene1)
+		contig.add(gene2)
+		contig.add(gene3)
+		assert set(contig.get_genes(0, 5, outrange_ok=True)) == set(genes)
 
 	def test_iterate_over_genes(self, genes, contig):
 		"""Tests that all genes in the contig can be iterated over

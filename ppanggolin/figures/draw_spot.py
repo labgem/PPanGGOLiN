@@ -179,7 +179,7 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
         else:
             minpos = rgp.starter.position
             maxpos = rgp.stopper.position
-        gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
+        gene_list = rgp.contig.get_genes(minpos, maxpos)
         prev = None
         for gene in gene_list:
             g.add_node(gene.family.name, partition=gene.family.named_partition)
@@ -599,7 +599,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             borders = rgp.get_bordering_genes(set_size, multigenics)
             minpos = min([gene.position for border in borders for gene in border])
             maxpos = max([gene.position for border in borders for gene in border])
-            gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
+            gene_list = rgp.contig.get_genes(minpos, maxpos)
             minstart = min([gene.start for border in borders for gene in border])
             maxstop = max([gene.stop for border in borders for gene in border])
             rnas_toadd = set()

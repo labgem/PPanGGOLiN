@@ -49,7 +49,7 @@ def compute_mod_graph(pangenome: Pangenome, t: int = 1, disable_bar: bool = Fals
                 g.add_node(start_gene.family)
                 add_gene(g.nodes[start_gene.family], start_gene, fam_split=False)
                 for i, gene in enumerate(contig.genes):
-                    for j, a_gene in enumerate(contig.get_genes(i + 1, i + t + 2), start=i + 1):
+                    for j, a_gene in enumerate(contig.get_genes(i + 1, i + t + 2, outrange_ok=True), start=i + 1):
                         g.add_edge(gene.family, a_gene.family)
                         edge = g[gene.family][a_gene.family]
                         add_gene(edge, gene)
