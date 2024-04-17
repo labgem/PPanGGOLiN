@@ -571,7 +571,6 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
                                                                        disable_bar=disable_bar)
     input_org_to_lonely_genes_count = {}
     for input_organism in input_organisms:
-
         org_outdir = output / input_organism.name
 
         seq_set = {gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in input_organism.genes}
@@ -583,19 +582,17 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
         lonely_genes = set()
         for gene in input_organism.genes:
             gene_id = gene.ID
-
             try:
                 gene_family = seqid_to_gene_family[gene_id]
-                gene_family.add(gene)
             except KeyError:
                 # the seqid is not in the dict so it does not align with any pangenome families
                 # We consider it as cloud gene
                 try:
                     # in some case a family exists already and has the same name of the gene id
-                    # So gene id cannot be used 
+                    # So gene id cannot be used
                     _ = pangenome.get_gene_family(gene_id)
                 except KeyError:
-                    new_gene_family = GeneFamily(pangenome.max_fam_id, gene_id)
+                    gene_family = GeneFamily(pangenome.max_fam_id, gene_id)
 
                 else:
                     # gene id already exists.
@@ -604,12 +601,27 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
                         'The input genome as a specific gene that does not align to any '
                         f'pangenome families with the same id ({gene_id}) than an existing gene family in the pangenome. '
                         f'The genome name is added to the family name: {new_name}')
-                    new_gene_family = GeneFamily(pangenome.max_fam_id, new_name)
+                    gene_family = GeneFamily(pangenome.max_fam_id, new_name)
 
-                pangenome.add_gene_family(new_gene_family)
-                new_gene_family.add(gene)
-                new_gene_family.partition = "Cloud"
+                pangenome.add_gene_family(gene_family)
+                
+                gene_family.partition = "Cloud"
                 lonely_genes.add(gene)
+
+            if gene_family.contains_gene_id(gene_id):
+                new_name = f"{input_organism.name}_{gene_id}"
+                logging.getLogger('PPanGGOLiN').warning(
+                    "The input genome contains a gene that aligns to a pangenome family "
+                    f"which already contains a gene with the same ID ({gene_id}). "
+                    f"The genome name has been appended to the family name: {new_name}")
+                
+                gene.ID = new_name
+
+            # Add the gene to the gene family
+            gene_family.add(gene)
+
+        pangenome._mk_gene_getter()  # re-build the gene getter
+
 
         logging.getLogger('PPanGGOLiN').info(
             f"{input_organism.name} has {len(lonely_genes)}/{input_organism.number_of_genes()} "
