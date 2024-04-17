@@ -25,6 +25,7 @@ from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, D
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
+from ppanggolin.genome import Feature
 from ppanggolin.region import Spot
 from ppanggolin.utils import jaccard_similarities
 from ppanggolin.formats import check_pangenome_info
@@ -213,8 +214,9 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
 
     nx.write_gexf(g, outname)
 
-def is_gene_list_ordered(genes):
+def is_gene_list_ordered(genes:List[Feature]):
     """
+    Check if a list of genes is ordered.
     """
     first_gene = genes[0]
     second_gene = genes[1]
@@ -249,7 +251,7 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
         first_gene = genelist[0]
         last_gene = genelist[-1]
         
-        if is_gene_list_ordered(genelist): #genelist[0].start < genelist[1].start:
+        if is_gene_list_ordered(genelist):
             # if the order has been inverted, positionning elements on the figure is different
             ordered = True
             start = first_gene.start
@@ -457,7 +459,7 @@ def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, lis
         df["y"].append(index * 10)
         first_gene = genelist[0]
         last_gene =  genelist[-1]
-        if is_gene_list_ordered(genelist):# genelist[0].start < genelist[1].start:
+        if is_gene_list_ordered(genelist):
             # if the order has been inverted, positionning elements on the figure is different
             width = abs(last_gene.stop_relative_to(first_gene ) - genelist[0].start) 
             df["width"].append(width)
