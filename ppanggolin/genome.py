@@ -728,16 +728,19 @@ class Contig(MetaFeatures):
         yield from modules
 
 
-    def get_ordered_consecutive_genes(self, genes: Iterable) -> List[List[Gene]]: 
+    def get_ordered_consecutive_genes(self, genes: Iterable[Gene]) -> List[List[Gene]]:
         """
-        Order given genes considering circularity of the contig. 
-        The genes are supposed to be consecutive along the contig. 
+        Order the given genes considering the circularity of the contig.
+        
+        :param genes: An iterable containing genes supposed to be consecutive along the contig.
+        :return: A list of lists containing ordered consecutive genes considering circularity.
         """
         gene_positions = [gene.position for gene in genes]
         
+        # Determine consecutive region positions
         consecutive_region_positions = get_consecutive_region_positions(region_positions=gene_positions, contig_gene_count=self.number_of_genes)
 
-        consecutive_genes_lists = [ [self[position] for position in consecutive_positions ] for consecutive_positions in consecutive_region_positions ]
+        consecutive_genes_lists = [[self[position] for position in consecutive_positions] for consecutive_positions in consecutive_region_positions]
 
         return consecutive_genes_lists
 
