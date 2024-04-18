@@ -9,17 +9,32 @@ from ppanggolin.region import Region, Spot, Module, GeneContext
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Contig, Organism
 
+@pytest.fixture
+def contig() -> Contig:
+    contig = Contig(0, 'contig_name')
+    contig.length = 200
+    return contig
 
 @pytest.fixture
-def genes() -> Generator[Set[Gene], None, None]:
+def genes(contig) -> Generator[Set[Gene], None, None]:
     """Create a set of genes to fill gene families
     """
-    genes = set()
-    for i in range(0, randint(11, 20)):
+    genes = []
+    for i in range(0, 11):
         gene = Gene(f"gene_{str(i)}")
         gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
-        genes.add(gene)
-    yield genes
+        gene.contig = contig
+        genes.append(gene)
+    return genes
+
+@pytest.fixture
+def gene(contig) -> Gene:
+    gene = Gene('gene')
+    gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+    contig = Contig(0, 'contig_name')
+    contig.length = 10
+    gene.contig = contig
+    return gene
 
 
 @pytest.fixture
@@ -101,15 +116,13 @@ class TestRegion:
         assert isinstance(region, Region)
         assert region.name == "RGP"
         assert isinstance(region._genes_getter, dict)
-        for attr, value in self.attr_val.items():
-            assert region.__getattribute__(attr) == value
 
-    def test_add_gene(self, region):
+    def test_add_gene(self, region, gene):
         """Tests that genes can be aadded to a region
         """
-        gene = Gene('gene')
-        gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        
         region.add(gene)
+
         assert len(region._genes_getter) == 1
         assert region._genes_getter[0] == gene
         assert region.starter == gene
@@ -128,16 +141,19 @@ class TestRegion:
         with pytest.raises(AttributeError):
             region.add(Gene('gene'))
 
-    def test_add_genes_at_position_already_taken(self, region):
+    def test_add_genes_at_position_already_taken(self, region, contig):
         """Test that adding genes with same position return a ValueError
         """
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene.contig = contig
+
         region.add(gene)
         with pytest.raises(KeyError):
-            gene = Gene('gene')
-            gene.fill_annotations(start=4, stop=12, strand='-', position=0)
-            region.add(gene)
+            another_gene = Gene('gene')
+            another_gene.fill_annotations(start=4, stop=12, strand='-', position=0)
+            another_gene.contig = contig
+            region.add(another_gene)
 
     def test_add_genes_from_different_contigs(self, region):
         """Test that adding genes from different contigs return an Exception
@@ -199,22 +215,25 @@ class TestRegion:
         with pytest.raises(TypeError):
             region.remove("0")
 
-    def test_get_length(self, region):
+    def test_get_length(self, region, contig):
         """Tests that the length of the region can be retrieved
         """
         gene1, gene2 = Gene('gene_1'), Gene('gene_2')
-        gene1.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene1.fill_annotations(start=1, stop=10, strand='+', position=0)
+        gene1.contig = contig
         gene2.fill_annotations(start=11, stop=20, strand='+', position=1)
+        gene2.contig = contig
+
         region.add(gene1)
         region.add(gene2)
         assert region.length == 20
 
-    def test_get_organism(self, region):
+    def test_get_organism(self, region, contig):
         """Tests that the organism linked to the region can be retrieved
         """
         gene = Gene('gene')
         gene.fill_annotations(start=0, stop=10, strand='+', position=0)
-        gene.fill_parents(Organism("org"))
+        gene.fill_parents(Organism("org"), contig)
         region.add(gene)
         assert region.organism.name == 'org'
 
@@ -309,14 +328,18 @@ class TestRegion:
     def test_equality(self, genes):
         """Test equality between two regions
         """
-        region_1, region_2, region_3 = Region("RGP_1"), Region("RGP_2"), Region("RGP_3")
-        max_pos = max(genes, key=lambda gene: gene.position).position
+        region_1, region_2 = Region("RGP_1"), Region("RGP_2")
         for gene in genes:
             region_1.add(gene)
             region_2.add(gene)
-            region_3[max_pos - gene.position + 1] = gene
         assert region_1 == region_2
-        assert region_1 == region_3
+
+    def test_wrong_position(self, gene):
+        region = Region("RGP_1")
+
+        with pytest.raises(ValueError):
+            region[42] = gene
+
 
     def test_not_equal(self, region, genes):
         """Test difference between two regions
@@ -347,16 +370,260 @@ class TestRegion:
         assert isinstance(region.number_of_families, int)
         assert region.number_of_families == len(families)
 
-    # def test_get_bordering_genes(self, region, genes):
-    #     # TODO test multigenic
-    #     contig = Contig("contig")
-    #     for gene in genes:
-    #         contig[gene.start] = gene
-    #         gene.fill_parents(None, contig)
-    #         region[gene.position] = gene
-    #     min_gene, max_gene = min(genes, key=lambda gene: gene.position), max(genes, key=lambda gene: gene.position)
-    #     assert region.get_bordering_genes(1, {}) == [[min_gene], [max_gene]]
+    def test_starter_stopper_simpler(self, region):
+        """
 
+        check that the starter and stopper genes are correct. as well as the coordinates of the region
+        """
+
+        contig = Contig(0, 'contig_name')
+        contig.length = 200
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            contig.add(gene)
+            genes.append(gene)
+        
+        region.add(genes[2])
+
+        assert region.starter == genes[2]
+        assert region.stopper == genes[2]
+        assert region.coordinates == genes[2].coordinates
+        assert region.coordinates == [(genes[2].start, genes[2].stop)]
+        
+        region.add(genes[3])
+        region.add(genes[4])
+
+        assert region.starter == genes[2]
+        assert region.stopper == genes[4]
+        assert region.coordinates ==  [(genes[2].start, genes[4].stop)]
+
+
+    def test_starter_stopper_with_contig_overlap(self, region):
+        """
+        check that when region overlaps the contig, the starter and stopper gene are correct. as well as the coordinates of the region
+        """
+
+        contig = Contig(0, 'contig_name', is_circular=True)
+        contig.length = 400
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            contig.add(gene)
+            genes.append(gene)
+        
+        region.add(genes[9])
+        region.add(genes[0])
+
+
+        assert region.starter == genes[9]
+        assert region.stopper == genes[0]
+        assert region.coordinates == [(genes[9].start, contig.length), (1, genes[0].stop)]
+
+    def test_starter_stopper_with_contig_overlap_of_gene(self, region):
+        """
+        Check that when region overlaps the contig, the starter and stopper gene are correct. as well as the coordinates of the region
+
+        """
+
+        contig = Contig(0, 'contig_name', is_circular=True)
+        contig.length = 400
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 5, stop=10 * (i + 1), strand='+', position=i)
+            gene.fill_parents(contig=contig)
+            contig.add(gene)
+            genes.append(gene)
+        
+        # add a gene that overlap the contig edge
+        gene_that_overlap = Gene(f"gene_{str(10)}")
+        gene_that_overlap.fill_annotations(start=300, stop=5, strand='+', position=10, coordinates=[(300, 400), (1, 5)])
+        gene_that_overlap.fill_parents(contig=contig)
+        contig.add(gene_that_overlap)
+        genes.append(gene_that_overlap)
+
+
+        region.add(gene_that_overlap)
+
+        assert region.starter == gene_that_overlap
+        assert region.stopper == gene_that_overlap
+        assert region.coordinates == gene_that_overlap.coordinates 
+        assert region.coordinates ==  [(gene_that_overlap.start, contig.length), (1, gene_that_overlap.stop)]
+        
+        # if we add more genes around the one that overlap
+
+        region.add(genes[9])
+        region.add(genes[8])
+        region.add(genes[7])
+        region.add(genes[0])
+        assert region.starter == genes[7]
+        assert region.stopper == genes[0]
+        assert region.coordinates ==  [(genes[7].start, contig.length), (1, genes[0].stop)]
+
+
+
+    def test_get_bordering_genes(self,region):
+        """
+        Test simple border.
+        for a contig with 10 genes. Add gene from 1 to 8 into the region.  Gene at the border are 0 and 9
+        """
+
+        contig = Contig(0, 'contig_name')
+        contig.length = 200
+
+        family = GeneFamily(1, "test")
+        family.partition = "Persistent"
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            gene.family = family
+            contig.add(gene)
+
+            genes.append(gene)
+        
+        for gene in genes[1:-1]:
+            region.add(gene)
+
+        borders = region.get_bordering_genes(1, {})
+        assert borders == [[genes[0]], [genes[-1]]]
+
+
+    def test_get_bordering_genes_overlap_contigs(self, region):
+        """
+        Test border of a region that overlap contig edge. 
+        for a contig with 10 genes. Add gene from 0,1 and 9.
+        left border is 8 and right is 2
+        """
+
+        contig = Contig(0, 'contig_name', is_circular=True)
+        contig.length = 200
+
+        family = GeneFamily(1, "test")
+        family.partition = "Persistent"
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            gene.family = family
+            contig.add(gene)
+
+            genes.append(gene)
+        
+        region.add(genes[0])
+        region.add(genes[1])
+        region.add(genes[9])
+
+        borders = region.get_bordering_genes(1, {})
+        assert borders == [[genes[8]], [genes[2]]]
+
+    def test_get_bordering_genes_whole_contig(self, region):
+        """
+        Test border of a region that cover all the contig. Expect no border
+        """
+
+        contig = Contig(0, 'contig_name', is_circular=True)
+        contig.length = 200
+
+        family = GeneFamily(1, "test")
+        family.partition = "Shell"
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            gene.family = family
+            contig.add(gene)
+            genes.append(gene)
+
+        for gene in genes:
+            region.add(gene)
+
+        borders = region.get_bordering_genes(1, {})
+
+        assert borders == [[], []] # no border
+
+
+    def test_get_bordering_genes_with_multigenic(self, region):
+        """
+        Test border with multigenic for a non circular contig with 10 genes. 
+        Add gene from 3 to 7 into the region.
+        gene 2 and 8 are mulitgenic
+        Gene at the border are 1 on the left and 9
+        """
+
+        contig = Contig(0, 'contig_name')
+        contig.length = 200
+
+        family = GeneFamily(1, "test")
+        family.partition = "Persistent"
+
+        multigenic_family = GeneFamily(1, "test_mutligenic")
+        multigenic_family.partition = "Persistent"
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            if i == 2 or i == 8:
+                gene.family = multigenic_family
+            else:
+                gene.family = family
+            contig.add(gene)
+
+            genes.append(gene)
+        
+        for gene in genes[3:8]:
+            region.add(gene)
+
+
+        borders = region.get_bordering_genes(1, {multigenic_family})
+
+        assert borders == [[genes[1]], [genes[9]]]
+    
+
+    def test_get_bordering_genes_with_all_multigenic(self, region):
+        """
+        Test simple border but with all gene family are multigenic.
+        for a contig with 10 genes. Add gene from 1 to 8 into the region. no border as families are multigenic
+        """
+
+        contig = Contig(0, 'contig_name')
+        contig.length = 200
+
+        family = GeneFamily(1, "test")
+        family.partition = "Persistent"
+
+        genes = []
+        for i in range(0, 10):
+            gene = Gene(f"gene_{str(i)}")
+            gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
+            gene.fill_parents(contig=contig)
+            gene.family = family
+            contig.add(gene)
+
+            genes.append(gene)
+        
+        for gene in genes[1:-1]:
+            region.add(gene)
+
+        borders = region.get_bordering_genes(1, {family})
+
+        assert borders == [[], []] # no border
 
 class TestSpot:
     @pytest.fixture

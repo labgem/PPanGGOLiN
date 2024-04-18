@@ -426,7 +426,7 @@ def read_annotation_files(genome_name_to_annot_path: Dict[str, dict], cpu: int =
                 organisms.append(org)
                 org_to_has_fasta_flag[org] = has_fasta
 
-    genes = (gene for org in organisms for gene in org.genes)
+    genes = [gene for org in organisms for gene in org.genes]
 
     if local_identifiers_are_unique(genes):
         for gene in genes:
@@ -538,7 +538,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     """
     seq_fasta_files = []
 
-    logging.getLogger('PPanGGOLiN').info(f'Writting gene sequences of input genomes.')
+    logging.getLogger('PPanGGOLiN').info('Writting gene sequences of input genomes.')
 
     for input_organism in input_organisms:
         seq_outdir = output / input_organism.name
@@ -548,7 +548,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
         with open(seq_fasta_file, "w") as fh_out_faa:
             write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa, disable_bar=True,
-                                                  add=f"ppanggolin_")
+                                                  add="ppanggolin_")
 
         seq_fasta_files.append(seq_fasta_file)
 
@@ -571,7 +571,6 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
                                                                        disable_bar=disable_bar)
     input_org_to_lonely_genes_count = {}
     for input_organism in input_organisms:
-
         org_outdir = output / input_organism.name
 
         seq_set = {gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in input_organism.genes}
@@ -582,20 +581,18 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
         lonely_genes = set()
         for gene in input_organism.genes:
-            gene_id = gene.ID if gene.local_identifier == "" else gene.local_identifier
-
+            gene_id = gene.ID
             try:
                 gene_family = seqid_to_gene_family[gene_id]
-                gene_family.add(gene)
             except KeyError:
                 # the seqid is not in the dict so it does not align with any pangenome families
                 # We consider it as cloud gene
                 try:
                     # in some case a family exists already and has the same name of the gene id
-                    # So gene id cannot be used 
+                    # So gene id cannot be used
                     _ = pangenome.get_gene_family(gene_id)
                 except KeyError:
-                    new_gene_family = GeneFamily(pangenome.max_fam_id, gene_id)
+                    gene_family = GeneFamily(pangenome.max_fam_id, gene_id)
 
                 else:
                     # gene id already exists.
@@ -604,12 +601,27 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
                         'The input genome as a specific gene that does not align to any '
                         f'pangenome families with the same id ({gene_id}) than an existing gene family in the pangenome. '
                         f'The genome name is added to the family name: {new_name}')
-                    new_gene_family = GeneFamily(pangenome.max_fam_id, new_name)
+                    gene_family = GeneFamily(pangenome.max_fam_id, new_name)
 
-                pangenome.add_gene_family(new_gene_family)
-                new_gene_family.add(gene)
-                new_gene_family.partition = "Cloud"
+                pangenome.add_gene_family(gene_family)
+                
+                gene_family.partition = "Cloud"
                 lonely_genes.add(gene)
+
+            if gene_family.contains_gene_id(gene_id):
+                new_name = f"{input_organism.name}_{gene_id}"
+                logging.getLogger('PPanGGOLiN').warning(
+                    "The input genome contains a gene that aligns to a pangenome family "
+                    f"which already contains a gene with the same ID ({gene_id}). "
+                    f"The genome name has been appended to the family name: {new_name}")
+                
+                gene.ID = new_name
+
+            # Add the gene to the gene family
+            gene_family.add(gene)
+
+        pangenome._mk_gene_getter()  # re-build the gene getter
+
 
         logging.getLogger('PPanGGOLiN').info(
             f"{input_organism.name} has {len(lonely_genes)}/{input_organism.number_of_genes()} "
@@ -652,6 +664,10 @@ def predict_RGP(pangenome: Pangenome, input_organisms: List[Organism], persisten
     for input_organism in input_organisms:
         rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
                                min_score, naming=name_scheme, disable_bar=disable_bar)
+        # turn on projected attribut in rgp objects
+        # useful when associating spot to prevent failure when multiple spot are associated to a projected RGP
+        for rgp in rgps:
+            rgp.projected = True
 
         logging.getLogger('PPanGGOLiN').info(f"{len(rgps)} RGPs have been predicted in the input genomes.")
 
@@ -1200,6 +1216,11 @@ def launch(args: argparse.Namespace):
     pangenome_params = argparse.Namespace(
         **{step: argparse.Namespace(**k_v) for step, k_v in pangenome.parameters.items()})
 
+    if predict_rgp:
+        #computing multigenics for rgp prediction first to have original family.number_of_genomes 
+        # and the same multigenics list as when rgp and spot were predicted
+        multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
+    
     organisms, genome_name_to_path, input_type = manage_input_genomes_annotation(pangenome=pangenome, 
                                                                     input_mode=args.input_mode, 
                                                                     anno=args.anno, fasta=args.fasta,
@@ -1226,8 +1247,6 @@ def launch(args: argparse.Namespace):
     if predict_rgp:
 
         logging.getLogger('PPanGGOLiN').info('Detecting RGPs in input genomes.')
-
-        multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
 
         input_org_2_rgps = predict_RGP(pangenome, organisms,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
                                      min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, output_dir=output_dir,

@@ -492,7 +492,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
 
         # Write ProkSee data for the organism
         write_proksee_organism(organism, output_file, features=['all'], genome_sequences=genome_sequences,
-                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors', 'compress', 'metadata_sep'}})
+                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors', 'compress', 'metadata_sep', 'multigenics'}})
 
     if gff:
         gff_outdir = output / "gff"
@@ -551,6 +551,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
                  "sources": metadata_sources
                  }
 
+    
     # Place here to raise an error if file doesn't found before to read pangenome
     organisms_file = fasta if fasta is not None else anno
 
@@ -560,6 +561,10 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
     if not organisms_list:
         raise ValueError("No genomes are selected for output. Please check the '--genomes' parameter.")
 
+    multigenics = None
+    if need_dict["need_rgp"]:
+        multigenics = pangenome.get_multigenics(pangenome.parameters["rgp"]["dup_margin"])
+
     org_dict = parse_input_paths_file(organisms_file) if organisms_file and (gff or proksee) else None
 
     if proksee:
@@ -567,7 +572,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
         module_to_colors = manage_module_colors(set(pangenome.modules))
 
     organism2args = defaultdict(lambda: {"output": output, "table": table, "gff": gff,
-                                         "proksee": proksee, "compress": compress})
+                                         "proksee": proksee, "compress": compress, "multigenics":multigenics})
     for organism in organisms_list:
         organism_args = {"genome_file": org_dict[organism.name]['path'] if org_dict else None,
                          "metadata_sep":  metadata_sep}
