@@ -345,10 +345,11 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 pseudogene = False
 
                 if fields_gff[gff_type] == 'region':
-                    if fields_gff[gff_seqname] in circular_contigs or ('Is_circular' in attributes and
-                                                                       attributes['Is_circular']):
+                    if fields_gff[gff_seqname] in circular_contigs or ('IS_CIRCULAR' in attributes and
+                                                                       attributes['IS_CIRCULAR']=="true"):
                         # WARNING: In case we have prodigal gff with is_circular attributes. 
                         # This would fail as contig is not defined. However is_circular should not be found in prodigal gff
+                        logging.getLogger("PPanGGOLiN").debug(f"Contig {contig.name} is circular.")
                         contig.is_circular = True
                         assert contig.name == fields_gff[gff_seqname]
 
