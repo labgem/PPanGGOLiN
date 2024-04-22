@@ -50,8 +50,10 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
+        mkdir info_to_test
         ppanggolin all --cpu 1 --fasta genomes.fasta.list --output mybasicpangenome
-        ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status
+        ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status > info_to_test/mybasicpangenome_info.yaml
+        cat info_to_test/mybasicpangenome_info.yaml
         cd -
     # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
     #--draw_hotspots option is problematic on macOS.
@@ -80,6 +82,8 @@ jobs:
 
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --no_print_info --recompute_metrics --log metrics.log
+        ppanggolin info --pangenome stepbystep/pangenome.h5 > info_to_test/stepbystep_info.yaml
+        cat info_to_test/stepbystep_info.yaml
         cd - 
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
@@ -87,6 +91,8 @@ jobs:
         cd testingDataset
         ppanggolin workflow --cpu 1 --anno genomes.gbff.list --output myannopang
         ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo --single_copy --cpu 1
+        ppanggolin info --pangenome myannopang/pangenome.h5 > info_to_test/myannopang_info.yaml
+        cat info_to_test/myannopang_info.yaml
         cd -
     - name: clusters reading from external file
       shell: bash -l {0}
