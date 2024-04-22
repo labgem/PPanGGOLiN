@@ -85,7 +85,7 @@ def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 
     :return: path to representative sequence file and path to tsv clustering result
     """
     seq_nucdb = tmpdir / 'nucleotid_sequences_db'
-    cmd = list(map(str, ["mmseqs", "createdb", sequences.name, seq_nucdb]))
+    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, sequences.name, seq_nucdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -150,7 +150,7 @@ def align_rep(faa_file: Path, tmpdir: Path, cpu: int = 1, coverage: float = 0.8,
     """
     logging.getLogger("PPanGGOLiN").debug("Create database")
     seqdb = tmpdir / 'rep_sequence_db'
-    cmd = list(map(str, ["mmseqs", "createdb", faa_file, seqdb]))
+    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, faa_file, seqdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").info("Aligning cluster representatives...")
