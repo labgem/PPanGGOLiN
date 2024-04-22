@@ -17,6 +17,8 @@ from rich.theme import Theme
 from collections import Counter
 import json
 
+import gzip
+
 custom_theme = Theme({
     "identical": "bold green",
     "neutral": "bold yellow",
@@ -24,11 +26,29 @@ custom_theme = Theme({
 })
 console = Console(theme=custom_theme)
 
+def ordered(obj):
+    if isinstance(obj, dict):
+        return sorted((k, ordered(v)) for k, v in obj.items())
+    if isinstance(obj, list):
+        return sorted(ordered(x) for x in obj)
+    else:
+        return obj
+    
 
 def are_json_files_identical(file1, file2):
-    a = json.dumps(file1.as_posix(), sort_keys=True)
-    b = json.dumps(file2.as_posix(), sort_keys=True)
-    return a == b,[] # a normal string comparison
+
+    proper_open_1 = gzip.open if file1.suffix == ".gz" else open
+
+    with proper_open_1(file1.as_posix(), 'rt') as f1:
+        data1 = json.load(f1)
+    
+    # Load data from the second file
+
+    proper_open_2 = gzip.open if file2.suffix == ".gz" else open
+    with proper_open_2(file2.as_posix(), 'rt') as fl2:
+        data2 = json.load(fl2)
+    
+    return ordered(data1) == ordered(data2), []
 
 
 def are_text_files_identical(expected_file, file2, outdir=Path("./")):
@@ -43,7 +63,11 @@ def are_text_files_identical(expected_file, file2, outdir=Path("./")):
     # console.print(f"\n[bold red]{common_file} is different.[/bold red].")
 
     # Compare file content
-    with open(expected_file, 'r') as f1, open(file2, 'r') as f2:
+
+    proper_open_e = gzip.open if expected_file.suffix == ".gz" else open
+
+    proper_open_t = gzip.open if file2.suffix == ".gz" else open
+    with proper_open_e(expected_file, 'rt') as f1, proper_open_t(file2, 'rt') as f2:
 
         f1_content, f2_content = sorted(f1.readlines()), sorted(f2.readlines())
         f1_line_count = len(f1_content)
@@ -53,9 +77,8 @@ def are_text_files_identical(expected_file, file2, outdir=Path("./")):
         diff = [line.rstrip() for line in diff]
         if len(diff) == 0:
             return True, diff_details
-        # diff_lines_to_display = []
+        
         diff_event_counter = {"+":0, "-":0}
-        # truncated_diff_lines = 0
         
         diff_file = outdir / f"{common_file}.diff"
         with open(diff_file, 'w') as out:
@@ -69,21 +92,8 @@ def are_text_files_identical(expected_file, file2, outdir=Path("./")):
         diff_prct = max(prct_inserted, prct_deleted)
         diff_details.append(f'{diff_event_counter["+"]} insertions(+), {diff_event_counter["-"]} deletions(-) - {diff_prct:.1f}% difference')
         diff_details.append(f'code {diff_file}')
-        diff_details.append(f'code --diff {expected_file} {file2}')
-        # display=False
-        # if display:
-        #     # Display the n first line of diff with rich
-        #     diff_lines_to_display = diff[:max_lines_to_display]
-        #     truncated_diff_lines = len(diff_lines_to_display) - len(diff)
-        
-        #     if truncated_diff_lines:
-        #         diff_lines_to_display.append(f'... {truncated_diff_lines} more diff lines ....')
+        diff_details.append(f'code --diff {expected_file} {file2}')  
 
-        #     diff_content = '\n'.join( diff_lines_to_display ) 
-
-        #     syntax = Syntax(diff_content, "diff", line_numbers=False, theme="ansi_dark")
-        #     console.print(Panel(syntax, title=f"Differences in file {common_file}", expand=True, box=box.HORIZONTALS), overflow="ellipsis")
-    
     return False, diff_details
 
 def add_subdir_to_files(subdir, files):
@@ -98,10 +108,15 @@ def compare_dir_recursively(expected_dir, tested_dir, ignored_files):
             files_list = getattr(dcmp_result, files_attr)
             files_list += add_subdir_to_files(subdir, getattr(sub_dcmp_result, files_attr))
             
-        
     return dcmp_result
 
-def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, extension_to_compare=[".tsv"]): #, ".json", '.gff', '.txt', '.csv']):
+def get_suffix_except_gz(path: Path):
+    for ext in path.suffixes[::-1]:
+        if ext != ".gz":
+            return ext
+        
+
+def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, extension_to_compare=[".tsv", ".json", '.gff', '.txt', '.csv', 'faa', 'fasta']):
 
     # Define directory information with color
     expected_dir_info = f"- Expected directory: [bold green]{expected_dir}[/bold green]"
@@ -115,8 +130,7 @@ def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, ex
 
     # Compare directories
     dcmp = compare_dir_recursively(expected_dir, tested_dir, ignored_files=ignored_files)
-    ignored_files_ext = [common_file for common_file in dcmp.common_files if Path(common_file).suffix not in extension_to_compare]
-
+    ignored_files_ext = [common_file for common_file in dcmp.common_files if get_suffix_except_gz(Path(common_file)) not in extension_to_compare]
     if ignored_files:
         console.print("\nFiles ignored for comparison:", style="bold")
         for ignored_file in ignored_files:
@@ -148,10 +162,10 @@ def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, ex
         file1 = expected_dir / common_file
         file2 = tested_dir / common_file
 
-        # if Path(common_file).suffix == ".json":
-        #     identical_tables, details = are_json_files_identical(file1, file2)
-        # else:
-        identical_tables, details = are_text_files_identical(file1, file2, outdir=diff_outdir)
+        if get_suffix_except_gz(Path(common_file)) == ".json":
+            identical_tables, details = are_json_files_identical(file1, file2)
+        else:
+            identical_tables, details = are_text_files_identical(file1, file2, outdir=diff_outdir)
 
         if identical_tables:
             identical_files.append(common_file)
