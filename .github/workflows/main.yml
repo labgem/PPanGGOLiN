@@ -32,7 +32,7 @@ jobs:
       shell: bash -l {0}
       run: |
         pip install .[test]
-        conda list
+        mmseqs version
 
     # Check that it is installed and displays help without error
     - name: Check that PPanGGOLiN is installed
