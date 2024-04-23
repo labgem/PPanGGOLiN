@@ -14,31 +14,31 @@ Content:
     Genes: 45429
     Genomes: 51
     Families: 1010
-    Edges: 1074
+    Edges: 1075
     Persistent:
-        Family_count: 874
+        Family_count: 873
         min_genomes_frequency: 0.86
         max_genomes_frequency: 1.0
         sd_genomes_frequency: 0.01
         mean_genomes_frequency: 0.99
     Shell:
-        Family_count: 37
+        Family_count: 38
         min_genomes_frequency: 0.18
-        max_genomes_frequency: 0.78
-        sd_genomes_frequency: 0.17
-        mean_genomes_frequency: 0.43
+        max_genomes_frequency: 0.86
+        sd_genomes_frequency: 0.18
+        mean_genomes_frequency: 0.45
     Cloud:
         Family_count: 99
         min_genomes_frequency: 0.02
         max_genomes_frequency: 0.22
-        sd_genomes_frequency: 0.04
+        sd_genomes_frequency: 0.05
         mean_genomes_frequency: 0.05
     Number_of_partitions: 3
     Genomes_fluidity:
         all: 0.025
-        shell: 0.555
+        shell: 0.553
         cloud: 0.039
-        accessory: 0.623
+        accessory: 0.624
     RGP: 66
     Spots: 2
     Modules:
