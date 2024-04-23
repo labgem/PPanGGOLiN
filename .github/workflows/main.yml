@@ -193,4 +193,10 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        python compare_results.py -e expected_info_files/ -t info_to_test/
+        python compare_results.py -e expected_info_files/ -t info_to_test/ -o diff_output
+
+    - name: Archive diff files
+      uses: actions/upload-artifact@v4
+      with:
+        name: comparison-results
+        path: testingDataset/diff_output/*
