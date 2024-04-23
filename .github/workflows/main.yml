@@ -64,7 +64,7 @@ jobs:
         ppanggolin annotate --fasta genomes.fasta.list --output stepbystep --kingdom bacteria --cpu 1
         ppanggolin cluster -p stepbystep/pangenome.h5 --coverage 0.8 --identity 0.8 --cpu 1
         ppanggolin graph -p stepbystep/pangenome.h5 -r 10
-        ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu 1 -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL -se $RANDOM
+        ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu 1 -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL
         ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
         ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --output stepbystep -f
         ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
@@ -189,3 +189,8 @@ jobs:
         ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs_with_metadata -f --gff --proksee --table --add_metadata  --metadata_sources db2 db3 db4 
 
 
+    - name: testing info output
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        python compare_results.py -e expected_info_files/ -t info_to_test/

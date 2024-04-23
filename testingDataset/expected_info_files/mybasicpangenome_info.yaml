@@ -1,0 +1,90 @@
+Status:
+    Genomes_Annotated: true
+    Genes_Clustered: true
+    Genes_with_Sequences: true
+    Gene_Families_with_Sequences: true
+    Neighbors_Graph: true
+    Pangenome_Partitioned: true
+    RGP_Predicted: true
+    Spots_Predicted: true
+    Modules_Predicted: true
+    PPanGGOLiN_Version: 2.0.5
+
+Content:
+    Genes: 45429
+    Genomes: 51
+    Families: 1010
+    Edges: 1074
+    Persistent:
+        Family_count: 874
+        min_genomes_frequency: 0.86
+        max_genomes_frequency: 1.0
+        sd_genomes_frequency: 0.01
+        mean_genomes_frequency: 0.99
+    Shell:
+        Family_count: 34
+        min_genomes_frequency: 0.22
+        max_genomes_frequency: 0.78
+        sd_genomes_frequency: 0.16
+        mean_genomes_frequency: 0.45
+    Cloud:
+        Family_count: 102
+        min_genomes_frequency: 0.02
+        max_genomes_frequency: 0.22
+        sd_genomes_frequency: 0.05
+        mean_genomes_frequency: 0.05
+    Number_of_partitions: 3
+    RGP: 45
+    Spots: 2
+    Modules:
+        Number_of_modules: 4
+        Families_in_Modules: 19
+        Partition_composition:
+            Persistent: 0.0
+            Shell: 42.11
+            Cloud: 57.89
+
+Parameters:
+    annotate:
+        norna: False
+        kingdom: bacteria
+        translation_table: 11
+        prodigal_procedure: None
+        allow_overlap: False
+        # read_annotations_from_file: False
+    cluster:
+        coverage: 0.8
+        identity: 0.8
+        mode: 1
+        # defragmentation: True
+        no_defrag: False
+        translation_table: 11
+        # read_clustering_from_file: False
+    graph:
+    partition:
+        beta: 2.5
+        max_degree_smoothing: 10
+        free_dispersion: False
+        ICL_margin: 0.05
+        seed: 42
+        # computed nb of partitions: True
+        nb_of_partitions: -1
+        # final nb of partitions: 3
+        krange: [3, 20]
+    rgp:
+        persistent_penalty: 3
+        variable_gain: 1
+        min_length: 3000
+        min_score: 4
+        dup_margin: 0.05
+    spot:
+        set_size: 3
+        overlapping_match: 2
+        exact_match_size: 1
+    module:
+        size: 3
+        min_presence: 2
+        transitive: 4
+        jaccard: 0.85
+        dup_margin: 0.05
+

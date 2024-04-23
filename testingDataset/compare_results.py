@@ -34,19 +34,18 @@ def ordered(obj):
     else:
         return obj
     
+def read_json_file(json_file):
+    proper_open_1 = gzip.open if json_file.suffix == ".gz" else open
+
+    with proper_open_1(json_file.as_posix(), 'rt') as f1:
+        return json.load(f1)
+
 
 def are_json_files_identical(file1, file2):
 
-    proper_open_1 = gzip.open if file1.suffix == ".gz" else open
-
-    with proper_open_1(file1.as_posix(), 'rt') as f1:
-        data1 = json.load(f1)
-    
+    data1 = read_json_file(file1)
+    data2 = read_json_file(file2)
     # Load data from the second file
-
-    proper_open_2 = gzip.open if file2.suffix == ".gz" else open
-    with proper_open_2(file2.as_posix(), 'rt') as fl2:
-        data2 = json.load(fl2)
     
     return ordered(data1) == ordered(data2), []
 
@@ -100,7 +99,7 @@ def add_subdir_to_files(subdir, files):
     return [os.path.join(subdir, file) for file in  files]
 
 def compare_dir_recursively(expected_dir, tested_dir, ignored_files):
-    dcmp_result = filecmp.dircmp(expected_dir, tested_dir)
+    dcmp_result = filecmp.dircmp(expected_dir, tested_dir, ignore=ignored_files)
 
     for subdir  in dcmp_result.common_dirs:
         sub_dcmp_result = compare_dir_recursively(expected_dir/subdir, tested_dir/subdir, ignored_files)
@@ -116,7 +115,7 @@ def get_suffix_except_gz(path: Path):
             return ext
         
 
-def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, extension_to_compare=[".tsv", ".json", '.gff', '.txt', '.csv', 'faa', 'fasta']):
+def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, extension_to_compare=[".tsv", ".json", '.gff', '.txt', '.csv', '.faa', '.fasta', ".yaml"]):
 
     # Define directory information with color
     expected_dir_info = f"- Expected directory: [bold green]{expected_dir}[/bold green]"
@@ -227,7 +226,7 @@ def parse_arguments():
 
     parser.add_argument('-o', '--outdir', help="Directories where to write diff files", default='out_diff', type=Path)
 
-    parser.add_argument('-i', '--ignored_files', nargs="+", help="File to ignore for the comparison", default=['pangenomeGraph.json'])
+    parser.add_argument('-i', '--ignored_files', nargs="+", help="File to ignore for the comparison", default=['pangenomeGraph.json', "pangenomeGraph.json.gz"])
 
 
     
