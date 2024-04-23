@@ -188,15 +188,20 @@ jobs:
         # Pipe separatore is found in metadata source db1. if we don't require this source then the writting with pipe is work fine. 
         ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs_with_metadata -f --gff --proksee --table --add_metadata  --metadata_sources db2 db3 db4 
 
-
     - name: testing info output
       shell: bash -l {0}
       run: |
         cd testingDataset
         python compare_results.py -e expected_info_files/ -t info_to_test/ -o diff_output
 
-    - name: Archive diff files
-      uses: actions/upload-artifact@v4
-      with:
-        name: comparison-results
-        path: testingDataset/diff_output/*
+  archive_diff:
+    name: archive diff results
+    needs: test
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Archive diff files
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparison-results
+          path: testingDataset/info_to_test/*
