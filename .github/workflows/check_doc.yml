@@ -27,7 +27,7 @@ jobs:
         sphinx-build -b html . build/
     # Great extra actions to compose with:
     # Create an artifact of the html output.
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: DocumentationHTML
         path: docs/build/
