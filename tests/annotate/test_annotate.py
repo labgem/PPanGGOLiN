@@ -102,7 +102,7 @@ def test_read_org_gbff(genome_data_with_joined_genes):
     genome, _ = read_org_gbff(genome_name, genome_path, circular_contigs, pseudo=True)
 
     # this genome has 2 genes that are joined. 
-    assert genome.number_of_genes() == 917 
+    assert genome.number_of_genes() == 917
     
 
 
