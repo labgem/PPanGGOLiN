@@ -24,7 +24,7 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
-        channels: conda-forge,bioconda,defaults
+        channels: defaults,bioconda,conda-forge
         environment-file: ppanggolin_env.yaml
         activate-environment: ppanggolin
 
