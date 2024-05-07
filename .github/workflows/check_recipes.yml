@@ -27,7 +27,8 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
-          channels: conda-forge,bioconda,defaults
+          channels: bioconda,conda-forge,defaults
+          activate-environment: test
       - name: Set up test environment
         shell: bash -l {0}
         run: |
