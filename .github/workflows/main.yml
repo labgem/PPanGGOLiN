@@ -192,8 +192,9 @@ jobs:
     - name: Archive diff files
       uses: actions/upload-artifact@v4
       with:
-        name: comparison-results
+        name: comparison-results_${{ matrix.os }}_python${{ matrix.python-version }}
         path: testingDataset/info_to_test/*
+        
     
     - name: testing info output
       shell: bash -l {0}
