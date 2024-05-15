@@ -1,0 +1,64 @@
+Status:
+    Genomes_Annotated: true
+    Genes_Clustered: true
+    Genes_with_Sequences: true
+    Gene_Families_with_Sequences: true
+    Neighbors_Graph: true
+    Pangenome_Partitioned: true
+    RGP_Predicted: false
+    Spots_Predicted: false
+    Modules_Predicted: false
+    PPanGGOLiN_Version: 2.0.5
+
+Content:
+    Genes: 47930
+    Genomes: 53
+    Families: 1084
+    Edges: 1319
+    Persistent:
+        Family_count: 871
+        min_genomes_frequency: 0.85
+        max_genomes_frequency: 1.0
+        sd_genomes_frequency: 0.02
+        mean_genomes_frequency: 1.0
+    Shell:
+        Family_count: 55
+        min_genomes_frequency: 0.23
+        max_genomes_frequency: 0.83
+        sd_genomes_frequency: 0.18
+        mean_genomes_frequency: 0.51
+    Cloud:
+        Family_count: 158
+        min_genomes_frequency: 0.02
+        max_genomes_frequency: 0.23
+        sd_genomes_frequency: 0.04
+        mean_genomes_frequency: 0.04
+    Number_of_partitions: 3
+
+Parameters:
+    annotate:
+        # used_local_identifiers: True
+        use_pseudo: False
+        # read_annotations_from_file: True
+    cluster:
+        coverage: 0.8
+        identity: 0.8
+        mode: 1
+        # defragmentation: True
+        no_defrag: False
+        translation_table: 11
+        # read_clustering_from_file: False
+    graph:
+    partition:
+        beta: 2.5
+        max_degree_smoothing: 10
+        free_dispersion: False
+        ICL_margin: 0.05
+        seed: 42
+        # computed nb of partitions: True
+        nb_of_partitions: -1
+        # final nb of partitions: 3
+        krange: [3, 20]
+
+Metadata: null
+
