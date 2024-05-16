@@ -426,7 +426,7 @@ def read_annotation_files(genome_name_to_annot_path: Dict[str, dict], cpu: int =
                 organisms.append(org)
                 org_to_has_fasta_flag[org] = has_fasta
 
-    genes = (gene for org in organisms for gene in org.genes)
+    genes = [gene for org in organisms for gene in org.genes]
 
     if local_identifiers_are_unique(genes):
         for gene in genes:
@@ -538,7 +538,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     """
     seq_fasta_files = []
 
-    logging.getLogger('PPanGGOLiN').info(f'Writting gene sequences of input genomes.')
+    logging.getLogger('PPanGGOLiN').info('Writting gene sequences of input genomes.')
 
     for input_organism in input_organisms:
         seq_outdir = output / input_organism.name
@@ -548,7 +548,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
         with open(seq_fasta_file, "w") as fh_out_faa:
             write_gene_sequences_from_annotations(input_organism.genes, fh_out_faa, disable_bar=True,
-                                                  add=f"ppanggolin_")
+                                                  add="ppanggolin_")
 
         seq_fasta_files.append(seq_fasta_file)
 
@@ -582,7 +582,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
         lonely_genes = set()
         for gene in input_organism.genes:
-            gene_id = gene.ID if gene.local_identifier == "" else gene.local_identifier
+            gene_id = gene.ID
 
             try:
                 gene_family = seqid_to_gene_family[gene_id]
@@ -652,6 +652,10 @@ def predict_RGP(pangenome: Pangenome, input_organisms: List[Organism], persisten
     for input_organism in input_organisms:
         rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
                                min_score, naming=name_scheme, disable_bar=disable_bar)
+        # turn on projected attribut in rgp objects
+        # useful when associating spot to prevent failure when multiple spot are associated to a projected RGP
+        for rgp in rgps:
+            rgp.projected = True
 
         logging.getLogger('PPanGGOLiN').info(f"{len(rgps)} RGPs have been predicted in the input genomes.")
 
@@ -1200,6 +1204,11 @@ def launch(args: argparse.Namespace):
     pangenome_params = argparse.Namespace(
         **{step: argparse.Namespace(**k_v) for step, k_v in pangenome.parameters.items()})
 
+    if predict_rgp:
+        #computing multigenics for rgp prediction first to have original family.number_of_genomes 
+        # and the same multigenics list as when rgp and spot were predicted
+        multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
+    
     organisms, genome_name_to_path, input_type = manage_input_genomes_annotation(pangenome=pangenome, 
                                                                     input_mode=args.input_mode, 
                                                                     anno=args.anno, fasta=args.fasta,
@@ -1226,8 +1235,6 @@ def launch(args: argparse.Namespace):
     if predict_rgp:
 
         logging.getLogger('PPanGGOLiN').info('Detecting RGPs in input genomes.')
-
-        multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
 
         input_org_2_rgps = predict_RGP(pangenome, organisms,  persistent_penalty=pangenome_params.rgp.persistent_penalty, variable_gain=pangenome_params.rgp.variable_gain,
                                      min_length=pangenome_params.rgp.min_length, min_score=pangenome_params.rgp.min_score, multigenics=multigenics, output_dir=output_dir,

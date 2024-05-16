@@ -52,6 +52,7 @@ class Region(MetaFeatures):
         self.stopper = None
         self.ID = Region.id_counter
         self._spot = None
+        self.projected = False # If the rgp is from a projected genome. If true can have multiple spots
         Region.id_counter += 1
 
     def __str__(self):
@@ -392,8 +393,15 @@ class Spot(MetaFeatures):
         """
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
-        if region.spot is not None and region.spot != self:
-            raise ValueError("The region is already with a different spot. A region belongs to only one spot.")
+        
+        if not region.projected and region.spot is not None and region.spot != self:
+            # In normal cases, a region should only belong to one spot. However, an exception arises in the projection command, 
+            # where a projected RGP might link two spots in the spot graph.
+            # To handle this scenario without triggering failure, we check the 'projected' attribute of the given region.
+                     
+            raise ValueError(f"The region '{region.name}' is already associated with spot '{region.spot.ID}' while being associated with spot '{self.ID}'. "
+                                            "A region should only belong to one spot.")
+
         self._region_getter[name] = region
         region.spot = self
 

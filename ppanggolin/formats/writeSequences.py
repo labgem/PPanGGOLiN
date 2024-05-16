@@ -338,7 +338,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
                 genome_sequence = read_genome_file(org_dict[organism.name], organism)
             fasta.write(f">{region.name}\n")
             fasta.write(
-                write_spaced_fasta(genome_sequence[region.contig.name][region.starter.start:region.stopper.stop], 60))
+                write_spaced_fasta(genome_sequence[region.contig.name][region.start:region.stop], 60))
     logging.getLogger("PPanGGOLiN").info(f"Done writing the regions nucleotide sequences: '{outname}'")
 
 

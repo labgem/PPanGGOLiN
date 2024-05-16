@@ -17,17 +17,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest','macos-latest']
+        os: ['ubuntu-latest','macos-13']
         python-version: ['3.8','3.9','3.10']
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       # Setting up miniconda
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
-          channels: conda-forge,bioconda,defaults
+          channels: bioconda,conda-forge,anaconda,defaults
+          activate-environment: test
       - name: Set up test environment
         shell: bash -l {0}
         run: |
