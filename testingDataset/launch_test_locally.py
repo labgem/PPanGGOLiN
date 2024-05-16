@@ -50,7 +50,7 @@ def parse_arguments(default_ci_yaml, testing_datadir):
     
     parser.add_argument('-o', '--outdir', help="increase output verbosity",  default='local_CI', type=Path)
 
-    parser.add_argument('-c', '--cpu', type=int, default=1,
+    parser.add_argument('-c', '--cpu', type=int, default=4,
                         help="Use this amount of cpu when number of cpu is specified in the command.")
     
     parser.add_argument("-v", "--verbose", help="increase output verbosity",
@@ -127,7 +127,7 @@ def main():
                 command = step['run'].strip()
 
                 # process the command
-                command = command.replace('--cpu 1', f"--cpu {args.cpu}")
+                command = command.replace('$NUM_CPUS', f"{args.cpu}")
                 command = command.replace('cd ', "# cd ")
 
                 if args.skip_msa:
