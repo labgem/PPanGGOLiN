@@ -316,4 +316,4 @@ def write_proksee_organism(organism: Organism, output_file: Path,
 
     logging.debug(f"Write ProkSee for {organism.name}")
     with write_compressed_or_not(output_file, compress=compress) as out_json:
-        json.dump(proksee_data, out_json, indent=2)
+        json.dump(proksee_data, out_json, indent=2, sort_keys=True)
