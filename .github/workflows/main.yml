@@ -27,17 +27,15 @@ jobs:
     - name: Get core number on linux
       if: matrix.os == 'ubuntu-latest'
       run: |
-        lscpu
-        lscpu | egrep 'Model name|Socket|Thread|NUMA|CPU\(s\)'
         nb_cpu_linux=`nproc`
+        echo "Number of cores avalaible on the current linux runner $nb_cpu_linux"
         echo "NUM_CPUS=$nb_cpu_linux" >> "$GITHUB_ENV"
 
     - name: Get core number on macos
       if: matrix.os == 'macos-13'
       run: |
-
-        system_profiler SPHardwareDataType
         nb_cpu_macos=`sysctl -n hw.ncpu`
+        echo "Number of cores avalaible on the current macos runner $nb_cpu_macos"
         echo "NUM_CPUS=$nb_cpu_macos" >> "$GITHUB_ENV"
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
