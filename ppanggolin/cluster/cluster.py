@@ -85,7 +85,7 @@ def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 
     :return: path to representative sequence file and path to tsv clustering result
     """
     seq_nucdb = tmpdir / 'nucleotid_sequences_db'
-    cmd = list(map(str, ["mmseqs", "createdb", sequences.name, seq_nucdb]))
+    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, sequences.name, seq_nucdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -150,7 +150,7 @@ def align_rep(faa_file: Path, tmpdir: Path, cpu: int = 1, coverage: float = 0.8,
     """
     logging.getLogger("PPanGGOLiN").debug("Create database")
     seqdb = tmpdir / 'rep_sequence_db'
-    cmd = list(map(str, ["mmseqs", "createdb", faa_file, seqdb]))
+    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, faa_file, seqdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").info("Aligning cluster representatives...")
@@ -214,9 +214,9 @@ def refine_clustering(tsv: Path, aln_file: Path,
                 simgraph.nodes[line[0]]["length"] = int(line[2])
                 simgraph.nodes[line[1]]["length"] = int(line[3])
 
-    for node, nodedata in simgraph.nodes(data=True):
+    for node, nodedata in sorted(simgraph.nodes(data=True)):
         choice = (None, 0, 0, 0)
-        for neighbor in simgraph.neighbors(node):
+        for neighbor in sorted(simgraph.neighbors(node)):
             nei = simgraph.nodes[neighbor]
             score = simgraph[neighbor][node]["score"]
             if nei["length"] > nodedata["length"] and nei["nbgenes"] >= nodedata["nbgenes"] and choice[3] < score:
