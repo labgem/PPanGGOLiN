@@ -38,7 +38,8 @@ def genome_data():
     """
     Fixture providing common data for the tests.
     """
-    genome_path = Path("testingDataset/GBFF/GCF_000026905.1_ASM2690v1_genomic.gbff.gz")
+    # from the dir of the current python file, find a gbff file stored in testingDataset/GBFF repository
+    genome_path = Path(__file__).resolve().parent / "../../testingDataset/GBFF/GCF_000026905.1_ASM2690v1_genomic.gbff.gz"
     circular_contigs = []
     genome_name = "GCF_000026905" 
     return genome_name, genome_path, circular_contigs
@@ -73,7 +74,7 @@ def test_read_anno_file_with_pseudo_enable(genome_data):
 
 
 def test_with_joined_genes():
-    genome_path = Path("testingDataset/GBFF/GCF_002776845.1_ASM277684v1_genomic.gbff.gz")
+    genome_path = Path(__file__).resolve().parent / "../../testingDataset/GBFF/GCF_002776845.1_ASM277684v1_genomic.gbff.gz"
     genome_name = "GCF_002776845"
     circular_contigs = []
     use_pseudogene = True

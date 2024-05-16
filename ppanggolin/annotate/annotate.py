@@ -185,6 +185,11 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     rna_counter = 0
     while len(lines) != 0:
         line = lines.pop()
+
+        # ignore line if empty
+        if line.rstrip() == "":
+            continue
+        
         # beginning of contig
         contig_id = None
         contig_len = None

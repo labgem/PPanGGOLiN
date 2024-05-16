@@ -42,7 +42,23 @@ It's essential to update the documentation to reflect your changes. Provide clea
 
 ### Continuous Integration (CI) Workflow
 
-We've set up a CI workflow in the Actions tab, which executes a series of PPanGGOLiN commands to validate their functionality. If you've introduced a new feature, consider adding a command line to the CI YAML file to test it and ensure its seamless integration.
+We've set up a CI workflow in the Actions tab that executes a series of PPanGGOLiN commands to validate their functionality, and also compares the contents of the PPanGGOLiN info files generated during the workflow with the expected ones stored in the `testingDataset` directory. If you've introduced a new feature, consider adding a command line to the CI YAML file to test it and ensure its seamless integration.
+
+The CI workflow can be launched locally using the Python script `launch_test_locally.py` located in the `testingDataset` directory. This script reads the CI pipeline file and creates a bash script to facilitate local execution of the pipeline.
+
+
+To setup the local execution with 10 CPUs in the local_CI directory, execute the following command:
+
+```bash
+python testingDataset/launch_test_locally.py -o local_CI -c 10 
+
+```
+
+Then, run the local CI using the following command:
+
+```bash
+(cd local_CI; bash launch_test_command.sh)
+```
 
 ### Unit Tests
 
