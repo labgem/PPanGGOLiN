@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  NUM_CPUS: 4
+  NUM_CPUS: 1
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -20,7 +20,26 @@ jobs:
       matrix:
         os: ['ubuntu-latest', 'macos-13']
         python-version: ['3.8', '3.10']
+
     steps:
+
+    # Get number of cpu available on the current runner
+    - name: Get core number on linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        lscpu
+        lscpu | egrep 'Model name|Socket|Thread|NUMA|CPU\(s\)'
+        nb_cpu_linux=`nproc`
+        echo "NUM_CPUS=$nb_cpu_linux" >> "$GITHUB_ENV"
+
+    - name: Get core number on macos
+      if: matrix.os == 'macos-13'
+      run: |
+
+        system_profiler SPHardwareDataType
+        nb_cpu_macos=`sysctl -n hw.ncpu`
+        echo "NUM_CPUS=$nb_cpu_macos" >> "$GITHUB_ENV"
+
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v4
     # Install requirements with miniconda
