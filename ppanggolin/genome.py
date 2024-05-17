@@ -498,9 +498,11 @@ class Contig(MetaFeatures):
         if not isinstance(position, int):
             raise TypeError(f"Expected type is int, given type was '{type(position)}'")
         try:
-            return self._genes_position[position]
+            gene = self._genes_position[position]
         except KeyError:
             raise KeyError("Position of the gene in the contig does not exist")
+        else:
+            return gene
 
     def __delitem__(self, position):
         """Remove the gene for the given position in the contig
@@ -823,9 +825,11 @@ class Organism(MetaFeatures):
         if not isinstance(name, str):
             raise TypeError(f"Expected type is string, given type was '{type(name)}'")
         try:
-            return self._contigs_getter[name]
+            contig = self._contigs_getter[name]
         except KeyError:
             raise KeyError(f"Contig with the name: {name} does not exist in the genome")
+        else:
+            return contig
 
     def __delitem__(self, name):
         """Remove the contig for the given name

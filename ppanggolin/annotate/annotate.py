@@ -408,10 +408,11 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 pseudogene = False
 
                 if fields_gff[gff_type] == 'region':
-                    if fields_gff[gff_seqname] in circular_contigs or ('Is_circular' in attributes and
-                                                                       attributes['Is_circular']):
+                    if fields_gff[gff_seqname] in circular_contigs or ('IS_CIRCULAR' in attributes and
+                                                                       attributes['IS_CIRCULAR']=="true"):
                         # WARNING: In case we have prodigal gff with is_circular attributes. 
                         # This would fail as contig is not defined. However is_circular should not be found in prodigal gff
+                        logging.getLogger("PPanGGOLiN").debug(f"Contig {contig.name} is circular.")
                         contig.is_circular = True
                         assert contig.name == fields_gff[gff_seqname]
 
@@ -616,22 +617,26 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     filetype = detect_filetype(filename)
     if filetype == "gff":
         try:
-            return read_org_gff(organism_name, filename, circular_contigs, pseudo)
+            org, has_fasta = read_org_gff(organism_name, filename, circular_contigs, pseudo)
         except Exception as err:
             raise Exception(f"Reading the gff3 file '{filename}' raised an error. {err}")
+        else:
+            return org, has_fasta
     elif filetype == "gbff":
         try:
-            return read_org_gbff(organism_name, filename, circular_contigs, pseudo)
+            org, has_fasta = read_org_gbff(organism_name, filename, circular_contigs, pseudo)
         except Exception as err:
             raise Exception(f"Reading the gbff file '{filename}' raised an error. {err}")
-        
+        else:
+            return org, has_fasta
     elif filetype == "fasta":
-        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' looks like a fasta file. "
-                        "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
+        raise ValueError(f"Invalid file type provided for parameter '--anno'. "
+                         f"The file '{filename}' looks like a fasta file. "
+                         "Please use a .gff or .gbff file. You may be able to use --fasta instead of --anno.")
 
     else:
-        raise ValueError(f"Invalid file type provided for parameter '--anno'. The file '{filename}' appears to be of type '{filetype}'. "
-                        "Please use .gff or .gbff files.")
+        raise ValueError(f"Invalid file type provided for parameter '--anno'. "
+                         f"The file '{filename}' appears to be of type '{filetype}'. Please use .gff or .gbff files.")
 
 
 
@@ -741,12 +746,13 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
 
 
-def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
+def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disable_bar: bool = False):
     """
     Get gene sequences from fastas
 
     :param pangenome: Input pangenome
     :param fasta_files: list of fasta file
+    :param disable_bar: Flag to disable progress bar
     """
     fasta_dict = {}
     for line in read_compressed_or_not(fasta_files):
@@ -765,38 +771,30 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path):
 
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
-        raise Exception(f"Not all of your pangenome genomes are present within the provided fasta file. "
-                        f"{len(missing)} are missing (out of {pangenome.number_of_organisms}).")
-    
+        raise KeyError(f"Not all of your pangenome genomes are present within the provided fasta file. "
+                       f"{missing} are missing (out of {pangenome.number_of_organisms}).")
     elif pangenome.number_of_organisms < len(fasta_dict):
         # Indicates that all organisms in the pangenome are present in the provided FASTA file, 
         # but additional genomes are also detected in the file.
         diff_genomes = len(fasta_dict) - pangenome.number_of_organisms
         logging.getLogger("PPanGGOLiN").warning(f"The provided fasta file contains {diff_genomes} "
                                                 "additional genomes compared to the pangenome.")
-
-    progress = tqdm(total=pangenome.number_of_genes + pangenome.number_of_rnas,
-                    desc="Add sequence to gene/RNA", unit="gene-RNA")
-    for org in pangenome.organisms:
-        for contig in org.contigs:
-            try:
-                ctg_sequence = fasta_dict[org][contig.name]
-            except KeyError:
-                msg = (f"Fasta file for genome {org.name} did not have the contig {contig.name} "
-                       f"that was read from the annotation file."
-                       f"The provided contigs in the fasta were : "
-                       f"{', '.join([contig for contig in fasta_dict[org].keys()])}.")
-                raise KeyError(msg)
-            else:
-                for gene in contig.genes:
-                    gene.add_sequence(get_dna_sequence(ctg_sequence, gene))
-                    progress.update()
-
-                for rna in contig.RNAs:
-                    rna.add_sequence(get_dna_sequence(ctg_sequence, rna))
-                    progress.update()
-
-    progress.close()
+    with tqdm(total=pangenome.number_of_genes, unit="gene", disable=disable_bar,
+              desc="Add sequences to genes") as bar:
+        for org in pangenome.organisms:
+            for contig in org.contigs:
+                try:
+                    for gene in contig.genes:
+                        gene.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], gene))
+                        bar.update()
+                    # for rna in contig.RNAs:
+                    #     rna.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], rna))
+                except KeyError:
+                    msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
+                          f"that was read from the annotation file. "
+                    msg += f"The provided contigs in the fasta were : " \
+                           f"{', '.join([contig for contig in fasta_dict[org].keys()])}."
+                    raise KeyError(msg)
     pangenome.status["geneSequences"] = "Computed"
 
 
