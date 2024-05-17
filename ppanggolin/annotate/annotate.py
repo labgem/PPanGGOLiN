@@ -231,7 +231,7 @@ def parse_gbff_by_contig(gbff_file_path: Path) -> Generator[Tuple[List[str], Lis
 
 
 
-def parse_contig_header_lines(header_lines: List[str]) -> defaultdict[list]:
+def parse_contig_header_lines(header_lines: List[str]) -> Dict[List]:
     """
     Parse required information from header lines of a contig from a GBFF file.
 
