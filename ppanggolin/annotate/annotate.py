@@ -231,12 +231,12 @@ def parse_gbff_by_contig(gbff_file_path: Path) -> Generator[Tuple[List[str], Lis
 
 
 
-def parse_contig_header_lines(header_lines: List[str]) -> Dict[List]:
+def parse_contig_header_lines(header_lines: List[str]) -> Dict[str, str]:
     """
     Parse required information from header lines of a contig from a GBFF file.
 
     :param header_lines: List of strings representing header lines of a contig from a GBFF file.
-    :return: A defaultdict with keys representing different fields and values representing their corresponding values.
+    :return: A dict with keys representing different fields and values representing their corresponding values joined by new line.
     """
     field = ""  # Initialize field
     field_to_value = defaultdict(list)  # Initialize defaultdict to store field-value pairs
