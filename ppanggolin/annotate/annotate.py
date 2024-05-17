@@ -44,7 +44,7 @@ def check_annotate_args(args: argparse.Namespace):
         check_input_files(args.anno, True)
 
 
-def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: Set[str],
+def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxrefs: Set[str],
                 coordinates: List[Tuple[int]], strand: str, gene_type: str, position: int = None, gene_name: str = "",
                 product: str = "", genetic_code: int = 11, protein_id: str = "") -> Gene:
     """
@@ -67,17 +67,17 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     """
 
     start, stop = coordinates[0][0], coordinates[-1][1]
-    
-    if any('MaGe' or 'SEED' in dbref for dbref in dbxref):
-        if gene_name == "":
-            gene_name = gene_id
-        for val in dbxref:
-            if 'MaGe' in val:
-                gene_id = val.split(':')[1]
+    if gene_name == "":
+        gene_name = gene_id
+    if any((dbxref.startswith('MaGe:') or dbxref.startswith('SEED:') for dbxref in dbxrefs)):
+        for dbxref in dbxrefs:
+            if dbxref.startswith('MaGe:'):
+                gene_id = dbxref.split(':')[1]
                 break
-            if 'SEED' in val:
-                gene_id = val.split(':')[1]
+            if dbxref.startswith('SEED:'):
+                gene_id = dbxref.split(':')[1]
                 break
+
     if gene_type == "CDS":
         if gene_id == "":
             gene_id = protein_id
@@ -86,7 +86,8 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
             # but was when cases like this were encountered)
 
         new_gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
-        new_gene.fill_annotations(start=start, stop=stop, strand=strand, coordinates=coordinates, gene_type=gene_type, name=gene_name,
+        new_gene.fill_annotations(start=start, stop=stop, strand=strand, coordinates=coordinates,
+                                  gene_type=gene_type, name=gene_name,
                                   position=position, product=product, local_identifier=gene_id,
                                   genetic_code=genetic_code)
         contig.add(new_gene)
@@ -261,6 +262,22 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
     :param feature_lines: List of strings representing feature lines from a GBFF file.
     :return: A generator that yields dictionaries, each representing a feature with its type, location, and qualifiers.
     """
+
+    def stringify_feature_values(feature:Dict[str,List[str]]) -> Dict[str, str]:
+        """
+        All value of the returned dict are str except for db_xref that is a list. 
+        When multiple values exist for the same tag only the first one is kept. 
+        """
+        stringify_feature = {}
+        for tag, value in feature.items():
+            if tag == "db_xref":
+                stringify_feature[tag] = value
+            elif isinstance(value, list):
+                stringify_feature[tag] = value[0]
+            else:
+                stringify_feature[tag] = value
+        return defaultdict(str, stringify_feature)
+
     current_feature = {}
     current_qualifier = None
 
@@ -269,7 +286,7 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
         if len(line[:21].strip()) > 0:
             if current_feature:
                 # yield last feature
-                yield defaultdict(str, current_feature)
+                yield stringify_feature_values(current_feature)
 
             current_feature = {
                 "type" : line[:21].strip(),
@@ -286,16 +303,21 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
             # clean value from quote
             value = value[1:] if value.startswith('"') else value
             value = value[:-1] if value.endswith('"') else value
-            current_feature[current_qualifier] = value
+
+            if current_qualifier in current_feature:
+                current_feature[current_qualifier].append(value)
+
+            else:
+                current_feature[current_qualifier] = [value]
 
         else: 
             # the line does not start a qualifier so its the continuation of the last qualifier value.
             value = value[:-1] if value.endswith('"') else value
-            current_feature[current_qualifier] += f" {line.strip()}"
+            current_feature[current_qualifier][-1] += f" {line.strip()}"
 
     # Append the last feature
     if current_feature:
-        yield defaultdict(str, current_feature)
+        yield stringify_feature_values(current_feature)
 
 def parse_dna_seq_lines(sequence_lines: List[str]) -> Generator[Dict[str, str], None, None]:
     """
@@ -370,12 +392,10 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 contig_counter.value += 1
             organism.add(contig)
             contig.length = contig_len
-
+        
         for feature in features:
-            # print(feature)
             if feature['type'] not in ['CDS', 'rRNA', 'tRNA']:
-                continue
-                
+                continue   
             coordinates, is_complement, is_pseudo = extract_positions(feature['location'])
             if is_pseudo and not pseudo:
                 continue 
@@ -386,16 +406,13 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 continue
 
             strand = "-" if is_complement else "+"
-
-            # print('feature["transl_table"]', feature["transl_table"])
-
             gene = create_gene(
                         org=organism,
                         contig=contig,
                         gene_counter=gene_counter,
                         rna_counter=rna_counter,
                         gene_id=feature['locus_tag'],
-                        dbxref=feature["db_xref"],
+                        dbxrefs=feature["db_xref"],
                         coordinates=coordinates,
                         strand=strand,
                         gene_type=feature["type"],
