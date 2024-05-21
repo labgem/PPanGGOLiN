@@ -22,6 +22,8 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
 from ppanggolin.formats import write_pangenome
+from ppanggolin.metadata import Metadata
+
 
 ctg_counter = contig_counter
 
@@ -331,6 +333,35 @@ def parse_dna_seq_lines(sequence_lines: List[str]) -> Generator[Dict[str, str], 
         sequence += line[10:].replace(" ", "").strip().upper()
     return sequence
 
+
+def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> Tuple[Dict[str, str], Dict[str, Dict[str, str]]]:
+    """
+    Combine contig metadata to identify shared and unique metadata tags and values.
+
+    :param contig_to_metadata: A dictionary mapping each contig to its associated metadata.
+    :return: A tuple containing:
+        - A dictionary of shared metadata tags and values present in all contigs.
+        - A dictionary mapping each contig to its unique metadata tags and values.
+    """
+    # Flatten all metadata items and count their occurrences
+    all_tag_to_value = [item for source_info in contig_to_metadata.values() for item in source_info.items() if isinstance(item[1], str)]
+    contig_count = len(contig_to_metadata)
+    
+    # Identify tags and values shared by all contigs
+    shared_tag_and_values = {tag_and_value for tag_and_value in all_tag_to_value if all_tag_to_value.count(tag_and_value) == contig_count}
+    
+    # Create a dictionary for shared metadata
+    genome_metadata = {tag: value for tag, value in shared_tag_and_values}
+
+    contig_to_uniq_metadata = {}
+    for contig, tag_to_value in contig_to_metadata.items():
+        # Identify unique metadata for each contig
+        uniq_tag_to_value = {tag: value for tag, value in tag_to_value.items() if tag not in genome_metadata and isinstance(value, str)}
+        if uniq_tag_to_value:
+            contig_to_uniq_metadata[contig] = uniq_tag_to_value
+
+    return genome_metadata, contig_to_uniq_metadata
+
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
                   pseudo: bool = False) -> Tuple[Organism, bool]:
     """
@@ -350,12 +381,13 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     logging.getLogger("PPanGGOLiN").debug(f"Extracting genes information from the given gbff {gbff_file_path.name}")
     gene_counter = 0
     rna_counter = 0
+    contig_to_metadata = {}
 
     for i, (header, features, sequence) in enumerate(parse_gbff_by_contig(gbff_file_path)):
-
+        
         contig_id = None
         contig_len = None
-        
+
         if "LOCUS" not in header:
             raise ValueError('Missing LOCUS line in GBFF header.')
         
@@ -394,6 +426,9 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             contig.length = contig_len
         
         for feature in features:
+            if feature['type'] == "source":
+                contig_to_metadata[contig] = {tag:value for tag, value in feature.items() if tag not in ['type', "location"]}
+
             if feature['type'] not in ['CDS', 'rRNA', 'tRNA']:
                 continue   
             coordinates, is_complement, is_pseudo = extract_positions(feature['location'])
@@ -429,9 +464,21 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 gene_counter += 1
             else:
                 rna_counter += 1
-                
+
+    genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(contig_to_metadata)
+    
+    genome_meta_obj = Metadata(source='annotation_file', **genome_metadata)
+    organism.add_metadata(source="annotation_file", metadata=genome_meta_obj)
+
+    for contig, metadata_dict in contig_to_uniq_metadata.items():
+        contigs_meta_obj = Metadata(source='annotation_file', **metadata_dict)
+        contig.add_metadata(source="annotation_file", metadata=contigs_meta_obj)
+
     return organism, True
 
+
+
+    
 def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str],
                  pseudo: bool = False) -> Tuple[Organism, bool]:
     """
@@ -866,6 +913,11 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotate"]["use_pseudo"] = pseudo
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
 
+    pangenome.status["metadata"]["genomes"] = "Computed"
+
+    pangenome.status["metadata"]["contigs"] = "Computed"
+    pangenome.status["metasources"]["genomes"].append("annotation_file")
+    pangenome.status["metasources"]["contigs"].append("annotation_file")
 
 def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disable_bar: bool = False):
     """

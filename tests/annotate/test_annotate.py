@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from ppanggolin.annotate.annotate import extract_positions, read_anno_file, parse_contig_header_lines, parse_gbff_by_contig, parse_feature_lines, parse_dna_seq_lines, read_org_gbff
+from ppanggolin.annotate.annotate import extract_positions, read_anno_file, parse_contig_header_lines, parse_gbff_by_contig, parse_feature_lines, parse_dna_seq_lines, read_org_gbff, combine_contigs_metadata
     
 
 
@@ -229,3 +229,19 @@ def test_parse_dna_seq_lines():
             "       21 ggccc ctttt"]
     
     assert parse_dna_seq_lines(lines) == "AAACCGGGTTCCAAATTTGGGGCCCCTTTT"
+
+
+def test_combine_contigs_metadata():
+
+    contig_to_metadata = {
+        "contig1":{"sp":"spA", "strain":"123", "contig_feat":"ABC"},
+        "contig2":{"sp":"spA", "strain":"123", "contig_feat":"XYZ"},
+        "contig3":{"sp":"spA", "strain":"123"}
+    }
+
+    genome_metadata, contig_metadata = combine_contigs_metadata(contig_to_metadata)
+
+    assert genome_metadata == {"sp":"spA", "strain":"123"}
+    assert contig_metadata == {"contig1":{"contig_feat":"ABC"}, "contig2":{"contig_feat":"XYZ"},}
+
+
