@@ -300,8 +300,7 @@ def write_gene_to_gene_family(seqid_to_gene_family: Dict[str, GeneFamily], seq_s
     with open(gene_fam_map_file, "w") as cluster_proj_file:
         for input_seq in seq_set:
             # get the seq gene family and if there is no hit, itself
-            gene_family = seqid_to_gene_family.get(input_seq,
-                                                   default=None)
+            gene_family = seqid_to_gene_family.get(input_seq)
             if gene_family is None:
                 gene_family_name = input_seq
             else:
