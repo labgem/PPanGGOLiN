@@ -446,7 +446,8 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 contig_counter.value += 1
             organism.add(contig)
             contig.length = contig_len
-        
+        genetic_code = 11
+
         for feature in features:
             if feature['type'] == "source":
                 contig_to_metadata[contig] = {tag:value for tag, value in feature.items() if tag not in ['type', "location"] and isinstance(value, str)}
