@@ -476,8 +476,6 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
 
     return organism, True
 
-
-
     
 def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str],
                  pseudo: bool = False) -> Tuple[Organism, bool]:
@@ -537,7 +535,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     gene_counter = 0
     rna_counter = 0
     attr_prodigal = None
-    
+    contig_name_to_region_info = {}
+
     id_attr_to_gene_id = {}
 
     with read_compressed_or_not(gff_file_path) as gff_file:
@@ -576,6 +575,11 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 pseudogene = False
 
                 if fields_gff[gff_type] == 'region':
+                    # keep region attributes to add them as metadata of genome and contigs
+                    # excluding some info as they are alredy contained in contig object.
+                    contig_name_to_region_info[fields_gff[gff_seqname]] = {tag.lower():value for tag, value in attributes.items() if tag not in ['ID', "NAME", "IS_CIRCULAR"]}
+
+
                     if fields_gff[gff_seqname] in circular_contigs or ('IS_CIRCULAR' in attributes and
                                                                        attributes['IS_CIRCULAR']=="true"):
                         # WARNING: In case we have prodigal gff with is_circular attributes. 
@@ -583,7 +587,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         logging.getLogger("PPanGGOLiN").debug(f"Contig {contig.name} is circular.")
                         contig.is_circular = True
                         assert contig.name == fields_gff[gff_seqname]
-
                 elif fields_gff[gff_type] == 'CDS' or "RNA" in fields_gff[gff_type]:
 
                     id_attribute = get_id_attribute(attributes)
@@ -678,8 +681,42 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             for rna in contig.RNAs:
                 rna.add_sequence(get_dna_sequence(contig_sequences[contig.name], rna))
 
+    # add metadata to genome and contigs
+    if contig_name_to_region_info:
+        add_metadata_from_gff_file(contig_name_to_region_info, org, gff_file_path)
+
     return org, has_fasta
 
+
+def add_metadata_from_gff_file(contig_name_to_region_info: Dict[str, str], org: Organism, gff_file_path: Path):
+    """
+    Add metadata to the organism object from a GFF file.
+
+    :param contig_name_to_region_info: A dictionary mapping contig names to their corresponding region information.
+    :param org: The organism object to which metadata will be added.
+    :param gff_file_path: The path to the GFF file.
+    """
+    
+    # Check if the number of contigs matches the expected number in the organism
+    if len(contig_name_to_region_info) == org.number_of_contigs:
+        genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(contig_name_to_region_info)
+        if genome_metadata:
+            genome_meta_obj = Metadata(source='annotation_file', **genome_metadata)
+            org.add_metadata(source="annotation_file", metadata=genome_meta_obj)
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            f"Inconsistent data in GFF file {gff_file_path}: "
+            f"expected {org.number_of_contigs} contigs but found {len(contig_name_to_region_info)} regions."
+        )
+    
+    for contig_name, metadata_dict in contig_to_uniq_metadata.items():
+        try:
+            contig = org.get(contig_name)
+        except KeyError:
+            raise ValueError(f"Contig '{contig_name}' does not exist in the genome object created from GFF file {gff_file_path}.")
+        
+        contigs_meta_obj = Metadata(source='annotation_file', **metadata_dict)
+        contig.add_metadata(source="annotation_file", metadata=contigs_meta_obj)
 
 
 def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separation: int = 10):
