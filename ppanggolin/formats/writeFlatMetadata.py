@@ -94,15 +94,15 @@ def write_flat_metadata_files(pangenome: Pangenome, output: Path,
                         metadata_dict[element_type] = f"spot_{element.ID}"
                     elif element_type == "modules":
                         metadata_dict[element_type] = f"module_{element.ID}"
-                    elif element_type in ["genes", "contigs"]:
+                    elif element_type in ["genes"]:
                         metadata_dict[element_type] = element.ID
-                    elif element_type in ["families", 'genomes', "RGPs"]:
+                    elif element_type in ["families", 'genomes', "RGPs", "contigs"]:
                         metadata_dict[element_type] = element.name
 
                     # Add genome name for genome-specific elements if genome is not already a metadata
                     if element_type in ["genes", "contigs", "RGPs"] and "genomes" not in metadata_dict:
                         metadata_dict["genomes"] = element.organism.name
-                        first_columns = ["genomes"] + first_columns
+                        first_columns = ["genomes", element_type ]
 
                     source_to_metadata[source].append(metadata_dict)
 
