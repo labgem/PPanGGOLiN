@@ -170,10 +170,9 @@ def launch_mafft(fname: Path, output: Path, fam_name: str):
     cmd = ["mafft", "--thread", "1", fname.absolute().as_posix()]
     logging.getLogger("PPanGGOLiN").debug("command: " + " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True)
-    if result.stdout:
-        fout = open(outname, "w")
-        fout.write(result.stdout.decode('utf-8'))
-        fout.close()
+    fout = open(outname, "w")
+    fout.write(result.stdout.decode('utf-8'))
+    fout.close()
     if result.stderr and result.returncode != 0:
         raise Exception(f"mafft failed with the following error:\n \
                          {result.stderr.decode('utf-8')}")
