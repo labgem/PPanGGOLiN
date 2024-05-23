@@ -927,7 +927,7 @@ def get_need_info(pangenome, need_annotations: bool = False, need_families: bool
             if set(pangenome.status["metasources"][metatype]) & sources_to_load:
                 metatypes_to_load.add(metatype)
             else:
-                logging.getLogger("PPanGGOLiN").warning(
+                logging.getLogger("PPanGGOLiN").debug(
                     f"There is no metadata assigned to {metatype} with specified sources:"
                     f" {', '.join(sources_to_load)} in the pangenome. This metatype is ignored.")
         if metatypes_to_load and sources_to_load:
