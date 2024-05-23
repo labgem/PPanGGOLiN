@@ -1,6 +1,6 @@
 # Metadata and Pangenome
 
-## Associating Metadata with Pangenome Elements
+## Associating Metadata to Pangenome Elements
 
 The `metadata` command allows the addition of metadata linked to various pangenome elements. Metadata can be associated with genes, genomes, families, RGPs, spots, and modules using a simple TSV file. 
 
@@ -19,8 +19,8 @@ The associated metadata can then be exported in various output files of PPanGGOL
 
 The metadata linked to pangenome elements can be exported to various output file formats within PPanGGOLiN, including GFF, PROKSEE JSON Map, and Table outputs of the `write_genomes` command (see [here](./writeGenomes.md#incorporating-metadata-into-tables-gff-and-proksee-files) for more details). Additionally, the metadata can also be included in the gexf graph file representing the pangenome and in the RGP clustering graph.
 
-```{note} 
-Some information (such as species, strain, dbx_ref) are extracted when found from genome annotation files (GBFF, GFF) during the annotation step and added to the pangenome file as metadata under the source 'annotation_files'. These metadata can be extracted using the `write_metadata` command.
+```{note}
+Certain information (such as species, strain, and dbx_ref) is extracted from genome annotation files (GBFF, GFF) during the annotation step and added to the pangenome as metadata under the source 'annotation_files'. These metadata can be extracted using the `write_metadata` command.
 ```
 
 ### Metadata Format
