@@ -76,6 +76,13 @@ class Metadata:
         fields = list(self.__dict__)
         fields.remove("source")
         return fields
+    
+    def to_dict(self):
+        """
+        Get metadata in dict format.
+        """
+
+        return self.__dict__.copy()
 
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
@@ -140,6 +147,7 @@ class MetaFeatures:
 
         return {source_field: separator.join(values) for source_field, values in source_field_2_values.items()}
 
+    
     def add_metadata(self, source, metadata):
         """Add metadata to metadata getter
 
