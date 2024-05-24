@@ -13,9 +13,13 @@ import time
 from typing import List, Set, Tuple, Iterable, Dict, Generator
 import re
 from collections import defaultdict
+import warnings
 
 # installed libraries
 from tqdm import tqdm
+from tables.path import check_name_validity
+
+# local libraries
 from ppanggolin.annotate.synta import (annotate_organism, read_fasta, get_dna_sequence,
                                        init_contig_counter, contig_counter)
 from ppanggolin.pangenome import Pangenome
@@ -23,7 +27,6 @@ from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
 from ppanggolin.formats import write_pangenome
 from ppanggolin.metadata import Metadata
-
 
 ctg_counter = contig_counter
 
@@ -69,9 +72,11 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     """
 
     start, stop = coordinates[0][0], coordinates[-1][1]
-    if gene_name == "":
-        gene_name = gene_id
+
     if any((dbxref.startswith('MaGe:') or dbxref.startswith('SEED:') for dbxref in dbxrefs)):
+        if gene_name == "":
+            gene_name = gene_id
+
         for dbxref in dbxrefs:
             if dbxref.startswith('MaGe:'):
                 gene_id = dbxref.split(':')[1]
@@ -344,7 +349,21 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
         - A dictionary mapping each contig to its unique metadata tags and values.
     """
     # Flatten all metadata items and count their occurrences
-    all_tag_to_value = [item for source_info in contig_to_metadata.values() for item in source_info.items() if isinstance(item[1], str)]
+    all_tag_to_value = [(tag,value) for source_info in contig_to_metadata.values() for (tag,value) in source_info.items() if isinstance(value, str)]
+
+    # Filter tags that would have a / as it is forbiden when writing the table in HDF5. Such tag can appear with db_xref formating
+    invalid_tag_names = []
+    for tag, _ in set(all_tag_to_value):
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                check_name_validity(tag)
+        except ValueError as err:
+            logging.getLogger("PPanGGOLiN").debug(f"{err}. The tag {tag} is ignored for metadata.")
+            invalid_tag_names.append(tag)
+
+    all_tag_to_value = [(tag, value) for tag, value in all_tag_to_value if tag not in invalid_tag_names]
+    
     contig_count = len(contig_to_metadata)
     
     # Identify tags and values shared by all contigs
@@ -356,7 +375,7 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
     contig_to_uniq_metadata = {}
     for contig, tag_to_value in contig_to_metadata.items():
         # Identify unique metadata for each contig
-        uniq_tag_to_value = {tag: value for tag, value in tag_to_value.items() if tag not in genome_metadata and isinstance(value, str)}
+        uniq_tag_to_value = {tag: value for tag, value in tag_to_value.items() if tag not in list(genome_metadata) + invalid_tag_names and isinstance(value, str)}
         if uniq_tag_to_value:
             contig_to_uniq_metadata[contig] = uniq_tag_to_value
 
@@ -383,7 +402,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     rna_counter = 0
     contig_to_metadata = {}
 
-    for i, (header, features, sequence) in enumerate(parse_gbff_by_contig(gbff_file_path)):
+    for header, features, sequence in parse_gbff_by_contig(gbff_file_path):
         
         contig_id = None
         contig_len = None
@@ -427,7 +446,16 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         
         for feature in features:
             if feature['type'] == "source":
-                contig_to_metadata[contig] = {tag:value for tag, value in feature.items() if tag not in ['type', "location"]}
+                contig_to_metadata[contig] = {tag:value for tag, value in feature.items() if tag not in ['type', "location"] and isinstance(value, str)}
+                if "db_xref" in feature:
+                    try:
+                        db_xref_for_metadata = {f"db_xref_{database}":identifier for database_identifier in feature["db_xref"] for database, identifier in [database_identifier.split(':')]}
+                        contig_to_metadata[contig].update(db_xref_for_metadata)
+                    except ValueError:
+                        logging.getLogger("PPanGGOLiN").warning(f"db_xref values does not have the expected format. Expect '\db_xref=<database>:<identifier> "
+                                                                    f"but got {feature['db_xref']} in file {gbff_file_path}. "
+                                                                    "db_xref tags from source is therefore not retrieved in contig/genomes metadata.")
+
 
             if feature['type'] not in ['CDS', 'rRNA', 'tRNA']:
                 continue   
