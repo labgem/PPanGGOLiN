@@ -159,7 +159,7 @@ jobs:
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db4 -m metadata/metadata_rgps.tsv -a RGPs
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db5 -m metadata/metadata_contigs.tsv  -a contigs
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db6 -m metadata/metadata_modules.tsv  -a modules
-
+        ppanggolin write_metadata -p mybasicpangenome/pangenome.h5 -o metadata_flat_output
 
 
         ppanggolin write_pangenome -p mybasicpangenome/pangenome.h5 --output mybasicpangenome -f --gexf --light_gexf --cpu $NUM_CPUS
