@@ -393,10 +393,10 @@ class Region(MetaFeatures):
         assert len(self) > 0, "Your region has no genes. Something wrong happened."
         
         if not self.contig.is_circular:
-            min_pos = min(self.contig.genes, key=lambda x: x.position).position
-            max_pos = max(self.contig.genes, key=lambda x: x.position).position
+            first_gene = self.contig[0]
+            last_gene = self.contig[-1]
 
-            if self.starter.position == min_pos or self.stopper.position == max_pos:
+            if self.starter == first_gene or self.stopper == last_gene:
                 return True
         return False
 
