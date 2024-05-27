@@ -420,7 +420,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
 
         if contig_len != len(sequence):
             logging.getLogger("PPanGGOLiN").warning("Unable to determine if the contig is circular or linear in file "
-                                                    f"'{gbff_file_path}' from the LOCUS line: {line}. "
+                                                    f"'{gbff_file_path}' from the LOCUS header information: {header['LOCUS']}. "
                                                     "By default, the contig will be considered linear.")
 
         if "CIRCULAR" in header['LOCUS'].upper():
