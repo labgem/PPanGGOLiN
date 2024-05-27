@@ -55,7 +55,7 @@ def write_json_header(json: TextIO):
         orgstr.append('"' + org.name + '": {')
         contigstr = []
         for contig in org.contigs:
-            contigstr.append(f'"{contig.name}": ' + '{"is_circular: ' +
+            contigstr.append(f'"{contig.name}": ' + '{"is_circular": ' +
                              ('true' if contig.is_circular else 'false') + '}')
         orgstr[-1] += ', '.join(contigstr) + "}"
 
@@ -71,7 +71,7 @@ def write_json_gene_fam(gene_fam: GeneFamily, json: TextIO):
     :param json: file-like object, compressed or not
     """
     json.write('{' + f'"id": "{gene_fam.name}", "nb_genes": {len(gene_fam)}, '
-                     f'"partition": "{gene_fam.named_partition}", "subpartition": "{gene_fam.partition}"' + '}')
+                     f'"partition": "{gene_fam.named_partition}", "subpartition": "{gene_fam.partition}"' )
     org_dict = {}
     name_counts = Counter()
     product_counts = Counter()
@@ -842,8 +842,8 @@ def write_rgp_table(regions: Set[Region],
                 "region": region.name,
                 "genome": region.organism,
                 "contig": region.contig,
-                "start": region.starter,
-                "stop": region.stopper,
+                "start": region.start,
+                "stop": region.stop,
                 "genes": len(region),
                 "contigBorder": region.is_contig_border,
                 "wholeContig": region.is_whole_contig

@@ -139,29 +139,29 @@ def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory
     # have a directory for each gene family, to make deletion of tmp files simpler
 
     f_name = Path(tmpdir.name) / f"{family.name}.fasta"
-    f_obj = open(f_name, "w")
+
     # get genes that are present in only one copy for our family in each organism.
     single_copy_genes = []
     for _, genes in family.get_org_dict().items():
         if len(genes) == 1:
             single_copy_genes.extend(genes)
+            
+    with open(f_name, "w") as f_obj:
+        for gene in single_copy_genes:
+            if use_gene_id:
+                f_obj.write(f">{gene.ID}\n")
+            else:
+                f_obj.write(f">{gene.organism.name}\n")
+            if source == "dna":
+                f_obj.write(gene.dna + '\n')
+            elif source == "protein":
+                protein, part = translate(gene, code_table)
+                if not partial:
+                    partial = part
+                f_obj.write(protein + "\n")
+            else:
+                raise ValueError(f"Unknown sequence source '{source}' provided. Expected 'dna' or 'protein'.")
 
-    partial = False
-    for gene in single_copy_genes:
-        if use_gene_id:
-            f_obj.write('>' + gene.ID + "\n")
-        else:
-            f_obj.write('>' + gene.organism.name + "\n")
-        if source == "dna":
-            f_obj.write(gene.dna + '\n')
-        elif source == "protein":
-            protein, part = translate(gene, code_table)
-            if not partial:
-                partial = part
-            f_obj.write(protein + "\n")
-        else:
-            raise AssertionError("Unknown sequence source given (expected 'dna' or 'protein')")
-    f_obj.flush()
     return f_name, partial
 
 
@@ -176,7 +176,14 @@ def launch_mafft(fname: Path, output: Path, fam_name: str):
     outname = output / f"{fam_name}.aln"
     cmd = ["mafft", "--thread", "1", fname.absolute().as_posix()]
     logging.getLogger("PPanGGOLiN").debug("command: " + " ".join(cmd))
-    subprocess.run(cmd, stdout=open(outname, "w"), stderr=subprocess.DEVNULL, check=True)
+    result = subprocess.run(cmd, capture_output=True)
+
+    with  open(outname, "w") as fout:
+        fout.write(result.stdout.decode('utf-8'))
+
+    if result.stderr and result.returncode != 0:
+        raise Exception("mafft failed with the following error:\n"
+                         f"{result.stderr.decode('utf-8')}")
 
 
 def launch_multi_mafft(args: List[Tuple[Path, Path, str]]):
