@@ -287,22 +287,25 @@ def project_and_write_partition(seqid_to_gene_family: Dict[str, GeneFamily], seq
 
 def write_gene_to_gene_family(seqid_to_gene_family: Dict[str, GeneFamily], seq_set: Set[str], output: Path) -> Path:
     """
-    Write input gene to gene family.
+    Write input gene to pangenome gene family.
 
-    :param seqid_to_gene_family: dictionnary which link sequence and pangenome gene family
+    :param seqid_to_gene_family: dictionnary which links input sequence and pangenome gene family
     :param seq_set: input sequences
     :param output: Path of the output directory
 
-    :return: Path to file which contain partition projection
+    :return: Path to the file which contains gene to gene family projection results
     """
 
     gene_fam_map_file = output.absolute() / "gene_to_gene_family.tsv"
-    with open(gene_fam_map_file, "w") as partProjFile:
-        for input_seq, gene_fam in seqid_to_gene_family.items():
-            partProjFile.write(f"{input_seq}\t{gene_fam.name}\n")
-
-        for remaining_seq in seq_set - seqid_to_gene_family.keys():
-            partProjFile.write(f"{remaining_seq}\t{remaining_seq}\n")  # if there is no hit, gene family is itself.
+    with open(gene_fam_map_file, "w") as cluster_proj_file:
+        for input_seq in seq_set:
+            # get the seq gene family and if there is no hit, itself
+            gene_family = seqid_to_gene_family.get(input_seq)
+            if gene_family is None:
+                gene_family_name = input_seq
+            else:
+                gene_family_name = gene_family.name
+            cluster_proj_file.write(f"{input_seq}\t{gene_family_name}\n")
 
     return gene_fam_map_file
 
