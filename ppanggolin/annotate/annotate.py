@@ -203,8 +203,10 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             elif "LINEAR" in line.upper():
                 is_circ = False
             else:
-                logging.getLogger("PPanGGOLiN").warning("It's impossible to identify if contigs are circular or linear."
-                                 f"in file {gbff_file_path}.")
+                logging.getLogger("PPanGGOLiN").warning("Unable to determine if the contig is circular or linear in file "
+                                                        f"'{gbff_file_path}' from the LOCUS line: {line}. "
+                                                        "By default, the contig will be considered linear.")
+
             contig_id = line.split()[1]
             contig_len = int(line.split()[2])
             # If contig_id is not specified in VERSION afterward like with Prokka, in that case we use the one in LOCUS
