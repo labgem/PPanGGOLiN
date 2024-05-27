@@ -419,8 +419,9 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         contig_len = int(header['LOCUS'].split()[1])
 
         if contig_len != len(sequence):
-            raise ValueError("The contig length defined in LOCUS section is different than the length of the dna sequence. "
-                             f"For contig {contig_id} in {gbff_file_path}")
+            logging.getLogger("PPanGGOLiN").warning("Unable to determine if the contig is circular or linear in file "
+                                                    f"'{gbff_file_path}' from the LOCUS line: {line}. "
+                                                    "By default, the contig will be considered linear.")
 
         if "CIRCULAR" in header['LOCUS'].upper():
             # this line contains linear/circular word telling if the dna sequence is circularized or not

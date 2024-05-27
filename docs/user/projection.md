@@ -51,7 +51,7 @@ Additionally, within the Output directory, there is a subdirectory for each inpu
 For Gene Family and Partition of Input Genes:
 
 - `cds_sequences.fasta`: This file contains the sequences of coding regions (CDS) from the input genome.
-- `gene_to_gene_family.tsv`: It provides the mapping of genes to gene families of the pangenome. Its format follows [this output](Outputs.md#gene-families-and-genes)
+- `gene_to_gene_family.tsv`: It provides the mapping of genes to gene families of the pangenome. Its format follows [this output](PangenomeAnalyses/pangenomeAnalyses.md#gene-families-to-genes-associations)
 - `sequences_partition_projection.tsv`: This file maps the input genes to its partition (Persistent, Shell or Cloud).
 - `specific_genes.tsv`: This file lists the gene of the input genomes that do not align to any gene of the pangenome. These genes are assigned to Cloud parititon. 
 
