@@ -218,3 +218,12 @@ class MetaFeatures:
         """
         max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
         return max_source, len(max_meta)
+
+    def has_metadata(self):
+        """
+        Does the feature has some metadata associated.
+
+        :return: True if it has metadata else False
+        """
+
+        return True if len(self._metadata_getter) > 0 else False
