@@ -102,7 +102,7 @@ def main():
 
     workflow = parse_yaml_file(args.ci_yaml)
 
-    excluded_steps = ['Install ppanggolin']
+    excluded_steps = ['Install ppanggolin', "Get core number on linux", "Get core number on macos"]
 
     test_script = args.outdir  / 'launch_test_command.sh'
     with open(test_script, "w") as fl:
