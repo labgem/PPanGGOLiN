@@ -52,6 +52,7 @@ class Region(MetaFeatures):
         self.stopper = None
         self.ID = Region.id_counter
         self._spot = None
+        self.projected = False # If the rgp is from a projected genome. If true can have multiple spots
         Region.id_counter += 1
 
     def __str__(self):
@@ -131,9 +132,11 @@ class Region(MetaFeatures):
         :raises KeyError: Gene at the given position does not exist
         """
         try:
-            return self._genes_getter[position]
+            gene = self._genes_getter[position]
         except KeyError:
             raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
+        else:
+            return gene
 
     @property
     def spot(self) -> Union[Spot, None]:
@@ -392,8 +395,15 @@ class Spot(MetaFeatures):
         """
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
-        if region.spot is not None and region.spot != self:
-            raise ValueError("The region is already with a different spot. A region belongs to only one spot.")
+        
+        if not region.projected and region.spot is not None and region.spot != self:
+            # In normal cases, a region should only belong to one spot. However, an exception arises in the projection command, 
+            # where a projected RGP might link two spots in the spot graph.
+            # To handle this scenario without triggering failure, we check the 'projected' attribute of the given region.
+                     
+            raise ValueError(f"The region '{region.name}' is already associated with spot '{region.spot.ID}' while being associated with spot '{self.ID}'. "
+                                            "A region should only belong to one spot.")
+
         self._region_getter[name] = region
         region.spot = self
 
@@ -410,9 +420,11 @@ class Spot(MetaFeatures):
         if not isinstance(name, str):
             raise TypeError(f"Name of the region must be a string. The provided type was {type(name)}")
         try:
-            return self._region_getter[name]
+            region = self._region_getter[name]
         except KeyError:
             raise KeyError(f"Region with {name} does not exist in spot")
+        else:
+            return region
 
     def __delitem__(self, name):
         """Delete the region for the given name
@@ -692,9 +704,11 @@ class Module(MetaFeatures):
         :raises KeyError: Family with the given name does not exist in the module
         """
         try:
-            return self._families_getter[name]
+            family = self._families_getter[name]
         except KeyError:
             raise KeyError(f"There isn't gene family with the name {name} in the module")
+        else:
+            return family
 
     def __delitem__(self, name):
         """Remove the gene family for the given name in the module
@@ -885,9 +899,11 @@ class GeneContext:
         :raises KeyError: Family with the given name does not exist in the context
         """
         try:
-            return self._families_getter[name]
+            family = self._families_getter[name]
         except KeyError:
             raise KeyError(f"There isn't gene family with the name {name} in the gene context")
+        else:
+            return family
 
     def __delitem__(self, name):
         """Remove the gene family for the given name in the context

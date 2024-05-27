@@ -146,7 +146,7 @@ def translate_genes(sequences: TextIO, tmpdir: Path, threads: int = 1, code: int
     :return: Path to the MMSeqs2 database
     """
     seq_nucdb = tmpdir / 'nucleotide_sequences_db'
-    cmd = list(map(str, ["mmseqs", "createdb", sequences.name, seq_nucdb]))
+    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, sequences.name, seq_nucdb]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -176,8 +176,14 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     logging.getLogger("PPanGGOLiN").info("Writing all the gene nucleotide sequences...")
     outpath = output / f"{genes}_genes.fna"
 
-    genefams = select_families(pangenome, genes, "gene nucleotide sequences", soft_core)
+    genefams = set()
     genes_to_write = []
+    if genes == "rgp":
+        logging.getLogger("PPanGGOLiN").info(f"Writing the gene nucleotide sequences in RGPs...")
+        for region in pangenome.regions:
+            genes_to_write.extend(region.genes)
+    else:
+        genefams = select_families(pangenome, genes, "gene nucleotide sequences", soft_core)
 
     for fam in genefams:
         genes_to_write.extend(fam.genes)
@@ -493,7 +499,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
                 genome_sequence = read_genome_file(org_dict[organism.name], organism)
             fasta.write(f">{region.name}\n")
             fasta.write(
-                write_spaced_fasta(genome_sequence[region.contig.name][region.starter.start:region.stopper.stop], 60))
+                write_spaced_fasta(genome_sequence[region.contig.name][region.start:region.stop], 60))
     logging.getLogger("PPanGGOLiN").info(f"Done writing the regions nucleotide sequences: '{outname}'")
 
 

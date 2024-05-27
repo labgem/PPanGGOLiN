@@ -119,6 +119,10 @@ def init_matrices(contig: Contig, multi: set, persistent_penalty: int = 3, varia
         if prev.state == 0:
             zero_ind = prev
         mat.append(prev)
+        logging.getLogger("PPanGGOLiN").debug(f"gene:{gene.ID};zero_ind:{zero_ind};curr_state:{curr_state};curr_score:{curr_score}.")
+    
+    if zero_ind is None:
+        zero_ind = prev#don't go further than the current node, if no node were at 0.
 
     # if the contig is circular, and we're in a rgp state,
     # we need to continue from the "starting" gene until we leave rgp state.
@@ -131,6 +135,7 @@ def init_matrices(contig: Contig, multi: set, persistent_penalty: int = 3, varia
             mat_node = mat[c]
             if mat_node == zero_ind:
                 # then we've parsed the entire contig twice.
+                logging.getLogger("PPanGGOLiN").debug(f"{contig.name} was parsed entirely twice.")
                 # The whole sequence is a rgp, so we're stopping the iteration now, otherwise we'll loop indefinitely
                 break
 
@@ -141,9 +146,10 @@ def init_matrices(contig: Contig, multi: set, persistent_penalty: int = 3, varia
                 modif = variable_gain
                 nb_perc = 0
 
-            curr_score = modif + prev.score
+            curr_score = modif + mat_node.prev.score
             curr_state = 1 if curr_score >= 0 else 0
             mat_node.changes(curr_score)
+            logging.getLogger("PPanGGOLiN").debug(f"gene:{mat_node.gene.ID};curr_state:{curr_state};curr_score:{curr_score}.")
             c += 1
     return mat
 
