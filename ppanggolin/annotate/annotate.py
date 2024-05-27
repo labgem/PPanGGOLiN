@@ -454,8 +454,10 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                     except ValueError:
                         logging.getLogger("PPanGGOLiN").warning(f"db_xref values does not have the expected format. Expect '\db_xref=<database>:<identifier> "
                                                                     f"but got {feature['db_xref']} in file {gbff_file_path}. "
-                                                                    "db_xref tags from source is therefore not retrieved in contig/genomes metadata.")
+                                                                    "db_xref tags is therefore not retrieved in contig/genomes metadata.")
 
+                
+                    contig_to_metadata[contig].update(db_xref_for_metadata)
 
             if feature['type'] not in ['CDS', 'rRNA', 'tRNA']:
                 continue   
@@ -504,7 +506,31 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
 
     return organism, True
 
-    
+def parse_db_xref_metadata(db_xref_values: List[str], annot_file_path: Path = "") -> Dict[str, str]:
+    """
+    Parses a list of db_xref values and returns a dictionary with formatted keys and identifiers.
+
+    :param db_xref_values: List of db_xref strings in the format <database>:<identifier>.
+    :param annot_file_path: Path to the annotation file being processed.
+    :return: Dictionary with keys formatted as 'db_xref_<database>' and their corresponding identifiers.
+    """
+    db_xref_for_metadata = {}
+    try:
+        # Create a dictionary with keys formatted as 'db_xref_<database>' and their corresponding identifiers
+        db_xref_for_metadata = {
+            f"db_xref_{database}": identifier
+            for database_identifier in db_xref_values
+            for database, identifier in [database_identifier.split(':')]
+        }
+    except ValueError:
+        logging.getLogger("PPanGGOLiN").warning(
+            f"db_xref values do not have the expected format. Expected '<database>:<identifier>', "
+            f"but got {db_xref_values} in file {annot_file_path}. "
+            "db_xref tags are therefore not retrieved in contig/genome metadata."
+        )
+    return db_xref_for_metadata
+
+
 def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str],
                  pseudo: bool = False) -> Tuple[Organism, bool]:
     """
@@ -605,8 +631,13 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 if fields_gff[gff_type] == 'region':
                     # keep region attributes to add them as metadata of genome and contigs
                     # excluding some info as they are alredy contained in contig object.
-                    contig_name_to_region_info[fields_gff[gff_seqname]] = {tag.lower():value for tag, value in attributes.items() if tag not in ['ID', "NAME", "IS_CIRCULAR"]}
 
+                    contig_name_to_region_info[fields_gff[gff_seqname]] = {tag.lower():value for tag, value in attributes.items() if tag not in ['ID', "NAME", "IS_CIRCULAR", "DB_XREF", "DBXREF"]}
+                    
+                    if "DB_XREF" in attributes or "DBXREF" in  attributes: # db_xref can be written Dbxref and db_ref
+                        dbxref_tag =  "DB_XREF" if "DB_XREF"  in attributes else "DBXREF"
+                        dbxref_metadata = parse_db_xref_metadata(attributes[dbxref_tag].split(','), gff_file_path)
+                        contig_name_to_region_info[fields_gff[gff_seqname]].update(dbxref_metadata)
 
                     if fields_gff[gff_seqname] in circular_contigs or ('IS_CIRCULAR' in attributes and
                                                                        attributes['IS_CIRCULAR']=="true"):
