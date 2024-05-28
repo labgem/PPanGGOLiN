@@ -118,6 +118,8 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
     :return: A tuple containing a list of tuples representing start and stop positions,
              a boolean indicating whether it is complement, and
              a boolean indicating whether it is likely a pseudogene.
+
+    :raises ValueError: If the string is not formatted as expected or if positions cannot be parsed as integers.
     """
     complement = False
     coordinates = []
@@ -524,6 +526,10 @@ def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separatio
     :param gene: Gene object to be compared and potentially merged with new_gene_info.
     :param new_gene_info: Dictionary containing information about the new gene.
     :param max_separation: Maximum allowed separation between gene coordinates for merging. Default is 10.
+
+
+    :raises AssertionError: If the start position is greater than the stop position in new_gene_info.
+    :raises ValueError: If the coordinates of genes are too far apart to merge, or if the gene attributes do not match.
     """
 
     # Compare attributes of the existing gene with new_gene_info
@@ -568,6 +574,8 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
     Corrects putative overlaps in gene coordinates for circular contigs.
 
     :param contigs: Iterable of Contig objects representing circular contigs.
+
+    :raises ValueError: If a gene start position is higher than the length of the contig.
     """
 
     for contig in contigs:

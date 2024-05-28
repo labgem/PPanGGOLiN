@@ -178,7 +178,7 @@ class Feature(MetaFeatures):
         if strand not in ["+", "-"]:
             raise ValueError("Strand should be + or -")
         if not isinstance(coordinates, list):
-            raise ValueError(f"coordinates should be of type list. Type {type(coordinates)} was given instead")
+            raise TypeError(f"coordinates should be of type list. Type {type(coordinates)} was given instead")
         
         for start_i, stop_i in coordinates:
             if not isinstance(start_i, int):

@@ -161,6 +161,8 @@ def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
     :param h5f: the hdf5 file handler
 
     :return: dictionary linking genedata to the genedata identifier
+
+    :raises KeyError: If a Genedata entry with joined coordinates is not found in the annotations.joinCoordinates table.
     """
 
     genedata_id_to_coordinates = read_join_coordinates(h5f)

@@ -108,9 +108,10 @@ class Region(MetaFeatures):
         :param position: Position of the gene in the contig
         :param gene: Gene to add in the region
 
-        :raises TypeError: Gene is not instance Gene
-        :raises Exception: Organism or contig of the gene is different from the region
-        :raises KeyError: Another gene already exists at the position
+        :raises TypeError: If the gene is not an instance of Gene.
+        :raises ValueError: If the organism or contig of the gene is different from the region.
+        :raises KeyError: If another gene already exists at the specified position.
+        :raises ValueError: If the position of the gene does not match the provided position.
         """
 
         if position != gene.position:
@@ -123,10 +124,10 @@ class Region(MetaFeatures):
 
         if len(self) > 0:
             if gene.organism != self.organism:
-                raise Exception(f"Gene {gene.name} is from a different genome than the first defined in RGP. "
+                raise ValueError(f"Gene {gene.name} is from a different genome than the first defined in RGP. "
                                 "That's not possible")
             if gene.contig != self.contig:
-                raise Exception(f"Gene {gene.name} is from a different contig than the first defined in RGP. "
+                raise ValueError(f"Gene {gene.name} is from a different contig than the first defined in RGP. "
                                 "That's not possible")
         if position in self._genes_getter and self[position] != gene:
             raise KeyError("Another gene already exist at this position")
@@ -144,7 +145,7 @@ class Region(MetaFeatures):
         """
         Identify first and last genes of the rgp by taking into account the circularity of contigs. 
 
-        Set the attributes _starter: first gene of the region  and _stoppe: last gene of the region and _coordinates
+        Set the attributes _starter: first gene of the region  and _stopper: last gene of the region and _coordinates
 
         """
         rgp_genes_positions = list(self._genes_getter.keys() )
@@ -171,10 +172,11 @@ class Region(MetaFeatures):
             self._coordinates = [(self._starter.start, self._stopper.stop)]
             self._overlaps_contig_edge = False
 
-    def get_ordered_genes(self) -> List[List[Gene]]:
+    def get_ordered_genes(self) -> List[Gene]:
         """
-        Get ordered genes of the rgp by taking into account the circularity of contigs. 
-        
+        Get ordered genes of the region, taking into account the circularity of contigs.
+
+        :return: A list of genes ordered by their positions in the region.
         """
         
         rgp_genes_positions = list(self._genes_getter.keys() )
@@ -208,7 +210,7 @@ class Region(MetaFeatures):
     def starter(self) -> Gene:
         """
         Return first gene of the region. If this gene is not identified, it does that first.
-        
+        :return:  first gene of the region
         """
         if self._starter is None:
             self.identify_rgp_last_and_first_genes()
@@ -219,7 +221,7 @@ class Region(MetaFeatures):
     def stopper(self) -> Gene:
         """
         Return last gene of the region. If this gene is not identified, it does that first.
-
+        :return: last gene of the region
         """
         if self._stopper is None:
             self.identify_rgp_last_and_first_genes()
@@ -229,6 +231,7 @@ class Region(MetaFeatures):
     def coordinates(self) -> List[Tuple[int]]:
         """
         Return the coordinates of the region
+        :return: coordinates of the region
         """
         if self._coordinates is None:
             self.identify_rgp_last_and_first_genes() 
