@@ -773,7 +773,7 @@ class Pangenome:
         return exact_core_families
 
     """Metadata"""
-    def has_metadata(self):
+    def has_metadata(self) -> bool:
         """
         Whether or not the pangenome has metadata associated with any of its elements.
         """

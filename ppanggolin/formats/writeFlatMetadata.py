@@ -22,7 +22,8 @@ def write_flat_metadata_files(pangenome: Pangenome, output: Path,
                               compress: bool = False, disable_bar: bool = False) -> None:
     """
     Main function to write flat metadata files from a pangenome.
-
+    :todo: Split the function in subfunction
+    
     :param pangenome: Pangenome object
     :param output: Path to output directory
     :param pangenome_elements: List of pangenome elements to include metadata for

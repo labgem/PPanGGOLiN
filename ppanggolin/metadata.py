@@ -77,7 +77,7 @@ class Metadata:
         fields.remove("source")
         return fields
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """
         Get metadata in dict format.
         """
@@ -219,7 +219,7 @@ class MetaFeatures:
         max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
         return max_source, len(max_meta)
 
-    def has_metadata(self):
+    def has_metadata(self) -> bool:
         """
         Does the feature has some metadata associated.
 
