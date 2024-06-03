@@ -125,9 +125,11 @@ class GeneFamily(MetaFeatures):
         if not isinstance(identifier, str):
             raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
         try:
-            return self._genes_getter[identifier]
+            gene = self._genes_getter[identifier]
         except KeyError:
             raise KeyError(f"Gene with the ID: {identifier} does not exist in the family")
+        else:
+            return gene
 
     def __delitem__(self, identifier: str):
         """Remove the gene for the given name in the gene family
@@ -155,7 +157,8 @@ class GeneFamily(MetaFeatures):
             raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
         self[gene.ID] = gene
         gene.family = self
-        if gene.organism is not None:
+        if gene.organism is not None and gene.organism in self._genePerOrg:
+            # TODO try to remove the second condition and check if projection is working
             self._genePerOrg[gene.organism].add(gene)
 
     def get(self, identifier: str) -> Gene:
@@ -183,6 +186,23 @@ class GeneFamily(MetaFeatures):
         if not isinstance(identifier, str):
             raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
         del self[identifier]
+
+
+    def contains_gene_id(self, identifier):
+        """
+        Check if the family contains already a gene id
+
+        :param identifier: ID of the gene
+
+        :return: True if it contains False if it does not
+
+        :raises TypeError: If the identifier is not instance string
+        """
+        if not isinstance(identifier, str):
+            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+        
+        return identifier in self._genes_getter
+
 
     #TODO define __eq__
     @property

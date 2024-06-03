@@ -70,6 +70,7 @@ def check_sim(pair_border1: list, pair_border2: list, overlapping_match: int = 2
         return True
     return False
 
+
 def add_new_node_in_spot_graph(g: nx.Graph, region: Region, borders: list) -> str:
     """
     Add bordering region as node to graph
@@ -92,6 +93,7 @@ def add_new_node_in_spot_graph(g: nx.Graph, region: Region, borders: list) -> st
         g.nodes[blocks]["rgp"] = {region}
 
     return blocks
+
 
 def make_spot_graph(rgps: list, multigenics: set, overlapping_match: int = 2,
                     set_size: int = 3, exact_match: int = 1) -> nx.Graph:
@@ -132,23 +134,24 @@ def make_spot_graph(rgps: list, multigenics: set, overlapping_match: int = 2,
 
     return graph_spot
 
+
 def write_spot_graph(graph_spot, outdir, graph_formats, file_basename="spotGraph"):
-        for node in graph_spot.nodes:
-            graph_spot.nodes[node]["border0"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border0"]])
-            graph_spot.nodes[node]["border1"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border1"]])
+    for node in graph_spot.nodes:
+        graph_spot.nodes[node]["border0"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border0"]])
+        graph_spot.nodes[node]["border1"] = ';'.join([fam.name for fam in graph_spot.nodes[node]["border1"]])
 
-            graph_spot.nodes[node]["genomes"] = ';'.join({rgp.organism.name for rgp in graph_spot.nodes[node]["rgp"]})
-            graph_spot.nodes[node]["rgp"] = ';'.join([rgp.name for rgp in graph_spot.nodes[node]["rgp"]])
+        graph_spot.nodes[node]["genomes"] = ';'.join({rgp.organism.name for rgp in graph_spot.nodes[node]["rgp"]})
+        graph_spot.nodes[node]["rgp"] = ';'.join([rgp.name for rgp in graph_spot.nodes[node]["rgp"]])
 
-        if "gexf" in graph_formats:
-            outfile = outdir / f"{file_basename}.gexf"
-            logging.getLogger("PPanGGOLiN").info(f'Writing spot graph in {outfile}')
-            nx.readwrite.gexf.write_gexf(graph_spot, outfile)
-                                         
-        if "graphml" in graph_formats:
-            outfile = outdir / f"{file_basename}.graphml"
-            logging.getLogger("PPanGGOLiN").info(f'Writing spot graph in {outfile}')
-            nx.readwrite.graphml.write_graphml(graph_spot, outfile)
+    if "gexf" in graph_formats:
+        outfile = outdir / f"{file_basename}.gexf"
+        logging.getLogger("PPanGGOLiN").info(f'Writing spot graph in {outfile}')
+        nx.readwrite.gexf.write_gexf(graph_spot, outfile)
+
+    if "graphml" in graph_formats:
+        outfile = outdir / f"{file_basename}.graphml"
+        logging.getLogger("PPanGGOLiN").info(f'Writing spot graph in {outfile}')
+        nx.readwrite.graphml.write_graphml(graph_spot, outfile)
 
 
 def check_pangenome_former_spots(pangenome: Pangenome, force: bool = False):
@@ -165,7 +168,8 @@ def check_pangenome_former_spots(pangenome: Pangenome, force: bool = False):
         erase_pangenome(pangenome, spots=True)
 
 
-def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = False, graph_formats: List[str] = ['gexf'], overlapping_match: int = 2,
+def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = False, graph_formats: List[str] = ['gexf'],
+                     overlapping_match: int = 2,
                      set_size: int = 3, exact_match: int = 1, force: bool = False, disable_bar: bool = False):
     """
     Main function to predict hotspot
@@ -201,8 +205,8 @@ def predict_hotspots(pangenome: Pangenome, output: Path, spot_graph: bool = Fals
 
     # make spots
     graph_spot = make_spot_graph(pangenome.regions, multigenics, overlapping_match, set_size,
-                            exact_match)
-    
+                                 exact_match)
+
     spots = []
     for spot_id, comp in enumerate(nx.algorithms.components.connected_components(graph_spot)):
         curr_spot = Spot(spot_id)
@@ -240,7 +244,7 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
     if args.spot_graph:
         mk_outdir(args.output, args.force)
-    predict_hotspots(pangenome, args.output, force=args.force, 
+    predict_hotspots(pangenome, args.output, force=args.force,
                      spot_graph=args.spot_graph, graph_formats=args.graph_formats,
                      overlapping_match=args.overlapping_match, set_size=args.set_size,
                      exact_match=args.exact_match_size, disable_bar=args.disable_prog_bar, )
@@ -289,7 +293,8 @@ def parser_spot(parser: argparse.ArgumentParser):
                                "during hotspot computation (Ex: If set to 1, two RGPs are in the same hotspot "
                                "if both their 1st flanking genes are the same)")
     optional.add_argument('--graph_formats', required=False, type=str, choices=['gexf', "graphml"], nargs="+",
-                          default=['gexf'], help="Format of the output graph.")    
+                          default=['gexf'], help="Format of the output graph.")
+
 
 if __name__ == '__main__':
     """To test local change and allow using debugger"""

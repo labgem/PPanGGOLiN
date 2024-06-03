@@ -28,6 +28,7 @@ SUBCOMMAND_TO_SUBPARSER = {
     "draw": ppanggolin.figures.subparser,
     "write_pangenome": ppanggolin.formats.writeFlatPangenome.subparser,
     "write_genomes": ppanggolin.formats.writeFlatGenomes.subparser,
+    "write_metadata": ppanggolin.formats.writeFlatMetadata.subparser,
     "fasta": ppanggolin.formats.writeSequences.subparser,
     "msa": ppanggolin.formats.writeMSA.subparser,
     "metrics": ppanggolin.metrics.metrics.subparser,

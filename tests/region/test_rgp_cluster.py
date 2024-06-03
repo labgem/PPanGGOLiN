@@ -17,14 +17,14 @@ def genes() -> Generator[Set[Gene], None, None]:
     """
     organism = Organism("organism")
     contig = Contig(0, "contig")
-    genes = set()
+    genes = []
     for i in range(0, randint(11, 20)):
         gene = Gene(f"gene_{str(i)}")
         gene.fill_annotations(start=10 * i + 1, stop=10 * (i + 1), strand='+', position=i, genetic_code=4)
         gene.fill_parents(organism, contig)
         contig[gene.start] = gene
-        genes.add(gene)
-    yield genes
+        genes.append(gene)
+    return genes
 
 
 @pytest.fixture

@@ -61,29 +61,34 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
         write_pangenome(pangenome, filename, args.force, disable_bar=args.disable_prog_bar)
         writing_time = time.time() - start_writing
 
-        if args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is None:
-            raise Exception("The gff/gbff provided did not have any sequence informations, "
-                            "you did not provide clusters and you did not provide fasta file. "
-                            "Thus, we do not have the information we need to continue the analysis.")
-
-        elif args.clusters is None and pangenome.status["geneSequences"] == "No" and args.fasta is not None:
-            get_gene_sequences_from_fastas(pangenome, args.fasta)
-
-        start_clust = time.time()
         if args.clusters is not None:
+            start_clust = time.time()
             read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar,
                             infer_singleton=args.cluster.infer_singletons)
-
-        elif args.clusters is None:  # we should have the sequences here.
-
+        else:  # args.cluster is None
+            if pangenome.status["geneSequences"] == "No":
+                if args.fasta is None:
+                    raise Exception("The gff/gbff provided did not have any sequence information, "
+                                    "you did not provide clusters and you did not provide fasta file. "
+                                    "Thus, we do not have the information we need to continue the analysis.")
+                else:
+                    get_gene_sequences_from_fastas(pangenome, args.fasta)
+            start_clust = time.time()
             clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cluster.cpu, force=args.force,
                        disable_bar=args.disable_prog_bar,
                        defrag=not args.cluster.no_defrag, code=args.cluster.translation_table,
                        coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode,
-                       keep_tmp_files=args.cluster.keep_tmp)
+                       keep_tmp_files=True)
         clust_time = time.time() - start_clust
 
     elif args.fasta is not None:
+        if args.clusters is not None:
+            message = """
+            You provide a list of fasta file and a clustering, which is incompatible. 
+            Please provide a list of annotation files and if needed the list of fasta file, to use your clustering.
+            Or you can let PPanGGOLiN manage the clustering step from your fasta file.
+            """
+            raise argparse.ArgumentError(argument=None, message=message)
 
         start_anno = time.time()
         annotate_pangenome(pangenome, args.fasta, tmpdir=args.tmpdir, cpu=args.annotate.cpu,
@@ -100,9 +105,9 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         start_clust = time.time()
         clustering(pangenome, tmpdir=args.tmpdir, cpu=args.cluster.cpu, force=args.force,
-                   disable_bar=args.disable_prog_bar,
-                   defrag=not args.cluster.no_defrag, code=args.cluster.translation_table,
-                   coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode,
+                   disable_bar=args.disable_prog_bar, defrag=not args.cluster.no_defrag,
+                   code=args.cluster.translation_table, coverage=args.cluster.coverage,
+                   identity=args.cluster.identity, mode=args.cluster.mode,
                    keep_tmp_files=args.cluster.keep_tmp)
         clust_time = time.time() - start_clust
 
@@ -213,7 +218,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         if panrgp:
             borders, spots, regions = (
-            args.write_pangenome.borders, args.write_pangenome.spots, args.write_pangenome.regions)
+                args.write_pangenome.borders, args.write_pangenome.spots, args.write_pangenome.regions)
             write_pangenome_arguments += ["borders", "spots", "regions"]
 
         if panmodule and panrgp:

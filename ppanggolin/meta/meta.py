@@ -87,15 +87,15 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
     :param pangenome: A Pangenome object representing the pangenome to which metadata will be assigned.
     :param source: A string representing the source of the metadata.
     :param metatype: A string representing the type of element to which metadata will be assigned.
-    :param omit: A boolean indicating whether to raise an error if metadata cannot be assigned to an element. If True, metadata will not be assigned to elements that do not exist in the pangenome. If False, an error will be raised. Default is False.
+    :param omit: A boolean indicating whether to raise an error if metadata cannot be assigned to an element. 
+                 If True, metadata will not be assigned to elements that do not exist in the pangenome. 
+                 If False, an error will be raised. Default is False.
     :param disable_bar: A boolean indicating whether to disable the progress bar. Default is False.
 
     :raise KeyError: element name is not find in pangenome
     :raise AssertionError: Metatype is not recognized
     """
     assert metatype in ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
-
-    org2contig = None
 
     def check_duplicate_contig_name():
         contig_names = set()
@@ -108,7 +108,7 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
                                 "Add a column 'genomes' to indicate to which genome the contig belongs to.")
 
     if metatype == "contigs" and "genomes" not in metadata_df.columns:
-            check_duplicate_contig_name()
+        check_duplicate_contig_name()
 
     for row in tqdm(metadata_df.iterrows(), unit='row',
                     total=metadata_df.shape[0], disable=disable_bar):
