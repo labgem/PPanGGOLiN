@@ -4,7 +4,8 @@
 # default libraries
 import logging
 from pathlib import Path
-from typing import TextIO, Dict, Any, Set
+from typing import TextIO, Dict, Any, Set, List, Tuple
+from collections import defaultdict
 
 # installed libraries
 from tqdm import tqdm
@@ -25,7 +26,7 @@ class Genedata:
     """
 
     def __init__(self, start: int, stop: int, strand: str, gene_type: str, position: int, name: str, product: str,
-                 genetic_code: int):
+                 genetic_code: int, coordinates:List[Tuple[int]] = None):
         """Constructor method
 
         :param start: Gene start position
@@ -45,6 +46,8 @@ class Genedata:
         self.name = name
         self.product = product
         self.genetic_code = genetic_code
+        self.has_joined_coordinates = len(coordinates) > 1
+        self.coordinates = coordinates
 
     def __eq__(self, other):
         return self.start == other.start \
@@ -54,11 +57,12 @@ class Genedata:
             and self.position == other.position \
             and self.name == other.name \
             and self.product == other.product \
-            and self.genetic_code == other.genetic_code
+            and self.genetic_code == other.genetic_code \
+            and self.coordinates == other.coordinates \
 
     def __hash__(self):
         return hash((self.start, self.stop, self.strand, self.gene_type, self.position,
-                     self.name, self.product, self.genetic_code))
+                     self.name, self.product, self.genetic_code, tuple(self.coordinates)))
 
 
 def get_number_of_organisms(pangenome: Pangenome) -> int:
@@ -103,12 +107,13 @@ def get_status(pangenome: Pangenome, pangenome_file: Path):
         pangenome.status["geneFamilySequences"] = "inFile"
     if status_group._v_attrs.NeighborsGraph:
         pangenome.status["neighborsGraph"] = "inFile"
-    
+
     if hasattr(status_group._v_attrs, "version"):
         pangenome.status["ppanggolin_version"] = str(status_group._v_attrs.version)
     else:
-        logging.getLogger("PPanGGOLiN").error(f'The provided pangenome file {pangenome_file} does not have a version stored in its status.'
-                         ' This issue may indicate that the file is corrupted.')
+        logging.getLogger("PPanGGOLiN").error(
+            f'The provided pangenome file {pangenome_file} does not have a version stored in its status.'
+            ' This issue may indicate that the file is corrupted.')
         pangenome.status["ppanggolin_version"] = None
 
     if status_group._v_attrs.Partitioned:
@@ -156,21 +161,72 @@ def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
     :param h5f: the hdf5 file handler
 
     :return: dictionary linking genedata to the genedata identifier
+
+    :raises KeyError: If a Genedata entry with joined coordinates is not found in the annotations.joinCoordinates table.
     """
+
+    genedata_id_to_coordinates = read_join_coordinates(h5f)
+
     table = h5f.root.annotations.genedata
     genedata_id2genedata = {}
     for row in read_chunks(table, chunk=20000):
-        genedata = Genedata(start=int(row["start"]),
-                            stop=int(row["stop"]),
+        start = int(row["start"])
+        stop = int(row["stop"])
+        
+        if "has_joined_coordinates" in row.dtype.names and row["has_joined_coordinates"]: # manage gene with joined coordinates if the info exists
+            
+            try:
+                coordinates = genedata_id_to_coordinates[row["genedata_id"]]
+            except KeyError:
+                raise KeyError(f'Genedata {row["genedata_id"]} is supposed to have joined '
+                               'coordinates but is not found in annotations.joinCoordinates table')
+        else:
+            coordinates = [(start, stop)]
+
+
+        genedata = Genedata(start=start,
+                            stop=stop,
                             strand=row["strand"].decode(),
                             gene_type=row["gene_type"].decode(),
                             position=int(row["position"]),
                             name=row["name"].decode(),
                             product=row["product"].decode(),
-                            genetic_code=int(row["genetic_code"]))
+                            genetic_code=int(row["genetic_code"]),
+                            coordinates=coordinates)
+
         genedata_id = row["genedata_id"]
         genedata_id2genedata[genedata_id] = genedata
+
     return genedata_id2genedata
+
+def read_join_coordinates(h5f: tables.File) -> Dict[str, List[Tuple[int, int]]]:
+    """
+    Read join coordinates from a HDF5 file and return a dictionary mapping genedata_id to coordinates.
+
+    :param h5f: An HDF5 file object.
+    :return: A dictionary mapping genedata_id to a list of tuples representing start and stop coordinates.
+    """
+    genedata_id_to_coordinates = defaultdict(list)
+    
+    if not hasattr(h5f.root.annotations, "joinedCoordinates"):
+        # then the pangenome file has no joined annotations 
+        # or has been made before the joined annotations coordinates
+        return {}
+
+    table = h5f.root.annotations.joinedCoordinates
+
+    for row in read_chunks(table, chunk=20000):
+        genedata_id = row["genedata_id"]
+
+        genedata_id_to_coordinates[genedata_id].append((int(row["coordinate_rank"]), int(row["start"]), int(row["stop"])))
+
+    # sort coordinate by their rank
+    genedata_id_to_sorted_coordinates = {}
+    for genedata_id, coordinates in genedata_id_to_coordinates.items():
+        sorted_coordinates = [(start, stop) for rank, start, stop in sorted(coordinates)]
+        genedata_id_to_sorted_coordinates[genedata_id] = sorted_coordinates
+
+    return genedata_id_to_sorted_coordinates
 
 
 def read_sequences(h5f: tables.File) -> dict:
@@ -221,8 +277,8 @@ def get_non_redundant_gene_sequences_from_file(pangenome_filename: str, file_obj
         file_obj.flush()
 
 
-def get_gene_sequences_from_file(pangenome_filename: str, file_obj: TextIO, list_cds: iter = None, add: str = '',
-                                 disable_bar: bool = False):
+def write_gene_sequences_from_pangenome_file(pangenome_filename: str, file_obj: TextIO, list_cds: iter = None,
+                                             add: str = '', disable_bar: bool = False):
     """
     Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
     and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
@@ -464,7 +520,7 @@ def read_genes(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[in
             local = ""
         gene.fill_annotations(start=genedata.start, stop=genedata.stop, strand=genedata.strand,
                               gene_type=genedata.gene_type, name=genedata.name, position=genedata.position,
-                              genetic_code=genedata.genetic_code, product=genedata.product, local_identifier=local)
+                              genetic_code=genedata.genetic_code, product=genedata.product, local_identifier=local, coordinates=genedata.coordinates)
         gene.is_fragment = row["is_fragment"]
         if link:
             contig = pangenome.get_contig(identifier=int(row["contig"]))

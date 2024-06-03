@@ -278,6 +278,7 @@ def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[st
 
             for feature in contig_elements:
                 phase = "."
+
                 if isinstance(feature, (Gene, RNA)):
                     feat_type = feature.type
 
@@ -317,11 +318,15 @@ def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[st
                         attributes += family_metadata
 
                     # add an extra line of type gene
+                    stop = feature.stop 
+                    if feature.overlaps_contig_edge:
+                        stop = contig.length + feature.stop
+
                     gene_line = [contig.name,
                                  source,
                                  'gene',
                                  feature.start,
-                                 feature.stop,
+                                 stop,
                                  '.',
                                  strand,
                                  ".",
@@ -352,19 +357,24 @@ def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[st
 
                 attributes_str = encode_attributes(attributes)
 
-                line = [contig.name,
-                        source,  # Source
-                        feat_type,
-                        feature.start,
-                        feature.stop,
-                        score,
-                        strand,
-                        phase,
-                        attributes_str,
-                        ]
+                coordinates = feature.coordinates
+                if feature.overlaps_contig_edge:
+                    coordinates = convert_overlapping_coordinates_for_gff(feature.coordinates, len(contig))
 
-                line_str = '\t'.join(map(str, line))
-                outfile.write(line_str + "\n")
+                for start, stop in coordinates:
+                    line = [contig.name,
+                            source,  # Source
+                            feat_type,
+                            start,
+                            stop,
+                            score,
+                            strand,
+                            phase,
+                            attributes_str,
+                            ]
+
+                    line_str = '\t'.join(map(str, line))
+                    outfile.write(line_str + "\n")
 
         if genome_sequences:
             logging.getLogger("PPanGGOLiN").debug("Writing fasta section of gff file...")
@@ -373,6 +383,46 @@ def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[st
                 outfile.write(f">{contig.name}\n")
 
                 outfile.write(write_spaced_fasta(genome_sequences[contig.name], space=60))
+
+
+def convert_overlapping_coordinates_for_gff(coordinates: List[Tuple[int, int]], contig_length: int):
+    """
+    Converts overlapping gene coordinates in GFF format for circular contigs.
+
+    :param coordinates: List of tuples representing gene coordinates.
+    :param contig_length: Length of the circular contig.
+    """
+    
+    start, stop = coordinates[0]
+    new_coordinates =  [(start, stop )]
+    # convert all coordinate that are at the begining 
+    # of the contig to the extent of the contig
+    for start_n, stop_n in coordinates[1:]:
+        if start_n < start: # we are on the begining of the contig
+            new_start = contig_length + start_n
+            new_stop = contig_length + stop_n
+            new_coordinates.append((new_start, new_stop))
+            start, stop = new_start, new_stop
+
+        else:
+            start, stop = start_n, stop_n
+
+            new_coordinates.append((start, stop))
+
+    # merge continuous coordinates
+    merged_coordinates = []
+    start, stop = new_coordinates[0]
+
+    for start_n, stop_n in new_coordinates[1:]:
+        if stop +1 == start_n:
+            stop = stop_n
+        else:
+            merged_coordinates.append((start, stop))
+            start, stop = start_n, stop_n
+
+    merged_coordinates.append((start, stop))
+
+    return merged_coordinates
 
 
 def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism]:
@@ -442,7 +492,7 @@ def mp_write_genomes_file(organism: Organism, output: Path, organisms_file: Path
 
         # Write ProkSee data for the organism
         write_proksee_organism(organism, output_file, features=['all'], genome_sequences=genome_sequences,
-                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors', 'compress', 'metadata_sep'}})
+                               **{arg: kwargs[arg] for arg in kwargs.keys() & {'module_to_colors', 'compress', 'metadata_sep', 'multigenics'}})
 
     if gff:
         gff_outdir = output / "gff"
@@ -501,6 +551,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
                  "sources": metadata_sources
                  }
 
+    
     # Place here to raise an error if file doesn't found before to read pangenome
     organisms_file = fasta if fasta is not None else anno
 
@@ -510,6 +561,10 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
     if not organisms_list:
         raise ValueError("No genomes are selected for output. Please check the '--genomes' parameter.")
 
+    multigenics = None
+    if need_dict["need_rgp"]:
+        multigenics = pangenome.get_multigenics(pangenome.parameters["rgp"]["dup_margin"])
+
     org_dict = parse_input_paths_file(organisms_file) if organisms_file and (gff or proksee) else None
 
     if proksee:
@@ -517,7 +572,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
         module_to_colors = manage_module_colors(set(pangenome.modules))
 
     organism2args = defaultdict(lambda: {"output": output, "table": table, "gff": gff,
-                                         "proksee": proksee, "compress": compress})
+                                         "proksee": proksee, "compress": compress, "multigenics":multigenics})
     for organism in organisms_list:
         organism_args = {"genome_file": org_dict[organism.name]['path'] if org_dict else None,
                          "metadata_sep":  metadata_sep}

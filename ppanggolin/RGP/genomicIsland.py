@@ -5,7 +5,8 @@
 import logging
 import argparse
 from pathlib import Path
-from typing import Set, Iterable
+from typing import Set, Iterable, List, Tuple
+
 # installed libraries
 from tqdm import tqdm
 
@@ -29,7 +30,7 @@ class MatriceNode:
         self.state = 1 if score >= 0 else 0
         # current score of the node. If the given score is negative, set to 0.
         self.score = score if score >= 0 else 0
-
+        
 
 def extract_rgp(contig, node, rgp_id, naming) -> Region:
     """

@@ -157,7 +157,7 @@ class GeneFamily(MetaFeatures):
             raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
         self[gene.ID] = gene
         gene.family = self
-        if gene.organism is not None:
+        if gene.organism is not None and gene.organism in self._genePerOrg:
             self._genePerOrg[gene.organism].add(gene)
 
     def get(self, identifier: str) -> Gene:
@@ -185,6 +185,23 @@ class GeneFamily(MetaFeatures):
         if not isinstance(identifier, str):
             raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
         del self[identifier]
+
+
+    def contains_gene_id(self, identifier):
+        """
+        Check if the family contains already a gene id
+
+        :param identifier: ID of the gene
+
+        :return: True if it contains False if it does not
+
+        :raises TypeError: If the identifier is not instance string
+        """
+        if not isinstance(identifier, str):
+            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+        
+        return identifier in self._genes_getter
+
 
     #TODO define __eq__
     @property

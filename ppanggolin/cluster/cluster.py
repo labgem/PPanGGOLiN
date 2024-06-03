@@ -22,7 +22,7 @@ from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.utils import read_compressed_or_not, restricted_float
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
-from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
+from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
 from ppanggolin.utils import mk_outdir
 
@@ -56,11 +56,13 @@ def check_pangenome_for_clustering(pangenome: Pangenome, tmp_file: TextIO, force
     """
     check_pangenome_former_clustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
+        logging.getLogger("PPanGGOLiN").debug("Write sequences from annotation loaded in pangenome")
         # we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
         write_gene_sequences_from_annotations(pangenome.genes, tmp_file, add="ppanggolin_", disable_bar=disable_bar)
     elif pangenome.status["geneSequences"] == "inFile":
-        get_gene_sequences_from_file(pangenome.file, tmp_file, add="ppanggolin_",
-                                     disable_bar=disable_bar)  # write CDS sequences to the tmpFile
+        logging.getLogger("PPanGGOLiN").debug("Write sequences from pangenome file")
+        write_gene_sequences_from_pangenome_file(pangenome.file, tmp_file, add="ppanggolin_",
+                                                 disable_bar=disable_bar)  # write CDS sequences to the tmpFile
     else:
         tmp_file.close()  # closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster "
@@ -445,9 +447,11 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
                 infer_singletons(pangenome)
             else:
                 raise Exception(
-                    f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) did not have an associated "
-                    f"cluster. Either change your cluster file so that each gene has a cluster, "
-                    f"or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
+                    f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) were not associated with a cluster. "
+                    f"You can either update your cluster file to ensure each gene has a cluster assignment, "
+                    f"or use the '--infer_singletons' option to automatically infer a cluster for each non-clustered gene."
+                )
+
     pangenome.status["genesClustered"] = "Computed"
     if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
