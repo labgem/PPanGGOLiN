@@ -9,7 +9,7 @@ import gzip
 import argparse
 from io import TextIOWrapper
 from pathlib import Path
-from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable, Dict
+from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable, Dict, Any
 from contextlib import contextmanager
 import tempfile
 import time
@@ -25,8 +25,6 @@ from scipy.sparse import csc_matrix
 
 import yaml
 from collections import defaultdict
-
-# from ppanggolin.geneFamily import GeneFamily
 
 # all input params that exists in ppanggolin
 ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', 
@@ -376,7 +374,7 @@ def connected_components(g: nx.Graph, removed: set, weight: float):
             removed.update(c)
 
 
-def _plain_bfs(g: nx.Graph, source, removed: set, weight: float):
+def _plain_bfs(g: nx.Graph, source:Any, removed: set, weight: float):
     """
     A fast BFS node generator, copied from networkx then adapted to the current use case
 
@@ -1117,12 +1115,12 @@ def find_consecutive_sequences(sequence: List[int]) -> List[List[int]]:
 
     consecutive_sequences = [[s_sequence[0]]]
 
-    for i in s_sequence[1:]:
-        if i == consecutive_sequences[-1][-1] + 1:
-            consecutive_sequences[-1].append(i)
+    for index in s_sequence[1:]:
+        if index == consecutive_sequences[-1][-1] + 1:
+            consecutive_sequences[-1].append(index)
         else:
             # there is a break in the consecutivity
-            consecutive_sequences.append([i])
+            consecutive_sequences.append([index])
             
     return consecutive_sequences
 
@@ -1138,7 +1136,7 @@ def find_region_border_position(region_positions: List[int], contig_gene_count: 
     """
 
     consecutive_region_positions = get_consecutive_region_positions(region_positions, contig_gene_count)
-                        
+    
     return consecutive_region_positions[0][0], consecutive_region_positions[-1][-1]
         
     

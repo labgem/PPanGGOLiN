@@ -119,6 +119,8 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
     :return: A tuple containing a list of tuples representing start and stop positions,
              a boolean indicating whether it is complement, and
              a boolean indicating whether it is likely a pseudogene.
+
+    :raises ValueError: If the string is not formatted as expected or if positions cannot be parsed as integers.
     """
     complement = False
     coordinates = []
@@ -204,8 +206,10 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             elif "LINEAR" in line.upper():
                 is_circ = False
             else:
-                logging.getLogger("PPanGGOLiN").warning("It's impossible to identify if contigs are circular or linear."
-                                 f"in file {gbff_file_path}.")
+                logging.getLogger("PPanGGOLiN").warning("Unable to determine if the contig is circular or linear in file "
+                                                        f"'{gbff_file_path}' from the LOCUS line: {line}. "
+                                                        "By default, the contig will be considered linear.")
+
             contig_id = line.split()[1]
             contig_len = int(line.split()[2])
             # If contig_id is not specified in VERSION afterward like with Prokka, in that case we use the one in LOCUS
@@ -523,6 +527,10 @@ def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separatio
     :param gene: Gene object to be compared and potentially merged with new_gene_info.
     :param new_gene_info: Dictionary containing information about the new gene.
     :param max_separation: Maximum allowed separation between gene coordinates for merging. Default is 10.
+
+
+    :raises AssertionError: If the start position is greater than the stop position in new_gene_info.
+    :raises ValueError: If the coordinates of genes are too far apart to merge, or if the gene attributes do not match.
     """
 
     # Compare attributes of the existing gene with new_gene_info
@@ -567,6 +575,8 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
     Corrects putative overlaps in gene coordinates for circular contigs.
 
     :param contigs: Iterable of Contig objects representing circular contigs.
+
+    :raises ValueError: If a gene start position is higher than the length of the contig.
     """
 
     for contig in contigs:
@@ -781,27 +791,22 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
         logging.getLogger("PPanGGOLiN").warning(f"The provided fasta file contains {diff_genomes} "
                                                 "additional genomes compared to the pangenome.")
 
-    with tqdm(total=pangenome.number_of_genes + pangenome.number_of_rnas, unit="gene", disable=disable_bar,
-              desc="Add sequences to genes-RNAs") as progress:
+    with tqdm(total=pangenome.number_of_genes, unit="gene", disable=disable_bar,
+              desc="Add sequences to genes") as bar:
         for org in pangenome.organisms:
             for contig in org.contigs:
                 try:
-                    ctg_sequence = fasta_dict[org][contig.name]
-                except KeyError:
-                    msg = (f"Fasta file for genome {org.name} did not have the contig {contig.name} "
-                           f"that was read from the annotation file."
-                           f"The provided contigs in the fasta were : "
-                           f"{', '.join([contig for contig in fasta_dict[org].keys()])}.")
-                    raise KeyError(msg)
-                else:
                     for gene in contig.genes:
-                        gene.add_sequence(get_dna_sequence(ctg_sequence, gene))
-                        progress.update()
-
-                    for rna in contig.RNAs:
-                        rna.add_sequence(get_dna_sequence(ctg_sequence, rna))
-                        progress.update()
-
+                        gene.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], gene))
+                        bar.update()
+                    # for rna in contig.RNAs:
+                    #     rna.add_sequence(get_dna_sequence(fasta_dict[org][contig.name], rna))
+                except KeyError:
+                    msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
+                          f"that was read from the annotation file. "
+                    msg += f"The provided contigs in the fasta were : " \
+                           f"{', '.join([contig for contig in fasta_dict[org].keys()])}."
+                    raise KeyError(msg)
     pangenome.status["geneSequences"] = "Computed"
 
 
