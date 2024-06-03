@@ -173,21 +173,19 @@ class TestFeature:
             feature.start = 1
             len(feature)
 
-	@pytest.mark.parametrize("coordinates, expected_overlaps_contig_edge_flag", [
-		( [(1, 4), (3, 10)], False),
-		( [(2, 4), (1, 1)], True),
-		( [(1, 4), (1, 10)], False),
-		( [(1, 4), (6, 10), (1,2)], True),
-		( [(5, 10), (9,10), (1,4)], True),
+    @pytest.mark.parametrize("coordinates, expected_overlaps_contig_edge_flag", [
+        ([(1, 4), (3, 10)], False),
+        ([(2, 4), (1, 1)], True),
+        ([(1, 4), (1, 10)], False),
+        ([(1, 4), (6, 10), (1, 2)], True),
+        ([(5, 10), (9, 10), (1, 4)], True),
 
-	])
-	def test_overlaps_contig_edge(self, coordinates, expected_overlaps_contig_edge_flag):
-		
-		feature = Feature('ID') 
-		feature.fill_annotations(start=1, stop=10, strand='+', coordinates=coordinates)
+    ])
+    def test_overlaps_contig_edge(self, coordinates, expected_overlaps_contig_edge_flag):
+        feature = Feature('ID')
+        feature.fill_annotations(start=1, stop=10, strand='+', coordinates=coordinates)
 
-		assert feature.overlaps_contig_edge == expected_overlaps_contig_edge_flag
-
+        assert feature.overlaps_contig_edge == expected_overlaps_contig_edge_flag
 
 
 class TestRNA:
