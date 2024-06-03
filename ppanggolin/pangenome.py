@@ -773,6 +773,13 @@ class Pangenome:
         return exact_core_families
 
     """Metadata"""
+    def has_metadata(self) -> bool:
+        """
+        Whether or not the pangenome has metadata associated with any of its elements.
+        """
+        return any(( status != "No" for status in self.status['metadata'].values()))
+
+
     def select_elem(self, metatype: str):
         """Get all the element for the given metatype
 
