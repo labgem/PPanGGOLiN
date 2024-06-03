@@ -11,24 +11,24 @@ Status:
     PPanGGOLiN_Version: 2.0.5
 
 Content:
-    Genes: 47930
+    Genes: 47961
     Genomes: 53
     Families: 1084
-    Edges: 1319
+    Edges: 1318
     Persistent:
         Family_count: 871
-        min_genomes_frequency: 0.85
+        min_genomes_frequency: 0.89
         max_genomes_frequency: 1.0
         sd_genomes_frequency: 0.02
         mean_genomes_frequency: 1.0
     Shell:
-        Family_count: 55
+        Family_count: 56
         min_genomes_frequency: 0.23
-        max_genomes_frequency: 0.83
+        max_genomes_frequency: 0.85
         sd_genomes_frequency: 0.18
-        mean_genomes_frequency: 0.51
+        mean_genomes_frequency: 0.52
     Cloud:
-        Family_count: 158
+        Family_count: 157
         min_genomes_frequency: 0.02
         max_genomes_frequency: 0.23
         sd_genomes_frequency: 0.04
@@ -60,5 +60,7 @@ Parameters:
         # final nb of partitions: 3
         krange: [3, 20]
 
-Metadata: null
+Metadata:
+    contigs: annotation_file
+    genomes: annotation_file
 

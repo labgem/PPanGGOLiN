@@ -18,9 +18,8 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Organism
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, \
-    detect_filetype
-from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
+from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
+from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
 
 module_regex = re.compile(r'^module_\d+')  # \d == [0-9]
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
@@ -191,8 +190,8 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     logging.getLogger("PPanGGOLiN").info(f"There are {len(genes_to_write)} genes to write")
     with write_compressed_or_not(outpath, compress) as fasta:
         if pangenome.status["geneSequences"] in ["inFile"]:
-            get_gene_sequences_from_file(pangenome.file, fasta, set([gene.ID for gene in genes_to_write]),
-                                         disable_bar=disable_bar)
+            write_gene_sequences_from_pangenome_file(pangenome.file, fasta, set([gene.ID for gene in genes_to_write]),
+                                                     disable_bar=disable_bar)
         elif pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
             write_gene_sequences_from_annotations(genes_to_write, fasta, disable_bar=disable_bar)
         else:
@@ -307,7 +306,8 @@ def write_fasta_gene_fam(pangenome: Pangenome, output: Path, gene_families: str,
                                soft_core)
 
     with write_compressed_or_not(outpath, compress) as fasta:
-        get_gene_sequences_from_file(pangenome.file, fasta, [fam.name for fam in genefams], disable_bar=disable_bar)
+        write_gene_sequences_from_pangenome_file(pangenome.file, fasta, [fam.name for fam in genefams],
+                                                 disable_bar=disable_bar)
 
     logging.getLogger("PPanGGOLiN").info(
         f"Done writing the representative nucleotide sequences of the gene families : '{outpath}'")

@@ -7,14 +7,14 @@ import logging
 
 # installed libraries
 import networkx as nx
-from typing import Dict, Generator, List, Set, Union
+from typing import Dict, Generator, List, Set, Union, Tuple
 import gmpy2
 
 # local libraries
 from ppanggolin.genome import Gene, Organism, Contig
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.metadata import MetaFeatures
-
+from ppanggolin.utils import find_region_border_position, get_consecutive_region_positions
 
 class Region(MetaFeatures):
     """
@@ -48,8 +48,12 @@ class Region(MetaFeatures):
         self._genes_getter = {}
         self.name = name
         self.score = 0
-        self.starter = None
-        self.stopper = None
+        self._starter = None
+        self._stopper = None
+        self._coordinates = None
+        self._overlaps_contig_edge = None
+        self._contig = None
+        self._organism = None
         self.ID = Region.id_counter
         self._spot = None
         self.projected = False # If the rgp is from a projected genome. If true can have multiple spots
@@ -104,23 +108,87 @@ class Region(MetaFeatures):
         :param position: Position of the gene in the contig
         :param gene: Gene to add in the region
 
-        :raises TypeError: Gene is not instance Gene
-        :raises Exception: Organism or contig of the gene is different from the region
-        :raises KeyError: Another gene already exists at the position
+        :raises TypeError: If the gene is not an instance of Gene.
+        :raises ValueError: If the organism or contig of the gene is different from the region.
+        :raises KeyError: If another gene already exists at the specified position.
+        :raises ValueError: If the position of the gene does not match the provided position.
         """
+
+        if position != gene.position:
+            raise ValueError(f"The given gene position ({position}) to set the gene in the region and the position of the gene ({gene.position})  are different. ")
+        
+        if len(self) == 0:
+            # first gene to be added to the region
+            self._organism = gene.organism
+            self._contig = gene.contig
+
         if len(self) > 0:
             if gene.organism != self.organism:
-                raise Exception(f"Gene {gene.name} is from a different genome than the first defined in RGP. "
+                raise ValueError(f"Gene {gene.name} is from a different genome than the first defined in RGP. "
                                 "That's not possible")
             if gene.contig != self.contig:
-                raise Exception(f"Gene {gene.name} is from a different contig than the first defined in RGP. "
+                raise ValueError(f"Gene {gene.name} is from a different contig than the first defined in RGP. "
                                 "That's not possible")
         if position in self._genes_getter and self[position] != gene:
             raise KeyError("Another gene already exist at this position")
         self._genes_getter[position] = gene
-        self.starter = self._genes_getter[min(self._genes_getter.keys())]
-        self.stopper = self._genes_getter[max(self._genes_getter.keys())]
+
+        # Adding a new gene imply to reidentify first (starter) and last (stopper) genes of the rgp. 
+        self._starter = None
+        self._stopper = None
+        self._coordinates = None
+        self._overlaps_contig_edge = None
+
         gene.RGP = self
+    
+    def identify_rgp_last_and_first_genes(self):
+        """
+        Identify first and last genes of the rgp by taking into account the circularity of contigs. 
+
+        Set the attributes _starter: first gene of the region  and _stopper: last gene of the region and _coordinates
+
+        """
+        rgp_genes_positions = list(self._genes_getter.keys() )
+
+        if len(rgp_genes_positions) == 0:
+            raise ValueError(f'RGP ({self.name}) has no gene associated.')
+        
+        gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
+        first_gene_position, last_gene_position = find_region_border_position(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
+
+        self._starter = self._genes_getter[first_gene_position]
+        self._stopper = self._genes_getter[last_gene_position]
+
+        if self._starter.start > self._stopper.stop: 
+            # this means region is overlapping the contig edge
+            if not gene.contig.is_circular:
+                raise ValueError(f'Region seems to be overlapping the contig (first gene {self._starter.position}:{self._starter.coordinates} '
+                                 f'and last gene {self._stopper.position}:{self._stopper.coordinates} ) '
+                                 f'but the contig is not circular. This is unexpected. {rgp_genes_positions}')
+
+            self._coordinates = [(self._starter.start, self._starter.contig.length), (1, self._stopper.stop)]
+            self._overlaps_contig_edge = True
+        else:
+            self._coordinates = [(self._starter.start, self._stopper.stop)]
+            self._overlaps_contig_edge = False
+
+    def get_ordered_genes(self) -> List[Gene]:
+        """
+        Get ordered genes of the region, taking into account the circularity of contigs.
+
+        :return: A list of genes ordered by their positions in the region.
+        """
+        
+        rgp_genes_positions = list(self._genes_getter.keys() )
+        
+        gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
+
+        consecutive_region_positions = get_consecutive_region_positions(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
+        
+        ordered_genes = [self._genes_getter[position] for ordered_positions in consecutive_region_positions for position in ordered_positions]
+
+        return ordered_genes
+
 
     def __getitem__(self, position: int) -> Gene:
         """Get the gene at the given position
@@ -138,6 +206,43 @@ class Region(MetaFeatures):
         else:
             return gene
 
+    @property
+    def starter(self) -> Gene:
+        """
+        Return first gene of the region. If this gene is not identified, it does that first.
+        :return:  first gene of the region
+        """
+        if self._starter is None:
+            self.identify_rgp_last_and_first_genes()
+        
+        return self._starter
+    
+    @property
+    def stopper(self) -> Gene:
+        """
+        Return last gene of the region. If this gene is not identified, it does that first.
+        :return: last gene of the region
+        """
+        if self._stopper is None:
+            self.identify_rgp_last_and_first_genes()
+        return self._stopper
+
+    @property
+    def coordinates(self) -> List[Tuple[int]]:
+        """
+        Return the coordinates of the region
+        :return: coordinates of the region
+        """
+        if self._coordinates is None:
+            self.identify_rgp_last_and_first_genes() 
+        return self._coordinates
+
+    @property
+    def overlaps_contig_edge(self) -> bool:
+        if self._overlaps_contig_edge is None:
+            self.identify_rgp_last_and_first_genes() 
+        return self._overlaps_contig_edge
+    
     @property
     def spot(self) -> Union[Spot, None]:
         return self._spot
@@ -234,7 +339,7 @@ class Region(MetaFeatures):
 
         :return: Size of the region
         """
-        return self.stopper.stop - self.starter.start
+        return sum([(stop - start +1) for start, stop in self.coordinates ])
 
     @property
     def organism(self) -> Organism:
@@ -242,7 +347,7 @@ class Region(MetaFeatures):
 
         :return: Organism corresponding to the region
         """
-        return self.starter.organism
+        return self._organism
 
     @property
     def contig(self) -> Contig:
@@ -250,7 +355,7 @@ class Region(MetaFeatures):
 
         :return: Contig corresponding to the region
         """
-        return self.starter.contig
+        return self._contig
 
     @property
     def start(self) -> int:
@@ -289,57 +394,80 @@ class Region(MetaFeatures):
         :raises AssertionError: No genes in the regions, it's not expected
         """
         assert len(self) > 0, "Your region has no genes. Something wrong happened."
-
-        min_pos = min(self.contig.genes, key=lambda x: x.position).position
-        max_pos = max(self.contig.genes, key=lambda x: x.position).position
+        
         if not self.contig.is_circular:
-            if self.starter.position == min_pos or self.stopper.position == max_pos:
+            first_gene = self.contig[0]
+            last_gene = self.contig[-1]
+
+            if self.starter == first_gene or self.stopper == last_gene:
                 return True
         return False
 
-    def get_bordering_genes(self, n: int, multigenics: set) -> List[List[Gene], List[Gene]]:
-        """ Get the bordered genes in the region
+    def get_bordering_genes(self, n: int, multigenics: Set[GeneFamily], return_only_persistents:bool = True) -> List[List[Gene], List[Gene]]:
+        """ 
+        Get the bordered genes in the region. Find the n persistent and single copy gene bordering the region.
+        If return_only_persistents is False, the method return all genes included between the n single copy and persistent genes.
 
         :param n: Number of genes to get
         :param multigenics: pangenome graph multigenic persistent families
+        :param return_only_persistents: return only non multgenic persistent genes identify as the region. 
+                                        If False return all genes included between 
+                                        the borders made of n persistent and single copy genes around the region. 
 
         :return: A list of bordering genes in start and stop position
         """
-        # TODO add Exception
-        border = [[], []]
+        genes_in_region = list(self.genes)
+        # Identifiying left border
+        left_border = []
         pos = self.starter.position
         init = pos
-        while len(border[0]) < n and (pos != 0 or self.contig.is_circular):
+        single_copy_persistent_count = 0
+        while single_copy_persistent_count < n and (pos != 0 or self.contig.is_circular):
             curr_gene = None
-            if pos == 0:  # TODO change for variable to be more flexible
+            if pos == 0:
                 if self.contig.is_circular:
                     curr_gene = self.contig[pos - 1]
             else:
                 curr_gene = self.contig[pos - 1]
+
             if curr_gene is not None and curr_gene.family not in multigenics and \
-                    curr_gene.family.named_partition == "persistent":
-                border[0].append(curr_gene)
+                    curr_gene.family.named_partition == "persistent" and curr_gene not in genes_in_region:
+                left_border.append(curr_gene)
+                single_copy_persistent_count +=1
+            elif curr_gene is not None and curr_gene not in genes_in_region and not return_only_persistents:
+                left_border.append(curr_gene)
+
             pos -= 1
             if pos == -1 and self.contig.is_circular:
                 pos = self.contig.number_of_genes
             if pos == init:
                 break  # looped around the contig
+
+         # Identifiying right border
+        right_border = []
         pos = self.stopper.position
         init = pos
-        while len(border[1]) < n and (pos != self.contig.number_of_genes - 1 or self.contig.is_circular):
+        single_copy_persistent_count = 0
+        while single_copy_persistent_count < n and (pos != self.contig.number_of_genes - 1 or self.contig.is_circular):
             curr_gene = None
             if pos == self.contig.number_of_genes - 1:
                 if self.contig.is_circular:
                     curr_gene = self.contig[0]
             else:
                 curr_gene = self.contig[pos + 1]
-            if curr_gene is not None and curr_gene.family not in multigenics:
-                border[1].append(curr_gene)
+            if curr_gene is not None and curr_gene.family not in multigenics and \
+                curr_gene.family.named_partition == "persistent" and curr_gene not in genes_in_region:
+                right_border.append(curr_gene)
+                single_copy_persistent_count +=1
+            elif curr_gene is not None and curr_gene not in genes_in_region and not return_only_persistents:
+                right_border.append(curr_gene)
             pos += 1
             if pos == self.contig.number_of_genes and self.contig.is_circular:
                 pos = -1
             if pos == init:
                 break  # looped around the contig
+
+        border = [left_border, right_border]
         return border
 
 
