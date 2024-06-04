@@ -326,18 +326,6 @@ def get_fam_to_spot(pangenome: Pangenome, multigenics: Set[GeneFamily]) \
     return fam2spot, fam2border
 
 
-def add_spot_str(spot: Spot) -> str:
-    # TODO define as self.__str__ in spot
-    """
-    allow to map spot set
-
-    :param spot: spot which will be return
-
-    :return: Str with spot ID
-    """
-    return "spot_" + str(spot.ID)
-
-
 def draw_spot_gexf(spots: set, output: Path, multigenics: set, fam_to_mod: dict, set_size: int = 3):
     """
     Draw a gexf graph of the spot
@@ -374,8 +362,8 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
     spot_list = set()
     for seq, panfam in seq_to_pang.items():
         finfo.write(seq + '\t' + panfam.name + "\t" + panfam.named_partition + "\t" + ",".join(
-            map(add_spot_str, fam2spot[panfam])) + "\t" + ",".join(
-            map(add_spot_str, fam2border[panfam])) + "\t" + ','.join(fam2rgp[panfam]) + "\n")
+            map(str, fam2spot[panfam])) + "\t" + ",".join(
+            map(str, fam2border[panfam])) + "\t" + ','.join(fam2rgp[panfam]) + "\n")
         spot_list |= set(fam2spot[panfam])
         spot_list |= set(fam2border[panfam])
     finfo.close()
