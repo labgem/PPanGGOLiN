@@ -345,21 +345,22 @@ def compute_rgp_metric(rgp_a: Region,
 
     edge_metrics = {}
 
-    # RGP at a contig border are seen as incomplete and min GRR is used instead of max GRR
-    if rgp_a.is_contig_border or rgp_b.is_contig_border:
-        edge_metrics["incomplete_aware_grr"] = compute_grr(set(rgp_a.families), set(rgp_b.families), min)
-    else:
-        edge_metrics["incomplete_aware_grr"] = compute_grr(set(rgp_a.families), set(rgp_b.families), max)
-
     # Compute max and min GRR metrics
     edge_metrics['max_grr'] = compute_grr(set(rgp_a.families), set(rgp_b.families), max)
     edge_metrics['min_grr'] = compute_grr(set(rgp_a.families), set(rgp_b.families), min)
 
-    # The number of shared families can be useful when visualizing the graph
-    edge_metrics['shared_family'] = len(set(rgp_a.families).intersection(set(rgp_b.families)))
+    # RGP at a contig border are seen as incomplete and min GRR is used instead of max GRR
+    if rgp_a.is_contig_border or rgp_b.is_contig_border:
+        edge_metrics["incomplete_aware_grr"] = edge_metrics['min_grr']
+    else:
+        edge_metrics["incomplete_aware_grr"] = edge_metrics['max_grr']
 
     # Only return the metrics if the GRR value is above the cutoff
     if edge_metrics[grr_metric] >= grr_cutoff:
+
+        # The number of shared families can be useful when visualizing the graph
+        edge_metrics['shared_family'] = len(set(rgp_a.families).intersection(set(rgp_b.families)))
+
         return rgp_a.ID, rgp_b.ID, edge_metrics
 
 
@@ -490,9 +491,12 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
         for fam in rgp.families:
             family2rgp[fam].add(rgp)
 
-    rgp_pairs = set()
-    for rgps in family2rgp.values():
-        rgp_pairs |= {tuple(sorted(rgp_pair)) for rgp_pair in combinations(rgps, 2)}
+    rgp_to_rgps_pair = defaultdict(set)
+    for rgps in tqdm(family2rgp.values(), total=len(family2rgp), unit="gene family"):
+        for rgp_pair in combinations(rgps, 2):
+            rgp_to_rgps_pair[rgp_pair[0]].add(rgp_pair[1])
+
+    rgp_pairs = {tuple(sorted((rgpA, rgpB))) for rgpA, rgps in rgp_to_rgps_pair.items() for rgpB in rgps}
 
     pairs_count = len(rgp_pairs)
 
@@ -518,7 +522,7 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
                 progress_bar.update(bar_iteration)
 
     logging.getLogger("PPanGGOLiN").info(f'Finished GRR metric computation for {pairs_count:,} pairs of RGP.')
-    
+
     logging.getLogger("PPanGGOLiN").info('Adding edges to RGP graph with computed metrics.')
 
     grr_graph.add_edges_from(pairs_of_rgps_metrics)
