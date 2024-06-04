@@ -134,7 +134,29 @@ def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_o
     file_obj.flush()
 
 
-def translate_genes(sequences: TextIO, tmpdir: Path, threads: int = 1, code: int = 11) -> Path:
+def create_mmseqs_db(sequences: TextIO, db_name: str, tmpdir: Path, db_mode: int = 0, db_type: int = 0) -> Path:
+    """Create a MMseqs2 database from a sequences file.
+
+    :param sequences: File with the sequences
+    :param tmpdir: Temporary directory to save the MMSeqs2 files
+    :param db_mode: Createdb mode 0: copy data, 1: soft link data and write new index (works only with single line fasta/q)
+    :param db_type: Database type 0: auto, 1: amino acid 2: nucleotides
+
+    :return: Path to the MMSeqs2 database
+    """
+    assert db_mode in [0, 1], f"Createdb mode must be 0 or 1, given {db_mode}"
+    assert db_type in [0, 1, 2], f"dbtype must be 0, 1 or 2, given {db_type}"
+
+    seq_nucdb = tmpdir / db_name
+    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", db_mode,
+                         "--dbtype", db_type, sequences.name, seq_nucdb]))
+    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
+    logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    return seq_nucdb
+
+
+def translate_genes(sequences: TextIO, db_name: str, tmpdir: Path, threads: int = 1, code: int = 11) -> Path:
     """Translate nucleotide sequences into MMSeqs2 amino acid sequences database
 
     :param sequences: File with the nucleotide sequences
@@ -144,13 +166,9 @@ def translate_genes(sequences: TextIO, tmpdir: Path, threads: int = 1, code: int
 
     :return: Path to the MMSeqs2 database
     """
-    seq_nucdb = tmpdir / 'nucleotide_sequences_db'
-    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, sequences.name, seq_nucdb]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    seq_nucdb = create_mmseqs_db(sequences, 'nucleotide_sequences_db', tmpdir)
     logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
-    seqdb = tmpdir / 'aa_db'
+    seqdb = tmpdir / db_name
     cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", threads, "--translation-table", code]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -222,7 +240,7 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, genes_prot:
     write_gene_sequences(pangenome, tmpdir, genes_prot, soft_core, compress, disable_bar)
 
     with open(tmpdir / f"{genes_prot}_genes.fna") as sequences:
-        translate_db = translate_genes(sequences, tmpdir, threads, code)
+        translate_db = translate_genes(sequences, 'aa_db', tmpdir, threads, code)
     outpath = output / f"{genes_prot}_protein_genes.fna"
     cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
@@ -619,7 +637,7 @@ def parser_seq(parser: argparse.ArgumentParser):
                                        )
     onereq.add_argument("--genes", required=False, type=filter_values,
                         help=f"Write all nucleotide CDS sequences. {poss_values_log}")
-    onereq.add_argument("--genes_prot", required=False, type=filter_values,
+    onereq.add_argument("--proteins", required=False, type=filter_values,
                         help=f"Write representative amino acid sequences of genes. {poss_values_log}")
     onereq.add_argument("--prot_families", required=False, type=filter_values,
                         help=f"Write representative amino acid sequences of gene families. {poss_values_log}")

@@ -9,7 +9,7 @@ import tempfile
 import subprocess
 import argparse
 from collections import defaultdict, Counter
-from typing import List, Tuple, Set, Dict, IO, Iterable
+from typing import List, Tuple, Set, Dict, TextIO, Iterable
 from pathlib import Path
 
 from tqdm import tqdm
@@ -22,52 +22,10 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
 from ppanggolin.figures.draw_spot import draw_selected_spots, subgraph
 from ppanggolin.formats.readBinaries import get_non_redundant_gene_sequences_from_file
+from ppanggolin.formats.writeSequences import translate_genes, create_mmseqs_db
 
 
-def create_mmseqs_db(seq_files: Iterable[Path], tmpdir: Path, basename="sequences") -> Path:
-    """
-    Create a MMseqs2 sequence database with the given fasta files.
-
-    :param seq_files: An iterable of path of FASTA files.
-    :param tmpdir: Path to the temporary directory where the database will be created.
-    :param basename: Prefix for the database file (default: "sequences").
-
-    :return: Path to the created MMseqs2 database file.
-    """
-
-    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, delete=False, suffix=".DB", prefix=basename) as seqdb:
-        cmd = ["mmseqs", "createdb"] + [seq_file.as_posix() for seq_file in seq_files] + [seqdb.name, '--dbtype', '0']
-
-        logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-        subprocess.run(cmd, stdout=subprocess.DEVNULL)
-
-    return Path(seqdb.name)
-
-
-def translate_with_mmseqs(seqdb: Path, translation_table: int, cpu: int, tmpdir: Path) -> Path:
-    """
-    Translate nucleotide sequences in an MMseqs2 sequence database to amino acid sequences.
-
-    :param seqdb: Path to the input MMseqs2 sequence database containing nucleotide sequences.
-    :param translation_table: The translation table to use for conversion.
-    :param cpu: Number of CPU cores to use for translation.
-    :param tmpdir: Path to the temporary directory for intermediate files.
-
-    :return: Path to the new MMseqs2 sequence database containing translated amino acid sequences.
-    """
-
-    with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, delete=False, prefix=seqdb.stem,
-                                     suffix=".aa.DB") as seqdb_aa:
-        cmd = ["mmseqs", "translatenucs", seqdb.as_posix(), seqdb_aa.name, "--translation-table",
-               f"{translation_table}", "--threads", str(cpu)]
-
-        logging.getLogger().debug(" ".join(cmd))
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-
-    return Path(seqdb_aa.name)
-
-
-def align_seq_to_pang(target_seq_file: Path, query_seq_files: Iterable[Path],
+def align_seq_to_pang(target_seq_file: TextIO, query_seq_files: Path,
                       tmpdir: Path, cpu: int = 1, no_defrag: bool = False,
                       identity: float = 0.8, coverage: float = 0.8,
                       is_query_nt: bool = False, is_target_nt: bool = False, translation_table: int = None) -> Path:
@@ -85,21 +43,23 @@ def align_seq_to_pang(target_seq_file: Path, query_seq_files: Iterable[Path],
     :param is_target_nt: Is the sequences of pangenome (target) are nucleotide sequences. If True, sequences are translated by mmseqs
     :param translation_table: Translation table to use, if sequences are nucleotide and need to be translated.
 
-    :return: Alignement result file
+    :return: Alignment result file
     """
 
-    target_db = create_mmseqs_db([target_seq_file], tmpdir, basename="target_sequences")
-    query_db = create_mmseqs_db(query_seq_files, tmpdir, basename="query_sequences")
-
     if is_target_nt:
-        logging.getLogger().debug(
-            f"Target sequences will be translated by mmseqs with translation table {translation_table}")
-        target_db = translate_with_mmseqs(target_db, translation_table, cpu, tmpdir)
+        logging.getLogger().debug("Target sequences will be translated by mmseqs with "
+                                  f"translation table {translation_table}")
+        target_db = translate_genes(target_seq_file, 'target_db', tmpdir, cpu, translation_table)
+    else:
+        target_db = create_mmseqs_db(target_seq_file, 'target_db', tmpdir, db_mode=0, db_type=1)
 
-    if is_query_nt:
-        logging.getLogger().debug(
-            f"Query sequences will be translated by mmseqs with translation table {translation_table}")
-        query_db = translate_with_mmseqs(query_db, translation_table, cpu, tmpdir)
+    with open(query_seq_files, 'r') as query_sequences:
+        if is_query_nt:
+            logging.getLogger().debug("Query sequences will be translated by mmseqs "
+                                      f"with translation table {translation_table}")
+            query_db = translate_genes(query_sequences, 'query_db', tmpdir, cpu, translation_table)
+        else:
+            query_db = create_mmseqs_db(query_sequences, 'query_db', tmpdir, db_mode=0, db_type=1)
 
     cov_mode = "2"  # coverage of query
     if no_defrag:
@@ -141,11 +101,11 @@ def map_input_gene_to_family_all_aln(aln_res: Path, outdir: Path,
     Read alignment result to link input sequences to pangenome gene family. 
     Alignment have been made against all genes of the pangenome.
 
-    :param aln_res: Alignement result file
+    :param aln_res: Alignment result file
     :param outdir: Output directory
     :param pangenome: Input pangenome
 
-    :return: Dictionnary with sequence link to pangenome gene families and actual path to the cleaned alignment file
+    :return: Dictionary with sequence link to pangenome gene families and actual path to the cleaned alignment file
     """
 
     seq2pang = {}
@@ -176,11 +136,11 @@ def map_input_gene_to_family_rep_aln(aln_res: Path, outdir: Path,
     Read alignment result to link input sequences to pangenome gene family.
     Alignment have been made against representative sequence of gene families of the pangenome.
 
-    :param aln_res: Alignement result file
+    :param aln_res: Alignment result file
     :param outdir: Output directory
     :param pangenome: Input pangenome
 
-    :return: Dictionnary with sequence link to pangenome gene families and actual path to the cleaned alignment file
+    :return: Dictionary with sequence link to pangenome gene families and actual path to the cleaned alignment file
     """
     seq2pang = {}
     aln_file_clean = outdir / "alignment_input_seqs_to_pangenome_gene_families.tsv"  # write the actual result file
@@ -231,7 +191,7 @@ def get_seq_ids(seq_file: TextIOWrapper) -> Tuple[Set[str], bool]:
     return seq_set, is_nucleotide
 
 
-def write_gene_fam_sequences(pangenome: Pangenome, file_obj: IO, add: str = "", disable_bar: bool = False):
+def write_gene_fam_sequences(pangenome: Pangenome, file_obj: TextIO, add: str = "", disable_bar: bool = False):
     """
     Export the sequence of gene families
 
@@ -247,7 +207,7 @@ def write_gene_fam_sequences(pangenome: Pangenome, file_obj: IO, add: str = "", 
     # file_obj.flush()
 
 
-def write_all_gene_sequences(pangenome: Pangenome, file_obj: IO, add: str = "", disable_bar: bool = False):
+def write_all_gene_sequences(pangenome: Pangenome, file_obj: TextIO, add: str = "", disable_bar: bool = False):
     """
     Export the sequence of pangenome genes
 
@@ -269,7 +229,7 @@ def project_and_write_partition(seqid_to_gene_family: Dict[str, GeneFamily], seq
     """
     Project the partition of each sequence from the input file and write them in a file
 
-    :param seqid_to_gene_family: dictionnary which link sequence and pangenome gene family
+    :param seqid_to_gene_family: dictionary which link sequence and pangenome gene family
     :param seq_set: input sequences
     :param output: Path of the output directory
 
@@ -289,7 +249,7 @@ def write_gene_to_gene_family(seqid_to_gene_family: Dict[str, GeneFamily], seq_s
     """
     Write input gene to pangenome gene family.
 
-    :param seqid_to_gene_family: dictionnary which links input sequence and pangenome gene family
+    :param seqid_to_gene_family: dictionary which links input sequence and pangenome gene family
     :param seq_set: input sequences
     :param output: Path of the output directory
 
@@ -317,7 +277,7 @@ def get_fam_to_rgp(pangenome, multigenics: set) -> dict:
     :param pangenome: Input pangenome
     :param multigenics: multigenics families
 
-    :return: Dictionnary link families to RGP
+    :return: Dictionary link families to RGP
     """
     fam2rgp = defaultdict(list)
     for rgp in pangenome.regions:
@@ -376,7 +336,7 @@ def draw_spot_gexf(spots: set, output: Path, multigenics: set, fam_to_mod: dict,
     :param spots: spot find in the alignment between pangenome and input sequences
     :param output: Path of the output directory
     :param multigenics: multigenics families
-    :param fam_to_mod: dictionnary which link families and modules
+    :param fam_to_mod: dictionary which link families and modules
     :param set_size:
     """
     for spot in spots:
@@ -433,7 +393,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
                                          f"{output / 'info_input_seq.tsv'}")
 
 
-def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Iterable[Path], output: Path,
+def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Path, output: Path,
                                      tmpdir: Path, is_input_seq_nt: bool, cpu: int = 1, no_defrag: bool = False,
                                      identity: float = 0.8, coverage: float = 0.8, translation_table: int = 11,
                                      disable_bar: bool = False) -> Tuple[Path, Dict[str, GeneFamily]]:
@@ -465,7 +425,7 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Itera
         logging.getLogger().debug(f'Write gene family sequences in {tmp_pang_file.name}')
         write_gene_fam_sequences(pangenome, tmp_pang_file, add="ppanggolin_", disable_bar=disable_bar)
 
-        align_file = align_seq_to_pang(target_seq_file=Path(tmp_pang_file.name), query_seq_files=sequence_files,
+        align_file = align_seq_to_pang(target_seq_file=tmp_pang_file, query_seq_files=sequence_files,
                                        tmpdir=tmpdir, cpu=cpu,
                                        no_defrag=no_defrag, identity=identity, coverage=coverage,
                                        is_query_nt=is_input_seq_nt, is_target_nt=False,
@@ -476,7 +436,7 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Itera
     return align_file, seq2pang
 
 
-def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files: Iterable[Path], output: Path,
+def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files: Path, output: Path,
                                      tmpdir: Path, is_input_seq_nt: bool, cpu: int = 1, no_defrag: bool = False,
                                      identity: float = 0.8, coverage: float = 0.8, translation_table: int = 11,
                                      disable_bar: bool = False) -> Tuple[Path, Dict[str, GeneFamily]]:
@@ -507,7 +467,7 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files: Itera
         logging.getLogger().debug(f'Write all pangenome gene sequences in {tmp_pang_file.name}')
         write_all_gene_sequences(pangenome, tmp_pang_file, add="ppanggolin_", disable_bar=disable_bar)
 
-        align_file = align_seq_to_pang(target_seq_file=Path(tmp_pang_file.name), query_seq_files=sequence_files,
+        align_file = align_seq_to_pang(target_seq_file=tmp_pang_file, query_seq_files=sequence_files,
                                        tmpdir=tmpdir, cpu=cpu,
                                        no_defrag=no_defrag, identity=identity, coverage=coverage,
                                        is_query_nt=is_input_seq_nt, is_target_nt=True,
@@ -564,14 +524,14 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
     with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
 
         if use_representatives:
-            align_file, seq2pang = get_input_seq_to_family_with_rep(pangenome, [sequence_file], output, new_tmpdir,
+            align_file, seq2pang = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir,
                                                                     is_input_seq_nt=is_nucleotide,
                                                                     cpu=cpu, no_defrag=no_defrag, identity=identity,
                                                                     coverage=coverage,
                                                                     translation_table=translation_table,
                                                                     disable_bar=disable_bar)
         else:
-            align_file, seq2pang = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=[sequence_file],
+            align_file, seq2pang = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=sequence_file,
                                                                     output=output, tmpdir=new_tmpdir,
                                                                     is_input_seq_nt=is_nucleotide,
                                                                     cpu=cpu, no_defrag=no_defrag, identity=identity,
