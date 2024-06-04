@@ -49,7 +49,7 @@ def compute_mod_graph(pangenome: Pangenome, t: int = 1, disable_bar: bool = Fals
                 g.add_node(start_gene.family)
                 add_gene(g.nodes[start_gene.family], start_gene, fam_split=False)
                 for i, gene in enumerate(contig.genes):
-                    for j, a_gene in enumerate(contig.get_genes(i + 1, i + t + 2), start=i + 1):
+                    for j, a_gene in enumerate(contig.get_genes(i + 1, i + t + 2, outrange_ok=True), start=i + 1):
                         g.add_edge(gene.family, a_gene.family)
                         edge = g[gene.family][a_gene.family]
                         add_gene(edge, gene)
@@ -110,7 +110,8 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
     start_time = time.time()
     logging.getLogger("PPanGGOLiN").info("Building the graph...")
     g = compute_mod_graph(pangenome, t=transitive, disable_bar=disable_bar)
-    logging.getLogger("PPanGGOLiN").info(f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
     logging.getLogger("PPanGGOLiN").info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
 
     start_time = time.time()
