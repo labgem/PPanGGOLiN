@@ -138,6 +138,7 @@ def create_mmseqs_db(sequences: TextIO, db_name: str, tmpdir: Path, db_mode: int
     """Create a MMseqs2 database from a sequences file.
 
     :param sequences: File with the sequences
+    :param db_name: name of the database
     :param tmpdir: Temporary directory to save the MMSeqs2 files
     :param db_mode: Createdb mode 0: copy data, 1: soft link data and write new index (works only with single line fasta/q)
     :param db_type: Database type 0: auto, 1: amino acid 2: nucleotides
@@ -156,17 +157,21 @@ def create_mmseqs_db(sequences: TextIO, db_name: str, tmpdir: Path, db_mode: int
     return seq_nucdb
 
 
-def translate_genes(sequences: TextIO, db_name: str, tmpdir: Path, threads: int = 1, code: int = 11) -> Path:
+def translate_genes(sequences: TextIO, db_name: str, tmpdir: Path, threads: int = 1,
+                    is_single_line_fasta: bool = False, code: int = 11) -> Path:
     """Translate nucleotide sequences into MMSeqs2 amino acid sequences database
 
     :param sequences: File with the nucleotide sequences
+    :param db_name: name of the output database
     :param tmpdir: Temporary directory to save the MMSeqs2 files
     :param threads: Number of available threads to use
+    :param is_single_line_fasta: Allow to use soft link in MMSeqs2 database
     :param code: Translation code to use
 
     :return: Path to the MMSeqs2 database
     """
-    seq_nucdb = create_mmseqs_db(sequences, 'nucleotide_sequences_db', tmpdir)
+    seq_nucdb = create_mmseqs_db(sequences, 'nucleotide_sequences_db', tmpdir,
+                                 db_mode=1 if is_single_line_fasta else 0, db_type=2)
     logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
     seqdb = tmpdir / db_name
     cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", threads, "--translation-table", code]))
@@ -196,7 +201,7 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     genefams = set()
     genes_to_write = []
     if genes == "rgp":
-        logging.getLogger("PPanGGOLiN").info(f"Writing the gene nucleotide sequences in RGPs...")
+        logging.getLogger("PPanGGOLiN").info("Writing the gene nucleotide sequences in RGPs...")
         for region in pangenome.regions:
             genes_to_write.extend(region.genes)
     else:
@@ -240,7 +245,7 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, genes_prot:
     write_gene_sequences(pangenome, tmpdir, genes_prot, soft_core, compress, disable_bar)
 
     with open(tmpdir / f"{genes_prot}_genes.fna") as sequences:
-        translate_db = translate_genes(sequences, 'aa_db', tmpdir, threads, code)
+        translate_db = translate_genes(sequences, 'aa_db', tmpdir, threads, True, code)
     outpath = output / f"{genes_prot}_protein_genes.fna"
     cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
