@@ -236,7 +236,6 @@ def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
     """
     metatype_group = write_metadata_group(h5f, metatype)
     meta_len = get_metadata_len(select_elements, source)
-    h5f.remove_node(metatype_group, source)
     source_table = h5f.create_table(metatype_group, source, desc_metadata(*meta_len[:-1]), expectedrows=meta_len[-1])
     meta_row = source_table.row
     for element in tqdm(select_elements, unit=metatype, desc=f'Source = {source}', disable=disable_bar):
