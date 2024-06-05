@@ -520,7 +520,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
 
     if used_transl_table_arg:
         logging.getLogger("PPanGGOLiN").info(
-                f"transl_except tag was not found for {used_transl_table_arg} CDS "
+                f"transl_table tag was not found for {used_transl_table_arg} CDS "
                 f"in {gbff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
                 )
                     
@@ -772,7 +772,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
     if used_transl_table_arg:
         logging.getLogger("PPanGGOLiN").info(
-                f"transl_except tag was not found for {used_transl_table_arg} CDS "
+                f"transl_table tag was not found for {used_transl_table_arg} CDS "
                 f"in {gff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
                 )
     return org, has_fasta
@@ -910,8 +910,8 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     :param organism_name: Name of the organism
     :param filename: Path to the corresponding file
     :param circular_contigs: list of sequence in contig
-    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
     :param pseudo: allow to read pseudogene
+    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
 
     :return: Annotated organism for pangenome and true for sequence in file
     """
