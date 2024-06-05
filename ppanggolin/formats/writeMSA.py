@@ -53,7 +53,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms == nb_org:
                         if single_copy:
-                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=True):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
@@ -61,7 +61,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms < nb_org:
                         if single_copy:
-                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=True):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
@@ -69,7 +69,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms >= nb_org * soft_core:
                         if single_copy:
-                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=True):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
