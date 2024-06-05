@@ -6,8 +6,9 @@ import argparse
 import logging
 import re
 import subprocess
+import sys
 from pathlib import Path
-from typing import TextIO, Dict, Set, Iterable
+from typing import TextIO, Dict, Set, Iterable, Union
 import tempfile
 import shutil
 
@@ -134,7 +135,7 @@ def write_gene_sequences_from_annotations(genes_to_write: Iterable[Gene], file_o
     file_obj.flush()
 
 
-def create_mmseqs_db(sequences: TextIO, db_name: str, tmpdir: Path, db_mode: int = 0, db_type: int = 0) -> Path:
+def create_mmseqs_db(sequences: Iterable[Path], db_name: str, tmpdir: Path, db_mode: int = 0, db_type: int = 0) -> Path:
     """Create a MMseqs2 database from a sequences file.
 
     :param sequences: File with the sequences
@@ -149,15 +150,16 @@ def create_mmseqs_db(sequences: TextIO, db_name: str, tmpdir: Path, db_mode: int
     assert db_type in [0, 1, 2], f"dbtype must be 0, 1 or 2, given {db_type}"
 
     seq_nucdb = tmpdir / db_name
-    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", db_mode,
-                         "--dbtype", db_type, sequences.name, seq_nucdb]))
+    cmd = ["mmseqs", "createdb", "--createdb-mode", db_mode, "--dbtype", db_type]
+    cmd += [seq.absolute().as_posix() for seq in sequences] + [seq_nucdb]
+    cmd = list(map(str, cmd))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     return seq_nucdb
 
 
-def translate_genes(sequences: TextIO, db_name: str, tmpdir: Path, threads: int = 1,
+def translate_genes(sequences: Union[Path, Iterable[Path]], db_name: str, tmpdir: Path, threads: int = 1,
                     is_single_line_fasta: bool = False, code: int = 11) -> Path:
     """Translate nucleotide sequences into MMSeqs2 amino acid sequences database
 
@@ -170,8 +172,8 @@ def translate_genes(sequences: TextIO, db_name: str, tmpdir: Path, threads: int 
 
     :return: Path to the MMSeqs2 database
     """
-    seq_nucdb = create_mmseqs_db(sequences, 'nucleotide_sequences_db', tmpdir,
-                                 db_mode=1 if is_single_line_fasta else 0, db_type=2)
+    seq_nucdb = create_mmseqs_db([sequences] if isinstance(sequences, Path) else sequences, f'{db_name}_nt_db',
+                                 tmpdir, db_mode=1 if is_single_line_fasta else 0, db_type=2)
     logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
     seqdb = tmpdir / db_name
     cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", threads, "--translation-table", code]))
@@ -223,14 +225,14 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
     logging.getLogger("PPanGGOLiN").info(f"Done writing the gene sequences : '{outpath}'")
 
 
-def write_gene_protein_sequences(pangenome: Pangenome, output: Path, genes_prot: str, soft_core: float = 0.95,
+def write_gene_protein_sequences(pangenome: Pangenome, output: Path, proteins: str, soft_core: float = 0.95,
                                  compress: bool = False, keep_tmp: bool = False, tmp: Path = None,
                                  threads: int = 1, code: int = 11, disable_bar: bool = False):
     """ Write all amino acid sequences from given genes in pangenome
 
     :param pangenome: Pangenome object with gene families sequences
     :param output: Path to output directory
-    :param genes_prot: Selected partition of gene
+    :param proteins: Selected partition of gene
     :param soft_core: Soft core threshold to use
     :param compress: Compress the file in .gz
     :param keep_tmp: Keep temporary directory
@@ -242,11 +244,11 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, genes_prot:
     tmpdir = tmp / "translateGenes" if tmp is not None else Path(f"{tempfile.gettempdir()}/translateGenes")
     mk_outdir(tmpdir, True, True)
 
-    write_gene_sequences(pangenome, tmpdir, genes_prot, soft_core, compress, disable_bar)
+    write_gene_sequences(pangenome, tmpdir, proteins, soft_core, compress, disable_bar)
 
-    with open(tmpdir / f"{genes_prot}_genes.fna") as sequences:
-        translate_db = translate_genes(sequences, 'aa_db', tmpdir, threads, True, code)
-    outpath = output / f"{genes_prot}_protein_genes.fna"
+    pangenome_sequences = tmpdir / f"{proteins}_genes.fna"
+    translate_db = translate_genes(pangenome_sequences, 'aa_db', tmpdir, threads, True, code)
+    outpath = output / f"{proteins}_protein_genes.fna"
     cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
@@ -527,7 +529,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
 
 
 def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None, anno: Path = None,
-                         soft_core: float = 0.95, regions: str = None, genes: str = None, genes_prot: str = None,
+                         soft_core: float = 0.95, regions: str = None, genes: str = None, proteins: str = None,
                          gene_families: str = None, prot_families: str = None, compress: bool = False,
                          disable_bar: bool = False, **translate_kwgs):
     """
@@ -540,14 +542,14 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
     :param soft_core: Soft core threshold to use
     :param regions: Write the RGP nucleotide sequences
     :param genes: Write all nucleotide CDS sequences
-    :param genes_prot: Write amino acid CDS sequences.
+    :param proteins: Write amino acid CDS sequences.
     :param gene_families: Write representative nucleotide sequences of gene families.
     :param prot_families: Write representative amino acid sequences of gene families.
     :param compress: Compress the file in .gz
     :param disable_bar: Disable progress bar
     """
 
-    check_pangenome_to_write_sequences(pangenome, regions, genes, genes_prot, gene_families, prot_families, disable_bar)
+    check_pangenome_to_write_sequences(pangenome, regions, genes, proteins, gene_families, prot_families, disable_bar)
 
     if prot_families is not None:
         write_fasta_prot_fam(pangenome, output, prot_families, soft_core, compress, disable_bar)
@@ -555,9 +557,9 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
         write_fasta_gene_fam(pangenome, output, gene_families, soft_core, compress, disable_bar)
     if genes is not None:
         write_gene_sequences(pangenome, output, genes, soft_core, compress, disable_bar)
-    if genes_prot is not None:
-        write_gene_protein_sequences(pangenome, output, genes_prot, soft_core, compress,
-                                     disable_bar=disable_bar, **translate_kwgs)
+    if proteins is not None:
+        write_gene_protein_sequences(pangenome, output, proteins, soft_core, compress, disable_bar=disable_bar,
+                                     **translate_kwgs)
     if regions is not None:
         write_regions_sequences(pangenome, output, regions, fasta, anno, compress, disable_bar)
 
@@ -577,7 +579,7 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
-                         regions=args.regions, genes=args.genes, genes_prot=args.genes_prot,
+                         regions=args.regions, genes=args.genes, proteins=args.proteins,
                          gene_families=args.gene_families, prot_families=args.prot_families, compress=args.compress,
                          disable_bar=args.disable_prog_bar, **translate_kwgs)
 

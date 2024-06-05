@@ -70,7 +70,7 @@ def check_pangenome_for_clustering(pangenome: Pangenome, tmp_file: TextIO, force
                         "or provide a way to access the gene sequence during the annotation step "
                         "(having the fasta in the gff files, or providing the fasta files through the --fasta option)")
 
-def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 11, coverage: float = 0.8,
+def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11, coverage: float = 0.8,
                      identity: float = 0.8, mode: int = 1) -> Tuple[Path, Path]:
     """
     Make a first clustering of all sequences in pangenome
@@ -304,10 +304,11 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
         newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
         tmp_path = Path(newtmpdir.name)
 
-    with open(tmp_path/'nucleotid_sequences', "w") as sequence_file:
+    sequence_path = tmp_path/'nucleotid_sequences'
+    with open(sequence_path, "w") as sequence_file:
         check_pangenome_for_clustering(pangenome, sequence_file, force, disable_bar=disable_bar)
         logging.getLogger("PPanGGOLiN").info("Clustering all of the genes sequences...")
-        rep, tsv = first_clustering(sequence_file, tmp_path, cpu, code, coverage, identity, mode)
+        rep, tsv = first_clustering(sequence_path, tmp_path, cpu, code, coverage, identity, mode)
 
     fam2seq = read_faa(rep)
     if not defrag:

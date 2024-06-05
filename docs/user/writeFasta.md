@@ -37,7 +37,7 @@ ppanggolin fasta -p pangenome.h5 --output MY_GENES --genes persistent
 This option can be used to write the amino acid CDS sequences. It can be used as such, to write all the genes of the pangenome for example:
 
 ```bash
-ppanggolin fasta -p pangenome.h5 --output MY_GENES --genes_prot all
+ppanggolin fasta -p pangenome.h5 --output MY_GENES --proteins all
 ```
 
 Or to write only the cloud genes:

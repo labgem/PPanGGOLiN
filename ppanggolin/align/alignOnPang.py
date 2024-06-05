@@ -9,7 +9,7 @@ import tempfile
 import subprocess
 import argparse
 from collections import defaultdict, Counter
-from typing import List, Tuple, Set, Dict, TextIO
+from typing import List, Tuple, Set, Dict, TextIO, Union, Iterable, Any
 from pathlib import Path
 
 from tqdm import tqdm
@@ -25,7 +25,7 @@ from ppanggolin.formats.readBinaries import get_non_redundant_gene_sequences_fro
 from ppanggolin.formats.writeSequences import translate_genes, create_mmseqs_db
 
 
-def align_seq_to_pang(target_seq_file: TextIO, query_seq_files: Path, tmpdir: Path, cpu: int = 1,
+def align_seq_to_pang(target_seq_file: Union[Path, Iterable[Path]], query_seq_files: Union[Path, Iterable[Path]], tmpdir: Path, cpu: int = 1,
                       no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8,
                       is_query_nt: bool = False, is_query_slf: bool = False, is_target_nt: bool = False,
                       is_target_slf: bool = False, translation_table: int = None) -> Path:
@@ -53,17 +53,16 @@ def align_seq_to_pang(target_seq_file: TextIO, query_seq_files: Path, tmpdir: Pa
                                               f"translation table {translation_table}")
         target_db = translate_genes(target_seq_file, 'target_db', tmpdir, cpu, is_target_slf, translation_table)
     else:
-        target_db = create_mmseqs_db(target_seq_file, 'target_db', tmpdir,
-                                     db_mode=1 if is_target_slf else 0, db_type=1)
+        target_db = create_mmseqs_db([target_seq_file] if isinstance(target_seq_file, Path) else target_seq_file,
+                                     'target_db', tmpdir, db_mode=1 if is_target_slf else 0, db_type=1)
 
-    with open(query_seq_files, 'r') as query_sequences:
-        if is_query_nt:
-            logging.getLogger("PPanGGOLiN").debug("Query sequences will be translated by mmseqs "
-                                                  f"with translation table {translation_table}")
-            query_db = translate_genes(query_sequences, 'query_db', tmpdir, cpu, is_query_slf, translation_table)
-        else:
-            query_db = create_mmseqs_db(query_sequences, 'query_db', tmpdir,
-                                        db_mode=1 if is_query_slf else 0, db_type=1)
+    if is_query_nt:
+        logging.getLogger("PPanGGOLiN").debug("Query sequences will be translated by mmseqs "
+                                              f"with translation table {translation_table}")
+        query_db = translate_genes(query_seq_files, 'query_db', tmpdir, cpu, is_query_slf, translation_table)
+    else:
+        query_db = create_mmseqs_db([query_seq_files] if isinstance(query_seq_files, Path) else query_seq_files,
+                                    'query_db', tmpdir, db_mode=1 if is_query_slf else 0, db_type=1)
 
     cov_mode = "2"  # coverage of query
     if no_defrag:
@@ -135,7 +134,7 @@ def map_input_gene_to_family_all_aln(aln_res: Path, outdir: Path,
 
 
 def map_input_gene_to_family_rep_aln(aln_res: Path, outdir: Path,
-                                     pangenome: Pangenome) -> Tuple[Dict[str, GeneFamily], str]:
+                                     pangenome: Pangenome) -> Tuple[Dict[Any, GeneFamily], Path]:
     """
     Read alignment result to link input sequences to pangenome gene family.
     Alignment have been made against representative sequence of gene families of the pangenome.
@@ -390,11 +389,11 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
                                          f"{output / 'info_input_seq.tsv'}")
 
 
-def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Path, output: Path,
-                                     tmpdir: Path, is_input_seq_nt: bool, is_input_slf: bool = False,
-                                     cpu: int = 1, no_defrag: bool = False,
-                                     identity: float = 0.8, coverage: float = 0.8, translation_table: int = 11,
-                                     disable_bar: bool = False) -> Tuple[Path, Dict[str, GeneFamily]]:
+def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Union[Path, Iterable[Path]], output: Path,
+                                     tmpdir: Path, is_input_seq_nt: bool, is_input_slf: bool = False, cpu: int = 1,
+                                     no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8,
+                                     translation_table: int = 11, disable_bar: bool = False
+                                     ) -> Tuple[Path, Dict[str, GeneFamily]]:
     """
     Assign gene families from a pangenome to input sequences.
 
@@ -422,9 +421,10 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Path,
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), delete=False,
                                      prefix="representative_genes", suffix=".faa") as tmp_pang_file:
         logging.getLogger("PPanGGOLiN").debug(f'Write gene family sequences in {tmp_pang_file.name}')
+        pangenome_sequences = Path(tmp_pang_file.name)
         write_gene_fam_sequences(pangenome, tmp_pang_file, add="ppanggolin_", disable_bar=disable_bar)
 
-        align_file = align_seq_to_pang(target_seq_file=tmp_pang_file, query_seq_files=sequence_files,
+        align_file = align_seq_to_pang(target_seq_file=pangenome_sequences, query_seq_files=sequence_files,
                                        tmpdir=tmpdir, cpu=cpu,
                                        no_defrag=no_defrag, identity=identity, coverage=coverage,
                                        is_query_nt=is_input_seq_nt, is_query_slf=is_input_slf,
@@ -435,11 +435,11 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Path,
     return align_file, seq2pang
 
 
-def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files: Path, output: Path, tmpdir: Path,
-                                     is_input_seq_nt: bool, is_input_slf: bool = False,
-                                     cpu: int = 1, no_defrag: bool = False, identity: float = 0.8,
-                                     coverage: float = 0.8, translation_table: int = 11,
-                                     disable_bar: bool = False) -> Tuple[Path, Dict[str, GeneFamily]]:
+def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files:  Union[Path, Iterable[Path]], output: Path,
+                                     tmpdir: Path, is_input_seq_nt: bool, is_input_slf: bool = False, cpu: int = 1,
+                                     no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8,
+                                     translation_table: int = 11, disable_bar: bool = False
+                                     ) -> Tuple[Path, Dict[str, GeneFamily]]:
     """
     Assign gene families from a pangenome to input sequences.
 
@@ -466,9 +466,10 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files: Path,
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), delete=False,
                                      prefix="all_pangenome_genes", suffix=".fna") as tmp_pang_file:
         logging.getLogger("PPanGGOLiN").debug(f'Write all pangenome gene sequences in {tmp_pang_file.name}')
+        pangenome_sequences = Path(tmp_pang_file.name)
         write_all_gene_sequences(pangenome, tmp_pang_file, add="ppanggolin_", disable_bar=disable_bar)
 
-        align_file = align_seq_to_pang(target_seq_file=tmp_pang_file, query_seq_files=sequence_files, tmpdir=tmpdir,
+        align_file = align_seq_to_pang(target_seq_file=pangenome_sequences, query_seq_files=sequence_files, tmpdir=tmpdir,
                                        cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
                                        is_query_nt=is_input_seq_nt, is_query_slf=is_input_slf, is_target_nt=True,
                                        is_target_slf=True, translation_table=translation_table)
