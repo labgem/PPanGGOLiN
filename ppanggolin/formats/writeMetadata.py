@@ -104,7 +104,7 @@ def get_metadata_contig_len(select_ctg: List[Contig], source: str) -> Tuple[Dict
     expected_rows = 0
 
     for contig in select_ctg:
-        for metadata in contig.get_metadata_by_source(source):
+        for metadata in contig.get_metadata_by_source(source).values():
             for attr, value in ((k, v) for k, v in metadata.__dict__.items() if k != "source"):
                 if isinstance(value, bytes):
                     value = value.decode('UTF-8')

@@ -89,7 +89,7 @@ def write_flat_metadata_files(pangenome: Pangenome, output: Path,
 
         for element in getattr(pangenome, element_type_to_attribute[element_type]):
             for source in set(element.sources) & set(sources):
-                for metadata in element.get_metadata_by_source(source):
+                for metadata in element.get_metadata_by_source(source).values():
                     metadata_dict = metadata.to_dict()
                     if element_type == "spots":
                         metadata_dict[element_type] = f"spot_{element.ID}"
