@@ -98,8 +98,7 @@ def get_suffix_except_gz(path: Path):
             return ext
         
 
-def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, report_identical_files, extension_to_compare=[".tsv", ".json", '.gff', '.txt', '.csv', '.faa', '.fasta', ".yaml"]):
-
+def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, report_identical_files, extension_to_compare=[".tsv", ".aln", ".json", '.gff', '.txt', '.csv', '.faa', '.fasta', ".yaml"]):
     # Define directory information with color
     expected_dir_info = f"- Expected directory: {expected_dir}"
     tested_dir_info = f"- Tested directory: {tested_dir}"
@@ -177,8 +176,8 @@ def compare_directories(expected_dir, tested_dir, ignored_files, diff_outdir, re
     print(f"{len(ignored_files_ext)} file(s) ignored due to their extension.")
 
     # Display unexpected files in Tested results
-    print(f"{len(dcmp.left_only)} file(s) unexpectedly found in Tested results.")
-    print(f"{len(dcmp.right_only)} file(s) missing in Tested results.")
+    print(f"{len(dcmp.right_only)} file(s) unexpectedly found in Tested results.")
+    print(f"{len(dcmp.left_only)} file(s) missing in Tested results.")
 
     # Display different files count
     print(f"{len(different_files)} file(s) differ.")
