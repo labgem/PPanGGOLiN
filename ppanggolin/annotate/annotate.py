@@ -384,7 +384,7 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
     return genome_metadata, contig_to_uniq_metadata
 
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
-                  pseudo: bool = False) -> Tuple[Organism, bool]:
+                  pseudo: bool = False, translation_table: int = 11 ) -> Tuple[Organism, bool]:
     """
     Read a GBFF file and fills Organism, Contig and Genes objects based on information contained in this file
 
@@ -392,9 +392,12 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     :param gbff_file_path: Path to corresponding GBFF file
     :param circular_contigs: list of contigs
     :param pseudo: Allow to read pseudogenes
+    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
+
 
     :return: Organism complete and true for sequence in file
     """
+    used_transl_table_arg = 0
     global ctg_counter
 
     organism = Organism(organism_name)
@@ -446,7 +449,6 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 contig_counter.value += 1
             organism.add(contig)
             contig.length = contig_len
-        genetic_code = 11
 
         for feature in features:
             if feature['type'] == "source":
@@ -462,7 +464,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
 
                 
                     contig_to_metadata[contig].update(db_xref_for_metadata)
-
+            genetic_code = ''
             if feature['type'] not in ['CDS', 'rRNA', 'tRNA']:
                 continue   
             coordinates, is_complement, is_pseudo = extract_positions(feature['location'])
@@ -474,7 +476,15 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 # that's probably a 'stop' codon into selenocystein.
                 continue
 
+            if feature['type'] == 'CDS':
+                if feature['transl_table'] == "":
+                    used_transl_table_arg += 1
+                    genetic_code = translation_table
+                else:
+                    genetic_code = int(feature["transl_table"])
+
             strand = "-" if is_complement else "+"
+
             gene = create_gene(
                         org=organism,
                         contig=contig,
@@ -488,7 +498,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                         position=contig.number_of_genes,
                         gene_name=feature["gene"],
                         product=feature['produce'],
-                        genetic_code= "" if feature['transl_table'] == "" else int(feature["transl_table"]),
+                        genetic_code = genetic_code,
                         protein_id=feature["protein_id"]
                     )
             
@@ -508,6 +518,12 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
         contigs_meta_obj = Metadata(source='annotation_file', **metadata_dict)
         contig.add_metadata(source="annotation_file", metadata=contigs_meta_obj)
 
+    if used_transl_table_arg:
+        logging.getLogger("PPanGGOLiN").info(
+                f"transl_except tag was not found for {used_transl_table_arg} CDS "
+                f"in {gbff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
+                )
+                    
     return organism, True
 
 def parse_db_xref_metadata(db_xref_values: List[str], annot_file_path: Path = "") -> Dict[str, str]:
@@ -536,7 +552,7 @@ def parse_db_xref_metadata(db_xref_values: List[str], annot_file_path: Path = ""
 
 
 def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str],
-                 pseudo: bool = False) -> Tuple[Organism, bool]:
+                 pseudo: bool = False, translation_table: int = 11) -> Tuple[Organism, bool]:
     """
     Read annotation from GFF file
 
@@ -544,11 +560,13 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     :param gff_file_path: Path corresponding to GFF file
     :param circular_contigs: List of circular contigs
     :param pseudo: Allow to read pseudogene
+    :param translation_table: Translation table (genetic code) to use when transl_table is missing from CDS tags.
+
 
     :return: Organism object and if there are sequences associated or not
     """
     # TODO: This function would need some refactoring.
-
+    used_transl_table_arg = 0
     global ctg_counter
 
     (gff_seqname, _, gff_type, gff_start, gff_end, _, gff_strand, _, gff_attribute) = range(0, 9)
@@ -667,8 +685,12 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         pseudogene = True
                     
                     product = attributes.pop('PRODUCT', "")
-                    genetic_code = int(attributes.pop("TRANSL_TABLE", 11))
-                    
+                    if "TRANSL_TABLE" in attributes:
+                        genetic_code = int(attributes["TRANSL_TABLE"])
+                    else:
+                        used_transl_table_arg += 1
+                        genetic_code = translation_table
+                                                             
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig
                         try:
@@ -748,6 +770,11 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     if contig_name_to_region_info:
         add_metadata_from_gff_file(contig_name_to_region_info, org, gff_file_path)
 
+    if used_transl_table_arg:
+        logging.getLogger("PPanGGOLiN").info(
+                f"transl_except tag was not found for {used_transl_table_arg} CDS "
+                f"in {gff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
+                )
     return org, has_fasta
 
 
@@ -876,13 +903,14 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
 
 
 def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
-                   pseudo: bool = False) -> Tuple[Organism, bool]:
+                   pseudo: bool = False, translation_table:int=11) -> Tuple[Organism, bool]:
     """
     Read a GBFF file for one organism
 
     :param organism_name: Name of the organism
     :param filename: Path to the corresponding file
     :param circular_contigs: list of sequence in contig
+    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
     :param pseudo: allow to read pseudogene
 
     :return: Annotated organism for pangenome and true for sequence in file
@@ -891,14 +919,14 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     filetype = detect_filetype(filename)
     if filetype == "gff":
         try:
-            org, has_fasta = read_org_gff(organism_name, filename, circular_contigs, pseudo)
+            org, has_fasta = read_org_gff(organism_name, filename, circular_contigs, pseudo, translation_table)
         except Exception as err:
             raise Exception(f"Reading the gff3 file '{filename}' raised an error. {err}")
         else:
             return org, has_fasta
     elif filetype == "gbff":
         try:
-            org, has_fasta = read_org_gbff(organism_name, filename, circular_contigs, pseudo)
+            org, has_fasta = read_org_gbff(organism_name, filename, circular_contigs, pseudo, translation_table)
         except Exception as err:
             raise Exception(f"Reading the gbff file '{filename}' raised an error. {err}")
         else:
@@ -956,7 +984,7 @@ def local_identifiers_are_unique(genes: Iterable[Gene]) -> bool:
     return True
 
 
-def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, pseudo: bool = False,
+def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, pseudo: bool = False, translation_table: int = 11,
                      disable_bar: bool = False):
     """
     Read the annotation from GBFF file
@@ -964,7 +992,8 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     :param pangenome: pangenome object
     :param organisms_file: List of GBFF files for each organism
     :param cpu: number of CPU cores to use
-    :param pseudo: allow to read pseudogène
+    :param pseudo: allow to read pseudogene
+    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
     :param disable_bar: Disable the progress bar
     """
 
@@ -984,9 +1013,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
 
-        args.append((name, org_path, circular_contigs, pseudo))
-
-        # read_anno_file(name, org_path, circular_contigs, pseudo)
+        args.append((name, org_path, circular_contigs, pseudo, translation_table))
 
     with ProcessPoolExecutor(mp_context=get_context('fork'), max_workers=cpu,
                              initializer=init_contig_counter, initargs=(contig_counter,)) as executor:
@@ -1157,7 +1184,7 @@ def launch(args: argparse.Namespace):
                            allow_overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
         # TODO add warning for option not compatible with read_annotations
-        read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
+        read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, translation_table=args.translation_table, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 logging.getLogger("PPanGGOLiN").info(f"Get sequences from FASTA file: {args.fasta}")
