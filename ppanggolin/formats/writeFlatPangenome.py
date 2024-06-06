@@ -840,14 +840,18 @@ def write_rgp_table(regions: Set[Region],
                 "region": region.name,
                 "genome": region.organism,
                 "contig": region.contig,
+                "genes": len(region),
+                "first_gene": region.starter,
+                "last_gene": region.stopper,
                 "start": region.start,
                 "stop": region.stop,
-                "genes": len(region),
+                "length": region.length,
+                "coordinates": region.string_coordinates(),
                 "contigBorder": region.is_contig_border,
                 "wholeContig": region.is_whole_contig
             }
-
             writer.writerow(row)
+
 
 def spot2rgp(spots: set, output: Path, compress: bool = False):
     """Write a tsv file providing association between spot and rgp
