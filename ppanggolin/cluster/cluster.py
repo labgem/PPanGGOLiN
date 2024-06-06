@@ -23,7 +23,7 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.utils import read_compressed_or_not, restricted_float, run_subprocess
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
-from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
+from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations, translate_genes
 from ppanggolin.utils import mk_outdir
 
 
@@ -70,8 +70,7 @@ def check_pangenome_for_clustering(pangenome: Pangenome, tmp_file: TextIO, force
                         "or provide a way to access the gene sequence during the annotation step "
                         "(having the fasta in the gff files, or providing the fasta files through the --fasta option)")
 
-
-def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 11, coverage: float = 0.8,
+def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11, coverage: float = 0.8,
                      identity: float = 0.8, mode: int = 1) -> Tuple[Path, Path]:
     """
     Make a first clustering of all sequences in pangenome
@@ -86,16 +85,7 @@ def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 
 
     :return: path to representative sequence file and path to tsv clustering result
     """
-    seq_nucdb = tmpdir / 'nucleotid_sequences_db'
-    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, sequences.name, seq_nucdb]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
-    seqdb = tmpdir / 'aa_db'
-    cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", cpu, "--translation-table", code]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    seqdb = translate_genes(sequences, 'aa_db', tmpdir, cpu, True, code)
     logging.getLogger("PPanGGOLiN").info("Clustering sequences...")
     cludb = tmpdir / 'cluster_db'
     cmd = list(map(str, ["mmseqs", "cluster", seqdb, cludb, tmpdir, "--cluster-mode", mode, "--min-seq-id",
@@ -309,10 +299,11 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
         newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
         tmp_path = Path(newtmpdir.name)
 
-    with open(tmp_path/'nucleotid_sequences', "w") as sequence_file:
+    sequence_path = tmp_path/'nucleotid_sequences'
+    with open(sequence_path, "w") as sequence_file:
         check_pangenome_for_clustering(pangenome, sequence_file, force, disable_bar=disable_bar)
         logging.getLogger("PPanGGOLiN").info("Clustering all of the genes sequences...")
-        rep, tsv = first_clustering(sequence_file, tmp_path, cpu, code, coverage, identity, mode)
+        rep, tsv = first_clustering(sequence_path, tmp_path, cpu, code, coverage, identity, mode)
 
     fam2seq = read_faa(rep)
     if not defrag:

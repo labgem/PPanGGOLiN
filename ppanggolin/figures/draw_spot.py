@@ -155,7 +155,7 @@ def line_order_gene_lists(gene_lists: list, overlapping_match: int, exact_match:
         new_classify = set()
 
 
-def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int = 3,
+def subgraph(spot: Spot, outname: Path, with_border: bool = True, set_size: int = 3,
              multigenics: set = None, fam_to_mod: dict = None):
     """
     Write a pangeome subgraph of the gene families of a spot in gexf format
@@ -211,7 +211,7 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
         if "name" in g.nodes[node]:
             g.nodes[node]["name"] = g.nodes[node]["name"].most_common(1)[0][0]
 
-    nx.write_gexf(g, outname)
+    nx.write_gexf(g, outname.absolute().as_posix())
 
 def is_gene_list_ordered(genes:List[Feature]):
     """
@@ -537,7 +537,7 @@ def add_genome_tools(fig, gene_recs: GlyphRenderer, genome_recs: GlyphRenderer, 
     return column(genome_header, slider_spacing, slider_font, slider_offset)
 
 
-def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam_col: dict, file_name: str):
+def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam_col: dict, output: Path):
     """
 
     :param gene_lists:
@@ -549,7 +549,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     """
 
     # Prepare the source data
-    output_file(file_name + ".html")
+    output_file(output)
 
     # generate the figure and add some tools to it
     wheel_zoom = WheelZoomTool()
@@ -607,10 +607,10 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             fam2mod[fam] = f"module_{mod.ID}"
 
     for spot in tqdm(selected_spots, total=len(selected_spots), unit="spot", disable=disable_bar):
-        fname = output / f"spot_{str(spot.ID)}"
-
+        basename = f"spot_{str(spot.ID)}"
+        identical_rgp_out = output / (basename + '_identical_rgps.tsv')
         # write rgps representatives and the rgps they are identical to
-        with open(fname.absolute().as_posix() + '_identical_rgps.tsv', 'w') as out_struc:
+        with open(identical_rgp_out, 'w') as out_struc:
             out_struc.write('representative_rgp\trepresentative_rgp_genome\tidentical_rgp\tidentical_rgp_genome\n')
             for key_rgp, other_rgps in spot.get_uniq_to_rgp().items():
                 for rgp in other_rgps:
@@ -665,9 +665,10 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
                 uniq_gene_lists.append(genelist)
                 ordered_counts.append(curr_genelist_count)
 
-        draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname.absolute().as_posix())
-        subgraph(spot, fname.absolute().as_posix() + ".gexf", set_size=set_size,
-                 multigenics=multigenics, fam_to_mod=fam2mod)
+        draw_spot_out = output / (basename + ".html")
+        subgraph_out = output / (basename + ".gexf")
+        draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, draw_spot_out)
+        subgraph(spot, subgraph_out, set_size=set_size, multigenics=multigenics, fam_to_mod=fam2mod)
     logging.getLogger("PPanGGOLiN").info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 

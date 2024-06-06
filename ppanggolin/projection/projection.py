@@ -540,7 +540,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     """
     seq_fasta_files = []
 
-    logging.getLogger('PPanGGOLiN').info('Writting gene sequences of input genomes.')
+    logging.getLogger('PPanGGOLiN').info('Writing gene sequences of input genomes.')
 
     for input_organism in input_organisms:
         seq_outdir = output / input_organism.name
@@ -559,14 +559,14 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
         if use_representatives:
             _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome, seq_fasta_files, output=new_tmpdir,
                                                                        tmpdir=new_tmpdir, is_input_seq_nt=True,
-                                                                       cpu=cpu, no_defrag=no_defrag, identity=identity,
-                                                                       coverage=coverage,
+                                                                       is_input_slf=False, cpu=cpu, no_defrag=no_defrag,
+                                                                       identity=identity, coverage=coverage,
                                                                        translation_table=translation_table)
         else:
             _, seqid_to_gene_family = get_input_seq_to_family_with_all(pangenome=pangenome,
                                                                        sequence_files=seq_fasta_files,
                                                                        output=new_tmpdir, tmpdir=new_tmpdir,
-                                                                       is_input_seq_nt=True,
+                                                                       is_input_seq_nt=True, is_input_slf=False,
                                                                        cpu=cpu, no_defrag=no_defrag, identity=identity,
                                                                        coverage=coverage,
                                                                        translation_table=translation_table,

@@ -18,7 +18,9 @@ When using the `softcore` filter, the `--soft_core` option can be used to modify
 
 ## Genes
 
-This option can be used to write the nucleotide CDS sequences. It can be used as such, to write all of the genes of the pangenome for example:
+### Nucleotide sequences
+
+This option can be used to write the nucleotide CDS sequences. It can be used as such, to write all the genes of the pangenome for example:
 
 ```bash
 ppanggolin fasta -p pangenome.h5 --output MY_GENES --genes all
@@ -30,8 +32,25 @@ Or to write only the persistent genes:
 ppanggolin fasta -p pangenome.h5 --output MY_GENES --genes persistent
 ```
 
+### Protein sequences
 
-## Protein families
+This option can be used to write the amino acid CDS sequences. It can be used as such, to write all the genes of the pangenome for example:
+
+```bash
+ppanggolin fasta -p pangenome.h5 --output MY_GENES --proteins all
+```
+
+Or to write only the cloud genes:
+
+```bash
+ppanggolin fasta -p pangenome.h5 --output MY_GENES --genes_prot cloud
+```
+
+To translate the genes sequences, PPanGGOLiN use [MMSeqs2](https://github.com/soedinglab/MMseqs2) `translatenucs` command. So for this option you can give multiple threads with `--threads`. You can also specify the translation table to use with `--translate_table`. Finally, you can keep the [MMSeqs2](https://github.com/soedinglab/MMseqs2) that are generated in the temporary directory (that you can also be specified with `--tmpdir`) by indicate the option `--keep_tmp`.
+
+## Gene families
+
+### Protein sequences
 
 This option can be used to write the protein sequences of the representative sequences for each family. It can be used as such for all families:
 
@@ -39,14 +58,13 @@ This option can be used to write the protein sequences of the representative seq
 ppanggolin fasta -p pangenome.h5 --output MY_PROT --prot_families all
 ```
 
-or for all of the shell families for example:
+or for all the shell families for example:
 
 ```bash
 ppanggolin fasta -p pangenome.h5 --output MY_PROT --prot_families shell
 ```
 
-
-## Gene families
+### Nucleotide sequences
 
 This option can be used to write the gene sequences of the representative sequences for each family. It can be used as such:
 
