@@ -135,8 +135,7 @@ def align_rep(faa_file: Path, tmpdir: Path, cpu: int = 1, coverage: float = 0.8,
 
     :return: Result of alignment
     """
-    seqdb = create_mmseqs_db(faa_file, 'rep_sequence_db', tmpdir, db_mode=1, db_type=1)
-    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, faa_file, seqdb]))
+    seqdb = create_mmseqs_db([faa_file], 'rep_sequence_db', tmpdir, db_mode=1, db_type=1)
     logging.getLogger("PPanGGOLiN").info("Aligning cluster representatives...")
     alndb = tmpdir / 'rep_alignment_db'
     cmd = list(map(str, ["mmseqs", "search", seqdb, seqdb, alndb, tmpdir, "-a", "--min-seq-id", identity,

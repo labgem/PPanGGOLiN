@@ -1187,13 +1187,13 @@ def get_consecutive_region_positions(region_positions: List[int], contig_gene_co
 
 def run_subprocess(cmd: List[str], output: Path = None, msg: str = "Subprocess failed with the following error:\n"):
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    if output is None:
-        result = subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as subprocess_err:
+        for line in subprocess_err.stdout.split("\n"):
+            logging.getLogger("PPanGGOLiN").error(line)
+        raise Exception(msg + subprocess_err.stderr)
     else:
-        result = subprocess.run(cmd, capture_output=True, check=True)
-
-    with open(output, "w") as fout:
-        fout.write(result.stdout.decode('utf-8'))
-
-    if result.stderr and result.returncode != 0:
-        raise Exception(msg + f"{result.stderr.decode('utf-8')}")
+        if output is not None:
+            with open(output, 'w') as fout:
+                fout.write(result.stdout)
