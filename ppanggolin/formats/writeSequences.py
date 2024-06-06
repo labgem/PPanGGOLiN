@@ -5,8 +5,6 @@
 import argparse
 import logging
 import re
-import subprocess
-import sys
 from pathlib import Path
 from typing import TextIO, Dict, Set, Iterable, Union
 import tempfile
@@ -19,7 +17,8 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Organism
-from ppanggolin.utils import write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float, detect_filetype
+from ppanggolin.utils import (write_compressed_or_not, mk_outdir, read_compressed_or_not, restricted_float,
+                              detect_filetype, run_subprocess)
 from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
 
 module_regex = re.compile(r'^module_\d+')  # \d == [0-9]
@@ -153,9 +152,8 @@ def create_mmseqs_db(sequences: Iterable[Path], db_name: str, tmpdir: Path, db_m
     cmd = ["mmseqs", "createdb", "--createdb-mode", db_mode, "--dbtype", db_type]
     cmd += [seq.absolute().as_posix() for seq in sequences] + [seq_nucdb]
     cmd = list(map(str, cmd))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs createdb failed with the following error:\n")
     return seq_nucdb
 
 
@@ -177,8 +175,7 @@ def translate_genes(sequences: Union[Path, Iterable[Path]], db_name: str, tmpdir
     logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
     seqdb = tmpdir / db_name
     cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", threads, "--translation-table", code]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs translatenucs failed with the following error:\n")
     return seqdb
 
 
@@ -250,8 +247,7 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, proteins: s
     translate_db = translate_genes(pangenome_sequences, 'aa_db', tmpdir, threads, True, code)
     outpath = output / f"{proteins}_protein_genes.fna"
     cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info(f"Done writing the gene sequences : '{outpath}'")
 
     if not keep_tmp:

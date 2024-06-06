@@ -4,7 +4,6 @@
 # default libraries
 import logging
 import tempfile
-import subprocess
 from collections import defaultdict
 import os
 import argparse
@@ -23,7 +22,7 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.utils import read_compressed_or_not, restricted_float, run_subprocess
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
-from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations, translate_genes
+from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations, translate_genes, create_mmseqs_db
 from ppanggolin.utils import mk_outdir
 
 
@@ -136,12 +135,8 @@ def align_rep(faa_file: Path, tmpdir: Path, cpu: int = 1, coverage: float = 0.8,
 
     :return: Result of alignment
     """
-    # TODO use create_db function
-    logging.getLogger("PPanGGOLiN").debug("Create database")
-    seqdb = tmpdir / 'rep_sequence_db'
+    seqdb = create_mmseqs_db(faa_file, 'rep_sequence_db', tmpdir, db_mode=1, db_type=1)
     cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, faa_file, seqdb]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     logging.getLogger("PPanGGOLiN").info("Aligning cluster representatives...")
     alndb = tmpdir / 'rep_alignment_db'
     cmd = list(map(str, ["mmseqs", "search", seqdb, seqdb, alndb, tmpdir, "-a", "--min-seq-id", identity,

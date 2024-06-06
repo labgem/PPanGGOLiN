@@ -17,7 +17,7 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.utils import mk_outdir, read_compressed_or_not, create_tmpdir
+from ppanggolin.utils import mk_outdir, read_compressed_or_not, create_tmpdir, run_subprocess
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
 from ppanggolin.figures.draw_spot import draw_selected_spots, subgraph
@@ -73,27 +73,24 @@ def align_seq_to_pang(target_seq_file: Union[Path, Iterable[Path]], query_seq_fi
 
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file", suffix=".aln.DB",
                                      delete=False) as aln_db:
+        logging.getLogger("PPanGGOLiN").info("Aligning sequences")
         cmd = ["mmseqs", "search", query_db.as_posix(), target_db.as_posix(), aln_db.name, tmpdir.as_posix(), "-a",
                "--min-seq-id", str(identity),
                "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu),
                "--seed-sub-mat", "VTML40.out", "-s", "2", '--comp-bias-corr', "0", "--mask", "0", "-e", "1"]
 
-        logging.getLogger("PPanGGOLiN").info("Aligning sequences")
-        logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-
         start = time.time()
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+        run_subprocess(cmd, msg="MMSeqs search failed with the following error:\n")
         align_time = time.time() - start
         logging.getLogger("PPanGGOLiN").info(f"Done aligning sequences in {round(align_time, 2)} seconds")
 
         with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir, prefix="aln_result_db_file", suffix=".tsv",
                                          delete=False) as outfile:
+            logging.getLogger("PPanGGOLiN").info("Extracting alignments...")
             cmd = ["mmseqs", "convertalis", query_db.as_posix(), target_db.as_posix(), aln_db.name, outfile.name,
                    "--format-mode", "2"]
 
-            logging.getLogger("PPanGGOLiN").info("Extracting alignments...")
-            logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+            run_subprocess(cmd, msg="MMSeqs convertalis failed with the following error:\n")
 
     return Path(outfile.name)
 
