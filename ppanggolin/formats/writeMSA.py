@@ -5,7 +5,6 @@
 import argparse
 import logging
 import tempfile
-import subprocess
 import time
 from multiprocessing import get_context
 from pathlib import Path
@@ -17,7 +16,7 @@ from tqdm import tqdm
 # local libraries
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_outdir, restricted_float
+from ppanggolin.utils import mk_outdir, restricted_float, run_subprocess
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
 
@@ -151,14 +150,7 @@ def launch_mafft(fname: Path, output: Path, fam_name: str):
     outname = output / f"{fam_name}.aln"
     cmd = ["mafft", "--thread", "1", fname.absolute().as_posix()]
     logging.getLogger("PPanGGOLiN").debug("command: " + " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True)
-
-    with  open(outname, "w") as fout:
-        fout.write(result.stdout.decode('utf-8'))
-
-    if result.stderr and result.returncode != 0:
-        raise Exception("mafft failed with the following error:\n"
-                         f"{result.stderr.decode('utf-8')}")
+    run_subprocess(cmd, outname, msg="mafft failed with the following error:\n")
 
 
 def launch_multi_mafft(args: List[Tuple[Path, Path, str]]):
