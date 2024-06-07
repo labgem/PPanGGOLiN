@@ -49,9 +49,9 @@ ppanggolin fasta -p pangenome.h5 --output MY_GENES --genes_prot cloud
 ```
 
 To translate the gene sequences, PPanGGOLiN uses the [MMSeqs2](https://github.com/soedinglab/MMseqs2) `translatenucs` command. 
-So for this option you can specify multiple threads with `--cpu`. 
-You can also specify the translation table to use with `--translate_table`. 
-Finally, you can keep the temporary directory -that you can specify with `--tmpdir`- with the [MMSeqs2](https://github.com/soedinglab/MMseqs2) database using the `--keep_tmp` option.
+So for this option you can specify multiple threads with `--cpu`.
+You can also specify the translation table to use with `--translate_table`.
+The temporary directory, can be specified with `--tmpdir` to store the [MMSeqs2](https://github.com/soedinglab/MMseqs2) database and other files. Temporary files will be deleted at the end of the execution. To keep them, you can use the `--keep_tmp` option.
 
 ## Gene families
 
