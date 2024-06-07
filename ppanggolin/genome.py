@@ -433,15 +433,16 @@ class Contig(MetaFeatures):
 
         if not isinstance(gene, Gene):
             raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
-        
+
         if coordinate in self._genes_getter:
-            raise ValueError(f"Gene '{self._genes_getter[coordinate].ID}' with coordinate {coordinate} already exists in the "
-                             f"contig '{self.name}' {f'from genome {self.organism}' if self.organism else ''}, "
-                             f"cannot add gene '{gene.ID}' {f'from genome {gene.organism}' if gene.organism else ''}")
-        
+            raise ValueError(
+                f"Gene '{self._genes_getter[coordinate].ID}' with coordinate {coordinate} already exists in the "
+                f"contig '{self.name}' {f'from genome {self.organism}' if self.organism else ''}, "
+                f"cannot add gene '{gene.ID}' {f'from genome {gene.organism}' if gene.organism else ''}")
+
         if gene.position is None:
             raise AttributeError("The gene object needs to have its position in the contig filled before adding it")
-        
+
         # Adding empty values.
         # They should be filled by the end of the parsing.
         # Doing this because genes are not always met in order.
@@ -476,12 +477,13 @@ class Contig(MetaFeatures):
         elif self.length != contig_len:
             logging.getLogger("PPanGGOLiN").debug(f"Known contig length = {self.length}, new length = {contig_len}")
             raise ValueError('Attempting to define a contig length different from the previously defined value.')
-        
 
     def __len__(self) -> int:
         """Get the length of the contig
 
         :return: contig length
+
+        :todo: It could be better that len return the number of genes in the contig
         """
         return self.length
 
@@ -527,16 +529,16 @@ class Contig(MetaFeatures):
         """
         if not isinstance(gene, Gene):
             raise TypeError(f"Unexpected class / type for {type(gene)} when adding it to a contig")
-        
+
         for attr in ['start', 'stop', 'position', 'strand']:
             if getattr(gene, attr) is None:
                 raise AttributeError(f'Gene {gene.name} is not fill with {attr}')
-        
-        if gene.strand not in ['+', '-']:
-            raise AttributeError(f"Strand of Gene {gene.name} does not have the expected format. Expect '-' or '+' got {gene.strand}")
-        
-        self[(gene.start, gene.stop, gene.strand)] = gene
 
+        if gene.strand not in ['+', '-']:
+            raise AttributeError(
+                f"Strand of Gene {gene.name} does not have the expected format. Expect '-' or '+' got {gene.strand}")
+
+        self[(gene.start, gene.stop, gene.strand)] = gene
 
     def get_by_coordinate(self, coordinate: Tuple[int, int, str]) -> Gene:
         """
@@ -550,12 +552,11 @@ class Contig(MetaFeatures):
         """
         if not isinstance(coordinate, Tuple):
             raise TypeError(f"Coordinate to get gene must be a tuple. The provided type was {type(coordinate)}")
-        
+
         gene = self[coordinate]
         if gene is None:
             logging.getLogger("PPanGGOLiN").debug("Given position result with a None Gene")
         return gene
-
 
     def remove(self, position):
         """Remove a gene by its position
@@ -568,30 +569,39 @@ class Contig(MetaFeatures):
             raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
         del self[position]
 
-    def get_genes(self, begin: int = 0, end: int = None) -> List[Gene]:
+    def get_genes(self, begin: int = 0, end: int = None, outrange_ok: bool = False) -> List[Gene]:
         """
-        Gets a list of genes within a range.
+        Gets a list of genes within a range of gene position.
         If no arguments are given it return all genes.
 
         :param begin: Position of the first gene to retrieve
         :param end: Position of the last gene to not retrieve
+        :param outrange_ok: If True even is the last position is out of range return all the genes from begin to last position
 
         :return: List of genes between begin and end position
 
         :raises TypeError: If begin or end is not an integer
         :raises ValueError: If begin position is greater than end position
+        :raises IndexError: If end position is greater than last gene position in contig
         """
-
         if end is None:
-            end = self.length
+            end = self._genes_position[-1].position
 
         if not isinstance(begin, int) or not isinstance(end, int):
-            raise TypeError(
-                f"Expected type int for 'begin' and 'end', but received types '{type(begin)}' and '{type(end)}'.")
+            raise TypeError(f"Expected type int for 'begin' and 'end', "
+                            f"but received types '{type(begin)}' and '{type(end)}'.")
 
         if begin >= end:
             raise ValueError("The 'begin' position must be less than the 'end' position.")
 
+        if end > self._genes_position[-1].position:
+            if outrange_ok:
+                end = self._genes_position[-1].position
+            else:
+                raise IndexError(f"Gene at position {end} is out of range")
+
+        if end == self._genes_position[-1].position:
+            return self._genes_position[begin:]
         else:
             return self._genes_position[begin: end]
 
@@ -965,7 +975,6 @@ class Organism(MetaFeatures):
         modules = {family.module for family in self.families if family.has_module}
         yield from modules
 
-
     @property
     def number_of_modules(self) -> int:
         """
@@ -974,7 +983,7 @@ class Organism(MetaFeatures):
         :return: Number of modules in organism
         """
         return len(list(self.modules))
-    
+
     @property
     def regions(self):
         """Get all RGPS belonging to this genome
@@ -996,7 +1005,7 @@ class Organism(MetaFeatures):
         :return: Number of RGP in organism
         """
         return len(list(self.regions))
-    
+
     @property
     def spots(self):
         """Get all spots belonging to this genome
@@ -1018,8 +1027,7 @@ class Organism(MetaFeatures):
         :return: Number of spots in organism
         """
         return len(list(self.spots))
-    
-    
+
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
@@ -1047,7 +1055,7 @@ class Organism(MetaFeatures):
         else:
             raise ValueError("There is not any partition corresponding please report a github issue")
 
-    def group_genes_by_partition(self)-> Dict[str, Set]:
+    def group_genes_by_partition(self) -> Dict[str, Set]:
         """
         Groups genes based on their family's named partition and returns a dictionary 
         mapping partition names to sets of genes belonging to each partition.
@@ -1056,10 +1064,10 @@ class Organism(MetaFeatures):
         """
         partition_to_gene = defaultdict(set)
         contigs_count = 0
-        
+
         for contig in self.contigs:
             contigs_count += 1
             for gene in contig.genes:
                 partition_to_gene[gene.family.named_partition].add(gene)
-                
+
         return partition_to_gene

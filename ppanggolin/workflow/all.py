@@ -54,7 +54,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         start_anno = time.time()
         read_annotations(pangenome, args.anno, pseudo=args.annotate.use_pseudo,
-                         cpu=args.annotate.cpu, disable_bar=args.disable_prog_bar)
+                         cpu=args.annotate.cpu, translation_table=args.annotate.translation_table, disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()
