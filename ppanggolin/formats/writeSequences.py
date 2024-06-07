@@ -151,7 +151,7 @@ def create_mmseqs_db(sequences: Iterable[Path], db_name: str, tmpdir: Path, db_m
 
     seq_nucdb = tmpdir / db_name
     cmd = ["mmseqs", "createdb", "--createdb-mode", db_mode, "--dbtype", db_type]
-    cmd += [seq.absolute().as_posix() for seq in sequences] + [seq_nucdb]
+    cmd += [seq.absolute().as_posix() for seq in sequences] + [seq_nucdb.absolute()]
     cmd = list(map(str, cmd))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
@@ -159,14 +159,14 @@ def create_mmseqs_db(sequences: Iterable[Path], db_name: str, tmpdir: Path, db_m
     return seq_nucdb
 
 
-def translate_genes(sequences: Union[Path, Iterable[Path]], db_name: str, tmpdir: Path, threads: int = 1,
+def translate_genes(sequences: Union[Path, Iterable[Path]], db_name: str, tmpdir: Path, cpu: int = 1,
                     is_single_line_fasta: bool = False, code: int = 11) -> Path:
     """Translate nucleotide sequences into MMSeqs2 amino acid sequences database
 
     :param sequences: File with the nucleotide sequences
     :param db_name: name of the output database
     :param tmpdir: Temporary directory to save the MMSeqs2 files
-    :param threads: Number of available threads to use
+    :param cpu: Number of available threads to use
     :param is_single_line_fasta: Allow to use soft link in MMSeqs2 database
     :param code: Translation code to use
 
@@ -176,7 +176,7 @@ def translate_genes(sequences: Union[Path, Iterable[Path]], db_name: str, tmpdir
                                  tmpdir, db_mode=1 if is_single_line_fasta else 0, db_type=2)
     logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
     seqdb = tmpdir / db_name
-    cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", threads, "--translation-table", code]))
+    cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", cpu, "--translation-table", code]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
     return seqdb
@@ -227,7 +227,7 @@ def write_gene_sequences(pangenome: Pangenome, output: Path, genes: str, soft_co
 
 def write_gene_protein_sequences(pangenome: Pangenome, output: Path, proteins: str, soft_core: float = 0.95,
                                  compress: bool = False, keep_tmp: bool = False, tmp: Path = None,
-                                 threads: int = 1, code: int = 11, disable_bar: bool = False):
+                                 cpu: int = 1, code: int = 11, disable_bar: bool = False):
     """ Write all amino acid sequences from given genes in pangenome
 
     :param pangenome: Pangenome object with gene families sequences
@@ -237,7 +237,7 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, proteins: s
     :param compress: Compress the file in .gz
     :param keep_tmp: Keep temporary directory
     :param tmp: Path to temporary directory
-    :param threads: Number of threads available
+    :param cpu: Number of threads available
     :param code: Genetic code use to translate nucleotide sequences to protein sequences
     :param disable_bar: Disable progress bar
     """
@@ -247,7 +247,8 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, proteins: s
     write_gene_sequences(pangenome, tmpdir, proteins, soft_core, compress, disable_bar)
 
     pangenome_sequences = tmpdir / f"{proteins}_genes.fna"
-    translate_db = translate_genes(pangenome_sequences, 'aa_db', tmpdir, threads, True, code)
+    translate_db = translate_genes(sequences=pangenome_sequences, db_name='aa_db', tmpdir=tmpdir,
+                                   cpu=cpu, is_single_line_fasta=True, code=code)
     outpath = output / f"{proteins}_protein_genes.fna"
     cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
@@ -572,7 +573,7 @@ def launch(args: argparse.Namespace):
     """
     check_write_sequences_args(args)
     translate_kwgs = {"code": args.translation_table,
-                      "threads": args.threads,
+                      "cpu": args.cpu,
                       "tmp": args.tmpdir,
                       "keep_tmp": args.keep_tmp}
     mk_outdir(args.output, args.force)
@@ -661,7 +662,7 @@ def parser_seq(parser: argparse.ArgumentParser):
     optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
     optional.add_argument("--translation_table", required=False, default="11",
                           help="Translation table (genetic code) to use.")
-    optional.add_argument("--threads", required=False, default=1, type=int, help="Number of available threads")
+    optional.add_argument("--cpu", required=False, default=1, type=int, help="Number of available threads")
     optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",

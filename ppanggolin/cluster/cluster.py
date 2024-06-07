@@ -85,7 +85,8 @@ def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11
 
     :return: path to representative sequence file and path to tsv clustering result
     """
-    seqdb = translate_genes(sequences, 'aa_db', tmpdir, cpu, True, code)
+    seqdb = translate_genes(sequences=sequences, db_name='aa_db', tmpdir=tmpdir, cpu=cpu,
+                            is_single_line_fasta=True, code=code)
     logging.getLogger("PPanGGOLiN").info("Clustering sequences...")
     cludb = tmpdir / 'cluster_db'
     cmd = list(map(str, ["mmseqs", "cluster", seqdb, cludb, tmpdir, "--cluster-mode", mode, "--min-seq-id",

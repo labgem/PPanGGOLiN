@@ -74,8 +74,7 @@ def align_seq_to_pang(target_seq_file: Union[Path, Iterable[Path]], query_seq_fi
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file", suffix=".aln.DB",
                                      delete=False) as aln_db:
         cmd = ["mmseqs", "search", query_db.as_posix(), target_db.as_posix(), aln_db.name, tmpdir.as_posix(), "-a",
-               "--min-seq-id", str(identity),
-               "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu),
+               "--min-seq-id", str(identity), "-c", str(coverage), "--cov-mode", cov_mode, "--threads", str(cpu),
                "--seed-sub-mat", "VTML40.out", "-s", "2", '--comp-bias-corr', "0", "--mask", "0", "-e", "1"]
 
         logging.getLogger("PPanGGOLiN").info("Aligning sequences")
@@ -180,18 +179,19 @@ def get_seq_ids(seq_file: TextIOWrapper) -> Tuple[Set[str], bool, bool]:
     seq_set = set()
     seq_count = 0
     first_seq_concat = ""
-    single_line_fasta = False
+    single_line_fasta = True
     count_fasta_line = 0
     for line in seq_file:
         if line.startswith(">"):
             seq_set.add(line[1:].split()[0].strip())
             seq_count += 1
             if count_fasta_line > 1:  # Allow to know if we can use soft link with createdb from MMSeqs2
-                single_line_fasta = True
+                single_line_fasta = False
             count_fasta_line = 0
-        elif seq_count <= 20:
-            first_seq_concat += line.strip()
-        count_fasta_line += 1
+        else:
+            count_fasta_line += 1
+            if seq_count <= 20:
+                first_seq_concat += line.strip()
 
     char_counter = Counter(first_seq_concat)
     is_nucleotide = all(char in dna_expected_char for char in char_counter)
@@ -354,18 +354,18 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
     logging.getLogger("PPanGGOLiN").info("Writing RGP and spot information related to hits in the pangenome")
     multigenics = pangenome.get_multigenics(pangenome.parameters["rgp"]["dup_margin"])
 
-    finfo = open(output / "info_input_seq.tsv", "w")
-    finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
-    fam2rgp = get_fam_to_rgp(pangenome, multigenics)
-    fam2spot, fam2border = get_fam_to_spot(pangenome, multigenics)
-    spot_list = set()
-    for seq, panfam in seq_to_pang.items():
-        finfo.write(seq + '\t' + panfam.name + "\t" + panfam.named_partition + "\t" + ",".join(
-            map(str, fam2spot[panfam])) + "\t" + ",".join(
-            map(str, fam2border[panfam])) + "\t" + ','.join(fam2rgp[panfam]) + "\n")
-        spot_list |= set(fam2spot[panfam])
-        spot_list |= set(fam2border[panfam])
-    finfo.close()
+    with open(output / "info_input_seq.tsv", "w") as finfo:
+        finfo.write("input\tfamily\tpartition\tspot_list_as_member\tspot_list_as_border\trgp_list\n")
+        fam2rgp = get_fam_to_rgp(pangenome, multigenics)
+        fam2spot, fam2border = get_fam_to_spot(pangenome, multigenics)
+        spot_list = set()
+        for seq, panfam in seq_to_pang.items():
+            finfo.write(seq + '\t' + panfam.name + "\t" + panfam.named_partition + "\t" + ",".join(
+                map(str, fam2spot[panfam])) + "\t" + ",".join(
+                map(str, fam2border[panfam])) + "\t" + ','.join(fam2rgp[panfam]) + "\n")
+            spot_list |= set(fam2spot[panfam])
+            spot_list |= set(fam2border[panfam])
+
     if draw_related:
         drawn_spots = set()
         for spot in spot_list:
