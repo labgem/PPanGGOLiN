@@ -826,8 +826,8 @@ def write_rgp_table(regions: Set[Region],
     """
     fname = output / "regions_of_genomic_plasticity.tsv"
     with write_compressed_or_not(fname, compress) as tab:
-        fieldnames = ["region", "genome", "contig", "start",
-                      "stop", "genes", "contigBorder", "wholeContig"]
+        fieldnames = ["region", "genome", "contig", "genes", "first_gene", "last_gene",
+                      "start", "stop", "length", "coordinates", "contigBorder", "wholeContig"]
 
         writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
         writer.writeheader()
