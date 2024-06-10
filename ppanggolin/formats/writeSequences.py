@@ -501,7 +501,7 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
     for line in read_compressed_or_not(organisms_file):
         elements = [el.strip() for el in line.split("\t")]
         if len(elements) <= 1:
-            raise SyntaxError(f"No tabulation separator found in given --fasta or --anno file: '{organisms_file}'")
+            raise ValueError(f"No tabulation separator found in given --fasta or --anno file: '{organisms_file}'")
         org_dict[elements[0]] = Path(elements[1])
         if not org_dict[elements[0]].exists():  # Check tsv sanity test if it's not one it's the other
             org_dict[elements[0]] = organisms_file.parent.joinpath(org_dict[elements[0]])

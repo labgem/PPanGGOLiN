@@ -501,7 +501,6 @@ def parser_clust(parser: argparse.ArgumentParser):
                             "with their original gene family.")
     clust.add_argument("--translation_table", required=False, default="11",
                        help="Translation table (genetic code) to use.")
-    # clust.add_argument("--compress")
 
     clust.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
