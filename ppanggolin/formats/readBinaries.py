@@ -4,7 +4,7 @@
 # default libraries
 import logging
 from pathlib import Path
-from typing import TextIO, Dict, Any, Set, List, Tuple
+from typing import Dict, Any, Set, List, Tuple
 from collections import defaultdict
 
 # installed libraries
@@ -17,6 +17,7 @@ from ppanggolin.pangenome import Pangenome
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.metadata import Metadata
+from ppanggolin.utils import write_compressed_or_not
 
 
 class Genedata:
@@ -26,7 +27,7 @@ class Genedata:
     """
 
     def __init__(self, start: int, stop: int, strand: str, gene_type: str, position: int, name: str, product: str,
-                 genetic_code: int, coordinates:List[Tuple[int]] = None):
+                 genetic_code: int, coordinates: List[Tuple[int]] = None):
         """Constructor method
 
         :param start: Gene start position
@@ -59,6 +60,7 @@ class Genedata:
             and self.product == other.product \
             and self.genetic_code == other.genetic_code \
             and self.coordinates == other.coordinates \
+
 
     def __hash__(self):
         return hash((self.start, self.stop, self.strand, self.gene_type, self.position,
@@ -172,9 +174,10 @@ def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
     for row in read_chunks(table, chunk=20000):
         start = int(row["start"])
         stop = int(row["stop"])
-        
-        if "has_joined_coordinates" in row.dtype.names and row["has_joined_coordinates"]: # manage gene with joined coordinates if the info exists
-            
+
+        if "has_joined_coordinates" in row.dtype.names and row["has_joined_coordinates"]:
+            # manage gene with joined coordinates if the info exists
+
             try:
                 coordinates = genedata_id_to_coordinates[row["genedata_id"]]
             except KeyError:
@@ -182,7 +185,6 @@ def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
                                'coordinates but is not found in annotations.joinCoordinates table')
         else:
             coordinates = [(start, stop)]
-
 
         genedata = Genedata(start=start,
                             stop=stop,
@@ -199,6 +201,7 @@ def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
 
     return genedata_id2genedata
 
+
 def read_join_coordinates(h5f: tables.File) -> Dict[str, List[Tuple[int, int]]]:
     """
     Read join coordinates from a HDF5 file and return a dictionary mapping genedata_id to coordinates.
@@ -207,7 +210,7 @@ def read_join_coordinates(h5f: tables.File) -> Dict[str, List[Tuple[int, int]]]:
     :return: A dictionary mapping genedata_id to a list of tuples representing start and stop coordinates.
     """
     genedata_id_to_coordinates = defaultdict(list)
-    
+
     if not hasattr(h5f.root.annotations, "joinedCoordinates"):
         # then the pangenome file has no joined annotations 
         # or has been made before the joined annotations coordinates
@@ -218,7 +221,8 @@ def read_join_coordinates(h5f: tables.File) -> Dict[str, List[Tuple[int, int]]]:
     for row in read_chunks(table, chunk=20000):
         genedata_id = row["genedata_id"]
 
-        genedata_id_to_coordinates[genedata_id].append((int(row["coordinate_rank"]), int(row["start"]), int(row["stop"])))
+        genedata_id_to_coordinates[genedata_id].append(
+            (int(row["coordinate_rank"]), int(row["start"]), int(row["stop"])))
 
     # sort coordinate by their rank
     genedata_id_to_sorted_coordinates = {}
@@ -242,21 +246,21 @@ def read_sequences(h5f: tables.File) -> dict:
     return seqid2seq
 
 
-def get_non_redundant_gene_sequences_from_file(pangenome_filename: str, file_obj: TextIO, add: str = '',
+def get_non_redundant_gene_sequences_from_file(pangenome_filename: str, output: Path, add: str = '',
                                                disable_bar: bool = False):
     """
     Writes the non-redundant CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
     and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
 
     :param pangenome_filename: Name of the pangenome file
-    :param file_obj: Name of the output file
+    :param output: Path to the output file
     :param add: Add a prefix to sequence header
     :param disable_bar: disable progress bar
 
     """
 
-    logging.getLogger("PPanGGOLiN").info(
-        f"Extracting and writing non redundant CDS sequences from {pangenome_filename} to {file_obj.name}")
+    logging.getLogger("PPanGGOLiN").info(f"Extracting and writing non redundant CDS sequences from {pangenome_filename}"
+                                         f" to {output.absolute()}")
 
     with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
 
@@ -269,41 +273,41 @@ def get_non_redundant_gene_sequences_from_file(pangenome_filename: str, file_obj
             seqid2cds_name[row["seqid"]] = row["gene"].decode()
 
         table = h5f.root.annotations.sequences
-        for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
-            cds_name = seqid2cds_name[row["seqid"]]
-            file_obj.write(f'>{add}{cds_name}\n')
-            file_obj.write(f'{row["dna"].decode()}\n')
+        with open(output, "w") as file_obj:
+            for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
+                cds_name = seqid2cds_name[row["seqid"]]
+                file_obj.write(f'>{add}{cds_name}\n')
+                file_obj.write(f'{row["dna"].decode()}\n')
 
-        file_obj.flush()
 
-
-def write_gene_sequences_from_pangenome_file(pangenome_filename: str, file_obj: TextIO, list_cds: iter = None,
-                                             add: str = '', disable_bar: bool = False):
+def write_gene_sequences_from_pangenome_file(pangenome_filename: str, output: Path, list_cds: iter = None,
+                                             add: str = '', compress: bool = False, disable_bar: bool = False):
     """
     Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
     and adds the eventual str 'add' in front of the identifiers. Loads the sequences from a .h5 pangenome file.
 
     :param pangenome_filename: Name of the pangenome file
-    :param file_obj: Name of the output file
+    :param output: Path to the sequences file
     :param list_cds: An iterable object of CDS
     :param add: Add a prefix to sequence header
+    :param compress: Compress the output file
     :param disable_bar: Prevent to print disable progress bar
     """
-    logging.getLogger("PPanGGOLiN").info(
-        f"Extracting and writing CDS sequences from a {pangenome_filename} file to a fasta file...")
-    h5f = tables.open_file(pangenome_filename, "r", driver_core_backing_store=0)
-
-    table = h5f.root.annotations.geneSequences
-    list_cds = set(list_cds) if list_cds is not None else None
-    seqid2seq = read_sequences(h5f)
-    for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
-        # Read the table chunk per chunk otherwise RAM dies on big pangenomes
-        name_cds = row["gene"].decode()
-        if row["type"] == b"CDS" and (list_cds is None or name_cds in list_cds):
-            file_obj.write('>' + add + name_cds + "\n")
-            file_obj.write(seqid2seq[row["seqid"]] + "\n")
-    file_obj.flush()
-    h5f.close()
+    logging.getLogger("PPanGGOLiN").info(f"Extracting and writing CDS sequences from a {pangenome_filename} "
+                                         "file to a fasta file...")
+    with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
+        table = h5f.root.annotations.geneSequences
+        list_cds = set(list_cds) if list_cds is not None else None
+        seqid2seq = read_sequences(h5f)
+        with write_compressed_or_not(output, compress) as file_obj:
+            for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="gene", disable=disable_bar):
+                # Read the table chunk per chunk otherwise RAM dies on big pangenomes
+                name_cds = row["gene"].decode()
+                if row["type"] == b"CDS" and (list_cds is None or name_cds in list_cds):
+                    file_obj.write('>' + add + name_cds + "\n")
+                    file_obj.write(seqid2seq[row["seqid"]] + "\n")
+    logging.getLogger("PPanGGOLiN").debug("Gene sequences from pangenome file was written to "
+                                          f"{output.absolute()}{'.gz' if compress else ''}")
 
 
 def read_graph(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
@@ -520,7 +524,8 @@ def read_genes(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[in
             local = ""
         gene.fill_annotations(start=genedata.start, stop=genedata.stop, strand=genedata.strand,
                               gene_type=genedata.gene_type, name=genedata.name, position=genedata.position,
-                              genetic_code=genedata.genetic_code, product=genedata.product, local_identifier=local, coordinates=genedata.coordinates)
+                              genetic_code=genedata.genetic_code, product=genedata.product, local_identifier=local,
+                              coordinates=genedata.coordinates)
         gene.is_fragment = row["is_fragment"]
         if link:
             contig = pangenome.get_contig(identifier=int(row["contig"]))

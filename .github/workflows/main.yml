@@ -89,17 +89,18 @@ jobs:
         ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
         ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --output stepbystep -f
         ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
-        ppanggolin spot -p stepbystep/pangenome.h5 --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1
+        ppanggolin spot -p stepbystep/pangenome.h5 --output stepbystep --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1 -f
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots -o stepbystep -f
         ppanggolin module -p stepbystep/pangenome.h5 --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05
         ppanggolin write_pangenome -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06  --gexf --light_gexf --csv --Rtab --stats --partitions --compress --json --spots --regions --borders --families_tsv --cpu 1 
         ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output stepbystep -f --fasta genomes.fasta.list --gff --proksee --table
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta genomes.fasta.list
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families rgp --gene_families rgp 
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families rgp --gene_families rgp --compress 
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families softcore --gene_families softcore 
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families module_0
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families core
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --gene_families module_0 --genes module_0
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --genes core --proteins cloud
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --gene_families module_0 --genes module_0 --compress
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --proteins cloud --cpu $NUM_CPUS --keep_tmp --compress
 
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --no_print_info --recompute_metrics --log metrics.log
@@ -179,6 +180,8 @@ jobs:
         head genomes.gbff.list | sed 's/^/input_genome_/g' > genomes.gbff.head.list
         ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_list_of_gbff --anno genomes.gbff.head.list --gff --proksee --cpu $NUM_CPUS
 
+        head genomes.fasta.list | sed 's/^/input_genome_/g' > genomes.fasta.head.list
+        ppanggolin projection --pangenome myannopang/pangenome.h5  -o projection_from_list_of_fasta --fasta genomes.fasta.head.list --gff --proksee --cpu $NUM_CPUS
 
         ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_single_fasta \
                               --genome_name chlam_A --fasta FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz \

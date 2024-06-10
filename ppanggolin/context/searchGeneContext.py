@@ -69,24 +69,22 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
     if sequence_file is not None:
         # Alignment of sequences on pangenome families
         with read_compressed_or_not(sequence_file) as seqFileObj:
-            seq_set, is_nucleotide = get_seq_ids(seqFileObj)
+            seq_set, is_nucleotide, is_slf = get_seq_ids(seqFileObj)
 
         logging.debug(f"Input sequences are {'nucleotide' if is_nucleotide else 'protein'} sequences")
 
         with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
-
+            input_type = "nucleotide" if is_nucleotide else "unknow"
             if use_representatives:
-                _, seqid2fam = get_input_seq_to_family_with_rep(pangenome, [sequence_file], output,
-                                                                new_tmpdir, is_input_seq_nt=is_nucleotide,
-                                                                cpu=cpu, no_defrag=no_defrag,
-                                                                identity=identity, coverage=coverage,
-                                                                translation_table=translation_table,
+                _, seqid2fam = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir,
+                                                                input_type=input_type, is_input_slf=is_slf, cpu=cpu,
+                                                                no_defrag=no_defrag, identity=identity,
+                                                                coverage=coverage, translation_table=translation_table,
                                                                 disable_bar=disable_bar)
             else:
-                _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome,
-                                                                sequence_files=[sequence_file],
+                _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=sequence_file,
                                                                 output=output, tmpdir=new_tmpdir,
-                                                                is_input_seq_nt=is_nucleotide,
+                                                                input_type=input_type, is_input_slf=is_slf,
                                                                 cpu=cpu, no_defrag=no_defrag,
                                                                 identity=identity, coverage=coverage,
                                                                 translation_table=translation_table,
@@ -651,7 +649,7 @@ def parser_context(parser: argparse.ArgumentParser):
                           default='graphml', choices=['gexf', 'graphml'])
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int,
                           help="Number of available cpus")
-    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+    optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
                           help="Keeping temporary files (useful for debugging).")
