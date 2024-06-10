@@ -27,7 +27,7 @@ from ppanggolin.formats.writeSequences import translate_genes, create_mmseqs_db
 
 def align_seq_to_pang(target_seq_file: Union[Path, Iterable[Path]], query_seq_files: Union[Path, Iterable[Path]],
                       tmpdir: Path, cpu: int = 1, no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8,
-                      is_query_nt: bool = False, is_query_slf: bool = False, is_target_nt: bool = False,
+                      query_type: str = "unknow", is_query_slf: bool = False, target_type: str = "unknow",
                       is_target_slf: bool = False, translation_table: int = None) -> Path:
     """
     Align fasta sequence to pangenome sequences. 
@@ -39,34 +39,36 @@ def align_seq_to_pang(target_seq_file: Union[Path, Iterable[Path]], query_seq_fi
     :param no_defrag: Do not apply defragmentation
     :param identity: minimal identity threshold for the alignment
     :param coverage: minimal identity threshold for the alignment
-    :param is_query_nt: Is the sequence file (query) are nucleotide sequences. If True, sequences are translated by mmseqs
+    :param query_type: Sequences type of the file (query). [nucleotide, protein, unknow]
     :param is_query_slf: Is the sequence file (query) with single line fasta. If True, MMSeqs2 database will be with soft link
-    :param is_target_nt: Is the sequences of pangenome (target) are nucleotide sequences. If True, sequences are translated by mmseqs
+    :param target_type: Sequences type of pangenome (target). [nucleotide, aminoacid, protein]
     :param is_target_slf: Is the sequences of pangenome (target) with single line fasta. If True, MMSeqs2 database will be with soft link
     :param translation_table: Translation table to use, if sequences are nucleotide and need to be translated.
 
     :return: Alignment result file
     """
 
-    if is_target_nt:
+    if target_type == "nucleotide":
         logging.getLogger("PPanGGOLiN").debug("Target sequences will be translated by mmseqs with "
                                               f"translation table {translation_table}")
         with create_tmpdir(tmpdir, basename="target_db", keep_tmp=True) as target_db_dir:
             #  Keep is set as true because whether tmpdir is deleted or not target_db_dir will be the same
             target_db = translate_genes(target_seq_file, target_db_dir, cpu, is_target_slf, translation_table)
     else:
+        db_type = 1 if target_type == "protein" else 0
         target_db = create_mmseqs_db([target_seq_file] if isinstance(target_seq_file, Path) else target_seq_file,
-                                     'target_db', tmpdir, db_mode=1 if is_target_slf else 0, db_type=1)
+                                     'target_db', tmpdir, db_mode=1 if is_target_slf else 0, db_type=db_type)
 
-    if is_query_nt:
+    if query_type == "nucleotide":
         logging.getLogger("PPanGGOLiN").debug("Query sequences will be translated by mmseqs "
                                               f"with translation table {translation_table}")
         with create_tmpdir(tmpdir, basename="query_db", keep_tmp=True) as query_db_dir:
             #  Keep is set as true because whether tmpdir is deleted or not target_db_dir will be the same
             query_db = translate_genes(query_seq_files, query_db_dir, cpu, is_query_slf, translation_table)
     else:
+        db_type = 1 if query_type == "protein" else 0
         query_db = create_mmseqs_db([query_seq_files] if isinstance(query_seq_files, Path) else query_seq_files,
-                                    'query_db', tmpdir, db_mode=1 if is_query_slf else 0, db_type=1)
+                                    'query_db', tmpdir, db_mode=1 if is_query_slf else 0, db_type=db_type)
 
     cov_mode = "2"  # coverage of query
     if no_defrag:
@@ -393,7 +395,7 @@ def get_seq_info(seq_to_pang: dict, pangenome: Pangenome, output: Path, draw_rel
 
 
 def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Union[Path, Iterable[Path]], output: Path,
-                                     tmpdir: Path, is_input_seq_nt: bool, is_input_slf: bool = False, cpu: int = 1,
+                                     tmpdir: Path, input_type: str = "unknow", is_input_slf: bool = False, cpu: int = 1,
                                      no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8,
                                      translation_table: int = 11, disable_bar: bool = False
                                      ) -> Tuple[Path, Dict[str, GeneFamily]]:
@@ -407,7 +409,7 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Union
     :param sequence_files: Iterable of paths of FASTA files containing input sequences to align.
     :param output: Path to the output directory where alignment results will be stored.
     :param tmpdir: Temporary directory for intermediate files.
-    :param is_input_seq_nt: Is input sequence file nucleotide sequences.
+    :param input_type: Type of input sequence file. [nucleotide, aminoacid, unknow]
     :param is_input_slf: Is the sequence file with single line fasta. If True, MMSeqs2 database will be with soft link
     :param cpu: Number of CPU cores to use for the alignment (default: 1).
     :param no_defrag: If True, the defragmentation workflow is skipped (default: False).
@@ -424,10 +426,10 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Union
     logging.getLogger("PPanGGOLiN").debug(f'Write gene family sequences in {pangenome_sequences.absolute()}')
     write_gene_fam_sequences(pangenome, pangenome_sequences, add="ppanggolin_", disable_bar=disable_bar)
 
-    align_file = align_seq_to_pang(target_seq_file=pangenome_sequences, query_seq_files=sequence_files,
-                                   tmpdir=tmpdir, cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
-                                   is_query_nt=is_input_seq_nt, is_query_slf=is_input_slf,
-                                   is_target_nt=False, is_target_slf=True, translation_table=translation_table)
+    align_file = align_seq_to_pang(target_seq_file=pangenome_sequences, query_seq_files=sequence_files, tmpdir=tmpdir,
+                                   cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
+                                   query_type=input_type, is_query_slf=is_input_slf, is_target_slf=True,
+                                   target_type="protein", translation_table=translation_table)
 
     seq2pang, align_file = map_input_gene_to_family_rep_aln(align_file, output, pangenome)
 
@@ -435,7 +437,7 @@ def get_input_seq_to_family_with_rep(pangenome: Pangenome, sequence_files: Union
 
 
 def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files:  Union[Path, Iterable[Path]], output: Path,
-                                     tmpdir: Path, is_input_seq_nt: bool, is_input_slf: bool = False, cpu: int = 1,
+                                     tmpdir: Path, input_type: str = "unknow", is_input_slf: bool = False, cpu: int = 1,
                                      no_defrag: bool = False, identity: float = 0.8, coverage: float = 0.8,
                                      translation_table: int = 11, disable_bar: bool = False
                                      ) -> Tuple[Path, Dict[str, GeneFamily]]:
@@ -449,7 +451,7 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files:  Unio
     :param sequence_files: Iterable of paths of FASTA files containing input sequences to align.
     :param output: Path to the output directory where alignment results will be stored.
     :param tmpdir: Temporary directory for intermediate files.
-    :param is_input_seq_nt: Is input sequence file nucleotide sequences.
+    :param input_type: Sequences type of the file (query). [nucleotide, protein, unknow]
     :param is_input_slf: Is the sequence file with single line fasta. If True, MMSeqs2 database will be with soft link
     :param cpu: Number of CPU cores to use for the alignment (default: 1).
     :param no_defrag: If True, the defragmentation workflow is skipped (default: False).
@@ -467,8 +469,8 @@ def get_input_seq_to_family_with_all(pangenome: Pangenome, sequence_files:  Unio
 
     align_file = align_seq_to_pang(target_seq_file=pangenome_sequences, query_seq_files=sequence_files, tmpdir=tmpdir,
                                    cpu=cpu, no_defrag=no_defrag, identity=identity, coverage=coverage,
-                                   is_query_nt=is_input_seq_nt, is_query_slf=is_input_slf, is_target_nt=True,
-                                   is_target_slf=True, translation_table=translation_table)
+                                   query_type=input_type, is_query_slf=is_input_slf, is_target_slf=True,
+                                   target_type="nucleotide", translation_table=translation_table)
 
     seq2pang, align_file = map_input_gene_to_family_all_aln(align_file, output, pangenome)
 
@@ -519,19 +521,19 @@ def align(pangenome: Pangenome, sequence_file: Path, output: Path, identity: flo
         seq_set, is_nucleotide, single_line_fasta = get_seq_ids(seqFileObj)
 
     with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
-
+        input_type = "nucleotide" if is_nucleotide else "unknow"
         if use_representatives:
             align_file, seq2pang = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir,
-                                                                    is_input_seq_nt=is_nucleotide,
-                                                                    is_input_slf=single_line_fasta,
-                                                                    cpu=cpu, no_defrag=no_defrag, identity=identity,
+                                                                    input_type=input_type,
+                                                                    is_input_slf=single_line_fasta, cpu=cpu,
+                                                                    no_defrag=no_defrag, identity=identity,
                                                                     coverage=coverage,
                                                                     translation_table=translation_table,
                                                                     disable_bar=disable_bar)
         else:
             align_file, seq2pang = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=sequence_file,
                                                                     output=output, tmpdir=new_tmpdir,
-                                                                    is_input_seq_nt=is_nucleotide,
+                                                                    input_type=input_type,
                                                                     is_input_slf=single_line_fasta,
                                                                     cpu=cpu, no_defrag=no_defrag, identity=identity,
                                                                     coverage=coverage,
