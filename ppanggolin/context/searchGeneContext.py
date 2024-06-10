@@ -650,7 +650,7 @@ def parser_context(parser: argparse.ArgumentParser):
                           default='graphml', choices=['gexf', 'graphml'])
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int,
                           help="Number of available cpus")
-    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+    optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
                           help="Keeping temporary files (useful for debugging).")
