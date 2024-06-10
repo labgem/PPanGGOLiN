@@ -536,21 +536,10 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
     :return: Number of genes that do not cluster with any of the gene families of the pangenome.
     """
-    seq_fasta_files = []
-
     logging.getLogger('PPanGGOLiN').info('Writing gene sequences of input genomes.')
 
     input_genes = [gene for org in input_organisms for gene in org.genes]
 
-    # for input_organism in input_organisms:
-    #     seq_outdir = output / input_organism.name
-    #     mk_outdir(seq_outdir, force=True)
-    #
-    #     seq_fasta_file = seq_outdir / "cds_sequences.fasta"
-    #
-    #     write_gene_sequences_from_annotations(input_organism.genes, seq_fasta_file, disable_bar=True, add="ppanggolin_")
-    #
-    #     seq_fasta_files.append(seq_fasta_file)
     seq_fasta_file = output / 'input_genes.fasta'
 
     write_gene_sequences_from_annotations(input_genes, seq_fasta_file, disable_bar=True, add='ppanggolin_')
