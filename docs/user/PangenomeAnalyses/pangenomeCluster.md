@@ -54,10 +54,9 @@ You can do this from the command line:
 
 An example of what clusters.tsv should look like is provided [here](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/clusters.tsv)
 
-
-When you provide your clustering, by default, the pangenome will be without sequences for gene families. 
-PPanGGOLiN can get the protein sequence of each family and write it in the HDF5 file with the option `--write_sequences`.
-The sequence can be important for some [outputs](./pangenomeAnalyses.md#pan-output).
+```{note}
+When you provide your clustering, *PPanGGOLiN* will translate the representative gene sequence of each family and write it in the HDF5 file.
+```
 
 
 

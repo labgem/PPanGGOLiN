@@ -381,8 +381,8 @@ def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cp
 
 
 def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singleton: bool = False,
-                    write_sequences: bool = False, code: int = 11, cpu: int = 1, tmpdir: Path = None,
-                    keep_tmp: bool = False, force: bool = False, disable_bar: bool = False):
+                    code: int = 11, cpu: int = 1, tmpdir: Path = None, keep_tmp: bool = False,
+                    force: bool = False, disable_bar: bool = False):
     """
     Get the pangenome information, the gene families and the genes with an associated gene family.
     Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
@@ -390,6 +390,10 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     :param pangenome: Input Pangenome
     :param families_tsv_file: MMseqs2 clustering results
     :param infer_singleton: creates a new family for each gene with no associated family
+    :param code: Genetic code used for sequence translation.
+    :param cpu: Number of CPU cores to use for clustering.
+    :param tmpdir: Path to a temporary directory for intermediate files.
+    :param keep_tmp: Keep temporary files (useful for debugging).
     :param force: force to write in the pangenome
     :param disable_bar: Allow to disable progress bar
     """
@@ -446,8 +450,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
                     f"You can either update your cluster file to ensure each gene has a cluster assignment, "
                     f"or use the '--infer_singletons' option to automatically infer a cluster for each non-clustered gene."
                 )
-    if write_sequences:
-        get_family_representative_sequences(pangenome, code, cpu, tmpdir, keep_tmp)
+    get_family_representative_sequences(pangenome, code, cpu, tmpdir, keep_tmp)
 
     pangenome.status["genesClustered"] = "Computed"
     if frag:  # if there was fragment information in the file.
@@ -479,7 +482,7 @@ def launch(args: argparse.Namespace):
         if None in [args.tmpdir, args.cpu, args.no_defrag, args.translation_table,
                     args.coverage, args.identity, args.mode]:
             logging.getLogger("PPanGGOLiN").warning("You are using an option compatible only with clustering creation.")
-        read_clustering(pangenome, args.clusters, args.infer_singletons, args.write_sequences, args.translation_table,
+        read_clustering(pangenome, args.clusters, args.infer_singletons, args.translation_table,
                         args.cpu, args.tmpdir, args.keep_tmp, args.force, disable_bar=args.disable_prog_bar)
         logging.getLogger("PPanGGOLiN").info("Done reading the cluster file")
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
@@ -527,9 +530,6 @@ def parser_clust(parser: argparse.ArgumentParser):
     read.add_argument("--infer_singletons", required=False, action="store_true",
                       help="When reading a clustering result with --clusters, if a gene is not in the provided file"
                            " it will be placed in a cluster where the gene is the only member.")
-    read.add_argument("--write_sequences", action="store_true",
-                      help="Get the protein sequence of the representative gene of each gene family "
-                           "and write it in the pangenome file.")
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument("--translation_table", required=False, default="11",
                           help="Translation table (genetic code) to use.")
