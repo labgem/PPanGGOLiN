@@ -122,7 +122,7 @@ jobs:
         cd testingDataset
         ppanggolin panrgp --anno genomes.gbff.list --cluster clusters.tsv --output readclusterpang  --cpu $NUM_CPUS 
         ppanggolin annotate --anno genomes.gbff.list --output readclusters --cpu $NUM_CPUS
-        ppanggolin cluster --clusters clusters.tsv --write_sequences -p readclusters/pangenome.h5 --cpu $NUM_CPUS
+        ppanggolin cluster --clusters clusters.tsv -p readclusters/pangenome.h5 --cpu $NUM_CPUS
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f --cpu $NUM_CPUS
         cd -
     - name: testing rgp_cluster command
