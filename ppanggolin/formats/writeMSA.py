@@ -128,6 +128,7 @@ def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory
             single_copy_genes.extend(genes)
             
     with open(f_name, "w") as f_obj:
+        partial = False
         for gene in single_copy_genes:
             if use_gene_id:
                 f_obj.write(f">{gene.ID}\n")
