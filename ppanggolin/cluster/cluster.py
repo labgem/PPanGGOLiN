@@ -8,7 +8,7 @@ import subprocess
 from collections import defaultdict
 import os
 import argparse
-from typing import TextIO, Tuple, Dict, Set
+from typing import Tuple, Dict, Set
 from pathlib import Path
 import time
 
@@ -20,11 +20,10 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.utils import read_compressed_or_not, restricted_float
+from ppanggolin.utils import read_compressed_or_not, restricted_float, create_tmpdir
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations, translate_genes
-from ppanggolin.utils import mk_outdir
 
 
 # Global functions
@@ -43,14 +42,14 @@ def check_pangenome_former_clustering(pangenome: Pangenome, force: bool = False)
 
 
 # Clustering functions
-def check_pangenome_for_clustering(pangenome: Pangenome, tmp_file: TextIO, force: bool = False,
+def check_pangenome_for_clustering(pangenome: Pangenome, sequences: Path, force: bool = False,
                                    disable_bar: bool = False):
     """
     Check the pangenome statuses and write the gene sequences in the provided tmpFile.
     (whether they are written in the .h5 file or currently in memory)
 
     :param pangenome: Annotated Pangenome
-    :param tmp_file: Temporary file
+    :param sequences: Path to write the sequences
     :param force: Force to write on existing pangenome information
     :param disable_bar: Allow to disable progress bar
     """
@@ -58,19 +57,20 @@ def check_pangenome_for_clustering(pangenome: Pangenome, tmp_file: TextIO, force
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
         logging.getLogger("PPanGGOLiN").debug("Write sequences from annotation loaded in pangenome")
         # we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
-        write_gene_sequences_from_annotations(pangenome.genes, tmp_file, add="ppanggolin_", disable_bar=disable_bar)
+        write_gene_sequences_from_annotations(pangenome.genes, sequences, add="ppanggolin_",
+                                              compress=False, disable_bar=disable_bar)
     elif pangenome.status["geneSequences"] == "inFile":
         logging.getLogger("PPanGGOLiN").debug("Write sequences from pangenome file")
-        write_gene_sequences_from_pangenome_file(pangenome.file, tmp_file, add="ppanggolin_",
-                                                 disable_bar=disable_bar)  # write CDS sequences to the tmpFile
+        write_gene_sequences_from_pangenome_file(pangenome.file, sequences, add="ppanggolin_",
+                                                 compress=False, disable_bar=disable_bar)  # write CDS sequences to the tmpFile
     else:
-        tmp_file.close()  # closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster "
                         "the genes in gene families. Either provide clustering results (see --clusters), "
                         "or provide a way to access the gene sequence during the annotation step "
                         "(having the fasta in the gff files, or providing the fasta files through the --fasta option)")
 
-def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 11, coverage: float = 0.8,
+
+def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11, coverage: float = 0.8,
                      identity: float = 0.8, mode: int = 1) -> Tuple[Path, Path]:
     """
     Make a first clustering of all sequences in pangenome
@@ -85,7 +85,9 @@ def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 
 
     :return: path to representative sequence file and path to tsv clustering result
     """
-    seqdb = translate_genes(sequences, tmpdir, cpu, code)
+
+    seqdb = translate_genes(sequences=sequences, tmpdir=tmpdir, cpu=cpu,
+                            is_single_line_fasta=True, code=code)
     logging.getLogger("PPanGGOLiN").info("Clustering sequences...")
     cludb = tmpdir / 'cluster_db'
     cmd = list(map(str, ["mmseqs", "cluster", seqdb, cludb, tmpdir, "--cluster-mode", mode, "--min-seq-id",
@@ -293,33 +295,23 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     :param disable_bar: Disable the progress bar during clustering.
     :param keep_tmp_files: Keep temporary files (useful for debugging).
     """
-
-    if keep_tmp_files:
-        date = time.strftime("_%Y-%m-%d_%H-%M-%S", time.localtime())
-
-        dir_name = f'clustering_tmpdir_{date}_PID{os.getpid()}'
-        tmp_path = Path(tmpdir) / dir_name
-        mk_outdir(tmp_path, force=True)
-    else:
-        newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        tmp_path = Path(newtmpdir.name)
-
-    with open(tmp_path/'nucleotid_sequences', "w") as sequence_file:
-        check_pangenome_for_clustering(pangenome, sequence_file, force, disable_bar=disable_bar)
+    date = time.strftime("_%Y-%m-%d_%H-%M-%S", time.localtime())
+    dir_name = f'clustering_tmpdir_{date}_PID{os.getpid()}'
+    with create_tmpdir(tmpdir, basename=dir_name, keep_tmp=keep_tmp_files) as tmp_path:
+        sequence_path = tmp_path/'nucleotide_sequences.fna'
+        check_pangenome_for_clustering(pangenome, sequence_path, force, disable_bar=disable_bar)
         logging.getLogger("PPanGGOLiN").info("Clustering all of the genes sequences...")
-        rep, tsv = first_clustering(sequence_file, tmp_path, cpu, code, coverage, identity, mode)
+        rep, tsv = first_clustering(sequence_path, tmp_path, cpu, code, coverage, identity, mode)
 
-    fam2seq = read_faa(rep)
-    if not defrag:
-        logging.getLogger("PPanGGOLiN").debug("No defragmentation")
-        genes2fam, _ = read_tsv(tsv)
-    else:
-        logging.getLogger("PPanGGOLiN").info("Associating fragments to their original gene family...")
-        aln = align_rep(rep, tmp_path, cpu, coverage, identity)
-        genes2fam, fam2seq = refine_clustering(tsv, aln, fam2seq)
-        pangenome.status["defragmented"] = "Computed"
-    if not keep_tmp_files:
-        newtmpdir.cleanup()
+        fam2seq = read_faa(rep)
+        if not defrag:
+            logging.getLogger("PPanGGOLiN").debug("No defragmentation")
+            genes2fam, _ = read_tsv(tsv)
+        else:
+            logging.getLogger("PPanGGOLiN").info("Associating fragments to their original gene family...")
+            aln = align_rep(rep, tmp_path, cpu, coverage, identity)
+            genes2fam, fam2seq = refine_clustering(tsv, aln, fam2seq)
+            pangenome.status["defragmented"] = "Computed"
     read_fam2seq(pangenome, fam2seq)
     read_gene2fam(pangenome, genes2fam, disable_bar=disable_bar)
 

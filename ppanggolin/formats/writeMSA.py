@@ -92,8 +92,9 @@ def translate(gene: Gene, code: Dict[str, Dict[str, str]]) -> Tuple[str, bool]:
     partial = False
     if mod != 0:
         partial = True
-        msg = (f"Gene {gene.ID} {'' if gene.local_identifier == '' else 'with local identifier ' + gene.local_identifier}"
-               f" has a sequence length of {len(gene.dna)} which modulo 3 was different than 0.")
+        msg = (
+            f"Gene {gene.ID} {'' if gene.local_identifier == '' else 'with local identifier ' + gene.local_identifier}"
+            f" has a sequence length of {len(gene.dna)} which modulo 3 was different than 0.")
         logging.getLogger("PPANGGOLIN").debug(msg)
     protein = start_table[gene.dna[0: 3]]
     for i in range(3, len(gene.dna) - mod, 3):
@@ -126,7 +127,7 @@ def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory
     for _, genes in family.get_org_dict().items():
         if len(genes) == 1:
             single_copy_genes.extend(genes)
-            
+
     with open(f_name, "w") as f_obj:
         partial = False
         for gene in single_copy_genes:
@@ -160,12 +161,12 @@ def launch_mafft(fname: Path, output: Path, fam_name: str):
     logging.getLogger("PPanGGOLiN").debug("command: " + " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True)
 
-    with  open(outname, "w") as fout:
+    with open(outname, "w") as fout:
         fout.write(result.stdout.decode('utf-8'))
 
     if result.stderr and result.returncode != 0:
         raise Exception("mafft failed with the following error:\n"
-                         f"{result.stderr.decode('utf-8')}")
+                        f"{result.stderr.decode('utf-8')}")
 
 
 def launch_multi_mafft(args: List[Tuple[Path, Path, str]]):

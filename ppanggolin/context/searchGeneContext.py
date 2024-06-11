@@ -108,34 +108,31 @@ def align_sequences_to_families(pangenome: Pangenome, output: Path, sequence_fil
     """
     # Alignment of sequences on pangenome families
     families_of_interest = set()
-    with read_compressed_or_not(sequence_file) as seqFileObj:
-        seq_set, is_nucleotide = get_seq_ids(seqFileObj)
+    family_2_input_seqid = {}
+    if sequence_file is not None:
+        # Alignment of sequences on pangenome families
+        with read_compressed_or_not(sequence_file) as seqFileObj:
+            seq_set, is_nucleotide, is_slf = get_seq_ids(seqFileObj)
 
-    logging.debug(f"Input sequences are {'nucleotide' if is_nucleotide else 'protein'} sequences")
-    if tmpdir is None:
-        tmpdir = Path(tempfile.gettempdir())
-        logging.getLogger("PPanGGOLiN").warning("Temporary directory is not specified. "
-                                                f"Using default temporary directory: {tmpdir}.")
-    with create_tmpdir(tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
+        logging.debug(f"Input sequences are {'nucleotide' if is_nucleotide else 'protein'} sequences")
 
-        if use_representatives:
-            _, seqid2fam = get_input_seq_to_family_with_rep(pangenome=pangenome,
-                                                            sequence_files=[sequence_file],
-                                                            output=output, tmpdir=new_tmpdir,
-                                                            is_input_seq_nt=is_nucleotide,
-                                                            cpu=cpu, no_defrag=no_defrag,
-                                                            identity=identity, coverage=coverage,
-                                                            translation_table=translation_table,
-                                                            disable_bar=disable_bar)
-        else:
-            _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome,
-                                                            sequence_files=[sequence_file],
-                                                            output=output, tmpdir=new_tmpdir,
-                                                            is_input_seq_nt=is_nucleotide,
-                                                            cpu=cpu, no_defrag=no_defrag,
-                                                            identity=identity, coverage=coverage,
-                                                            translation_table=translation_table,
-                                                            disable_bar=disable_bar)
+        with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
+            input_type = "nucleotide" if is_nucleotide else "unknow"
+            if use_representatives:
+                _, seqid2fam = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir,
+                                                                input_type=input_type, is_input_slf=is_slf, cpu=cpu,
+                                                                no_defrag=no_defrag, identity=identity,
+                                                                coverage=coverage, translation_table=translation_table,
+                                                                disable_bar=disable_bar)
+            else:
+                _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=sequence_file,
+                                                                output=output, tmpdir=new_tmpdir,
+                                                                input_type=input_type, is_input_slf=is_slf,
+                                                                cpu=cpu, no_defrag=no_defrag,
+                                                                identity=identity, coverage=coverage,
+                                                                translation_table=translation_table,
+                                                                disable_bar=disable_bar)
+
         project_and_write_partition(seqid2fam, seq_set, output)
         write_gene_to_gene_family(seqid2fam, seq_set, output)
 

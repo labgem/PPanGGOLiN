@@ -974,11 +974,6 @@ def write_spot_modules(output: Path, compress: bool = False):
     """
     logging.getLogger("PPanGGOLiN").info("Writing modules to spot associations...")
 
-    fam2mod = {}
-    for mod in pan.modules:
-        for fam in mod.families:
-            fam2mod[fam] = mod
-
     with write_compressed_or_not(output / "modules_spots.tsv", compress) as fout:
         fout.write("module_id\tspot_id\n")
 
@@ -986,14 +981,14 @@ def write_spot_modules(output: Path, compress: bool = False):
             curr_mods = defaultdict(set)
             for rgp in spot.get_uniq_content():
                 for fam in rgp.families:
-                    mod = fam2mod.get(fam)
-                    if mod is not None:
-                        curr_mods[mod].add(fam)
+                    if fam.module is not None:
+                        curr_mods[fam.module].add(fam)
 
-            for mod in curr_mods:
-                if curr_mods[mod] == mod.families:
+            for module, mod_families_in_spot in curr_mods.items():
+
+                if mod_families_in_spot == set(module.families):
                     # if all the families in the module are found in the spot, write the association
-                    fout.write(f"module_{mod.ID}\tspot_{spot.ID}\n")
+                    fout.write(f"module_{module.ID}\tspot_{spot.ID}\n")
 
     logging.getLogger("PPanGGOLiN").info(
         f"Done writing module to spot associations to: {output.as_posix() + '/modules_spots.tsv'}")
@@ -1239,7 +1234,7 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--modules", required=False, action="store_true",
                           help="Write a tsv file listing functional modules and the families that belong to them")
     optional.add_argument("--spot_modules", required=False, action="store_true",
-                          help="writes 3 files comparing the presence of modules within spots")
+                          help="writes 2 files comparing the presence of modules within spots")
     
     optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")

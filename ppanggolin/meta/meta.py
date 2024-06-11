@@ -135,8 +135,7 @@ def assign_metadata(metadata_df: pd.DataFrame, pangenome: Pangenome, source: str
             else:
                 logging.getLogger().debug(f"{metatype}: {row[metatype]} doesn't exist")
         else:
-            meta = Metadata(source=source, **{k: v for k, v in row.to_dict().items() if k != metatype})
-            element.add_metadata(source=source, metadata=meta)
+            element.add_metadata(Metadata(source=source, **{k: v for k, v in row.to_dict().items() if k != metatype}))
 
     pangenome.status["metadata"][metatype] = "Computed"
     pangenome.status["metasources"][metatype].append(source)
