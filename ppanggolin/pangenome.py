@@ -827,15 +827,15 @@ class Pangenome:
     def metadata(self, metatype: str) -> Generator[Metadata, None, None]:
         """Create a generator with all metadatas in the pangenome
 
-		:param metatype: Select to which pangenome element metadata should be generate
+        :param metatype: Select to which pangenome element metadata should be generate
 
         :return: Set of metadata source
         """
         for elem in self.select_elem(metatype):
             yield elem.metadata
 
-    def get_elem_by_metadata(self, metatype: str, **kwargs) -> Generator[
-        Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
+    def get_elem_by_metadata(self, metatype: str, **kwargs
+                             ) -> Generator[Union[GeneFamily, Gene, Organism, Region, Spot, Module], None, None]:
         """Get element in pangenome with metadata attribute expected
 
         :param metatype: Select to which pangenome element metadata
@@ -847,16 +847,16 @@ class Pangenome:
             if len(list(elem.get_metadata_by_attribute(**kwargs))) > 0:
                 yield elem
 
-    def get_elem_by_sources(self, source: List[str],
-                            metatype: str) -> Generator[Union[GeneFamily, Gene, Contig, Organism,
-                                                              Region, Spot, Module], None, None]:
-        """ Get gene famlies with a specific source in pangenome
+    def get_elem_by_source(self, source: str, metatype: str
+                           ) -> Generator[Union[GeneFamily, Gene, Contig, Organism, Region, Spot, Module], None, None]:
+        """ Get gene families with a specific source in pangenome
 
         :param source: Name of the source
+        :param metatype: select to which pangenome element metadata should be written
 
         :return: Gene families with the source
         """
         assert metatype in ["families", "genomes", "contigs", "genes", "RGPs", "spots", "modules"]
         for elem in self.select_elem(metatype):
-            if elem.get_metadata_by_source(source) is not None:
+            if elem.has_source(source):
                 yield elem

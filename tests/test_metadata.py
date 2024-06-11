@@ -83,24 +83,24 @@ class TestMetaFeatures:
         """
         metafeatures = MetaFeatures()
         for meta in metadata:
-            metafeatures.add_metadata(meta.source, meta)
+            metafeatures.add_metadata(meta)
         yield metafeatures
 
     def test_add_metadata(self, metafeatures, metadata):
         """Tests that metadata can be added to the metadata getter
         """
-        assert all(metafeatures._metadata_getter[meta.source] == [meta] for meta in metadata)
+        assert all(list(metafeatures._metadata_getter[meta.source].values()) == [meta] for meta in metadata)
 
     def test_get_metadata_feature_corresponding_to_source(self, metafeatures, metadata):
         """Tests that all the metadata features corresponding to a source can be retrieved
         """
-        assert all(metafeatures.get_metadata_by_source(meta.source) == [meta] for meta in metadata)
+        assert all(list(metafeatures.get_metadata_by_source(meta.source).values()) == [meta] for meta in metadata)
 
     def test_remove_source_from_feature(self, metafeatures):
         """Tests that a source can be removed from the feature
         """
         metadata = Metadata("source_del", attribute1="value")
-        metafeatures.add_metadata("source_del", metadata)
+        metafeatures.add_metadata(metadata)
         metafeatures.del_metadata_by_source("source_del")
         assert metafeatures.get_metadata_by_source("source_del") is None
 
@@ -114,7 +114,7 @@ class TestMetaFeatures:
         """
         meta = Metadata("source_test", attribute1="value_to_retrieve")
         # meta_list = Metadata("source_list", attribute1=["val_1", "val_2"])
-        metafeatures.add_metadata(meta.source, meta)
+        metafeatures.add_metadata(meta)
         # metafeatures[meta_list.source] = meta_list
         assert list(metafeatures.get_metadata_by_attribute(attribute1="value_to_retrieve")) == [meta]
         # assert list(metafeatures.get_metadata(attribute1="val_1")) == [meta_list]
@@ -124,26 +124,12 @@ class TestMetaFeatures:
         """
         metadata1 = Metadata("source_max", attribute1="value1")
         metadata2 = Metadata("source_max", attribute2="value2")
-        metafeatures.add_metadata("source_max", metadata1)
-        metafeatures.add_metadata("source_max", metadata2)
+        metafeatures.add_metadata(metadata1)
+        metafeatures.add_metadata(metadata2)
         assert metafeatures.max_metadata_by_source() == ("source_max", 2)
 
     def test_metadata_is_not_with_type_metadata(self, metafeatures):
         """Tests that an AssertionError is raised when metadata is not with type Metadata
         """
         with pytest.raises(AssertionError):
-            metafeatures.add_metadata("source1", "not_metadata")
-
-    def test_source_is_not_a_string(self, metafeatures):
-        """Tests that an AssertionError is raised when the source is not a string
-        """
-
-        metadata = Metadata("source1", attribute1="value1")
-        with pytest.raises(AssertionError):
-            metafeatures.add_metadata(1, metadata)
-
-    def test_source_or_metadata_is_not_with_correct_type(self, metafeatures, metadata):
-        """Tests that an AssertionError is raised when the source or metadata is not with the correct type
-        """
-        with pytest.raises(AssertionError):
-            metafeatures.add_metadata(1, "not_metadata")
+            metafeatures.add_metadata("not_metadata")
