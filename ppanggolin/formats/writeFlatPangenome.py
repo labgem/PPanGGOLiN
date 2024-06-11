@@ -1143,7 +1143,12 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
         if regions:
             processes.append(p.apply_async(func=write_regions, args=(output, compress)))
         if borders:
-            processes.append(p.apply_async(func=write_borders, args=(output, dup_margin, compress)))
+            if pangenome.status["geneFamilySequences"] == "No":
+                logging.getLogger("PPanGGOLiN").warning("Gene families were not associated with protein sequences. "
+                                                        "This may be due to the use of external clustering. "
+                                                        "Please refer to the documentation or submit an issue.")
+            else:
+                processes.append(p.apply_async(func=write_borders, args=(output, dup_margin, compress)))
         if modules:
             processes.append(p.apply_async(func=write_modules, args=(output, compress)))
             processes.append(p.apply_async(func=write_module_summary, args=(output, compress)))
