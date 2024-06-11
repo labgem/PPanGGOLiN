@@ -150,12 +150,16 @@ def write_contig(organism: Organism, genome_sequences: Dict[str, str] = None, me
     """
     contigs_data_list = []
 
-
+    genome_metadata = organism.formatted_metadata_dict(metadata_sep)
     for contig in tqdm(organism.contigs, unit="contig", disable=True):
 
         metadata_for_proksee = {"is_circular": bool(contig.is_circular)}
 
+        metadata_for_proksee.update(genome_metadata)
         metadata_for_proksee.update(contig.formatted_metadata_dict(metadata_sep))
+
+        metadata_for_proksee = {key:val for key,val in metadata_for_proksee.items() if val not in ["None", '']}
+
         contig_info = {
             "name": contig.name,
             "length": contig.length,

@@ -144,13 +144,13 @@ Since PPanGGOLiN does not retain genomic sequences, it is necessary to provide t
 
 ### Incorporating Metadata into Tables, GFF, and Proksee Files
 
-You can inject metadata, previously added with the `metadata` command, into genome outputs using the `--add_metadata` parameter. When users add metadata, they specify the source of this metadata. These metadata sources can be selectively included using the `--metadata_sources` parameter. By default, all sources are added when the `--add_metadata` flag is specified.
+You can inject metadata associated to genes and families, previously added with the `metadata` command, into genome outputs using the `--add_metadata` parameter. When users add metadata, they specify the source of this metadata. These metadata sources can be selectively included using the `--metadata_sources` parameter. By default, all sources are added when the `--add_metadata` flag is specified.
 
 #### Metadata in GFF Files
 
 Metadata is integrated into the attributes column of the GFF file. The patterns for adding metadata are as follows:
 
-- In CDS lines, metadata associated with genes follow this pattern: `gene_<source>_<key>=<value>`. Gene family metadata follows a similar pattern: `gene_<source>_<key>=<value>`.
+- In CDS lines, metadata associated with genes follow this pattern: `gene_<source>_<key>=<value>`. Gene family metadata follows a similar pattern: `family_<source>_<key>=<value>`.
 - In the contig lines of type `region` describing the contig, genome metadata is added with the pattern: `genome_<source>_<key>=<value>`, and contig metadata is added with: `contig_<source>_<key>=<value>`.
 - In RGP lines, metadata is added using the pattern: `rpg_<source>_<key>=<value>`.
 
@@ -192,10 +192,15 @@ For instance, with the metadata previously added to the DYB08_RS16060 gene famil
 
 #### Metadata in Table output
 
-Metadata is seamlessly incorporated into table output with the addition of extra columns. These columns follow the GFF attribute naming: 
+Metadata can be incorporated into table output as well with the addition of extra columns. These columns follow the GFF attribute naming: 
 
 - gene metadata: `gene_<source>_<key>`
-- family metadata: `gene_<source>_<key>`
+- family metadata: `family_<source>_<key>`
+- rgp metadata: `rgp_<source>_<key>`
 
-<!-- exemple ? -->
+For instance, with the metadata previously added to the DYB08_RS16060 gene family, the table would look like this:
 
+
+| gene          | contig        | start   | stop | strand | family  | ...  | family_pfam_accession | family_pfam_description | family_pfam_type |
+|---------------|---------------|---------|------|--------|---------|------|-----------------------|-------------------------|------------------|
+| ABAYE_RS00475 | NC_010404.1   | 77317   | 77958| -      | DYB08_RS16060| ... | PF18894 | This entry represents a probable metallopeptidase domain found in a variety of phage and bacterial proteome | domain|

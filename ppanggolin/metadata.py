@@ -76,6 +76,13 @@ class Metadata:
         fields = list(self.__dict__)
         fields.remove("source")
         return fields
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Get metadata in dict format.
+        """
+
+        return self.__dict__.copy()
 
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
@@ -140,6 +147,7 @@ class MetaFeatures:
 
         return {source_field: separator.join(values) for source_field, values in source_field_2_values.items()}
 
+    
     def add_metadata(self, source, metadata):
         """Add metadata to metadata getter
 
@@ -210,3 +218,12 @@ class MetaFeatures:
         """
         max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
         return max_source, len(max_meta)
+
+    def has_metadata(self) -> bool:
+        """
+        Does the feature has some metadata associated.
+
+        :return: True if it has metadata else False
+        """
+
+        return True if len(self._metadata_getter) > 0 else False

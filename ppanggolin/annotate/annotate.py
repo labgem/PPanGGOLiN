@@ -10,17 +10,23 @@ import os
 from pathlib import Path
 import tempfile
 import time
-from typing import List, Set, Tuple, Iterable, Dict
+from typing import List, Set, Tuple, Iterable, Dict, Generator
 import re
+from collections import defaultdict
+import warnings
 
 # installed libraries
 from tqdm import tqdm
+from tables.path import check_name_validity
+
+# local libraries
 from ppanggolin.annotate.synta import (annotate_organism, read_fasta, get_dna_sequence,
                                        init_contig_counter, contig_counter)
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
 from ppanggolin.formats import write_pangenome
+from ppanggolin.metadata import Metadata
 
 ctg_counter = contig_counter
 
@@ -44,9 +50,9 @@ def check_annotate_args(args: argparse.Namespace):
         check_input_files(args.anno, True)
 
 
-def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxref: Set[str],
+def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxrefs: Set[str],
                 coordinates: List[Tuple[int]], strand: str, gene_type: str, position: int = None, gene_name: str = "",
-                product: str = "", genetic_code: int = 11, protein_id: str = ""):
+                product: str = "", genetic_code: int = 11, protein_id: str = "") -> Gene:
     """
     Create a Gene object and associate to contig and Organism
 
@@ -67,17 +73,19 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     """
 
     start, stop = coordinates[0][0], coordinates[-1][1]
-    
-    if any('MaGe' or 'SEED' in dbref for dbref in dbxref):
+
+    if any((dbxref.startswith('MaGe:') or dbxref.startswith('SEED:') for dbxref in dbxrefs)):
         if gene_name == "":
             gene_name = gene_id
-        for val in dbxref:
-            if 'MaGe' in val:
-                gene_id = val.split(':')[1]
+
+        for dbxref in dbxrefs:
+            if dbxref.startswith('MaGe:'):
+                gene_id = dbxref.split(':')[1]
                 break
-            if 'SEED' in val:
-                gene_id = val.split(':')[1]
+            if dbxref.startswith('SEED:'):
+                gene_id = dbxref.split(':')[1]
                 break
+
     if gene_type == "CDS":
         if gene_id == "":
             gene_id = protein_id
@@ -86,7 +94,8 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
             # but was when cases like this were encountered)
 
         new_gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
-        new_gene.fill_annotations(start=start, stop=stop, strand=strand, coordinates=coordinates, gene_type=gene_type, name=gene_name,
+        new_gene.fill_annotations(start=start, stop=stop, strand=strand, coordinates=coordinates,
+                                  gene_type=gene_type, name=gene_name,
                                   position=position, product=product, local_identifier=gene_id,
                                   genetic_code=genetic_code)
         contig.add(new_gene)
@@ -96,6 +105,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
                                   product=product)
         contig.add_rna(new_gene)
     new_gene.fill_parents(org, contig)
+    return new_gene
 
 
 def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
@@ -166,8 +176,216 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
     return coordinates, complement, pseudogene
 
 
+def parse_gbff_by_contig(gbff_file_path: Path) -> Generator[Tuple[List[str], List[str], List[str]], None, None]:
+    """
+    Parse a GBFF file by contig and yield tuples containing header, feature, and sequence info for each contig.
+
+    :param gbff_file_path: Path to the GBFF file.
+    :return: A generator that yields tuples containing header lines, feature lines, and sequence info for each contig.
+    """
+    header_lines = []
+    feature_lines = []
+    sequence_lines = []
+
+    current_section = None
+    
+    with read_compressed_or_not(gbff_file_path) as fl:
+        for i, line in enumerate(fl):
+            # Skip blank lines
+            if not line.strip():
+                continue
+            
+            if line.startswith('LOCUS') or line.startswith('CONTIG'):
+                # CONTIG line are found between FEATURES and ORIGIN and are put in header section here for simplicity
+                current_section = "header"
+            
+            elif line.startswith('FEATURES'):
+                current_section = "feature"
+                continue
+
+            elif line.startswith('ORIGIN'):
+                current_section = "sequence"
+                continue
+
+            if line.strip() == '//':
+                # Check that each section has some lines
+                assert header_lines and feature_lines and sequence_lines, (
+                    "Missing section in GBFF file. "
+                    f"Contig ending at line {i+1} has an empty section. It has "
+                    f"{len(header_lines)} header lines, "
+                    f"{len(header_lines)} feature lines, "
+                    f"and {len(sequence_lines)} sequence lines."
+                )
+                yield parse_contig_header_lines(header_lines), parse_feature_lines(feature_lines), parse_dna_seq_lines(sequence_lines)
+
+                header_lines = []
+                feature_lines = []
+                sequence_lines = []
+                current_section = None
+                continue
+
+            if current_section == "header":
+                header_lines.append(line)
+
+            elif current_section == "feature":
+                feature_lines.append(line)
+
+            elif current_section == "sequence":
+                sequence_lines.append(line)
+        
+            else:
+                raise ValueError(f'Unexpected structure in GBFF file: {gbff_file_path}. {line}')
+
+    # In case the last // is missing, return the last contig
+    if header_lines or feature_lines or sequence_lines:
+        return parse_contig_header_lines(header_lines), parse_feature_lines(feature_lines), parse_dna_seq_lines(sequence_lines)
+
+
+
+def parse_contig_header_lines(header_lines: List[str]) -> Dict[str, str]:
+    """
+    Parse required information from header lines of a contig from a GBFF file.
+
+    :param header_lines: List of strings representing header lines of a contig from a GBFF file.
+    :return: A dict with keys representing different fields and values representing their corresponding values joined by new line.
+    """
+    field = ""  # Initialize field
+    field_to_value = defaultdict(list)  # Initialize defaultdict to store field-value pairs
+
+    for line in header_lines:
+        field_of_line = line[:12].strip()  # Extract field from the first 12 characters
+
+        if len(field_of_line) > 1 and field_of_line.isupper():
+            field = field_of_line  # Update current field
+        
+        # Append value to the current field in the defaultdict
+        field_to_value[field].append(line[12:].strip())
+
+    return {field:'\n'.join(value) for field, value in field_to_value.items()}
+
+
+
+def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], None, None]:
+    """
+    Parse feature lines from a GBFF file and yield dictionaries representing each feature.
+
+    :param feature_lines: List of strings representing feature lines from a GBFF file.
+    :return: A generator that yields dictionaries, each representing a feature with its type, location, and qualifiers.
+    """
+
+    def stringify_feature_values(feature:Dict[str,List[str]]) -> Dict[str, str]:
+        """
+        All value of the returned dict are str except for db_xref that is a list. 
+        When multiple values exist for the same tag only the first one is kept. 
+        """
+        stringify_feature = {}
+        for tag, value in feature.items():
+            if tag == "db_xref":
+                stringify_feature[tag] = value
+            elif isinstance(value, list):
+                stringify_feature[tag] = value[0]
+            else:
+                stringify_feature[tag] = value
+        return defaultdict(str, stringify_feature)
+
+    current_feature = {}
+    current_qualifier = None
+
+    for line in feature_lines:
+        # Check if the line starts a new feature
+        if len(line[:21].strip()) > 0:
+            if current_feature:
+                # yield last feature
+                yield stringify_feature_values(current_feature)
+
+            current_feature = {
+                "type" : line[:21].strip(),
+                "location" : line[21:].strip(),
+            }
+
+        elif line.strip().startswith('/'):
+            qualifier_line = line.strip()[1:] # [1:] used to remove / 
+            
+            if "=" in qualifier_line:
+                current_qualifier, value = qualifier_line.split('=', 1)
+            else:
+                current_qualifier, value = qualifier_line, qualifier_line
+            # clean value from quote
+            value = value[1:] if value.startswith('"') else value
+            value = value[:-1] if value.endswith('"') else value
+
+            if current_qualifier in current_feature:
+                current_feature[current_qualifier].append(value)
+
+            else:
+                current_feature[current_qualifier] = [value]
+
+        else: 
+            # the line does not start a qualifier so its the continuation of the last qualifier value.
+            value = value[:-1] if value.endswith('"') else value
+            current_feature[current_qualifier][-1] += f" {line.strip()}"
+
+    # Append the last feature
+    if current_feature:
+        yield stringify_feature_values(current_feature)
+
+def parse_dna_seq_lines(sequence_lines: List[str]) -> Generator[Dict[str, str], None, None]:
+    """
+    Parse sequence_lines from a GBFF file and return dna sequence
+
+    :param sequence_lines: List of strings representing sequence lines from a GBFF file.
+    :return: a string in upper case of the DNA sequences that have been cleaned
+    """
+    sequence = ''
+    for line in sequence_lines:
+        sequence += line[10:].replace(" ", "").strip().upper()
+    return sequence
+
+
+def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> Tuple[Dict[str, str], Dict[str, Dict[str, str]]]:
+    """
+    Combine contig metadata to identify shared and unique metadata tags and values.
+
+    :param contig_to_metadata: A dictionary mapping each contig to its associated metadata.
+    :return: A tuple containing:
+        - A dictionary of shared metadata tags and values present in all contigs.
+        - A dictionary mapping each contig to its unique metadata tags and values.
+    """
+    # Flatten all metadata items and count their occurrences
+    all_tag_to_value = [(tag,value) for source_info in contig_to_metadata.values() for (tag,value) in source_info.items() if isinstance(value, str)]
+
+    # Filter tags that would have a / as it is forbiden when writing the table in HDF5. Such tag can appear with db_xref formating
+    invalid_tag_names = []
+    for tag, _ in set(all_tag_to_value):
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                check_name_validity(tag)
+        except ValueError as err:
+            logging.getLogger("PPanGGOLiN").debug(f"{err}. The tag {tag} is ignored for metadata.")
+            invalid_tag_names.append(tag)
+
+    all_tag_to_value = [(tag, value) for tag, value in all_tag_to_value if tag not in invalid_tag_names]
+    
+    contig_count = len(contig_to_metadata)
+    
+    # Identify tags and values shared by all contigs
+    shared_tag_and_values = {tag_and_value for tag_and_value in all_tag_to_value if all_tag_to_value.count(tag_and_value) == contig_count}
+    
+    # Create a dictionary for shared metadata
+    genome_metadata = {tag: value for tag, value in shared_tag_and_values}
+
+    contig_to_uniq_metadata = {}
+    for contig, tag_to_value in contig_to_metadata.items():
+        # Identify unique metadata for each contig
+        uniq_tag_to_value = {tag: value for tag, value in tag_to_value.items() if tag not in list(genome_metadata) + invalid_tag_names and isinstance(value, str)}
+        if uniq_tag_to_value:
+            contig_to_uniq_metadata[contig] = uniq_tag_to_value
+
+    return genome_metadata, contig_to_uniq_metadata
+
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
-                  pseudo: bool = False) -> Tuple[Organism, bool]:
+                  pseudo: bool = False, translation_table: int = 11 ) -> Tuple[Organism, bool]:
     """
     Read a GBFF file and fills Organism, Contig and Genes objects based on information contained in this file
 
@@ -175,51 +393,54 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
     :param gbff_file_path: Path to corresponding GBFF file
     :param circular_contigs: list of contigs
     :param pseudo: Allow to read pseudogenes
+    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
+
 
     :return: Organism complete and true for sequence in file
     """
+    used_transl_table_arg = 0
     global ctg_counter
 
     organism = Organism(organism_name)
+
     logging.getLogger("PPanGGOLiN").debug(f"Extracting genes information from the given gbff {gbff_file_path.name}")
-    # revert the order of the file, to read the first line first.
-    lines = read_compressed_or_not(gbff_file_path).readlines()[::-1]
     gene_counter = 0
     rna_counter = 0
-    while len(lines) != 0:
-        line = lines.pop()
+    contig_to_metadata = {}
 
-        # ignore line if empty
-        if line.rstrip() == "":
-            continue
+    for header, features, sequence in parse_gbff_by_contig(gbff_file_path):
         
-        # beginning of contig
         contig_id = None
         contig_len = None
 
-        is_circ = False
+        if "LOCUS" not in header:
+            raise ValueError('Missing LOCUS line in GBFF header.')
+        
+        if "VERSION" in header and header['VERSION'] != "":
+            contig_id = header['VERSION']
+        else:
+            # If contig_id is not specified in VERSION field like with Prokka, in that case we use the one in LOCUS
+            contig_id = header['LOCUS'].split()[0]
 
-        if line.startswith('LOCUS'):
-            if "CIRCULAR" in line.upper():
-                # this line contains linear/circular word telling if the dna sequence is circularized or not
-                is_circ = True
-            elif "LINEAR" in line.upper():
-                is_circ = False
-            else:
-                logging.getLogger("PPanGGOLiN").warning("Unable to determine if the contig is circular or linear in file "
-                                                        f"'{gbff_file_path}' from the LOCUS line: {line}. "
-                                                        "By default, the contig will be considered linear.")
+        contig_len = int(header['LOCUS'].split()[1])
 
-            contig_id = line.split()[1]
-            contig_len = int(line.split()[2])
-            # If contig_id is not specified in VERSION afterward like with Prokka, in that case we use the one in LOCUS
-            while not line.startswith('FEATURES'):
-                if line.startswith('VERSION') and line[12:].strip() != "":
-                    contig_id = line[12:].strip()
-                line = lines.pop()
-            # If no contig ids were filled after VERSION, we use what was found in LOCUS for the contig ID.
-            # Should be unique in a dataset, but if there's an update
-            # the contig ID might still be the same even though it should not(?)
+        if contig_len != len(sequence):
+            logging.getLogger("PPanGGOLiN").warning("Unable to determine if the contig is circular or linear in file "
+                                                    f"'{gbff_file_path}' from the LOCUS header information: {header['LOCUS']}. "
+                                                    "By default, the contig will be considered linear.")
+
+        if "CIRCULAR" in header['LOCUS'].upper():
+            # this line contains linear/circular word telling if the dna sequence is circularized or not
+            is_circ = True
+
+        elif "LINEAR" in header['LOCUS'].upper():
+            is_circ = False
+
+        else:
+            is_circ = False
+            logging.getLogger("PPanGGOLiN").warning(f"It's impossible to identify if contig {contig_id} is circular or linear."
+                            f"in file {gbff_file_path}.")
+        
         try:
             contig = organism.get(contig_id)
         except KeyError:
@@ -229,95 +450,110 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 contig_counter.value += 1
             organism.add(contig)
             contig.length = contig_len
-        # start of the feature object.
-        dbxref = set()
-        gene_name = ""
-        product = ""
-        locus_tag = ""
-        obj_type = ""
-        protein_id = ""
-        genetic_code = ""
-        useful_info = False
-        coordinates = None
-        strand = None
-        line = lines.pop()
-        while not line.startswith("ORIGIN"):
-            curr_type = line[5:21].strip()
-            if curr_type != "":
-                if useful_info:
-                    create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, coordinates, strand,
-                                obj_type, contig.number_of_genes, gene_name, product, genetic_code, protein_id)
-                    if obj_type == "CDS":
-                        gene_counter += 1
-                    else:
-                        rna_counter += 1
-                useful_info = False
-                obj_type = curr_type
-                if obj_type in ['CDS', 'rRNA', 'tRNA']:
-                    dbxref = set()
-                    gene_name = ""
-                    useful_info = True
 
-                    coordinates, is_complement, is_pseudo = extract_positions(line[21:])
-                    
-                    strand = "-" if is_complement else "+"
-                    
-                    if is_pseudo and not pseudo:
-                        useful_info = False
+        for feature in features:
+            if feature['type'] == "source":
+                contig_to_metadata[contig] = {tag:value for tag, value in feature.items() if tag not in ['type', "location"] and isinstance(value, str)}
+                if "db_xref" in feature:
+                    try:
+                        db_xref_for_metadata = {f"db_xref_{database}":identifier for database_identifier in feature["db_xref"] for database, identifier in [database_identifier.split(':')]}
+                        contig_to_metadata[contig].update(db_xref_for_metadata)
+                    except ValueError:
+                        logging.getLogger("PPanGGOLiN").warning(f"db_xref values does not have the expected format. Expect '\db_xref=<database>:<identifier> "
+                                                                    f"but got {feature['db_xref']} in file {gbff_file_path}. "
+                                                                    "db_xref tags is therefore not retrieved in contig/genomes metadata.")
 
-            elif useful_info:  # current info goes to current objtype, if it's useful.
-                if line[21:].startswith("/db_xref"):
-                    dbxref.add(line.split("=")[1].replace('"', '').strip())
-                elif line[21:].startswith("/locus_tag"):
-                    locus_tag = line.split("=")[1].replace('"', '').strip()
-                elif line[21:].startswith("/protein_id"):
-                    protein_id = line.split("=")[1].replace('"', '').strip()
-                elif line[21:].startswith('/gene'):  # gene name
-                    gene_name = line.split("=")[1].replace('"', '').strip()
-                elif line[21:].startswith('/transl_table'):
-                    genetic_code = int(line.split("=")[1].replace('"', '').strip())
-                elif line[21:].startswith('/product'):  # need to loop as it can be more than one line long
-                    product = line.split('=')[1].replace('"', '').strip()
-                    if line.count('"') == 1:  # then the product line is on multiple lines
-                        line = lines.pop()
-                        product += line.strip().replace('"', '')
-                        while line.count('"') != 1:
-                            line = lines.pop()
-                            product += line.strip().replace('"', '')
-                # if it's a pseudogene, we're not keeping it, unless pseudo
-                elif line[21:].startswith("/pseudo") and not pseudo:
-                    useful_info = False
+                
+                    contig_to_metadata[contig].update(db_xref_for_metadata)
+            genetic_code = ''
+            if feature['type'] not in ['CDS', 'rRNA', 'tRNA']:
+                continue   
+            coordinates, is_complement, is_pseudo = extract_positions(feature['location'])
+            if is_pseudo and not pseudo:
+                continue 
+            elif "pseudo" in feature and not pseudo:
+                continue
+            elif "transl_except" in feature and not pseudo:
                 # that's probably a 'stop' codon into selenocystein.
-                elif line[21:].startswith("/transl_except") and not pseudo:
-                    useful_info = False
-            line = lines.pop()
-            # end of contig
-        if useful_info:  # saving the last element...
-            create_gene(organism, contig, gene_counter, rna_counter, locus_tag, dbxref, coordinates, strand, obj_type,
-                        contig.number_of_genes, gene_name, product, genetic_code, protein_id)
-            if obj_type == "CDS":
+                continue
+
+            if feature['type'] == 'CDS':
+                if feature['transl_table'] == "":
+                    used_transl_table_arg += 1
+                    genetic_code = translation_table
+                else:
+                    genetic_code = int(feature["transl_table"])
+
+            strand = "-" if is_complement else "+"
+
+            gene = create_gene(
+                        org=organism,
+                        contig=contig,
+                        gene_counter=gene_counter,
+                        rna_counter=rna_counter,
+                        gene_id=feature['locus_tag'],
+                        dbxrefs=feature["db_xref"],
+                        coordinates=coordinates,
+                        strand=strand,
+                        gene_type=feature["type"],
+                        position=contig.number_of_genes,
+                        gene_name=feature["gene"],
+                        product=feature['produce'],
+                        genetic_code = genetic_code,
+                        protein_id=feature["protein_id"]
+                    )
+            
+            gene.add_sequence(get_dna_sequence(sequence, gene))
+
+            if feature["type"] == "CDS":
                 gene_counter += 1
             else:
                 rna_counter += 1
 
-        # now extract the gene sequences
-        line = lines.pop()  # first sequence line.
-        # if the seq was to be gotten, it would be here.
-        sequence = ""
-        while not line.startswith('//'):
-            sequence += line[10:].replace(" ", "").strip().upper()
-            line = lines.pop()
+    genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(contig_to_metadata)
+    
+    genome_meta_obj = Metadata(source='annotation_file', **genome_metadata)
+    organism.add_metadata(source="annotation_file", metadata=genome_meta_obj)
 
-        if contig.length != len(sequence):
-            raise ValueError("The contig length defined is different than the sequence length")
-        # get each gene's sequence.
-        for gene in contig.genes:
-            gene.add_sequence(get_dna_sequence(sequence, gene))
+    for contig, metadata_dict in contig_to_uniq_metadata.items():
+        contigs_meta_obj = Metadata(source='annotation_file', **metadata_dict)
+        contig.add_metadata(source="annotation_file", metadata=contigs_meta_obj)
+
+    if used_transl_table_arg:
+        logging.getLogger("PPanGGOLiN").info(
+                f"transl_table tag was not found for {used_transl_table_arg} CDS "
+                f"in {gbff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
+                )
+                    
     return organism, True
+
+def parse_db_xref_metadata(db_xref_values: List[str], annot_file_path: Path = "") -> Dict[str, str]:
+    """
+    Parses a list of db_xref values and returns a dictionary with formatted keys and identifiers.
+
+    :param db_xref_values: List of db_xref strings in the format <database>:<identifier>.
+    :param annot_file_path: Path to the annotation file being processed.
+    :return: Dictionary with keys formatted as 'db_xref_<database>' and their corresponding identifiers.
+    """
+    db_xref_for_metadata = {}
+    try:
+        # Create a dictionary with keys formatted as 'db_xref_<database>' and their corresponding identifiers
+        db_xref_for_metadata = {
+            f"db_xref_{database}": identifier
+            for database_identifier in db_xref_values
+            for database, identifier in [database_identifier.split(':')]
+        }
+    except ValueError:
+        logging.getLogger("PPanGGOLiN").warning(
+            f"db_xref values do not have the expected format. Expected '<database>:<identifier>', "
+            f"but got {db_xref_values} in file {annot_file_path}. "
+            "db_xref tags are therefore not retrieved in contig/genome metadata."
+        )
+    return db_xref_for_metadata
 
 
 def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str],
-                 pseudo: bool = False) -> Tuple[Organism, bool]:
+                 pseudo: bool = False, translation_table: int = 11) -> Tuple[Organism, bool]:
     """
     Read annotation from GFF file
 
@@ -325,11 +561,13 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     :param gff_file_path: Path corresponding to GFF file
     :param circular_contigs: List of circular contigs
     :param pseudo: Allow to read pseudogene
+    :param translation_table: Translation table (genetic code) to use when transl_table is missing from CDS tags.
+
 
     :return: Organism object and if there are sequences associated or not
     """
     # TODO: This function would need some refactoring.
-
+    used_transl_table_arg = 0
     global ctg_counter
 
     (gff_seqname, _, gff_type, gff_start, gff_end, _, gff_strand, _, gff_attribute) = range(0, 9)
@@ -374,7 +612,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     gene_counter = 0
     rna_counter = 0
     attr_prodigal = None
-    
+    contig_name_to_region_info = {}
+
     id_attr_to_gene_id = {}
 
     with read_compressed_or_not(gff_file_path) as gff_file:
@@ -413,6 +652,16 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 pseudogene = False
 
                 if fields_gff[gff_type] == 'region':
+                    # keep region attributes to add them as metadata of genome and contigs
+                    # excluding some info as they are alredy contained in contig object.
+
+                    contig_name_to_region_info[fields_gff[gff_seqname]] = {tag.lower():value for tag, value in attributes.items() if tag not in ['ID', "NAME", "IS_CIRCULAR", "DB_XREF", "DBXREF"]}
+                    
+                    if "DB_XREF" in attributes or "DBXREF" in  attributes: # db_xref can be written Dbxref and db_ref
+                        dbxref_tag =  "DB_XREF" if "DB_XREF"  in attributes else "DBXREF"
+                        dbxref_metadata = parse_db_xref_metadata(attributes[dbxref_tag].split(','), gff_file_path)
+                        contig_name_to_region_info[fields_gff[gff_seqname]].update(dbxref_metadata)
+
                     if fields_gff[gff_seqname] in circular_contigs or ('IS_CIRCULAR' in attributes and
                                                                        attributes['IS_CIRCULAR']=="true"):
                         # WARNING: In case we have prodigal gff with is_circular attributes. 
@@ -420,7 +669,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         logging.getLogger("PPanGGOLiN").debug(f"Contig {contig.name} is circular.")
                         contig.is_circular = True
                         assert contig.name == fields_gff[gff_seqname]
-
                 elif fields_gff[gff_type] == 'CDS' or "RNA" in fields_gff[gff_type]:
 
                     id_attribute = get_id_attribute(attributes)
@@ -438,7 +686,11 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         pseudogene = True
 
                     product = attributes.pop('PRODUCT', "")
-                    genetic_code = int(attributes.pop("TRANSL_TABLE", 11))
+                    if "TRANSL_TABLE" in attributes:
+                        genetic_code = int(attributes["TRANSL_TABLE"])
+                    else:
+                        used_transl_table_arg += 1
+                        genetic_code = translation_table
 
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig
@@ -515,8 +767,47 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             for rna in contig.RNAs:
                 rna.add_sequence(get_dna_sequence(contig_sequences[contig.name], rna))
 
+    # add metadata to genome and contigs
+    if contig_name_to_region_info:
+        add_metadata_from_gff_file(contig_name_to_region_info, org, gff_file_path)
+
+    if used_transl_table_arg:
+        logging.getLogger("PPanGGOLiN").info(
+                f"transl_table tag was not found for {used_transl_table_arg} CDS "
+                f"in {gff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
+                )
     return org, has_fasta
 
+
+def add_metadata_from_gff_file(contig_name_to_region_info: Dict[str, str], org: Organism, gff_file_path: Path):
+    """
+    Add metadata to the organism object from a GFF file.
+
+    :param contig_name_to_region_info: A dictionary mapping contig names to their corresponding region information.
+    :param org: The organism object to which metadata will be added.
+    :param gff_file_path: The path to the GFF file.
+    """
+    
+    # Check if the number of contigs matches the expected number in the organism
+    if len(contig_name_to_region_info) == org.number_of_contigs:
+        genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(contig_name_to_region_info)
+        if genome_metadata:
+            genome_meta_obj = Metadata(source='annotation_file', **genome_metadata)
+            org.add_metadata(source="annotation_file", metadata=genome_meta_obj)
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            f"Inconsistent data in GFF file {gff_file_path}: "
+            f"expected {org.number_of_contigs} contigs but found {len(contig_name_to_region_info)} regions."
+        )
+    
+    for contig_name, metadata_dict in contig_to_uniq_metadata.items():
+        try:
+            contig = org.get(contig_name)
+        except KeyError:
+            raise ValueError(f"Contig '{contig_name}' does not exist in the genome object created from GFF file {gff_file_path}.")
+        
+        contigs_meta_obj = Metadata(source='annotation_file', **metadata_dict)
+        contig.add_metadata(source="annotation_file", metadata=contigs_meta_obj)
 
 
 def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separation: int = 10):
@@ -613,7 +904,7 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
 
 
 def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
-                   pseudo: bool = False) -> Tuple[Organism, bool]:
+                   pseudo: bool = False, translation_table:int=11) -> Tuple[Organism, bool]:
     """
     Read a GBFF file for one organism
 
@@ -621,6 +912,7 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     :param filename: Path to the corresponding file
     :param circular_contigs: list of sequence in contig
     :param pseudo: allow to read pseudogene
+    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
 
     :return: Annotated organism for pangenome and true for sequence in file
     """
@@ -628,14 +920,14 @@ def read_anno_file(organism_name: str, filename: Path, circular_contigs: list,
     filetype = detect_filetype(filename)
     if filetype == "gff":
         try:
-            org, has_fasta = read_org_gff(organism_name, filename, circular_contigs, pseudo)
+            org, has_fasta = read_org_gff(organism_name, filename, circular_contigs, pseudo, translation_table)
         except Exception as err:
             raise Exception(f"Reading the gff3 file '{filename}' raised an error. {err}")
         else:
             return org, has_fasta
     elif filetype == "gbff":
         try:
-            org, has_fasta = read_org_gbff(organism_name, filename, circular_contigs, pseudo)
+            org, has_fasta = read_org_gbff(organism_name, filename, circular_contigs, pseudo, translation_table)
         except Exception as err:
             raise Exception(f"Reading the gbff file '{filename}' raised an error. {err}")
         else:
@@ -692,7 +984,7 @@ def local_identifiers_are_unique(genes: Iterable[Gene]) -> bool:
     return True
 
 
-def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, pseudo: bool = False,
+def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, pseudo: bool = False, translation_table: int = 11,
                      disable_bar: bool = False):
     """
     Read the annotation from GBFF file
@@ -700,7 +992,8 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     :param pangenome: pangenome object
     :param organisms_file: List of GBFF files for each organism
     :param cpu: number of CPU cores to use
-    :param pseudo: allow to read pseudogène
+    :param pseudo: allow to read pseudogene
+    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
     :param disable_bar: Disable the progress bar
     """
 
@@ -720,9 +1013,7 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
         if not org_path.exists():  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
 
-        args.append((name, org_path, circular_contigs, pseudo))
-
-        # read_anno_file(name, org_path, circular_contigs, pseudo)
+        args.append((name, org_path, circular_contigs, pseudo, translation_table))
 
     with ProcessPoolExecutor(mp_context=get_context('fork'), max_workers=cpu,
                              initializer=init_contig_counter, initargs=(contig_counter,)) as executor:
@@ -754,6 +1045,15 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotate"]["# used_local_identifiers"] = used_local_identifiers
     pangenome.parameters["annotate"]["use_pseudo"] = pseudo
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
+
+
+    if any((genome.has_metadata() for genome in pangenome.organisms)):
+        pangenome.status["metadata"]["genomes"] = "Computed"
+        pangenome.status["metasources"]["genomes"].append("annotation_file")
+
+    if any((contig.has_metadata() for contig in pangenome.contigs)):
+        pangenome.status["metadata"]["contigs"] = "Computed"
+        pangenome.status["metasources"]["contigs"].append("annotation_file")
 
 
 def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disable_bar: bool = False):
@@ -886,7 +1186,7 @@ def launch(args: argparse.Namespace):
                            allow_overlap=args.allow_overlap, disable_bar=args.disable_prog_bar)
     elif args.anno is not None:
         # TODO add warning for option not compatible with read_annotations
-        read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, disable_bar=args.disable_prog_bar)
+        read_annotations(pangenome, args.anno, cpu=args.cpu, pseudo=args.use_pseudo, translation_table=args.translation_table, disable_bar=args.disable_prog_bar)
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 logging.getLogger("PPanGGOLiN").info(f"Get sequences from FASTA file: {args.fasta}")

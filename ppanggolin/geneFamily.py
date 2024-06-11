@@ -158,6 +158,7 @@ class GeneFamily(MetaFeatures):
         self[gene.ID] = gene
         gene.family = self
         if gene.organism is not None and gene.organism in self._genePerOrg:
+            # TODO try to remove the second condition and check if projection is working
             self._genePerOrg[gene.organism].add(gene)
 
     def get(self, identifier: str) -> Gene:

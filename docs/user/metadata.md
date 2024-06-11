@@ -1,4 +1,6 @@
-# Adding Metadata to Pangenome Elements
+# Metadata and Pangenome
+
+## Associating Metadata to Pangenome Elements
 
 The `metadata` command allows the addition of metadata linked to various pangenome elements. Metadata can be associated with genes, genomes, families, RGPs, spots, and modules using a simple TSV file. 
 
@@ -17,7 +19,11 @@ The associated metadata can then be exported in various output files of PPanGGOL
 
 The metadata linked to pangenome elements can be exported to various output file formats within PPanGGOLiN, including GFF, PROKSEE JSON Map, and Table outputs of the `write_genomes` command (see [here](./writeGenomes.md#incorporating-metadata-into-tables-gff-and-proksee-files) for more details). Additionally, the metadata can also be included in the gexf graph file representing the pangenome and in the RGP clustering graph.
 
-## Metadata Format
+```{note}
+Certain information (such as species, strain, and dbx_ref) is extracted from genome annotation files (GBFF, GFF) during the annotation step and added to the pangenome as metadata under the source 'annotation_files'. These metadata can be extracted using the `write_metadata` command.
+```
+
+### Metadata Format
 
 PPanGGOLiN offers a highly flexible metadata file format. Only one column name is mandatory, and it aligns with the assignment argument chosen by the user (ie. families, RGPS...).
 
@@ -48,3 +54,28 @@ PPanGGOLiN enables the addition of metadata to various pangenome elements, inclu
 
 #### `--omit`
 This option allows you to bypass errors resulting from an unfound ID in the pangenome. It can be beneficial when utilizing a general TSV with elements not present in the pangenome. This argument should be used carefully.  
+
+## Checking Metadata Associated with the Pangenome
+
+You can inspect which pangenome elements have associated metadata and their respective sources using the `ppanggolin info` command. For more details on this command, refer to the [info command documentation](./PangenomeAnalyses/pangenomeInfo.md).
+
+To check the metadata, execute the following command:
+
+```bash
+ppanggolin info -p PANGENOME --metadata
+```
+
+## Exporting Metadata to TSV Files
+
+The `write_metadata` command allows you to export metadata to TSV files. It creates one file per source of pangenome element metadata.
+
+For example, if families have metadata from sources `hmmer` and `dbcan`, and genomes have metadata from the source `gtdb`, the command will create three files:
+- `families_metadata_from_hmmer.tsv`
+- `families_metadata_from_dbcan.tsv`
+- `genomes_metadata_from_gtdb.tsv`
+
+To export metadata from your pangenome, execute the following command:
+
+```bash
+ppanggolin write_metadata -p PANGENOME --output metadata_tsv_files
+```

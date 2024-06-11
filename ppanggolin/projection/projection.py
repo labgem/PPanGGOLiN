@@ -145,7 +145,8 @@ def manage_input_genomes_annotation(pangenome, input_mode, anno, fasta,
         check_input_names(pangenome, genome_name_to_path)
 
         organisms, org_2_has_fasta = read_annotation_files(genome_name_to_path, cpu=cpu, pseudo=use_pseudo,
-                    disable_bar=disable_bar)
+                                                           translation_table=int(pangenome_params.cluster.translation_table),
+                                                           disable_bar=disable_bar)
         
         if not all((has_fasta for has_fasta in org_2_has_fasta.values())):
             organisms_with_no_fasta = {org for org, has_fasta in org_2_has_fasta.items() if not has_fasta}
@@ -388,7 +389,7 @@ def annotate_fasta_files(genome_name_to_fasta_path: Dict[str, dict], tmpdir: str
     return organisms
 
 
-def read_annotation_files(genome_name_to_annot_path: Dict[str, dict], cpu: int = 1, pseudo: bool = False,
+def read_annotation_files(genome_name_to_annot_path: Dict[str, dict], cpu: int = 1, pseudo: bool = False, translation_table: int = 11,
                           disable_bar: bool = False) -> Tuple[List[Organism], Dict[Organism, bool]]:
     """
     Read the annotation from GBFF file
@@ -397,6 +398,7 @@ def read_annotation_files(genome_name_to_annot_path: Dict[str, dict], cpu: int =
     :param organisms_file: List of GBFF files for each organism
     :param cpu: number of CPU cores to use
     :param pseudo: allow to read pseudogène
+    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
     :param disable_bar: Disable the progresse bar
     """
 
@@ -407,7 +409,7 @@ def read_annotation_files(genome_name_to_annot_path: Dict[str, dict], cpu: int =
     # unless a gff file without fasta is met (which is the only case where sequences can be absent)
     org_to_has_fasta_flag = {}
 
-    args = [(org_name, org_info['path'], org_info['circular_contigs'], pseudo)
+    args = [(org_name, org_info['path'], org_info['circular_contigs'], pseudo, translation_table)
             for org_name, org_info in genome_name_to_annot_path.items()]
 
     contig_counter = Value('i', 0)

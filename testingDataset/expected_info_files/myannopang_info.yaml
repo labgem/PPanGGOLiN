@@ -60,5 +60,7 @@ Parameters:
         # final nb of partitions: 3
         krange: [3, 20]
 
-Metadata: null
+Metadata:
+    contigs: annotation_file
+    genomes: annotation_file
 

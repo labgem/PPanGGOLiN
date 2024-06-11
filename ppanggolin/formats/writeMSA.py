@@ -23,25 +23,6 @@ from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
 
 
-def is_single_copy(family: GeneFamily, dup_margin: float = 0.95) -> bool:
-    """
-    Check if a gene family can be considered 'single copy' or not
-
-    :param family: GeneFamily object
-    :param dup_margin: maximal number of genomes in which the gene family can have multiple members and still be considered a 'single copy' gene family
-
-    :return: True if gene family is single copy else False
-    """
-    nb_multi = 0
-    for gene_list in family.get_org_dict().values():
-        if len(gene_list) > 1:
-            nb_multi += 1
-    dup_ratio = nb_multi / family.number_of_organisms
-    if dup_ratio < dup_margin:
-        return True
-    return False
-
-
 def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", soft_core: float = 0.95,
                           dup_margin: float = 0.95, single_copy: bool = True) -> Set[GeneFamily]:
     """
@@ -64,7 +45,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
             for family in pangenome.gene_families:
                 if family.named_partition == partition_filter:
                     if single_copy:
-                        if is_single_copy(family, dup_margin):
+                        if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=True):
                             families.add(family)
                     else:
                         families.add(family)
@@ -73,7 +54,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms == nb_org:
                         if single_copy:
-                            if is_single_copy(family, dup_margin):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
@@ -81,7 +62,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms < nb_org:
                         if single_copy:
-                            if is_single_copy(family, dup_margin):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
@@ -89,7 +70,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms >= nb_org * soft_core:
                         if single_copy:
-                            if is_single_copy(family, dup_margin):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
