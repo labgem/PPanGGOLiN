@@ -156,8 +156,8 @@ class MetaFeatures:
     def add_metadata(self, metadata: Metadata, metadata_id: int = None) -> None:
         """Add metadata to metadata getter
 
-        :param source: Name of the metadata source
         :param metadata: metadata value to add for the source
+        :param metadata_id: metadata identifier
 
         :raises AssertionError: Source or metadata is not with the correct type
         """
@@ -234,7 +234,6 @@ class MetaFeatures:
         :return: Name of the source with the maximum annotation and the number of metadata corresponding
         """
         max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
-        print(max_source, len(max_meta))
         return max_source, len(max_meta)
 
     def has_metadata(self) -> bool:
@@ -247,4 +246,10 @@ class MetaFeatures:
         return True if self.number_of_metadata > 0 else False
 
     def has_source(self, source: str) -> bool:
+        """Check if the source is in the metadata feature
+
+        :param source: name of the source
+
+        :return: True if the source is in the metadata feature else False
+        """
         return True if source in self._metadata_getter else False
