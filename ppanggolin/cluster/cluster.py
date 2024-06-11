@@ -398,7 +398,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     :param disable_bar: Allow to disable progress bar
     """
     check_pangenome_former_clustering(pangenome, force)
-    check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=write_sequences, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=True, disable_bar=disable_bar)
 
     logging.getLogger("PPanGGOLiN").info(f"Reading {families_tsv_file.name} the gene families file ...")
     filesize = os.stat(families_tsv_file).st_size
@@ -455,8 +455,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     pangenome.status["genesClustered"] = "Computed"
     if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
-    if write_sequences:
-        pangenome.status["geneFamilySequences"] = "Computed"
+    pangenome.status["geneFamilySequences"] = "Computed"
     pangenome.parameters["cluster"] = {}
     pangenome.parameters["cluster"]["# read_clustering_from_file"] = True
     pangenome.parameters["cluster"]["infer_singletons"] = infer_singleton
