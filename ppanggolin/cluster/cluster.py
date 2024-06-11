@@ -4,7 +4,6 @@
 # default libraries
 import logging
 import tempfile
-import subprocess
 from collections import defaultdict
 import os
 import argparse
@@ -20,10 +19,10 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.utils import read_compressed_or_not, restricted_float, create_tmpdir
+from ppanggolin.utils import read_compressed_or_not, restricted_float, run_subprocess, create_tmpdir, mk_outdir
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
-from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations, translate_genes
+from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations, translate_genes, create_mmseqs_db
 
 
 # Global functions
@@ -91,22 +90,18 @@ def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11
     cludb = tmpdir / 'cluster_db'
     cmd = list(map(str, ["mmseqs", "cluster", seqdb, cludb, tmpdir, "--cluster-mode", mode, "--min-seq-id",
                          identity, "-c", coverage, "--threads", cpu, "--kmer-per-seq", 80, "--max-seqs", 300]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 cluster failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info("Extracting cluster representatives...")
     repdb = tmpdir / 'representative_db'
     cmd = list(map(str, ["mmseqs", "result2repseq", seqdb, cludb, repdb]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 result2repseq failed with the following error:\n")
     reprfa = tmpdir / 'representative_sequences.fasta'
     cmd = list(map(str, ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 result2flat failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info("Writing gene to family informations")
     outtsv = tmpdir / 'families_tsv'
     cmd = list(map(str, ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv, "--threads", cpu, "--full-header"]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 createtsv failed with the following error:\n")
     return reprfa, outtsv
 
 
@@ -141,23 +136,17 @@ def align_rep(faa_file: Path, tmpdir: Path, cpu: int = 1, coverage: float = 0.8,
 
     :return: Result of alignment
     """
-    logging.getLogger("PPanGGOLiN").debug("Create database")
-    seqdb = tmpdir / 'rep_sequence_db'
-    cmd = list(map(str, ["mmseqs", "createdb", "--createdb-mode", 1, faa_file, seqdb]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    seqdb = create_mmseqs_db([faa_file], 'rep_sequence_db', tmpdir, db_mode=1, db_type=1)
     logging.getLogger("PPanGGOLiN").info("Aligning cluster representatives...")
     alndb = tmpdir / 'rep_alignment_db'
     cmd = list(map(str, ["mmseqs", "search", seqdb, seqdb, alndb, tmpdir, "-a", "--min-seq-id", identity,
                          "-c", coverage, "--cov-mode", 1, "--threads", cpu]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 search failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info("Extracting alignments...")
     outfile = tmpdir / 'rep_families.tsv'
     cmd = list(map(str, ["mmseqs", "convertalis", seqdb, seqdb, alndb, outfile,
                          "--format-output", "query,target,qlen,tlen,bits"]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 convertalis failed with the following error:\n")
     return outfile
 
 
