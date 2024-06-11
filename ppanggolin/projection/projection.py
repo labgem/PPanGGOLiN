@@ -536,21 +536,10 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
 
     :return: Number of genes that do not cluster with any of the gene families of the pangenome.
     """
-    seq_fasta_files = []
-
     logging.getLogger('PPanGGOLiN').info('Writing gene sequences of input genomes.')
 
     input_genes = [gene for org in input_organisms for gene in org.genes]
 
-    # for input_organism in input_organisms:
-    #     seq_outdir = output / input_organism.name
-    #     mk_outdir(seq_outdir, force=True)
-    #
-    #     seq_fasta_file = seq_outdir / "cds_sequences.fasta"
-    #
-    #     write_gene_sequences_from_annotations(input_organism.genes, seq_fasta_file, disable_bar=True, add="ppanggolin_")
-    #
-    #     seq_fasta_files.append(seq_fasta_file)
     seq_fasta_file = output / 'input_genes.fasta'
 
     write_gene_sequences_from_annotations(input_genes, seq_fasta_file, disable_bar=True, add='ppanggolin_')
@@ -558,17 +547,16 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
     with create_tmpdir(main_dir=tmpdir, basename="projection_tmp", keep_tmp=keep_tmp) as new_tmpdir:
         if use_representatives:
             _, seqid_to_gene_family = get_input_seq_to_family_with_rep(pangenome=pangenome,
-                                                                       sequence_files=seq_fasta_file,
-                                                                       output=new_tmpdir, tmpdir=new_tmpdir,
-                                                                       is_input_seq_nt=True, is_input_slf=True,
-                                                                       cpu=cpu, no_defrag=no_defrag,
+                                                                       sequence_files=seq_fasta_file, output=new_tmpdir,
+                                                                       tmpdir=new_tmpdir, input_type="nucleotide",
+                                                                       is_input_slf=True, cpu=cpu, no_defrag=no_defrag,
                                                                        identity=identity, coverage=coverage,
                                                                        translation_table=translation_table)
         else:
             _, seqid_to_gene_family = get_input_seq_to_family_with_all(pangenome=pangenome,
                                                                        sequence_files=seq_fasta_file,
                                                                        output=new_tmpdir, tmpdir=new_tmpdir,
-                                                                       is_input_seq_nt=True, is_input_slf=True,
+                                                                       input_type="nucleotide", is_input_slf=True,
                                                                        cpu=cpu, no_defrag=no_defrag, identity=identity,
                                                                        coverage=coverage,
                                                                        translation_table=translation_table,

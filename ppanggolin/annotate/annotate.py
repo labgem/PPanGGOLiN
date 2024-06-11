@@ -531,13 +531,10 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 rna_counter += 1
 
     genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(contig_to_metadata)
-
-    genome_meta_obj = Metadata(source='annotation_file', **genome_metadata)
-    organism.add_metadata(source="annotation_file", metadata=genome_meta_obj)
+    organism.add_metadata(metadata=Metadata(source='annotation_file', **genome_metadata))
 
     for contig, metadata_dict in contig_to_uniq_metadata.items():
-        contigs_meta_obj = Metadata(source='annotation_file', **metadata_dict)
-        contig.add_metadata(source="annotation_file", metadata=contigs_meta_obj)
+        contig.add_metadata(Metadata(source='annotation_file', **metadata_dict))
 
     if used_transl_table_arg:
         logging.getLogger("PPanGGOLiN").info(
@@ -815,8 +812,7 @@ def add_metadata_from_gff_file(contig_name_to_region_info: Dict[str, str], org: 
     if len(contig_name_to_region_info) == org.number_of_contigs:
         genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(contig_name_to_region_info)
         if genome_metadata:
-            genome_meta_obj = Metadata(source='annotation_file', **genome_metadata)
-            org.add_metadata(source="annotation_file", metadata=genome_meta_obj)
+            org.add_metadata(Metadata(source='annotation_file', **genome_metadata))
     else:
         logging.getLogger("PPanGGOLiN").warning(
             f"Inconsistent data in GFF file {gff_file_path}: "
@@ -827,11 +823,9 @@ def add_metadata_from_gff_file(contig_name_to_region_info: Dict[str, str], org: 
         try:
             contig = org.get(contig_name)
         except KeyError:
-            raise ValueError(
-                f"Contig '{contig_name}' does not exist in the genome object created from GFF file {gff_file_path}.")
+            raise ValueError(f"Contig '{contig_name}' does not exist in the genome object created from GFF file {gff_file_path}.")
 
-        contigs_meta_obj = Metadata(source='annotation_file', **metadata_dict)
-        contig.add_metadata(source="annotation_file", metadata=contigs_meta_obj)
+        contig.add_metadata(Metadata(source='annotation_file', **metadata_dict))
 
 
 def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separation: int = 10):
