@@ -518,7 +518,6 @@ def parser_clust(parser: argparse.ArgumentParser):
     clust.add_argument('--no_defrag', required=False, default=False, action="store_true",
                        help="DO NOT Use the defragmentation strategy to link potential fragments "
                             "with their original gene family.")
-    # clust.add_argument("--compress")
 
     read = parser.add_argument_group(title="Read clustering arguments")
     read.add_argument('--clusters', required=False, type=Path,

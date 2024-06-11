@@ -682,7 +682,11 @@ def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
         source_table = metadata_group._f_get_child(source)
         for row in tqdm(read_chunks(source_table), total=source_table.nrows, unit='metadata', disable=disable_bar):
             meta_dict = {'source': source}
-            identifier = row["ID"].decode() if isinstance(row["ID"], bytes) else int(row["ID"])
+            try:
+                meta_id = row["metadata_id"]
+            except KeyError:
+                meta_id = None
+            identifier = row["ID"].decode("utf-8") if isinstance(row["ID"], bytes) else int(row["ID"])
             # else:
             #     identifier = row["name"].decode()
             if metatype == "families":
@@ -706,8 +710,7 @@ def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
             for field in row.dtype.names:
                 if field not in ["ID", "name"]:
                     meta_dict[field] = row[field].decode() if isinstance(row[field], bytes) else row[field]
-            meta = Metadata(**meta_dict)
-            element.add_metadata(source=source, metadata=meta)
+            element.add_metadata(metadata=Metadata(**meta_dict), metadata_id=meta_id)
     pangenome.status["metadata"][metatype] = "Loaded"
 
 
