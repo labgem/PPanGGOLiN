@@ -192,7 +192,7 @@ jobs:
                                --gff  --table --cpu $NUM_CPUS
 
         # projection of a plasmid with chevron that have been added manually to test chevron handeling in GFF
-        ppanggolin projection --pangenome myannopang/pangenome.h5 --anno plasmid_NZ_CP007132_with_manually_added_chevrons.gff.gz --cpu $NUM_CPUS -o projection_plasmid_with_chevron
+        ppanggolin projection --pangenome myannopang/pangenome.h5 --anno GBFF/plasmid_NZ_CP007132_with_manually_added_chevrons.gff.gz --cpu $NUM_CPUS -o projection_plasmid_with_chevron
 
     - name: testing write_genome_cmds
       shell: bash -l {0}
