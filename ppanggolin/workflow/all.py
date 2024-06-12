@@ -64,9 +64,9 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         if args.clusters is not None:
             start_clust = time.time()
-            print(args.cluster)
-            read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar,
-                            infer_singleton=args.cluster.infer_singletons)
+            read_clustering(pangenome, args.clusters, infer_singleton=args.cluster.infer_singletons,
+                            code=args.cluster.translation_table, cpu=args.cluster.cpu, tmpdir=args.tmpdir,
+                            keep_tmp=args.cluster.keep_tmp, force=args.force, disable_bar=args.disable_prog_bar)
         else:  # args.cluster is None
             if pangenome.status["geneSequences"] == "No":
                 if args.fasta is None:
@@ -80,7 +80,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                        disable_bar=args.disable_prog_bar,
                        defrag=not args.cluster.no_defrag, code=args.cluster.translation_table,
                        coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode,
-                       keep_tmp_files=True)
+                       keep_tmp_files=args.cluster.keep_tmp)
         clust_time = time.time() - start_clust
 
     elif args.fasta is not None:

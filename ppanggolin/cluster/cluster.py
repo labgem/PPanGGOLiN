@@ -19,7 +19,7 @@ from tqdm import tqdm
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.utils import read_compressed_or_not, restricted_float, run_subprocess, create_tmpdir, mk_outdir
+from ppanggolin.utils import read_compressed_or_not, restricted_float, run_subprocess, create_tmpdir
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
 from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations, translate_genes, create_mmseqs_db
@@ -61,7 +61,8 @@ def check_pangenome_for_clustering(pangenome: Pangenome, sequences: Path, force:
     elif pangenome.status["geneSequences"] == "inFile":
         logging.getLogger("PPanGGOLiN").debug("Write sequences from pangenome file")
         write_gene_sequences_from_pangenome_file(pangenome.file, sequences, add="ppanggolin_",
-                                                 compress=False, disable_bar=disable_bar)  # write CDS sequences to the tmpFile
+                                                 compress=False,
+                                                 disable_bar=disable_bar)  # write CDS sequences to the tmpFile
     else:
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster "
                         "the genes in gene families. Either provide clustering results (see --clusters), "
@@ -286,7 +287,7 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     date = time.strftime("_%Y-%m-%d_%H-%M-%S", time.localtime())
     dir_name = f'clustering_tmpdir_{date}_PID{os.getpid()}'
     with create_tmpdir(tmpdir, basename=dir_name, keep_tmp=keep_tmp_files) as tmp_path:
-        sequence_path = tmp_path/'nucleotide_sequences.fna'
+        sequence_path = tmp_path / 'nucleotide_sequences.fna'
         check_pangenome_for_clustering(pangenome, sequence_path, force, disable_bar=disable_bar)
         logging.getLogger("PPanGGOLiN").info("Clustering all of the genes sequences...")
         rep, tsv = first_clustering(sequence_path, tmp_path, cpu, code, coverage, identity, mode)
@@ -356,8 +357,32 @@ def infer_singletons(pangenome: Pangenome):
     logging.getLogger("PPanGGOLiN").info(f"Inferred {singleton_counter} singleton families")
 
 
-def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singleton: bool = False, force: bool = False,
-                    disable_bar: bool = False):
+def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cpu: int = 1,
+                                        tmpdir: Path = None, keep_tmp: bool = False):
+    tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
+    with create_tmpdir(tmpdir, "get_proteins_sequences", keep_tmp) as tmp:
+        repres_path = tmp / "representative.fna"
+        with open(repres_path, "w") as repres_seq:
+            for family in pangenome.gene_families:
+                repres_seq.write(f">{family.name}\n")
+                repres_seq.write(f"{family.representative.dna}\n")
+        translate_db = translate_genes(sequences=repres_path, tmpdir=tmp, cpu=cpu,
+                                       is_single_line_fasta=True, code=code)
+        outpath = tmp / "representative_protein_genes.fna"
+        cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
+        run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
+        with open(outpath, "r") as repres_prot:
+            lines = repres_prot.readlines()
+            while len(lines) > 0:
+                family_name = lines.pop(0).strip()[1:]
+                family_seq = lines.pop(0).strip()
+                family = pangenome.get_gene_family(family_name)
+                family.add_sequence(family_seq)
+
+
+def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singleton: bool = False,
+                    code: int = 11, cpu: int = 1, tmpdir: Path = None, keep_tmp: bool = False,
+                    force: bool = False, disable_bar: bool = False):
     """
     Get the pangenome information, the gene families and the genes with an associated gene family.
     Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
@@ -365,11 +390,15 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     :param pangenome: Input Pangenome
     :param families_tsv_file: MMseqs2 clustering results
     :param infer_singleton: creates a new family for each gene with no associated family
+    :param code: Genetic code used for sequence translation.
+    :param cpu: Number of CPU cores to use for clustering.
+    :param tmpdir: Path to a temporary directory for intermediate files.
+    :param keep_tmp: Keep temporary files (useful for debugging).
     :param force: force to write in the pangenome
     :param disable_bar: Allow to disable progress bar
     """
     check_pangenome_former_clustering(pangenome, force)
-    check_pangenome_info(pangenome, need_annotations=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=True, disable_bar=disable_bar)
 
     logging.getLogger("PPanGGOLiN").info(f"Reading {families_tsv_file.name} the gene families file ...")
     filesize = os.stat(families_tsv_file).st_size
@@ -421,10 +450,12 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
                     f"You can either update your cluster file to ensure each gene has a cluster assignment, "
                     f"or use the '--infer_singletons' option to automatically infer a cluster for each non-clustered gene."
                 )
+    get_family_representative_sequences(pangenome, code, cpu, tmpdir, keep_tmp)
 
     pangenome.status["genesClustered"] = "Computed"
     if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
+    pangenome.status["geneFamilySequences"] = "Computed"
     pangenome.parameters["cluster"] = {}
     pangenome.parameters["cluster"]["# read_clustering_from_file"] = True
     pangenome.parameters["cluster"]["infer_singletons"] = infer_singleton
@@ -450,7 +481,8 @@ def launch(args: argparse.Namespace):
         if None in [args.tmpdir, args.cpu, args.no_defrag, args.translation_table,
                     args.coverage, args.identity, args.mode]:
             logging.getLogger("PPanGGOLiN").warning("You are using an option compatible only with clustering creation.")
-        read_clustering(pangenome, args.clusters, args.infer_singletons, args.force, disable_bar=args.disable_prog_bar)
+        read_clustering(pangenome, args.clusters, args.infer_singletons, args.translation_table,
+                        args.cpu, args.tmpdir, args.keep_tmp, args.force, disable_bar=args.disable_prog_bar)
         logging.getLogger("PPanGGOLiN").info("Done reading the cluster file")
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
@@ -488,10 +520,6 @@ def parser_clust(parser: argparse.ArgumentParser):
     clust.add_argument('--no_defrag', required=False, default=False, action="store_true",
                        help="DO NOT Use the defragmentation strategy to link potential fragments "
                             "with their original gene family.")
-    clust.add_argument("--translation_table", required=False, default="11",
-                       help="Translation table (genetic code) to use.")
-
-    clust.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
     read = parser.add_argument_group(title="Read clustering arguments")
     read.add_argument('--clusters', required=False, type=Path,
@@ -501,7 +529,10 @@ def parser_clust(parser: argparse.ArgumentParser):
                       help="When reading a clustering result with --clusters, if a gene is not in the provided file"
                            " it will be placed in a cluster where the gene is the only member.")
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+    optional.add_argument("--translation_table", required=False, default="11",
+                          help="Translation table (genetic code) to use.")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
                           help="Keeping temporary files (useful for debugging).")
