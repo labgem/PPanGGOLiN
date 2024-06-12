@@ -591,7 +591,7 @@ class Contig(MetaFeatures):
             raise TypeError(f"Expected type int for 'begin' and 'end', "
                             f"but received types '{type(begin)}' and '{type(end)}'.")
 
-        if begin >= end:
+        if begin > end:
             raise ValueError("The 'begin' position must be less than the 'end' position.")
 
         if end > self._genes_position[-1].position:
@@ -603,7 +603,10 @@ class Contig(MetaFeatures):
         if end == self._genes_position[-1].position:
             return self._genes_position[begin:]
         else:
-            return self._genes_position[begin: end]
+            if begin == end:
+                return self._genes_position[begin]
+            else:
+                return self._genes_position[begin: end]
 
     @property
     def number_of_genes(self) -> int:

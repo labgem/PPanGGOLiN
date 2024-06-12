@@ -188,6 +188,13 @@ class GeneFamily(MetaFeatures):
         del self[identifier]
 
 
+    @property
+    def representative(self) -> Gene:
+        """Get the representative gene of the family
+        :return: The representative gene of the family
+        """
+        return self.get(self.name)
+
     def contains_gene_id(self, identifier):
         """
         Check if the family contains already a gene id
