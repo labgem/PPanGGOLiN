@@ -25,9 +25,9 @@ class TestGeneFamily:
         """Tests that a GeneFamily object can be created with valid family_id and name
         """
         assert isinstance(family, GeneFamily)
-        assert all(attr in ["ID", "name", "_edges_getter", "_genePerOrg", "_genes_getter",
-                            "removed", "sequence", "_partition", "_spots", "_module",
-                            "bitarray", "_metadata_getter"] for attr in family.__dict__)  # Check that no attribute was added else it should be tested
+        assert all(attr in ["ID", "name", "_edges_getter", "_genePerOrg", "_genes_getter", "_representative",
+                            "removed", "sequence", "_partition", "_spots", "_module", "bitarray", "_metadata_getter"]
+                   for attr in family.__dict__)  # Check that no attribute was added else it should be tested
         assert all(hasattr(family, attr) for attr in ["ID", "name", "_edges_getter", "_genePerOrg", "_genes_getter",
                                                       "removed", "sequence", "_partition", "_spots", "_module",
                                                       "bitarray"])  # Check that no attribute was removed else it should be tested
@@ -91,6 +91,24 @@ class TestGeneFamily:
         """
         with pytest.raises(TypeError):
             family.add(33)
+
+    def test_set_representative_gene(self, family):
+        gene = Gene("representative_gene")
+        family.representative = gene
+        assert family._representative == gene
+
+    def test_get_representative_gene(self, family):
+        gene = Gene("representative_gene")
+        family.representative = gene
+        assert family.representative == gene
+
+    def test_raise_typeerror_with_no_gene_type_as_representative(self, family):
+        with pytest.raises(TypeError):
+            family.representative = 'test'
+
+    def test_raise_exception_if_representative_not_set(self, family):
+        with pytest.raises(Exception):
+            _ = family.representative
 
     @pytest.fixture
     def genes(self) -> Generator[Set[Gene], None, None]:

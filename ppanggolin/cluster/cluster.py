@@ -380,7 +380,7 @@ def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cp
                 family.add_sequence(family_seq)
 
 
-def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singleton: bool = False,
+def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singleton: bool = False,
                     code: int = 11, cpu: int = 1, tmpdir: Path = None, keep_tmp: bool = False,
                     force: bool = False, disable_bar: bool = False):
     """
@@ -388,7 +388,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
 
     :param pangenome: Input Pangenome
-    :param families_tsv_file: MMseqs2 clustering results
+    :param families_tsv_path: Clustering results path
     :param infer_singleton: creates a new family for each gene with no associated family
     :param code: Genetic code used for sequence translation.
     :param cpu: Number of CPU cores to use for clustering.
@@ -400,41 +400,44 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
     check_pangenome_former_clustering(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=True, disable_bar=disable_bar)
 
-    logging.getLogger("PPanGGOLiN").info(f"Reading {families_tsv_file.name} the gene families file ...")
-    filesize = os.stat(families_tsv_file).st_size
-    families_tsv_file = read_compressed_or_not(families_tsv_file)
-    frag = False  # the genome annotations are necessarily loaded.
-    nb_gene_with_fam = 0
-    local_dict = mk_local_to_gene(pangenome)
-    bar = tqdm(total=filesize, unit="bytes", disable=disable_bar)
-    line_counter = 0
-    for line in families_tsv_file:
-        line_counter += 1
-        bar.update(len(line))
-        try:
-            elements = [el.strip() for el in line.split()]  # 2 or 3 fields expected
-            if len(elements) <= 1:
-                raise ValueError("No tabulation separator found in gene families file")
-            (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements + ["Na"]  # case of 2 fields
+    logging.getLogger("PPanGGOLiN").info(f"Reading {families_tsv_path.name} the gene families file ...")
+    filesize = os.stat(families_tsv_path).st_size
+    with read_compressed_or_not(families_tsv_path) as families_tsv_file:
+        frag = False  # the genome annotations are necessarily loaded.
+        nb_gene_with_fam = 0
+        local_dict = mk_local_to_gene(pangenome)
+        bar = tqdm(total=filesize, unit="bytes", disable=disable_bar)
+        line_counter = 0
+        for line in families_tsv_file:
+            line_counter += 1
+            bar.update(len(line))
             try:
-                gene_obj = pangenome.get_gene(gene_id)
-            except KeyError:
-                gene_obj = local_dict.get(gene_id)
-            if gene_obj is not None:
-                nb_gene_with_fam += 1
+                elements = [el.strip() for el in line.split()]  # 3 or 4 fields expected
+                if len(elements) <= 1:
+                    raise ValueError("No tabulation separator found in gene families file")
+                if len(elements) == 2:
+                    raise Exception("Not enough columns in your file. You should have at least three columns with: "
+                                    "family name, representative gene for the cluster, gene component")
+                (fam_id, reprez_id, gene_id, is_frag) = elements if len(elements) == 4 else elements + ["Na"]  # case of 3 fields
                 try:
-                    fam = pangenome.get_gene_family(fam_id)
-                except KeyError:  # Family not found so create and add
-                    fam = GeneFamily(pangenome.max_fam_id, fam_id)
-                    pangenome.add_gene_family(fam)
-                gene_obj.is_fragment = True if is_frag == "F" else False  # F for Fragment
-                fam.add(gene_obj)
-            if is_frag == "F":
-                frag = True
-        except Exception:
-            raise Exception(f"line {line_counter} of the file '{families_tsv_file.name}' raised an error.")
-    bar.close()
-    families_tsv_file.close()
+                    gene_obj = pangenome.get_gene(gene_id)
+                except KeyError:
+                    gene_obj = local_dict.get(gene_id)
+                if gene_obj is not None:
+                    nb_gene_with_fam += 1
+                    try:
+                        fam = pangenome.get_gene_family(fam_id)
+                    except KeyError:  # Family not found so create and add
+                        fam = GeneFamily(pangenome.max_fam_id, fam_id)
+                        fam.representative = gene_obj
+                        pangenome.add_gene_family(fam)
+                    gene_obj.is_fragment = True if is_frag == "F" else False  # F for Fragment
+                    fam.add(gene_obj)
+                if is_frag == "F":
+                    frag = True
+            except Exception:
+                raise Exception(f"line {line_counter} of the file '{families_tsv_file.name}' raised an error.")
+        bar.close()
     if nb_gene_with_fam < pangenome.number_of_genes:  # not all genes have an associated cluster
         if nb_gene_with_fam == 0:
             raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step."
