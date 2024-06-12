@@ -204,7 +204,8 @@ def is_compressed(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO
     file_signatures = {
         b'\x1f\x8b': 'gzip',
         b'BZh': 'bzip2',
-        b'\x50\x4b\x03\x04': 'zip'
+        b'\x50\x4b\x03\x04': 'zip',
+        b'\xfd\x37\x7a\x58\x5a\x00': 'xz'
     }
 
     def check_file_signature(byte_stream) -> Tuple[bool, Union[str, None]]:
@@ -259,6 +260,9 @@ def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrappe
             return gzip.open(file_or_file_path, 'rt')
         elif comp_type == "bzip2":
             return bz2.open(file_or_file_path, 'rt')
+        elif comp_type == "xz":
+            raise NotImplementedError("Unfortunately PPanGGOLiN do not support xz compressed file."
+                                      "Please report an issue on our GitHub tomake us know we should work on it.")
         elif comp_type == "zip":
             with zipfile.ZipFile(file_or_file_path, "r") as z:
                 logging.getLogger("PPanGGOLiN").warning("Assuming we want to read the first file in the ZIP archive")
