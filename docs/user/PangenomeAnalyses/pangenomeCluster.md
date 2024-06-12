@@ -46,7 +46,7 @@ For gff3 files, the expected gene id is the 'ID' field in the 9<sup>th</sup> col
 In the case of gbff or gbk files, use 'locus_tag' as a gene id, unless you are working with files from MaGe/MicroScope or SEED, where the id in the 'db_xref' field is used instead.
 
 You will need to provide a .tsv file with a single gene id per line.
-The first column should indicate the cluster id, and the second column should indicate the unique gene id used in the annotation files.
+The first column should indicate the cluster id, the second column the representative gene of the cluster, and the third the unique gene id used in the annotation files. You can also add a fourth column to indicate if the gene is fragmented.
 
 You can do this from the command line: 
 
