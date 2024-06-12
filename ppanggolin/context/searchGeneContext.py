@@ -74,18 +74,17 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
         logging.debug(f"Input sequences are {'nucleotide' if is_nucleotide else 'protein'} sequences")
 
         with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
-
+            input_type = "nucleotide" if is_nucleotide else "unknow"
             if use_representatives:
                 _, seqid2fam = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir,
-                                                                is_input_seq_nt=is_nucleotide, is_input_slf=is_slf,
-                                                                cpu=cpu, no_defrag=no_defrag,
-                                                                identity=identity, coverage=coverage,
-                                                                translation_table=translation_table,
+                                                                input_type=input_type, is_input_slf=is_slf, cpu=cpu,
+                                                                no_defrag=no_defrag, identity=identity,
+                                                                coverage=coverage, translation_table=translation_table,
                                                                 disable_bar=disable_bar)
             else:
                 _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=sequence_file,
                                                                 output=output, tmpdir=new_tmpdir,
-                                                                is_input_seq_nt=is_nucleotide, is_input_slf=is_slf,
+                                                                input_type=input_type, is_input_slf=is_slf,
                                                                 cpu=cpu, no_defrag=no_defrag,
                                                                 identity=identity, coverage=coverage,
                                                                 translation_table=translation_table,

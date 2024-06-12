@@ -54,6 +54,11 @@ You can do this from the command line:
 
 An example of what clusters.tsv should look like is provided [here](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/clusters.tsv)
 
+```{note}
+When you provide your clustering, *PPanGGOLiN* will translate the representative gene sequence of each family and write it in the HDF5 file.
+```
+
+
 
 ### Defragmentation
 

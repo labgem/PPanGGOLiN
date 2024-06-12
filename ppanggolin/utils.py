@@ -586,8 +586,8 @@ def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
     return args
 
 
-def get_args_that_different_from_default(default_args: argparse.Namespace, final_args: argparse.Namespace,
-                                         param_to_ignore: Union[List[str], Set[str]] = None) -> dict:
+def get_args_differing_from_default(default_args: argparse.Namespace, final_args: argparse.Namespace,
+                                    param_to_ignore: Union[List[str], Set[str]] = None) -> dict:
     """
     Get the parameters that have different value than default values.
 
@@ -665,7 +665,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     # cli > config > default
 
     args = overwrite_args(default_args, config_args, cli_args)
-    params_that_differ = get_args_that_different_from_default(default_args, args, input_params)
+    params_that_differ = get_args_differing_from_default(default_args, args, input_params)
 
     if params_that_differ:
         params_that_differ_str = ', '.join([f'{p}={v}' for p, v in params_that_differ.items()])
@@ -706,7 +706,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
 
-            step_params_that_differ = get_args_that_different_from_default(default_step_args, step_args)
+            step_params_that_differ = get_args_differing_from_default(default_step_args, step_args)
 
             if step_params_that_differ:
                 step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
@@ -1189,6 +1189,16 @@ def get_consecutive_region_positions(region_positions: List[int], contig_gene_co
 
 
 def run_subprocess(cmd: List[str], output: Path = None, msg: str = "Subprocess failed with the following error:\n"):
+    """Run a subprocess command and write the output to the given path.
+
+    :param cmd: list of program arguments
+    :param output: path to write the subprocess output
+    :param msg: message to print if the subprocess fails
+
+    :return:
+
+    :raises subprocess.CalledProcessError: raise when the subprocess return a non-zero exit code
+    """
     logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)

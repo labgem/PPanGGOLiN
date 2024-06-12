@@ -81,9 +81,3 @@ packages = ["ppanggolin"]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
-
-[tool.pytest.ini_options]
-markers = [
-    "nucleotides: marks tests to run with nucleotides alphabets",
-    "aminoacids: marks tests to run with amino-acids alphabets",
-]
