@@ -365,8 +365,9 @@ def add_workflow_args(parser: argparse.ArgumentParser):
                           help="Minimal identity percent for two proteins to be in the same cluster")
 
     optional.add_argument("--infer_singletons", required=False, action="store_true",
-                          help="When reading a clustering result with --clusters,"
-                               " if a gene is not in the provided file")
+                          help="Use this option together with --clusters. "
+                               "If a gene is not present in the provided clustering result file, "
+                               "it will be assigned to its own unique cluster as a singleton.")
 
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
                           help="Number of partitions to use. Must be at least 2. If under 2, "
