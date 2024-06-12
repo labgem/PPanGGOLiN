@@ -15,6 +15,7 @@ import tempfile
 import time
 from itertools import zip_longest
 import re
+import subprocess
 
 import networkx as nx
 from importlib.metadata import distribution
@@ -27,8 +28,8 @@ import yaml
 from collections import defaultdict
 
 # all input params that exists in ppanggolin
-ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome', 
-                    "fasta_file", "annot_file", "genome_name"] # the last three params is for projection cmd
+ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome',
+                    "fasta_file", "annot_file", "genome_name"]  # the last three params is for projection cmd
 
 # all params that should be in the general_parameters section of the config file
 ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log',
@@ -42,8 +43,8 @@ ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "raref
 
 # Inside a workflow command, write output default is overwrite to output some flat files
 WRITE_PAN_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
-                            'stats', 'json', 'partitions', 'regions',
-                            'borders', 'modules', 'spot_modules', "spots", "families_tsv"]
+                                'stats', 'json', 'partitions', 'regions',
+                                'borders', 'modules', 'spot_modules', "spots", "families_tsv"]
 WRITE_GENOME_FLAG_DEFAULT_IN_WF = ['table', 'proksee', "gff"]
 
 DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "draw_spots"]
@@ -249,7 +250,7 @@ def is_compressed(file_or_file_path: Union[Path, TextIO, gzip.GzipFile]):
     return False
 
 
-def mk_outdir(output: Path, force: bool = False, exist_ok:bool=False):
+def mk_outdir(output: Path, force: bool = False, exist_ok: bool = False):
     """ Create a directory at the given output if it doesn't exist already
 
     :param output: Path where to create directory
@@ -266,23 +267,25 @@ def mk_outdir(output: Path, force: bool = False, exist_ok:bool=False):
             raise FileExistsError(
                 f"{output} already exists. Use -f if you want to overwrite the files in the directory")
 
+
 @contextmanager
 def create_tmpdir(main_dir, basename="tmpdir", keep_tmp=False):
-
     if keep_tmp:
-        dir_name = basename +  time.strftime("_%Y-%m-%d_%H.%M.%S",time.localtime()) 
+        dir_name = basename + time.strftime("_%Y-%m-%d_%H.%M.%S", time.localtime())
 
         new_tmpdir = main_dir / dir_name
-        logging.getLogger("PPanGGOLiN").debug(f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
+        logging.getLogger("PPanGGOLiN").debug(
+            f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
 
         mk_outdir(new_tmpdir, force=True)
         yield new_tmpdir
-        
+
     else:
         with tempfile.TemporaryDirectory(dir=main_dir, prefix=basename) as new_tmpdir:
-            logging.getLogger("PPanGGOLiN").debug(f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
+            logging.getLogger("PPanGGOLiN").debug(
+                f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
             yield Path(new_tmpdir)
-                  
+
 
 def mk_file_name(basename: str, output: Path, force: bool = False) -> Path:
     """Returns a usable filename for a ppanggolin output file, or crashes.
@@ -317,7 +320,8 @@ def detect_filetype(filename: Path) -> str:
         first_line = f.readline()
     if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
         return "gbff"
-    elif re.match(r"##gff-version\s{1,3}3", first_line):  # prodigal gff header has two spaces between gff-version and 3... some gff user can have a tab 
+    elif re.match(r"##gff-version\s{1,3}3",
+                  first_line):  # prodigal gff header has two spaces between gff-version and 3... some gff user can have a tab
         return 'gff'
     elif first_line.startswith(">"):
         return 'fasta'
@@ -374,7 +378,7 @@ def connected_components(g: nx.Graph, removed: set, weight: float):
             removed.update(c)
 
 
-def _plain_bfs(g: nx.Graph, source:Any, removed: set, weight: float):
+def _plain_bfs(g: nx.Graph, source: Any, removed: set, weight: float):
     """
     A fast BFS node generator, copied from networkx then adapted to the current use case
 
@@ -437,6 +441,9 @@ def check_option_workflow(args):
     if not any([args.fasta, args.anno]):
         raise Exception("At least one of --fasta or --anno must be given")
 
+    if args.infer_singletons and args.clusters is None:
+        logging.getLogger("PPanGGOLiN").warning("--infer_singleton works only with --clusters.")
+
 
 def parse_config_file(yaml_config_file: str) -> dict:
     """
@@ -449,7 +456,7 @@ def parse_config_file(yaml_config_file: str) -> dict:
 
     with yaml_config_file as yaml_fh:
         config = yaml.safe_load(yaml_fh)
-    
+
     if config is None:
         config = {}
 
@@ -560,7 +567,6 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
     return args
 
 
-
 def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
     """
     Combine two args object.
@@ -580,8 +586,8 @@ def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
     return args
 
 
-def get_args_that_differe_from_default(default_args: argparse.Namespace, final_args: argparse.Namespace,
-                                       param_to_ignore: Union[List[str], Set[str]] = None) -> dict:
+def get_args_differing_from_default(default_args: argparse.Namespace, final_args: argparse.Namespace,
+                                    param_to_ignore: Union[List[str], Set[str]] = None) -> dict:
     """
     Get the parameters that have different value than default values.
 
@@ -659,7 +665,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     # cli > config > default
 
     args = overwrite_args(default_args, config_args, cli_args)
-    params_that_differ = get_args_that_differe_from_default(default_args, args, input_params)
+    params_that_differ = get_args_differing_from_default(default_args, args, input_params)
 
     if params_that_differ:
         params_that_differ_str = ', '.join([f'{p}={v}' for p, v in params_that_differ.items()])
@@ -700,7 +706,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
 
-            step_params_that_differ = get_args_that_differe_from_default(default_step_args, step_args)
+            step_params_that_differ = get_args_differing_from_default(default_step_args, step_args)
 
             if step_params_that_differ:
                 step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
@@ -1025,12 +1031,13 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
         genome_name = elements[0]
         putative_circular_contigs = elements[2:]
 
-        if not genome_file_path.exists():  
+        if not genome_file_path.exists():
             # Check if the file path doesn't exist and try an alternative path.
             genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
 
             if not genome_file_path_alt.exists():
-                raise FileNotFoundError(f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist.")
+                raise FileNotFoundError(
+                    f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist.")
             else:
                 genome_file_path = genome_file_path_alt
 
@@ -1041,7 +1048,7 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
 
     if len(genome_name_to_genome_path) == 0:
         raise Exception(f"There are no genomes in the provided file: {path_list_file} ")
-    
+
     return genome_name_to_genome_path
 
 
@@ -1064,6 +1071,7 @@ def flatten_nested_dict(nested_dict: Dict[str, Union[Dict, int, str, float]]) ->
 
     flatten(nested_dict)
     return flat_dict
+
 
 def get_major_version(version: str) -> int:
     """
@@ -1121,7 +1129,7 @@ def find_consecutive_sequences(sequence: List[int]) -> List[List[int]]:
         else:
             # there is a break in the consecutivity
             consecutive_sequences.append([index])
-            
+
     return consecutive_sequences
 
 
@@ -1136,10 +1144,10 @@ def find_region_border_position(region_positions: List[int], contig_gene_count: 
     """
 
     consecutive_region_positions = get_consecutive_region_positions(region_positions, contig_gene_count)
-    
+
     return consecutive_region_positions[0][0], consecutive_region_positions[-1][-1]
-        
-    
+
+
 def get_consecutive_region_positions(region_positions: List[int], contig_gene_count: int) -> List[List[int]]:
     """
     Order integers position of the region considering circularity of the contig.
@@ -1153,12 +1161,12 @@ def get_consecutive_region_positions(region_positions: List[int], contig_gene_co
     """
     if len(region_positions) == 0:
         raise ValueError('Region has no position. This is unexpected.')
-        
+
     consecutive_sequences = sorted(find_consecutive_sequences(region_positions))
-    
+
     if len(consecutive_sequences) == 0:
         raise ValueError('No consecutive sequences found in the region. This is unexpected.')
-        
+
     elif len(consecutive_sequences) == 1:
         return consecutive_sequences
 
@@ -1173,9 +1181,32 @@ def get_consecutive_region_positions(region_positions: List[int], contig_gene_co
                              f'indicate an overlap on the edge of the contig, but neither ends at the end of the contig ({contig_gene_count - 1}).')
 
         return [consecutive_sequences[-1], consecutive_sequences[0]]
-        
+
     elif len(consecutive_sequences) > 2:
         raise ValueError(f'More than two consecutive sequences found ({len(consecutive_sequences)}). '
                          f'This is unexpected. Consecutive sequences: {consecutive_sequences}. '
                          'The region should consist of consecutive positions along the contig.')
-    
+
+
+def run_subprocess(cmd: List[str], output: Path = None, msg: str = "Subprocess failed with the following error:\n"):
+    """Run a subprocess command and write the output to the given path.
+
+    :param cmd: list of program arguments
+    :param output: path to write the subprocess output
+    :param msg: message to print if the subprocess fails
+
+    :return:
+
+    :raises subprocess.CalledProcessError: raise when the subprocess return a non-zero exit code
+    """
+    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as subprocess_err:
+        for line in subprocess_err.stdout.split("\n"):
+            logging.getLogger("PPanGGOLiN").error(line)
+        raise Exception(msg + subprocess_err.stderr)
+    else:
+        if output is not None:
+            with open(output, 'w') as fout:
+                fout.write(result.stdout)

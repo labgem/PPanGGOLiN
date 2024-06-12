@@ -237,6 +237,12 @@ class Region(MetaFeatures):
             self.identify_rgp_last_and_first_genes() 
         return self._coordinates
 
+    def string_coordinates(self) -> str:
+        """
+        Return a string representation of the coordinates
+        """
+        return ','.join([f'{start}..{stop}' for start, stop in self.coordinates])
+
     @property
     def overlaps_contig_edge(self) -> bool:
         if self._overlaps_contig_edge is None:
@@ -339,7 +345,7 @@ class Region(MetaFeatures):
 
         :return: Size of the region
         """
-        return sum([(stop - start +1) for start, stop in self.coordinates ])
+        return sum([(stop - start +1) for start, stop in self.coordinates])
 
     @property
     def organism(self) -> Organism:

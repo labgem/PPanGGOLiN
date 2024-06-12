@@ -54,7 +54,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         start_anno = time.time()
         read_annotations(pangenome, args.anno, pseudo=args.annotate.use_pseudo,
-                         cpu=args.annotate.cpu, translation_table=args.annotate.translation_table, disable_bar=args.disable_prog_bar)
+                         cpu=args.annotate.cpu, translation_table=args.annotate.translation_table,
+                         disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()
@@ -63,8 +64,9 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         if args.clusters is not None:
             start_clust = time.time()
-            read_clustering(pangenome, args.clusters, disable_bar=args.disable_prog_bar,
-                            infer_singleton=args.cluster.infer_singletons)
+            read_clustering(pangenome, args.clusters, infer_singleton=args.cluster.infer_singletons,
+                            code=args.cluster.translation_table, cpu=args.cluster.cpu, tmpdir=args.tmpdir,
+                            keep_tmp=args.cluster.keep_tmp, force=args.force, disable_bar=args.disable_prog_bar)
         else:  # args.cluster is None
             if pangenome.status["geneSequences"] == "No":
                 if args.fasta is None:
@@ -78,7 +80,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                        disable_bar=args.disable_prog_bar,
                        defrag=not args.cluster.no_defrag, code=args.cluster.translation_table,
                        coverage=args.cluster.coverage, identity=args.cluster.identity, mode=args.cluster.mode,
-                       keep_tmp_files=True)
+                       keep_tmp_files=args.cluster.keep_tmp)
         clust_time = time.time() - start_clust
 
     elif args.fasta is not None:
@@ -361,6 +363,11 @@ def add_workflow_args(parser: argparse.ArgumentParser):
 
     optional.add_argument("--identity", required=False, type=restricted_float, default=0.8,
                           help="Minimal identity percent for two proteins to be in the same cluster")
+
+    optional.add_argument("--infer_singletons", required=False, action="store_true",
+                          help="Use this option together with --clusters. "
+                               "If a gene is not present in the provided clustering result file, "
+                               "it will be assigned to its own unique cluster as a singleton.")
 
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
                           help="Number of partitions to use. Must be at least 2. If under 2, "
