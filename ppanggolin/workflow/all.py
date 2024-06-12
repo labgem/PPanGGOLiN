@@ -54,7 +54,8 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         start_anno = time.time()
         read_annotations(pangenome, args.anno, pseudo=args.annotate.use_pseudo,
-                         cpu=args.annotate.cpu, translation_table=args.annotate.translation_table, disable_bar=args.disable_prog_bar)
+                         cpu=args.annotate.cpu, translation_table=args.annotate.translation_table,
+                         disable_bar=args.disable_prog_bar)
         anno_time = time.time() - start_anno
 
         start_writing = time.time()
@@ -362,6 +363,11 @@ def add_workflow_args(parser: argparse.ArgumentParser):
 
     optional.add_argument("--identity", required=False, type=restricted_float, default=0.8,
                           help="Minimal identity percent for two proteins to be in the same cluster")
+
+    optional.add_argument("--infer_singletons", required=False, action="store_true",
+                          help="Use this option together with --clusters. "
+                               "If a gene is not present in the provided clustering result file, "
+                               "it will be assigned to its own unique cluster as a singleton.")
 
     optional.add_argument("-K", "--nb_of_partitions", required=False, default=-1, type=int,
                           help="Number of partitions to use. Must be at least 2. If under 2, "

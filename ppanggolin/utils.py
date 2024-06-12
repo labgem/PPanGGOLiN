@@ -441,6 +441,9 @@ def check_option_workflow(args):
     if not any([args.fasta, args.anno]):
         raise Exception("At least one of --fasta or --anno must be given")
 
+    if args.infer_singletons and args.clusters is None:
+        logging.getLogger("PPanGGOLiN").warning("--infer_singleton works only with --clusters.")
+
 
 def parse_config_file(yaml_config_file: str) -> dict:
     """

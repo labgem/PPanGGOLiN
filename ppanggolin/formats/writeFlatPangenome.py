@@ -826,8 +826,8 @@ def write_rgp_table(regions: Set[Region],
     """
     fname = output / "regions_of_genomic_plasticity.tsv"
     with write_compressed_or_not(fname, compress) as tab:
-        fieldnames = ["region", "genome", "contig", "start",
-                      "stop", "genes", "contigBorder", "wholeContig"]
+        fieldnames = ["region", "genome", "contig", "genes", "first_gene", "last_gene",
+                      "start", "stop", "length", "coordinates", "contigBorder", "wholeContig"]
 
         writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
         writer.writeheader()
@@ -840,14 +840,18 @@ def write_rgp_table(regions: Set[Region],
                 "region": region.name,
                 "genome": region.organism,
                 "contig": region.contig,
+                "genes": len(region),
+                "first_gene": region.starter,
+                "last_gene": region.stopper,
                 "start": region.start,
                 "stop": region.stop,
-                "genes": len(region),
+                "length": region.length,
+                "coordinates": region.string_coordinates(),
                 "contigBorder": region.is_contig_border,
                 "wholeContig": region.is_whole_contig
             }
-
             writer.writerow(row)
+
 
 def spot2rgp(spots: set, output: Path, compress: bool = False):
     """Write a tsv file providing association between spot and rgp
