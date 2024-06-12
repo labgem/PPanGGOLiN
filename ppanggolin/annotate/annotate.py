@@ -601,6 +601,29 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             raise Exception(f"Each CDS type of the gff files must own a unique ID attribute. "
                             f"Not the case for file: {gff_file_path}")
         return element_id
+    
+
+    def check_chevrons_in_start_and_stop(start: str, stop: str) -> Tuple[int, int, bool]:
+        """
+        Checks for the presence of chevrons ('<' or '>') in the start and stop strings, removes them if present,
+        and converts the remaining parts to integers.
+
+        :param start: The start string which may contain chevrons.
+        :param stop: The stop string which may contain chevrons.
+
+        :return: A tuple containing the integer values of start and stop, and a boolean indicating if chevrons were present in either string.
+        """
+        chevrons_present = '>' in start or '<' in start or '>' in stop or '<' in stop
+
+        if chevrons_present:
+            start = int(start.replace('<', '').replace('>', ''))
+            stop = int(stop.replace('<', '').replace('>', ''))
+        else:
+            start = int(start)
+            stop = int(stop)
+
+        return start, stop, chevrons_present
+
 
     contig = None  # initialize contig
     has_fasta = False
@@ -646,7 +669,12 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             else:
                 fields_gff = [el.strip() for el in line.split('\t')]
                 attributes = get_gff_attributes(fields_gff)
+                
                 pseudogene = False
+
+                start, stop, has_chevron = check_chevrons_in_start_and_stop(start=fields_gff[gff_start], stop=fields_gff[gff_end])
+                if has_chevron:
+                    pseudogene = True
 
                 if fields_gff[gff_type] == 'region':
                     # keep region attributes to add them as metadata of genome and contigs
@@ -714,8 +742,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                             "position":contig.number_of_genes,
                                             "product":product,
                                             "local_identifier":gene_id,
-                                            "start": int(fields_gff[gff_start]),
-                                            "stop": int(fields_gff[gff_end]),
+                                            "start": start,
+                                            "stop": stop,
                                             "ID": id_attribute}
                             
                             check_and_add_extra_gene_part(existing_gene, new_gene_info)
@@ -728,7 +756,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         id_attr_to_gene_id[id_attribute] = gene
                         
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
-                        gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
+                        gene.fill_annotations(start=start, stop=stop,
                                               strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                               position=contig.number_of_genes, product=product,
                                               local_identifier=gene_id,
@@ -742,7 +770,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         rna_type = fields_gff[gff_type]
                         rna = RNA(org.name + f"_{rna_type}_" + str(rna_counter).zfill(4))
 
-                        rna.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
+                        rna.fill_annotations(start=start, stop=stop,
                                              strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                              product=product, local_identifier=gene_id)
                         rna.fill_parents(org, contig)
