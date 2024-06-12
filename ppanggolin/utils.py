@@ -6,6 +6,8 @@ import logging
 import sys
 import os
 import gzip
+import bz2
+import zipfile
 import argparse
 from io import TextIOWrapper
 from pathlib import Path
@@ -189,30 +191,85 @@ def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
     return similarities
 
 
+def is_compressed(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]) -> Tuple[bool, Union[str, None]]:
+    """
+    Detects if a file is compressed based on its file signature.
+
+    :param file_or_file_path: The file to check.
+
+    :return: True if the file is a recognized compressed format with the format name, False otherwise.
+
+    :raises TypeError: If the file type is not supported.
+    """
+    file_signatures = {
+        b'\x1f\x8b': 'gzip',
+        b'BZh': 'bzip2',
+        b'\x50\x4b\x03\x04': 'zip'
+    }
+
+    def check_file_signature(byte_stream) -> Tuple[bool, Union[str, None]]:
+        """
+        Checks if the provided byte stream starts with a known file signature.
+
+        :param byte_stream: The first few bytes of a file.
+
+        :return: True if the byte stream starts with a known file signature, False otherwise.
+        """
+        for signature, filetype in file_signatures.items():
+            if byte_stream.startswith(signature):
+                return True, filetype
+        return False, None
+
+    # Determine the type of file and read its first few bytes
+    if isinstance(file_or_file_path, Path):
+        with file_or_file_path.open('rb') as file:
+            first_bytes = file.read(4)
+    else:
+        if isinstance(file_or_file_path, BinaryIO):
+            first_bytes = file_or_file_path.readline()[:4]
+        elif isinstance(file_or_file_path, TextIOWrapper):
+            first_bytes = file_or_file_path.buffer.read(4)
+        elif isinstance(file_or_file_path, TextIO):
+            first_bytes = file_or_file_path.read(4).encode()
+        else:
+            raise TypeError("Unsupported file type")
+        file_or_file_path.seek(0)  # Reset the file position
+
+    return check_file_signature(first_bytes)
+
+
 def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]) \
         -> Union[TextIOWrapper, BinaryIO, TextIO]:
     """
-    Reads a file object or file path, uncompresses it, if need be.
+    Opens and reads a file, decompressing it if necessary.
 
-    :param file_or_file_path: Path to the input file
+    Parameters:
+    file (pathlib.Path, io.BytesIO, io.TextIOWrapper, io.TextIOBase): The file to read.
+        It can be a Path object from the pathlib module, a BytesIO object, a TextIOWrapper, or TextIOBase object.
 
-    :return: TextIO object in read only
+    Returns:
+    str: The contents of the file, decompressed if it was a recognized compressed format.
+
+    Raises:
+    TypeError: If the file type is not supported.
     """
-    input_file = file_or_file_path
-    if isinstance(input_file, Path):
-        input_file = open(input_file, "rb")
-    else:  # type BinaryIO, TextIOWrapper, TextIO
-        try:
-            input_file = open(input_file.name, "rb")
-        except AttributeError:
-            return input_file
-    if input_file.read(2).startswith(b'\x1f\x8b'):
-        input_file.seek(0)
-        return TextIOWrapper(gzip.open(filename=input_file, mode="r"))
-    else:
-        input_file.close()
-        input_file = open(input_file.name, "r")
-        return input_file
+    is_comp, comp_type = is_compressed(file_or_file_path)
+    if is_comp:
+        if comp_type == "gzip":
+            return gzip.open(file_or_file_path, 'rt')
+        elif comp_type == "bzip2":
+            return bz2.open(file_or_file_path, 'rt')
+        elif comp_type == "zip":
+            with zipfile.ZipFile(file_or_file_path, "r") as z:
+                logging.getLogger("PPanGGOLiN").warning("Assuming we want to read the first file in the ZIP archive")
+                file_list = z.namelist()
+                if file_list:
+                    return TextIOWrapper(z.open(file_list[0], "r"))
+    else:  # Non-compressed file
+        if isinstance(file_or_file_path, Path):
+            return open(file_or_file_path, "r")
+        else:
+            return file_or_file_path
 
 
 def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gzip.GzipFile, TextIO]:
@@ -228,26 +285,6 @@ def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gz
         return gzip.open(file_path.parent / (file_path.name + '.gz'), mode="wt")
     else:
         return open(file_path, "w")
-
-
-def is_compressed(file_or_file_path: Union[Path, TextIO, gzip.GzipFile]):
-    """ Checks if file or file path given is compressed or not
-
-    :param file_or_file_path: Input compressed_file
-
-    :return: Get if the compressed_file is compressed
-    """
-    if isinstance(file_or_file_path, Path):
-        input_file = open(file_or_file_path, "rb")
-    else:
-        try:
-            input_file = open(file_or_file_path.name, "rb")
-        except AttributeError:
-            return False
-    if input_file.read(2).startswith(b'\x1f\x8b'):
-        return True
-    input_file.close()
-    return False
 
 
 def mk_outdir(output: Path, force: bool = False, exist_ok: bool = False):
