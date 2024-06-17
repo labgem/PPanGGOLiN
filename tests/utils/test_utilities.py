@@ -37,9 +37,9 @@ class TestCompressed:
         yield file_path
 
     @pytest.fixture
-    def bzip2_file(self, tmp_path: Path) -> Generator[Path, None, None]:
+    def bz2_file(self, tmp_path: Path) -> Generator[Path, None, None]:
         """
-        Creates a temporary bzip2 file for testing.
+        Creates a temporary bz2 file for testing.
         """
         file_path = tmp_path / "test.bz2"
         with bz2.open(file_path, 'wb') as f:
@@ -69,11 +69,11 @@ class TestIsCompressed(TestCompressed):
         """
         assert is_compressed(gzip_file) == (True, "gzip")
 
-    def test_is_compressed_with_bzip2_file(self, bzip2_file: Path) -> None:
+    def test_is_compressed_with_bz2_file(self, bz2_file: Path) -> None:
         """
-        Test is_compressed function with a bzip2 file.
+        Test is_compressed function with a bz2 file.
         """
-        assert is_compressed(bzip2_file) == (True, "bzip2")
+        assert is_compressed(bz2_file) == (True, "bz2")
 
     def test_is_compressed_with_zip_file(self, zip_file: Path) -> None:
         """
@@ -100,11 +100,11 @@ class TestReadCompressedOrNot(TestCompressed):
         with read_compressed_or_not(gzip_file) as f:
             assert f.read() == "Test data"
 
-    def test_read_compressed_bzip2(self, bzip2_file: Path) -> None:
+    def test_read_compressed_bz2(self, bz2_file: Path) -> None:
         """
-        Test read_compressed_or_not function with a bzip2 file.
+        Test read_compressed_or_not function with a bz2 file.
         """
-        with read_compressed_or_not(bzip2_file) as f:
+        with read_compressed_or_not(bz2_file) as f:
             assert f.read() == "Test data"
 
     def test_read_compressed_zip(self, zip_file: Path) -> None:

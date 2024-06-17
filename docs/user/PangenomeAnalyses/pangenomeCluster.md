@@ -41,12 +41,17 @@ can be selected with `--mode 2` or its low-memory version through `--mode 3`.
 (read-clustering)=
 ### Providing your gene families
  
-If you want to provide your own clusters (or gene families), you must have provided the annotations in the first step. 
+It's possible to provide your clusters (or gene families); you must have provided the annotations in the first step. 
 For gff3 files, the expected gene id is the 'ID' field in the 9<sup>th</sup> column. 
 In the case of gbff or gbk files, use 'locus_tag' as a gene id, unless you are working with files from MaGe/MicroScope or SEED, where the id in the 'db_xref' field is used instead.
 
-You will need to provide a .tsv file with a single gene id per line.
-The first column should indicate the cluster id, the second column the representative gene of the cluster, and the third the unique gene id used in the annotation files. You can also add a fourth column to indicate if the gene is fragmented.
+You must provide a .tsv file with a single gene id per line. This file must be at least with 2 columns.
+The first column should indicate the cluster identifier or, as we call it, the gene family name.
+The second column must correspond to the unique gene identifier used in the annotation files.
+By default PPanGGOLiN will consider that the first line of a cluster (first occurrence of a family name) is also the line with the representative gene indicated. 
+You can add a column with the representative gene identifier to use another representative gene.
+You can also add a column to indicate if the gene is fragmented, with a 'F', or not (leave field empty).
+*The column order is important !* You must first provide the cluster identifier, the representative id, and then the gene id to finish with the fragmented status of the gene.  
 
 You can do this from the command line: 
 
