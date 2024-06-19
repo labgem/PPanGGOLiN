@@ -264,7 +264,6 @@ def parse_contig_header_lines(header_lines: List[str]) -> Dict[str, str]:
 
     return {field: '\n'.join(value) for field, value in field_to_value.items()}
 
-
 def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], None, None]:
     """
     Parse feature lines from a GBFF file and yield dictionaries representing each feature.
@@ -273,7 +272,7 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
     :return: A generator that yields dictionaries, each representing a feature with its type, location, and qualifiers.
     """
 
-    def stringify_feature_values(feature: Dict[str, List[str]]) -> Dict[str, str]:
+    def stringify_feature_values(feature:Dict[str,List[str]]) -> Dict[str, str]:
         """
         All value of the returned dict are str except for db_xref that is a list. 
         When multiple values exist for the same tag only the first one is kept. 
@@ -290,9 +289,8 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
 
     current_feature = {}
     current_qualifier = None
-    line_index = 0
-    while line_index < len(feature_lines):
-        line = feature_lines[line_index]
+
+    for line in feature_lines:
         # Check if the line starts a new feature
         if len(line[:21].strip()) > 0:
             if current_feature:
@@ -300,22 +298,14 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
                 yield stringify_feature_values(current_feature)
 
             current_feature = {
-                "feature_type": line[:21].strip(),
-                "location": line[21:].strip(),
+                "feature_type" : line[:21].strip(),
+                "location" : [line[21:].strip()],
             }
-            if any(current_feature["location"].startswith(prefix) for prefix in ['complement', 'join', 'order']):
-                complete_location = False
-                while not complete_location:
-                    if line.endswith(")\n"):
-                        complete_location = True
-                    else:
-                        line_index += 1
-                        line = feature_lines[line_index]
-                        current_feature["location"] += line[21:].strip()
+            current_qualifier = "location"
 
         elif line.strip().startswith('/'):
-            qualifier_line = line.strip()[1:]  # [1:] used to remove /
-
+            qualifier_line = line.strip()[1:] # [1:] used to remove / 
+            
             if "=" in qualifier_line:
                 current_qualifier, value = qualifier_line.split('=', 1)
             else:
@@ -329,11 +319,11 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
 
             else:
                 current_feature[current_qualifier] = [value]
-        else:
+
+        else: 
             # the line does not start a qualifier so its the continuation of the last qualifier value.
             value = value[:-1] if value.endswith('"') else value
             current_feature[current_qualifier][-1] += f" {line.strip()}"
-        line_index += 1
 
     # Append the last feature
     if current_feature:
@@ -488,7 +478,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             genetic_code = ''
             if feature['feature_type'] not in ['CDS', 'rRNA', 'tRNA']:
                 continue
-            coordinates, is_complement, is_pseudo = extract_positions(feature['location'])
+            coordinates, is_complement, is_pseudo = extract_positions(''.join(feature['location']))
             if is_pseudo and not pseudo:
                 continue
             elif "pseudo" in feature and not pseudo:
@@ -622,6 +612,29 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             raise Exception(f"Each CDS type of the gff files must own a unique ID attribute. "
                             f"Not the case for file: {gff_file_path}")
         return element_id
+    
+
+    def check_chevrons_in_start_and_stop(start: str, stop: str) -> Tuple[int, int, bool]:
+        """
+        Checks for the presence of chevrons ('<' or '>') in the start and stop strings, removes them if present,
+        and converts the remaining parts to integers.
+
+        :param start: The start string which may contain chevrons.
+        :param stop: The stop string which may contain chevrons.
+
+        :return: A tuple containing the integer values of start and stop, and a boolean indicating if chevrons were present in either string.
+        """
+        chevrons_present = '>' in start or '<' in start or '>' in stop or '<' in stop
+
+        if chevrons_present:
+            start = int(start.replace('<', '').replace('>', ''))
+            stop = int(stop.replace('<', '').replace('>', ''))
+        else:
+            start = int(start)
+            stop = int(stop)
+
+        return start, stop, chevrons_present
+
 
     contig = None  # initialize contig
     has_fasta = False
@@ -667,7 +680,12 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             else:
                 fields_gff = [el.strip() for el in line.split('\t')]
                 attributes = get_gff_attributes(fields_gff)
+                
                 pseudogene = False
+
+                start, stop, has_chevron = check_chevrons_in_start_and_stop(start=fields_gff[gff_start], stop=fields_gff[gff_end])
+                if has_chevron:
+                    pseudogene = True
 
                 if fields_gff[gff_type] == 'region':
                     # keep region attributes to add them as metadata of genome and contigs
@@ -731,17 +749,16 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         if id_attribute in id_attr_to_gene_id:  # the ID has already been seen at least once in this genome
 
                             existing_gene = id_attr_to_gene_id[id_attribute]
-
-                            new_gene_info = {"strand": fields_gff[gff_strand],
-                                             "type": fields_gff[gff_type],
-                                             "name": name,
-                                             "position": contig.number_of_genes,
-                                             "product": product,
-                                             "local_identifier": gene_id,
-                                             "start": int(fields_gff[gff_start]),
-                                             "stop": int(fields_gff[gff_end]),
-                                             "ID": id_attribute}
-
+                            new_gene_info = {"strand":fields_gff[gff_strand], 
+                                            "type":fields_gff[gff_type],
+                                            "name":name,
+                                            "position":contig.number_of_genes,
+                                            "product":product,
+                                            "local_identifier":gene_id,
+                                            "start": start,
+                                            "stop": stop,
+                                            "ID": id_attribute}
+                            
                             check_and_add_extra_gene_part(existing_gene, new_gene_info)
 
                             continue
@@ -751,7 +768,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         id_attr_to_gene_id[id_attribute] = gene
 
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
-                        gene.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
+                        gene.fill_annotations(start=start, stop=stop,
                                               strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                               position=contig.number_of_genes, product=product,
                                               local_identifier=gene_id,
@@ -765,7 +782,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         rna_type = fields_gff[gff_type]
                         rna = RNA(org.name + f"_{rna_type}_" + str(rna_counter).zfill(4))
 
-                        rna.fill_annotations(start=int(fields_gff[gff_start]), stop=int(fields_gff[gff_end]),
+                        rna.fill_annotations(start=start, stop=stop,
                                              strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                              product=product, local_identifier=gene_id)
                         rna.fill_parents(org, contig)
