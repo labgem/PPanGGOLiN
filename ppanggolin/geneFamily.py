@@ -65,6 +65,7 @@ class GeneFamily(MetaFeatures):
         super().__init__()
         self.name = str(name)
         self.ID = family_id
+        self._representative = None
         self._edges_getter = {}
         self._genePerOrg = defaultdict(set)
         self._genes_getter = {}
@@ -191,9 +192,21 @@ class GeneFamily(MetaFeatures):
     @property
     def representative(self) -> Gene:
         """Get the representative gene of the family
+
         :return: The representative gene of the family
         """
-        return self.get(self.name)
+        if self._representative is None:
+            raise Exception("Representative gene has not been set")
+        return self._representative
+
+    @representative.setter
+    def representative(self, gene: Gene) -> None:
+        """Set the representative gene of the family
+        """
+        if not isinstance(gene, Gene):
+            raise TypeError(f"Representative gene should be a Gene. Found a '{type(gene)}' type object")
+        self._representative = gene
+
 
     def contains_gene_id(self, identifier):
         """
