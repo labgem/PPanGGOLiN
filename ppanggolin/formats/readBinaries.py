@@ -547,6 +547,13 @@ def read_rnas(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[int
     for row in tqdm(read_chunks(table, chunk=chunk_size), total=table.nrows, unit="gene", disable=disable_bar):
         rna = RNA(row["ID"].decode())
         genedata = genedata_dict[row["genedata_id"]]
+        if genedata.start > genedata.stop:
+            logging.warning(f"Wrong coordinates in RNA gene {genedata.name}: Start ({genedata.start}) should not be greater than stop ({genedata.stop}). This gene is ignored.")
+            continue
+        if genedata.start < 1 or genedata.stop < 1:
+            logging.warning(f"Wrong coordinates in RNA gene {genedata.name}: Start ({genedata.start}) and stop ({genedata.stop}) should be greater than 0.  This gene is ignored.")
+            continue
+
         rna.fill_annotations(start=genedata.start, stop=genedata.stop, strand=genedata.strand,
                              gene_type=genedata.gene_type, name=genedata.name,
                              product=genedata.product)

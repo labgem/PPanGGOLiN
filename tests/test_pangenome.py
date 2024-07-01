@@ -811,7 +811,7 @@ class TestPangenomeMetadata(TestPangenome):
         ctg = Contig(0, "Ctg")
         org.add(ctg)
         gene = Gene("Gene")
-        gene.fill_annotations(start=0, stop=100, position=0, strand='+')
+        gene.fill_annotations(start=1, stop=100, position=0, strand='+')
         gene.add_metadata(metadata=metadata)
         ctg.add(gene)
         pangenome.add_organism(org)

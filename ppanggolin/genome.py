@@ -141,8 +141,8 @@ class Feature(MetaFeatures):
             raise TypeError(f'Expected type Contig, got {type(contig)}')
         self._contig = contig
 
-    def fill_annotations(self, start: int, stop: int, strand: str,  gene_type: str = "", name: str = "",
-                         product: str = "", local_identifier: str = "", coordinates:List[Tuple[int]] = None):
+    def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
+                        product: str = "", local_identifier: str = "", coordinates: List[Tuple[int]] = None):
         """
         Fill general annotation for child classes
 
@@ -162,32 +162,33 @@ class Feature(MetaFeatures):
             coordinates = [(start, stop)]
 
         if not isinstance(start, int):
-            raise TypeError("Start should be int")
+            raise TypeError(f"Start should be int. Got {type(start)} instead in {self} from {self.organism}.")
         if not isinstance(stop, int):
-            raise TypeError("Stop should be int")
+            raise TypeError(f"Stop should be int. Got {type(stop)} instead in {self} from {self.organism}.")
         if not isinstance(strand, str):
-            raise TypeError("Strand should be str")
+            raise TypeError(f"Strand should be str. Got {type(strand)} instead in {self} from {self.organism}.")
         if not isinstance(gene_type, str):
-            raise TypeError("Gene type should be str")
+            raise TypeError(f"Gene type should be str. Got {type(gene_type)} instead in {self} from {self.organism}.")
         if not isinstance(name, str):
-            raise TypeError("Name should be str")
+            raise TypeError(f"Name should be str. Got {type(name)} instead in {self} from {self.organism}.")
         if not isinstance(product, str):
-            raise TypeError("Product should be str")
+            raise TypeError(f"Product should be str. Got {type(product)} instead in {self} from {self.organism}.")
         if not isinstance(local_identifier, str):
-            raise TypeError("Local identifier should be str")
+            raise TypeError(f"Local identifier should be str. Got {type(local_identifier)} instead in {self} from {self.organism}.")
         if strand not in ["+", "-"]:
-            raise ValueError("Strand should be + or -")
+            raise ValueError(f"Strand should be '+' or '-'. Got {strand} instead in {self} from {self.organism}.")
         if not isinstance(coordinates, list):
-            raise TypeError(f"coordinates should be of type list. Type {type(coordinates)} was given instead")
-        
+            raise TypeError(f"Coordinates should be of type list. Got {type(coordinates)} instead in {self} from {self.organism}.")
+
         for start_i, stop_i in coordinates:
             if not isinstance(start_i, int):
-                raise TypeError("Start should be int")
+                raise TypeError(f"Start should be int. Got {type(start_i)} instead in {self} from {self.organism}.")
             if not isinstance(stop_i, int):
-                raise TypeError("Stop should be int")
+                raise TypeError(f"Stop should be int. Got {type(stop_i)} instead in {self} from {self.organism}.")
             if stop_i < start_i:
-                raise ValueError(f"Wrong coordinates: {coordinates}. start ({start_i}) should not be greater than stop ({stop_i}).")
-
+                raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) should not be greater than stop ({stop_i}) in {self} from {self.organism}.")
+            if start_i < 1 or stop_i < 1:
+                raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) and stop ({stop_i}) should be greater than 0 in {self} from {self.organism}.")
         
         self.start = start
         self.stop = stop

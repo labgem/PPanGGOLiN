@@ -30,7 +30,7 @@ def genes(contig) -> Generator[Set[Gene], None, None]:
 @pytest.fixture
 def gene(contig) -> Gene:
     gene = Gene('gene')
-    gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+    gene.fill_annotations(start=1, stop=10, strand='+', position=0)
     contig = Contig(0, 'contig_name')
     contig.length = 10
     gene.contig = contig
@@ -145,7 +145,7 @@ class TestRegion:
         """Test that adding genes with same position return a ValueError
         """
         gene = Gene('gene')
-        gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene.contig = contig
 
         region.add(gene)
@@ -159,7 +159,7 @@ class TestRegion:
         """Test that adding genes from different contigs return an Exception
         """
         gene1, gene2 = Gene('gene_1'), Gene('gene_2')
-        gene1.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene1.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene2.fill_annotations(start=11, stop=20, strand='+', position=1)
         gene1.fill_parents(None, Contig(1, 'contig_1'))
         region.add(gene1)
@@ -171,7 +171,7 @@ class TestRegion:
         """Test that adding genes from different organisms return an Exception
         """
         gene1, gene2 = Gene('gene_1'), Gene('gene_2')
-        gene1.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene1.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene2.fill_annotations(start=11, stop=20, strand='+', position=1)
         gene1.fill_parents(Organism("org_1"))
         region.add(gene1)
@@ -183,7 +183,7 @@ class TestRegion:
         """Tests that genes can be retrieved from the region
         """
         gene = Gene('gene')
-        gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene.fill_annotations(start=1, stop=10, strand='+', position=0)
         region.add(gene)
         assert region.get(0) == gene
 
@@ -203,7 +203,7 @@ class TestRegion:
         """Tests that genes can be deleted from the region
         """
         gene = Gene('gene')
-        gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene.fill_annotations(start=1, stop=10, strand='+', position=0)
         region.add(gene)
         assert region.get(0) == gene
         region.remove(0)
@@ -232,7 +232,7 @@ class TestRegion:
         """Tests that the organism linked to the region can be retrieved
         """
         gene = Gene('gene')
-        gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene.fill_parents(Organism("org"), contig)
         region.add(gene)
         assert region.organism.name == 'org'
@@ -241,7 +241,7 @@ class TestRegion:
         """Tests that the contig linked to the region can be retrieved
         """
         gene = Gene('gene')
-        gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene.fill_parents(contig=Contig(0, "contig"))
         region.add(gene)
         assert region.contig.name == 'contig'
@@ -250,7 +250,7 @@ class TestRegion:
         """Tests that the property is_whole_contig return True if the region has the same length as contig
         """
         starter, stopper = Gene('starter'), Gene('stopper')
-        starter.fill_annotations(start=0, stop=10, strand='+', position=0)
+        starter.fill_annotations(start=1, stop=10, strand='+', position=0)
         stopper.fill_annotations(start=11, stop=20, strand='+', position=1)
         contig = Contig(0, "contig")
         contig[starter.start], contig[stopper.start] = starter, stopper
@@ -262,7 +262,7 @@ class TestRegion:
         """Tests that the property is_whole_contig return False if the region has not the same length as contig
         """
         before, starter, stopper, after = Gene('before'), Gene('starter'), Gene('stopper'), Gene('after')
-        before.fill_annotations(start=0, stop=10, strand='+', position=0)
+        before.fill_annotations(start=1, stop=10, strand='+', position=0)
         starter.fill_annotations(start=11, stop=20, strand='+', position=1)
         stopper.fill_annotations(start=21, stop=30, strand='+', position=2)
         after.fill_annotations(start=31, stop=40, strand='+', position=3)
@@ -278,7 +278,7 @@ class TestRegion:
         """Test that property is_contig_border return true if the region is bordering the contig
         """
         before, starter, stopper, after = Gene('before'), Gene('starter'), Gene('stopper'), Gene('after')
-        before.fill_annotations(start=0, stop=10, strand='+', position=0)
+        before.fill_annotations(start=1, stop=10, strand='+', position=0)
         starter.fill_annotations(start=11, stop=20, strand='+', position=1)
         stopper.fill_annotations(start=21, stop=30, strand='+', position=2)
         after.fill_annotations(start=31, stop=40, strand='+', position=3)
@@ -299,7 +299,7 @@ class TestRegion:
         """Tests that the property is_contig_border return False if the region is not bordering the contig
         """
         before, starter, stopper, after = Gene('before'), Gene('starter'), Gene('stopper'), Gene('after')
-        before.fill_annotations(start=0, stop=10, strand='+', position=0)
+        before.fill_annotations(start=1, stop=10, strand='+', position=0)
         starter.fill_annotations(start=11, stop=20, strand='+', position=1)
         stopper.fill_annotations(start=21, stop=30, strand='+', position=2)
         after.fill_annotations(start=31, stop=40, strand='+', position=3)
@@ -679,8 +679,8 @@ class TestSpot:
         """
         region_1, region_2 = Region("RGP"), Region("RGP")
         gene_1, gene_2 = Gene("gene_1"), Gene("gene_2")
-        gene_1.fill_annotations(start=0, stop=10, strand='+', position=0)
-        gene_2.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene_1.fill_annotations(start=1, stop=10, strand='+', position=0)
+        gene_2.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene_1.family, gene_2.family = GeneFamily(0, "Fam_0"), GeneFamily(1, "Fam_1")
         region_1[0], region_2[0] = gene_1, gene_2
         spot[region_1.name] = region_1
@@ -691,7 +691,7 @@ class TestSpot:
         """Test that adding a two time the same region is working as expected
         """
         gene = Gene("gene")
-        gene.fill_annotations(start=0, stop=10, strand='+', position=0)
+        gene.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene.family = GeneFamily(0, "Fam")
         region[0] = gene
         spot[region.name] = region
