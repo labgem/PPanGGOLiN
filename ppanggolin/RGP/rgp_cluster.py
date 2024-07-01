@@ -18,7 +18,7 @@ import pandas as pd
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.region import Region
+from ppanggolin.region import Region, Spot, Module
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.utils import restricted_float, mk_outdir
 from ppanggolin.geneFamily import GeneFamily
@@ -104,13 +104,23 @@ class IdenticalRegions:
             for gene in rgp.genes:
                 yield gene
     @property
-    def spots(self):
+    def spots(self) -> Set[Spot]:
         """
-        Return iterable of genes from all RGPs that are identical in families
+        Return spots from all RGPs that are identical in families
         """
         spots = {rgp.spot for rgp in self.rgps if rgp.spot is not None}
         return spots
 
+    @property
+    def modules(self) -> Set[Module]:
+        """
+        Return iterable of genes from all RGPs that are identical in families
+        """
+        modules =  set()
+        for rgp in self.rgps:
+            modules |= rgp.modules
+            
+        return modules
 
 def compute_grr(rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily], mode: Callable) -> float:
     """
@@ -166,6 +176,7 @@ def add_info_to_rgp_nodes(graph, regions: List[Region], region_to_spot: dict):
                        "is_contig_border": region.is_contig_border,
                        "is_whole_contig": region.is_whole_contig,
                        "spot_id": get_spot_id(region, region_to_spot),
+                       "modules": ';'.join({f"module_{module.ID}" for module in region.modules}),
                        'families_count': region.number_of_families}
 
         region_attributes[region.ID] = region_info
@@ -280,7 +291,8 @@ def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List
                                [True for i_rgp in identical_rgp_obj.rgps if i_rgp.is_whole_contig]),
                            identical_rgp_spots=";".join(spots_of_identical_rgp_obj),
                            spot_id=spots_of_identical_rgp_obj.pop() if len(
-                               spots_of_identical_rgp_obj) == 1 else "Mulitple spots"
+                               spots_of_identical_rgp_obj) == 1 else "Mulitple spots",
+                            modules = ';'.join({f"module_{module.ID}" for module in identical_rgp_obj.modules}),
                            )
 
 
@@ -508,7 +520,7 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
 
     # check statuses and load info
     check_pangenome_info(pangenome, need_families=True, need_annotations=True,
-                         disable_bar=disable_bar, need_rgp=True, need_spots=True, 
+                         disable_bar=disable_bar, need_rgp=True, need_spots=True, need_modules=True,
                          need_metadata=need_metadata,
                          sources= metadata_sources,    
                          metatypes=metatypes)

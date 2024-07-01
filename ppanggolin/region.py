@@ -332,6 +332,15 @@ class Region(MetaFeatures):
             yield gene.family
 
     @property
+    def modules(self) -> Set[Module]:
+        """Get the modules of gene families in the RGP
+
+        :return: Modules found in families of the RGP
+        """
+        modules = {family.module for family in self.families if family.module is not None}
+        return modules
+
+    @property
     def number_of_families(self) -> int:
         """Get the number of different gene families in the region
 
