@@ -301,7 +301,7 @@ class GeneFamily(MetaFeatures):
         :param module: module to set
         """
         if not isinstance(module, Module):
-            raise TypeError("Module object is expected to be set")
+            raise TypeError("Module object is expected to object of Module class")
         self._module = module
 
     @property

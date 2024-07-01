@@ -54,6 +54,7 @@ class IdenticalRegions:
         self.rgps = identical_rgps
         self.is_contig_border = is_contig_border
         self.ID = Region.id_counter
+        
         Region.id_counter += 1
 
     def __eq__(self, other: 'IdenticalRegions') -> bool:
@@ -93,6 +94,22 @@ class IdenticalRegions:
 
     def __ge__(self, obj):
         return self.ID >= obj.ID
+
+    @property
+    def genes(self):
+        """
+        Return iterable of genes from all RGPs that are identical in families
+        """
+        for rgp in self.rgps:
+            for gene in rgp.genes:
+                yield gene
+    @property
+    def spots(self):
+        """
+        Return iterable of genes from all RGPs that are identical in families
+        """
+        spots = {rgp.spot for rgp in self.rgps if rgp.spot is not None}
+        return spots
 
 
 def compute_grr(rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily], mode: Callable) -> float:
@@ -205,13 +222,34 @@ def add_rgp_metadata_to_graph(graph: nx.Graph, rgps: List[Union[Region, Identica
 
     """
     for rgp in rgps:
+        element_to_metadata_sources = {"family":set(), "gene":set(), "module":set(), "spot":set()}
+        
+
+        for family in rgp.families:
+            element_to_metadata_sources["family"] |= {metadata.source for metadata in family.metadata}
+            if family.module:
+                element_to_metadata_sources["module"] |= {metadata.source for metadata in family.module.metadata}
+    
+        for gene in rgp.genes:
+            element_to_metadata_sources["gene"] |= {metadata.source for metadata in gene.metadata}
+        
         if isinstance(rgp, Region):
             rgp_metadata = rgp.formatted_metadata_dict()
+            if rgp.spot is not None:
+                element_to_metadata_sources["spot"] = {metadata.source for metadata in rgp.spot.metadata}
+
         elif isinstance(rgp, IdenticalRegions):
             rgp_metadata_dicts = [ident_rgp.formatted_metadata_dict() for ident_rgp in rgp.rgps]
             rgp_metadata = join_dicts(rgp_metadata_dicts)
+            
+            element_to_metadata_sources["spot"] |= {metadata.source for spot in rgp.spots for metadata in spot.metadata}
+
         else:
             raise TypeError(f'Expect Region or IdenticalRegions object, not {type(rgp)}')
+
+        for element, metadata_sources in element_to_metadata_sources.items():
+            for source in metadata_sources:
+                graph.nodes[rgp.ID][f'has_{element}_with_{source}'] = True
 
         for metadata_name, value in rgp_metadata.items():
             graph.nodes[rgp.ID][metadata_name] = value
@@ -430,7 +468,7 @@ def write_rgp_cluster_table(outfile: str, grr_graph: nx.Graph,
 
 def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
                 ignore_incomplete_rgp: bool, unmerge_identical_rgps: bool, grr_metric: str,
-                disable_bar: bool, graph_formats: Set[str]):
+                disable_bar: bool, graph_formats: Set[str],add_metadata: bool = False, metadata_sep: str = "|", metadata_sources: List[str] = None,):
     """
     Main function to cluster regions of genomic plasticity based on their GRR
 
@@ -443,18 +481,37 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
     :param grr_metric: GRR metric to use for clustering
     :param disable_bar: Whether to disable the progress bar
     :param graph_formats: Set of graph file formats to save the output
+    :param add_metadata: Add metadata to cluster files
+    :param metadata_sep: The separator used to join multiple metadata values
+    :param metadata_sources: Sources of the metadata to use and write in the outputs. None means all sources are used.
     """
+                 
+    metatypes = set()
+    need_metadata = False
+    if add_metadata:
+        for element in ["RGPs", "genes", "spots", "families", "modules"]:
+            if pangenome.status["metadata"][element] == "inFile":
+                
+                sources_to_use = set(pangenome.status["metasources"][element])
 
-    if pangenome.status["metadata"]["RGPs"] == "inFile":
-        need_metadata = True
-        logging.info('Some RGPs metadata have been found in pangenome, they will be included in rgp graph.')
-    else:
-        need_metadata = False
+                if metadata_sources is not None:
+                    if len(set(pangenome.status["metasources"][element]) & set(metadata_sources)) == 0:
+                        logging.info(f'Metadata for {element} found in pangenome, but none match the specified sources {metadata_sources}. '
+                                    f'Current source for {element}: {sources_to_use}.')
+                        continue
+                    else:
+                        sources_to_use = set(pangenome.status["metasources"][element]) & set(metadata_sources)
+
+                need_metadata = True
+                metatypes.add(element)
+                logging.info(f'Metadata for {element} found in pangenome with sources {sources_to_use}. They will be included in the RGP graph.')
 
     # check statuses and load info
     check_pangenome_info(pangenome, need_families=True, need_annotations=True,
-                         disable_bar=disable_bar, need_rgp=True, need_spots=True, need_metadata=need_metadata,
-                         metatypes={"RGPs"})
+                         disable_bar=disable_bar, need_rgp=True, need_spots=True, 
+                         need_metadata=need_metadata,
+                         sources= metadata_sources,    
+                         metatypes=metatypes)
 
     if pangenome.regions == 0:
         raise Exception(
@@ -571,7 +628,8 @@ def launch(args: argparse.Namespace):
     cluster_rgp(pangenome, grr_cutoff=args.grr_cutoff, output=args.output,
                 basename=args.basename, ignore_incomplete_rgp=args.ignore_incomplete_rgp,
                 unmerge_identical_rgps=args.no_identical_rgp_merging,
-                grr_metric=args.grr_metric, disable_bar=args.disable_prog_bar, graph_formats=args.graph_formats)
+                grr_metric=args.grr_metric, disable_bar=args.disable_prog_bar, graph_formats=args.graph_formats,
+                add_metadata=args.add_metadata, metadata_sep=args.metadata_sep, metadata_sources=args.metadata_sources)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -631,4 +689,22 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
                           default="rgp_clustering", help="Output directory")
 
     optional.add_argument('--graph_formats', required=False, type=str, choices=['gexf', "graphml"], nargs="+",
-                          default=['gexf'], help="Format of the output graph.")
+                          default=['gexf', 'graphml'], help="Format of the output graph.")
+    
+    optional.add_argument("--add_metadata",
+                        required=False,
+                        action="store_true",
+                        help="Include metadata information in the output files "
+                            "if any have been added to pangenome elements (see ppanggolin metadata command).")
+
+    optional.add_argument("--metadata_sources",
+                        default=None,
+                        nargs="+",
+                        help="Which source of metadata should be written. "
+                            "By default all metadata sources are included.")
+
+    optional.add_argument("--metadata_sep",
+                        required=False,
+                        default='|',
+                        help="The separator used to join multiple metadata values for elements with multiple metadata"
+                            " values from the same source. This character should not appear in metadata values.")
