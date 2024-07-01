@@ -187,7 +187,8 @@ class Feature(MetaFeatures):
                 raise TypeError(f"Stop should be int. Got {type(stop_i)} instead in {self} from {self.organism}.")
             if stop_i < start_i:
                 raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) should not be greater than stop ({stop_i}) in {self} from {self.organism}.")
-
+            if start_i < 1 or stop_i < 1:
+                raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) and stop ({stop_i}) should be greater than 0 in {self} from {self.organism}.")
         
         self.start = start
         self.stop = stop
