@@ -324,22 +324,26 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]], metadata_
 
         if gf_intersection:
             # Calculate the completion percentage
-            completion = round(100 * len(gf_intersection) / len(set(module.families)), 1)
-
+            metadata_for_proksee = {'completion': round(100 * len(gf_intersection) / len(set(module.families)), 1)}
+            
+            metadata_for_proksee.update(module.formatted_metadata_dict(metadata_sep))
             # Create module data entries for genes within intersecting gene families
             for gf in gf_intersection:
                 for gene in gf2genes[gf.name]:
-                    modules_data_list.append({
-                        "name": f"Module_{module.ID}",
-                        "presence": "Module",
-                        "start": gene.start,
-                        "stop": gene.stop,
-                        "contig": gene.contig.name,
-                        "legend": f"module_{module.ID}",
-                        "source": "Module",
-                        "tags": [f'{completion}% complete'],
-                        "meta": module.formatted_metadata_dict(metadata_sep)
+                    for start, stop in gene.coordinates:
+                        modules_data_list.append({
+                            "name": f"Module_{module.ID}",
+                            "presence": "Module",
+                            "start": start,
+                            "stop": stop,
+                            "contig": gene.contig.name,
+                            "legend": f"module_{module.ID}",
+                            "source": "Module",
+                            "tags": [],
+                            "meta": metadata_for_proksee
                     })
+
+                    
 
     return modules_data_list
 
