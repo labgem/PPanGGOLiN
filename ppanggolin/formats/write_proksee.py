@@ -51,7 +51,7 @@ def write_legend_items(features: List[str], module_to_color: Dict[Module, str] =
 
     if module_to_color is not None and ("modules" in features or "all" in features):
         for mod, color in sorted(module_to_color.items(), key=lambda x: x[0].ID):
-            legend_data["items"].append({"name": f"module_{mod.ID}",
+            legend_data["items"].append({"name": str(mod),
                                          "decoration": "arc",
                                          "swatchColor": color,
                                          "visible": False})
@@ -332,12 +332,12 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]], metadata_
                 for gene in gf2genes[gf.name]:
                     for start, stop in gene.coordinates:
                         modules_data_list.append({
-                            "name": f"Module_{module.ID}",
+                            "name": str(module),
                             "presence": "Module",
                             "start": start,
                             "stop": stop,
                             "contig": gene.contig.name,
-                            "legend": f"module_{module.ID}",
+                            "legend": str(module),
                             "source": "Module",
                             "tags": [],
                             "meta": metadata_for_proksee
