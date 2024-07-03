@@ -176,7 +176,7 @@ def add_info_to_rgp_nodes(graph, regions: List[Region], region_to_spot: dict):
                        "is_contig_border": region.is_contig_border,
                        "is_whole_contig": region.is_whole_contig,
                        "spot_id": get_spot_id(region, region_to_spot),
-                       "modules": ';'.join({f"module_{module.ID}" for module in region.modules}),
+                       "modules": ';'.join({str(module) for module in region.modules}),
                        'families_count': region.number_of_families}
 
         region_attributes[region.ID] = region_info
@@ -292,7 +292,7 @@ def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List
                            identical_rgp_spots=";".join(spots_of_identical_rgp_obj),
                            spot_id=spots_of_identical_rgp_obj.pop() if len(
                                spots_of_identical_rgp_obj) == 1 else "Mulitple spots",
-                            modules = ';'.join({f"module_{module.ID}" for module in identical_rgp_obj.modules}),
+                            modules = ';'.join({str(module) for module in identical_rgp_obj.modules}),
                            )
 
 
