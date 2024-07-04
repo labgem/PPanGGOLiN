@@ -509,7 +509,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 gene_type=feature["feature_type"],
                 position=contig.number_of_genes,
                 gene_name=feature["gene"],
-                product=feature['produce'],
+                product=feature['product'],
                 genetic_code=genetic_code,
                 protein_id=feature["protein_id"]
             )

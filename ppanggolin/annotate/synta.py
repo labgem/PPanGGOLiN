@@ -72,6 +72,10 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
         elif len(line) > 0:  # if the line isn't empty, there's data to get.
             line_data = line.split()
             start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
+            if start < 1 or stop < 1:
+                # In some case aragorn gives negative coordinates. This case is just ignored.
+                logging.warning(f'Aragorn gives non valide coordiates for a RNA gene: {line_data}  This RNA is ignored.')
+                continue
             c += 1
             gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(4))
             gene.fill_annotations(start=start, stop=stop, strand="-" if line_data[2].startswith("c") else "+",

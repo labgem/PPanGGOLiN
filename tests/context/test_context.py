@@ -82,8 +82,8 @@ def simple_contig():
     genes = [Gene(str(i)) for i in range(contig_size)]
     organism = Organism('organism_A')
     for i, (gene, family_name) in enumerate(zip(genes, 'ABCDEFGHIJKLMNOP')):
-        family = GeneFamily(i, family_name)
-        gene.fill_annotations(start=i, stop=i+1, strand="+", position=i)
+        family = GeneFamily(i, family_name) 
+        gene.fill_annotations(start=i+1, stop=i+2, strand="+", position=i)
 
         gene.fill_parents(organism, contig)
 
