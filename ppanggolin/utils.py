@@ -261,8 +261,8 @@ def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrappe
         elif comp_type == "bz2":
             return bz2.open(file_or_file_path, 'rt')
         elif comp_type == "xz":
-            raise NotImplementedError("Unfortunately PPanGGOLiN do not support xz compressed file."
-                                      "Please report an issue on our GitHub tomake us know we should work on it.")
+            raise NotImplementedError("Unfortunately PPanGGOLiN does not support xz compressed files. "
+                                      "Please report an issue on our GitHub to let us know we should work on it.")
         elif comp_type == "zip":
             with zipfile.ZipFile(file_or_file_path, "r") as z:
                 logging.getLogger("PPanGGOLiN").warning("Assuming we want to read the first file in the ZIP archive")

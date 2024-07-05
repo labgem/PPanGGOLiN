@@ -381,6 +381,24 @@ def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cp
 
 
 def read_clustering_file(families_tsv_path: Path) -> Tuple[pd.DataFrame, bool]:
+    """
+    Read and process a gene families clustering file.
+
+    This function reads a tab-separated gene families file and processes it into a DataFrame with
+    appropriate columns. It handles different formats of the input file based on the number of columns.
+
+    The function expects the file to have 2, 3, or 4 columns:
+    - 2 columns: ["family", "gene"]
+    - 3 columns: ["family", "gene", "is_frag"] or ["family", "gene", "representative"]
+    - 4 columns: ["family", "representative", "gene", "is_frag"]
+
+    :param families_tsv_path: The path to the gene families file, which can be compressed or uncompressed.
+
+    :raises ValueError: If the file has only one column or an unexpected number of columns.
+    :raises Exception: If there are duplicated gene IDs in the clustering.
+
+    :return: The processed DataFrame and a boolean indicating if any gene is marked as fragmented.
+    """
     logging.getLogger("PPanGGOLiN").info(f"Reading {families_tsv_path.name} the gene families file ...")
     _, compress_type = is_compressed(families_tsv_path)
     families_df = pd.read_csv(families_tsv_path, sep="\t", header=None,
@@ -441,8 +459,8 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
             gene_obj = local_dict.get(identifier)
         return gene_obj
 
-    for line in tqdm(families_df.iterrows(), total=families_df.shape[0], unit="line", disable=disable_bar):
-        fam_id, reprez_id, gene_id, is_frag = line[1]
+    for _, row in tqdm(families_df.iterrows(), total=families_df.shape[0], unit="line", disable=disable_bar):
+        fam_id, reprez_id, gene_id, is_frag = row['family'], row['representative'], row['gene'], row['is_frag']
         gene = get_gene_obj(gene_id)
         if gene is not None:
             nb_gene_with_fam += 1
