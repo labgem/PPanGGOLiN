@@ -41,7 +41,7 @@ def check_annotate_args(args: argparse.Namespace):
     if args.fasta is None and args.anno is None:
         raise argparse.ArgumentError(argument=None,
                                      message="You must provide at least a file with the --fasta option to annotate "
-                                             "from sequences, or a file with the --gff option to load annotations from.")
+                                             "from sequences, or a file with the --anno option to load annotations from.")
 
     if hasattr(args, "fasta") and args.fasta is not None:
         check_input_files(args.fasta, True)
