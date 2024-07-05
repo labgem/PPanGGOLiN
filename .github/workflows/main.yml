@@ -4,6 +4,18 @@ on:
   pull_request:
     branches: 
       - '*'
+    paths:
+      # if any of this files or directory changed, trigger the CI
+      # The only case where it is not triggerd is when docs/ is modified
+      - 'tests/**'
+      - 'testingDataset/**'
+      - '.github/**'
+      - 'ppanggolin/**'
+      - 'MANIFEST.in'
+      - 'VERSION'
+      - 'ppanggolin_env.yaml'
+      - 'pyproject.toml'
+      - 'setup.py'
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
