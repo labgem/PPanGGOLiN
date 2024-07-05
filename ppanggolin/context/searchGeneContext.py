@@ -392,6 +392,7 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
     :param contig_windows: A list of tuples representing the start and end positions of contig windows.
     :param transitivity: The number of next genes to consider when adding edges.
 
+    :return: A context graph specific to the contig of interest with edges added
     """
     contig_graph = nx.Graph()
     contig_genes = contig.get_genes()
@@ -499,11 +500,10 @@ def get_n_next_genes_index(current_index: int, next_genes_count: int,
     :param next_genes_count: The number of next genes to consider.
     :param contig_size: The total number of genes in the contig.
     :param is_circular: Flag indicating whether the contig is circular (default: False).
+
     :return: An iterator yielding the indices of the next genes.
 
-    Raises:
-    - IndexError: If the current index is out of range for the given contig size.
-
+    :raises IndexError: If the current index is out of range for the given contig size.
     """
 
     # Check if the current index is out of range
@@ -548,7 +548,7 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
     :param window_size: Size of the window for extracting gene contexts (default: 0).
     :param disable_bar: Flag to disable the progress bar (default: False).
 
-    :return: The constructed gene context graph.
+    :return: The constructed gene context graph and the combination of gene families corresponding to the context that exist in at least one genome
     """
     context_graph = nx.Graph()
 
@@ -564,13 +564,18 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
         contig_windows = extract_contig_window(genes_count, genes_of_interest_positions,
                                                window_size=window_size, is_circular=contig.is_circular)
 
+        # This part is for PANORAMA
         contig_graph = add_edges_to_context_graph(context_graph, contig, contig_windows, transitive)
 
         for cc in nx.connected_components(contig_graph):
+            # If gene families are in the same connected component for the contig graph,
+            # they exist in the same context in at least one genome
             combination = []
             for family in cc.intersection({gene.family for gene in genes_of_interest}):
+                # Family here are family of interest for the context and in the same connected component
                 combination.append(family)
             combs2orgs[frozenset(combination)].add(contig.organism)
+        #
 
     return context_graph, combs2orgs
 
