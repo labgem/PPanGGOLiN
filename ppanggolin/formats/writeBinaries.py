@@ -126,7 +126,7 @@ def gene_to_fam_desc(gene_fam_name_len: int, gene_id_len: int) -> dict:
     Create a formated table for gene in gene families information
 
     :param gene_fam_name_len: Maximum size of gene family names
-    :param gene_id_len: Maximum sizez of gene identifier
+    :param gene_id_len: Maximum size of gene identifier
 
     :return: formated table
     """
