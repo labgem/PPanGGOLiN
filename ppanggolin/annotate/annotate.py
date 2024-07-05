@@ -323,8 +323,9 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
 
         else: 
             # the line does not start a qualifier so its the continuation of the last qualifier value.
+            value = line.strip()
             value = value[:-1] if value.endswith('"') else value
-            current_feature[current_qualifier][-1] += f" {line.strip()}"
+            current_feature[current_qualifier][-1] += f" {value}"
 
     # Append the last feature
     if current_feature:

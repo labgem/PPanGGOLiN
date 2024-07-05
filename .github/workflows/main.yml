@@ -4,6 +4,18 @@ on:
   pull_request:
     branches: 
       - '*'
+    paths:
+      # if any of this files or directory changed, trigger the CI
+      # The only case where it is not triggerd is when docs/ is modified
+      - 'tests/**'
+      - 'testingDataset/**'
+      - '.github/**'
+      - 'ppanggolin/**'
+      - 'MANIFEST.in'
+      - 'VERSION'
+      - 'ppanggolin_env.yaml'
+      - 'pyproject.toml'
+      - 'setup.py'
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -122,7 +134,8 @@ jobs:
         cd testingDataset
         ppanggolin panrgp --anno genomes.gbff.list --cluster clusters.tsv --output readclusterpang  --cpu $NUM_CPUS 
         ppanggolin annotate --anno genomes.gbff.list --output readclusters --cpu $NUM_CPUS
-        ppanggolin cluster --clusters clusters.tsv -p readclusters/pangenome.h5 --cpu $NUM_CPUS
+        awk 'BEGIN{FS=OFS="\t"} {$1 = $1 OFS $1} 1' clusters.tsv > clusters_with_reprez.tsv;
+        ppanggolin cluster --clusters clusters_with_reprez.tsv -p readclusters/pangenome.h5 --cpu $NUM_CPUS
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f --cpu $NUM_CPUS
         cd -
     - name: testing rgp_cluster command
@@ -171,7 +184,8 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
-        ppanggolin panrgp  --anno genomes.gbff.list --cluster clusters.tsv -o test_config --config panrgp_default_config.yaml --cpu $NUM_CPUS
+        cut -f1,2 clusters.tsv > clusters_without_frag.tsv
+        ppanggolin panrgp  --anno genomes.gbff.list --cluster clusters_without_frag.tsv -o test_config --config panrgp_default_config.yaml --cpu $NUM_CPUS
         cd -
     - name: testing projection cmd
       shell: bash -l {0}

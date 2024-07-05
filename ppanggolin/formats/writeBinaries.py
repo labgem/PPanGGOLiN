@@ -126,7 +126,7 @@ def gene_to_fam_desc(gene_fam_name_len: int, gene_id_len: int) -> dict:
     Create a formated table for gene in gene families information
 
     :param gene_fam_name_len: Maximum size of gene family names
-    :param gene_id_len: Maximum sizez of gene identifier
+    :param gene_id_len: Maximum size of gene identifier
 
     :return: formated table
     """
@@ -607,84 +607,82 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
     :param metatype:
     :param source:
     """
-    try:
-        if metadata and (metatype is None or source is None):
-            raise AssertionError
-    except AssertionError:
-        raise AssertionError("To erase metadata. You should provide metatype and source")
-    h5f = tables.open_file(pangenome.file, "a")
-    status_group = h5f.root.status
-    info_group = h5f.root.info
+    
+    if metadata and (metatype is None or source is None):
+        raise ValueError("To erase metadata. You should provide metatype and source")
+    
+    with tables.open_file(pangenome.file, "a") as h5f:
+        status_group = h5f.root.status
+        info_group = h5f.root.info
 
-    if '/edges' in h5f and (graph or gene_families):
-        logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed edges")
-        h5f.remove_node("/", "edges")
-        status_group._v_attrs.NeighborsGraph = False
-        pangenome.status["neighborsGraph"] = "No"
-        h5f.del_node_attr(info_group, "numberOfEdges")
-    if '/geneFamilies' in h5f and gene_families:
-        logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed gene family to gene associations...")
-        h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
-        pangenome.status["defragmented"] = "No"
-        pangenome.status["genesClustered"] = "No"
-        status_group._v_attrs.defragmented = False
-        status_group._v_attrs.genesClustered = False
+        if '/edges' in h5f and (graph or gene_families):
+            logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed edges")
+            h5f.remove_node("/", "edges")
+            status_group._v_attrs.NeighborsGraph = False
+            pangenome.status["neighborsGraph"] = "No"
+            h5f.del_node_attr(info_group, "numberOfEdges")
+        if '/geneFamilies' in h5f and gene_families:
+            logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed gene family to gene associations...")
+            h5f.remove_node('/', 'geneFamilies')  # erasing the table, and rewriting a new one.
+            pangenome.status["defragmented"] = "No"
+            pangenome.status["genesClustered"] = "No"
+            status_group._v_attrs.defragmented = False
+            status_group._v_attrs.genesClustered = False
 
-        h5f.del_node_attr(info_group, "numberOfClusters")
+            h5f.del_node_attr(info_group, "numberOfClusters")
 
-    if '/geneFamiliesInfo' in h5f and gene_families:
-        logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed gene family representative sequences...")
-        h5f.remove_node('/', 'geneFamiliesInfo')  # erasing the table, and rewriting a new one.
-        pangenome.status["geneFamilySequences"] = "No"
-        status_group._v_attrs.geneFamilySequences = False
-        if partition:
-            logging.getLogger("PPanGGOLiN").info("Erasing former partitions...")
-            pangenome.status["partitioned"] = "No"
-            status_group._v_attrs.Partitioned = False
-            if 'Partitioned' in status_group._v_attrs._f_list():
+        if '/geneFamiliesInfo' in h5f and gene_families:
+            logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed gene family representative sequences...")
+            h5f.remove_node('/', 'geneFamiliesInfo')  # erasing the table, and rewriting a new one.
+            pangenome.status["geneFamilySequences"] = "No"
+            status_group._v_attrs.geneFamilySequences = False
+            if partition:
+                logging.getLogger("PPanGGOLiN").info("Erasing former partitions...")
+                pangenome.status["partitioned"] = "No"
                 status_group._v_attrs.Partitioned = False
+                if 'Partitioned' in status_group._v_attrs._f_list():
+                    status_group._v_attrs.Partitioned = False
 
-            h5f.del_node_attr(info_group, "numberOfPersistent")
-            h5f.del_node_attr(info_group, "persistentStats")
-            h5f.del_node_attr(info_group, "numberOfShell")
-            h5f.del_node_attr(info_group, "shellStats")
-            h5f.del_node_attr(info_group, "numberOfCloud")
-            h5f.del_node_attr(info_group, "cloudStats")
-            h5f.del_node_attr(info_group, "numberOfPartitions")
-            h5f.del_node_attr(info_group, "numberOfSubpartitions")
+                h5f.del_node_attr(info_group, "numberOfPersistent")
+                h5f.del_node_attr(info_group, "persistentStats")
+                h5f.del_node_attr(info_group, "numberOfShell")
+                h5f.del_node_attr(info_group, "shellStats")
+                h5f.del_node_attr(info_group, "numberOfCloud")
+                h5f.del_node_attr(info_group, "cloudStats")
+                h5f.del_node_attr(info_group, "numberOfPartitions")
+                h5f.del_node_attr(info_group, "numberOfSubpartitions")
 
-    if '/RGP' in h5f and (gene_families or partition or rgp):
-        logging.getLogger("PPanGGOLiN").info("Erasing the formerly computer RGP...")
-        pangenome.status["predictedRGP"] = "No"
-        status_group._v_attrs.predictedRGP = False
-        h5f.remove_node("/", "RGP")
+        if '/RGP' in h5f and (gene_families or partition or rgp):
+            logging.getLogger("PPanGGOLiN").info("Erasing the formerly computer RGP...")
+            pangenome.status["predictedRGP"] = "No"
+            status_group._v_attrs.predictedRGP = False
+            h5f.remove_node("/", "RGP")
 
-        h5f.del_node_attr(info_group, "numberOfRGP")
+            h5f.del_node_attr(info_group, "numberOfRGP")
 
-    if '/spots' in h5f and (gene_families or partition or rgp or spots):
-        logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed spots...")
-        pangenome.status["spots"] = "No"
-        status_group._v_attrs.spots = False
-        h5f.remove_node("/", "spots")
+        if '/spots' in h5f and (gene_families or partition or rgp or spots):
+            logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed spots...")
+            pangenome.status["spots"] = "No"
+            status_group._v_attrs.spots = False
+            h5f.remove_node("/", "spots")
 
-        h5f.del_node_attr(info_group, "numberOfSpots")
+            h5f.del_node_attr(info_group, "numberOfSpots")
 
-    if '/modules' in h5f and (gene_families or partition or modules):
-        logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed modules...")
-        pangenome.status["modules"] = "No"
-        status_group._v_attrs.modules = False
-        h5f.remove_node("/", "modules")
+        if '/modules' in h5f and (gene_families or partition or modules):
+            logging.getLogger("PPanGGOLiN").info("Erasing the formerly computed modules...")
+            pangenome.status["modules"] = "No"
+            status_group._v_attrs.modules = False
+            h5f.remove_node("/", "modules")
 
-        h5f.del_node_attr(info_group, "numberOfModules")
-        h5f.del_node_attr(info_group, "numberOfFamiliesInModules")
-        for info in ['CloudSpecInModules', 'PersistentSpecInModules', 'ShellSpecInModules', 'numberOfFamiliesInModules',
-                     'StatOfFamiliesInModules']:
-            if info in info_group._v_attrs._f_list():
-                h5f.del_node_attr(info_group, info)
-    if '/metadata/' in h5f and metadata:
-        erase_metadata(pangenome, h5f, status_group, metatype, source)
+            h5f.del_node_attr(info_group, "numberOfModules")
+            h5f.del_node_attr(info_group, "numberOfFamiliesInModules")
+            for info in ['CloudSpecInModules', 'PersistentSpecInModules', 'ShellSpecInModules', 'numberOfFamiliesInModules',
+                        'StatOfFamiliesInModules']:
+                if info in info_group._v_attrs._f_list():
+                    h5f.del_node_attr(info_group, info)
 
-    h5f.close()
+        if '/metadata/' in h5f and metadata:
+            erase_metadata(pangenome, h5f, status_group, metatype, source)
 
 
 def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable_bar: bool = False):
