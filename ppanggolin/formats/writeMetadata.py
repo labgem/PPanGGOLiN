@@ -254,8 +254,6 @@ def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
                         if isinstance(value, bytes):
                             value = value.decode('UTF-8')
                         meta_row[desc] = value
-                    else:
-                        meta_row[desc] = None
             meta_row.append()
     source_table.flush()
 
