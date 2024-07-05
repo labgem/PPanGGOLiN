@@ -189,7 +189,7 @@ Family_B    Gene_5  Gene_5
 Family_C    Gene_6  Gene_6  'F'
 ```
 
-```{warning
+```{warning}
 *The column order is
 important !*  You must first provide the cluster identifier, the representative id, and then the gene id to finish with
 the fragmented status of the gene.
