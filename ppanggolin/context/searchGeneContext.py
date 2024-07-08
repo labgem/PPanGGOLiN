@@ -605,7 +605,16 @@ def launch(args: argparse.Namespace):
 
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-
+    align_args = {
+        "no_defrag": args.no_defrag,
+        "use_representatives": args.fast,
+        "identity": args.identity,
+        "coverage": args.coverage,
+        "translation_table": args.translation_table,
+        "tmpdir": args.tmpdir,
+        "keep_tmp": args.keep_tmp,
+        "cpu": args.cpu,
+    }
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, sequence_file=args.sequences,
                                      families=args.family, transitive=args.transitive, jaccard_threshold=args.jaccard,
                                      window_size=args.window_size, graph_format=args.graph_format,
