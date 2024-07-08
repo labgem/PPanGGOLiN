@@ -20,7 +20,7 @@ import pandas as pd
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig, Organism
-from ppanggolin.utils import mk_outdir, restricted_float, create_tmpdir, read_compressed_or_not, extract_contig_window
+from ppanggolin.utils import mk_outdir, restricted_float, create_tmpdir, read_compressed_or_not, extract_contig_window, get_default_args
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import project_and_write_partition, get_input_seq_to_family_with_rep, \
     get_input_seq_to_family_with_all, get_seq_ids
@@ -29,49 +29,7 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.projection.projection import write_gene_to_gene_family
 
 
-def check_search_context_args(args: argparse.Namespace) -> Dict[str, Any]:
-    """Check that all arguments are legit in the command line
-
-    :param args: All arguments provide by user
-
-    :return: A dictionary containing all arguments for alignment
-    """
-    align_args = {
-        "no_defrag": False,
-        "use_representatives": False,
-        "identity": 0.8,
-        "coverage": 0.8,
-        "translation_table": 11,
-        "tmpdir": Path(tempfile.gettempdir()),
-        "keep_tmp": False,
-        "cpu": 1,
-    }
-    if not any([args.sequences, args.family]):
-        raise argparse.ArgumentError(argument=None,
-                                     message="At least one of --sequences or --family option must be given")
-    if args.sequences is not None:
-        if not Path(args.sequences).is_file():
-            raise FileNotFoundError(f"{args.sequences} does not exist or is not a file")
-        align_args = {
-            "no_defrag": args.no_defrag,
-            "use_representatives": args.fast,
-            "identity": args.identity,
-            "coverage": args.coverage,
-            "translation_table": args.translation_table,
-            "tmpdir": args.tmpdir,
-            "keep_tmp": args.keep_tmp,
-            "cpu": args.cpu,
-        }
-    else:
-        if args.fast:
-            logging.getLogger("PPanGGOLiN").warning("--fasta is not compatible with --family")
-        for arg in ["no_defrag", "identity", "coverage", "translation_table", "keep_tmp", "tmpdir", "cpu"]:
-            if getattr(args, arg) != align_args[arg]:
-                logging.getLogger("PPanGGOLiN").warning(f"--{arg} is not compatible with --family")
-    return align_args
-
-
-def check_pangenome_for_searching(pangenome: Pangenome, sequences: bool = False):
+def check_pangenome_for_context_search(pangenome: Pangenome, sequences: bool = False):
     """ Check pangenome status and information to search context
 
     :param pangenome: The pangenome object
@@ -163,7 +121,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequenc
     """
     # check statuses and load info
 
-    check_pangenome_for_searching(pangenome, sequences=True if sequence_file is not None else False)
+    check_pangenome_for_context_search(pangenome, sequences=True if sequence_file is not None else False)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
 
     families_of_interest = set()
@@ -642,8 +600,6 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
-
-    align_args = check_search_context_args(args)
 
     mk_outdir(args.output, args.force)
 
