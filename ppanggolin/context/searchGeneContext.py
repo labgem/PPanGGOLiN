@@ -20,7 +20,7 @@ import pandas as pd
 # local libraries
 from ppanggolin.formats import check_pangenome_info
 from ppanggolin.genome import Gene, Contig, Organism
-from ppanggolin.utils import mk_outdir, restricted_float, create_tmpdir, read_compressed_or_not, extract_contig_window, get_default_args
+from ppanggolin.utils import mk_outdir, restricted_float, create_tmpdir, read_compressed_or_not, extract_contig_window
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import project_and_write_partition, get_input_seq_to_family_with_rep, \
     get_input_seq_to_family_with_all, get_seq_ids
@@ -533,7 +533,7 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
                 # Family here are family of interest for the context and in the same connected component
                 combination.append(family)
             combs2orgs[frozenset(combination)].add(contig.organism)
-        #
+        
 
     return context_graph, combs2orgs
 
