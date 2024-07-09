@@ -914,7 +914,6 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
                 gene.start = 1  # Start gene at the beginning of the contig
 
                 new_coordinates = []
-                print(gene.coordinates)
                 for start, stop in gene.coordinates:
 
                     if start > len(contig):
