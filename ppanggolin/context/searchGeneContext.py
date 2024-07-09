@@ -29,49 +29,7 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.projection.projection import write_gene_to_gene_family
 
 
-def check_search_context_args(args: argparse.Namespace) -> Dict[str, Any]:
-    """Check that all arguments are legit in the command line
-
-    :param args: All arguments provide by user
-
-    :return: A dictionary containing all arguments for alignment
-    """
-    align_args = {
-        "no_defrag": False,
-        "use_representatives": False,
-        "identity": 0.8,
-        "coverage": 0.8,
-        "translation_table": 11,
-        "tmpdir": Path(tempfile.gettempdir()),
-        "keep_tmp": False,
-        "cpu": 1,
-    }
-    if not any([args.sequences, args.family]):
-        raise argparse.ArgumentError(argument=None,
-                                     message="At least one of --sequences or --family option must be given")
-    if args.sequences is not None:
-        if not Path(args.sequences).is_file():
-            raise FileNotFoundError(f"{args.sequences} does not exist or is not a file")
-        align_args = {
-            "no_defrag": args.no_defrag,
-            "use_representatives": args.fast,
-            "identity": args.identity,
-            "coverage": args.coverage,
-            "translation_table": args.translation_table,
-            "tmpdir": args.tmpdir,
-            "keep_tmp": args.keep_tmp,
-            "cpu": args.cpu,
-        }
-    else:
-        if args.fast:
-            logging.getLogger("PPanGGOLiN").warning("--fasta is not compatible with --family")
-        for arg in ["no_defrag", "identity", "coverage", "translation_table", "keep_tmp", "tmpdir", "cpu"]:
-            if getattr(args, arg) != align_args[arg]:
-                logging.getLogger("PPanGGOLiN").warning(f"--{arg} is not compatible with --family")
-    return align_args
-
-
-def check_pangenome_for_searching(pangenome: Pangenome, sequences: bool = False):
+def check_pangenome_for_context_search(pangenome: Pangenome, sequences: bool = False):
     """ Check pangenome status and information to search context
 
     :param pangenome: The pangenome object
@@ -163,7 +121,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequenc
     """
     # check statuses and load info
 
-    check_pangenome_for_searching(pangenome, sequences=True if sequence_file is not None else False)
+    check_pangenome_for_context_search(pangenome, sequences=True if sequence_file is not None else False)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
 
     families_of_interest = set()
@@ -575,7 +533,7 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
                 # Family here are family of interest for the context and in the same connected component
                 combination.append(family)
             combs2orgs[frozenset(combination)].add(contig.organism)
-        #
+        
 
     return context_graph, combs2orgs
 
@@ -643,13 +601,20 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
 
-    align_args = check_search_context_args(args)
-
     mk_outdir(args.output, args.force)
 
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-
+    align_args = {
+        "no_defrag": args.no_defrag,
+        "use_representatives": args.fast,
+        "identity": args.identity,
+        "coverage": args.coverage,
+        "translation_table": args.translation_table,
+        "tmpdir": args.tmpdir,
+        "keep_tmp": args.keep_tmp,
+        "cpu": args.cpu,
+    }
     search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, sequence_file=args.sequences,
                                      families=args.family, transitive=args.transitive, jaccard_threshold=args.jaccard,
                                      window_size=args.window_size, graph_format=args.graph_format,
