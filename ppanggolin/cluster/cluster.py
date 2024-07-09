@@ -85,6 +85,7 @@ def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11
 
     :return: path to representative sequence file and path to tsv clustering result
     """
+
     seqdb = translate_genes(sequences=sequences, tmpdir=tmpdir, cpu=cpu,
                             is_single_line_fasta=True, code=code)
     logging.getLogger("PPanGGOLiN").info("Clustering sequences...")

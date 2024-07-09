@@ -169,15 +169,32 @@ class MetaFeatures:
             if self.has_source(metadata.source):
                 metadata_id = max([meta_id for meta_id in self._metadata_getter[metadata.source].keys()]) + 1
             else:
-                metadata_id = 0
+                # Set first as 1 for PANORAMA
+                metadata_id = 1
 
         try:
-            self._metadata_getter[metadata.source][metadata_id]
+            self.get_metadata(metadata.source, metadata_id)
         except KeyError:
             self._metadata_getter[metadata.source][metadata_id] = metadata
         else:
             raise KeyError(f"A metadata with ID {metadata_id} already exist "
                            f"for source {metadata.source} in {str(self)}")
+
+    def get_metadata(self, source: str, metadata_id: int = None) -> Metadata:
+        """Get metadata from metadata getter by its source and identifier
+
+        :param source: source of the metadata
+        :param metadata_id: metadata identifier
+
+        :raises KeyError: No metadata with ID or source is found
+        """
+        try:
+            metadata = self._metadata_getter[source][metadata_id]
+        except KeyError:
+            raise KeyError(f"No metadata exist with ID {metadata_id}"
+                           f"for source {source} in {str(self)}")
+        else:
+            return metadata
 
     def get_metadata_by_source(self, source: str) -> Union[Dict[int, Metadata], None]:
         """Get all the metadata feature corresponding to the source

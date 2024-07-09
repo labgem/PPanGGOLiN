@@ -22,9 +22,9 @@ def check_pangenome_former_graph(pangenome: Pangenome, force: bool = False):
     :param force: Allow to force write on Pangenome file
     """
     if pangenome.status["neighborsGraph"] == "inFile" and not force:
-        raise Exception("You are trying to make a neighbors graph that is already built. "
-                        "If you REALLY want to do that, use --force (it will erase everything except annotation data !)"
-                        )
+        raise AttributeError("You are trying to make a neighbors graph that is already built. "
+                             "If you REALLY want to do that, use --force "
+                             "(it will erase everything except annotation data !)")
     elif pangenome.status["neighborsGraph"] == "inFile" and force:
         erase_pangenome(pangenome, graph=True)
 

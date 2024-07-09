@@ -690,7 +690,7 @@ def read_metadata(pangenome: Pangenome, h5f: tables.File, metatype: str,
         for row in tqdm(read_chunks(source_table), total=source_table.nrows, unit='metadata', disable=disable_bar):
             meta_dict = {'source': source}
             try:
-                meta_id = row["metadata_id"]
+                meta_id = int(row["metadata_id"])
             except KeyError:
                 meta_id = None
             identifier = row["ID"].decode("utf-8") if isinstance(row["ID"], bytes) else int(row["ID"])

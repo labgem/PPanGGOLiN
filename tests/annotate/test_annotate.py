@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
-from ppanggolin.annotate.annotate import extract_positions, read_anno_file, parse_contig_header_lines, parse_gbff_by_contig, parse_feature_lines, parse_dna_seq_lines, read_org_gbff, combine_contigs_metadata
-
+from ppanggolin.annotate.annotate import extract_positions, read_anno_file, parse_contig_header_lines, \
+    parse_gbff_by_contig, parse_feature_lines, parse_dna_seq_lines, read_org_gbff, combine_contigs_metadata
 
 
 @pytest.mark.parametrize("input_string, expected_positions, expected_complement, expected_pseudogene", [
@@ -27,17 +27,19 @@ def test_extract_positions(input_string, expected_positions, expected_complement
 
 
 def test_extract_positions_with_wrong_positions_format():
-
     with pytest.raises(ValueError):
-        extract_positions("join(1038313,1..1016") # string misses a closing parenthesis
+        extract_positions("join(1038313,1..1016")  # string misses a closing parenthesis
 
 
 def test_extract_positions_with_wrong_positions_format2():
-
     with pytest.raises(ValueError):
-        extract_positions("start..stop") # start and stop are not integer
+        extract_positions("start..stop")  # start and stop are not integer
     with pytest.raises(ValueError):
-        extract_positions("complement(join(start..6816265, 1..stop))") # start and stop are not integer
+        extract_positions("complement(join(start..6816265, 1..stop))")  # start and stop are not integer
+    with pytest.raises(ValueError):
+        extract_positions("start..stop")  # start and stop are not integer
+    with pytest.raises(ValueError):
+        extract_positions("complement(join(start..6816265, 1..stop))")  # start and stop are not integer
 
 
 @pytest.fixture
@@ -116,25 +118,24 @@ def test_read_org_gbff(genome_data_with_joined_genes):
 
 
 def test_gbff_header_parser():
-
     header_lines = [
-    "LOCUS       NC_022109            1041595 bp    DNA     circular CON 24-MAR-2017",
-    "DEFINITION  Chlamydia trachomatis strain D/14-96 genome.",
-    "VERSION     NC_022109.1",
-    "SOURCE      Chlamydia trachomatis",
-    "  ORGANISM  Chlamydia trachomatis",
-    "            Bacteria; Chlamydiae; Chlamydiales; Chlamydiaceae;",
-    "            Chlamydia/Chlamydophila group; Chlamydia.",
+        "LOCUS       NC_022109            1041595 bp    DNA     circular CON 24-MAR-2017",
+        "DEFINITION  Chlamydia trachomatis strain D/14-96 genome.",
+        "VERSION     NC_022109.1",
+        "SOURCE      Chlamydia trachomatis",
+        "  ORGANISM  Chlamydia trachomatis",
+        "            Bacteria; Chlamydiae; Chlamydiales; Chlamydiaceae;",
+        "            Chlamydia/Chlamydophila group; Chlamydia.",
     ]
 
     parsed_header = parse_contig_header_lines(header_lines)
 
-    assert parsed_header ==  {
-            "LOCUS"     :  "NC_022109            1041595 bp    DNA     circular CON 24-MAR-2017",
-            "DEFINITION" : "Chlamydia trachomatis strain D/14-96 genome.",
-            "VERSION"   :  "NC_022109.1",
-            "SOURCE"     : "Chlamydia trachomatis",
-            "ORGANISM" : "Chlamydia trachomatis\nBacteria; Chlamydiae; Chlamydiales; Chlamydiaceae;\nChlamydia/Chlamydophila group; Chlamydia."
+    assert parsed_header == {
+        "LOCUS": "NC_022109            1041595 bp    DNA     circular CON 24-MAR-2017",
+        "DEFINITION": "Chlamydia trachomatis strain D/14-96 genome.",
+        "VERSION": "NC_022109.1",
+        "SOURCE": "Chlamydia trachomatis",
+        "ORGANISM": "Chlamydia trachomatis\nBacteria; Chlamydiae; Chlamydiales; Chlamydiaceae;\nChlamydia/Chlamydophila group; Chlamydia."
     }
 
 
@@ -231,24 +232,21 @@ def test_parse_feature_lines(input_lines, expected_output):
 
 
 def test_parse_dna_seq_lines():
-    lines =["        1 aaacc gggtt",
-            "       11 ccaaa tttgg",
-            "       21 ggccc ctttt"]
+    lines = ["        1 aaacc gggtt",
+             "       11 ccaaa tttgg",
+             "       21 ggccc ctttt"]
 
     assert parse_dna_seq_lines(lines) == "AAACCGGGTTCCAAATTTGGGGCCCCTTTT"
 
 
 def test_combine_contigs_metadata():
-
     contig_to_metadata = {
-        "contig1":{"sp":"spA", "strain":"123", "contig_feat":"ABC"},
-        "contig2":{"sp":"spA", "strain":"123", "contig_feat":"XYZ"},
-        "contig3":{"sp":"spA", "strain":"123"}
+        "contig1": {"sp": "spA", "strain": "123", "contig_feat": "ABC"},
+        "contig2": {"sp": "spA", "strain": "123", "contig_feat": "XYZ"},
+        "contig3": {"sp": "spA", "strain": "123"}
     }
 
     genome_metadata, contig_metadata = combine_contigs_metadata(contig_to_metadata)
 
-    assert genome_metadata == {"sp":"spA", "strain":"123"}
-    assert contig_metadata == {"contig1":{"contig_feat":"ABC"}, "contig2":{"contig_feat":"XYZ"},}
-
-
+    assert genome_metadata == {"sp": "spA", "strain": "123"}
+    assert contig_metadata == {"contig1": {"contig_feat": "ABC"}, "contig2": {"contig_feat": "XYZ"}, }

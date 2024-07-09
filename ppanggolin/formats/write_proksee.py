@@ -217,7 +217,6 @@ def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: 
         if gene.overlaps_contig_edge:
             metadata_for_proksee['overlaps_contig_edge'] = gene.overlaps_contig_edge
 
-
         metadata_for_proksee.update({f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()})
         metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict(metadata_sep).items()})
         

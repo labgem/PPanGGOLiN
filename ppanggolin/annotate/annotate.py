@@ -39,8 +39,9 @@ def check_annotate_args(args: argparse.Namespace):
     :raise Exception:
     """
     if args.fasta is None and args.anno is None:
-        raise Exception("You must provide at least a file with the --fasta option to annotate from sequences, "
-                        "or a file with the --gff option to load annotations from.")
+        raise argparse.ArgumentError(argument=None,
+                                     message="You must provide at least a file with the --fasta option to annotate "
+                                             "from sequences, or a file with the --anno option to load annotations from.")
 
     if hasattr(args, "fasta") and args.fasta is not None:
         check_input_files(args.fasta, True)
@@ -746,7 +747,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                 contig.length = int(attr_prodigal["seqlen"])
 
                     if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
-
                         if id_attribute in id_attr_to_gene_id:  # the ID has already been seen at least once in this genome
 
                             existing_gene = id_attr_to_gene_id[id_attribute]
@@ -1120,12 +1120,14 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
         missing = pangenome.number_of_organisms - len(set(pangenome.organisms) & set(fasta_dict.keys()))
         raise KeyError(f"Not all of your pangenome genomes are present within the provided fasta file. "
                        f"{missing} are missing (out of {pangenome.number_of_organisms}).")
+
     elif pangenome.number_of_organisms < len(fasta_dict):
-        # Indicates that all organisms in the pangenome are present in the provided FASTA file, 
+        # Indicates that all organisms in the pangenome are present in the provided FASTA file,
         # but additional genomes are also detected in the file.
         diff_genomes = len(fasta_dict) - pangenome.number_of_organisms
         logging.getLogger("PPanGGOLiN").warning(f"The provided fasta file contains {diff_genomes} "
                                                 "additional genomes compared to the pangenome.")
+
     with tqdm(total=pangenome.number_of_genes, unit="gene", disable=disable_bar,
               desc="Add sequences to genes") as bar:
         for org in pangenome.organisms:
@@ -1226,7 +1228,7 @@ def launch(args: argparse.Namespace):
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 logging.getLogger("PPanGGOLiN").info(f"Get sequences from FASTA file: {args.fasta}")
-                get_gene_sequences_from_fastas(pangenome, args.fasta)
+                get_gene_sequences_from_fastas(pangenome, args.fasta, disable_bar=args.disable_prog_bar)
             else:
                 logging.getLogger("PPanGGOLiN").warning("You provided gff files without sequences, "
                                                         "and you did not provide fasta sequences. "
