@@ -804,25 +804,25 @@ class TestPangenomeMetadata(TestPangenome):
         """
         metadata = Metadata(source="source", attribute="attr")
         family = GeneFamily(family_id=pangenome.max_fam_id, name="Fam")
-        family.add_metadata(source=metadata.source, metadata=metadata)
+        family.add_metadata(metadata=metadata)
         pangenome.add_gene_family(family)
         org = Organism("Org")
-        org.add_metadata(source=metadata.source, metadata=metadata)
+        org.add_metadata(metadata=metadata)
         ctg = Contig(0, "Ctg")
         org.add(ctg)
         gene = Gene("Gene")
-        gene.position, gene.start = (0, 0)
-        gene.add_metadata(source=metadata.source, metadata=metadata)
-        ctg[gene.start] = gene
+        gene.fill_annotations(start=1, stop=100, position=0, strand='+')
+        gene.add_metadata(metadata=metadata)
+        ctg.add(gene)
         pangenome.add_organism(org)
         rgp = Region("RGP")
-        rgp.add_metadata(source=metadata.source, metadata=metadata)
+        rgp.add_metadata(metadata=metadata)
         pangenome.add_region(rgp)
         spot = Spot(0)
-        spot.add_metadata(source=metadata.source, metadata=metadata)
+        spot.add_metadata(metadata=metadata)
         pangenome.add_spot(spot)
         module = Module(0)
-        module.add_metadata(source=metadata.source, metadata=metadata)
+        module.add_metadata(metadata=metadata)
         pangenome.add_module(module)
 
     def test_select_elem(self, add_element_to_pangenome, pangenome):
@@ -876,7 +876,7 @@ class TestPangenomeMetadata(TestPangenome):
                     assert isinstance(metadata, Metadata)
                     assert metadata.source == 'source'
 
-    def test_get_elem_by_sources(self, add_element_to_pangenome, pangenome):
+    def test_get_elem_by_source(self, add_element_to_pangenome, pangenome):
         """Tests the metadata generator filtered by source of the Pangenome class.
 
         :param add_element_to_pangenome: Add elements to the pangenome
@@ -884,7 +884,7 @@ class TestPangenomeMetadata(TestPangenome):
         """
         for metatype, expected_type in {"families": GeneFamily, "genomes": Organism, "genes": Gene, "RGPs": Region,
                                         "spots": Spot, "modules": Module}.items():
-            for elem in pangenome.get_elem_by_sources(source='source', metatype=metatype):
+            for elem in pangenome.get_elem_by_source(source='source', metatype=metatype):
                 assert isinstance(elem, expected_type)
                 for metadata in elem.metadata:
                     assert isinstance(metadata, Metadata)

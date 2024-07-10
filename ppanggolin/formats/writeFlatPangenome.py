@@ -17,6 +17,7 @@ import csv
 
 # installed libraries
 import pandas as pd
+from tqdm import tqdm
 
 # local libraries
 from ppanggolin.edge import Edge
@@ -54,7 +55,7 @@ def write_json_header(json: TextIO):
         orgstr.append('"' + org.name + '": {')
         contigstr = []
         for contig in org.contigs:
-            contigstr.append(f'"{contig.name}": ' + '{"is_circular: ' +
+            contigstr.append(f'"{contig.name}": ' + '{"is_circular": ' +
                              ('true' if contig.is_circular else 'false') + '}')
         orgstr[-1] += ', '.join(contigstr) + "}"
 
@@ -70,7 +71,7 @@ def write_json_gene_fam(gene_fam: GeneFamily, json: TextIO):
     :param json: file-like object, compressed or not
     """
     json.write('{' + f'"id": "{gene_fam.name}", "nb_genes": {len(gene_fam)}, '
-                     f'"partition": "{gene_fam.named_partition}", "subpartition": "{gene_fam.partition}"' + '}')
+                     f'"partition": "{gene_fam.named_partition}", "subpartition": "{gene_fam.partition}"' )
     org_dict = {}
     name_counts = Counter()
     product_counts = Counter()
@@ -749,20 +750,21 @@ def write_partitions(output: Path, soft_core: float = 0.95):
     logging.getLogger("PPanGGOLiN").info("Done writing the list of gene families for each partition")
 
 
-def write_gene_families_tsv(output: Path, compress: bool = False):
+def write_gene_families_tsv(output: Path, compress: bool = False, disable_bar: bool = False):
     """
     Write the file providing the association between genes and gene families
 
     :param output: Path to output directory
     :param compress: Compress the file in .gz
+    :param disable_bar: Flag to disable progress bar
     """
     logging.getLogger("PPanGGOLiN").info(
         "Writing the file providing the association between genes and gene families...")
     outname = output / "gene_families.tsv"
     with write_compressed_or_not(outname, compress) as tsv:
-        for fam in pan.gene_families:
+        for fam in tqdm(pan.gene_families, total=pan.number_of_gene_families, unit='family', disable=disable_bar):
             for gene in fam.genes:
-                tsv.write("\t".join([fam.name, gene.ID if gene.local_identifier == "" else gene.local_identifier,
+                tsv.write("\t".join([fam.name, gene.ID, gene.local_identifier,
                                      "F" if gene.is_fragment else ""]) + "\n")
     logging.getLogger("PPanGGOLiN").info("Done writing the file providing the association between genes and "
                                          f"gene families: '{outname}'")
@@ -826,8 +828,8 @@ def write_rgp_table(regions: Set[Region],
     """
     fname = output / "regions_of_genomic_plasticity.tsv"
     with write_compressed_or_not(fname, compress) as tab:
-        fieldnames = ["region", "genome", "contig", "start",
-                      "stop", "genes", "contigBorder", "wholeContig"]
+        fieldnames = ["region", "genome", "contig", "genes", "first_gene", "last_gene",
+                      "start", "stop", "length", "coordinates", "contigBorder", "wholeContig"]
 
         writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter='\t')
         writer.writeheader()
@@ -840,14 +842,18 @@ def write_rgp_table(regions: Set[Region],
                 "region": region.name,
                 "genome": region.organism,
                 "contig": region.contig,
-                "start": region.starter,
-                "stop": region.stopper,
                 "genes": len(region),
+                "first_gene": region.starter,
+                "last_gene": region.stopper,
+                "start": region.start,
+                "stop": region.stop,
+                "length": region.length,
+                "coordinates": region.string_coordinates(),
                 "contigBorder": region.is_contig_border,
                 "wholeContig": region.is_whole_contig
             }
-
             writer.writerow(row)
+
 
 def spot2rgp(spots: set, output: Path, compress: bool = False):
     """Write a tsv file providing association between spot and rgp
@@ -972,11 +978,6 @@ def write_spot_modules(output: Path, compress: bool = False):
     """
     logging.getLogger("PPanGGOLiN").info("Writing modules to spot associations...")
 
-    fam2mod = {}
-    for mod in pan.modules:
-        for fam in mod.families:
-            fam2mod[fam] = mod
-
     with write_compressed_or_not(output / "modules_spots.tsv", compress) as fout:
         fout.write("module_id\tspot_id\n")
 
@@ -984,14 +985,14 @@ def write_spot_modules(output: Path, compress: bool = False):
             curr_mods = defaultdict(set)
             for rgp in spot.get_uniq_content():
                 for fam in rgp.families:
-                    mod = fam2mod.get(fam)
-                    if mod is not None:
-                        curr_mods[mod].add(fam)
+                    if fam.module is not None:
+                        curr_mods[fam.module].add(fam)
 
-            for mod in curr_mods:
-                if curr_mods[mod] == mod.families:
+            for module, mod_families_in_spot in curr_mods.items():
+
+                if mod_families_in_spot == set(module.families):
                     # if all the families in the module are found in the spot, write the association
-                    fout.write(f"module_{mod.ID}\tspot_{spot.ID}\n")
+                    fout.write(f"module_{module.ID}\tspot_{spot.ID}\n")
 
     logging.getLogger("PPanGGOLiN").info(
         f"Done writing module to spot associations to: {output.as_posix() + '/modules_spots.tsv'}")
@@ -1137,7 +1138,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
         if partitions:
             processes.append(p.apply_async(func=write_partitions, args=(output, soft_core)))
         if families_tsv:
-            processes.append(p.apply_async(func=write_gene_families_tsv, args=(output, compress)))
+            processes.append(p.apply_async(func=write_gene_families_tsv, args=(output, compress, disable_bar)))
         if spots:
             processes.append(p.apply_async(func=write_spots, args=(output, compress)))
         if regions:
@@ -1237,7 +1238,7 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--modules", required=False, action="store_true",
                           help="Write a tsv file listing functional modules and the families that belong to them")
     optional.add_argument("--spot_modules", required=False, action="store_true",
-                          help="writes 3 files comparing the presence of modules within spots")
+                          help="writes 2 files comparing the presence of modules within spots")
     
     optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")

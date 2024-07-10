@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 from tqdm import tqdm
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 from collections import defaultdict
 
 # installed libraries
@@ -16,6 +16,7 @@ from collections import defaultdict
 from ppanggolin.genome import Organism, Gene
 from ppanggolin.region import Module
 from ppanggolin.utils import write_compressed_or_not
+from ppanggolin.geneFamily import GeneFamily
 
 
 def write_legend_items(features: List[str], module_to_color: Dict[Module, str] = None):
@@ -50,7 +51,7 @@ def write_legend_items(features: List[str], module_to_color: Dict[Module, str] =
 
     if module_to_color is not None and ("modules" in features or "all" in features):
         for mod, color in sorted(module_to_color.items(), key=lambda x: x[0].ID):
-            legend_data["items"].append({"name": f"module_{mod.ID}",
+            legend_data["items"].append({"name": str(mod),
                                          "decoration": "arc",
                                          "swatchColor": color,
                                          "visible": False})
@@ -149,12 +150,21 @@ def write_contig(organism: Organism, genome_sequences: Dict[str, str] = None, me
     """
     contigs_data_list = []
 
+    genome_metadata = organism.formatted_metadata_dict(metadata_sep)
     for contig in tqdm(organism.contigs, unit="contig", disable=True):
+
+        metadata_for_proksee = {"is_circular": bool(contig.is_circular)}
+
+        metadata_for_proksee.update(genome_metadata)
+        metadata_for_proksee.update(contig.formatted_metadata_dict(metadata_sep))
+
+        metadata_for_proksee = {key:val for key,val in metadata_for_proksee.items() if val not in ["None", '']}
+
         contig_info = {
             "name": contig.name,
             "length": contig.length,
             "orientation": "+",
-            "meta": contig.formatted_metadata_dict(metadata_sep)
+            "meta": metadata_for_proksee,
         }
 
         if genome_sequences:
@@ -164,8 +174,7 @@ def write_contig(organism: Organism, genome_sequences: Dict[str, str] = None, me
 
     return contigs_data_list
 
-
-def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool = True) -> Tuple[List[Dict], Dict[str, List[Gene]]]:
+def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: str = "|", disable_bar: bool = True) -> Tuple[List[Dict], Dict[str, List[Gene]]]:
     """
     Writes gene data for a given organism, including both protein-coding genes and RNA genes.
 
@@ -183,37 +192,81 @@ def write_genes(organism: Organism, metadata_sep: str = "|", disable_bar: bool =
         gf = gene.family
         gf2gene[gf.name].append(gene)
 
-        metadata_for_proksee = {f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()}
+        # Add gene info in meta of proksee
+        metadata_for_proksee = {"ID":gene.ID ,
+                                "family":gene.family.name}
+        
+        if multigenics and gf in multigenics:
+            metadata_for_proksee['multigenic'] = True
+
+        if gene.name:
+            metadata_for_proksee['name'] = gene.name
+
+        if gene.product:
+            metadata_for_proksee['product'] = gene.product
+             
+        if gene.spot:
+            metadata_for_proksee['spot'] = gene.spot.ID
+
+        if gene.module:
+            metadata_for_proksee['module'] = gene.module.ID
+
+        if gene.has_joined_coordinates:
+            metadata_for_proksee['coordinates'] = gene.string_coordinates()
+        
+        if gene.overlaps_contig_edge:
+            metadata_for_proksee['overlaps_contig_edge'] = gene.overlaps_contig_edge
+
+        metadata_for_proksee.update({f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()})
         metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict(metadata_sep).items()})
-        genes_data_list.append({
-            "name": gene.name,
-            "type": "Gene",
-            "contig": gene.contig.name,
-            "start": gene.start,
-            "stop": gene.stop,
-            "strand": 1 if gene.strand == "+" else -1,
-            "product": gene.product,
-            "tags": [gene.family.named_partition, gene.family.name],
-            "source": "Gene",
-            "legend": gene.family.named_partition,
-            "meta": metadata_for_proksee
-        })
+        
+        
+        # Proksee handles circularity effectively. When a gene extends beyond the edge of the contig,
+        # Proksee correctly displays the gene with its initial start (at the end of the contig) and final stop (at the beginning of the contig).
+        # However, this only applies when there's a single contig. If there are multiple contigs, the feature overlaps all contigs, causing confusion.
+
+        #In case of frameshift we don't want to split the gene by its coordinates
+        # When the gene overlaps_contig_edge the gene is split in two piece for correct visualisation
+        coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
+        for start, stop in coordinates_to_display:
+            genes_data_list.append({
+                "name": gene.name,
+                "type": "Gene",
+                "contig": gene.contig.name,
+                "start": start,
+                "stop": stop,
+                "strand": 1 if gene.strand == "+" else -1,
+                "product": gene.product,
+                "tags": [gene.family.named_partition],
+                "source": "Gene",
+                "legend": gene.family.named_partition,
+                "meta": metadata_for_proksee
+            })
 
     # Process RNA genes
     for gene in tqdm(organism.rna_genes, total=organism.number_of_rnas(), unit="rnas", disable=disable_bar):
-        genes_data_list.append({
-            "name": gene.name,
-            "type": "Gene",
-            "contig": gene.contig.name,
-            "start": gene.start,
-            "stop": gene.stop,
-            "strand": 1 if gene.strand == "+" else -1,
-            "product": gene.product,
-            "tags": [],
-            "source": "Gene",
-            "legend": "RNA",
-            "meta": gene.formatted_metadata_dict(metadata_sep)
-        })
+        
+        metadata_for_proksee = {"ID":gene.ID}
+        if gene.product:
+            metadata_for_proksee['product'] = gene.product
+        
+        metadata_for_proksee.update(gene.formatted_metadata_dict(metadata_sep))
+
+        coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
+        for start, stop in coordinates_to_display:
+            genes_data_list.append({
+                "name": gene.name,
+                "type": "Gene",
+                "contig": gene.contig.name,
+                "start": start,
+                "stop": stop,
+                "strand": 1 if gene.strand == "+" else -1,
+                "product": gene.product,
+                "tags": [],
+                "source": "Gene",
+                "legend": "RNA",
+                "meta": metadata_for_proksee
+            })
 
     return genes_data_list, gf2gene
 
@@ -227,20 +280,28 @@ def write_rgp(organism: Organism, metadata_sep:str = "|"):
     :return: A list of RGP data in a structured format.
     """
     rgp_data_list = []
-
+    
     # Iterate through each RGP in the pangenome
     for rgp in organism.regions:
         # Create an entry for the RGP in the data list
-        rgp_data_list.append({
-            "name": rgp.name,
-            "contig": rgp.contig.name,
-            "start": rgp.start,
-            "stop": rgp.stop,
-            "legend": "RGP",
-            "source": "RGP",
-            "tags": [rgp.spot.ID if rgp.spot else "No_spot"],
-            "meta": rgp.formatted_metadata_dict(metadata_sep)
-        })
+        metadata_for_proksee = {"spot":f"{rgp.spot.ID}" if rgp.spot else "No_spot"}
+
+        if rgp.overlaps_contig_edge:
+            metadata_for_proksee['overlaps_contig_edge'] = rgp.overlaps_contig_edge
+
+        metadata_for_proksee.update(rgp.formatted_metadata_dict(metadata_sep))
+
+        for start, stop in rgp.coordinates:
+            rgp_data_list.append({
+                "name": rgp.name,
+                "contig": rgp.contig.name,
+                "start": start,
+                "stop": stop,
+                "legend": "RGP",
+                "source": "RGP",
+                "tags": [f"spot_{rgp.spot.ID}" if rgp.spot else "No_spot"],
+                "meta": metadata_for_proksee
+            })
     return rgp_data_list
 
 
@@ -262,22 +323,26 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]], metadata_
 
         if gf_intersection:
             # Calculate the completion percentage
-            completion = round(100 * len(gf_intersection) / len(set(module.families)), 1)
-
+            metadata_for_proksee = {'completion': round(100 * len(gf_intersection) / len(set(module.families)), 1)}
+            
+            metadata_for_proksee.update(module.formatted_metadata_dict(metadata_sep))
             # Create module data entries for genes within intersecting gene families
             for gf in gf_intersection:
                 for gene in gf2genes[gf.name]:
-                    modules_data_list.append({
-                        "name": f"Module_{module.ID}",
-                        "presence": "Module",
-                        "start": gene.start,
-                        "stop": gene.stop,
-                        "contig": gene.contig.name,
-                        "legend": f"module_{module.ID}",
-                        "source": "Module",
-                        "tags": [f'{completion}% complete'],
-                        "meta": module.formatted_metadata_dict(metadata_sep)
+                    for start, stop in gene.coordinates:
+                        modules_data_list.append({
+                            "name": str(module),
+                            "presence": "Module",
+                            "start": start,
+                            "stop": stop,
+                            "contig": gene.contig.name,
+                            "legend": str(module),
+                            "source": "Module",
+                            "tags": [],
+                            "meta": metadata_for_proksee
                     })
+
+                    
 
     return modules_data_list
 
@@ -286,6 +351,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
                            features: List[str] = None,
                            module_to_colors: Dict[Module, str] = None,
                            genome_sequences: Dict[str, str] = None,
+                           multigenics:  Set[GeneFamily] = [],
                            metadata_sep: str = "|",
                            compress: bool = False):
     """
@@ -304,7 +370,7 @@ def write_proksee_organism(organism: Organism, output_file: Path,
 
     proksee_data["cgview"]["sequence"]["contigs"] = write_contig(organism, genome_sequences, metadata_sep=metadata_sep)
 
-    genes_features, gf2genes = write_genes(organism, metadata_sep=metadata_sep)
+    genes_features, gf2genes = write_genes(organism, multigenics=multigenics, metadata_sep=metadata_sep)
 
     proksee_data["cgview"]["features"] = genes_features
 
@@ -316,4 +382,4 @@ def write_proksee_organism(organism: Organism, output_file: Path,
 
     logging.debug(f"Write ProkSee for {organism.name}")
     with write_compressed_or_not(output_file, compress=compress) as out_json:
-        json.dump(proksee_data, out_json, indent=2)
+        json.dump(proksee_data, out_json, indent=2, sort_keys=True)

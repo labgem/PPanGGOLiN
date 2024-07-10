@@ -4,27 +4,25 @@
 # default libraries
 import logging
 import tempfile
-import subprocess
 from collections import defaultdict
 import os
 import argparse
-from typing import TextIO, Tuple, Dict, Set
+from typing import Tuple, Dict, Set
 from pathlib import Path
 import time
 
 # installed libraries
 from networkx import Graph
 from tqdm import tqdm
-
+import pandas as pd
 # local libraries
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
-from ppanggolin.utils import read_compressed_or_not, restricted_float
+from ppanggolin.utils import is_compressed, restricted_float, run_subprocess, create_tmpdir
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
-from ppanggolin.formats.readBinaries import check_pangenome_info, get_gene_sequences_from_file
-from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations
-from ppanggolin.utils import mk_outdir
+from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
+from ppanggolin.formats.writeSequences import write_gene_sequences_from_annotations, translate_genes, create_mmseqs_db
 
 
 # Global functions
@@ -43,33 +41,36 @@ def check_pangenome_former_clustering(pangenome: Pangenome, force: bool = False)
 
 
 # Clustering functions
-def check_pangenome_for_clustering(pangenome: Pangenome, tmp_file: TextIO, force: bool = False,
+def check_pangenome_for_clustering(pangenome: Pangenome, sequences: Path, force: bool = False,
                                    disable_bar: bool = False):
     """
     Check the pangenome statuses and write the gene sequences in the provided tmpFile.
     (whether they are written in the .h5 file or currently in memory)
 
     :param pangenome: Annotated Pangenome
-    :param tmp_file: Temporary file
+    :param sequences: Path to write the sequences
     :param force: Force to write on existing pangenome information
     :param disable_bar: Allow to disable progress bar
     """
     check_pangenome_former_clustering(pangenome, force)
     if pangenome.status["geneSequences"] in ["Computed", "Loaded"]:
+        logging.getLogger("PPanGGOLiN").debug("Write sequences from annotation loaded in pangenome")
         # we append the gene ids by 'ppanggolin' to avoid crashes from mmseqs when sequence IDs are only numeric.
-        write_gene_sequences_from_annotations(pangenome.genes, tmp_file, add="ppanggolin_", disable_bar=disable_bar)
+        write_gene_sequences_from_annotations(pangenome.genes, sequences, add="ppanggolin_",
+                                              compress=False, disable_bar=disable_bar)
     elif pangenome.status["geneSequences"] == "inFile":
-        get_gene_sequences_from_file(pangenome.file, tmp_file, add="ppanggolin_",
-                                     disable_bar=disable_bar)  # write CDS sequences to the tmpFile
+        logging.getLogger("PPanGGOLiN").debug("Write sequences from pangenome file")
+        write_gene_sequences_from_pangenome_file(pangenome.file, sequences, add="ppanggolin_",
+                                                 compress=False,
+                                                 disable_bar=disable_bar)  # write CDS sequences to the tmpFile
     else:
-        tmp_file.close()  # closing the tmp file since an exception will be raised.
         raise Exception("The pangenome does not include gene sequences, thus it is impossible to cluster "
                         "the genes in gene families. Either provide clustering results (see --clusters), "
                         "or provide a way to access the gene sequence during the annotation step "
                         "(having the fasta in the gff files, or providing the fasta files through the --fasta option)")
 
 
-def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 11, coverage: float = 0.8,
+def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11, coverage: float = 0.8,
                      identity: float = 0.8, mode: int = 1) -> Tuple[Path, Path]:
     """
     Make a first clustering of all sequences in pangenome
@@ -84,36 +85,25 @@ def first_clustering(sequences: TextIO, tmpdir: Path, cpu: int = 1, code: int = 
 
     :return: path to representative sequence file and path to tsv clustering result
     """
-    seq_nucdb = tmpdir / 'nucleotid_sequences_db'
-    cmd = list(map(str, ["mmseqs", "createdb", sequences.name, seq_nucdb]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    logging.getLogger("PPanGGOLiN").info("Creating sequence database...")
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
-    logging.getLogger("PPanGGOLiN").debug("Translate sequence ...")
-    seqdb = tmpdir / 'aa_db'
-    cmd = list(map(str, ["mmseqs", "translatenucs", seq_nucdb, seqdb, "--threads", cpu, "--translation-table", code]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+
+    seqdb = translate_genes(sequences=sequences, tmpdir=tmpdir, cpu=cpu,
+                            is_single_line_fasta=True, code=code)
     logging.getLogger("PPanGGOLiN").info("Clustering sequences...")
     cludb = tmpdir / 'cluster_db'
     cmd = list(map(str, ["mmseqs", "cluster", seqdb, cludb, tmpdir, "--cluster-mode", mode, "--min-seq-id",
                          identity, "-c", coverage, "--threads", cpu, "--kmer-per-seq", 80, "--max-seqs", 300]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 cluster failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info("Extracting cluster representatives...")
     repdb = tmpdir / 'representative_db'
     cmd = list(map(str, ["mmseqs", "result2repseq", seqdb, cludb, repdb]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 result2repseq failed with the following error:\n")
     reprfa = tmpdir / 'representative_sequences.fasta'
     cmd = list(map(str, ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 result2flat failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info("Writing gene to family informations")
     outtsv = tmpdir / 'families_tsv'
     cmd = list(map(str, ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv, "--threads", cpu, "--full-header"]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 createtsv failed with the following error:\n")
     return reprfa, outtsv
 
 
@@ -148,23 +138,17 @@ def align_rep(faa_file: Path, tmpdir: Path, cpu: int = 1, coverage: float = 0.8,
 
     :return: Result of alignment
     """
-    logging.getLogger("PPanGGOLiN").debug("Create database")
-    seqdb = tmpdir / 'rep_sequence_db'
-    cmd = list(map(str, ["mmseqs", "createdb", faa_file, seqdb]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    seqdb = create_mmseqs_db([faa_file], 'rep_sequence_db', tmpdir, db_mode=1, db_type=1)
     logging.getLogger("PPanGGOLiN").info("Aligning cluster representatives...")
     alndb = tmpdir / 'rep_alignment_db'
     cmd = list(map(str, ["mmseqs", "search", seqdb, seqdb, alndb, tmpdir, "-a", "--min-seq-id", identity,
                          "-c", coverage, "--cov-mode", 1, "--threads", cpu]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 search failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info("Extracting alignments...")
     outfile = tmpdir / 'rep_families.tsv'
     cmd = list(map(str, ["mmseqs", "convertalis", seqdb, seqdb, alndb, outfile,
                          "--format-output", "query,target,qlen,tlen,bits"]))
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, msg="MMSeqs2 convertalis failed with the following error:\n")
     return outfile
 
 
@@ -214,9 +198,9 @@ def refine_clustering(tsv: Path, aln_file: Path,
                 simgraph.nodes[line[0]]["length"] = int(line[2])
                 simgraph.nodes[line[1]]["length"] = int(line[3])
 
-    for node, nodedata in simgraph.nodes(data=True):
+    for node, nodedata in sorted(simgraph.nodes(data=True)):
         choice = (None, 0, 0, 0)
-        for neighbor in simgraph.neighbors(node):
+        for neighbor in sorted(simgraph.neighbors(node)):
             nei = simgraph.nodes[neighbor]
             score = simgraph[neighbor][node]["score"]
             if nei["length"] > nodedata["length"] and nei["nbgenes"] >= nodedata["nbgenes"] and choice[3] < score:
@@ -301,33 +285,23 @@ def clustering(pangenome: Pangenome, tmpdir: Path, cpu: int = 1, defrag: bool = 
     :param disable_bar: Disable the progress bar during clustering.
     :param keep_tmp_files: Keep temporary files (useful for debugging).
     """
-
-    if keep_tmp_files:
-        date = time.strftime("_%Y-%m-%d_%H-%M-%S", time.localtime())
-
-        dir_name = f'clustering_tmpdir_{date}_PID{os.getpid()}'
-        tmp_path = Path(tmpdir) / dir_name
-        mk_outdir(tmp_path, force=True)
-    else:
-        newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
-        tmp_path = Path(newtmpdir.name)
-
-    with open(tmp_path/'nucleotid_sequences', "w") as sequence_file:
-        check_pangenome_for_clustering(pangenome, sequence_file, force, disable_bar=disable_bar)
+    date = time.strftime("_%Y-%m-%d_%H-%M-%S", time.localtime())
+    dir_name = f'clustering_tmpdir_{date}_PID{os.getpid()}'
+    with create_tmpdir(tmpdir, basename=dir_name, keep_tmp=keep_tmp_files) as tmp_path:
+        sequence_path = tmp_path / 'nucleotide_sequences.fna'
+        check_pangenome_for_clustering(pangenome, sequence_path, force, disable_bar=disable_bar)
         logging.getLogger("PPanGGOLiN").info("Clustering all of the genes sequences...")
-        rep, tsv = first_clustering(sequence_file, tmp_path, cpu, code, coverage, identity, mode)
+        rep, tsv = first_clustering(sequence_path, tmp_path, cpu, code, coverage, identity, mode)
 
-    fam2seq = read_faa(rep)
-    if not defrag:
-        logging.getLogger("PPanGGOLiN").debug("No defragmentation")
-        genes2fam, _ = read_tsv(tsv)
-    else:
-        logging.getLogger("PPanGGOLiN").info("Associating fragments to their original gene family...")
-        aln = align_rep(rep, tmp_path, cpu, coverage, identity)
-        genes2fam, fam2seq = refine_clustering(tsv, aln, fam2seq)
-        pangenome.status["defragmented"] = "Computed"
-    if not keep_tmp_files:
-        newtmpdir.cleanup()
+        fam2seq = read_faa(rep)
+        if not defrag:
+            logging.getLogger("PPanGGOLiN").debug("No defragmentation")
+            genes2fam, _ = read_tsv(tsv)
+        else:
+            logging.getLogger("PPanGGOLiN").info("Associating fragments to their original gene family...")
+            aln = align_rep(rep, tmp_path, cpu, coverage, identity)
+            genes2fam, fam2seq = refine_clustering(tsv, aln, fam2seq)
+            pangenome.status["defragmented"] = "Computed"
     read_fam2seq(pangenome, fam2seq)
     read_gene2fam(pangenome, genes2fam, disable_bar=disable_bar)
 
@@ -384,56 +358,121 @@ def infer_singletons(pangenome: Pangenome):
     logging.getLogger("PPanGGOLiN").info(f"Inferred {singleton_counter} singleton families")
 
 
-def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singleton: bool = False, force: bool = False,
-                    disable_bar: bool = False):
+def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cpu: int = 1,
+                                        tmpdir: Path = None, keep_tmp: bool = False):
+    tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
+    with create_tmpdir(tmpdir, "get_proteins_sequences", keep_tmp) as tmp:
+        repres_path = tmp / "representative.fna"
+        with open(repres_path, "w") as repres_seq:
+            for family in pangenome.gene_families:
+                repres_seq.write(f">{family.name}\n")
+                repres_seq.write(f"{family.representative.dna}\n")
+        translate_db = translate_genes(sequences=repres_path, tmpdir=tmp, cpu=cpu,
+                                       is_single_line_fasta=True, code=code)
+        outpath = tmp / "representative_protein_genes.fna"
+        cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
+        run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
+        with open(outpath, "r") as repres_prot:
+            lines = repres_prot.readlines()
+            while len(lines) > 0:
+                family_name = lines.pop(0).strip()[1:]
+                family_seq = lines.pop(0).strip()
+                family = pangenome.get_gene_family(family_name)
+                family.add_sequence(family_seq)
+
+
+def read_clustering_file(families_tsv_path: Path) -> Tuple[pd.DataFrame, bool]:
+    """
+    Read and process a gene families clustering file.
+
+    This function reads a tab-separated gene families file and processes it into a DataFrame with
+    appropriate columns. It handles different formats of the input file based on the number of columns.
+
+    The function expects the file to have 2, 3, or 4 columns:
+    - 2 columns: ["family", "gene"]
+    - 3 columns: ["family", "gene", "is_frag"] or ["family", "gene", "representative"]
+    - 4 columns: ["family", "representative", "gene", "is_frag"]
+
+    :param families_tsv_path: The path to the gene families file, which can be compressed or uncompressed.
+
+    :raises ValueError: If the file has only one column or an unexpected number of columns.
+    :raises Exception: If there are duplicated gene IDs in the clustering.
+
+    :return: The processed DataFrame and a boolean indicating if any gene is marked as fragmented.
+    """
+    logging.getLogger("PPanGGOLiN").info(f"Reading {families_tsv_path.name} the gene families file ...")
+    _, compress_type = is_compressed(families_tsv_path)
+    families_df = pd.read_csv(families_tsv_path, sep="\t", header=None,
+                              compression=compress_type if compress_type is not None else 'infer')  # Set as infer to manage other compression type
+    if families_df.shape[1] == 2:
+        families_df.columns = ["family", "gene"]
+        families_df["representative"] = families_df.groupby('family')['gene'].transform('first')
+        families_df["is_frag"] = False
+    elif families_df.shape[1] == 3:
+        if families_df[2].dropna().unique().tolist() == ['F']:
+            families_df.columns = ["family", "gene", "is_frag"]
+            families_df["representative"] = families_df.groupby('family')['gene'].transform('first')
+            families_df["is_frag"] = families_df["is_frag"].replace('F', True).fillna(False)
+        else:
+            families_df.columns = ["family", "gene", "representative"]
+            families_df["is_frag"] = False
+    elif families_df.shape[1] == 4:
+        families_df.columns = ["family", "representative", "gene", "is_frag"]
+    else:
+        if families_df.shape[1] == 1:
+            raise ValueError("Only one column found. This might be due to "
+                             "no tabulation separator found in gene families file")
+        else:
+            raise ValueError("Too much columns. You must at least give in first column the family identifier and "
+                             "as second column the gene identifier. More information in the documentation")
+    if families_df["gene"].unique().shape[0] < families_df["gene"].shape[0]:
+        raise Exception("It seems that there is duplicated gene id in your clustering.")
+    return families_df[["family", "representative", "gene", "is_frag"]], bool(families_df["is_frag"].any())
+
+
+def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singleton: bool = False,
+                    code: int = 11, cpu: int = 1, tmpdir: Path = None, keep_tmp: bool = False,
+                    force: bool = False, disable_bar: bool = False):
     """
     Get the pangenome information, the gene families and the genes with an associated gene family.
     Reads a families tsv file from mmseqs2 output and adds the gene families and the genes to the pangenome.
 
     :param pangenome: Input Pangenome
-    :param families_tsv_file: MMseqs2 clustering results
+    :param families_tsv_path: Clustering results path
     :param infer_singleton: creates a new family for each gene with no associated family
+    :param code: Genetic code used for sequence translation.
+    :param cpu: Number of CPU cores to use for clustering.
+    :param tmpdir: Path to a temporary directory for intermediate files.
+    :param keep_tmp: Keep temporary files (useful for debugging).
     :param force: force to write in the pangenome
     :param disable_bar: Allow to disable progress bar
     """
     check_pangenome_former_clustering(pangenome, force)
-    check_pangenome_info(pangenome, need_annotations=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=True, disable_bar=disable_bar)
 
-    logging.getLogger("PPanGGOLiN").info(f"Reading {families_tsv_file.name} the gene families file ...")
-    filesize = os.stat(families_tsv_file).st_size
-    families_tsv_file = read_compressed_or_not(families_tsv_file)
-    frag = False  # the genome annotations are necessarily loaded.
+    families_df, frag = read_clustering_file(families_tsv_path)
     nb_gene_with_fam = 0
     local_dict = mk_local_to_gene(pangenome)
-    bar = tqdm(total=filesize, unit="bytes", disable=disable_bar)
-    line_counter = 0
-    for line in families_tsv_file:
-        line_counter += 1
-        bar.update(len(line))
+    def get_gene_obj(identifier):
         try:
-            elements = [el.strip() for el in line.split()]  # 2 or 3 fields expected
-            if len(elements) <= 1:
-                raise ValueError("No tabulation separator found in gene families file")
-            (fam_id, gene_id, is_frag) = elements if len(elements) == 3 else elements + ["Na"]  # case of 2 fields
+            gene_obj = pangenome.get_gene(identifier)
+        except KeyError:
+            gene_obj = local_dict.get(identifier)
+        return gene_obj
+
+    for _, row in tqdm(families_df.iterrows(), total=families_df.shape[0], unit="line", disable=disable_bar):
+        fam_id, reprez_id, gene_id, is_frag = row['family'], row['representative'], row['gene'], row['is_frag']
+        gene = get_gene_obj(gene_id)
+        if gene is not None:
+            nb_gene_with_fam += 1
             try:
-                gene_obj = pangenome.get_gene(gene_id)
-            except KeyError:
-                gene_obj = local_dict.get(gene_id)
-            if gene_obj is not None:
-                nb_gene_with_fam += 1
-                try:
-                    fam = pangenome.get_gene_family(fam_id)
-                except KeyError:  # Family not found so create and add
-                    fam = GeneFamily(pangenome.max_fam_id, fam_id)
-                    pangenome.add_gene_family(fam)
-                gene_obj.is_fragment = True if is_frag == "F" else False  # F for Fragment
-                fam.add(gene_obj)
-            if is_frag == "F":
-                frag = True
-        except Exception:
-            raise Exception(f"line {line_counter} of the file '{families_tsv_file.name}' raised an error.")
-    bar.close()
-    families_tsv_file.close()
+                fam = pangenome.get_gene_family(fam_id)
+            except KeyError:  # Family not found so create and add
+                fam = GeneFamily(pangenome.max_fam_id, fam_id)
+                fam.representative = get_gene_obj(reprez_id)
+                pangenome.add_gene_family(fam)
+            gene.is_fragment = is_frag
+            fam.add(gene)
     if nb_gene_with_fam < pangenome.number_of_genes:  # not all genes have an associated cluster
         if nb_gene_with_fam == 0:
             raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step."
@@ -445,12 +484,16 @@ def read_clustering(pangenome: Pangenome, families_tsv_file: Path, infer_singlet
                 infer_singletons(pangenome)
             else:
                 raise Exception(
-                    f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) did not have an associated "
-                    f"cluster. Either change your cluster file so that each gene has a cluster, "
-                    f"or use the --infer_singletons option to infer a cluster for each non-clustered gene.")
+                    f"Some genes ({pangenome.number_of_genes - nb_gene_with_fam}) were not associated with a cluster. "
+                    f"You can either update your cluster file to ensure each gene has a cluster assignment, "
+                    f"or use the '--infer_singletons' option to automatically infer a cluster for each non-clustered gene."
+                )
+    get_family_representative_sequences(pangenome, code, cpu, tmpdir, keep_tmp)
+
     pangenome.status["genesClustered"] = "Computed"
     if frag:  # if there was fragment information in the file.
         pangenome.status["defragmented"] = "Computed"
+    pangenome.status["geneFamilySequences"] = "Computed"
     pangenome.parameters["cluster"] = {}
     pangenome.parameters["cluster"]["# read_clustering_from_file"] = True
     pangenome.parameters["cluster"]["infer_singletons"] = infer_singleton
@@ -476,7 +519,8 @@ def launch(args: argparse.Namespace):
         if None in [args.tmpdir, args.cpu, args.no_defrag, args.translation_table,
                     args.coverage, args.identity, args.mode]:
             logging.getLogger("PPanGGOLiN").warning("You are using an option compatible only with clustering creation.")
-        read_clustering(pangenome, args.clusters, args.infer_singletons, args.force, disable_bar=args.disable_prog_bar)
+        read_clustering(pangenome, args.clusters, args.infer_singletons, args.translation_table,
+                        args.cpu, args.tmpdir, args.keep_tmp, args.force, disable_bar=args.disable_prog_bar)
         logging.getLogger("PPanGGOLiN").info("Done reading the cluster file")
     write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
 
@@ -514,10 +558,6 @@ def parser_clust(parser: argparse.ArgumentParser):
     clust.add_argument('--no_defrag', required=False, default=False, action="store_true",
                        help="DO NOT Use the defragmentation strategy to link potential fragments "
                             "with their original gene family.")
-    clust.add_argument("--translation_table", required=False, default="11",
-                       help="Translation table (genetic code) to use.")
-
-    clust.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 
     read = parser.add_argument_group(title="Read clustering arguments")
     read.add_argument('--clusters', required=False, type=Path,
@@ -527,7 +567,10 @@ def parser_clust(parser: argparse.ArgumentParser):
                       help="When reading a clustering result with --clusters, if a gene is not in the provided file"
                            " it will be placed in a cluster where the gene is the only member.")
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+    optional.add_argument("--translation_table", required=False, default="11",
+                          help="Translation table (genetic code) to use.")
+    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument("--tmpdir", required=False, type=Path, default=Path(tempfile.gettempdir()),
                           help="directory for storing temporary files")
     optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
                           help="Keeping temporary files (useful for debugging).")

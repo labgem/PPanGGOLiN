@@ -61,6 +61,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    draw              Draw figures representing the pangenome through different aspects\n"
     desc += "    write_pangenome   Writes 'flat' files that represent the pangenome and its elements for use with other software.\n"
     desc += "    write_genomes     Writes 'flat' files that represent the genomes along with their associated pangenome elements.\n"
+    desc += "    write_metadata    Writes 'TSV' files that represent the metadata associated with elements of the pangenome.\n"
     desc += "    fasta             Writes fasta files for different elements of the pangenome.\n"
     desc += "    info              Prints information about a given pangenome graph file.\n"
     desc += "    metrics           Compute several metrics on a given pangenome.\n"
@@ -138,7 +139,7 @@ def cmd_line() -> argparse.Namespace:
                      "Use the command line or the config file.")
 
     cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
-                               "context", "write_pangenome", "write_genomes", "msa", "draw", "partition",
+                               "context", "write_pangenome", "write_genomes", "write_metadata", "msa", "draw", "partition",
                                "rarefaction", "spot", "fasta", "metrics", "rgp", "projection", "metadata"]
     if args.subcommand in cmds_pangenome_required and args.pangenome is None:
         parser.error("Please specify a pangenome file using the --pangenome argument, "
@@ -191,6 +192,8 @@ def main():
         ppanggolin.formats.writeFlatPangenome.launch(args)
     elif args.subcommand == "write_genomes":
         ppanggolin.formats.writeFlatGenomes.launch(args)
+    elif args.subcommand == "write_metadata":
+        ppanggolin.formats.writeFlatMetadata.launch(args)
     elif args.subcommand == "fasta":
         ppanggolin.formats.writeSequences.launch(args)
     elif args.subcommand == "msa":

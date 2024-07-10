@@ -77,6 +77,13 @@ class Metadata:
         fields.remove("source")
         return fields
 
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Get metadata in dict format.
+        """
+
+        return self.__dict__.copy()
+
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
         return ','.join(attr_list)
@@ -96,7 +103,13 @@ class MetaFeatures:
     def __init__(self):
         """Constructor method
         """
-        self._metadata_getter = defaultdict(list)
+        self._metadata_getter = defaultdict(dict)
+
+    @property
+    def number_of_metadata(self) -> int:
+        """Get the number of metadata associated to feature
+        """
+        return sum(len(meta_dict) for meta_dict in self._metadata_getter.values())
 
     @property
     def metadata(self) -> Generator[Metadata, None, None]:
@@ -105,8 +118,8 @@ class MetaFeatures:
         :return: Metadata from all sources
         """
 
-        for meta_list in self._metadata_getter.values():
-            for metadata in meta_list:
+        for meta_dict in self._metadata_getter.values():
+            for metadata in meta_dict.values():
                 yield metadata
 
     @property
@@ -140,20 +153,50 @@ class MetaFeatures:
 
         return {source_field: separator.join(values) for source_field, values in source_field_2_values.items()}
 
-    def add_metadata(self, source, metadata):
+    def add_metadata(self, metadata: Metadata, metadata_id: int = None) -> None:
         """Add metadata to metadata getter
 
-        :param source: Name of the metadata source
         :param metadata: metadata value to add for the source
+        :param metadata_id: metadata identifier
 
         :raises AssertionError: Source or metadata is not with the correct type
         """
         assert isinstance(metadata, Metadata), f"Metadata is not with type Metadata but with {type(metadata)}"
-        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
 
-        self._metadata_getter[source].append(metadata)
+        # Metadata_id should not already exist because the metadata are added from scratch to a new source,
+        # or they are ridden
+        if metadata_id is None:
+            if self.has_source(metadata.source):
+                metadata_id = max([meta_id for meta_id in self._metadata_getter[metadata.source].keys()]) + 1
+            else:
+                # Set first as 1 for PANORAMA
+                metadata_id = 1
 
-    def get_metadata_by_source(self, source: str) -> Union[List[Metadata], None]:
+        try:
+            self.get_metadata(metadata.source, metadata_id)
+        except KeyError:
+            self._metadata_getter[metadata.source][metadata_id] = metadata
+        else:
+            raise KeyError(f"A metadata with ID {metadata_id} already exist "
+                           f"for source {metadata.source} in {str(self)}")
+
+    def get_metadata(self, source: str, metadata_id: int = None) -> Metadata:
+        """Get metadata from metadata getter by its source and identifier
+
+        :param source: source of the metadata
+        :param metadata_id: metadata identifier
+
+        :raises KeyError: No metadata with ID or source is found
+        """
+        try:
+            metadata = self._metadata_getter[source][metadata_id]
+        except KeyError:
+            raise KeyError(f"No metadata exist with ID {metadata_id}"
+                           f"for source {source} in {str(self)}")
+        else:
+            return metadata
+
+    def get_metadata_by_source(self, source: str) -> Union[Dict[int, Metadata], None]:
         """Get all the metadata feature corresponding to the source
 
         :param source: Name of the source to get
@@ -192,16 +235,15 @@ class MetaFeatures:
 
     def del_metadata_by_attribute(self, **kwargs):
         """Remove a source from the feature
-
-        :param source: Name of the source to delete
         """
-        for source, metadata in self._metadata_getter.items():
+        for source, metadata_dict in self._metadata_getter.items():
             for attr, value in kwargs.items():
-                if hasattr(metadata, attr):
-                    # BUG If value is a list, the join block detection.
-                    # It would be better to keep a list and change in writing and reading metadata to join the list
-                    if getattr(metadata, attr, None) in value or getattr(metadata, attr, None) == value:
-                        self._metadata_getter[source].remove(metadata)
+                for meta_id, metadata in metadata_dict.items():
+                    if hasattr(metadata, attr):
+                        # BUG If value is a list, the join block detection.
+                        # It would be better to keep a list and change in writing and reading metadata to join the list
+                        if getattr(metadata, attr, None) in value or getattr(metadata, attr, None) == value:
+                            del self._metadata_getter[source][meta_id]
 
     def max_metadata_by_source(self) -> Tuple[str, int]:
         """Get the maximum number of metadata for one source
@@ -210,3 +252,21 @@ class MetaFeatures:
         """
         max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
         return max_source, len(max_meta)
+
+    def has_metadata(self) -> bool:
+        """
+        Does the feature has some metadata associated.
+
+        :return: True if it has metadata else False
+        """
+
+        return True if self.number_of_metadata > 0 else False
+
+    def has_source(self, source: str) -> bool:
+        """Check if the source is in the metadata feature
+
+        :param source: name of the source
+
+        :return: True if the source is in the metadata feature else False
+        """
+        return True if source in self._metadata_getter else False

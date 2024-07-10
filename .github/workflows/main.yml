@@ -4,8 +4,23 @@ on:
   pull_request:
     branches: 
       - '*'
+    paths:
+      # if any of this files or directory changed, trigger the CI
+      # The only case where it is not triggerd is when docs/ is modified
+      - 'tests/**'
+      - 'testingDataset/**'
+      - '.github/**'
+      - 'ppanggolin/**'
+      - 'MANIFEST.in'
+      - 'VERSION'
+      - 'ppanggolin_env.yaml'
+      - 'pyproject.toml'
+      - 'setup.py'
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+
+env:
+  NUM_CPUS: 1
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -15,13 +30,30 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest', 'macos-latest']
-        python-version: ['3.8', '3.9', '3.10']
+        os: ['ubuntu-latest', 'macos-13']
+        python-version: ['3.8', '3.10']
+
     steps:
+
+    # Get number of cpu available on the current runner
+    - name: Get core number on linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        nb_cpu_linux=`nproc`
+        echo "Number of cores avalaible on the current linux runner $nb_cpu_linux"
+        echo "NUM_CPUS=$nb_cpu_linux" >> "$GITHUB_ENV"
+
+    - name: Get core number on macos
+      if: matrix.os == 'macos-13'
+      run: |
+        nb_cpu_macos=`sysctl -n hw.ncpu`
+        echo "Number of cores avalaible on the current macos runner $nb_cpu_macos"
+        echo "NUM_CPUS=$nb_cpu_macos" >> "$GITHUB_ENV"
+
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     # Install requirements with miniconda
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
         channels: conda-forge,bioconda,defaults
@@ -32,6 +64,7 @@ jobs:
       shell: bash -l {0}
       run: |
         pip install .[test]
+        mmseqs version
 
     # Check that it is installed and displays help without error
     - name: Check that PPanGGOLiN is installed
@@ -43,15 +76,17 @@ jobs:
     # Check that unit tests are all passing
     - name: Unit tests
       shell: bash -l {0}
-      run: pytest
+      run: pytest   
 
     # Test the complete workflow
     - name: Complete workflow
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin all --cpu 1 --fasta genomes.fasta.list --output mybasicpangenome
-        ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status
+        mkdir info_to_test
+        ppanggolin all --cpu $NUM_CPUS --fasta genomes.fasta.list --output mybasicpangenome
+        ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status > info_to_test/mybasicpangenome_info.yaml
+        cat info_to_test/mybasicpangenome_info.yaml
         cd -
     # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
     #--draw_hotspots option is problematic on macOS.
@@ -59,43 +94,49 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin annotate --fasta genomes.fasta.list --output stepbystep --kingdom bacteria
-        ppanggolin cluster -p stepbystep/pangenome.h5 --coverage 0.8 --identity 0.8
+        ppanggolin annotate --fasta genomes.fasta.list --output stepbystep --kingdom bacteria --cpu $NUM_CPUS
+        ppanggolin cluster -p stepbystep/pangenome.h5 --coverage 0.8 --identity 0.8 --cpu $NUM_CPUS
         ppanggolin graph -p stepbystep/pangenome.h5 -r 10
-        ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu 1 -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL -se $RANDOM
+        ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu $NUM_CPUS -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL
         ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
         ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --output stepbystep -f
         ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
-        ppanggolin spot -p stepbystep/pangenome.h5 --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1
+        ppanggolin spot -p stepbystep/pangenome.h5 --output stepbystep --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1 -f
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots -o stepbystep -f
         ppanggolin module -p stepbystep/pangenome.h5 --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05
         ppanggolin write_pangenome -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06  --gexf --light_gexf --csv --Rtab --stats --partitions --compress --json --spots --regions --borders --families_tsv --cpu 1 
         ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output stepbystep -f --fasta genomes.fasta.list --gff --proksee --table
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta genomes.fasta.list
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families rgp --gene_families rgp 
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families rgp --gene_families rgp --compress 
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families softcore --gene_families softcore 
         ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families module_0
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families core
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --gene_families module_0 --genes module_0
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --genes core --proteins cloud
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --gene_families module_0 --genes module_0 --compress
+        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --proteins cloud --cpu $NUM_CPUS --keep_tmp --compress
 
         ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --no_print_info --recompute_metrics --log metrics.log
+        ppanggolin info --pangenome stepbystep/pangenome.h5 > info_to_test/stepbystep_info.yaml
+        cat info_to_test/stepbystep_info.yaml
         cd - 
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin workflow --cpu 1 --anno genomes.gbff.list --output myannopang
-        ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo --single_copy
+        ppanggolin workflow --cpu $NUM_CPUS --anno genomes.gbff.list --output myannopang
+        ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo --single_copy --cpu $NUM_CPUS
+        ppanggolin info --pangenome myannopang/pangenome.h5 > info_to_test/myannopang_info.yaml
+        cat info_to_test/myannopang_info.yaml
         cd -
     - name: clusters reading from external file
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin panrgp --anno genomes.gbff.list --cluster clusters.tsv --output readclusterpang
-        ppanggolin annotate --anno genomes.gbff.list --output readclusters
-        ppanggolin cluster --clusters clusters.tsv -p readclusters/pangenome.h5
-        ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f
+        ppanggolin panrgp --anno genomes.gbff.list --cluster clusters.tsv --output readclusterpang  --cpu $NUM_CPUS 
+        ppanggolin annotate --anno genomes.gbff.list --output readclusters --cpu $NUM_CPUS
+        awk 'BEGIN{FS=OFS="\t"} {$1 = $1 OFS $1} 1' clusters.tsv > clusters_with_reprez.tsv;
+        ppanggolin cluster --clusters clusters_with_reprez.tsv -p readclusters/pangenome.h5 --cpu $NUM_CPUS
+        ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f --cpu $NUM_CPUS
         cd -
     - name: testing rgp_cluster command
       shell: bash -l {0}
@@ -110,17 +151,17 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin align --pangenome mybasicpangenome/pangenome.h5 --sequences some_chlam_proteins.fasta \
-                         --output test_align --draw_related --getinfo --fast
+                         --output test_align --draw_related --getinfo --fast --cpu $NUM_CPUS
         cd -
     - name: testing context command
       shell: bash -l {0}
       run: |
         cd testingDataset
-        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context --fast
+        ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context --fast --cpu $NUM_CPUS
 
         # test from gene family ids. Test here with one family of module 1. The context should find all families of module 1
         echo AP288_RS05055 > one_family_of_module_1.txt 
-        ppanggolin context --pangenome myannopang/pangenome.h5 --family one_family_of_module_1.txt  --output test_context_from_id
+        ppanggolin context --pangenome myannopang/pangenome.h5 --family one_family_of_module_1.txt  --output test_context_from_id --cpu $NUM_CPUS
         cd -
     - name: testing metadata command
       shell: bash -l {0}
@@ -132,10 +173,10 @@ jobs:
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db4 -m metadata/metadata_rgps.tsv -a RGPs
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db5 -m metadata/metadata_contigs.tsv  -a contigs
         ppanggolin metadata -p mybasicpangenome/pangenome.h5 -s db6 -m metadata/metadata_modules.tsv  -a modules
+        ppanggolin write_metadata -p mybasicpangenome/pangenome.h5 -o metadata_flat_output
 
 
-
-        ppanggolin write_pangenome -p mybasicpangenome/pangenome.h5 --output mybasicpangenome -f --gexf --light_gexf --cpu 1 
+        ppanggolin write_pangenome -p mybasicpangenome/pangenome.h5 --output mybasicpangenome -f --gexf --light_gexf --cpu $NUM_CPUS
         ppanggolin rgp_cluster --pangenome mybasicpangenome/pangenome.h5 -o rgp_cluster_with_metadata --graph_formats graphml
         cd -
     - name: testing config file
@@ -143,23 +184,39 @@ jobs:
       run: |
         cd testingDataset
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
-        ppanggolin panrgp  --anno genomes.gbff.list --cluster clusters.tsv -o test_config --config panrgp_default_config.yaml
+        cut -f1,2 clusters.tsv > clusters_without_frag.tsv
+        ppanggolin panrgp  --anno genomes.gbff.list --cluster clusters_without_frag.tsv -o test_config --config panrgp_default_config.yaml --cpu $NUM_CPUS
         cd -
     - name: testing projection cmd
       shell: bash -l {0}
       run: |
         cd testingDataset
         head genomes.gbff.list | sed 's/^/input_genome_/g' > genomes.gbff.head.list
-        ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_list_of_gbff --anno genomes.gbff.head.list --gff --proksee
+        ppanggolin projection --pangenome stepbystep/pangenome.h5  -o projection_from_list_of_gbff --anno genomes.gbff.head.list --gff --proksee --cpu $NUM_CPUS
 
+        head genomes.fasta.list | sed 's/^/input_genome_/g' > genomes.fasta.head.list
+        ppanggolin projection --pangenome myannopang/pangenome.h5  -o projection_from_list_of_fasta --fasta genomes.fasta.head.list --gff --proksee --cpu $NUM_CPUS
 
         ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_single_fasta \
                               --genome_name chlam_A --fasta FASTA/GCF_002776845.1_ASM277684v1_genomic.fna.gz \
-                              --spot_graph --graph_formats graphml --fast --keep_tmp -f --add_sequences --gff --proksee --table --add_metadata
+                              --spot_graph --graph_formats graphml --fast --keep_tmp -f --add_sequences --gff --proksee --table --add_metadata --cpu $NUM_CPUS
 
         ppanggolin projection --pangenome mybasicpangenome/pangenome.h5  -o projection_from_gff_prodigal \
                               --genome_name chlam_annotated_with_prodigal --anno GBFF/GCF_003788785.1_ct114V1_genomic_prodigal_annotation.gff.gz \
-                               --gff  --table
+                               --gff  --table --cpu $NUM_CPUS
+
+        # projection of a plasmid with chevron that have been added manually to test chevron handeling in GFF
+        ppanggolin projection --pangenome myannopang/pangenome.h5 --anno GBFF/plasmid_NZ_CP007132_with_manually_added_chevrons.gff.gz --cpu $NUM_CPUS -o projection_plasmid_with_chevron
+        
+        # projection with GFF with no sequence and fasta sequence
+        ppanggolin projection -p myannopang/pangenome.h5 --anno GBFF/plasmid_GCF_000093005.1_ASM9300v1.gff.gz --fasta GBFF/plasmid_GCF_000093005.1_ASM9300v1.fna.gz
+
+        # projection with GFF with no sequence and fasta sequence specified in a TSV file with other GFF (but with sequences)
+        head -n 3 genomes.gbff.head.list > genomes.gbff.h3_and_GFFplasmidNoSeq.list
+
+        echo GFF_plasmid_No_seq$'\t'GBFF/plasmid_GCF_000093005.1_ASM9300v1.gff.gz >> genomes.gbff.h3_and_GFFplasmidNoSeq.list
+        echo GFF_plasmid_No_seq$'\t'GBFF/plasmid_GCF_000093005.1_ASM9300v1.fna.gz >> genomes.fna.GFFplasmidNoSeq.list
+        ppanggolin projection -p myannopang/pangenome.h5 --anno genomes.gbff.h3_and_GFFplasmidNoSeq.list --fasta  genomes.fna.GFFplasmidNoSeq.list
 
     - name: testing write_genome_cmds
       shell: bash -l {0}
@@ -181,5 +238,16 @@ jobs:
 
         # Pipe separatore is found in metadata source db1. if we don't require this source then the writting with pipe is work fine. 
         ppanggolin write_genomes -p mybasicpangenome/pangenome.h5 --output mybasicpangenome/genomes_outputs_with_metadata -f --gff --proksee --table --add_metadata  --metadata_sources db2 db3 db4 
-
-
+      
+    - name: Archive diff files
+      uses: actions/upload-artifact@v4
+      with:
+        name: comparison-results_${{ matrix.os }}_python${{ matrix.python-version }}
+        path: testingDataset/info_to_test/*
+        
+    
+    - name: testing info output
+      shell: bash -l {0}
+      run: |
+        cd testingDataset
+        python compare_results.py -e expected_info_files/ -t info_to_test/ -o diff_output

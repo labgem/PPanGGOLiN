@@ -11,23 +11,20 @@ import sys
 from typing import List, Set, Union
 from pathlib import Path
 
-import bokeh.models
 # installed libraries
 from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
 from scipy.cluster.hierarchy import linkage, dendrogram
 import networkx as nx
-
 from tqdm import tqdm
 from bokeh.plotting import ColumnDataSource, figure, save
 from bokeh.io import output_file
 from bokeh.layouts import column, row
-from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, RadioGroup, Div, Column, GlyphRenderer, RadioButtonGroup
-from bokeh.io import show
-
+from bokeh.models import WheelZoomTool, LabelSet, Slider, CustomJS, HoverTool, Div, Column, GlyphRenderer, RadioButtonGroup
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
+from ppanggolin.genome import Feature
 from ppanggolin.region import Spot
 from ppanggolin.utils import jaccard_similarities
 from ppanggolin.formats import check_pangenome_info
@@ -71,6 +68,7 @@ def order_gene_lists(gene_lists: list, overlapping_match: int, exact_match: int,
 
     :return: List of ordered genes
     """
+
     line_order_gene_lists(gene_lists, overlapping_match, exact_match, set_size)
     return row_order_gene_lists(gene_lists)
 
@@ -157,7 +155,7 @@ def line_order_gene_lists(gene_lists: list, overlapping_match: int, exact_match:
         new_classify = set()
 
 
-def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int = 3,
+def subgraph(spot: Spot, outname: Path, with_border: bool = True, set_size: int = 3,
              multigenics: set = None, fam_to_mod: dict = None):
     """
     Write a pangeome subgraph of the gene families of a spot in gexf format
@@ -179,7 +177,7 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
         else:
             minpos = rgp.starter.position
             maxpos = rgp.stopper.position
-        gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
+        gene_list = rgp.contig.get_genes(minpos, maxpos)
         prev = None
         for gene in gene_list:
             g.add_node(gene.family.name, partition=gene.family.named_partition)
@@ -213,15 +211,30 @@ def subgraph(spot: Spot, outname: str, with_border: bool = True, set_size: int =
         if "name" in g.nodes[node]:
             g.nodes[node]["name"] = g.nodes[node]["name"].most_common(1)[0][0]
 
-    nx.write_gexf(g, outname)
+    nx.write_gexf(g, outname.absolute().as_posix())
 
+def is_gene_list_ordered(genes:List[Feature]):
+    """
+    Check if a list of genes is ordered.
+    """
+    first_gene = genes[0]
+    second_gene = genes[1]
+
+    if first_gene.start < second_gene.start:
+        return True
+    if first_gene.start > second_gene.start:
+        if second_gene.start_relative_to(first_gene) < first_gene.contig.length:
+            return True
+        else:
+            return False
+    
 
 def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnDataSource, list):
     """
 
     :param genelists:
     :param fam_col: Dictionary with for each family the corresponding color
-    :param fam_to_mod: Dictionary with the correspondance modules families
+    :param fam_to_mod: Dictionary with the correspondence modules families
     :return:
     """
     partition_colors = {"shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF"}
@@ -232,22 +245,27 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
           "gene_local_ID": []}
 
     for index, gene_list in enumerate(genelists):
+        
         genelist = gene_list[0]
 
-        if genelist[0].start < genelist[1].start:
+        first_gene = genelist[0]
+        last_gene = genelist[-1]
+        
+        if is_gene_list_ordered(genelist):
             # if the order has been inverted, positionning elements on the figure is different
             ordered = True
-            start = genelist[0].start
+            start = first_gene.start
         else:
             ordered = False
-            start = genelist[0].stop
-
+            start = first_gene.stop
         for gene in genelist:
+            relative_start = gene.start_relative_to(first_gene if ordered else last_gene)
+            relative_stop = gene.stop_relative_to(first_gene if ordered else last_gene)
             df["ordered"].append(str(ordered))
             df["strand"].append(gene.strand)
-            df["start"].append(gene.start)
-            df["stop"].append(gene.stop)
-            df["length"].append(max([gene.stop, gene.start]) - min([gene.stop, gene.start]))
+            df["start"].append(relative_start)
+            df["stop"].append(relative_stop)
+            df["length"].append(len(gene))
             df["gene_type"].append(gene.type)
             df["product"].append(gene.product)
             df["gene_local_ID"].append(gene.local_identifier)
@@ -268,8 +286,11 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
                 df["partition_color"].append(partition_colors[gene.family.named_partition])
                 df["module"].append(fam_to_mod.get(gene.family, "none"))
 
-            df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
-            df["width"].append(gene.stop - gene.start)
+            # df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
+            # df["width"].append(gene.stop - gene.start)
+            df["x"].append((abs(relative_start - start) + abs(relative_stop - start)) / 2)
+            df["width"].append(len(gene))
+
             df["x_label"].append(str(int(df["x"][-1]) - int(int(df["width"][-1]) / 2)))
             if ordered:
                 if gene.strand == "+":
@@ -348,12 +369,12 @@ def add_gene_tools(recs: GlyphRenderer, source_data: ColumnDataSource) -> Column
     radio_fill_color = RadioButtonGroup(labels=["partition", "family", "module"], active=1)
 
     radio_line_color.js_on_event("button_click",
-                                  CustomJS(args=dict(recs=recs, source=source_data, btn=radio_line_color),
-                                           code=color_str("line_color")))
+                                 CustomJS(args=dict(recs=recs, source=source_data, btn=radio_line_color),
+                                          code=color_str("line_color")))
 
     radio_fill_color.js_on_event("button_click",
-                                  CustomJS(args=dict(recs=recs, source=source_data, btn=radio_fill_color),
-                                           code=color_str("fill_color")))
+                                 CustomJS(args=dict(recs=recs, source=source_data, btn=radio_fill_color),
+                                          code=color_str("fill_color")))
 
     color_header = Div(text="<b>Genes:</b>")
     line_title = Div(text="""Color to use for gene outlines:""")
@@ -383,7 +404,7 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
     slider_angle = Slider(start=0, end=pi / 2, value=0, step=0.01, title="Gene label angle in radian")
 
     radio_label_type = RadioButtonGroup(labels=["name", "product", "family", "local identifier", "gene ID", "none"],
-                                  active=1)
+                                        active=1)
 
     slider_angle.js_link('value', labels, 'angle')
 
@@ -394,8 +415,8 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
                              )
 
     radio_label_type.js_on_event("button_click",
-                                  CustomJS(args=dict(other=labels, source=source_data, btn=radio_label_type),
-                                           code="""
+                                 CustomJS(args=dict(other=labels, source=source_data, btn=radio_label_type),
+                                          code="""
                 if(btn.active == 5){
                     source.data['label'] = [];
                     for(var i=0;i<source.data['name'].length;i++){
@@ -412,10 +433,10 @@ def add_gene_labels(fig, source_data: ColumnDataSource) -> (Column, LabelSet):
                 other.source = source;
                 source.change.emit();
                 """
-                                           ))
+                                          ))
 
     label_header = Div(text="<b>Gene labels:</b>")
-    radio_title = Div(text="""Gene labels to use:""",)
+    radio_title = Div(text="""Gene labels to use:""", )
     labels_block = column(label_header, row(slider_font, slider_angle), column(radio_title, radio_label_type))
 
     fig.add_layout(labels)
@@ -436,12 +457,17 @@ def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, lis
         genelist = gene_list[0]
         df["occurrences"].append(ordered_counts[index])
         df["y"].append(index * 10)
-        if genelist[0].start < genelist[1].start:
+        first_gene = genelist[0]
+        last_gene =  genelist[-1]
+        if is_gene_list_ordered(genelist):
             # if the order has been inverted, positionning elements on the figure is different
-            df["width"].append(abs(genelist[-1].stop - genelist[0].start))
+            width = abs(last_gene.stop_relative_to(first_gene ) - genelist[0].start) 
+            df["width"].append(width)
         else:
             # order has been inverted
-            df["width"].append(abs(genelist[0].stop - genelist[-1].start))
+            width = abs(last_gene.stop_relative_to(last_gene ) - last_gene.start) 
+            df["width"].append(width)
+
         df["x"].append((df["width"][-1]) / 2)
         df["x_label"].append(0)
         df["name"].append(genelist[0].organism.name)
@@ -511,19 +537,19 @@ def add_genome_tools(fig, gene_recs: GlyphRenderer, genome_recs: GlyphRenderer, 
     return column(genome_header, slider_spacing, slider_font, slider_offset)
 
 
-def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam_col: dict, file_name: str):
+def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam_col: dict, output: Path):
     """
 
     :param gene_lists:
     :param ordered_counts:
     :param fam_to_mod:
-    :param fam_col: Dictionnary with for each family the corresponding color
+    :param fam_col: Dictionary with for each family the corresponding color
     :param file_name:
     :return:
     """
 
     # Prepare the source data
-    output_file(file_name + ".html")
+    output_file(output)
 
     # generate the figure and add some tools to it
     wheel_zoom = WheelZoomTool()
@@ -539,7 +565,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
                                   point_policy="follow_mouse")
     fig.add_tools(genome_recs_hover)
 
-    # gene rectanges
+    # gene rectangles
     gene_source, gene_tooltips = mk_source_data(gene_lists, fam_col, fam_to_mod)
     recs = fig.rect(x='x', y='y', line_color='line_color', fill_color='fill_color', width='width', height=2,
                     line_width=5, source=gene_source)
@@ -555,7 +581,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     genome_tools = add_genome_tools(fig, recs, genome_recs, gene_source, genome_source, len(gene_lists), labels)
 
     save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
-
+    
 
 def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome: Pangenome, output: Path,
                         overlapping_match: int, exact_match: int, set_size: int, disable_bar: bool = False):
@@ -581,41 +607,53 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             fam2mod[fam] = f"module_{mod.ID}"
 
     for spot in tqdm(selected_spots, total=len(selected_spots), unit="spot", disable=disable_bar):
-
-        fname = output / f"spot_{str(spot.ID)}"
-
+        basename = f"spot_{str(spot.ID)}"
+        identical_rgp_out = output / (basename + '_identical_rgps.tsv')
         # write rgps representatives and the rgps they are identical to
-        out_struc = open(fname.absolute().as_posix() + '_identical_rgps.tsv', 'w')
-        out_struc.write('representative_rgp\trepresentative_rgp_genome\tidentical_rgp\tidentical_rgp_genome\n')
-        for key_rgp, other_rgps in spot.get_uniq_to_rgp().items():
-            for rgp in other_rgps:
-                out_struc.write(f"{key_rgp.name}\t{key_rgp.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
-        out_struc.close()
-
+        with open(identical_rgp_out, 'w') as out_struc:
+            out_struc.write('representative_rgp\trepresentative_rgp_genome\tidentical_rgp\tidentical_rgp_genome\n')
+            for key_rgp, other_rgps in spot.get_uniq_to_rgp().items():
+                for rgp in other_rgps:
+                    out_struc.write(f"{key_rgp.name}\t{key_rgp.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
+        
         fams = set()
         gene_lists = []
 
         for rgp in spot.regions:
-            borders = rgp.get_bordering_genes(set_size, multigenics)
-            minpos = min([gene.position for border in borders for gene in border])
-            maxpos = max([gene.position for border in borders for gene in border])
-            gene_list = rgp.contig.get_genes(minpos, maxpos + 1)
-            minstart = min([gene.start for border in borders for gene in border])
-            maxstop = max([gene.stop for border in borders for gene in border])
-            rnas_toadd = set()
-            for rna in rgp.contig.RNAs:
-                if minstart < rna.start < maxstop:
-                    rnas_toadd.add(rna)
-            gene_list.extend(rnas_toadd)
-            gene_list = sorted(gene_list, key=lambda x: x.start)
+            contig = rgp.contig
+            left_border_and_in_between_genes, right_border_and_in_between_genes = rgp.get_bordering_genes(set_size, multigenics, return_only_persistents=False)
 
-            fams |= {gene.family for gene in gene_list if gene.type == "CDS"}
+            # clean borders from multigenic and non persistent genes
+            left_border = [gene for gene in left_border_and_in_between_genes if gene.family.named_partition == "persistent" and gene.family not in multigenics]
+            right_border = [gene for gene in right_border_and_in_between_genes if gene.family.named_partition == "persistent" and gene.family not in multigenics]
 
-            gene_lists.append([gene_list, borders, rgp])
+            # in some rare case with plasmid left and rigth border can be made of the same genes
+            # we use a set to only have one gene represented.  
+            consecutive_genes_lists = contig.get_ordered_consecutive_genes(set(left_border_and_in_between_genes + right_border_and_in_between_genes + list(rgp.genes)))
+            
+            consecutive_genes_and_rnas_lists = []
+        
+            for consecutive_genes in consecutive_genes_lists: 
+                
+                start, stop = consecutive_genes[0].start, consecutive_genes[-1].stop
+
+                rnas_toadd = []
+                for rna in rgp.contig.RNAs:
+                    if start < rna.start < stop:
+                        rnas_toadd.append(rna)
+                
+                ordered_genes_with_rnas = sorted(consecutive_genes + rnas_toadd, key=lambda x: x.start)
+                consecutive_genes_and_rnas_lists.append(ordered_genes_with_rnas)
+
+            ordered_genes = [gene for genes in consecutive_genes_and_rnas_lists for gene in genes]
+
+            fams |= {gene.family for gene in ordered_genes if gene.type == "CDS"}
+
+            gene_lists.append([ordered_genes, [left_border, right_border], rgp])
+            
         famcolors = make_colors_for_iterable(fams)
         # order all rgps the same way, and order them by similarity in gene content
         gene_lists = order_gene_lists(gene_lists, overlapping_match, exact_match, set_size)
-
         count_uniq = spot.count_uniq_ordered_set()
 
         # keep only the representative rgps for the figure
@@ -627,9 +665,10 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
                 uniq_gene_lists.append(genelist)
                 ordered_counts.append(curr_genelist_count)
 
-        draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, fname.absolute().as_posix())
-        subgraph(spot, fname.absolute().as_posix() + ".gexf", set_size=set_size,
-                 multigenics=multigenics, fam_to_mod=fam2mod)
+        draw_spot_out = output / (basename + ".html")
+        subgraph_out = output / (basename + ".gexf")
+        draw_curr_spot(uniq_gene_lists, ordered_counts, fam2mod, famcolors, draw_spot_out)
+        subgraph(spot, subgraph_out, set_size=set_size, multigenics=multigenics, fam_to_mod=fam2mod)
     logging.getLogger("PPanGGOLiN").info(f"Done drawing spot(s), they can be found in the directory: '{output}'")
 
 

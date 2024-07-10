@@ -7,7 +7,7 @@ import tempfile
 import time
 import logging
 import os
-from typing import List, Dict, Tuple, Iterable, Hashable, Iterator, Set
+from typing import Any, List, Dict, Tuple, Iterable, Hashable, Iterator, Set, FrozenSet
 from itertools import chain
 from collections import defaultdict
 from pathlib import Path
@@ -19,7 +19,7 @@ import pandas as pd
 
 # local libraries
 from ppanggolin.formats import check_pangenome_info
-from ppanggolin.genome import Gene, Contig
+from ppanggolin.genome import Gene, Contig, Organism
 from ppanggolin.utils import mk_outdir, restricted_float, create_tmpdir, read_compressed_or_not, extract_contig_window
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import project_and_write_partition, get_input_seq_to_family_with_rep, \
@@ -29,64 +29,63 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.projection.projection import write_gene_to_gene_family
 
 
-def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir: Path, sequence_file: Path = None,
-                                     families: Path = None, transitive: int = 4, identity: float = 0.5,
-                                     coverage: float = 0.8, use_representatives: bool = False,
-                                     jaccard_threshold: float = 0.85,
-                                     window_size: int = 1, no_defrag: bool = False,
-                                     cpu: int = 1, graph_format: str = "graphml", disable_bar=True,
-                                     translation_table: int = 11, keep_tmp: bool = False):
+def check_pangenome_for_context_search(pangenome: Pangenome, sequences: bool = False):
+    """ Check pangenome status and information to search context
+
+    :param pangenome: The pangenome object
+    :param sequences: True if search contexts with sequences
     """
-    Main function to search common gene contexts between sequence set and pangenome families
+    if pangenome.status["genesClustered"] not in ["inFile", "Loaded", "Computed"]:
+        raise AttributeError("Cannot use this function as pangenome genes has not been clustered yet. "
+                             "See the 'ppanggolin cluster' if you want to do that.")
+    if sequences and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
+        raise AttributeError("Your pangenome gene families does not have representatives sequences associated. "
+                             "For now this works only if the clustering has been made by PPanGGOLiN.")
+
+
+def align_sequences_to_families(pangenome: Pangenome, output: Path, sequence_file: Path = None, identity: float = 0.5,
+                                coverage: float = 0.8, use_representatives: bool = False, no_defrag: bool = False,
+                                cpu: int = 1, translation_table: int = 11, tmpdir: Path = None, keep_tmp: bool = False,
+                                disable_bar=True) -> Tuple[Set[GeneFamily], Dict[GeneFamily, Set[str]]]:
+    """ Align sequences to pangenome gene families to get families of interest
 
     :param pangenome: Pangenome containing GeneFamilies to align with sequence set
     :param sequence_file: Path to file containing the sequences
-    :param families: Path to file containing families name
     :param output: Path to output directory
     :param tmpdir: Path to temporary directory
-    :param transitive: number of genes to check on both sides of a family aligned with an input sequence
     :param identity: minimum identity threshold between sequences and gene families for the alignment
     :param coverage: minimum coverage threshold between sequences and gene families for the alignment
     :param use_representatives: Use representative sequences of families rather than all sequences to align input genes
-    :param jaccard_threshold: Jaccard index threshold to filter edges in graph
-    :param window_size: Number of genes to consider in the gene context.
-    :param no_defrag: do not use the defrag workflow if true
+    :param no_defrag: do not use the defragmentation workflow if true
     :param cpu: Number of core used to process
-    :param graph_format: Write format of the context graph. Can be graphml or gexf
     :param disable_bar: Allow preventing bar progress print
     :param translation_table: The translation table to use when the input sequences are nucleotide sequences.
     :param keep_tmp: If True, keep temporary files.
+
+    :return: Set of gene families of interest and dict which link gene families to sequence ID
     """
-    # check statuses and load info
-    if sequence_file is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
-        raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
-                        "associated to it. For now this works only if the clustering is realised by PPanGGOLiN.")
-
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
-
+    # Alignment of sequences on pangenome families
     families_of_interest = set()
     family_2_input_seqid = {}
     if sequence_file is not None:
         # Alignment of sequences on pangenome families
         with read_compressed_or_not(sequence_file) as seqFileObj:
-            seq_set, is_nucleotide = get_seq_ids(seqFileObj)
+            seq_set, is_nucleotide, is_slf = get_seq_ids(seqFileObj)
 
         logging.debug(f"Input sequences are {'nucleotide' if is_nucleotide else 'protein'} sequences")
 
         with create_tmpdir(main_dir=tmpdir, basename="align_input_seq_tmpdir", keep_tmp=keep_tmp) as new_tmpdir:
-
+            input_type = "nucleotide" if is_nucleotide else "unknow"
             if use_representatives:
-                _, seqid2fam = get_input_seq_to_family_with_rep(pangenome, [sequence_file], output,
-                                                                new_tmpdir, is_input_seq_nt=is_nucleotide,
-                                                                cpu=cpu, no_defrag=no_defrag,
-                                                                identity=identity, coverage=coverage,
-                                                                translation_table=translation_table,
+                _, seqid2fam = get_input_seq_to_family_with_rep(pangenome, sequence_file, output, new_tmpdir,
+                                                                input_type=input_type, is_input_slf=is_slf, cpu=cpu,
+                                                                no_defrag=no_defrag, identity=identity,
+                                                                coverage=coverage, translation_table=translation_table,
                                                                 disable_bar=disable_bar)
             else:
-                _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome,
-                                                                sequence_files=[sequence_file],
+                _, seqid2fam = get_input_seq_to_family_with_all(pangenome=pangenome, sequence_files=sequence_file,
                                                                 output=output, tmpdir=new_tmpdir,
-                                                                is_input_seq_nt=is_nucleotide,
+                                                                input_type=input_type, is_input_slf=is_slf,
                                                                 cpu=cpu, no_defrag=no_defrag,
                                                                 identity=identity, coverage=coverage,
                                                                 translation_table=translation_table,
@@ -101,7 +100,36 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
         for pan_family in seqid2fam.values():
             families_of_interest.add(pan_family)
+    return families_of_interest, family_2_input_seqid
 
+
+def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequence_file: Path = None,
+                                     families: Path = None, transitive: int = 4, jaccard_threshold: float = 0.85,
+                                     window_size: int = 1, graph_format: str = "graphml", disable_bar=True, **kwargs):
+    """
+    Main function to search common gene contexts between sequence set and pangenome families
+
+    :param pangenome: Pangenome containing GeneFamilies to align with sequence set
+    :param sequence_file: Path to file containing the sequences
+    :param families: Path to file containing families name
+    :param output: Path to output directory
+    :param transitive: number of genes to check on both sides of a family aligned with an input sequence
+    :param jaccard_threshold: Jaccard index threshold to filter edges in graph
+    :param window_size: Number of genes to consider in the gene context.
+    :param graph_format: Write format of the context graph. Can be graphml or gexf
+    :param disable_bar: Allow preventing bar progress print
+    """
+    # check statuses and load info
+
+    check_pangenome_for_context_search(pangenome, sequences=True if sequence_file is not None else False)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=disable_bar)
+
+    families_of_interest = set()
+    family_2_input_seqid = {}
+    if sequence_file is not None:
+        fams_of_interest, family_2_input_seqid = align_sequences_to_families(pangenome, output, sequence_file,
+                                                                             disable_bar=disable_bar, **kwargs)
+        families_of_interest |= fams_of_interest
     if families is not None:
         with read_compressed_or_not(families) as f:
             for fam_name in f.read().splitlines():
@@ -112,15 +140,14 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, tmpdir:
 
     logging.getLogger().info("Building the graph...")
 
-    gene_context_graph = compute_gene_context_graph(families=families_of_interest, transitive=transitive,
-                                                    window_size=window_size, disable_bar=disable_bar)
+    gene_context_graph, _ = compute_gene_context_graph(families=families_of_interest, transitive=transitive,
+                                                       window_size=window_size, disable_bar=disable_bar)
 
-    logging.getLogger().info(
-        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find common gene contexts")
+    logging.getLogger().info(f"Took {round(time.time() - start_time, 2)} "
+                             f"seconds to build the graph to find common gene contexts")
 
-    logging.getLogger().debug(
-        f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and "
-        f"{nx.number_of_edges(gene_context_graph)} edges")
+    logging.getLogger().debug(f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and "
+                              f"{nx.number_of_edges(gene_context_graph)} edges")
 
     compute_edge_metrics(gene_context_graph, jaccard_threshold)
 
@@ -210,6 +237,7 @@ def make_graph_writable(context_graph):
 
     :param context_graph: List of gene context. it includes graph of the context
     """
+
     def filter_attribute(data: dict):
         """
         Helper function to filter the edge attributes.
@@ -219,15 +247,16 @@ def make_graph_writable(context_graph):
         """
         return {k: v for k, v in data.items() if type(v) not in [set, dict, list]}
 
-    G = nx.Graph()
+    writable_graph = nx.Graph()
 
-    G.add_edges_from((f1.name, f2.name, filter_attribute(d)) for f1, f2, d in context_graph.edges(data=True))
+    writable_graph.add_edges_from((f1.name, f2.name, filter_attribute(d))
+                                  for f1, f2, d in context_graph.edges(data=True))
 
     # convert transitivity dict to str
     edges_with_transitivity_str = {(f1.name, f2.name): str(d['transitivity']) for f1, f2, d in
                                    context_graph.edges(data=True)}
 
-    nx.set_edge_attributes(G, edges_with_transitivity_str, name="transitivity")
+    nx.set_edge_attributes(writable_graph, edges_with_transitivity_str, name="transitivity")
 
     nodes_attributes_filtered = {f.name: filter_attribute(d) for f, d in context_graph.nodes(data=True)}
 
@@ -237,18 +266,18 @@ def make_graph_writable(context_graph):
                                   "partition": f.named_partition,
                                   "genes": f.number_of_genes} for f in context_graph.nodes()}
 
-    for f, d in G.nodes(data=True):
+    for f, d in writable_graph.nodes(data=True):
         d.update(nodes_family_data[f])
         d.update(nodes_attributes_filtered[f])
 
-    return G
+    return writable_graph
 
 
-def write_graph(G: nx.Graph, output_dir: Path, graph_format: str):
+def write_graph(graph: nx.Graph, output_dir: Path, graph_format: str):
     """
     Write a graph to file in the GraphML format or/and in GEXF format. 
 
-    :param G: Graph to write
+    :param graph: Graph to write
     :param output_dir: The output directory where the graph file will be written.
     :param graph_format: Formats of the output graph. Can be graphml or gexf 
 
@@ -256,13 +285,13 @@ def write_graph(G: nx.Graph, output_dir: Path, graph_format: str):
 
     if "graphml" == graph_format:
         out_file = output_dir / "graph_context.graphml"
-        logging.info(f'Writting context graph in {out_file}')
-        nx.write_graphml_lxml(G, out_file)
+        logging.info(f'Writing context graph in {out_file}')
+        nx.write_graphml_lxml(graph, out_file)
 
     elif "gexf" == graph_format:
         out_file = output_dir / "graph_context.gexf"
-        logging.info(f'Writting context graph in {out_file}')
-        nx.readwrite.gexf.write_gexf(G, out_file)
+        logging.info(f'Writing context graph in {out_file}')
+        nx.readwrite.gexf.write_gexf(graph, out_file)
     else:
         raise ValueError(f'The given graph format ({graph_format}) is not correct. it should be "graphml" or gexf')
 
@@ -289,7 +318,7 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
         data['f2_jaccard_gene'] = f2_gene_proportion
 
         data[f'is_jaccard_gene_>_{gene_proportion_cutoff}'] = (f1_gene_proportion >= gene_proportion_cutoff) and (
-                    f2_gene_proportion >= gene_proportion_cutoff)
+                f2_gene_proportion >= gene_proportion_cutoff)
 
         transitivity_counter = data['transitivity']
 
@@ -305,48 +334,50 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
         # data['max_jaccard_genome'] = len(data['genomes'])/max(len(f1.genomes), len(f2.genomes))
         # f1_gene_proportion_partial = len(data['genes'][f1])/len(context_graph.nodes[f1]['genes'])
         # f2_gene_proportion_partial = len(data['genes'][f2])/len(context_graph.nodes[f2]['genes'])
-        # data[f'f1_jaccard_gene_partital'] = f1_gene_proportion_partial
-        # data[f'f2_jaccard_gene_partital'] = f2_gene_proportion_partial
+        # data[f'f1_jaccard_gene_partial'] = f1_gene_proportion_partial
+        # data[f'f2_jaccard_gene_partial'] = f2_gene_proportion_partial
 
 
 def add_edges_to_context_graph(context_graph: nx.Graph,
-                               contig_genes: List[Gene],
+                               contig: Contig,
                                contig_windows: List[Tuple[int, int]],
-                               transitivity: int,
-                               is_circular: bool):
+                               transitivity: int) -> nx.Graph:
     """
     Add edges to the context graph based on contig genes and windows.
 
     :param context_graph: The context graph to which edges will be added.
-    :param contig_genes: An iterable of genes in the contig.
+    :param contig: contig containing genes to add the edges
     :param contig_windows: A list of tuples representing the start and end positions of contig windows.
     :param transitivity: The number of next genes to consider when adding edges.
-    :param is_circular: A boolean indicating if the contig is circular.
 
+    :return: A context graph specific to the contig of interest with edges added
     """
+    contig_graph = nx.Graph()
+    contig_genes = contig.get_genes()
     for window_start, window_end in contig_windows:
         for gene_index in range(window_start, window_end + 1):
             gene = contig_genes[gene_index]
             next_genes = get_n_next_genes_index(gene_index, next_genes_count=transitivity + 1,
-                                                contig_size=len(contig_genes), is_circular=is_circular)
+                                                contig_size=len(contig_genes), is_circular=contig.is_circular)
             next_genes = list(next_genes)
 
             for i, next_gene_index in enumerate(next_genes):
                 # Check if the next gene is within the contig windows
                 if not any(lower <= next_gene_index <= upper for (lower, upper) in contig_windows):
-                    # next_gene_index is not in any range of genes in the context
+                    # next_gene_index is not in any range of genes in the context,
                     # so it is ignored along with all following genes
                     break
 
                 next_gene = contig_genes[next_gene_index]
                 if next_gene.family == gene.family:
-                    # If the next gene has the same family, the two genes refer to the same node
+                    # If the next gene has the same family, the two genes refer to the same node,
                     # so they are ignored
                     continue
 
                 context_graph.add_edge(gene.family, next_gene.family)
+                contig_graph.add_edge(gene.family, next_gene.family)
 
-                edge_dict = context_graph[gene.family][next_gene.family]
+                edge_dict = context_graph.get_edge_data(gene.family, next_gene.family, default={})
 
                 if i == 0:
                     edge_dict['adjacent_family'] = True
@@ -370,7 +401,7 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                 edge_dict = context_graph[gene.family][next_gene.family]
                 try:
                     genes_edge_dict = edge_dict['genes']
-                except Exception:
+                except KeyError:
                     genes_edge_dict = {}
                     edge_dict['genes'] = genes_edge_dict
 
@@ -384,10 +415,12 @@ def add_edges_to_context_graph(context_graph: nx.Graph,
                 assert gene.organism == next_gene.organism, (f"Gene of the same contig have a different genome. "
                                                              f"{gene.organism} and {next_gene.organism}")
 
+    return contig_graph
+
 
 def add_val_to_dict_attribute(attr_dict: dict, attribute_key, attribute_value):
     """
-    Add an attribute value to a edge or node dictionary set.
+    Add an attribute value to an edge or node dictionary set.
 
     :param attr_dict: The dictionary containing the edge/node attributes.
     :param attribute_key: The key of the attribute.
@@ -425,11 +458,10 @@ def get_n_next_genes_index(current_index: int, next_genes_count: int,
     :param next_genes_count: The number of next genes to consider.
     :param contig_size: The total number of genes in the contig.
     :param is_circular: Flag indicating whether the contig is circular (default: False).
+
     :return: An iterator yielding the indices of the next genes.
 
-    Raises:
-    - IndexError: If the current index is out of range for the given contig size.
-
+    :raises IndexError: If the current index is out of range for the given contig size.
     """
 
     # Check if the current index is out of range
@@ -465,7 +497,7 @@ def get_contig_to_genes(gene_families: Iterable[GeneFamily]) -> Dict[Contig, Set
 
 
 def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int = 4, window_size: int = 0,
-                               disable_bar: bool = False) -> nx.Graph:
+                               disable_bar: bool = False) -> Tuple[nx.Graph, Dict[FrozenSet[GeneFamily], Set[Organism]]]:
     """
     Construct the graph of gene contexts between families of the pangenome.
 
@@ -474,13 +506,13 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
     :param window_size: Size of the window for extracting gene contexts (default: 0).
     :param disable_bar: Flag to disable the progress bar (default: False).
 
-    :return: The constructed gene context graph.
+    :return: The constructed gene context graph and the combination of gene families corresponding to the context that exist in at least one genome
     """
-
     context_graph = nx.Graph()
 
     contig_to_genes_of_interest = get_contig_to_genes(families)
 
+    combs2orgs = defaultdict(set)
     for contig, genes_of_interest in tqdm(contig_to_genes_of_interest.items(), unit="contig",
                                           total=len(contig_to_genes_of_interest), disable=disable_bar):
         genes_count = contig.number_of_genes
@@ -490,12 +522,20 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
         contig_windows = extract_contig_window(genes_count, genes_of_interest_positions,
                                                window_size=window_size, is_circular=contig.is_circular)
 
-        add_edges_to_context_graph(context_graph,
-                                   contig.get_genes(),
-                                   contig_windows,
-                                   transitive,
-                                   contig.is_circular)
-    return context_graph
+        # This part is for PANORAMA
+        contig_graph = add_edges_to_context_graph(context_graph, contig, contig_windows, transitive)
+
+        for cc in nx.connected_components(contig_graph):
+            # If gene families are in the same connected component for the contig graph,
+            # they exist in the same context in at least one genome
+            combination = []
+            for family in cc.intersection({gene.family for gene in genes_of_interest}):
+                # Family here are family of interest for the context and in the same connected component
+                combination.append(family)
+            combs2orgs[frozenset(combination)].add(contig.organism)
+        
+
+    return context_graph, combs2orgs
 
 
 def fam_to_seq(seq_to_pan: dict) -> dict:
@@ -517,14 +557,14 @@ def fam_to_seq(seq_to_pan: dict) -> dict:
     return fam_2_seq
 
 
-def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int],
+def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[GeneFamily, Set[str]],
                                 families_of_interest: Set[GeneFamily], output: Path):
     """
     Export the results into dataFrame
 
     :param gene_contexts: connected components found in the pangenome
-    :param fam2seq: Dictionary with gene families ID as keys and list of sequence ids as values
-    :param families_of_interest: families of interest that are at the origine of the context.
+    :param fam2seq: Dictionary with gene families as keys and set of sequence ids as values
+    :param families_of_interest: families of interest that are at the origin of the context.
     :param output: output path
     """
 
@@ -534,7 +574,7 @@ def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int],
             if fam2seq.get(family) is None:
                 sequence_id = None
             else:
-                sequence_id = ','.join(fam2seq.get(family))
+                sequence_id = ','.join(fam2seq.get(family))  # Should we sort this ?
 
             family_info = {"GeneContext_ID": gene_context.ID,
                            "Gene_family_name": family.name,
@@ -542,7 +582,7 @@ def export_context_to_dataframe(gene_contexts: set, fam2seq: Dict[str, int],
                            "Nb_Genomes": family.number_of_organisms,
                            "Partition": family.named_partition,
                            "Target_family": family in families_of_interest}
-            
+
             lines.append(family_info)
 
     df = pd.DataFrame(lines).set_index("GeneContext_ID")
@@ -561,29 +601,24 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
 
-    if not any([args.sequences, args.family]):
-        raise Exception("At least one of --sequences or --family option must be given")
-
     mk_outdir(args.output, args.force)
 
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-
-    # check statuses and load info
-    if args.sequences is not None and pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:
-        raise Exception("Cannot use this function as your pangenome does not have gene families representatives "
-                        "associated to it. For now this works only if the clustering has been made by PPanGGOLiN.")
-
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, disable_bar=args.disable_prog_bar)
-
-    search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, tmpdir=args.tmpdir,
-                                     sequence_file=args.sequences, families=args.family, transitive=args.transitive,
-                                     identity=args.identity, coverage=args.coverage, use_representatives=args.fast,
-                                     jaccard_threshold=args.jaccard,
-                                     window_size=args.window_size,
-                                     no_defrag=args.no_defrag, cpu=args.cpu, disable_bar=args.disable_prog_bar,
-                                     graph_format=args.graph_format,
-                                     translation_table=args.translation_table, keep_tmp=args.keep_tmp)
+    align_args = {
+        "no_defrag": args.no_defrag,
+        "use_representatives": args.fast,
+        "identity": args.identity,
+        "coverage": args.coverage,
+        "translation_table": args.translation_table,
+        "tmpdir": args.tmpdir,
+        "keep_tmp": args.keep_tmp,
+        "cpu": args.cpu,
+    }
+    search_gene_context_in_pangenome(pangenome=pangenome, output=args.output, sequence_file=args.sequences,
+                                     families=args.family, transitive=args.transitive, jaccard_threshold=args.jaccard,
+                                     window_size=args.window_size, graph_format=args.graph_format,
+                                     disable_bar=args.disable_prog_bar, **align_args)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -619,23 +654,7 @@ def parser_context(parser: argparse.ArgumentParser):
                         help="Fasta file with the sequences of interest")
     onereq.add_argument('-F', '--family', required=False, type=Path,
                         help="List of family IDs of interest from the pangenome")
-
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument('--no_defrag', required=False, action="store_true",
-                          help="DO NOT Realign gene families to link fragments with"
-                               "their non-fragmented gene family.")
-    optional.add_argument("--fast", required=False, action="store_true",
-                          help="Use representative sequences of gene families for input gene alignment. "
-                               "This option is recommended for faster processing but may be less sensitive. "
-                               "By default, all pangenome genes are used for alignment. "
-                               "This argument makes sense only when --sequence is provided.")
-    optional.add_argument('--identity', required=False, type=float, default=0.8,
-                          help="min identity percentage threshold")
-    optional.add_argument('--coverage', required=False, type=float, default=0.8,
-                          help="min coverage percentage threshold")
-    optional.add_argument("--translation_table", required=False, default="11",
-                          help="The translation table (genetic code) to use when the input sequences are nucleotide "
-                               "sequences. ")
     optional.add_argument("-t", "--transitive", required=False, type=int, default=4,
                           help="Size of the transitive closure used to build the graph. This indicates the number of "
                                "non related genes allowed in-between two related genes. Increasing it will improve "
@@ -649,12 +668,27 @@ def parser_context(parser: argparse.ArgumentParser):
                                "will improve precision but lower sensitivity a lot.")
     optional.add_argument('--graph_format', help="Format of the context graph. Can be gexf or graphml.",
                           default='graphml', choices=['gexf', 'graphml'])
-    optional.add_argument("-c", "--cpu", required=False, default=1, type=int,
-                          help="Number of available cpus")
-    optional.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
-                          help="directory for storing temporary files")
-    optional.add_argument("--keep_tmp", required=False, default=False, action="store_true",
-                          help="Keeping temporary files (useful for debugging).")
+    align = parser.add_argument_group(title="Alignment arguments",
+                                      description="This argument makes sense only when --sequence is provided.")
+    align.add_argument('--no_defrag', required=False, action="store_true",
+                       help="DO NOT Realign gene families to link fragments with"
+                            "their non-fragmented gene family.")
+    align.add_argument("--fast", required=False, action="store_true",
+                       help="Use representative sequences of gene families for input gene alignment. "
+                            "This option is recommended for faster processing but may be less sensitive. "
+                            "By default, all pangenome genes are used for alignment.")
+    align.add_argument('--identity', required=False, type=float, default=0.8,
+                       help="min identity percentage threshold")
+    align.add_argument('--coverage', required=False, type=float, default=0.8,
+                       help="min coverage percentage threshold")
+    align.add_argument("--translation_table", required=False, default="11",
+                       help="The translation table to use when the input sequences are nucleotide sequences. ")
+    align.add_argument("--tmpdir", required=False, type=str, default=Path(tempfile.gettempdir()),
+                       help="directory for storing temporary files")
+    align.add_argument("--keep_tmp", required=False, default=False, action="store_true",
+                       help="Keeping temporary files (useful for debugging).")
+    align.add_argument("-c", "--cpu", required=False, default=1, type=int,
+                       help="Number of available cpus")
 
 
 if __name__ == '__main__':

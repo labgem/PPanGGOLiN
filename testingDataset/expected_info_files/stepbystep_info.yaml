@@ -1,0 +1,98 @@
+Status:
+    Genomes_Annotated: true
+    Genes_Clustered: true
+    Genes_with_Sequences: true
+    Gene_Families_with_Sequences: true
+    Neighbors_Graph: true
+    Pangenome_Partitioned: true
+    RGP_Predicted: true
+    Spots_Predicted: true
+    Modules_Predicted: true
+    PPanGGOLiN_Version: 2.1.0
+
+Content:
+    Genes: 45429
+    Genomes: 51
+    Families: 1010
+    Edges: 1075
+    Persistent:
+        Family_count: 873
+        min_genomes_frequency: 0.86
+        max_genomes_frequency: 1.0
+        sd_genomes_frequency: 0.01
+        mean_genomes_frequency: 0.99
+    Shell:
+        Family_count: 38
+        min_genomes_frequency: 0.18
+        max_genomes_frequency: 0.86
+        sd_genomes_frequency: 0.18
+        mean_genomes_frequency: 0.45
+    Cloud:
+        Family_count: 99
+        min_genomes_frequency: 0.02
+        max_genomes_frequency: 0.22
+        sd_genomes_frequency: 0.05
+        mean_genomes_frequency: 0.05
+    Number_of_partitions: 3
+    Genomes_fluidity:
+        all: 0.025
+        shell: 0.553
+        cloud: 0.039
+        accessory: 0.624
+    RGP: 66
+    Spots: 2
+    Modules:
+        Number_of_modules: 4
+        Families_in_Modules: 19
+        Partition_composition:
+            Persistent: 0.0
+            Shell: 42.11
+            Cloud: 57.89
+
+Parameters:
+    annotate:
+        norna: False
+        kingdom: bacteria
+        translation_table: 11
+        prodigal_procedure: None
+        allow_overlap: False
+        # read_annotations_from_file: False
+    cluster:
+        coverage: 0.8
+        identity: 0.8
+        mode: 1
+        # defragmentation: True
+        no_defrag: False
+        translation_table: 11
+        # read_clustering_from_file: False
+    graph:
+        remove_high_copy_number: 10
+    partition:
+        beta: 2.6
+        max_degree_smoothing: 10.0
+        free_dispersion: True
+        ICL_margin: 0.04
+        seed: 42
+        # computed nb of partitions: True
+        nb_of_partitions: -1
+        # final nb of partitions: 3
+        krange: [3, 12]
+    rgp:
+        persistent_penalty: 2
+        variable_gain: 1
+        min_length: 3000
+        min_score: 3
+        dup_margin: 0.05
+    spot:
+        set_size: 3
+        overlapping_match: 2
+        exact_match_size: 1
+    module:
+        size: 3
+        min_presence: 2
+        transitive: 4
+        jaccard: 0.86
+        dup_margin: 0.05
+
+Metadata: null
+

@@ -5,7 +5,6 @@
 import argparse
 import logging
 import tempfile
-import subprocess
 import time
 from multiprocessing import get_context
 from pathlib import Path
@@ -15,30 +14,12 @@ from typing import Dict, Set, List, Tuple
 from tqdm import tqdm
 
 # local libraries
+from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_outdir, restricted_float
+from ppanggolin.utils import mk_outdir, restricted_float, run_subprocess
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
-
-
-def is_single_copy(family: GeneFamily, dup_margin: float = 0.95) -> bool:
-    """
-    Check if a gene family can be considered 'single copy' or not
-
-    :param family: GeneFamily object
-    :param dup_margin: maximal number of genomes in which the gene family can have multiple members and still be considered a 'single copy' gene family
-
-    :return: True if gene family is single copy else False
-    """
-    nb_multi = 0
-    for gene_list in family.get_org_dict().values():
-        if len(gene_list) > 1:
-            nb_multi += 1
-    dup_ratio = nb_multi / family.number_of_organisms
-    if dup_ratio < dup_margin:
-        return True
-    return False
 
 
 def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", soft_core: float = 0.95,
@@ -63,7 +44,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
             for family in pangenome.gene_families:
                 if family.named_partition == partition_filter:
                     if single_copy:
-                        if is_single_copy(family, dup_margin):
+                        if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=True):
                             families.add(family)
                     else:
                         families.add(family)
@@ -72,7 +53,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms == nb_org:
                         if single_copy:
-                            if is_single_copy(family, dup_margin):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
@@ -80,7 +61,7 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms < nb_org:
                         if single_copy:
-                            if is_single_copy(family, dup_margin):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
@@ -88,17 +69,17 @@ def get_families_to_write(pangenome: Pangenome, partition_filter: str = "core", 
                 for family in pangenome.gene_families:
                     if family.number_of_organisms >= nb_org * soft_core:
                         if single_copy:
-                            if is_single_copy(family, dup_margin):
+                            if family.is_single_copy(dup_margin=dup_margin, exclude_fragment=False):
                                 families.add(family)
                         else:
                             families.add(family)
         return families
 
 
-def translate(seq: str, code: Dict[str, Dict[str, str]]) -> str:
+def translate(gene: Gene, code: Dict[str, Dict[str, str]]) -> Tuple[str, bool]:
     """translates the given dna sequence with the given translation table
 
-    :param seq: given dna sequence
+    :param gene: given gene
     :param code: translation table corresponding to genetic code to use
 
     :return: protein sequence
@@ -106,22 +87,26 @@ def translate(seq: str, code: Dict[str, Dict[str, str]]) -> str:
     # code:  https://www.bioinformatics.org/sms/iupac.html
     start_table = code["start_table"]
     table = code["trans_table"]
-
-    if len(seq) % 3 == 0:
-        protein = start_table[seq[0: 3]]
-        for i in range(3, len(seq), 3):
-            codon = seq[i: i + 3]
-            try:
-                protein += table[codon]
-            except KeyError:  # codon was not planned for. Probably can't determine it.
-                protein += 'X'  # X is for unknown
-    else:
-        raise IndexError("Given sequence length modulo 3 was different than 0, which is unexpected.")
-    return protein
+    mod = len(gene.dna) % 3
+    partial = False
+    if mod != 0:
+        partial = True
+        msg = (
+            f"Gene {gene.ID} {'' if gene.local_identifier == '' else 'with local identifier ' + gene.local_identifier}"
+            f" has a sequence length of {len(gene.dna)} which modulo 3 was different than 0.")
+        logging.getLogger("PPANGGOLIN").debug(msg)
+    protein = start_table[gene.dna[0: 3]]
+    for i in range(3, len(gene.dna) - mod, 3):
+        codon = gene.dna[i: i + 3]
+        try:
+            protein += table[codon]
+        except KeyError:  # codon was not planned for. Probably can't determine it.
+            protein += 'X'  # X is for unknown
+    return protein, partial
 
 
 def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory, code_table: Dict[str, Dict[str, str]],
-                         source: str = 'protein', use_gene_id: bool = False) -> Path:
+                         source: str = 'protein', use_gene_id: bool = False) -> Tuple[Path, bool]:
     """Write fasta files for each gene family
 
     :param family: gene family to write
@@ -135,27 +120,31 @@ def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory
     # have a directory for each gene family, to make deletion of tmp files simpler
 
     f_name = Path(tmpdir.name) / f"{family.name}.fasta"
-    f_obj = open(f_name, "w")
+
     # get genes that are present in only one copy for our family in each organism.
     single_copy_genes = []
     for _, genes in family.get_org_dict().items():
         if len(genes) == 1:
             single_copy_genes.extend(genes)
 
-    for gene in single_copy_genes:
-        if use_gene_id:
-            f_obj.write('>' + gene.ID + "\n")
-        else:
-            f_obj.write('>' + gene.organism.name + "\n")
-        if source == "dna":
-            f_obj.write(gene.dna + '\n')
-        elif source == "protein":
-            f_obj.write(translate(gene.dna, code_table) + "\n")
-        else:
-            raise AssertionError("Unknown sequence source given (expected 'dna' or 'protein')")
-    f_obj.flush()
+    with open(f_name, "w") as f_obj:
+        partial = False
+        for gene in single_copy_genes:
+            if use_gene_id:
+                f_obj.write(f">{gene.ID}\n")
+            else:
+                f_obj.write(f">{gene.organism.name}\n")
+            if source == "dna":
+                f_obj.write(gene.dna + '\n')
+            elif source == "protein":
+                protein, part = translate(gene, code_table)
+                if not partial:
+                    partial = part
+                f_obj.write(protein + "\n")
+            else:
+                raise ValueError(f"Unknown sequence source '{source}' provided. Expected 'dna' or 'protein'.")
 
-    return f_name
+    return f_name, partial
 
 
 def launch_mafft(fname: Path, output: Path, fam_name: str):
@@ -169,7 +158,7 @@ def launch_mafft(fname: Path, output: Path, fam_name: str):
     outname = output / f"{fam_name}.aln"
     cmd = ["mafft", "--thread", "1", fname.absolute().as_posix()]
     logging.getLogger("PPanGGOLiN").debug("command: " + " ".join(cmd))
-    subprocess.run(cmd, stdout=open(outname, "w"), stderr=subprocess.DEVNULL, check=True)
+    run_subprocess(cmd, outname, msg="mafft failed with the following error:\n")
 
 
 def launch_multi_mafft(args: List[Tuple[Path, Path, str]]):
@@ -203,12 +192,19 @@ def compute_msa(families: Set[GeneFamily], output: Path, tmpdir: Path, cpu: int 
     logging.getLogger("PPanGGOLiN").info("Preparing input files for MSA...")
     code_table = genetic_codes(code)
 
+    partial = False
     for family in tqdm(families, unit="family", disable=disable_bar):
         start_write = time.time()
-        fname = write_fasta_families(family, newtmpdir, code_table, source, use_gene_id)
+        fname, part = write_fasta_families(family, newtmpdir, code_table, source, use_gene_id)
+        if not partial:
+            partial = part
         write_total = write_total + (time.time() - start_write)
         args.append((fname, output, family.name))
 
+    if partial:
+        logging.getLogger("PPanGGOLiN").warning("Partial gene was found during translation. "
+                                                "Last nucleotides were removed to translate. "
+                                                "Use --verbose 2 to see genes that are partial")
     logging.getLogger("PPanGGOLiN").info("Computing the MSA ...")
     with get_context('fork').Pool(cpu) as p:
         with tqdm(total=len(families), unit="family", disable=disable_bar) as bar:
@@ -227,11 +223,15 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
     :param outdir: output directory name for families alignment
     :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
     """
+
+    # sort familes by ID, so the gene order is consistent
+    families = sorted(families, key=lambda f: f.ID)
+
     phylo_dict = {}
     for org in pangenome.organisms:
         phylo_dict[org.name] = ""
     for fam in families:
-        missing_genomes = set(phylo_dict.keys())
+        observed_genomes = set()
         with open(outdir / f"{fam.name}.aln", "r") as fin:
             genome_id = ""
             seq = ""
@@ -240,14 +240,15 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
 
             for line in fin:
                 if line.startswith('>'):
+                    # Save sequence of previous record
                     if genome_id != "":
-                        if genome_id not in missing_genomes:
+                        if genome_id in observed_genomes:
                             # duplicated genes. Replacing them with gaps.
                             curr_phylo_dict[genome_id] = "-" * curr_len
                         else:
                             curr_phylo_dict[genome_id] = seq
-                            missing_genomes -= {genome_id}
                             curr_len = len(seq)
+                            observed_genomes.add(genome_id)
                     if use_gene_id:
                         genome_id = pangenome.get_gene(line[1:].strip()).organism.name
                     else:
@@ -255,13 +256,19 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
                     seq = ""
                 else:
                     seq += line.strip()
+
+            # process the final record
             if genome_id != "":
-                if genome_id not in missing_genomes:
+                if genome_id in observed_genomes:
                     # duplicated genes. Replacing them with gaps.
                     curr_phylo_dict[genome_id] = "-" * curr_len
                 else:
                     curr_phylo_dict[genome_id] = seq
                     curr_len = len(seq)
+                    observed_genomes.add(genome_id)
+
+        # write gaps for all missing genomes
+        missing_genomes = [g for g in set(phylo_dict.keys()) if g not in observed_genomes]
         for genome in missing_genomes:
             curr_phylo_dict[genome] = "-" * curr_len
 

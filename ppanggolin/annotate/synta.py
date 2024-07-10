@@ -20,7 +20,6 @@ from pyrodigal import GeneFinder, Sequence
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import is_compressed, read_compressed_or_not
 
-
 contig_counter: Value = Value('i', 0)
 
 
@@ -73,6 +72,10 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
         elif len(line) > 0:  # if the line isn't empty, there's data to get.
             line_data = line.split()
             start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
+            if start < 1 or stop < 1:
+                # In some case aragorn gives negative coordinates. This case is just ignored.
+                logging.warning(f'Aragorn gives non valide coordiates for a RNA gene: {line_data}  This RNA is ignored.')
+                continue
             c += 1
             gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(4))
             gene.fill_annotations(start=start, stop=stop, strand="-" if line_data[2].startswith("c") else "+",
@@ -104,7 +107,7 @@ def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int =
 
     if not use_meta:
         gene_finder.train(*contig_sequences.values(), force_nonsd=False,
-                        translation_table=code)  # -g: Specify a translation table to use (default 11).
+                          translation_table=code)  # -g: Specify a translation table to use (default 11).
     gene_counter = 1
     for contig_name, sequence in sequences.items():
         for pred in gene_finder.find_genes(sequence):
@@ -300,10 +303,23 @@ def get_dna_sequence(contig_seq: str, gene: Union[Gene, RNA]) -> str:
 
     :return: str
     """
+
+    # check contig coordinate is in scope of contig seq length
+    highest_position = max((stop for _, stop in gene.coordinates))
+    assert highest_position <= len(
+        contig_seq), f"Gene coordinates exceed contig length. gene coordinates {gene.coordinates} vs contig length {len(contig_seq)}"
+
+    # Extract gene seq
+    seq = ''.join([contig_seq[start - 1:stop] for start, stop in gene.coordinates])
+
+    # check length of extracted seq
+    assert len(seq) == len(gene), ("The gene sequence extracted from the contig does not have the expected length: "
+                                   f"extracted seq length {len(seq)}nt vs expected length based on gene coordinates ({gene.coordinates}) {len(gene)}nt ")
+
     if gene.strand == "+":
-        return contig_seq[gene.start - 1:gene.stop]
+        return seq
     elif gene.strand == "-":
-        return reverse_complement(contig_seq[gene.start - 1:gene.stop])
+        return reverse_complement(seq)
 
 
 def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str], tmpdir: str,
@@ -335,7 +351,8 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str
         max_contig_len = max(len(contig) for contig in org.contigs)
         if max_contig_len < 20000:  # case of short sequence
             use_meta = True
-            logging.getLogger("PPanGGOLiN").info(f"Using the metagenomic mode to predict genes for {org_name}, as all its contigs are < 20KB in size.")
+            logging.getLogger("PPanGGOLiN").info(
+                f"Using the metagenomic mode to predict genes for {org_name}, as all its contigs are < 20KB in size.")
 
         else:
             use_meta = False
