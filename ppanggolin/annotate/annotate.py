@@ -915,10 +915,20 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
 
                 new_coordinates = []
                 for start, stop in gene.coordinates:
-                    if start > len(contig):
-                        raise ValueError(
-                            f"A gene start position ({start}) is higher than contig length ({len(contig)}). This case is not handled.")
 
+                    if start > len(contig):
+                        if len(new_coordinates) == 0:
+                            raise ValueError(f"First gene start position ({start}) is higher than contig "
+                                             f"length ({len(contig)}). This case is not handled.")
+                        
+                        new_start = start - len(contig)
+                        new_stop = stop - len(contig)
+                        
+                        new_coordinates.append((new_start, new_stop))
+
+                        warn_msg = (f"Start position ({start}) for gene {gene.name} is higher than contig {contig.name}"
+                                    f" length ({len(contig)}). New coordinate are {new_coordinates}")
+                        logging.getLogger("PPanGGOLiN").warning(warn_msg)
                     elif stop > len(contig):
                         # Handle overlapping gene
                         new_stop = len(contig)
