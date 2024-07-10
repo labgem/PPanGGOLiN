@@ -212,7 +212,7 @@ jobs:
         ppanggolin projection -p myannopang/pangenome.h5 --anno GBFF/plasmid_GCF_000093005.1_ASM9300v1.gff.gz --fasta GBFF/plasmid_GCF_000093005.1_ASM9300v1.fna.gz
 
         # projection with GFF with no sequence and fasta sequence specified in a TSV file with other GFF (but with sequences)
-        head genomes.gbff.head.list -n3 > genomes.gbff.h3_and_GFFplasmidNoSeq.list
+        head -n 3 genomes.gbff.head.list > genomes.gbff.h3_and_GFFplasmidNoSeq.list
 
         echo GFF_plasmid_No_seq$'\t'GBFF/plasmid_GCF_000093005.1_ASM9300v1.gff.gz >> genomes.gbff.h3_and_GFFplasmidNoSeq.list
         echo GFF_plasmid_No_seq$'\t'GBFF/plasmid_GCF_000093005.1_ASM9300v1.fna.gz >> genomes.fna.GFFplasmidNoSeq.list
