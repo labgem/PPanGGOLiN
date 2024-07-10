@@ -112,63 +112,109 @@ def check_pangenome_for_projection(pangenome: Pangenome, fast_aln: bool):
 
     return predict_rgp, project_spots, project_modules
 
+def manage_input_genomes_annotation(
+        pangenome, input_mode: str, anno: str, fasta: str, organism_name: str, circular_contigs: list,
+        pangenome_params, cpu: int, use_pseudo: bool, disable_bar: bool, tmpdir: str, config: dict):
+    """
+    Manage the input genomes annotation based on the provided mode and parameters.
 
-def manage_input_genomes_annotation(pangenome, input_mode, anno, fasta, organism_name, circular_contigs,
-                                    pangenome_params, cpu, use_pseudo, disable_bar, tmpdir, config):
+    :param pangenome: The pangenome object.
+    :param input_mode: The input mode, either 'multiple' or 'single'.
+    :param anno: The annotation file path or None.
+    :param fasta: The FASTA file path or None.
+    :param organism_name: The name of the organism.
+    :param circular_contigs: List of circular contigs.
+    :param pangenome_params: Parameters for pangenome processing.
+    :param cpu: Number of CPUs to use.
+    :param use_pseudo: Flag to use pseudo annotation.
+    :param disable_bar: Flag to disable progress bar.
+    :param tmpdir: Temporary directory path.
+    :param config: Configuration dictionary.
+    :return: A tuple of organisms, genome_name_to_path, and input_type.
+    """
+    
     genome_name_to_path = None
+    input_type = None
 
+    # Determine input type and parse paths based on the input mode
     if input_mode == "multiple":
         if anno:
             input_type = "annotation"
             genome_name_to_path = parse_input_paths_file(anno)
-
         elif fasta:
             input_type = "fasta"
             genome_name_to_path = parse_input_paths_file(fasta)
-
-    else:  # args.input_mode == "single:
-
+    elif input_mode == "single":
         circular_contigs = circular_contigs if circular_contigs else []
         if anno:
             input_type = "annotation"
-            genome_name_to_path = {organism_name: {"path": anno,
-                                                   "circular_contigs": circular_contigs}}
-
+            genome_name_to_path = {
+                organism_name: {
+                    "path": anno,
+                    "circular_contigs": circular_contigs
+                }
+            }
         elif fasta:
             input_type = "fasta"
-            genome_name_to_path = {organism_name: {"path": fasta,
-                                                   "circular_contigs": circular_contigs}}
+            genome_name_to_path = {
+                organism_name: {
+                    "path": fasta,
+                    "circular_contigs": circular_contigs
+                }
+            }
+    else:
+        raise ValueError(f"Input mode '{input_mode}' is not valid. Expected 'multiple' or 'single'.")
 
+    # Process annotation input type
     if input_type == "annotation":
         check_input_names(pangenome, genome_name_to_path)
 
-        organisms, org_2_has_fasta = read_annotation_files(genome_name_to_path, cpu=cpu, pseudo=use_pseudo,
-                                                           translation_table=int(pangenome_params.cluster.translation_table),
-                                                           disable_bar=disable_bar)
-        
-        if not all((has_fasta for has_fasta in org_2_has_fasta.values())):
-            organisms_with_no_fasta = {org for org, has_fasta in org_2_has_fasta.items() if not has_fasta}
+        organisms, org_2_has_fasta = read_annotation_files(
+            genome_name_to_path, cpu=cpu, pseudo=use_pseudo,
+            translation_table=int(pangenome_params.cluster.translation_table),
+            disable_bar=disable_bar
+        )
+
+        # Check for genomes without associated sequence data
+        if not all(has_fasta for has_fasta in org_2_has_fasta.values()):
+            organisms_with_no_fasta = {
+                org for org, has_fasta in org_2_has_fasta.items() if not has_fasta
+            }
             if fasta:
-                get_gene_sequences_from_fasta_files(organisms_with_no_fasta, genome_name_to_path)
-
+                if input_mode == "multiple":
+                    genome_name_to_fasta_path = parse_input_paths_file(fasta)
+                else:
+                    genome_name_to_fasta_path = {
+                        organism_name: {
+                            "path": fasta,
+                            "circular_contigs": circular_contigs
+                        }
+                    }
+                get_gene_sequences_from_fasta_files(organisms_with_no_fasta, genome_name_to_fasta_path)
             else:
-                raise ValueError(f"You provided GFF files for {len(organisms_with_no_fasta)} (out of {len(organisms)}) "
-                                 "genomes without associated sequence data, and you did not provide "
-                                 "FASTA sequences using the --fasta or --single_fasta_file options. Therefore, it is impossible to project the pangenome onto the input genomes. "
-                                 f"The following genomes have no associated sequence data: {', '.join(o.name for o in organisms_with_no_fasta)}")
+                raise ValueError(
+                    f"GFF files provided for {len(organisms_with_no_fasta)} (out of {len(organisms)}) genomes without "
+                    "associated sequence data, and no FASTA sequences provided using the --fasta option. Cannot project "
+                    "the pangenome onto these genomes. Genomes without sequence data: "
+                    f"{', '.join(o.name for o in organisms_with_no_fasta)}"
+                )
 
+    # Process fasta input type
     elif input_type == "fasta":
-        annotate_param_names = ["norna", "kingdom",
-                                "allow_overlap", "prodigal_procedure"]
-
+        annotate_param_names = ["norna", "kingdom", "allow_overlap", "prodigal_procedure"]
         annotate_params = manage_annotate_param(annotate_param_names, pangenome_params.annotate, config)
 
         check_input_names(pangenome, genome_name_to_path)
-        organisms = annotate_fasta_files(genome_name_to_fasta_path=genome_name_to_path, tmpdir=tmpdir, cpu=cpu,
-                                         translation_table=int(pangenome_params.cluster.translation_table),
-                                         norna=annotate_params.norna, kingdom=annotate_params.kingdom,
-                                         allow_overlap=annotate_params.allow_overlap,
-                                         procedure=annotate_params.prodigal_procedure, disable_bar=disable_bar)
+        organisms = annotate_fasta_files(
+            genome_name_to_fasta_path=genome_name_to_path, tmpdir=tmpdir, cpu=cpu,
+            translation_table=int(pangenome_params.cluster.translation_table),
+            norna=annotate_params.norna, kingdom=annotate_params.kingdom,
+            allow_overlap=annotate_params.allow_overlap, procedure=annotate_params.prodigal_procedure,
+            disable_bar=disable_bar
+        )
+    else:
+        raise ValueError(f"Input type '{input_type}' is not valid. Expected 'fasta' or 'annotation'.")
+
     return organisms, genome_name_to_path, input_type
 
 
@@ -461,7 +507,7 @@ def get_gene_sequences_from_fasta_files(organisms, genome_name_to_annot_path):
         org_fasta_file = genome_name_to_annot_path[org.name]['path']
 
         with read_compressed_or_not(org_fasta_file) as currFastaFile:
-            org_contig_to_seq, _ = read_fasta(org, currFastaFile)
+            org_contig_to_seq = read_fasta(org, currFastaFile)
 
         for contig in org.contigs:
             try:
@@ -711,21 +757,21 @@ def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
     """
 
     with read_compressed_or_not(fasta_file) as currFastaFile:
-        contig_id2deq, _ = read_fasta(input_organism, currFastaFile)
+        contig_id2seq = read_fasta(input_organism, currFastaFile)
 
     for contig in input_organism.contigs:
         try:
             for gene in contig.genes:
                 gene.add_dna(get_dna_sequence(
-                    contig_id2deq[contig.name], gene))
+                    contig_id2seq[contig.name], gene))
 
             for rna in contig.RNAs:
-                rna.add_dna(get_dna_sequence(contig_id2deq[contig.name], rna))
+                rna.add_dna(get_dna_sequence(contig_id2seq[contig.name], rna))
         except KeyError:
             msg = f"Fasta file for input genome {input_organism.name} did not have the contig {contig.name} " \
                   f"that was read from the annotation file. "
             msg += f"The provided contigs in the fasta were : " \
-                   f"{', '.join([contig for contig in contig_id2deq.keys()])}."
+                   f"{', '.join([contig for contig in contig_id2seq.keys()])}."
             raise KeyError(msg)
 
 
