@@ -391,7 +391,7 @@ def make_rarefaction_curve(pangenome: Pangenome, output: Path, tmpdir: Path = No
     all_samples = []
     for i in range(min_sampling, max_sampling):  # each point
         for _ in range(depth):  # number of samples per points
-            all_samples.append(set(random.sample(set(pangenome.organisms), i + 1)))
+            all_samples.append(set(random.sample(list(pangenome.organisms), i + 1)))
     logging.getLogger("PPanGGOLiN").info(f"Done sampling genomes in the pan, there are {len(all_samples)} samples")
     samp_nb_per_part = []
 
