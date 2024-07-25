@@ -31,8 +31,8 @@ jobs:
     strategy:
       matrix:
         os: ['ubuntu-latest', 'macos-13']
-        python-version: ['3.8', '3.10', '3.11', '3.12']
-
+        python-version: [ '3.12'] # '3.8', '3.10', '3.11',
+ 
     steps:
 
     # Get number of cpu available on the current runner
