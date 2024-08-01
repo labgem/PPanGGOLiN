@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import logging
@@ -101,8 +100,7 @@ class IdenticalRegions:
         Return iterable of genes from all RGPs that are identical in families
         """
         for rgp in self.rgps:
-            for gene in rgp.genes:
-                yield gene
+            yield from rgp.genes
     @property
     def spots(self) -> Set[Spot]:
         """
@@ -283,7 +281,7 @@ def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List
                            name=identical_rgp_obj.name,
                            families_count=len(identical_rgp_obj.families),
                            identical_rgp_count=len(identical_rgp_obj.rgps),
-                           identical_rgp_names=';'.join([i_rgp.name for i_rgp in identical_rgp_obj.rgps]),
+                           identical_rgp_names=';'.join(i_rgp.name for i_rgp in identical_rgp_obj.rgps),
                            identical_rgp_genomes=';'.join({i_rgp.organism.name for i_rgp in identical_rgp_obj.rgps}),
                            identical_rgp_contig_border_count=len(
                                [True for i_rgp in identical_rgp_obj.rgps if i_rgp.is_contig_border]),

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import logging
@@ -166,7 +165,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                         partitions_list[i] = "S_"  # SHELL in case of doubt gene families is attributed to shell
                     else:
                         partitions_list[i] = parti[positions_max_prob.pop()]
-    except IOError:
+    except OSError:
         logging.getLogger("PPanGGOLiN").debug(
             "partitioning did not work (the number of genomes used is probably too low), "
             "see logs here to obtain more details " + nem_dir_path.as_posix() + "/nem_file_" +
