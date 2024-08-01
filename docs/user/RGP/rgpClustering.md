@@ -14,7 +14,7 @@ There are three modes available for calculating the GRR value: `min_grr`, `max_g
 - `incomplete_aware_grr` (default) mode: If at least one RGP is considered incomplete, which typically happens when it is located at the border of a contig, the `min_grr` mode is used. Otherwise, the `max_grr` mode is applied. This mode is useful to correctly cluster incomplete RGP.
 
 
-The resulting RGP clusters are stored in a tsv file with the folowing columns:
+The resulting RGP clusters are stored in a tsv file with the following columns:
 
 | column  | description                  |
 |---------|------------------------------|

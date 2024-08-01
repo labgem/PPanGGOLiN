@@ -52,7 +52,7 @@ If you want, verbosity can be reduced in several ways.
 First, you can specify the verbosity level with the `--verbose` option. 
 With `0` will show only warnings and errors, `1` will add the information (default value), and if you encounter any problem you can use the debug level with value `2`.
 Then you can also remove the progress bars with the option `--disable_prog_bar`
-Finaly, you can also save PPanGGOLiN logs in a file by indicating its path with the option `--log`.
+Finally, you can also save PPanGGOLiN logs in a file by indicating its path with the option `--log`.
 
 ## Configuration file
 

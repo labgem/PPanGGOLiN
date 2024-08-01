@@ -101,7 +101,7 @@ genome_updater.sh -d "refseq"  -o "B_japonicum_genomes" -M "gtdb" -T "s__Bradyrh
 ```
 
 
-After the completion of the `all` command, all of your genomes have had their genes predicted, the genes have been clustered into gene families, a pangenome graph has been successfully constructed and partitioned into three distinct paritions: **persistent**, **shell**, and **cloud**. Additionally, **RGP, spots, and modules** have been detected within your pangenome.
+After the completion of the `all` command, all of your genomes have had their genes predicted, the genes have been clustered into gene families, a pangenome graph has been successfully constructed and partitioned into three distinct partitions: **persistent**, **shell**, and **cloud**. Additionally, **RGP, spots, and modules** have been detected within your pangenome.
 
 The results of the workflow is saved in the  **pangenome.h5** file, which is in the HDF-5 file format.
 When you run an analysis using this file as input, the results of that analysis will be added to the file to supplement the data that are already stored in it. 

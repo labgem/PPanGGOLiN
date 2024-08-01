@@ -68,7 +68,7 @@ ppanggolin panrgp --fasta genomes.fasta.list
 ```
 
 Just like [workflow](../PangenomeAnalyses/pangenomeAnalyses.md#workflow), this command will deal with the [annotation](../PangenomeAnalyses/pangenomeAnalyses.md#annotation), [clustering](../PangenomeAnalyses/pangenomeAnalyses.md#compute-pangenome-gene-families), [graph](../PangenomeAnalyses/pangenomeAnalyses.md#graph) and [partition](../PangenomeAnalyses/pangenomeAnalyses.md#partition) commands by itself.
-Then, the RGP detection is ran using [rgp](#rgp-detection) after the pangenome partitionning. Once all RGP have been computed, those found in similar genomic contexts in the genomes are gathered into spots of insertion using [spot](#spot-prediction).
+Then, the RGP detection is ran using [rgp](#rgp-detection) after the pangenome partitioning. Once all RGP have been computed, those found in similar genomic contexts in the genomes are gathered into spots of insertion using [spot](#spot-prediction).
 
 If you want to tune the rgp detection, you can use the `rgp` command after the `workflow` command. If you wish to tune the spot detection, you can use the `spot` command after the `rgp` command. Additionally, you have the option to utilize a configuration file to customize each detection within the `panrgp` command.
 
