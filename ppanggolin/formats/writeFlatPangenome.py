@@ -480,7 +480,7 @@ def summarize_genome(organism: Organism,
     :param pangenome_persistent_count: Count of persistent genes in the pangenome.
     :param pangenome_persistent_single_copy_families: Set of gene families considered as persistent single-copy in the pangenome.
     :param soft_core_families: soft core families of the pangenome
-    :parma exact_core_families: exact core families of the pangenome
+    :param exact_core_families: exact core families of the pangenome
     :param input_org_rgps:  Number of regions of genomic plasticity in the input organism. None if not computed.
     :param input_org_spots:  Number of spots in the input organism. None if not computed.
     :param input_org_modules: Number of modules in the input organism. None if not computed.
@@ -1059,7 +1059,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
     :param soft_core: Soft core threshold to use
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
     :param csv: write csv file format as used by Roary
-    :param gene_pa: write gene presence abscence matrix
+    :param gene_pa: write gene presence absence matrix
     :param gexf: write pangenome graph in gexf format
     :param light_gexf: write pangenome graph with only gene families
     :param stats: write statistics about pangenome
@@ -1210,7 +1210,7 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--gexf", required=False, action="store_true",
                           help="write a gexf file with all the annotations and all the genes of each gene family")
     optional.add_argument("--light_gexf", required=False, action="store_true",
-                          help="write a gexf file with the gene families and basic informations about them")
+                          help="write a gexf file with the gene families and basic information about them")
     
     optional.add_argument("--json", required=False, action="store_true", help="Writes the graph in a json file format")
 

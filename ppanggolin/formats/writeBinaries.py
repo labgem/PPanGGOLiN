@@ -60,13 +60,13 @@ def getmin(arg: iter) -> float:
 
 def gene_fam_desc(max_name_len: int, max_sequence_length: int, max_part_len: int) -> dict:
     """
-    Create a formated table for gene families description
+    Create a formatted table for gene families description
 
     :param max_name_len: Maximum size of gene family name
     :param max_sequence_length: Maximum size of gene family representing gene sequences
     :param max_part_len: Maximum size of gene family partition
 
-    :return: Formated table
+    :return: Formatted table
     """
     return {
         "name": tables.StringCol(itemsize=max_name_len),
@@ -123,12 +123,12 @@ def write_gene_fam_info(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
 
 def gene_to_fam_desc(gene_fam_name_len: int, gene_id_len: int) -> dict:
     """
-    Create a formated table for gene in gene families information
+    Create a formatted table for gene in gene families information
 
     :param gene_fam_name_len: Maximum size of gene family names
     :param gene_id_len: Maximum size of gene identifier
 
-    :return: formated table
+    :return: formatted table
     """
     return {
         "geneFam": tables.StringCol(itemsize=gene_fam_name_len),
@@ -180,11 +180,11 @@ def write_gene_families(pangenome: Pangenome, h5f: tables.File, force: bool = Fa
 
 def graph_desc(max_gene_id_len):
     """
-    Create a formated table for pangenome graph
+    Create a formatted table for pangenome graph
 
     :param max_gene_id_len: Maximum size of gene id
 
-    :return: formated table
+    :return: formatted table
     """
     return {
         'geneTarget': tables.StringCol(itemsize=max_gene_id_len),
@@ -235,12 +235,12 @@ def write_graph(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
 
 def rgp_desc(max_rgp_len, max_gene_len):
     """
-    Create a formated table for region of genomic plasticity
+    Create a formatted table for region of genomic plasticity
 
     :param max_rgp_len: Maximum size of RGP
     :param max_gene_len: Maximum sizez of gene
 
-    :return: formated table
+    :return: formatted table
     """
     return {
         'RGP': tables.StringCol(itemsize=max_rgp_len),
@@ -293,11 +293,11 @@ def write_rgp(pangenome: Pangenome, h5f: tables.File, force: bool = False, disab
 
 def spot_desc(max_rgp_len):
     """
-    Create a formated table for hotspot
+    Create a formatted table for hotspot
 
     :param max_rgp_len: Maximum size of RGP
 
-    :return: formated table
+    :return: formatted table
     """
     return {
         'spot': tables.UInt32Col(),
@@ -347,11 +347,11 @@ def write_spots(pangenome: Pangenome, h5f: tables.File, force: bool = False, dis
 
 def mod_desc(gene_fam_name_len):
     """
-    Create a formated table for hotspot
+    Create a formatted table for hotspot
 
     :param gene_fam_name_len: Maximum size of gene families name
 
-    :return: formated table
+    :return: formatted table
     """
     return {
         "geneFam": tables.StringCol(itemsize=gene_fam_name_len),
@@ -446,7 +446,7 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
     if "/info" in h5f:
         info_group = h5f.root.info
     else:
-        info_group = h5f.create_group("/", "info", "Informations about the pangenome content")
+        info_group = h5f.create_group("/", "info", "Information about the pangenome content")
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfGenes = pangenome.number_of_genes
         info_group._v_attrs.numberOfGenomes = pangenome.number_of_organisms

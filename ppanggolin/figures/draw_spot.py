@@ -252,7 +252,7 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
         last_gene = genelist[-1]
         
         if is_gene_list_ordered(genelist):
-            # if the order has been inverted, positionning elements on the figure is different
+            # if the order has been inverted, positioning elements on the figure is different
             ordered = True
             start = first_gene.start
         else:
@@ -460,7 +460,7 @@ def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, lis
         first_gene = genelist[0]
         last_gene =  genelist[-1]
         if is_gene_list_ordered(genelist):
-            # if the order has been inverted, positionning elements on the figure is different
+            # if the order has been inverted, positioning elements on the figure is different
             width = abs(last_gene.stop_relative_to(first_gene ) - genelist[0].start) 
             df["width"].append(width)
         else:
@@ -627,7 +627,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             left_border = [gene for gene in left_border_and_in_between_genes if gene.family.named_partition == "persistent" and gene.family not in multigenics]
             right_border = [gene for gene in right_border_and_in_between_genes if gene.family.named_partition == "persistent" and gene.family not in multigenics]
 
-            # in some rare case with plasmid left and rigth border can be made of the same genes
+            # in some rare case with plasmid left and right border can be made of the same genes
             # we use a set to only have one gene represented.  
             consecutive_genes_lists = contig.get_ordered_consecutive_genes(set(left_border_and_in_between_genes + right_border_and_in_between_genes + list(rgp.genes)))
             

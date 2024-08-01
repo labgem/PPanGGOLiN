@@ -191,7 +191,7 @@ class Pangenome:
     def max_fam_id(self, value):
         """Set the last family identifier
 
-        :param value: value of the maximum family identifer
+        :param value: value of the maximum family identifier
         """
         self._max_fam_id = value
 

@@ -38,7 +38,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                      just_log_likelihood: bool = False) \
         -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
-    Main function to make partitionning
+    Main function to make partitioning
 
     :param nem_dir_path: Path to directory with nem files
     :param nb_org: Number of organisms
@@ -248,7 +248,7 @@ def write_nem_input_files(tmpdir: Path, organisms: set, sm_degree: int = 10) -> 
     :param organisms: Set of organism from pangenome
     :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
 
-    :return: total edge weigth to ponderate beta and number of families
+    :return: total edge weight to ponderate beta and number of families
     """
     mk_outdir(tmpdir, force=False)
     total_edges_weight = 0
@@ -487,7 +487,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
         pangenome.parameters["partition"]["chunk_size"] = chunk_size
     pangenome.parameters["partition"]["# computed nb of partitions"] = False
 
-    # the K value initally given by the user 
+    # the K value initially given by the user 
     pangenome.parameters["partition"]["nb_of_partitions"] = kval
     if kval < 2:
         pangenome.parameters["partition"]["# computed nb of partitions"] = True

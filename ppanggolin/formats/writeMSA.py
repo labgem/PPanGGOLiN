@@ -224,7 +224,7 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
     :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
     """
 
-    # sort familes by ID, so the gene order is consistent
+    # sort families by ID, so the gene order is consistent
     families = sorted(families, key=lambda f: f.ID)
 
     phylo_dict = {}
