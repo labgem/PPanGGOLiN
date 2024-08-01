@@ -54,7 +54,7 @@ def compute_mod_graph(pangenome: Pangenome, t: int = 1, disable_bar: bool = Fals
                         edge = g[gene.family][a_gene.family]
                         add_gene(edge, gene)
                         add_gene(edge, a_gene)
-                        if j == i + t + 1 or i == 0:  # if it's the last gene of the serie, or the first serie
+                        if j == i + t + 1 or i == 0:  # if it's the last gene of the series, or the first series
                             add_gene(g.nodes[a_gene.family], a_gene, fam_split=False)
 
     return g

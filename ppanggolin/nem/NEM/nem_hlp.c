@@ -433,7 +433,7 @@ void PrintHelpFileIn( FILE* F )
     fprintf( F , "\n" ) ;
     fprintf( F , " 4.c) file.m (option -s m)\n" ) ;
     fprintf( F , " -----------\n" ) ;
-    fprintf( F , "    Contains the parameters (at begining or throughout the clustering process) of the mixture model separated by spaces\n" ) ;
+    fprintf( F , "    Contains the parameters (at beginning or throughout the clustering process) of the mixture model separated by spaces\n" ) ;
     fprintf( F , "\n" ) ;
     fprintf( F , "    If the parameters are just initialized by this file, the file start by 1, ortherwise if the parameters are fixed throughout the clustering process the file start by 2\n" ) ;
     fprintf( F , "    Then :\n" ) ;
@@ -547,7 +547,7 @@ void PrintHelpVersions( FILE* F )
     fprintf( F , "Version 1.03  (02.10.1997)  \n" ) ;
     fprintf( F , "------------\n" ) ;
     fprintf( F , "If a partial knowledge of the classification is available, the\n" ) ;
-    fprintf( F , "intial cluster centers are computed from the observations with\n" ) ;
+    fprintf( F , "initial cluster centers are computed from the observations with\n" ) ;
     fprintf( F , "known labels.  \n" ) ;
     fprintf( F , "\n" ) ;
     fprintf( F , "The log file is made optional (option '-l y').  The ___.mf file now\n" ) ;
@@ -567,7 +567,7 @@ void PrintHelpVersions( FILE* F )
     fprintf( F , "The heuristics may be invoked with '-B heu_d' or '-B heu_l'. Their\n" ) ;
     fprintf( F , "default parameters may be changed with '-H ...'. \n" ) ;
     fprintf( F , "\n" ) ;
-    fprintf( F , "The final partition may now be printed to standard ouput instead of to a\n" ) ;
+    fprintf( F , "The final partition may now be printed to standard output instead of to a\n" ) ;
     fprintf( F , "file (option '-o -').  The result can thus be redirected as an \n" ) ;
     fprintf( F , "initial partition to another nem_exe session's input.\n" ) ;
     fprintf( F , "\n" ) ;

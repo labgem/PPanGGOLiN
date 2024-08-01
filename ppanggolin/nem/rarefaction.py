@@ -49,7 +49,7 @@ def raref_nem(index: int, tmpdir: Path, beta: float = 2.5, sm_degree: int = 10,
     :param krange: Range of K values to test when detecting K automatically.
     :param seed: seed used to generate random numbers
 
-    :return: Count of each partition and paremeters for the given sample index
+    :return: Count of each partition and parameters for the given sample index
     """
     samp = samples[index]
     currtmpdir = tmpdir / f"{str(index)}"
@@ -147,7 +147,7 @@ def launch_raref_nem(args: Tuple[int, Path, float, int, bool, int, int, list, in
 
     :param args: {index: int, tmpdir: str, beta: float, sm_degree: int, free_dispersion: bool,
                   chunk_size: int, kval: int, krange: list, seed: int}
-    :return: Count of each partition and paremeters for the given sample index
+    :return: Count of each partition and parameters for the given sample index
     """
     return raref_nem(*args)
 

@@ -1477,7 +1477,7 @@ static StatusET  MakeRandomPara
 
 
 	/* Get mean coordinates from drawn object non-NaN coordinates ;
-	   or by uniform sampling if drawn object's coodinate is NaN */
+	   or by uniform sampling if drawn object's coordinate is NaN */
         for ( d = 0 ; d < nd ; d ++ )
 	  {
 	    /* Use drawn point's dth coordinate if not NaN */
@@ -2516,7 +2516,7 @@ static int ComputePartitionGEM /* +++ */
     GetNeighFT*     fGetNeigh ;      /*V1.06-c*/
 
     float*          z_nk ;     /* currently simulated partition */
-    int*            occur_nk ; /* occurence count for class h at site i */
+    int*            occur_nk ; /* occurrence count for class h at site i */
     int             icycle ;   /* current Monte-Carlo cycle */
     int             kdraw ;    /* drawn class : 0..nk-1 */
     int             ivis ;
@@ -2551,7 +2551,7 @@ static int ComputePartitionGEM /* +++ */
 	  LabelToClassVector( nk, kmap, &z_nk[ ipt * nk ] ) ;
 	}
 
-      /* Initialize to zero all occurence counts */
+      /* Initialize to zero all occurrence counts */
       for ( ipt = 0 ; ipt < npt ; ipt ++ )
 	for ( k = 0 ; k < nk ; k ++ )
 	  occur_nk[ ( ipt * nk ) + k ] = 0 ;

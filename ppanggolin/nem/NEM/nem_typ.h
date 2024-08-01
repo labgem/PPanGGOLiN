@@ -348,7 +348,7 @@ typedef struct
     char    NeighName[ LEN_FILENAME + 1 ] ; /* name of neighborhood file */
     char    LabelName[ LEN_FILENAME + 1 ] ; /* name of fixed labels file */
     char    RefName[ LEN_FILENAME + 1 ] ;   /* name of reference labels file *//*V1.04-f*/
-    char    ParamName[ LEN_FILENAME + 1 ] ; /* name of initilization param file *//*V1.08-a*/
+    char    ParamName[ LEN_FILENAME + 1 ] ; /* name of initialization param file *//*V1.08-a*/
 }
 NemParaT ;      /* NEM running parameters */
 
