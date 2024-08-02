@@ -1,6 +1,6 @@
 # Multiple Sequence Alignment
 
-The commande `msa` compute multiple sequence alignement of any partition of the pangenome. The command uses [mafft](https://mafft.cbrc.jp/alignment/software/) with default options to perform the alignment. Using multiple cpus with the `--cpu` argument is recommended as multiple alignment can be quite demanding in computational resources.
+The commande `msa` compute multiple sequence alignment of any partition of the pangenome. The command uses [mafft](https://mafft.cbrc.jp/alignment/software/) with default options to perform the alignment. Using multiple cpus with the `--cpu` argument is recommended as multiple alignment can be quite demanding in computational resources.
 
 This command can be used as follow:
 
@@ -34,10 +34,10 @@ ppanggolin msa -p pangenome.h5 --source dna
 
 ### Write a single whole MSA file with `--phylo` 
 
-It is also possible to write a single whole genome MSA file, which many phylogenetic softwares accept as input, by using the `--phylo` option as such:
+It is also possible to write a single whole genome MSA file, which many phylogenetic software accept as input, by using the `--phylo` option as such:
 
 ```bash
 ppanggolin msa -p pangenome.h5 --phylo
 ```
 
-This will contatenate all of the family MSA into a single MSA, with one sequence for each genome.
+This will concatenate all of the family MSA into a single MSA, with one sequence for each genome.

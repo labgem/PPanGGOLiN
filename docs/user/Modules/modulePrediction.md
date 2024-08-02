@@ -59,12 +59,12 @@ ppanggolin panmodule --fasta GENOME_LIST_FILE
 ```
 Replace `GENOME_LIST_FILE` with a tab-separated file listing the genome names, and the fasta file path of their genomic sequences as described [here](../PangenomeAnalyses/pangenomeAnnotation.md#annotate-from-fasta-files). Alternatively, you can provide a list of GFF/GBFF files as input by using the `--anno` parameter, similar to how it is used in the workflow and annotate commands.
 
-The panmodule workflow predicts modules using default parameters. To fine-tune the detection, you can use the `module` command on a partioned pangenome acquired through the `workflow` for example or use a configuration file, as described [here](../practicalInformation.md#configuration-file). 
+The panmodule workflow predicts modules using default parameters. To fine-tune the detection, you can use the `module` command on a partitioned pangenome acquired through the `workflow` for example or use a configuration file, as described [here](../practicalInformation.md#configuration-file). 
 
 
 ## Predict conserved module
 
-The `module` command predicts conserved modules on an partioned pangenome. The command has several options for tuning the prediction. Details about each parameter are available in the related [preprint](https://www.biorxiv.org/content/10.1101/2021.12.06.471380v1).
+The `module` command predicts conserved modules on an partitioned pangenome. The command has several options for tuning the prediction. Details about each parameter are available in the related [preprint](https://www.biorxiv.org/content/10.1101/2021.12.06.471380v1).
 
 The command can be used simply as such:
 
