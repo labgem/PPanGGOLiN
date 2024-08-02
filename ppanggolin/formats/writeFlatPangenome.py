@@ -636,7 +636,7 @@ def write_persistent_duplication_statistics(pangenome: Pangenome, output: Path, 
     return single_copy_persistent
 
 def write_summaries_in_tsv(summaries: List[Dict[str, Any]], output_file: Path,
-                           dup_margin:float, soft_core:float):
+                           dup_margin:float, soft_core:float, compress:bool = False):
     """
     Writes summaries of organisms stored in a dictionary into a Tab-Separated Values (TSV) file.
 
@@ -644,6 +644,7 @@ def write_summaries_in_tsv(summaries: List[Dict[str, Any]], output_file: Path,
     :param output_file: The Path specifying the output TSV file location.
     :param soft_core: Soft core threshold used
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
+    :param compress: Compress the file in .gz
     """
     # Flatten the nested dictionaries within the summaries dictionary
     flat_summaries = [flatten_nested_dict(summary_info) for summary_info in summaries]
@@ -651,7 +652,7 @@ def write_summaries_in_tsv(summaries: List[Dict[str, Any]], output_file: Path,
     # Create a DataFrame from the flattened summaries
     df_summary = pd.DataFrame(flat_summaries)
 
-    with open(output_file, "w") as flout:
+    with write_compressed_or_not(output_file, compress) as flout:
         flout.write(f"#soft_core={round(soft_core, 3)}\n")
         flout.write(f"#duplication_margin={round(dup_margin, 3)}\n")
 
@@ -702,7 +703,7 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
 
         summaries.append(organism_summary)
 
-    write_summaries_in_tsv(summaries, output_file= output / "genomes_statistics.tsv", dup_margin=dup_margin, soft_core=soft_core)
+    write_summaries_in_tsv(summaries, output_file= output / "genomes_statistics.tsv", dup_margin=dup_margin, soft_core=soft_core, compress=compress)
     
     logging.getLogger("PPanGGOLiN").info("Done writing genome per genome statistics")
 
