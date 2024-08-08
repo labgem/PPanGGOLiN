@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import logging
@@ -58,7 +57,7 @@ def write_metadata_status(pangenome: Pangenome, h5f: tables.File, status_group: 
         metadata_group._v_attrs.modules = True
         metasources_group._v_attrs.modules = metasources["modules"]
 
-    return True if any(metadata_group._v_attrs._f_list()) else False
+    return any(metadata_group._v_attrs._f_list())
 
 
 def write_metadata_group(h5f: tables.File, metatype: str) -> tables.Group:

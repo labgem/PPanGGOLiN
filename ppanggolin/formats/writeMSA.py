@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import argparse
@@ -123,7 +122,7 @@ def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory
 
     # get genes that are present in only one copy for our family in each organism.
     single_copy_genes = []
-    for _, genes in family.get_org_dict().items():
+    for genes in family.get_org_dict().values():
         if len(genes) == 1:
             single_copy_genes.extend(genes)
 

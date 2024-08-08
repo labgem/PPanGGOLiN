@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf8
 
 # default libraries
 from __future__ import annotations
@@ -319,8 +318,7 @@ class Region(MetaFeatures):
 
         :return: Genes in the region
         """
-        for gene in sorted(self._genes_getter.values(), key=lambda x: x.position):
-            yield gene
+        yield from sorted(self._genes_getter.values(), key=lambda x: x.position)
 
     @property
     def families(self) -> Generator[GeneFamily, None, None]:
@@ -625,8 +623,7 @@ class Spot(MetaFeatures):
 
         :return: Regions in the spot
         """
-        for region in self._region_getter.values():
-            yield region
+        yield from self._region_getter.values()
 
     @property
     def families(self) -> Generator[GeneFamily, None, None]:

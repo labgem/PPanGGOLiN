@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf8
 
 # default libraries
 from collections import defaultdict
@@ -50,8 +49,7 @@ class Edge:
 
         :return: Generator with organisms as the key and an iterable of the gene pairs as value
         """
-        for organism in self._organisms.keys():
-            yield organism
+        yield from self._organisms.keys()
 
     @property
     def number_of_organisms(self) -> int:

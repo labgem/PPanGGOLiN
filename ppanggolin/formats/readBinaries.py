@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import logging
@@ -152,8 +151,7 @@ def read_chunks(table: tables.Table, column: str = None, chunk: int = 10000):
     :param chunk:
     """
     for i in range(0, table.nrows, chunk):
-        for row in table.read(start=i, stop=i + chunk, field=column):
-            yield row
+        yield from table.read(start=i, stop=i + chunk, field=column)
 
 
 def read_genedata(h5f: tables.File) -> Dict[int, Genedata]:
