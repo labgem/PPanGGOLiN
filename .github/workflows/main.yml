@@ -86,9 +86,8 @@ jobs:
         mkdir info_to_test
         ppanggolin all --cpu $NUM_CPUS --fasta genomes.fasta.list --output mybasicpangenome
         ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status > info_to_test/mybasicpangenome_info.yaml
-        cat info_to_test/mybasicpangenome_info.yaml
-        shasum -a 256 mybasicpangenome/gene_families.tsv
-        shasum -a 256 -c <(echo "$(cat expected_info_files/clusters_mybasicpangenome.sha256) mybasicpangenome/gene_families.tsv") || { echo 'Checksum verification failed.' >&2; exit 1; }
+        cat info_to_test/mybasicpangenome_info.yaml   
+        echo "$(cat expected_info_files/clusters_mybasicpangenome.sha256)  mybasicpangenome/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
         cd -
     # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
     #--draw_hotspots option is problematic on macOS.
