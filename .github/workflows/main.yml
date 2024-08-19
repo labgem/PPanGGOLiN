@@ -87,7 +87,8 @@ jobs:
         ppanggolin all --cpu $NUM_CPUS --fasta genomes.fasta.list --output mybasicpangenome
         ppanggolin info --pangenome mybasicpangenome/pangenome.h5 --content --parameters --status > info_to_test/mybasicpangenome_info.yaml
         cat info_to_test/mybasicpangenome_info.yaml   
-        echo "$(cat expected_info_files/clusters_mybasicpangenome.sha256)  mybasicpangenome/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        echo "$(grep 'mybasicpangenome/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  mybasicpangenome/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        shasum -a 256 mybasicpangenome/gene_families.tsv > info_to_test/checksum.txt
         cd -
     # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
     #--draw_hotspots option is problematic on macOS.
@@ -119,7 +120,10 @@ jobs:
         ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --no_print_info --recompute_metrics --log metrics.log
         ppanggolin info --pangenome stepbystep/pangenome.h5 > info_to_test/stepbystep_info.yaml
         cat info_to_test/stepbystep_info.yaml
-        cd - 
+        gzip -d stepbystep/gene_families.tsv.gz
+        echo "$(grep 'stepbystep/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  stepbystep/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        shasum -a 256 stepbystep/gene_families.tsv >> info_to_test/checksum.txt
+        cd -
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
       run: |
@@ -128,6 +132,8 @@ jobs:
         ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo --single_copy --cpu $NUM_CPUS
         ppanggolin info --pangenome myannopang/pangenome.h5 > info_to_test/myannopang_info.yaml
         cat info_to_test/myannopang_info.yaml
+        echo "$(grep 'myannopang/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  myannopang/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        shasum -a 256 myannopang/gene_families.tsv >> info_to_test/checksum.txt
         cd -
     - name: clusters reading from external file
       shell: bash -l {0}
@@ -138,6 +144,8 @@ jobs:
         awk 'BEGIN{FS=OFS="\t"} {$1 = $1 OFS $1} 1' clusters.tsv > clusters_with_reprez.tsv;
         ppanggolin cluster --clusters clusters_with_reprez.tsv -p readclusters/pangenome.h5 --cpu $NUM_CPUS
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f --cpu $NUM_CPUS
+        echo "$(grep 'readclusterpang/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  readclusterpang/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        shasum -a 256 readclusterpang/gene_families.tsv >> info_to_test/checksum.txt
         cd -
     - name: testing rgp_cluster command
       shell: bash -l {0}
@@ -187,6 +195,8 @@ jobs:
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
         cut -f1,2 clusters.tsv > clusters_without_frag.tsv
         ppanggolin panrgp  --anno genomes.gbff.list --cluster clusters_without_frag.tsv -o test_config --config panrgp_default_config.yaml --cpu $NUM_CPUS
+        echo "$(grep 'test_config/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  test_config/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        shasum -a 256 test_config/gene_families.tsv >> info_to_test/checksum.txt        
         cd -
     - name: testing projection cmd
       shell: bash -l {0}
