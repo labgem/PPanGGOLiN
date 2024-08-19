@@ -330,7 +330,7 @@ def write_projection_results(pangenome: Pangenome, organisms: Set[Organism],
     write_summaries_in_tsv(summaries,
                            output_file=output_file,
                            dup_margin=dup_margin,
-                           soft_core=soft_core)
+                           soft_core=soft_core, compress=compress)
 
 
 def summarize_projected_genome(organism: Organism,

@@ -10,7 +10,7 @@ from multiprocessing import Value
 from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 from pathlib import Path
 
 # install libraries
@@ -46,7 +46,7 @@ def reverse_complement(seq: str):
     return rcseq
 
 
-def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
+def launch_aragorn(fna_file: str, org: Organism, contig_to_length: Dict[str, int]) -> defaultdict:
     """
     Launches Aragorn to annotate tRNAs.
 
@@ -63,24 +63,30 @@ def launch_aragorn(fna_file: str, org: Organism) -> defaultdict:
     file_data = p.communicate()[0].decode().split("\n")[:: -1]
     gene_objs = defaultdict(set)
     c = 0
-    header = ""
+    contig_name = ""
     while len(file_data) != 0:
         line = file_data.pop()
         if line.startswith(">"):
-            header = line.replace(">", "").split()[0]
+            contig_name = line.replace(">", "").split()[0]
             file_data.pop()  # then next line must be removed too.
         elif len(line) > 0:  # if the line isn't empty, there's data to get.
             line_data = line.split()
             start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
             if start < 1 or stop < 1:
                 # In some case aragorn gives negative coordinates. This case is just ignored.
-                logging.warning(f'Aragorn gives non valid coordinates for a RNA gene: {line_data}  This RNA is ignored.')
+                logging.warning(f'Aragorn gives non valid coordiates for a RNA gene in contig {contig_name}: {line_data}. This RNA is ignored.')
                 continue
+            if start > contig_to_length[contig_name] or stop > contig_to_length[contig_name]:
+                logging.warning(f'Aragorn gives non valide coordiates for a RNA gene in contig {contig_name}. '
+                                f'Gene coordinates exceed contig length ({contig_to_length[contig_name]}): '
+                                f'{line_data}. This RNA is ignored.')
+                continue
+
             c += 1
             gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(4))
             gene.fill_annotations(start=start, stop=stop, strand="-" if line_data[2].startswith("c") else "+",
                                   gene_type="tRNA", product=line_data[1] + line_data[4])
-            gene_objs[header].add(gene)
+            gene_objs[contig_name].add(gene)
     return gene_objs
 
 
@@ -250,13 +256,15 @@ def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, contig_sequenc
 
     # launching tools for syntaxic annotation
     genes = defaultdict(list)
-    for key, items in launch_prodigal(contig_sequences=contig_sequences, org=org, code=code, use_meta=use_meta).items():
-        genes[key].extend(items)
+    for contig_name, genes_from_contig in launch_prodigal(contig_sequences=contig_sequences, org=org, code=code, use_meta=use_meta).items():
+        genes[contig_name].extend(genes_from_contig)
     if not norna:
-        for key, items in launch_aragorn(fna_file=fasta_file.name, org=org).items():
-            genes[key].extend(items)
-        for key, items in launch_infernal(fna_file=fasta_file.name, org=org, kingdom=kingdom, tmpdir=tmpdir).items():
-            genes[key].extend(items)
+        contig_to_length = {contig_name:len(contig_seq) for contig_name, contig_seq in contig_sequences.items()}
+
+        for contig_name, genes_from_contig in launch_aragorn(fna_file=fasta_file.name, org=org, contig_to_length= contig_to_length).items():
+            genes[contig_name].extend(genes_from_contig)
+        for contig_name, genes_from_contig in launch_infernal(fna_file=fasta_file.name, org=org, kingdom=kingdom, tmpdir=tmpdir).items():
+            genes[contig_name].extend(genes_from_contig)
     fasta_file.close()  # closing either tmp file or original fasta file.
     return genes
 
@@ -307,13 +315,13 @@ def get_dna_sequence(contig_seq: str, gene: Union[Gene, RNA]) -> str:
     # check contig coordinate is in scope of contig seq length
     highest_position = max((stop for _, stop in gene.coordinates))
     assert highest_position <= len(
-        contig_seq), f"Gene coordinates exceed contig length. gene coordinates {gene.coordinates} vs contig length {len(contig_seq)}"
+        contig_seq), f"Coordinates of gene {gene} exceed length of the contig. Gene coordinates {gene.coordinates} vs contig length {len(contig_seq)}"
 
     # Extract gene seq
     seq = ''.join([contig_seq[start - 1:stop] for start, stop in gene.coordinates])
 
     # check length of extracted seq
-    assert len(seq) == len(gene), ("The gene sequence extracted from the contig does not have the expected length: "
+    assert len(seq) == len(gene), (f"The gene sequence of {gene} extracted from the contig does not have the expected length: "
                                    f"extracted seq length {len(seq)}nt vs expected length based on gene coordinates ({gene.coordinates}) {len(gene)}nt ")
 
     if gene.strand == "+":
@@ -324,7 +332,7 @@ def get_dna_sequence(contig_seq: str, gene: Union[Gene, RNA]) -> str:
 
 def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str], tmpdir: str,
                       code: int = 11, norna: bool = False, kingdom: str = "bacteria",
-                      allow_overlap: bool = False, procedure: str = None) -> Organism:
+                      allow_overlap: bool = False, procedure: Optional[str] = None) -> Organism:
     """
     Function to annotate a single organism
 

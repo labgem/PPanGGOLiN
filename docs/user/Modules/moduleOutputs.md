@@ -112,7 +112,7 @@ Modules:
 	Number_of_modules: 380
 	Families_in_Modules: 2242
 	Partition_composition:
-		Persitent: 0.27
+		Persistent: 0.27
 		Shell: 37.69
 		Cloud: 62.04
 	Number_of_Families_per_Modules:
@@ -122,4 +122,3 @@ Modules:
 		mean: 5.9
 
 ```
-

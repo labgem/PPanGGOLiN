@@ -276,7 +276,7 @@ def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrappe
             return file_or_file_path
 
 
-def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gzip.GzipFile, TextIO]:
+def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gzip.GzipFile, TextIOWrapper]:
     """
     Create a file-like object, compressed or not.
 
@@ -736,14 +736,18 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
             # overwrite write and draw default when not specified in config 
             if workflow_step == 'write_pangenome':
                 for out_flag in WRITE_PAN_FLAG_DEFAULT_IN_WF:
-                    setattr(default_step_args, out_flag, True)
+                    if out_flag not in config[workflow_step]:
+                        setattr(default_step_args, out_flag, True)
+
             if workflow_step == 'write_genomes':
                 for out_flag in WRITE_GENOME_FLAG_DEFAULT_IN_WF:
-                    setattr(default_step_args, out_flag, True)
+                    if out_flag not in config[workflow_step]:
+                        setattr(default_step_args, out_flag, True)
 
             if workflow_step == "draw":
                 for out_flag in DRAW_FLAG_DEFAULT_IN_WF:
-                    setattr(default_step_args, out_flag, True)
+                    if out_flag not in config[workflow_step]:
+                        setattr(default_step_args, out_flag, True)
 
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
 

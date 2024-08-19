@@ -209,7 +209,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
 
         start_desc = time.time()
 
-        write_pangenome_arguments = ["csv", "Rtab", "gexf", "light_gexf", "projection", "stats", 'json', "families_tsv"]
+        write_pangenome_arguments = ["gexf", "light_gexf", 'json', "csv", "Rtab", "stats", "partitions", "families_tsv"]
 
         # Check that we don't ask write to output something not computed.
         borders, spots, spot_modules, modules, regions = (False, False, False, False, False)
