@@ -761,7 +761,7 @@ def write_gene_families_tsv(output: Path, compress: bool = False, disable_bar: b
     """
     logging.getLogger("PPanGGOLiN").info(
         "Writing the file providing the association between genes and gene families...")
-    outname = output / "gene_families.tsv"
+    outname = output / f"gene_families.tsv{'.gz' if compress else ''}"
     out_list = []
     for fam in tqdm(pan.gene_families, total=pan.number_of_gene_families, unit='family', disable=disable_bar):
         for gene in fam.genes:
@@ -770,7 +770,7 @@ def write_gene_families_tsv(output: Path, compress: bool = False, disable_bar: b
     out_df["count"] = out_df.groupby("GeneFam")["GeneFam"].transform('count')
     out_df = out_df.sort_values(by=["count", "Gene", "local_id", "is_frag"], ascending=[False, True, True, True])
     out_df = out_df.drop(columns=['count'])
-    out_df.to_csv(outname, sep="\t", index=False, header=False)
+    out_df.to_csv(outname, sep="\t", index=False, header=False, compression='infer' if compress else None)
     logging.getLogger("PPanGGOLiN").info("Done writing the file providing the association between genes and "
                                          f"gene families: '{outname}'")
 
