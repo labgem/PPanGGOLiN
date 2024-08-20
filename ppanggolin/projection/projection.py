@@ -914,7 +914,7 @@ def predict_spots_in_input_organisms(
     # Check congruency with already computed spot and add spot id in node attributes
     check_spots_congruency(graph_spot, initial_spots)
 
-    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1
+    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1 if len(initial_spots) != 0 else 1
 
     input_org_to_spots = {}
     for input_organism, rgps in input_org_2_rgps.items():
