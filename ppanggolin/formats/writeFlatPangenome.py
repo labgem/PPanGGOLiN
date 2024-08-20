@@ -761,14 +761,19 @@ def write_gene_families_tsv(output: Path, compress: bool = False, disable_bar: b
     """
     logging.getLogger("PPanGGOLiN").info(
         "Writing the file providing the association between genes and gene families...")
-    outname = output / "gene_families.tsv"
-    with write_compressed_or_not(outname, compress) as tsv:
-        for fam in tqdm(pan.gene_families, total=pan.number_of_gene_families, unit='family', disable=disable_bar):
-            for gene in fam.genes:
-                tsv.write("\t".join([fam.name, gene.ID, gene.local_identifier,
-                                     "F" if gene.is_fragment else ""]) + "\n")
+    outname = output / f"gene_families.tsv{'.gz' if compress else ''}"
+    out_list = []
+    for fam in tqdm(pan.gene_families, total=pan.number_of_gene_families, unit='family', disable=disable_bar):
+        for gene in fam.genes:
+            out_list.append([fam.name, gene.ID, gene.local_identifier, "F" if gene.is_fragment else ""])
+    out_df = pd.DataFrame(out_list, columns=["GeneFam", "Gene", "local_id", "is_frag"])
+    out_df["count"] = out_df.groupby("GeneFam")["GeneFam"].transform('count')
+    out_df = out_df.sort_values(by=["count", "Gene", "local_id", "is_frag"], ascending=[False, True, True, True])
+    out_df = out_df.drop(columns=['count'])
+    out_df.to_csv(outname, sep="\t", index=False, header=False, compression='infer' if compress else None)
     logging.getLogger("PPanGGOLiN").info("Done writing the file providing the association between genes and "
                                          f"gene families: '{outname}'")
+
 
 def summarize_spots(spots: set, output: Path, compress: bool = False, file_name="summarize_spots.tsv"):
     """

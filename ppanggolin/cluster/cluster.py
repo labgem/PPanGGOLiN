@@ -95,7 +95,7 @@ def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11
     run_subprocess(cmd, msg="MMSeqs2 cluster failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info("Extracting cluster representatives...")
     repdb = tmpdir / 'representative_db'
-    cmd = list(map(str, ["mmseqs", "result2repseq", seqdb, cludb, repdb]))
+    cmd = list(map(str, ["mmseqs", "result2repseq", seqdb, cludb, repdb, "--threads", cpu]))
     run_subprocess(cmd, msg="MMSeqs2 result2repseq failed with the following error:\n")
     reprfa = tmpdir / 'representative_sequences.fasta'
     cmd = list(map(str, ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]))
