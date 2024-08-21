@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf8
 
 from __future__ import annotations
 import logging
@@ -230,7 +229,7 @@ class Feature(MetaFeatures):
         """
         Return a string representation of the coordinates
         """
-        return ','.join([f'{start}..{stop}' for start, stop in self.coordinates])
+        return ','.join(f'{start}..{stop}' for start, stop in self.coordinates)
     
     def start_relative_to(self, gene):
         """
