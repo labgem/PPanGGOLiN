@@ -166,13 +166,9 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                     else:
                         partitions_list[i] = parti[positions_max_prob.pop()]
     except OSError:
-        raise ValueError(
-            "Partitioning did not work (the number of genomes used is probably too low), "
+        logging.getLogger("PPanGGOLiN").warning("Partitioning did not work (the number of genomes used is probably too low), "
             f"see logs here to obtain more details {nem_dir_path.as_posix()}")
-        
-        # raising an error here for now.  
-        # TODO: Would be better to be able to handle pangenome with no partition.
-        # return {}, None, None  # return empty objects
+        return {}, None, None  # return empty objects
 
     except ValueError:
         # return the default partitions_list which correspond to undefined
