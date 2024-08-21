@@ -430,7 +430,7 @@ class Region(MetaFeatures):
         :return: A list of bordering genes in start and stop position
         """
         genes_in_region = list(self.genes)
-        # Identifiying left border
+        # Identifying left border
         left_border = []
         pos = self.starter.position
         init = pos
@@ -456,7 +456,7 @@ class Region(MetaFeatures):
             if pos == init:
                 break  # looped around the contig
 
-         # Identifiying right border
+         # Identifying right border
         right_border = []
         pos = self.stopper.position
         init = pos

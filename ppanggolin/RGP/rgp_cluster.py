@@ -139,7 +139,7 @@ def compute_grr(rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily]
 
 def compute_jaccard_index(rgp_a_families: set, rgp_b_families: set) -> float:
     """
-    Compute jaccard index between two rgp based on their famillies.
+    Compute jaccard index between two rgp based on their families.
 
     :param rgp_a_families: Rgp A
     :param rgp_b_families: rgp B
@@ -289,7 +289,7 @@ def add_info_to_identical_rgps(rgp_graph: nx.Graph, identical_rgps_objects: List
                                [True for i_rgp in identical_rgp_obj.rgps if i_rgp.is_whole_contig]),
                            identical_rgp_spots=";".join(spots_of_identical_rgp_obj),
                            spot_id=spots_of_identical_rgp_obj.pop() if len(
-                               spots_of_identical_rgp_obj) == 1 else "Mulitple spots",
+                               spots_of_identical_rgp_obj) == 1 else "Multiple spots",
                             modules = ';'.join({str(module) for module in identical_rgp_obj.modules}),
                            )
 
@@ -606,18 +606,18 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
         add_rgp_metadata_to_graph(grr_graph, rgps_in_graph)
 
     if "gexf" in graph_formats:
-        # writting graph in gexf format
+        # writing graph in gexf format
         graph_file_name = os.path.join(output, f"{basename}.gexf")
-        logging.info(f"Writting graph in gexf format in {graph_file_name}.")
+        logging.info(f"Writing graph in gexf format in {graph_file_name}.")
         nx.readwrite.gexf.write_gexf(grr_graph, graph_file_name)
 
     if "graphml" in graph_formats:
         graph_file_name = os.path.join(output, f"{basename}.graphml")
-        logging.info(f"Writting graph in graphml format in {graph_file_name}.")
+        logging.info(f"Writing graph in graphml format in {graph_file_name}.")
         nx.readwrite.graphml.write_graphml(grr_graph, graph_file_name)
 
     outfile = os.path.join(output, f"{basename}.tsv")
-    logging.info(f"Writting rgp clusters in tsv format in {outfile}")
+    logging.info(f"Writing rgp clusters in tsv format in {outfile}")
 
     write_rgp_cluster_table(
         outfile, grr_graph, rgps_in_graph, grr_metric, rgp_to_spot)

@@ -80,9 +80,9 @@ def write_metadata_group(h5f: tables.File, metatype: str) -> tables.Group:
 
 
 def desc_metadata(max_len_dict: Dict[str, int], type_dict: Dict[str, tables.Col]) -> dict:
-    """Create a formated table for metadata description
+    """Create a formatted table for metadata description
 
-    :return: Formated table
+    :return: Formatted table
     """
     desc_dict = {attr: tables.StringCol(itemsize=max_value) for attr, max_value in max_len_dict.items()}
     desc_dict.update({attr: col_type for attr, col_type in type_dict.items()})

@@ -651,7 +651,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     Manage command line and config arguments for the given subcommand.
 
     This function parse arguments from the cmd line and config file and set up the following priority: cli > config > default
-    When the subcommand is a workflow, the subcommand used in worflows are also parsed in the config.  
+    When the subcommand is a workflow, the subcommand used in workflows are also parsed in the config.  
 
 
     :params subcommand: Name of the subcommand.
@@ -763,7 +763,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             params_that_differ.update(step_params_that_differ)
 
-            # Add args namespace of the step to the inital args namespace
+            # Add args namespace of the step to the initial args namespace
             setattr(args, workflow_step, step_args)
 
     if params_that_differ:
@@ -819,7 +819,7 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
 
     :params config_param_val: Dict with parameter name as key and parameter value as value.
 
-    :return: list of argument strings formated for an argparse.ArgumentParser object.
+    :return: list of argument strings formatted for an argparse.ArgumentParser object.
     """
 
     arguments_to_parse = []

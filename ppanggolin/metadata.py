@@ -51,12 +51,12 @@ class Metadata:
     def __len__(self) -> int:
         """Get the number of attribute links to the metadata object
 
-        :return: Number of fields (atribute) of the metadata
+        :return: Number of fields (attribute) of the metadata
         """
         return len(self.__dict__) - 1
 
     def __getattr__(self, attr: str) -> Any:
-        """Get the value corresponding to the given attibute
+        """Get the value corresponding to the given attribute
 
         :return: Value of the attribute
 

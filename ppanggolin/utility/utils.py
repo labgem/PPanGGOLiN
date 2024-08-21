@@ -11,7 +11,7 @@ from ppanggolin.utils import get_subcommand_parser, check_log, ALL_INPUT_PARAMS,
     WORKFLOW_SUBCOMMANDS, ALL_WORKFLOW_DEPENDENCIES, WRITE_PAN_FLAG_DEFAULT_IN_WF, WRITE_GENOME_FLAG_DEFAULT_IN_WF, DRAW_FLAG_DEFAULT_IN_WF
 from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 
-""" Utility scripts to help formating input files of PPanggolin."""
+""" Utility scripts to help formatting input files of PPanggolin."""
 
 
 def split(list_object: list, chunk_count: int) -> List[List[int]]:
@@ -35,9 +35,9 @@ def split_comment_string(comment_string: str, max_word_count: int = 20, prefix: 
 
     :params comment_string: comment string to split
     :params max_word_count: maximum number of word per line
-    :params prefix: prefic used to start a new comment line
+    :params prefix: prefix used to start a new comment line
     
-    :return : the splited comment line.
+    :return : the split comment line.
     """
 
     splitted_comment = comment_string.split()
@@ -184,8 +184,8 @@ def launch_default_config(args: argparse.Namespace):
 
             if parser_action.dest in ALL_INPUT_PARAMS:
                 if sub_command == initial_command:
-                    # with worflow dependencies, we do not use their input params
-                    # as input params are given by worflow cmds
+                    # with workflow dependencies, we do not use their input params
+                    # as input params are given by workflow cmds
                     inputs_actions.append(parser_action)
 
             elif parser_action.dest in ALL_GENERAL_PARAMS:

@@ -241,7 +241,7 @@ class GeneFamily(MetaFeatures):
         :raises ValueError: If the gene family has no partition assigned
         """
         if self.partition == "":
-            raise ValueError("The gene family has not beed associated to a partition.")
+            raise ValueError("The gene family has not been associated to a partition.")
         if self.partition.startswith("P"):
             return "persistent"
         elif self.partition.startswith("C"):

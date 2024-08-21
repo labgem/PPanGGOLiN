@@ -73,7 +73,7 @@ def launch_aragorn(fna_file: str, org: Organism, contig_to_length: Dict[str, int
             start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
             if start < 1 or stop < 1:
                 # In some case aragorn gives negative coordinates. This case is just ignored.
-                logging.warning(f'Aragorn gives non valide coordiates for a RNA gene in contig {contig_name}: {line_data}. This RNA is ignored.')
+                logging.warning(f'Aragorn gives non valid coordiates for a RNA gene in contig {contig_name}: {line_data}. This RNA is ignored.')
                 continue
             if start > contig_to_length[contig_name] or stop > contig_to_length[contig_name]:
                 logging.warning(f'Aragorn gives non valide coordiates for a RNA gene in contig {contig_name}. '
@@ -215,7 +215,7 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
 
 def write_tmp_fasta(contigs: dict, tmpdir: str) -> tempfile._TemporaryFileWrapper:
     """
-     Writes a temporary fna formated file and returns the file-like object. Useful in case of  compressed input file.
+     Writes a temporary fna formatted file and returns the file-like object. Useful in case of  compressed input file.
      The file will be deleted when close() is called.
 
     :param contigs: Contigs sequences of each contig

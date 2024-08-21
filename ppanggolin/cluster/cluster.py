@@ -99,7 +99,7 @@ def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11
     reprfa = tmpdir / 'representative_sequences.fasta'
     cmd = list(map(str, ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]))
     run_subprocess(cmd, msg="MMSeqs2 result2flat failed with the following error:\n")
-    logging.getLogger("PPanGGOLiN").info("Writing gene to family informations")
+    logging.getLogger("PPanGGOLiN").info("Writing gene to family information")
     outtsv = tmpdir / 'families_tsv'
     cmd = list(map(str, ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv, "--threads", cpu, "--full-header"]))
     run_subprocess(cmd, msg="MMSeqs2 createtsv failed with the following error:\n")
@@ -156,7 +156,7 @@ def read_tsv(tsv_file_name: Path) -> Tuple[Dict[str, Tuple[str, bool]], Dict[str
 
     :param tsv_file_name: path to the tsv
 
-    :return: two dictionnary which link genes and families
+    :return: two dictionaries which link genes and families
     """
     genes2fam = {}
     fam2genes = defaultdict(set)
