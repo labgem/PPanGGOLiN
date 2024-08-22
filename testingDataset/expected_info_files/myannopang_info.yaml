@@ -8,7 +8,7 @@ Status:
     RGP_Predicted: false
     Spots_Predicted: false
     Modules_Predicted: false
-    PPanGGOLiN_Version: 2.1.0
+    PPanGGOLiN_Version: 2.1.1
 
 Content:
     Genes: 47961
