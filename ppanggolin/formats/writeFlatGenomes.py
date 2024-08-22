@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import argparse
@@ -395,10 +394,10 @@ def convert_overlapping_coordinates_for_gff(coordinates: List[Tuple[int, int]], 
     
     start, stop = coordinates[0]
     new_coordinates =  [(start, stop )]
-    # convert all coordinate that are at the begining 
+    # convert all coordinates that are at the beginning 
     # of the contig to the extent of the contig
     for start_n, stop_n in coordinates[1:]:
-        if start_n < start: # we are on the begining of the contig
+        if start_n < start: # we are on the beginning of the contig
             new_start = contig_length + start_n
             new_stop = contig_length + stop_n
             new_coordinates.append((new_start, new_stop))

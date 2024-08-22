@@ -24,7 +24,7 @@ By default the command creates two output files:
 
 ### 2. 'input_to_pangenome_associations.blast-tab'
 
-'input_to_pangenome_associations.blast-tab' is a .tsv file that follows the tabular blast format which many alignment softwares (such as blast, diamond, mmseqs etc.) use, with two additional columns: the length of query sequence which was aligned, and the length of the subject sequence which was aligned (provided with qlen and slen with the softwares I previously named). You can find a detailed description of the format in [this blog post](https://www.metagenomics.wiki/tools/blast/blastn-output-format-6) for example (and there are many other descriptions of this format on internet, if you search for 'tabular blast format'). The query are the provided sequences, and the subjet are the pangenome gene families.
+'input_to_pangenome_associations.blast-tab' is a .tsv file that follows the tabular blast format which many alignment software (such as blast, diamond, mmseqs etc.) use, with two additional columns: the length of query sequence which was aligned, and the length of the subject sequence which was aligned (provided with qlen and slen with the software I previously named). You can find a detailed description of the format in [this blog post](https://www.metagenomics.wiki/tools/blast/blastn-output-format-6) for example (and there are many other descriptions of this format on internet, if you search for 'tabular blast format'). The query are the provided sequences, and the subject are the pangenome gene families.
 
 
 ### 3. Optional outputs 

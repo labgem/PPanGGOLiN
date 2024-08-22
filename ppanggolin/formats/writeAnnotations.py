@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import logging
@@ -140,7 +139,7 @@ def write_genes(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Grou
     :param gene_desc: Genes table description
     :param disable_bar: Allow to disable progress bar
 
-    :returns: Dictionnary linking genedata to gene identifier
+    :returns: Dictionary linking genedata to gene identifier
     """
     global genedata_counter
     genedata2gene = {}
@@ -188,7 +187,7 @@ def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group
     :param rna_desc: RNAs table description
     :param disable_bar: Allow to disable progress bar
 
-    :returns: Dictionnary linking genedata to RNA identifier
+    :returns: Dictionary linking genedata to RNA identifier
     """
     global genedata_counter
     genedata2rna = {}
@@ -295,11 +294,11 @@ def get_genedata(feature: Union[Gene, RNA]) -> Genedata:
                     feature.product, genetic_code, coordinates = feature.coordinates)
 
 def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates_2_id, disable_bar):
-    """Writting genedata information in pangenome file
+    """Writing genedata information in pangenome file
 
     :param h5f: Pangenome file
     :param annotation: Annotation group in Table
-    :param genedata2gene: Dictionnary linking genedata to gene identifier.
+    :param genedata2gene: Dictionary linking genedata to gene identifier.
     :param disable_bar: Allow disabling progress bar
     """
     number_of_gene_pieces = sum([len(gene.coordinates) for gene in genes_with_joined_coordinates_2_id])
@@ -330,12 +329,12 @@ def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates
 
 def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group,
                    genedata2gene: Dict[Genedata, int], disable_bar=False):
-    """Writting genedata information in pangenome file
+    """Writing genedata information in pangenome file
 
     :param pangenome: Pangenome object filled with annotation.
     :param h5f: Pangenome file
     :param annotation: Annotation group in Table
-    :param genedata2gene: Dictionnary linking genedata to gene identifier.
+    :param genedata2gene: Dictionary linking genedata to gene identifier.
     :param disable_bar: Allow disabling progress bar
     """
     try:
@@ -377,7 +376,7 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: boo
     :param rec_contigs: Allow writing contigs in pangenomes
     :param rec_genes: Allow writing genes in pangenomes
     :param rec_rnas: Allow writing RNAs in pangenomes
-    :param disable_bar: Alow to disable progress bar
+    :param disable_bar: Allow to disable progress bar
     """
     annotation = h5f.create_group("/", "annotations", "Annotations of the pangenome organisms")
 
@@ -429,7 +428,7 @@ def gene_sequences_desc(gene_id_len: int, gene_type_len: int) -> Dict[str, Union
     :param gene_id_len: Maximum size of gene sequence identifier
     :param gene_type_len: Maximum size of gene type
 
-    :return: Formated table
+    :return: Formatted table
     """
     return {
         "gene": tables.StringCol(itemsize=gene_id_len),
@@ -455,7 +454,7 @@ def sequence_desc(max_seq_len: int) -> Dict[str, Union[tables.UIntCol, tables.St
     """
     Table description to save sequences
     :param max_seq_len: Maximum size of gene type
-    :return: Formated table
+    :return: Formatted table
     """
     return {
         "seqid": tables.UInt32Col(),

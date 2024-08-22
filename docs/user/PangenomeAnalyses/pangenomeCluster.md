@@ -141,7 +141,7 @@ Family_C    Gene_6  Gene_6
 ```{mermaid}
 
 ---
-title: "Pangenome gene families when specifing representative gene"
+title: "Pangenome gene families when specifying representative gene"
 align: center
 ---
 

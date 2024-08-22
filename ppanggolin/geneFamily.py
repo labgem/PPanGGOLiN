@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf8
 
 # default libraries
 from __future__ import annotations
@@ -242,7 +241,7 @@ class GeneFamily(MetaFeatures):
         :raises ValueError: If the gene family has no partition assigned
         """
         if self.partition == "":
-            raise ValueError("The gene family has not beed associated to a partition.")
+            raise ValueError("The gene family has not been associated to a partition.")
         if self.partition.startswith("P"):
             return "persistent"
         elif self.partition.startswith("C"):
@@ -259,8 +258,7 @@ class GeneFamily(MetaFeatures):
 
         :return: Edges of the gene family
         """
-        for edge in self._edges_getter.values():
-            yield edge
+        yield from self._edges_getter.values()
 
     @property
     def neighbors(self) -> Generator[GeneFamily, None, None]:
@@ -268,8 +266,7 @@ class GeneFamily(MetaFeatures):
 
         :return: Neighbors
         """
-        for neighbor in self._edges_getter.keys():
-            yield neighbor
+        yield from self._edges_getter.keys()
 
     @property
     def genes(self):
@@ -277,8 +274,7 @@ class GeneFamily(MetaFeatures):
 
         :return: Generator of genes
         """
-        for gene in self._genes_getter.values():
-            yield gene
+        yield from self._genes_getter.values()
 
     @property
     def organisms(self) -> Generator[Organism, None, None]:
@@ -288,8 +284,7 @@ class GeneFamily(MetaFeatures):
         """
         if len(self._genePerOrg) == 0:
             _ = self.get_org_dict()
-        for org in self._genePerOrg.keys():
-            yield org
+        yield from self._genePerOrg.keys()
 
     @property
     def spots(self) -> Generator[Spot, None, None]:
@@ -297,8 +292,7 @@ class GeneFamily(MetaFeatures):
 
         :return: Generator of spots
         """
-        for spot in self._spots:
-            yield spot
+        yield from self._spots
 
     @property
     def module(self) -> Module:
@@ -446,8 +440,7 @@ class GeneFamily(MetaFeatures):
             _ = self.get_org_dict()
         if org not in self._genePerOrg:
             raise KeyError(f"Genome does not have the gene family: {self.name}")
-        for gene in self._genePerOrg[org]:
-            yield gene
+        yield from self._genePerOrg[org]
 
 
     def is_single_copy(self, dup_margin: float, exclude_fragment: bool) -> bool:
@@ -459,10 +452,7 @@ class GeneFamily(MetaFeatures):
         :return: A boolean indicating whether the gene family is single copy.
         """
         
-        if self.duplication_ratio(exclude_fragment) < dup_margin:
-            return True
-        else:
-            return False
+        return self.duplication_ratio(exclude_fragment) < dup_margin
 
     def duplication_ratio(self, exclude_fragment: bool) -> bool:
         """

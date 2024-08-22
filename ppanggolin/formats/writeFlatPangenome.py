@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import argparse
@@ -480,7 +479,7 @@ def summarize_genome(organism: Organism,
     :param pangenome_persistent_count: Count of persistent genes in the pangenome.
     :param pangenome_persistent_single_copy_families: Set of gene families considered as persistent single-copy in the pangenome.
     :param soft_core_families: soft core families of the pangenome
-    :parma exact_core_families: exact core families of the pangenome
+    :param exact_core_families: exact core families of the pangenome
     :param input_org_rgps:  Number of regions of genomic plasticity in the input organism. None if not computed.
     :param input_org_spots:  Number of spots in the input organism. None if not computed.
     :param input_org_modules: Number of modules in the input organism. None if not computed.
@@ -636,7 +635,7 @@ def write_persistent_duplication_statistics(pangenome: Pangenome, output: Path, 
     return single_copy_persistent
 
 def write_summaries_in_tsv(summaries: List[Dict[str, Any]], output_file: Path,
-                           dup_margin:float, soft_core:float):
+                           dup_margin:float, soft_core:float, compress:bool = False):
     """
     Writes summaries of organisms stored in a dictionary into a Tab-Separated Values (TSV) file.
 
@@ -644,6 +643,7 @@ def write_summaries_in_tsv(summaries: List[Dict[str, Any]], output_file: Path,
     :param output_file: The Path specifying the output TSV file location.
     :param soft_core: Soft core threshold used
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
+    :param compress: Compress the file in .gz
     """
     # Flatten the nested dictionaries within the summaries dictionary
     flat_summaries = [flatten_nested_dict(summary_info) for summary_info in summaries]
@@ -651,7 +651,7 @@ def write_summaries_in_tsv(summaries: List[Dict[str, Any]], output_file: Path,
     # Create a DataFrame from the flattened summaries
     df_summary = pd.DataFrame(flat_summaries)
 
-    with open(output_file, "w") as flout:
+    with write_compressed_or_not(output_file, compress) as flout:
         flout.write(f"#soft_core={round(soft_core, 3)}\n")
         flout.write(f"#duplication_margin={round(dup_margin, 3)}\n")
 
@@ -702,7 +702,7 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
 
         summaries.append(organism_summary)
 
-    write_summaries_in_tsv(summaries, output_file= output / "genomes_statistics.tsv", dup_margin=dup_margin, soft_core=soft_core)
+    write_summaries_in_tsv(summaries, output_file= output / "genomes_statistics.tsv", dup_margin=dup_margin, soft_core=soft_core, compress=compress)
     
     logging.getLogger("PPanGGOLiN").info("Done writing genome per genome statistics")
 
@@ -760,14 +760,19 @@ def write_gene_families_tsv(output: Path, compress: bool = False, disable_bar: b
     """
     logging.getLogger("PPanGGOLiN").info(
         "Writing the file providing the association between genes and gene families...")
-    outname = output / "gene_families.tsv"
-    with write_compressed_or_not(outname, compress) as tsv:
-        for fam in tqdm(pan.gene_families, total=pan.number_of_gene_families, unit='family', disable=disable_bar):
-            for gene in fam.genes:
-                tsv.write("\t".join([fam.name, gene.ID, gene.local_identifier,
-                                     "F" if gene.is_fragment else ""]) + "\n")
+    outname = output / f"gene_families.tsv{'.gz' if compress else ''}"
+    out_list = []
+    for fam in tqdm(pan.gene_families, total=pan.number_of_gene_families, unit='family', disable=disable_bar):
+        for gene in fam.genes:
+            out_list.append([fam.name, gene.ID, gene.local_identifier, "F" if gene.is_fragment else ""])
+    out_df = pd.DataFrame(out_list, columns=["GeneFam", "Gene", "local_id", "is_frag"])
+    out_df["count"] = out_df.groupby("GeneFam")["GeneFam"].transform('count')
+    out_df = out_df.sort_values(by=["count", "Gene", "local_id", "is_frag"], ascending=[False, True, True, True])
+    out_df = out_df.drop(columns=['count'])
+    out_df.to_csv(outname, sep="\t", index=False, header=False, compression='infer' if compress else None)
     logging.getLogger("PPanGGOLiN").info("Done writing the file providing the association between genes and "
                                          f"gene families: '{outname}'")
+
 
 def summarize_spots(spots: set, output: Path, compress: bool = False, file_name="summarize_spots.tsv"):
     """
@@ -1059,7 +1064,7 @@ def write_pangenome_flat_files(pangenome: Pangenome, output: Path, cpu: int = 1,
     :param soft_core: Soft core threshold to use
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
     :param csv: write csv file format as used by Roary
-    :param gene_pa: write gene presence abscence matrix
+    :param gene_pa: write gene presence absence matrix
     :param gexf: write pangenome graph in gexf format
     :param light_gexf: write pangenome graph with only gene families
     :param stats: write statistics about pangenome
@@ -1210,7 +1215,7 @@ def parser_flat(parser: argparse.ArgumentParser):
     optional.add_argument("--gexf", required=False, action="store_true",
                           help="write a gexf file with all the annotations and all the genes of each gene family")
     optional.add_argument("--light_gexf", required=False, action="store_true",
-                          help="write a gexf file with the gene families and basic informations about them")
+                          help="write a gexf file with the gene families and basic information about them")
     
     optional.add_argument("--json", required=False, action="store_true", help="Writes the graph in a json file format")
 

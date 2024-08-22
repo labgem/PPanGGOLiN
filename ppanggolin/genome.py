@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf8
 
 from __future__ import annotations
 import logging
@@ -77,7 +76,7 @@ class Feature(MetaFeatures):
         try:
             return sum([(stop - start +1) for start, stop in self.coordinates ])
         except TypeError:
-            raise ValueError(f"Cooridnates of gene {self} has not been defined. Geting is length is then impossible.")
+            raise ValueError(f"Coordinates of gene {self} have not been defined. Getting its length is then impossible.")
 
     @property
     def has_joined_coordinates(self) -> bool:
@@ -230,7 +229,7 @@ class Feature(MetaFeatures):
         """
         Return a string representation of the coordinates
         """
-        return ','.join([f'{start}..{stop}' for start, stop in self.coordinates])
+        return ','.join(f'{start}..{stop}' for start, stop in self.coordinates)
     
     def start_relative_to(self, gene):
         """
@@ -311,7 +310,7 @@ class Gene(Feature):
     def RGP(self):
         """Return the RGP that gene belongs to
 
-        :return: RGP fo the Gene
+        :return: RGP of the Gene
         :rtype: Region
         """
         return self._RGP

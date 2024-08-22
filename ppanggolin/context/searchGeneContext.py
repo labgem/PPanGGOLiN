@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import argparse
@@ -202,10 +201,10 @@ def get_gene_contexts(context_graph: nx.Graph, families_of_interest: Set[GeneFam
 
     # Connected component graph Filtering
 
-    # remove singleton famillies
+    # remove singleton families
     connected_components = (component for component in connected_components if len(component) > 1)
 
-    # remove component made only of famillies not initially requested
+    # remove component made only of families not initially requested
     connected_components = (component for component in connected_components if component & families_of_interest)
 
     gene_contexts = set()

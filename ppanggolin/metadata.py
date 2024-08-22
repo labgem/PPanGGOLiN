@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf8
 
 # default libraries
 import logging
@@ -52,12 +51,12 @@ class Metadata:
     def __len__(self) -> int:
         """Get the number of attribute links to the metadata object
 
-        :return: Number of fields (atribute) of the metadata
+        :return: Number of fields (attribute) of the metadata
         """
         return len(self.__dict__) - 1
 
     def __getattr__(self, attr: str) -> Any:
-        """Get the value corresponding to the given attibute
+        """Get the value corresponding to the given attribute
 
         :return: Value of the attribute
 
@@ -119,8 +118,7 @@ class MetaFeatures:
         """
 
         for meta_dict in self._metadata_getter.values():
-            for metadata in meta_dict.values():
-                yield metadata
+            yield from meta_dict.values()
 
     @property
     def sources(self) -> Generator[str, None, None]:
@@ -260,7 +258,7 @@ class MetaFeatures:
         :return: True if it has metadata else False
         """
 
-        return True if self.number_of_metadata > 0 else False
+        return self.number_of_metadata > 0
 
     def has_source(self, source: str) -> bool:
         """Check if the source is in the metadata feature
@@ -269,4 +267,4 @@ class MetaFeatures:
 
         :return: True if the source is in the metadata feature else False
         """
-        return True if source in self._metadata_getter else False
+        return source in self._metadata_getter

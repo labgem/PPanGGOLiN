@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import logging
@@ -72,9 +71,9 @@ def check_log(log_file: str) -> TextIO:
             if os.access(log_file, os.W_OK):
                 return log_file
             else:
-                raise IOError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
+                raise OSError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
         else:
-            raise IOError(f"The given log file: {log_file} is a directory. Please provide a valid log file.")
+            raise OSError(f"The given log file: {log_file} is a directory. Please provide a valid log file.")
 
     # target does not exist, check perms on parent dir
     parent_dir = os.path.dirname(log_file)
@@ -84,7 +83,7 @@ def check_log(log_file: str) -> TextIO:
     if os.access(parent_dir, os.W_OK):
         return log_file
     else:
-        raise IOError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
+        raise OSError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
 
 
 def check_tsv_sanity(tsv: Path):
@@ -94,8 +93,8 @@ def check_tsv_sanity(tsv: Path):
     """
     try:
         input_file = open(tsv, "r")
-    except IOError as ios_error:
-        raise IOError(ios_error)
+    except OSError as ios_error:
+        raise OSError(ios_error)
     except Exception as exception_error:
         raise Exception(f"The following unexpected error happened when opening the list of genomes path: "
                         f"{exception_error}")
@@ -166,7 +165,7 @@ def set_verbosity_level(args):
             logging.basicConfig(filename=args.log, level=level,
                                 format=str_format,
                                 datefmt=datefmt)
-        logging.getLogger("PPanGGOLiN").info("Command: " + " ".join([arg for arg in sys.argv]))
+        logging.getLogger("PPanGGOLiN").info("Command: " + " ".join(arg for arg in sys.argv))
         logging.getLogger("PPanGGOLiN").info(f"PPanGGOLiN version: {distribution('ppanggolin').version}")
 
 
@@ -276,7 +275,7 @@ def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrappe
             return file_or_file_path
 
 
-def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gzip.GzipFile, TextIO]:
+def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gzip.GzipFile, TextIOWrapper]:
     """
     Create a file-like object, compressed or not.
 
@@ -652,7 +651,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     Manage command line and config arguments for the given subcommand.
 
     This function parse arguments from the cmd line and config file and set up the following priority: cli > config > default
-    When the subcommand is a workflow, the subcommand used in worflows are also parsed in the config.  
+    When the subcommand is a workflow, the subcommand used in workflows are also parsed in the config.  
 
 
     :params subcommand: Name of the subcommand.
@@ -709,7 +708,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     params_that_differ = get_args_differing_from_default(default_args, args, input_params)
 
     if params_that_differ:
-        params_that_differ_str = ', '.join([f'{p}={v}' for p, v in params_that_differ.items()])
+        params_that_differ_str = ', '.join(f'{p}={v}' for p, v in params_that_differ.items())
         logging.getLogger("PPanGGOLiN").debug(
             f"{len(params_that_differ)} {subcommand} parameters have non-default value: {params_that_differ_str}")
 
@@ -736,21 +735,25 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
             # overwrite write and draw default when not specified in config 
             if workflow_step == 'write_pangenome':
                 for out_flag in WRITE_PAN_FLAG_DEFAULT_IN_WF:
-                    setattr(default_step_args, out_flag, True)
+                    if out_flag not in config[workflow_step]:
+                        setattr(default_step_args, out_flag, True)
+
             if workflow_step == 'write_genomes':
                 for out_flag in WRITE_GENOME_FLAG_DEFAULT_IN_WF:
-                    setattr(default_step_args, out_flag, True)
+                    if out_flag not in config[workflow_step]:
+                        setattr(default_step_args, out_flag, True)
 
             if workflow_step == "draw":
                 for out_flag in DRAW_FLAG_DEFAULT_IN_WF:
-                    setattr(default_step_args, out_flag, True)
+                    if out_flag not in config[workflow_step]:
+                        setattr(default_step_args, out_flag, True)
 
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
 
             step_params_that_differ = get_args_differing_from_default(default_step_args, step_args)
 
             if step_params_that_differ:
-                step_params_that_differ_str = ', '.join([f'{p}={v}' for p, v in step_params_that_differ.items()])
+                step_params_that_differ_str = ', '.join(f'{p}={v}' for p, v in step_params_that_differ.items())
                 logging.getLogger("PPanGGOLiN").debug(f"{len(step_params_that_differ)} {workflow_step} parameters have "
                                                       f"a non-default value: {step_params_that_differ_str}")
 
@@ -760,7 +763,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             params_that_differ.update(step_params_that_differ)
 
-            # Add args namespace of the step to the inital args namespace
+            # Add args namespace of the step to the initial args namespace
             setattr(args, workflow_step, step_args)
 
     if params_that_differ:
@@ -816,7 +819,7 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
 
     :params config_param_val: Dict with parameter name as key and parameter value as value.
 
-    :return: list of argument strings formated for an argparse.ArgumentParser object.
+    :return: list of argument strings formatted for an argparse.ArgumentParser object.
     """
 
     arguments_to_parse = []

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import logging
@@ -38,7 +37,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                      just_log_likelihood: bool = False) \
         -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
-    Main function to make partitionning
+    Main function to make partitioning
 
     :param nem_dir_path: Path to directory with nem files
     :param nb_org: Number of organisms
@@ -166,26 +165,14 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
                         partitions_list[i] = "S_"  # SHELL in case of doubt gene families is attributed to shell
                     else:
                         partitions_list[i] = parti[positions_max_prob.pop()]
-    except IOError:
-        logging.getLogger("PPanGGOLiN").debug(
-            "partitioning did not work (the number of genomes used is probably too low), "
-            "see logs here to obtain more details " + nem_dir_path.as_posix() + "/nem_file_" +
-            str(kval) + ".log")
+    except OSError:
+        logging.getLogger("PPanGGOLiN").warning("Partitioning did not work (the number of genomes used is probably too low), "
+            f"see logs here to obtain more details {nem_dir_path.as_posix()}")
         return {}, None, None  # return empty objects
+
     except ValueError:
         # return the default partitions_list which correspond to undefined
         pass
-
-    if not keep_files and no_nem is False:
-        os.remove(nem_dir_path / f"nem_file_{str(kval)}.uf")
-        os.remove(nem_dir_path / f"nem_file_{str(kval)}.mf")
-        os.remove(nem_dir_path / f"nem_file_{str(kval)}.log")
-        os.remove(nem_dir_path / f"nem_file_{str(kval)}.stderr")
-        os.remove(nem_dir_path / f"nem_file_init_{str(kval)}.m")
-        os.remove(nem_dir_path / "nem_file.index")
-        os.remove(nem_dir_path / "nem_file.dat")
-        os.remove(nem_dir_path / "nem_file.nei")
-        os.remove(nem_dir_path / "nem_file.str")
 
     if just_log_likelihood:
         return kval, log_likelihood, entropy
@@ -248,7 +235,7 @@ def write_nem_input_files(tmpdir: Path, organisms: set, sm_degree: int = 10) -> 
     :param organisms: Set of organism from pangenome
     :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
 
-    :return: total edge weigth to ponderate beta and number of families
+    :return: total edge weight to ponderate beta and number of families
     """
     mk_outdir(tmpdir, force=False)
     total_edges_weight = 0
@@ -470,8 +457,15 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
     check_pangenome_former_partition(pangenome, force)
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
     organisms = set(pangenome.organisms)
-    tmp_dir = tempfile.TemporaryDirectory(dir=tmpdir)
-    tmp_path = Path(tmp_dir.name)
+
+    if keep_tmp_files:
+        # Create a temporary directory without auto-cleanup
+        tmp_dir = tempfile.mkdtemp(dir=tmpdir)
+        tmp_path = Path(tmp_dir)
+    else:
+        # Create a temporary directory with auto-cleanup
+        tmp_dir = tempfile.TemporaryDirectory(dir=tmpdir)
+        tmp_path = Path(tmp_dir.name)
 
     if len(organisms) <= 10:
         logging.getLogger("PPanGGOLiN").warning(f"The number of selected genomes is too low ({len(organisms)} "
@@ -487,7 +481,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
         pangenome.parameters["partition"]["chunk_size"] = chunk_size
     pangenome.parameters["partition"]["# computed nb of partitions"] = False
 
-    # the K value initally given by the user 
+    # the K value initially given by the user 
     pangenome.parameters["partition"]["nb_of_partitions"] = kval
     if kval < 2:
         pangenome.parameters["partition"]["# computed nb of partitions"] = True

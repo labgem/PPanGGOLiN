@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import argparse
@@ -263,7 +262,7 @@ def write_projection_results(pangenome: Pangenome, organisms: Set[Organism],
     # multigenics = pangenome.get_multigenics(pangenome_params.rgp.dup_margin)
 
     # dup margin value here is specified in argument and is used to compute completeness.
-    # Thats mean it can be different than dup margin used in spot and RGPS.
+    # That means it can be different than dup margin used in spot and RGPS.
 
     pangenome_persistent_single_copy_families = pangenome.get_single_copy_persistent_families(dup_margin=dup_margin,
                                                                                               exclude_fragments=True)
@@ -330,7 +329,7 @@ def write_projection_results(pangenome: Pangenome, organisms: Set[Organism],
     write_summaries_in_tsv(summaries,
                            output_file=output_file,
                            dup_margin=dup_margin,
-                           soft_core=soft_core)
+                           soft_core=soft_core, compress=compress)
 
 
 def summarize_projected_genome(organism: Organism,
@@ -703,7 +702,7 @@ def predict_RGP(pangenome: Pangenome, input_organisms: List[Organism], persisten
     for input_organism in input_organisms:
         rgps = compute_org_rgp(input_organism, multigenics, persistent_penalty, variable_gain, min_length,
                                min_score, naming=name_scheme, disable_bar=disable_bar)
-        # turn on projected attribut in rgp objects
+        # turn on projected attribute in rgp objects
         # useful when associating spot to prevent failure when multiple spot are associated to a projected RGP
         for rgp in rgps:
             rgp.projected = True
@@ -914,7 +913,7 @@ def predict_spots_in_input_organisms(
     # Check congruency with already computed spot and add spot id in node attributes
     check_spots_congruency(graph_spot, initial_spots)
 
-    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1
+    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1 if len(initial_spots) != 0 else 1
 
     input_org_to_spots = {}
     for input_organism, rgps in input_org_2_rgps.items():

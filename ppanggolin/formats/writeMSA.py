@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import argparse
@@ -123,7 +122,7 @@ def write_fasta_families(family: GeneFamily, tmpdir: tempfile.TemporaryDirectory
 
     # get genes that are present in only one copy for our family in each organism.
     single_copy_genes = []
-    for _, genes in family.get_org_dict().items():
+    for genes in family.get_org_dict().values():
         if len(genes) == 1:
             single_copy_genes.extend(genes)
 
@@ -224,7 +223,7 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
     :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
     """
 
-    # sort familes by ID, so the gene order is consistent
+    # sort families by ID, so the gene order is consistent
     families = sorted(families, key=lambda f: f.ID)
 
     phylo_dict = {}

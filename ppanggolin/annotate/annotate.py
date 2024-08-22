@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import argparse
@@ -113,7 +112,7 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
     """
     Extracts start and stop positions from a string and determines whether it is complement and pseudogene.
     
-    Exemple of strings that the function is able to process: 
+    Example of strings that the function is able to process: 
 
     "join(190..7695,7695..12071)",
     "complement(join(4359800..4360707,4360707..4360962))",
@@ -359,7 +358,7 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
     all_tag_to_value = [(tag, value) for source_info in contig_to_metadata.values() for (tag, value) in
                         source_info.items() if isinstance(value, str)]
 
-    # Filter tags that would have a / as it is forbiden when writing the table in HDF5. Such tag can appear with db_xref formating
+    # Filter tags that would have a / as it is forbidden when writing the table in HDF5. Such tag can appear with db_xref formatting
     invalid_tag_names = []
     for tag, _ in set(all_tag_to_value):
         try:
@@ -691,7 +690,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
                 if fields_gff[gff_type] == 'region':
                     # keep region attributes to add them as metadata of genome and contigs
-                    # excluding some info as they are alredy contained in contig object.
+                    # excluding some info as they are already contained in contig object.
 
                     contig_name_to_region_info[fields_gff[gff_seqname]] = {tag.lower(): value for tag, value in
                                                                            attributes.items() if
@@ -790,7 +789,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         rna_counter += 1
                         contig.add_rna(rna)
 
-    # Correct coordinates of genes that overlapp the edge of circulars contig
+    # Correct coordinates of genes that overlap the edge of circulars contig
     correct_putative_overlaps(org.contigs)
 
     # GET THE FASTA SEQUENCES OF THE GENES
@@ -798,7 +797,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
         contig_sequences = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
         for contig in org.contigs:
             if contig.length != len(contig_sequences[contig.name]):
-                raise ValueError("The contig lenght defined is different than the sequence length")
+                raise ValueError("The contig length defined is different than the sequence length")
 
             for gene in contig.genes:
                 gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))

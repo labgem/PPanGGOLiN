@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding: utf8
 
 # default libraries
 import logging
@@ -191,7 +190,7 @@ class Pangenome:
     def max_fam_id(self, value):
         """Set the last family identifier
 
-        :param value: value of the maximum family identifer
+        :param value: value of the maximum family identifier
         """
         self._max_fam_id = value
 
@@ -201,8 +200,7 @@ class Pangenome:
         
         :return: Generator of gene families
         """
-        for family in self._fam_getter.values():
-            yield family
+        yield from self._fam_getter.values()
 
     @property
     def number_of_gene_families(self) -> int:
@@ -259,8 +257,7 @@ class Pangenome:
         
         :return: Generator of edge
         """
-        for edge in self._edge_getter.values():
-            yield edge
+        yield from self._edge_getter.values()
 
     def add_edge(self, gene1: Gene, gene2: Gene) -> Edge:
         """
@@ -304,8 +301,7 @@ class Pangenome:
         
         :return: Generator :class:`ppanggolin.genome.Organism`
         """
-        for organism in self._org_getter.values():
-            yield organism
+        yield from self._org_getter.values()
 
     @property
     def number_of_organisms(self) -> int:
@@ -507,8 +503,7 @@ class Pangenome:
 
         :return: list of RGP
         """
-        for region in self._region_getter.values():
-            yield region
+        yield from self._region_getter.values()
 
     def get_region(self, name: str) -> Region:
         """Returns a region with the given region_name. Creates it if it does not exist.

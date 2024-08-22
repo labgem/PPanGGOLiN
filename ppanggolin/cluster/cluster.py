@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding:utf-8
 
 # default libraries
 import logging
@@ -95,12 +94,12 @@ def first_clustering(sequences: Path, tmpdir: Path, cpu: int = 1, code: int = 11
     run_subprocess(cmd, msg="MMSeqs2 cluster failed with the following error:\n")
     logging.getLogger("PPanGGOLiN").info("Extracting cluster representatives...")
     repdb = tmpdir / 'representative_db'
-    cmd = list(map(str, ["mmseqs", "result2repseq", seqdb, cludb, repdb]))
+    cmd = list(map(str, ["mmseqs", "result2repseq", seqdb, cludb, repdb, "--threads", cpu]))
     run_subprocess(cmd, msg="MMSeqs2 result2repseq failed with the following error:\n")
     reprfa = tmpdir / 'representative_sequences.fasta'
     cmd = list(map(str, ["mmseqs", "result2flat", seqdb, seqdb, repdb, reprfa, "--use-fasta-header"]))
     run_subprocess(cmd, msg="MMSeqs2 result2flat failed with the following error:\n")
-    logging.getLogger("PPanGGOLiN").info("Writing gene to family informations")
+    logging.getLogger("PPanGGOLiN").info("Writing gene to family information")
     outtsv = tmpdir / 'families_tsv'
     cmd = list(map(str, ["mmseqs", "createtsv", seqdb, seqdb, cludb, outtsv, "--threads", cpu, "--full-header"]))
     run_subprocess(cmd, msg="MMSeqs2 createtsv failed with the following error:\n")
@@ -157,7 +156,7 @@ def read_tsv(tsv_file_name: Path) -> Tuple[Dict[str, Tuple[str, bool]], Dict[str
 
     :param tsv_file_name: path to the tsv
 
-    :return: two dictionnary which link genes and families
+    :return: two dictionaries which link genes and families
     """
     genes2fam = {}
     fam2genes = defaultdict(set)

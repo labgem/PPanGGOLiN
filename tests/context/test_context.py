@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-# coding: utf8
 
 import pytest
 from ppanggolin.context.searchGeneContext import (extract_contig_window, get_n_next_genes_index,
