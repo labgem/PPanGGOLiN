@@ -514,7 +514,7 @@ def get_gene_sequences_from_fasta_files(organisms, genome_name_to_annot_path):
                 msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
                       f"that was read from the annotation file. "
                 msg += f"The provided contigs in the fasta were : " \
-                       f"{', '.join([contig for contig in org_contig_to_seq])}."
+                       f"{', '.join(org_contig_to_seq)}."
                 raise KeyError(msg)
 
             for gene in contig.genes:
@@ -769,7 +769,7 @@ def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
             msg = f"Fasta file for input genome {input_organism.name} did not have the contig {contig.name} " \
                   f"that was read from the annotation file. "
             msg += f"The provided contigs in the fasta were : " \
-                   f"{', '.join([contig for contig in contig_id2seq.keys()])}."
+                   f"{', '.join(contig_id2seq.keys())}."
             raise KeyError(msg)
 
 
@@ -1036,8 +1036,7 @@ def predict_spot_in_one_organism(
         spots_of_the_cc = set()
         for node in comp:
             if "spots" in graph_spot.nodes[node]:
-                spots_of_the_cc |= {
-                    spot for spot in graph_spot.nodes[node]["spots"]}
+                spots_of_the_cc |= set(graph_spot.nodes[node]["spots"])
 
         if len(spots_of_the_cc) == 0:
             # no spot associated with any node of the cc

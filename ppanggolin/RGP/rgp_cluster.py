@@ -362,7 +362,7 @@ def dereplicate_rgp(rgps: Set[Union[Region, IdenticalRegions]],
             families = set(rgps[0].families)
 
             # identical regions object is considered on a contig border if all rgp are contig border
-            is_contig_border = all([rgp.is_contig_border for rgp in rgps])
+            is_contig_border = all(rgp.is_contig_border for rgp in rgps)
 
             # create a new object that will represent the identical rgps
             identical_rgp = IdenticalRegions(name=f"identical_rgps_{identical_region_count}",

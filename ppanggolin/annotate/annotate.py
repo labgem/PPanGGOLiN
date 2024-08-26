@@ -378,7 +378,7 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
                              all_tag_to_value.count(tag_and_value) == contig_count}
 
     # Create a dictionary for shared metadata
-    genome_metadata = {tag: value for tag, value in shared_tag_and_values}
+    genome_metadata = dict(shared_tag_and_values)
 
     contig_to_uniq_metadata = {}
     for contig, tag_to_value in contig_to_metadata.items():
@@ -1151,7 +1151,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
                     msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
                           f"that was read from the annotation file. "
                     msg += f"The provided contigs in the fasta were : " \
-                           f"{', '.join([contig for contig in fasta_dict[org].keys()])}."
+                           f"{', '.join(fasta_dict[org].keys())}."
                     raise KeyError(msg)
     pangenome.status["geneSequences"] = "Computed"
 

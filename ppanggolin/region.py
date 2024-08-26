@@ -746,7 +746,7 @@ class Spot(MetaFeatures):
 
         :return: Dictionary with a representative rgp as the key and number of identical rgp as value
         """
-        return dict([(key, len(val)) for key, val in self._get_content().items()])
+        return {key: len(val) for key, val in self._get_content().items()}
 
     def count_uniq_ordered_set(self):
         """
@@ -754,7 +754,7 @@ class Spot(MetaFeatures):
 
         :return: Dictionary with a representative rgp as the key and number of identical rgp as value
         """
-        return dict([(key, len(val)) for key, val in self._get_ordered_set().items()])
+        return {key: len(val) for key, val in self._get_ordered_set().items()}
 
 
 class Module(MetaFeatures):

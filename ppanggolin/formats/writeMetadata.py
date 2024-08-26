@@ -85,7 +85,7 @@ def desc_metadata(max_len_dict: Dict[str, int], type_dict: Dict[str, tables.Col]
     :return: Formatted table
     """
     desc_dict = {attr: tables.StringCol(itemsize=max_value) for attr, max_value in max_len_dict.items()}
-    desc_dict.update({attr: col_type for attr, col_type in type_dict.items()})
+    desc_dict.update(dict(type_dict.items()))
     return desc_dict
 
 
