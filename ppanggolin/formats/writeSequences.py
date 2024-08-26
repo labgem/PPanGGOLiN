@@ -503,11 +503,10 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
             org_dict[elements[0]] = organisms_file.parent.joinpath(org_dict[elements[0]])
 
     logging.getLogger("PPanGGOLiN").info(f"Writing {regions} rgp genomic sequences...")
-    regions_to_write = []
+
     if regions == "complete":
-        for region in pangenome.regions:
-            if not region.is_contig_border:
-                regions_to_write.append(region)
+        regions_to_write = (region for region in pangenome.regions
+                            if not region.is_contig_border)
     else:
         regions_to_write = pangenome.regions
 

@@ -426,8 +426,7 @@ def annotate_fasta_files(genome_name_to_fasta_path: Dict[str, dict], tmpdir: str
                 future.add_done_callback(lambda p: progress.update())
                 futures.append(future)
 
-            for future in futures:
-                organisms.append(future.result())
+            organisms.extend(future.result() for future in futures)
 
     return organisms
 

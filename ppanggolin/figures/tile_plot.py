@@ -47,9 +47,8 @@ def draw_tile_plot(pangenome: Pangenome, output: Path, nocloud: bool = False, di
     else:
         families = set(pangenome.gene_families)
     org_index = pangenome.get_org_index()
-    index2org = {}
-    for org, index in org_index.items():
-        index2org[index] = org
+    index2org = {index: org for org, index in org_index.items()}
+
     colors = {"pangenome": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
               "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
               "undefined": "#828282"}

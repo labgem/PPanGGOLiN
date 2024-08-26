@@ -660,9 +660,8 @@ class Spot(MetaFeatures):
 
         :return: Families that bordering spot
         """
-        all_borders = []
-        for rgp in self.regions:
-            all_borders.append(rgp.get_bordering_genes(set_size, multigenics))
+        all_borders = [rgp.get_bordering_genes(set_size, multigenics)
+                       for rgp in self.regions]
 
         family_borders = []
         for borders in all_borders:

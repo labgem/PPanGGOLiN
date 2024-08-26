@@ -527,12 +527,10 @@ def compute_gene_context_graph(families: Iterable[GeneFamily], transitive: int =
         for cc in nx.connected_components(contig_graph):
             # If gene families are in the same connected component for the contig graph,
             # they exist in the same context in at least one genome
-            combination = []
-            for family in cc.intersection({gene.family for gene in genes_of_interest}):
-                # Family here are family of interest for the context and in the same connected component
-                combination.append(family)
+            combination = list(cc.intersection({gene.family for gene in genes_of_interest}))
+            # Family here are family of interest for the context and in the same connected component
+
             combs2orgs[frozenset(combination)].add(contig.organism)
-        
 
     return context_graph, combs2orgs
 
