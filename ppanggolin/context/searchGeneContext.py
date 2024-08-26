@@ -168,7 +168,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequenc
 
     if len(gene_contexts) != 0:
         logging.getLogger().info(
-            f"There are {sum((len(gc) for gc in gene_contexts))} families among {len(gene_contexts)} gene contexts")
+            f"There are {sum(len(gc) for gc in gene_contexts)} families among {len(gene_contexts)} gene contexts")
 
         output_file = output / "gene_contexts.tsv"
         export_context_to_dataframe(gene_contexts, family_2_input_seqid, families_of_interest, output_file)
@@ -323,7 +323,7 @@ def compute_edge_metrics(context_graph: nx.Graph, gene_proportion_cutoff: float)
 
         mean_transitivity = sum(
             (transitivity * counter for transitivity, counter in transitivity_counter.items())) / sum(
-            (counter for counter in transitivity_counter.values()))
+            counter for counter in transitivity_counter.values())
 
         data['mean_transitivity'] = mean_transitivity
 

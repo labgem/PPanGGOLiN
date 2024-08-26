@@ -73,7 +73,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
 
     start, stop = coordinates[0][0], coordinates[-1][1]
 
-    if any((dbxref.startswith('MaGe:') or dbxref.startswith('SEED:') for dbxref in dbxrefs)):
+    if any(dbxref.startswith('MaGe:') or dbxref.startswith('SEED:') for dbxref in dbxrefs):
         if gene_name == "":
             gene_name = gene_id
 
@@ -1093,11 +1093,11 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotate"]["use_pseudo"] = pseudo
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
 
-    if any((genome.has_metadata() for genome in pangenome.organisms)):
+    if any(genome.has_metadata() for genome in pangenome.organisms):
         pangenome.status["metadata"]["genomes"] = "Computed"
         pangenome.status["metasources"]["genomes"].append("annotation_file")
 
-    if any((contig.has_metadata() for contig in pangenome.contigs)):
+    if any(contig.has_metadata() for contig in pangenome.contigs):
         pangenome.status["metadata"]["contigs"] = "Computed"
         pangenome.status["metasources"]["contigs"].append("annotation_file")
 

@@ -772,7 +772,7 @@ class Pangenome:
         """
         Whether or not the pangenome has metadata associated with any of its elements.
         """
-        return any(( status != "No" for status in self.status['metadata'].values()))
+        return any( status != "No" for status in self.status['metadata'].values())
 
 
     def select_elem(self, metatype: str):

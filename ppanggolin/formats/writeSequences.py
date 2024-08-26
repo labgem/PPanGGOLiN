@@ -251,7 +251,7 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, proteins: s
         run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
         if compress:
             with write_compressed_or_not(outpath, compress) as compress_file:
-                with open(outpath, "r") as sequence_file:
+                with open(outpath) as sequence_file:
                     shutil.copyfileobj(sequence_file, compress_file)
             outpath.unlink()
             logging.getLogger("PPanGGOLiN").info(f"Done writing the gene sequences : '{outpath}.gz'")

@@ -117,7 +117,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
         no_nem = True
     index_fam = []
 
-    with open(nem_dir_path / "nem_file.index", "r") as index_nem_file:
+    with open(nem_dir_path / "nem_file.index") as index_nem_file:
         for line in index_nem_file:
             index_fam.append(line.split("\t")[1].strip())
 
@@ -126,8 +126,8 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
     log_likelihood = None
     entropy = None
     try:
-        with open(nem_dir_path / f"nem_file_{str(kval)}.uf", "r") as partitions_nem_file, \
-                open(nem_dir_path / f"nem_file_{str(kval)}.mf", "r") as parameters_nem_file:
+        with open(nem_dir_path / f"nem_file_{str(kval)}.uf") as partitions_nem_file, \
+                open(nem_dir_path / f"nem_file_{str(kval)}.mf") as parameters_nem_file:
             parameters = parameters_nem_file.readlines()
             log_likelihood = float(parameters[2].split()[3])
 

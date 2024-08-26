@@ -132,7 +132,7 @@ def compute_grr(rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily]
     :return: GRR value between 0 and 1
     """
 
-    grr = len((rgp_a_families & rgp_b_families)) / mode(len(rgp_a_families), len(rgp_b_families))
+    grr = len(rgp_a_families & rgp_b_families) / mode(len(rgp_a_families), len(rgp_b_families))
 
     return grr
 
@@ -147,7 +147,7 @@ def compute_jaccard_index(rgp_a_families: set, rgp_b_families: set) -> float:
     :return : Jaccard index
     """
 
-    jaccard_index = len((rgp_a_families & rgp_b_families)) / len(rgp_a_families | rgp_b_families)
+    jaccard_index = len(rgp_a_families & rgp_b_families) / len(rgp_a_families | rgp_b_families)
 
     return jaccard_index
 
@@ -351,7 +351,7 @@ def dereplicate_rgp(rgps: Set[Union[Region, IdenticalRegions]],
     families_to_rgps = defaultdict(list)
 
     for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
-        families_to_rgps[tuple(sorted((f.ID for f in rgp.families)))].append(rgp)
+        families_to_rgps[tuple(sorted(f.ID for f in rgp.families))].append(rgp)
 
     dereplicated_rgps = []
     identical_region_count = 0
@@ -548,7 +548,7 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
     dereplicated_rgps = dereplicate_rgp(valid_rgps, disable_bar=disable_bar)
 
     grr_graph = nx.Graph()
-    grr_graph.add_nodes_from((rgp.ID for rgp in dereplicated_rgps))
+    grr_graph.add_nodes_from(rgp.ID for rgp in dereplicated_rgps)
 
     # Get all pairs of RGP that share at least one family
 

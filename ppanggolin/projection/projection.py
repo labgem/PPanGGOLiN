@@ -667,7 +667,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
         # Write specific gene ids in a file
         with open(org_outdir / "specific_genes.tsv", "w") as fl:
             fl.write('\n'.join(
-                (gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in lonely_genes)) + '\n')
+                gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in lonely_genes) + '\n')
 
         input_org_to_lonely_genes_count[input_organism] = len(lonely_genes)
 
@@ -913,7 +913,7 @@ def predict_spots_in_input_organisms(
     # Check congruency with already computed spot and add spot id in node attributes
     check_spots_congruency(graph_spot, initial_spots)
 
-    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1 if len(initial_spots) != 0 else 1
+    new_spot_id_counter = max(s.ID for s in initial_spots) + 1 if len(initial_spots) != 0 else 1
 
     input_org_to_spots = {}
     for input_organism, rgps in input_org_2_rgps.items():
@@ -939,7 +939,7 @@ def predict_spots_in_input_organisms(
                                                        exact_match=exact_match, compress=compress)
 
         if len(input_org_spots) > 0:
-            new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
+            new_spot_id_counter = max(s.ID for s in input_org_spots) + 1
 
         input_org_to_spots[input_organism] = input_org_spots
 
@@ -1063,7 +1063,7 @@ def predict_spot_in_one_organism(
                     graph_spot.nodes[node]["spots"] = spots_of_the_cc
 
                     graph_spot.nodes[node]["spot_id"] = ';'.join(
-                        (str(spot) for spot in spots_of_the_cc))
+                        str(spot) for spot in spots_of_the_cc)
                     graph_spot.nodes[node]["includes_RGPs_from_the_input_genome"] = True
 
         for spot in spots_of_the_cc:
@@ -1120,7 +1120,7 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
 
             for mod in pangenome.modules:
                 module_in_input_organism = any(
-                    (fam in input_organism_families for fam in mod.families))
+                    fam in input_organism_families for fam in mod.families)
 
                 if module_in_input_organism:
                     counter += 1
