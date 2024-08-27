@@ -82,6 +82,7 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
+        mkdir info_to_test
         ppanggolin workflow --cpu $NUM_CPUS --anno genomes.gbff.list --output myannopang
         ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo --single_copy --cpu $NUM_CPUS
         ppanggolin info --pangenome myannopang/pangenome.h5 > info_to_test/myannopang_info.yaml
