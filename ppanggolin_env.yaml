@@ -17,7 +17,7 @@ dependencies:
   - numpy=1
   - bokeh=3
   # Tool that are not in python 
-  - infernal=1
-  - aragorn=1
+  # - infernal=1
+  # - aragorn=1
   - mmseqs2=15
   - mafft=7
