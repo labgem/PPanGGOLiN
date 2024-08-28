@@ -99,7 +99,9 @@ jobs:
     # Check that unit tests are all passing
     - name: Unit tests
       shell: bash -l {0}
-      run: pytest   
+      run: |
+        source ppgg/bin/activate
+        pytest   
 
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
@@ -117,6 +119,7 @@ jobs:
     - name: clusters reading from external file
       shell: bash -l {0}
       run: |
+        source ppgg/bin/activate
         cd testingDataset
         ppanggolin panrgp --anno genomes.gbff.list --cluster clusters.tsv --output readclusterpang  --cpu $NUM_CPUS 
         ppanggolin annotate --anno genomes.gbff.list --output readclusters --cpu $NUM_CPUS
@@ -129,6 +132,7 @@ jobs:
     - name: testing context command
       shell: bash -l {0}
       run: |
+        source ppgg/bin/activate
         cd testingDataset
         ppanggolin context --pangenome myannopang/pangenome.h5 --sequences some_chlam_proteins.fasta --output test_context --fast --cpu $NUM_CPUS
 
@@ -139,6 +143,7 @@ jobs:
     - name: testing config file
       shell: bash -l {0}
       run: |
+        source ppgg/bin/activate
         cd testingDataset
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
         cut -f1,2 clusters.tsv > clusters_without_frag.tsv
@@ -149,6 +154,7 @@ jobs:
     - name: testing projection cmd
       shell: bash -l {0}
       run: |
+        source ppgg/bin/activate
         cd testingDataset
         head genomes.fasta.list | sed 's/^/input_genome_/g' > genomes.fasta.head.list
         # ppanggolin projection --pangenome myannopang/pangenome.h5  -o projection_from_list_of_fasta --fasta genomes.fasta.head.list --gff --proksee --cpu $NUM_CPUS
