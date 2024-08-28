@@ -79,9 +79,7 @@ jobs:
         # Activate the Python environment again in the correct directory
         source ppgg/bin/activate
         python -V
-
-        python -m ensurepip --upgrade
-        python -m pip install --upgrade setuptools
+        python -m pip install pytest
         python -m pip install .[python_deps]
 
     # - name: Install ppanggolin
