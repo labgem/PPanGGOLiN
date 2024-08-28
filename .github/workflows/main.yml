@@ -61,7 +61,7 @@ jobs:
     #     activate-environment: ppanggolin
     - name: Set up Python environment
       run: |
-        python3 -m venv ppgg
+        python3.10 -m venv ppgg
         source ppgg/bin/activate
 
     - name: Install dependencies with Homebrew
