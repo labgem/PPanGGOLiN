@@ -44,7 +44,7 @@ jobs:
         echo "NUM_CPUS=$nb_cpu_linux" >> "$GITHUB_ENV"
 
     - name: Get core number on macos
-      if: matrix.os == 'macos-13'
+      if: matrix.os == 'macos-14'
       run: |
         nb_cpu_macos=`sysctl -n hw.ncpu`
         echo "Number of cores avalaible on the current macos runner $nb_cpu_macos"
@@ -52,19 +52,38 @@ jobs:
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v4
-    # Install requirements with miniconda
-    - uses: conda-incubator/setup-miniconda@v3
-      with:
-        python-version: ${{ matrix.python-version }}
-        channels: conda-forge,bioconda,defaults
-        environment-file: ppanggolin_env.yaml
-        activate-environment: ppanggolin
-
-    - name: Install ppanggolin
-      shell: bash -l {0}
+    # # Install requirements with miniconda
+    # - uses: conda-incubator/setup-miniconda@v3
+    #   with:
+    #     python-version: ${{ matrix.python-version }}
+    #     channels: conda-forge,bioconda,defaults
+    #     environment-file: ppanggolin_env.yaml
+    #     activate-environment: ppanggolin
+    - name: Set up Python environment
       run: |
-        pip install .[test]
-        mmseqs version
+        python3 -m venv ppgg
+        source ppgg/bin/activate
+
+    - name: Install dependencies with Homebrew
+      run: |
+        brew update
+        brew upgrade
+        brew install mmseqs2
+        brew install mafft
+        brew install infernal
+        brew install aragorn
+        
+    - name:  Install ppanggolin
+      run: |
+        # Activate the Python environment again in the correct directory
+        source ppgg/bin/activate
+        pip3 install .
+
+    # - name: Install ppanggolin
+    #   shell: bash -l {0}
+    #   run: |
+    #     pip install .[test]
+    #     mmseqs version
 
     # Check that it is installed and displays help without error
     - name: Check that PPanGGOLiN is installed
