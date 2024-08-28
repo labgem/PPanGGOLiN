@@ -70,6 +70,7 @@ jobs:
         brew upgrade
         brew install mmseqs2
         brew install mafft
+        brew install python-setuptools
         # brew install infernal
         # brew install aragorn
         
