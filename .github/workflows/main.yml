@@ -78,6 +78,7 @@ jobs:
       run: |
         # Activate the Python environment again in the correct directory
         source ppgg/bin/activate
+        pip install setuptools
         pip install .[python_deps]
 
     # - name: Install ppanggolin
