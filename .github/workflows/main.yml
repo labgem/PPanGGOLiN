@@ -78,8 +78,11 @@ jobs:
       run: |
         # Activate the Python environment again in the correct directory
         source ppgg/bin/activate
-        pip install setuptools
-        pip install .[python_deps]
+        python -V
+
+        python -m ensurepip --upgrade
+        python -m pip install --upgrade setuptools
+        python -m pip install .[python_deps]
 
     # - name: Install ppanggolin
     #   shell: bash -l {0}
