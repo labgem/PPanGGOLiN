@@ -89,6 +89,7 @@ jobs:
     - name: Check that PPanGGOLiN is installed
       shell: bash -l {0}
       run: |
+        source ppgg/bin/activate
         ppanggolin --version
         ppanggolin --help
 
@@ -100,6 +101,7 @@ jobs:
     - name: gbff parsing and MSA computing
       shell: bash -l {0}
       run: |
+        source ppgg/bin/activate
         cd testingDataset
         mkdir info_to_test
         ppanggolin workflow --cpu $NUM_CPUS --anno genomes.gbff.list --output myannopang
