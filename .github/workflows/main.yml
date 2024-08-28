@@ -70,8 +70,8 @@ jobs:
         brew upgrade
         brew install mmseqs2
         brew install mafft
-        brew install infernal
-        brew install aragorn
+        # brew install infernal
+        # brew install aragorn
         
     - name:  Install ppanggolin
       run: |
