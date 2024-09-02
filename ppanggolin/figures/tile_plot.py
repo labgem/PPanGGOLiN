@@ -70,6 +70,7 @@ def draw_tile_plot(pangenome: Pangenome,
 
     logging.getLogger("PPanGGOLiN").info(f"Tile plot successfully created and saved to: '{filename}'.")
 
+    return fig
 
 def prepare_data_structures(pangenome: Pangenome, nocloud: bool) -> Tuple[set, dict]:
     """
@@ -369,7 +370,8 @@ def create_tile_plot(
                  zauto=False,
                  zmin=0,
                  zmax=2,
-                 autocolorscale=False, #hoverinfo="text",
+                 autocolorscale=False,
+                hovertemplate = 'genome: %{x}<br>family: %{y}<br>gene_count: %{z}<br>%{text}   <extra></extra>',
                  colorscale=[[0, '#ffffff'],[0.33, '#ffffff'],
                              [0.33, heatmap_color['presence']],[0.66, heatmap_color['presence']],
                              [0.66, heatmap_color['multicopy']], [1, heatmap_color['multicopy']]],
