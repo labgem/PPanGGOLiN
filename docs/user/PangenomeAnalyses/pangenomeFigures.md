@@ -23,19 +23,30 @@ This plot is quite helpful to observe potential structures in your pangenome, an
 
 If you build your pangenome using a workflow subcommands (`all`, `workflow`, `panrgp`, `panmodule`) and you have more than 500 genomes, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise.
 
-It can be generated using the 'draw' subcommand as such : 
+To generate a tile plot, use the 'draw' subcommand as follows:
 
 ```bash
 ppanggolin draw -p pangenome.h5 --tile_plot
 ```
 
-![tile plot figure](../../_static/tile_plot.png)
+![Tile plot figure](../../_static/tile_plot_no_dendro.png)
 
-and if you do not want the 'cloud' gene families as it is a lot of data and can be hard to open with a browser sometimes, you can use the following option : 
+If you prefer not to include 'cloud' gene families, which can make the plot difficult to render in a browser, you can use the `--nocloud` option:
 
 ```bash
 ppanggolin draw -p pangenome.h5 --tile_plot --nocloud
 ```
+
+To include a dendrogram on top of the tile plot, use the `--add_dendrogram` option:
+
+```bash
+ppanggolin draw -p pangenome.h5 --tile_plot --add_dendrogram
+```
+
+![Tile plot with dendrogram](../../_static/tile_plot_dendro.png)
+
+If you have added metadata to the gene elements of your pangenome (see [metadata documentation](../metadata.md) for details), you can display this metadata in the hover text by using the `--add_metadata` argument.
+
 
 #### Rarefaction curve
 This figure is not drawn by default in the 'workflow' subcommand as it requires a lot of computations. It represents the evolution of the number of gene families for each partition as you add more genomes to the pangenome. It has been used a lot in the literature as an indicator of the diversity that you are missing with your dataset on your taxonomic group (Tettelin et al., 2005). The idea is that if at some point when you keep adding genomes to your pangenome you do not add any more gene families, you might have access to your entire taxonomic group's diversity. On the contrary, if you are still adding a lot of genes you may be still missing a lot of gene families. 
