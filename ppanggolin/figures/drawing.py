@@ -43,7 +43,7 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
     if args.tile_plot:
-        draw_tile_plot(pangenome, args.output, args.nocloud, disable_bar=args.disable_prog_bar)
+        draw_tile_plot(pangenome, args.output, args.nocloud, draw_dendrogram=args.add_dendrogram, disable_bar=args.disable_prog_bar)
     if args.ucurve:
         draw_ucurve(pangenome, args.output, soft_core=args.soft_core, disable_bar=args.disable_prog_bar)
     if args.draw_spots:
@@ -91,6 +91,12 @@ def parser_draw(parser: argparse.ArgumentParser):
                           help="draw plots for spots of the pangenome")
     optional.add_argument("--spots", required=False, default='all', nargs='+',
                           help="a comma-separated list of spots to draw (or 'all' to draw all spots, or 'synteny' to draw spots with different RGP syntenies).")
+    optional.add_argument("--add_dendrogram", required=False, default=False, action="store_true",
+                          help="Add dendrogram of genomes computed on presence/absence of gene families in the tile plot figure")
+
+    optional.add_argument("--add_metadata", required=False, default=False, action="store_true",
+                          help="Add gene metadata information in the tile plot figure as a hover text of each cell in the tile plot.")
+
 
 
 if __name__ == '__main__':
