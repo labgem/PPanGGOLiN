@@ -9,6 +9,7 @@ dependencies:
   - pyrodigal=3
   - networkx=3
   - dataclasses=0.8
+  - scipy=1
   - plotly=5
   - gmpy2=2
   - pandas=2
