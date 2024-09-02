@@ -83,8 +83,7 @@ def parser_draw(parser: argparse.ArgumentParser):
                           help="Output directory")
     optional.add_argument("--tile_plot", required=False, default=False, action="store_true",
                           help="draw the tile plot of the pangenome")
-    optional.add_argument("--nocloud", required=False, default=False, action="store_true",
-                          help="Do not draw the cloud in the tile plot")
+
     optional.add_argument("--soft_core", required=False, default=0.95, type=restricted_float,
                           help="Soft core threshold to use")
     optional.add_argument("--ucurve", required=False, default=False, action="store_true",
@@ -93,6 +92,9 @@ def parser_draw(parser: argparse.ArgumentParser):
                           help="draw plots for spots of the pangenome")
     optional.add_argument("--spots", required=False, default='all', nargs='+',
                           help="a comma-separated list of spots to draw (or 'all' to draw all spots, or 'synteny' to draw spots with different RGP syntenies).")
+    
+    optional.add_argument("--nocloud", required=False, default=False, action="store_true",
+                        help="Do not draw the cloud genes in the tile plot")
     optional.add_argument(
         "--add_dendrogram",
         required=False,
