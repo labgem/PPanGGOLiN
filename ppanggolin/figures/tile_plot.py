@@ -5,18 +5,11 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 from itertools import cycle
-from typing import List, Tuple, Dict
-
-
+from typing import List, Tuple, Dict, Set, Optional
 
 # installed libraries
-import numpy
-from scipy.spatial.distance import pdist
 from scipy.sparse import csc_matrix
-from scipy.cluster.hierarchy import linkage, dendrogram
 import plotly.graph_objs as go
-import plotly.offline as out_plotly
-import colorlover as cl
 import plotly.figure_factory as ff
 from plotly.subplots import make_subplots
 import numpy as np
@@ -31,6 +24,8 @@ def draw_tile_plot(pangenome: Pangenome,
                    output: Path,
                    nocloud: bool = False,
                    draw_dendrogram: bool = False,
+                   add_metadata:bool=False,
+                   metadata_sources:Optional[Set[str]]=None,
                    disable_bar: bool = False):
     """
     Draw a tile plot from a partitioned pangenome.
@@ -43,7 +38,7 @@ def draw_tile_plot(pangenome: Pangenome,
     """
     
     # Check if the pangenome has the required information and is partitioned
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar, need_metadata=add_metadata, sources=metadata_sources)
     if pangenome.status["partitioned"] == "No":
         raise Exception("Cannot draw the tile plot as the pangenome has not been partitioned.")
 
@@ -280,7 +275,7 @@ def metadata_stringify(gene) -> str:
     if gene.has_metadata():
         metadata_str = f'<br><br>{gene.ID} metadata'
         for metadata in gene.metadata:
-            metadata_str += f"<br>metadata source: {metadata.source}"
+            metadata_str += f"<br>metadata source: {metadata.source}<br>"
             metadata_dict = metadata.to_dict()
             metadata_str += '<br>'.join((f"{key}: {value}" for key, value in metadata_dict.items()))
 
@@ -301,22 +296,24 @@ def get_heatmap_hover_text(ordered_families: List, order_organisms: List) -> Lis
         
         for org in order_organisms:
             if org in family.organisms:
-                gene_count = len(list(family.get_genes_per_org(org)))
-                genes = "<br>- ".join(map(str, family.get_genes_per_org(org)))
+                # gene_count = len(list(family.get_genes_per_org(org)))
+                genes = ";".join(map(str, family.get_genes_per_org(org)))
                 names = ";".join((gene.name for gene in family.get_genes_per_org(org) if gene.name))
                 
                 # Compile additional information about genes
-                extra_gene_info = f"genes:<br>- {genes}"
+                extra_gene_info = f"genes:{genes}"
                 if names:
                     extra_gene_info += f'<br>names:{names}'
                 
                 metadata = "<br>".join((metadata_stringify(gene) for gene in family.get_genes_per_org(org) if gene.has_metadata()))
                 extra_gene_info += metadata
             else:
-                gene_count = 0
+                # gene_count = 0
                 extra_gene_info = np.nan  # Using np.nan instead of numpy.nan for consistency with numpy import
-                
-            gene_info = f"genome:{org.name}<br>family:{family.name}<br>gene_count:{gene_count}<br>{extra_gene_info}"
+
+            # To get a more explicit hover. But is quite heavy on the finam html               
+            # gene_info = f"genome:{org.name}<br>family:{family.name}<br>gene_count:{gene_count}<br>{extra_gene_info}"
+            # Light version:
             gene_info = extra_gene_info
             text_per_family.append(gene_info)
         
