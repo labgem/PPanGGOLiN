@@ -399,34 +399,55 @@ def read_clustering_file(families_tsv_path: Path) -> Tuple[pd.DataFrame, bool]:
 
     :return: The processed DataFrame and a boolean indicating if any gene is marked as fragmented.
     """
-    logging.getLogger("PPanGGOLiN").info(f"Reading {families_tsv_path.name} the gene families file ...")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Reading clustering file to group genes into families: {families_tsv_path.as_posix()}"
+    )
+    
+    # Detect compression type if any
     _, compress_type = is_compressed(families_tsv_path)
-    families_df = pd.read_csv(families_tsv_path, sep="\t", header=None,
-                              compression=compress_type if compress_type is not None else 'infer')  # Set as infer to manage other compression type
+    
+    # Read the file with inferred compression if necessary
+    families_df = pd.read_csv(
+        families_tsv_path,
+        sep="\t",
+        header=None,
+        compression=compress_type if compress_type is not None else 'infer'
+    )
+    
+    # Process DataFrame based on the number of columns
     if families_df.shape[1] == 2:
         families_df.columns = ["family", "gene"]
         families_df["representative"] = families_df.groupby('family')['gene'].transform('first')
         families_df["is_frag"] = False
+    
     elif families_df.shape[1] == 3:
-        if families_df[2].dropna().unique().tolist() == ['F']:
+        # Check if the third column is 'is_frag'
+        if families_df[2].dropna().eq('F').all():
             families_df.columns = ["family", "gene", "is_frag"]
-            families_df["representative"] = families_df.groupby('family')['gene'].transform('first')
             families_df["is_frag"] = families_df["is_frag"].replace('F', True).fillna(False)
+            families_df["representative"] = families_df.groupby('family')['gene'].transform('first')
         else:
             families_df.columns = ["family", "gene", "representative"]
             families_df["is_frag"] = False
+    
     elif families_df.shape[1] == 4:
         families_df.columns = ["family", "representative", "gene", "is_frag"]
+    
     else:
-        if families_df.shape[1] == 1:
-            raise ValueError("Only one column found. This might be due to "
-                             "no tabulation separator found in gene families file")
-        else:
-            raise ValueError("Too much columns. You must at least give in first column the family identifier and "
-                             "as second column the gene identifier. More information in the documentation")
-    if families_df["gene"].unique().shape[0] < families_df["gene"].shape[0]:
+        raise ValueError(
+            f"Unexpected number of columns ({families_df.shape[1]}). The file must have 2, 3, or 4 columns."
+        )
+    
+    # Ensure columns are strings
+    families_df["family"] = families_df["family"].astype(str)
+    families_df["gene"] = families_df["gene"].astype(str)
+    families_df["representative"] = families_df["representative"].astype(str)
+    
+    # Check for duplicate gene IDs
+    if families_df["gene"].duplicated().any():
         raise Exception("It seems that there is duplicated gene id in your clustering.")
-    return families_df[["family", "representative", "gene", "is_frag"]], bool(families_df["is_frag"].any())
+    
+    return families_df[["family", "representative", "gene", "is_frag"]], families_df["is_frag"].any()
 
 
 def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singleton: bool = False,
@@ -447,11 +468,13 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
     :param disable_bar: Allow to disable progress bar
     """
     check_pangenome_former_clustering(pangenome, force)
-    check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=True, disable_bar=disable_bar)
+    check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=False, disable_bar=disable_bar)
 
     families_df, frag = read_clustering_file(families_tsv_path)
+
     nb_gene_with_fam = 0
     local_dict = mk_local_to_gene(pangenome)
+
     def get_gene_obj(identifier):
         try:
             gene_obj = pangenome.get_gene(identifier)
@@ -460,18 +483,29 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
         return gene_obj
 
     for _, row in tqdm(families_df.iterrows(), total=families_df.shape[0], unit="line", disable=disable_bar):
-        fam_id, reprez_id, gene_id, is_frag = row['family'], row['representative'], row['gene'], row['is_frag']
+        
+        fam_id, reprez_id, gene_id, is_frag = str(row['family']), str(row['representative']), str(row['gene']), bool(row['is_frag'])
+
         gene = get_gene_obj(gene_id)
+
         if gene is not None:
             nb_gene_with_fam += 1
             try:
                 fam = pangenome.get_gene_family(fam_id)
             except KeyError:  # Family not found so create and add
                 fam = GeneFamily(pangenome.max_fam_id, fam_id)
-                fam.representative = get_gene_obj(reprez_id)
+                representative_gene = get_gene_obj(reprez_id)
+                if representative_gene is None:
+                    raise KeyError(f"The gene {reprez_id} associated to family {fam_id} from the clustering file is not found in pangenome.")
+                fam.representative = representative_gene
+
                 pangenome.add_gene_family(fam)
             gene.is_fragment = is_frag
             fam.add(gene)
+        # else:
+        #     raise KeyError(f"The gene {gene_id} associated to family {fam_id} from the clustering file is not found in pangenome.")
+
+            
     if nb_gene_with_fam < pangenome.number_of_genes:  # not all genes have an associated cluster
         if nb_gene_with_fam == 0:
             raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step."
