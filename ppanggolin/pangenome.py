@@ -129,10 +129,10 @@ class Pangenome:
 
         :return: Returns the gene that has the ID `gene_id`
 
-        :raises AssertionError: If the `gene_id` is not an integer
+        :raises AssertionError: If the `gene_id` is not a string
         :raises KeyError: If the `gene_id` is not in the pangenome
         """
-        assert isinstance(gene_id, str), "Gene id should be an integer"
+        assert isinstance(gene_id, str), f"The provided gene id ({gene_id}) should be a string and not a {type(gene_id)}"
 
         try:
             gene = self._gene_getter[gene_id]
