@@ -124,17 +124,17 @@ flowchart TD
 
 #### Specify the representative gene
 
-It's possible to indicate which gene is the representative gene by adding a column between the gene family name.
+It's possible to indicate which gene is the representative gene by adding a third column.
 
 
-Here is a minimal example of your clustering file:
+Here is a minimal example of your clustering file with the third column being the representative gene:
 
 ```
-Family_A    Gene_2  Gene_1
+Family_A    Gene_1  Gene_2
 Family_A    Gene_2  Gene_2
-Family_A    Gene_2  Gene_3
+Family_A    Gene_3  Gene_2
+Family_B    Gene_4  Gene_4
 Family_B    Gene_5  Gene_4
-Family_B    Gene_5  Gene_5
 Family_C    Gene_6  Gene_6
 ```
 
@@ -181,18 +181,24 @@ You can add this column when you assume or not the representative gene. PPanGGOL
 Here is a minimal example of your clustering file with fragmented gene precise:
 
 ```
-Family_A    Gene_2  Gene_1  
-Family_A    Gene_2  Gene_2  
-Family_A    Gene_2  Gene_3  'F'
-Family_B    Gene_5  Gene_4  
-Family_B    Gene_5  Gene_5  
-Family_C    Gene_6  Gene_6  'F'
+Family_A    Gene_1  Gene_2
+Family_A    Gene_2  Gene_2
+Family_A    Gene_3  Gene_2  F
+Family_B    Gene_4  Gene_4
+Family_B    Gene_5  Gene_4
+Family_C    Gene_6  Gene_6  F
 ```
 
 ```{warning}
-*The column order is
-important !*  You must first provide the cluster identifier, the representative id, and then the gene id to finish with
-the fragmented status of the gene.
+*Attention: Column Order is Important!*
+
+Please ensure that the columns are ordered as follows:
+1. The cluster identifier
+2. The gene ID
+3. The representative ID (if provided)
+4. The fragmented status of the gene (if provided)
+
+If you do not include a representative ID, then the fragmented status should be in the third column.
 ```
 
 ### Defragmentation
