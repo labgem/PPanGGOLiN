@@ -144,10 +144,19 @@ To generate these files, use the `write_pangenome` subcommand with the `--partit
 `ppanggolin write_pangenome -p pangenome.h5 --partitions`
 
 
-#### Gene Families to Genes Associations
 
-The `gene_families.tsv` file mirrors the format provided by [MMseqs2](https://github.com/soedinglab/MMseqs2) through its `createtsv` subcommand. This file structure comprises three columns: the gene family name in the first column, the gene names in the second, and a third column that remains empty or contains an "F" to denote potential gene fragments instead of complete genes. This indication appears only if the [defragmentation](./pangenomeCluster.md#defragmentation) pipeline has been used.
+#### Gene Families to Gene Associations
+
+The `gene_families.tsv` file follows the format produced by [MMseqs2](https://github.com/soedinglab/MMseqs2) using the `createtsv` subcommand. The file consists of four columns:
+
+1. **Gene Family ID**: The identifier for the gene family.
+2. **Gene ID**: The identifier for the gene.
+3. **Local ID** (if applicable): This column is used when gene IDs from annotation files are not unique. In such cases, `ppanggolin` assigns an internal ID to genes, and this column helps map the internal ID to the local ID from the annotation file.
+4. **Fragmentation Status**: This column indicates whether the gene is fragmented. It is either empty or contains an "F" to signify potential gene fragments instead of complete genes. This status is provided only if the [defragmentation](./pangenomeCluster.md#defragmentation) pipeline has been used, which is the default behavior.
 
 To generate this file, use the `write_pangenome` subcommand with the `--families_tsv` flag:
 
-`ppanggolin write_pangenome -p pangenome.h5 --families_tsv`
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --families_tsv
+```
+
