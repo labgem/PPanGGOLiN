@@ -17,11 +17,12 @@ ppanggolin draw -p pangenome.h5 --ucurve
 
 #### Tile plot
 
-A tile plot is similar to a heatmap representing the gene families (y-axis) in the genomes (x-axis) making up your pangenome. The tiles on the graph will be colored if the gene family is present in a genome (the color depends on the number of gene copies) and uncolored if absent. The gene families are ordered by partition and then by a hierarchical clustering, and the genomes are ordered by a hierarchical clustering based on their shared gene families (basically two genomes that are close together in terms of gene family composition will be close together on the figure).
+A tile plot is similar to a heatmap representing the gene families (y-axis) in the genomes (x-axis) making up your pangenome. The tiles on the graph will be colored if the gene family is present in a genome (either in blue or red if the gene family has multiple gene copies) and uncolored if absent. The gene families are ordered by partition and then by their number of presences, and the genomes are ordered by a hierarchical clustering based on their shared gene families via a Jaccard distance (basically two genomes that are close together in terms of gene family composition will be close together on the figure).
 
-This plot is quite helpful to observe potential structures in your pangenome, and can help you identify eventual outliers. You can interact with it, and mousing over a tile in the plot will indicate to you the gene identifier(s), the gene family and the genome corresponding to the tile.
+This plot is quite helpful to observe potential structures in your pangenome, and can help you identify eventual outliers. You can interact with it, and mousing over a tile in the plot will indicate the gene identifier(s), the gene family and the genome corresponding to the tile. As detailed below, additional metadata can also be added.
 
-If you build your pangenome using a workflow subcommands (`all`, `workflow`, `panrgp`, `panmodule`) and you have more than 500 genomes, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise.
+If you build your pangenome using a workflow subcommands (`all`, `workflow`, `panrgp`, `panmodule`) and you have more than 32 767 gene families, only the 'shell' and the 'persistent' partitions will be drawn, leaving out the 'cloud' as the figure tends to be too heavy for a browser to open it otherwise. Beyond the workflow subcommand, you can generate the plot with any number of gene families or genomes. However, no browser currently supports visualizing a tile plot containing more than 65,535 gene families or more than 65,535 genomes (for more information, refer to [this Stack Overflow discussion](https://stackoverflow.com/questions/78431835/plotly-heatmap-has-limit-on-data-size)
+ ).
 
 To generate a tile plot, use the 'draw' subcommand as follows:
 
