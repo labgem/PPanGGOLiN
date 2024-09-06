@@ -42,13 +42,20 @@ def draw_tile_plot(pangenome: Pangenome,
     if pangenome.status["partitioned"] == "No":
         raise Exception("Cannot draw the tile plot as the pangenome has not been partitioned.")
 
-    # Warn if there are more than 500 genomes, as the output might be too large for browsers to handle
-    if pangenome.number_of_organisms > 500 and not nocloud:
+    # Warn if there are more than 32767 genomes, as the output might be too large for browsers to handle
+    if pangenome.number_of_organisms > 32767:
         logging.getLogger("PPanGGOLiN").warning(
-            "You requested to draw a tile plot for a large number of genomes (>500). "
-            "This may result in a file that is too large for web browsers to open efficiently."
+            "You requested to draw a tile plot for a large number of genomes (>32k). "
+            "This may result in a plot that is too large for web browsers to render."
+        )
+    if pangenome.number_of_gene_families > 32767 and not nocloud:
+        logging.getLogger("PPanGGOLiN").warning(
+            "You requested to draw a tile plot for a pangenome with a large number of families (>32k). "
+            "This may result in a plot that is too large for web browsers to render."
+            "You can use the --nocloud flag to exclude cloud families from the plot. "
         )
 
+    
     logging.getLogger("PPanGGOLiN").info("Starting the process of drawing the tile plot...")
 
     # Prepare the data structures required for generating the tile plot
