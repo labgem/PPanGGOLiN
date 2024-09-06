@@ -59,7 +59,6 @@ python_deps = [
     "plotly==5.*",
     "gmpy2==2.*",
     "pandas==2.*",
-    "colorlover==0.3",
     "numpy==1.24",
     "bokeh==3.*"
 ]

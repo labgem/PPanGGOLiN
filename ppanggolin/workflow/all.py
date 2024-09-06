@@ -196,12 +196,13 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
             spot_time += time.time() - start_spot_drawing
 
         if args.draw.tile_plot:
-            if 1 < pangenome.number_of_organisms < 5000:
-                nocloud = args.draw.nocloud if pangenome.number_of_organisms < 500 else True
-                draw_tile_plot(pangenome, args.output, nocloud=nocloud, disable_bar=args.disable_prog_bar)
+            if pangenome.number_of_organisms < 65000 or pangenome.number_of_gene_families < 65000:
+                nocloud = args.draw.nocloud if pangenome.number_of_organisms < 32767 or pangenome.number_of_gene_families <  32767 else True
+                draw_tile_plot(pangenome, args.output, nocloud=nocloud, disable_bar=args.disable_prog_bar,
+                               draw_dendrogram=args.draw.add_dendrogram, add_metadata=True)
             else:
                 logging.getLogger("PPanGGOLiN").warning(
-                    'Tile plot output have been requested but there are too many genomes to produce a viewable tile plot.')
+                    'Tile plot output have been requested but there are too many genomes or families to produce a viewable tile plot.')
 
         if args.draw.ucurve:
             draw_ucurve(pangenome, args.output, disable_bar=args.disable_prog_bar, soft_core=args.draw.soft_core)
@@ -253,7 +254,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                                     proksee=args.write_genomes.proksee,
                                     table=args.write_genomes.table,
                                     gff=args.write_genomes.gff,
-                                    add_metadata=False,
+                                    add_metadata=True,
                                     compress=args.write_genomes.compress,
                                     disable_bar=args.disable_prog_bar, cpu=args.write_genomes.cpu)
         else:
