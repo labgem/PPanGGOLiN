@@ -341,19 +341,33 @@ def mk_local_to_gene(pangenome: Pangenome) -> dict:
             return {}  # local identifiers are not unique.
     return local_dict
 
-
 def infer_singletons(pangenome: Pangenome):
-    """Creates a new family for each gene with no associated family
+    """
+    Creates a new family for each gene with no associated family.
 
-    :param pangenome: Input pangenome
+    :param pangenome: Input pangenome object
     """
     singleton_counter = 0
     for gene in pangenome.genes:
         if gene.family is None:
+            # Create a new family for the singleton gene
             fam = GeneFamily(family_id=pangenome.max_fam_id, name=gene.ID)
+            fam.representative = gene
             fam.add(gene)
-            pangenome.add_gene_family(fam)
+
+
+
+            # Try to add the new family
+            try:
+                pangenome.add_gene_family(fam)
+            except KeyError:
+                raise KeyError(
+                    f"Cannot create singleton family with name='{fam.name}' for gene '{gene.ID}': "
+                    f"A family with the same name already exists. Check the gene '{gene.ID}' in input cluster file."
+                )
+
             singleton_counter += 1
+
     logging.getLogger("PPanGGOLiN").info(f"Inferred {singleton_counter} singleton families")
 
 
@@ -364,10 +378,13 @@ def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cp
         repres_path = tmp / "representative.fna"
         with open(repres_path, "w") as repres_seq:
             for family in pangenome.gene_families:
+
                 repres_seq.write(f">{family.name}\n")
                 repres_seq.write(f"{family.representative.dna}\n")
+
         translate_db = translate_genes(sequences=repres_path, tmpdir=tmp, cpu=cpu,
                                        is_single_line_fasta=True, code=code)
+        
         outpath = tmp / "representative_protein_genes.fna"
         cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
         run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
@@ -502,8 +519,8 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
                 pangenome.add_gene_family(fam)
             gene.is_fragment = is_frag
             fam.add(gene)
-        # else:
-        #     raise KeyError(f"The gene {gene_id} associated to family {fam_id} from the clustering file is not found in pangenome.")
+        else:
+            raise KeyError(f"The gene {gene_id} associated to family {fam_id} from the clustering file is not found in pangenome.")
 
             
     if nb_gene_with_fam < pangenome.number_of_genes:  # not all genes have an associated cluster
@@ -521,7 +538,10 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
                     f"You can either update your cluster file to ensure each gene has a cluster assignment, "
                     f"or use the '--infer_singletons' option to automatically infer a cluster for each non-clustered gene."
                 )
-    get_family_representative_sequences(pangenome, code, cpu, tmpdir, keep_tmp)
+    if pangenome.status["geneSequences"] == "No":
+        logging.getLogger("PPanGGOLiN").info("The pangenome has no gene sequences so it is not possible to extract sequence of family representatives.")
+    else:
+        get_family_representative_sequences(pangenome, code, cpu, tmpdir, keep_tmp)
 
     pangenome.status["genesClustered"] = "Computed"
     if frag:  # if there was fragment information in the file.
