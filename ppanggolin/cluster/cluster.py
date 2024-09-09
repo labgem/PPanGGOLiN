@@ -9,6 +9,7 @@ import argparse
 from typing import Tuple, Dict, Set
 from pathlib import Path
 import time
+import gzip
 
 # installed libraries
 from networkx import Graph
@@ -373,11 +374,21 @@ def infer_singletons(pangenome: Pangenome):
 
 def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cpu: int = 1,
                                         tmpdir: Path = None, keep_tmp: bool = False):
+    
+    logging.getLogger("PPanGGOLiN").info("Retrieving protein sequences of family representatives.")
+
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     with create_tmpdir(tmpdir, "get_proteins_sequences", keep_tmp) as tmp:
-        repres_path = tmp / "representative.fna"
-        with open(repres_path, "w") as repres_seq:
+
+        repres_path = tmp / "representative.fna.gz"
+        
+        with gzip.open(repres_path, mode="wt") as repres_seq:
+
             for family in pangenome.gene_families:
+                
+                if family.representative.dna is None:
+                    raise ValueError(f'DNA sequence of representative gene {family.representative} is None. '
+                                     'Sequence may not have been loaded correctly from the pangenome file or the pangenome has no gene sequences.')
 
                 repres_seq.write(f">{family.name}\n")
                 repres_seq.write(f"{family.representative.dna}\n")
@@ -388,12 +399,14 @@ def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cp
         outpath = tmp / "representative_protein_genes.fna"
         cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
         run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
+
         with open(outpath, "r") as repres_prot:
             lines = repres_prot.readlines()
             while len(lines) > 0:
                 family_name = lines.pop(0).strip()[1:]
                 family_seq = lines.pop(0).strip()
                 family = pangenome.get_gene_family(family_name)
+                
                 family.add_sequence(family_seq)
 
 
@@ -485,7 +498,13 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
     :param disable_bar: Allow to disable progress bar
     """
     check_pangenome_former_clustering(pangenome, force)
-    check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=False, disable_bar=disable_bar)
+
+    if pangenome.status["geneSequences"] == "No":
+        need_gene_sequences=False
+    else:
+        need_gene_sequences = True
+
+    check_pangenome_info(pangenome, need_annotations=True, need_gene_sequences=need_gene_sequences, disable_bar=disable_bar)
 
     families_df, frag = read_clustering_file(families_tsv_path)
 
@@ -507,13 +526,16 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
 
         if gene is not None:
             nb_gene_with_fam += 1
+
             try:
                 fam = pangenome.get_gene_family(fam_id)
+            
             except KeyError:  # Family not found so create and add
                 fam = GeneFamily(pangenome.max_fam_id, fam_id)
                 representative_gene = get_gene_obj(reprez_id)
                 if representative_gene is None:
                     raise KeyError(f"The gene {reprez_id} associated to family {fam_id} from the clustering file is not found in pangenome.")
+            
                 fam.representative = representative_gene
 
                 pangenome.add_gene_family(fam)
