@@ -441,7 +441,8 @@ def read_clustering_file(families_tsv_path: Path) -> Tuple[pd.DataFrame, bool]:
         families_tsv_path,
         sep="\t",
         header=None,
-        compression=compress_type if compress_type is not None else 'infer'
+        compression=compress_type if compress_type is not None else 'infer',
+        dtype=str
     )
     
     # Process DataFrame based on the number of columns
