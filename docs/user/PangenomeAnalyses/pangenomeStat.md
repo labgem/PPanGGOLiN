@@ -147,7 +147,7 @@ To generate these files, use the `write_pangenome` subcommand with the `--partit
 
 #### Gene Families to Gene Associations
 
-The `gene_families.tsv` file follows the format produced by [MMseqs2](https://github.com/soedinglab/MMseqs2) using the `createtsv` subcommand. The file consists of four columns:
+The `gene_families.tsv` file consists of four columns:
 
 1. **Gene Family ID**: The identifier for the gene family.
 2. **Gene ID**: The identifier for the gene.
