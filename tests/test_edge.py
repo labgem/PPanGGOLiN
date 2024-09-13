@@ -2,6 +2,7 @@
 
 import pytest
 from typing import Generator, Tuple
+import pickle
 
 from ppanggolin.genome import Gene, Organism
 from ppanggolin.edge import Edge
@@ -128,3 +129,46 @@ class TestEdge:
             edge.add_genes(gene1, gene2)
         with pytest.raises(ValueError):
             edge.add_genes(gene2, gene1)
+
+    def test_pickle_edge(self, edge):
+        """Test that an Edge object can be pickled and unpickled
+        """
+        # Serialize
+        pickled_edge = pickle.dumps(edge)
+
+        # Deserialize
+        unpickled_edge = pickle.loads(pickled_edge)
+
+        assert unpickled_edge.source.name == edge.source.name
+        assert unpickled_edge.target.name == edge.target.name
+        assert unpickled_edge.number_of_organisms == edge.number_of_organisms
+        assert len(unpickled_edge.gene_pairs) == len(edge.gene_pairs)
+
+    def test_edge_equality(self, edge, genes_pair):
+        # Create two Edge objects with the same attributes
+        eq_edge = Edge(*genes_pair)
+        # Check that the two objects are equal
+        assert edge == eq_edge
+
+        # Check that the hash values are equal
+        assert hash(edge) == hash(eq_edge)
+
+    def test_edge_inequality(self, edge, organism):
+        # Create two Edge objects with different attributes
+        gene3, gene4 = Gene('gene3'), Gene('gene4')
+        gene3.fill_parents(organism, None)
+        gene4.fill_parents(organism, None)
+        gene3.family, gene4.family = GeneFamily(3, "family3"), GeneFamily(4, "family4")
+        nq_edge = Edge(gene3, gene4)
+
+        # Check that the two objects are not equal
+        assert edge != nq_edge
+
+        # Check that the hash values are not equal
+        assert hash(edge) != hash(nq_edge)
+
+    def test_edge_equality_with_different_types(self, edge):
+        # Create an Edge object and a non-Edge object
+        non_edge = "not an Edge object"
+        with pytest.raises(TypeError):
+            edge != non_edge

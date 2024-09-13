@@ -116,6 +116,42 @@ class TestFeature:
         with pytest.raises(AssertionError):
             feature.fill_parents()
 
+    def test_feature_equality(self, feature):
+        # Create two Feature objects with the same attributes
+        feature.fill_annotations(1, 10, '+', 'gene_type', 'name', 'product', 'local_id')
+
+        eq_feature = Feature("test_id")
+        eq_feature.fill_annotations(1, 10, '+', 'gene_type', 'name', 'product', 'local_id')
+
+        # Check that the two objects are equal
+        assert feature == eq_feature
+
+        # Check that the hash values are equal
+        assert hash(feature) == hash(eq_feature)
+
+        # Change an attribute of feature2 and check that the objects are no longer equal
+        eq_feature.start = 200
+        assert feature != eq_feature
+        assert hash(feature) != hash(eq_feature)
+
+    def test_feature_inequality(self, feature):
+        # Create two Feature objects with different attributes
+        feature.fill_annotations(1, 10, '+', 'gene_type', 'name', 'product', 'local_id')
+
+        nq_feature = Feature("nq_feature")
+        nq_feature.fill_annotations(1, 14, '+', 'gene_type', 'name', 'product', 'local_id')
+
+        # Check that the hash values are not equal
+        assert hash(feature) != hash(nq_feature)
+
+    def test_feature_equality_with_different_types(self, feature):
+        # Create a Feature object and a non-Feature object
+        non_feature = "not a Feature object"
+
+        # Check that raise an error
+        with pytest.raises(TypeError):
+            feature == non_feature
+
     def test_set_organism(self, feature):
         """Tests that organism setter sets organism with the valid type
         """

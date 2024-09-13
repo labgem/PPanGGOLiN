@@ -4,6 +4,7 @@ import pytest
 from random import randint
 from typing import Generator, Set
 from itertools import combinations_with_replacement
+import pickle
 
 from ppanggolin.pangenome import Edge
 from ppanggolin.geneFamily import GeneFamily
@@ -41,6 +42,38 @@ class TestGeneFamily:
         assert family._spots == set()
         assert family._module is None
         assert family.bitarray is None
+
+    def test_pickling_gene_family(self, family):
+        """Test that a GeneFamily object can be pickled and unpickled
+        """
+        # Serialize (pickle) the object
+        pickled_data = pickle.dumps(family)
+
+        # Deserialize (unpickle) the object
+        restored_family = pickle.loads(pickled_data)
+
+        # Check if the basic attributes were correctly restored
+        assert restored_family.ID == family.ID
+        assert restored_family.name == family.name
+        assert restored_family.removed == family.removed
+
+    def test_pickling_gene_family_with_genes(self, family, genes):
+        """Test that a GeneFamily object can be pickled and unpickled
+        """
+        for gene in genes:
+            family.add(gene)
+        # Serialize (pickle) the object
+        pickled_data = pickle.dumps(family)
+
+        # Deserialize (unpickle) the object
+        restored_family = pickle.loads(pickled_data)
+
+        # Check if the basic attributes were correctly restored
+        assert restored_family.ID == family.ID
+        assert restored_family.name == family.name
+        assert restored_family.removed == family.removed
+
+        assert list(restored_family.genes) == list(family.genes)
 
     @pytest.mark.parametrize("partition, name",
                              [
@@ -299,6 +332,18 @@ class TestGeneFamily:
             expected_edges = set([edge for edge in edges if edge.source == family or edge.target == family])
             assert isinstance(family.number_of_edges, int)
             assert family.number_of_neighbors == len(expected_edges)
+
+
+    def test_pickling_gene_family_with_edges(self, families, edges):
+        """Test that a GeneFamily object can be pickled and unpickled
+        """
+        for family in families:
+            # Serialize (pickle) the object
+            pickled_data = pickle.dumps(family)
+
+            # Deserialize (unpickle) the object
+            restored_family = pickle.loads(pickled_data)
+            assert list(restored_family.edges) == list(family.edges)
 
     def test_add_spot_to_gene_family(self, family):
         """Tests that a Spot object can be added to a GeneFamily object

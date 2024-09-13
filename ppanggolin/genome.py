@@ -91,6 +91,21 @@ class Feature(MetaFeatures):
             raise ValueError(
                 f"Coordinates of gene {self} have not been defined. Getting its length is then impossible.")
 
+    def __eq__(self, other: Feature) -> bool:
+        """Compare two Feature objects for equality"""
+        if not isinstance(other, Feature):
+            raise TypeError("A Gene object is expected to be compared to another one")
+        return (self.ID == other.ID and
+                self.type == other.type and
+                self.start == other.start and
+                self.stop == other.stop and
+                self.strand == other.strand and
+                self.name == other.name)
+
+    def __hash__(self) -> int:
+        """Return a hash value for the Feature object"""
+        return hash((self.ID, self.type, self.start, self.stop, self.strand, self.name))
+
     @property
     def has_joined_coordinates(self) -> bool:
         """

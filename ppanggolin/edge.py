@@ -43,6 +43,31 @@ class Edge:
         self._organisms = defaultdict(list)
         self.add_genes(source_gene, target_gene)
 
+    def __getstate__(self):
+        """Prepare the object for pickling by returning a dictionary of its state."""
+        state = self.__dict__.copy()
+        # Convert generator to list for pickling
+        state['_organisms'] = dict(self._organisms)
+        return state
+
+    def __setstate__(self, state):
+        """Restore the object's state from the unpickled state."""
+        self.__dict__.update(state)
+        # Restore defaultdict
+        self._organisms = defaultdict(list, self._organisms)
+
+    def __eq__(self, other) -> bool:
+        """Compare two Edge objects for equality"""
+        if not isinstance(other, Edge):
+            raise TypeError(f"Cannot compare {type(self)} to {type(other)}")
+        return (self.source == other.source and
+                self.target == other.target and
+                self._organisms == other._organisms)
+
+    def __hash__(self) -> int:
+        """Return a hash value for the Edge object"""
+        return hash((self.source, self.target))
+
     @property
     def organisms(self) -> Generator[Organism, None, None]:
         """Get all the organisms belonging to the edge

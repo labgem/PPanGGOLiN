@@ -80,7 +80,17 @@ class GeneFamily(MetaFeatures):
         """
         return f"{self.ID}: {self.name}"
 
+    def __getstate__(self):
+        """Customize pickling by removing non-picklable attributes."""
+        state = self.__dict__.copy()
+        # Remove non-picklable attributes
+        state['_edges_getter'] = list(self._edges_getter.items())  # convert dict to list for pickling
+        return state
 
+    def __setstate__(self, state):
+        """Restore the object from the pickled state."""
+        self.__dict__.update(state)
+        self._edges_getter = dict(self._edges_getter)  # convert back to dict
 
     def __len__(self) -> int:
         """Get the number of genes in the family
