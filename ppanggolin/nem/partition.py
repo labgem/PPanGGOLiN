@@ -321,7 +321,7 @@ def evaluate_nb_partitions(organisms: set, output: Path = None, sm_degree: int =
     newtmpdir = tmpdir / "eval_partitions"
 
     if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(set(organisms), chunk_size))
+        select_organisms = set(random.sample(list(organisms), chunk_size))
     else:
         select_organisms = set(organisms)
 

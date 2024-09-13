@@ -793,7 +793,10 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     correct_putative_overlaps(org.contigs)
 
     # GET THE FASTA SEQUENCES OF THE GENES
-    if has_fasta and fasta_string != "":
+    if fasta_string == "":
+        has_fasta = False
+
+    if has_fasta:
         contig_sequences = read_fasta(org, fasta_string.split('\n'))  # _ is total contig length
         for contig in org.contigs:
             if contig.length != len(contig_sequences[contig.name]):
@@ -1073,9 +1076,10 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
                 futures.append(future)
 
             for future in futures:
-                org, flag = future.result()
+                org, has_dna_sequence = future.result()
                 pangenome.add_organism(org)
-                if not flag:
+
+                if not has_dna_sequence:
                     pangenome.status["geneSequences"] = "No"
 
     # decide whether we use local ids or ppanggolin ids.

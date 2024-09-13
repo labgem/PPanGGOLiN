@@ -222,7 +222,8 @@ class Feature(MetaFeatures):
 
         :raise AssertionError: Sequence must be a string
         """
-        assert isinstance(sequence, str), f"'str' type was expected but you provided a '{type(sequence)}' type object"
+        assert isinstance(sequence, str), f"'str' type was expected for dna sequence but you provided a '{type(sequence)}' type object"
+        
         self.dna = sequence
 
     def string_coordinates(self) -> str:
