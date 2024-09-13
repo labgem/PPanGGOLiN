@@ -2,6 +2,7 @@
 
 import pytest
 from typing import Generator, Tuple
+import pickle
 import gmpy2
 
 from ppanggolin.genome import Feature, Gene, RNA, Contig, Organism
@@ -186,6 +187,37 @@ class TestFeature:
 
         assert feature.overlaps_contig_edge == expected_overlaps_contig_edge_flag
 
+    def test_feature_pickle(self, feature):
+        """Test if a Feature object can be pickled and unpickled"""
+        feature.fill_annotations(
+            start=1, stop=100, strand='+', gene_type='gene', name='Gene1',
+            product='Product1', local_identifier='G1'
+        )
+        feature.add_sequence('ATGCGT')
+        pickled_feature = pickle.dumps(feature)
+        unpickled_feature = pickle.loads(pickled_feature)
+        assert feature.ID == unpickled_feature.ID
+        assert feature.name == unpickled_feature.name
+        assert feature.coordinates == unpickled_feature.coordinates
+
+    def test_feature_len_after_unpickle(self, feature):
+        """Test if length calculation works after unpickling"""
+        feature.fill_annotations(
+            start=1, stop=100, strand='+', gene_type='gene', name='Gene1',
+            product='Product1', local_identifier='G1'
+        )
+        feature.add_sequence('ATGCGT')
+        feature.coordinates = [(1, 50), (60, 100)]
+        pickled_feature = pickle.dumps(feature)
+        unpickled_feature = pickle.loads(pickled_feature)
+        assert len(unpickled_feature) == 91  # 50 + 41 (second segment)
+
+    def test_feature_string_representation(self, feature):
+        """Test if string representation is preserved after pickling"""
+        pickled_feature = pickle.dumps(feature)
+        unpickled_feature = pickle.loads(pickled_feature)
+        assert str(feature) == str(unpickled_feature)
+
 
 class TestRNA:
     """Tests RNA Class
@@ -201,6 +233,14 @@ class TestRNA:
         """Tests that a Gene object can be created with a valid gene_id
         """
         assert rna.ID == 'rna'
+
+    def test_rna_pickle(self, rna):
+        """Test if an RNA object can be pickled and unpickled"""
+        pickled_rna = pickle.dumps(rna)
+        unpickled_rna = pickle.loads(pickled_rna)
+        assert rna.ID == unpickled_rna.ID
+        assert rna.name == unpickled_rna.name
+        assert rna.coordinates == unpickled_rna.coordinates
 
 
 class TestGene:
@@ -275,6 +315,18 @@ class TestGene:
         """
         with pytest.raises(TypeError):
             gene.RGP = 4
+
+    def test_gene_pickle(self, gene):
+        """Test if a Gene object can be pickled and unpickled"""
+        gene.fill_annotations(start=1, stop=10, strand='+', position=10, genetic_code=4)
+        gene.position = 1
+        gene.add_protein('MVLSPADKTNVKAA')
+        pickled_gene = pickle.dumps(gene)
+        unpickled_gene = pickle.loads(pickled_gene)
+        assert gene.ID == unpickled_gene.ID
+        assert gene.name == unpickled_gene.name
+        assert gene.position == unpickled_gene.position
+        assert gene.protein == unpickled_gene.protein
 
 
 class TestContig:
@@ -433,6 +485,9 @@ class TestContig:
             contig.get_genes(0, 3)
 
     def test_get_genes_with_end_position_greater_than_last_position_with_outrange_ok(self, genes, contig):
+        """Tests that genes can be retrieve with given end position greater than
+        last gene position in the contig if outrange_ok is True
+        """
         gene1, gene2, gene3 = genes
         contig.add(gene1)
         contig.add(gene2)
@@ -467,6 +522,25 @@ class TestContig:
         """
         with pytest.raises(TypeError):
             contig.organism = 4
+
+    def test_contig_pickle(self, contig):
+        """Test if a Contig object can be pickled and unpickled"""
+        pickled_contig = pickle.dumps(contig)
+        unpickled_contig = pickle.loads(pickled_contig)
+        assert contig.ID == unpickled_contig.ID
+        assert contig.name == unpickled_contig.name
+        assert contig.is_circular == unpickled_contig.is_circular
+        assert len(list(contig.genes)) == len(list(unpickled_contig.genes))
+
+    def test_gene_in_contig_after_pickle(self, contig, gene):
+        """Test if the gene inside the contig is preserved after pickling"""
+        contig.add(gene)
+        pickled_contig = pickle.dumps(contig)
+        unpickled_contig = pickle.loads(pickled_contig)
+        gene_from_contig = next(unpickled_contig.genes)
+        assert gene.ID == gene_from_contig.ID
+        assert gene.position == gene_from_contig.position
+        assert gene.protein == gene_from_contig.protein
 
 
 class TestOrganism:
@@ -618,3 +692,20 @@ class TestOrganism:
         index = {fam1: 1, fam2: 2}
         organism.mk_bitarray(index)
         assert organism.bitarray == gmpy2.xmpz(6)
+
+    def test_pickle_organism(self, organism, contig):
+        """Test that an Organism object can be pickled and unpickled"""
+        organism.add(contig)
+        pickled_organism = pickle.dumps(organism)
+        unpickled_organism = pickle.loads(pickled_organism)
+        assert unpickled_organism.name == organism.name
+        assert len(unpickled_organism._contigs_getter) == len(organism._contigs_getter)
+        assert unpickled_organism["contig"].name == contig.name
+
+    def test_bitarray_in_organism(self, organism):
+        """Test if the bitarray is handled correctly during pickling"""
+        # Example bitarray handling
+        organism.bitarray = gmpy2.xmpz(12345)  # Assign a sample bitarray value
+        pickled_organism = pickle.dumps(organism)
+        unpickled_organism = pickle.loads(pickled_organism)
+        assert unpickled_organism.bitarray == gmpy2.xmpz(12345)

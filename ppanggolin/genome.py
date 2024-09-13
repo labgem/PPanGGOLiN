@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, Generator, List, Union, Set, Tuple, Iterable
 from collections import defaultdict
+import pickle
 
 # installed libraries
 import gmpy2
@@ -11,6 +12,7 @@ import gmpy2
 # local libraries
 from ppanggolin.metadata import MetaFeatures
 from ppanggolin.utils import get_consecutive_region_positions
+
 
 class Feature(MetaFeatures):
     """This is a general class representation of Gene, RNA
@@ -58,6 +60,16 @@ class Feature(MetaFeatures):
         self._contig = None
         self.dna = None
 
+    def __getstate__(self):
+        """Customize the pickling behavior"""
+        state = self.__dict__.copy()
+        # You can remove or adjust non-picklable attributes here
+        return state
+
+    def __setstate__(self, state):
+        """Customize the unpickling behavior"""
+        self.__dict__.update(state)
+
     def __str__(self) -> str:
         """String representation of the feature
 
@@ -74,9 +86,10 @@ class Feature(MetaFeatures):
         """
 
         try:
-            return sum([(stop - start +1) for start, stop in self.coordinates ])
+            return sum([(stop - start + 1) for start, stop in self.coordinates])
         except TypeError:
-            raise ValueError(f"Coordinates of gene {self} have not been defined. Getting its length is then impossible.")
+            raise ValueError(
+                f"Coordinates of gene {self} have not been defined. Getting its length is then impossible.")
 
     @property
     def has_joined_coordinates(self) -> bool:
@@ -88,20 +101,18 @@ class Feature(MetaFeatures):
             return True
         else:
             return False
-    
+
     @property
     def overlaps_contig_edge(self) -> bool:
         """
         Check based on the coordinates of the feature, if the gene seems to overlap contig edge.
 
         """
-        
         start_stop = self.coordinates[0]
         for start_stop_next in self.coordinates[1:]:
             if start_stop > start_stop_next:
                 return True
             start_stop = start_stop_next
-
         return False
 
     @property
@@ -141,7 +152,7 @@ class Feature(MetaFeatures):
         self._contig = contig
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
-                        product: str = "", local_identifier: str = "", coordinates: List[Tuple[int]] = None):
+                         product: str = "", local_identifier: str = "", coordinates: List[Tuple[int]] = None):
         """
         Fill general annotation for child classes
 
@@ -173,11 +184,13 @@ class Feature(MetaFeatures):
         if not isinstance(product, str):
             raise TypeError(f"Product should be str. Got {type(product)} instead in {self} from {self.organism}.")
         if not isinstance(local_identifier, str):
-            raise TypeError(f"Local identifier should be str. Got {type(local_identifier)} instead in {self} from {self.organism}.")
+            raise TypeError(
+                f"Local identifier should be str. Got {type(local_identifier)} instead in {self} from {self.organism}.")
         if strand not in ["+", "-"]:
             raise ValueError(f"Strand should be '+' or '-'. Got {strand} instead in {self} from {self.organism}.")
         if not isinstance(coordinates, list):
-            raise TypeError(f"Coordinates should be of type list. Got {type(coordinates)} instead in {self} from {self.organism}.")
+            raise TypeError(
+                f"Coordinates should be of type list. Got {type(coordinates)} instead in {self} from {self.organism}.")
 
         for start_i, stop_i in coordinates:
             if not isinstance(start_i, int):
@@ -185,10 +198,12 @@ class Feature(MetaFeatures):
             if not isinstance(stop_i, int):
                 raise TypeError(f"Stop should be int. Got {type(stop_i)} instead in {self} from {self.organism}.")
             if stop_i < start_i:
-                raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) should not be greater than stop ({stop_i}) in {self} from {self.organism}.")
+                raise ValueError(
+                    f"Wrong coordinates: {coordinates}. Start ({start_i}) should not be greater than stop ({stop_i}) in {self} from {self.organism}.")
             if start_i < 1 or stop_i < 1:
-                raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) and stop ({stop_i}) should be greater than 0 in {self} from {self.organism}.")
-        
+                raise ValueError(
+                    f"Wrong coordinates: {coordinates}. Start ({start_i}) and stop ({stop_i}) should be greater than 0 in {self} from {self.organism}.")
+
         self.start = start
         self.stop = stop
         self.strand = strand
@@ -230,23 +245,24 @@ class Feature(MetaFeatures):
         Return a string representation of the coordinates
         """
         return ','.join(f'{start}..{stop}' for start, stop in self.coordinates)
-    
+
     def start_relative_to(self, gene):
         """
         """
         if gene.start <= self.start:
             return self.start
         if gene.start > self.start:
-            return self.start + self.contig.length 
-    
+            return self.start + self.contig.length
+
     def stop_relative_to(self, gene):
         """
         """
         if gene.start <= self.stop:
             return self.stop
-        
+
         if gene.start > self.stop:
-            return self.stop + self.contig.length 
+            return self.stop + self.contig.length
+
 
 class RNA(Feature):
     """Save RNA from genome as an Object with some information for Pangenome
@@ -285,6 +301,18 @@ class Gene(Feature):
         self._RGP = None
         self.genetic_code = None
         self.protein = None
+
+    def __getstate__(self):
+        """Customize the pickling behavior"""
+        state = self.__dict__.copy()
+        # If family or RGP objects are not picklable, handle them here
+        state['_family'] = None if not hasattr(self, '_family') else self._family
+        state['_RGP'] = None if not hasattr(self, '_RGP') else self._RGP
+        return state
+
+    def __setstate__(self, state):
+        """Customize the unpickling behavior"""
+        self.__dict__.update(state)
 
     @property
     def family(self):
@@ -452,6 +480,15 @@ class Contig(MetaFeatures):
 
     # TODO define eq function
 
+    def __getstate__(self):
+        """Customize the pickling behavior"""
+        state = self.__dict__.copy()
+        return state
+
+    def __setstate__(self, state):
+        """Customize the unpickling behavior"""
+        self.__dict__.update(state)
+
     @property
     def length(self) -> Union[int, None]:
         """Get the length of the contig
@@ -550,13 +587,14 @@ class Contig(MetaFeatures):
 
         :raises TypeError: Position is not an integer
         """
-        if not isinstance(coordinate, Tuple):
-            raise TypeError(f"Coordinate to get gene must be a tuple. The provided type was {type(coordinate)}")
-
-        gene = self[coordinate]
-        if gene is None:
-            logging.getLogger("PPanGGOLiN").debug("Given position result with a None Gene")
-        return gene
+        raise NotImplementedError('This function does not work. self.__getitem__ expect position not coordinate')
+        # if not isinstance(coordinate, Tuple):
+        #     raise TypeError(f"Coordinate to get gene must be a tuple. The provided type was {type(coordinate)}")
+        #
+        # gene = self[coordinate]
+        # if gene is None:
+        #     logging.getLogger("PPanGGOLiN").debug("Given position result with a None Gene")
+        # return gene
 
     def remove(self, position):
         """Remove a gene by its position
@@ -742,7 +780,6 @@ class Contig(MetaFeatures):
                 modules.add(module)
         yield from modules
 
-
     def get_ordered_consecutive_genes(self, genes: Iterable[Gene]) -> List[List[Gene]]:
         """
         Order the given genes considering the circularity of the contig.
@@ -751,13 +788,16 @@ class Contig(MetaFeatures):
         :return: A list of lists containing ordered consecutive genes considering circularity.
         """
         gene_positions = [gene.position for gene in genes]
-        
-        # Determine consecutive region positions
-        consecutive_region_positions = get_consecutive_region_positions(region_positions=gene_positions, contig_gene_count=self.number_of_genes)
 
-        consecutive_genes_lists = [[self[position] for position in consecutive_positions] for consecutive_positions in consecutive_region_positions]
+        # Determine consecutive region positions
+        consecutive_region_positions = get_consecutive_region_positions(region_positions=gene_positions,
+                                                                        contig_gene_count=self.number_of_genes)
+
+        consecutive_genes_lists = [[self[position] for position in consecutive_positions] for consecutive_positions in
+                                   consecutive_region_positions]
 
         return consecutive_genes_lists
+
 
 class Organism(MetaFeatures):
     """
@@ -791,6 +831,21 @@ class Organism(MetaFeatures):
         self._contigs_getter = {}
         self._families = None
         self.bitarray = None
+
+    def __getstate__(self):
+        """Customize the pickling behavior"""
+        state = self.__dict__.copy()
+        # Handle non-picklable objects (like gmpy2.xmpz if used in bitarray)
+        if self.bitarray is not None and isinstance(self.bitarray, gmpy2.xmpz):
+            state['bitarray'] = str(self.bitarray)  # Convert to a string for pickling
+        return state
+
+    def __setstate__(self, state):
+        """Customize the unpickling behavior"""
+        # Restore the state and reinitialize any attributes as needed
+        if 'bitarray' in state and isinstance(state['bitarray'], str):
+            state['bitarray'] = gmpy2.xmpz(state['bitarray'])
+        self.__dict__.update(state)
 
     def __str__(self) -> str:
         """String representation of the genome
@@ -1066,10 +1121,8 @@ class Organism(MetaFeatures):
         :return: A dictionary containing sets of genes grouped by their family's named partition.
         """
         partition_to_gene = defaultdict(set)
-        contigs_count = 0
 
         for contig in self.contigs:
-            contigs_count += 1
             for gene in contig.genes:
                 partition_to_gene[gene.family.named_partition].add(gene)
 
