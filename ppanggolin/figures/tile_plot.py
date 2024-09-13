@@ -96,9 +96,7 @@ def prepare_data_structures(pangenome: Pangenome, nocloud: bool) -> Tuple[set, d
     
     # Get the organism index mapping from the pangenome
     org_index = pangenome.get_org_index()
-    
     return families, org_index
-
 
 def build_presence_absence_matrix(families: set, org_index: dict) -> csc_matrix:
     """

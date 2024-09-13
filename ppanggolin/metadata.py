@@ -165,7 +165,7 @@ class MetaFeatures:
         # or they are ridden
         if metadata_id is None:
             if self.has_source(metadata.source):
-                metadata_id = max([meta_id for meta_id in self._metadata_getter[metadata.source].keys()]) + 1
+                metadata_id = max(self._metadata_getter[metadata.source].keys()) + 1
             else:
                 # Set first as 1 for PANORAMA
                 metadata_id = 1

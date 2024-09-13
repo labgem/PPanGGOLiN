@@ -119,7 +119,7 @@ def manage_module_colors(modules: Set[Module], window_size: int = 100) -> Dict[M
     random.seed(1)
 
     color_mod_graph = nx.Graph()
-    color_mod_graph.add_nodes_from((module for module in modules))
+    color_mod_graph.add_nodes_from(module for module in modules)
 
     contig_to_mod_genes = defaultdict(set)
     gene_to_module = {}

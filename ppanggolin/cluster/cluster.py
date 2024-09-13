@@ -117,7 +117,7 @@ def read_faa(faa_file_name: Path) -> Dict[str, str]:
     """
     fam2seq = {}
     head = ""
-    with open(faa_file_name, "r") as faaFile:
+    with open(faa_file_name) as faaFile:
         for line in faaFile:
             if line.startswith('>'):
                 head = line[1:].strip().replace("ppanggolin_", "")  # remove the eventual addition
@@ -161,7 +161,7 @@ def read_tsv(tsv_file_name: Path) -> Tuple[Dict[str, Tuple[str, bool]], Dict[str
     """
     genes2fam = {}
     fam2genes = defaultdict(set)
-    with open(tsv_file_name, "r") as tsvfile:
+    with open(tsv_file_name) as tsvfile:
         for line in tsvfile:
             line = line.replace('"', '').replace("ppanggolin_", "").split()
             # remove the '"' char which protects the fields, and the eventual addition
@@ -189,7 +189,7 @@ def refine_clustering(tsv: Path, aln_file: Path,
         simgraph.add_node(fam, nbgenes=len(genes))
 
     # add the edges
-    with open(aln_file, "r") as alnfile:
+    with open(aln_file) as alnfile:
         for line in alnfile:
             line = line.replace('"', '').replace("ppanggolin_", "").split()  # remove the eventual addition
 
@@ -399,8 +399,8 @@ def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cp
         outpath = tmp / "representative_protein_genes.fna"
         cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
         run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
-
-        with open(outpath, "r") as repres_prot:
+        
+        with open(outpath) as repres_prot:
             lines = repres_prot.readlines()
             while len(lines) > 0:
                 family_name = lines.pop(0).strip()[1:]

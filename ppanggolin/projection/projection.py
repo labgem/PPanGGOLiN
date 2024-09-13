@@ -426,8 +426,7 @@ def annotate_fasta_files(genome_name_to_fasta_path: Dict[str, dict], tmpdir: str
                 future.add_done_callback(lambda p: progress.update())
                 futures.append(future)
 
-            for future in futures:
-                organisms.append(future.result())
+            organisms.extend(future.result() for future in futures)
 
     return organisms
 
@@ -515,7 +514,7 @@ def get_gene_sequences_from_fasta_files(organisms, genome_name_to_annot_path):
                 msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
                       f"that was read from the annotation file. "
                 msg += f"The provided contigs in the fasta were : " \
-                       f"{', '.join([contig for contig in org_contig_to_seq])}."
+                       f"{', '.join(org_contig_to_seq)}."
                 raise KeyError(msg)
 
             for gene in contig.genes:
@@ -667,7 +666,7 @@ def annotate_input_genes_with_pangenome_families(pangenome: Pangenome, input_org
         # Write specific gene ids in a file
         with open(org_outdir / "specific_genes.tsv", "w") as fl:
             fl.write('\n'.join(
-                (gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in lonely_genes)) + '\n')
+                gene.ID if gene.local_identifier == "" else gene.local_identifier for gene in lonely_genes) + '\n')
 
         input_org_to_lonely_genes_count[input_organism] = len(lonely_genes)
 
@@ -770,7 +769,7 @@ def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
             msg = f"Fasta file for input genome {input_organism.name} did not have the contig {contig.name} " \
                   f"that was read from the annotation file. "
             msg += f"The provided contigs in the fasta were : " \
-                   f"{', '.join([contig for contig in contig_id2seq.keys()])}."
+                   f"{', '.join(contig_id2seq.keys())}."
             raise KeyError(msg)
 
 
@@ -913,7 +912,7 @@ def predict_spots_in_input_organisms(
     # Check congruency with already computed spot and add spot id in node attributes
     check_spots_congruency(graph_spot, initial_spots)
 
-    new_spot_id_counter = max((s.ID for s in initial_spots)) + 1 if len(initial_spots) != 0 else 1
+    new_spot_id_counter = max(s.ID for s in initial_spots) + 1 if len(initial_spots) != 0 else 1
 
     input_org_to_spots = {}
     for input_organism, rgps in input_org_2_rgps.items():
@@ -939,7 +938,7 @@ def predict_spots_in_input_organisms(
                                                        exact_match=exact_match, compress=compress)
 
         if len(input_org_spots) > 0:
-            new_spot_id_counter = max((s.ID for s in input_org_spots)) + 1
+            new_spot_id_counter = max(s.ID for s in input_org_spots) + 1
 
         input_org_to_spots[input_organism] = input_org_spots
 
@@ -1037,8 +1036,7 @@ def predict_spot_in_one_organism(
         spots_of_the_cc = set()
         for node in comp:
             if "spots" in graph_spot.nodes[node]:
-                spots_of_the_cc |= {
-                    spot for spot in graph_spot.nodes[node]["spots"]}
+                spots_of_the_cc |= set(graph_spot.nodes[node]["spots"])
 
         if len(spots_of_the_cc) == 0:
             # no spot associated with any node of the cc
@@ -1063,7 +1061,7 @@ def predict_spot_in_one_organism(
                     graph_spot.nodes[node]["spots"] = spots_of_the_cc
 
                     graph_spot.nodes[node]["spot_id"] = ';'.join(
-                        (str(spot) for spot in spots_of_the_cc))
+                        str(spot) for spot in spots_of_the_cc)
                     graph_spot.nodes[node]["includes_RGPs_from_the_input_genome"] = True
 
         for spot in spots_of_the_cc:
@@ -1120,7 +1118,7 @@ def project_and_write_modules(pangenome: Pangenome, input_organisms: Iterable[Or
 
             for mod in pangenome.modules:
                 module_in_input_organism = any(
-                    (fam in input_organism_families for fam in mod.families))
+                    fam in input_organism_families for fam in mod.families)
 
                 if module_in_input_organism:
                     counter += 1

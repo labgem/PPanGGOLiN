@@ -228,7 +228,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
             write_pangenome_arguments.append('spot_modules')
 
         # check that at least one output file is requested. if not write is not call.
-        if any((getattr(args.write_pangenome, arg) is True for arg in write_pangenome_arguments)):
+        if any(getattr(args.write_pangenome, arg) is True for arg in write_pangenome_arguments):
             # some parameters are set to false because they have not been computed in this workflow
             write_pangenome_flat_files(pangenome, args.output, cpu=args.write_pangenome.cpu,
                                        disable_bar=args.disable_prog_bar,
@@ -249,7 +249,7 @@ def launch_workflow(args: argparse.Namespace, panrgp: bool = True,
                 'Writing output pangenome flat file is skipped.')
 
         write_genomes_arguments = ['proksee', "table", "gff"]
-        if any((getattr(args.write_genomes, arg) is True for arg in write_genomes_arguments)):
+        if any(getattr(args.write_genomes, arg) is True for arg in write_genomes_arguments):
             write_flat_genome_files(pangenome, args.output,
                                     proksee=args.write_genomes.proksee,
                                     table=args.write_genomes.table,

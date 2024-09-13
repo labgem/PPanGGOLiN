@@ -231,7 +231,7 @@ def write_whole_genome_msa(pangenome: Pangenome, families: set, phylo_name: Path
         phylo_dict[org.name] = ""
     for fam in families:
         observed_genomes = set()
-        with open(outdir / f"{fam.name}.aln", "r") as fin:
+        with open(outdir / f"{fam.name}.aln") as fin:
             genome_id = ""
             seq = ""
             curr_len = 0

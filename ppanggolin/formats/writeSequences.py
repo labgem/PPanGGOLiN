@@ -251,7 +251,7 @@ def write_gene_protein_sequences(pangenome: Pangenome, output: Path, proteins: s
         run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
         if compress:
             with write_compressed_or_not(outpath, compress) as compress_file:
-                with open(outpath, "r") as sequence_file:
+                with open(outpath) as sequence_file:
                     shutil.copyfileobj(sequence_file, compress_file)
             outpath.unlink()
             logging.getLogger("PPanGGOLiN").info(f"Done writing the gene sequences : '{outpath}.gz'")
@@ -503,11 +503,10 @@ def write_regions_sequences(pangenome: Pangenome, output: Path, regions: str, fa
             org_dict[elements[0]] = organisms_file.parent.joinpath(org_dict[elements[0]])
 
     logging.getLogger("PPanGGOLiN").info(f"Writing {regions} rgp genomic sequences...")
-    regions_to_write = []
+
     if regions == "complete":
-        for region in pangenome.regions:
-            if not region.is_contig_border:
-                regions_to_write.append(region)
+        regions_to_write = (region for region in pangenome.regions
+                            if not region.is_contig_border)
     else:
         regions_to_write = pangenome.regions
 

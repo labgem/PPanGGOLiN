@@ -73,7 +73,7 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
 
     start, stop = coordinates[0][0], coordinates[-1][1]
 
-    if any((dbxref.startswith('MaGe:') or dbxref.startswith('SEED:') for dbxref in dbxrefs)):
+    if any(dbxref.startswith('MaGe:') or dbxref.startswith('SEED:') for dbxref in dbxrefs):
         if gene_name == "":
             gene_name = gene_id
 
@@ -378,7 +378,7 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
                              all_tag_to_value.count(tag_and_value) == contig_count}
 
     # Create a dictionary for shared metadata
-    genome_metadata = {tag: value for tag, value in shared_tag_and_values}
+    genome_metadata = dict(shared_tag_and_values)
 
     contig_to_uniq_metadata = {}
     for contig, tag_to_value in contig_to_metadata.items():
@@ -1097,11 +1097,11 @@ def read_annotations(pangenome: Pangenome, organisms_file: Path, cpu: int = 1, p
     pangenome.parameters["annotate"]["use_pseudo"] = pseudo
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
 
-    if any((genome.has_metadata() for genome in pangenome.organisms)):
+    if any(genome.has_metadata() for genome in pangenome.organisms):
         pangenome.status["metadata"]["genomes"] = "Computed"
         pangenome.status["metasources"]["genomes"].append("annotation_file")
 
-    if any((contig.has_metadata() for contig in pangenome.contigs)):
+    if any(contig.has_metadata() for contig in pangenome.contigs):
         pangenome.status["metadata"]["contigs"] = "Computed"
         pangenome.status["metasources"]["contigs"].append("annotation_file")
 
@@ -1155,7 +1155,7 @@ def get_gene_sequences_from_fastas(pangenome: Pangenome, fasta_files: Path, disa
                     msg = f"Fasta file for genome {org.name} did not have the contig {contig.name} " \
                           f"that was read from the annotation file. "
                     msg += f"The provided contigs in the fasta were : " \
-                           f"{', '.join([contig for contig in fasta_dict[org].keys()])}."
+                           f"{', '.join(fasta_dict[org].keys())}."
                     raise KeyError(msg)
     pangenome.status["geneSequences"] = "Computed"
 

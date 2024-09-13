@@ -60,9 +60,10 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
                                 marker=dict(color=colors["cloud"])))
     else:
         text = 'undefined' if has_undefined else "pangenome"
-        undefined_values = []
-        for nb_org in range(1, pangenome.number_of_organisms + 1):
-            undefined_values.append(count[nb_org][text])
+        undefined_values = [count[nb_org][text]
+                            for nb_org
+                            in range(1, pangenome.number_of_organisms + 1)]
+
         data_plot.append(go.Bar(x=list(range(1, pangenome.number_of_organisms + 1)), y=undefined_values, name=text,
                                 marker=dict(color=colors[text])))
     x = pangenome.number_of_organisms * soft_core

@@ -72,7 +72,7 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     """
 
     # removing families with low presence
-    removed = set([fam for fam in g.nodes if fam.number_of_organisms < min_fam])
+    removed = {fam for fam in g.nodes if fam.number_of_organisms < min_fam}
 
     modules = set()
     c = 0
