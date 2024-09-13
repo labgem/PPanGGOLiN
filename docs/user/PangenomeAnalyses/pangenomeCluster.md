@@ -174,31 +174,42 @@ flowchart TD
 
 #### Indicate fragmented gene
 
-It's also possible to indicate if the gene is fragmented, by adding a new column in last position. Fragmented gene are tag with an 'F' in the last column.
+You can indicate if a gene is fragmented by adding a new column. Fragmented genes are marked with an 'F' in this final column.
 
-You can add this column when you assume or not the representative gene. PPanGGOLiN will guess that this column is to precise the fragmented gene and assume if it must assert the representative gene
+The position of this column depends on whether you include a representative gene column:
+- Without a representative gene column, the fragmented gene column should be in the **third position**.
+- With a representative gene column, it should appear in the **fourth position**.
 
-Here is a minimal example of your clustering file with fragmented gene precise:
-
+##### Example 1: Clustering file without representative gene column (fragmented gene in 3rd column):
 ```
-Family_A    Gene_1  Gene_2
-Family_A    Gene_2  Gene_2
-Family_A    Gene_3  Gene_2  F
-Family_B    Gene_4  Gene_4
-Family_B    Gene_5  Gene_4
-Family_C    Gene_6  Gene_6  F
+Family_A	Gene_1
+Family_A	Gene_2
+Family_A	Gene_3	F
+Family_B	Gene_4
+Family_B	Gene_5
+Family_C	Gene_6	F
+```
+
+##### Example 2: Clustering file with representative gene column (fragmented gene in 4th column):
+```
+Family_A	Gene_1	Gene_2
+Family_A	Gene_2	Gene_2
+Family_A	Gene_3	Gene_2	F
+Family_B	Gene_4	Gene_4
+Family_B	Gene_5	Gene_4
+Family_C	Gene_6	Gene_6	F
 ```
 
 ```{warning}
-*Attention: Column Order is Important!*
+*Attention: Column Order Matters!*
 
-Please ensure that the columns are ordered as follows:
-1. The cluster identifier
-2. The gene ID
-3. The representative ID (if provided)
-4. The fragmented status of the gene (if provided)
+Please ensure that your columns follow the correct order:
+1. Cluster identifier
+2. Gene ID
+3. Representative gene ID (if present)
+4. Fragmented status ('F' if the gene is fragmented, or leave blank)
 
-If you do not include a representative ID, then the fragmented status should be in the third column.
+If no representative gene column is included, the fragmented status should be placed in the **third column**.
 ```
 
 ### Defragmentation
