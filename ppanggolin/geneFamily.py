@@ -83,8 +83,8 @@ class GeneFamily(MetaFeatures):
     def __getstate__(self):
         """Customize pickling by removing non-picklable attributes."""
         state = self.__dict__.copy()
-        # Remove non-picklable attributes
-        state['_edges_getter'] = list(self._edges_getter.items())  # convert dict to list for pickling
+        # Remove non-picklable attributes and prevent circular reference problem
+        state['_edges_getter'] = list({gf.name: edge for gf, edge in self._edges_getter.items()}.items())  # convert dict to list for pickling
         return state
 
     def __setstate__(self, state):
@@ -155,6 +155,31 @@ class GeneFamily(MetaFeatures):
             del self._genes_getter[identifier]
         except KeyError:
             raise KeyError(f"Gene with the name: {identifier} does not exist in the family")
+
+    def __hash__(self) -> int:
+        """
+        Returns the hash of the GeneFamily instance.
+
+        :returns:
+            int: The hash value of the GeneFamily instance.
+        """
+        return hash((self.name, self.ID))
+
+    def __eq__(self, other: GeneFamily) -> bool:
+        """
+        Checks if two GeneFamily instances are equal based on their genes.
+
+        :param other: Another GeneFamily instance to compare.
+
+        :returns: True if the GeneFamily instances are equal, False otherwise.
+
+        :raises: TypeError: If the other object is not a GeneFamily instance.
+        """
+        if not isinstance(other, GeneFamily):
+            raise TypeError(
+                f"Expected another GeneFamily instance for comparison, but received {type(other)}"
+            )
+        return set(self.genes) == set(other.genes)
 
     def add(self, gene: Gene):
         """Add a gene to the gene family, and sets the gene's :attr:family accordingly.

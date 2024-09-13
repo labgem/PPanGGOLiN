@@ -333,8 +333,7 @@ class TestGeneFamily:
             assert isinstance(family.number_of_edges, int)
             assert family.number_of_neighbors == len(expected_edges)
 
-
-    def test_pickling_gene_family_with_edges(self, families, edges):
+    def test_pickling_gene_family_with_edges(self, families):
         """Test that a GeneFamily object can be pickled and unpickled
         """
         for family in families:

@@ -29,7 +29,9 @@ class TestEdge:
         gene1, gene2 = Gene("gene1"), Gene("gene2")
         gene1.fill_parents(organism, None)
         gene2.fill_parents(organism, None)
-        gene1.family, gene2.family = GeneFamily(1, "family1"), GeneFamily(2, "family2")
+        fam1, fam2 = families_pair
+        fam1.add(gene1)
+        fam2.add(gene2)
         yield gene1, gene2
 
     @pytest.fixture
@@ -158,7 +160,9 @@ class TestEdge:
         gene3, gene4 = Gene('gene3'), Gene('gene4')
         gene3.fill_parents(organism, None)
         gene4.fill_parents(organism, None)
-        gene3.family, gene4.family = GeneFamily(3, "family3"), GeneFamily(4, "family4")
+        fam3, fam4 = GeneFamily(3, "family3"), GeneFamily(4, "family4")
+        fam3.add(gene3)
+        fam4.add(gene4)
         nq_edge = Edge(gene3, gene4)
 
         # Check that the two objects are not equal

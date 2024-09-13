@@ -46,7 +46,6 @@ class Edge:
     def __getstate__(self):
         """Prepare the object for pickling by returning a dictionary of its state."""
         state = self.__dict__.copy()
-        # Convert generator to list for pickling
         state['_organisms'] = dict(self._organisms)
         return state
 
@@ -54,6 +53,8 @@ class Edge:
         """Restore the object's state from the unpickled state."""
         self.__dict__.update(state)
         # Restore defaultdict
+        self.source._edges_getter[self.target.name] = self.target
+        self.target._edges_getter[self.source.name] = self.source
         self._organisms = defaultdict(list, self._organisms)
 
     def __eq__(self, other) -> bool:
@@ -61,8 +62,7 @@ class Edge:
         if not isinstance(other, Edge):
             raise TypeError(f"Cannot compare {type(self)} to {type(other)}")
         return (self.source == other.source and
-                self.target == other.target and
-                self._organisms == other._organisms)
+                self.target == other.target)
 
     def __hash__(self) -> int:
         """Return a hash value for the Edge object"""
