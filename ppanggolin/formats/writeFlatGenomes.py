@@ -589,6 +589,11 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
                 organism_args["annotation_sources"] = {}
      
         if table:
+            # create _genePerOrg dict with get_org_dict methodbefore the multiprocessing to prevent putative errors.
+            # As this is used in multiprocessing when computing nb_copy_in_genome.
+            for family in pangenome.gene_families:
+                family.get_org_dict()
+
             organism_args.update({"need_regions": need_dict['need_rgp'],
                                   "need_modules": need_dict['need_modules'],
                                   "need_spots": need_dict['need_spots']})
