@@ -117,7 +117,7 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
         no_nem = True
     index_fam = []
 
-    with open(nem_dir_path / "nem_file.index", "r") as index_nem_file:
+    with open(nem_dir_path / "nem_file.index") as index_nem_file:
         for line in index_nem_file:
             index_fam.append(line.split("\t")[1].strip())
 
@@ -126,8 +126,8 @@ def run_partitioning(nem_dir_path: Path, nb_org: int, beta: float = 2.5, free_di
     log_likelihood = None
     entropy = None
     try:
-        with open(nem_dir_path / f"nem_file_{str(kval)}.uf", "r") as partitions_nem_file, \
-                open(nem_dir_path / f"nem_file_{str(kval)}.mf", "r") as parameters_nem_file:
+        with open(nem_dir_path / f"nem_file_{str(kval)}.uf") as partitions_nem_file, \
+                open(nem_dir_path / f"nem_file_{str(kval)}.mf") as parameters_nem_file:
             parameters = parameters_nem_file.readlines()
             log_likelihood = float(parameters[2].split()[3])
 
@@ -321,7 +321,7 @@ def evaluate_nb_partitions(organisms: set, output: Path = None, sm_degree: int =
     newtmpdir = tmpdir / "eval_partitions"
 
     if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(set(organisms), chunk_size))
+        select_organisms = set(random.sample(list(organisms), chunk_size))
     else:
         select_organisms = set(organisms)
 
@@ -366,24 +366,24 @@ def evaluate_nb_partitions(organisms: set, output: Path = None, sm_degree: int =
         chosen_k = best_k if best_k >= 3 else chosen_k
 
     if len(all_bics) > 0 and draw_icl:
-        traces = [go.Scatter(x=[key for key in sorted(all_bics.keys())],
+        traces = [go.Scatter(x=sorted(all_bics.keys()),
                              y=[all_bics[key] for key in sorted(all_bics.keys())],
                              name="BIC",
-                             mode="lines+markers"), go.Scatter(x=[key for key in sorted(all_icls.keys())],
+                             mode="lines+markers"), go.Scatter(x=sorted(all_icls.keys()),
                                                                y=[all_icls[key] for key in sorted(all_icls.keys())],
                                                                name="ICL",
                                                                mode="lines+markers"),
-                  go.Scatter(x=[key for key in sorted(all_lls.keys())],
+                  go.Scatter(x=sorted(all_lls.keys()),
                              y=[all_lls[key] for key in sorted(all_lls.keys())],
                              name="log likelihood",
-                             mode="lines+markers"), go.Scatter(x=[key for key in sorted(all_bics.keys())],
+                             mode="lines+markers"), go.Scatter(x=sorted(all_bics.keys()),
                                                                y=[all_bics[key] for key in sorted(all_bics.keys())],
                                                                name="BIC",
                                                                mode="lines+markers"),
-                  go.Scatter(x=[key for key in sorted(all_icls.keys())],
+                  go.Scatter(x=sorted(all_icls.keys()),
                              y=[all_icls[key] for key in sorted(all_icls.keys())],
                              name="ICL",
-                             mode="lines+markers"), go.Scatter(x=[key for key in sorted(all_lls.keys())],
+                             mode="lines+markers"), go.Scatter(x=sorted(all_lls.keys()),
                                                                y=[all_lls[key] for key in sorted(all_lls.keys())],
                                                                name="log likelihood",
                                                                mode="lines+markers")]

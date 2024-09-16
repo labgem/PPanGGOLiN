@@ -2,8 +2,9 @@
 
 # default libraries
 import logging
+from optparse import Option
 from pathlib import Path
-from typing import Dict, Any, Set, List, Tuple
+from typing import Dict, Any, Set, List, Tuple, Optional
 from collections import defaultdict
 
 # installed libraries
@@ -958,7 +959,7 @@ def get_need_info(pangenome, need_annotations: bool = False, need_families: bool
 def check_pangenome_info(pangenome, need_annotations: bool = False, need_families: bool = False,
                          need_graph: bool = False, need_partitions: bool = False, need_rgp: bool = False,
                          need_spots: bool = False, need_gene_sequences: bool = False, need_modules: bool = False,
-                         need_metadata: bool = False, metatypes: Set[str] = None, sources: Set[str] = None,
+                         need_metadata: bool = False, metatypes: Optional[Set[str]] = None, sources: Optional[Set[str]] = None,
                          disable_bar: bool = False):
     """
     Defines what needs to be read depending on what is needed, and automatically checks if the required elements

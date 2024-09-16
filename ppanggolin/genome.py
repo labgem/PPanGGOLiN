@@ -222,7 +222,8 @@ class Feature(MetaFeatures):
 
         :raise AssertionError: Sequence must be a string
         """
-        assert isinstance(sequence, str), f"'str' type was expected but you provided a '{type(sequence)}' type object"
+        assert isinstance(sequence, str), f"'str' type was expected for dna sequence but you provided a '{type(sequence)}' type object"
+        
         self.dna = sequence
 
     def string_coordinates(self) -> str:
@@ -909,14 +910,14 @@ class Organism(MetaFeatures):
 
         :return: Number of genes
         """
-        return sum((contig.number_of_genes for contig in self.contigs))
+        return sum(contig.number_of_genes for contig in self.contigs)
 
     def number_of_rnas(self) -> int:
         """ Get number of genes in the organism
 
         :return: Number of genes
         """
-        return sum((contig.number_of_rnas for contig in self.contigs))
+        return sum(contig.number_of_rnas for contig in self.contigs)
 
     @property
     def contigs(self) -> Generator[Contig, None, None]:

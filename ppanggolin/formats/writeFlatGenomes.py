@@ -119,7 +119,7 @@ def manage_module_colors(modules: Set[Module], window_size: int = 100) -> Dict[M
     random.seed(1)
 
     color_mod_graph = nx.Graph()
-    color_mod_graph.add_nodes_from((module for module in modules))
+    color_mod_graph.add_nodes_from(module for module in modules)
 
     contig_to_mod_genes = defaultdict(set)
     gene_to_module = {}
@@ -589,6 +589,11 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
                 organism_args["annotation_sources"] = {}
      
         if table:
+            # create _genePerOrg dict with get_org_dict methodbefore the multiprocessing to prevent putative errors.
+            # As this is used in multiprocessing when computing nb_copy_in_genome.
+            for family in pangenome.gene_families:
+                family.get_org_dict()
+
             organism_args.update({"need_regions": need_dict['need_rgp'],
                                   "need_modules": need_dict['need_modules'],
                                   "need_spots": need_dict['need_spots']})

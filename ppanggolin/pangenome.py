@@ -129,10 +129,10 @@ class Pangenome:
 
         :return: Returns the gene that has the ID `gene_id`
 
-        :raises AssertionError: If the `gene_id` is not an integer
+        :raises AssertionError: If the `gene_id` is not a string
         :raises KeyError: If the `gene_id` is not in the pangenome
         """
-        assert isinstance(gene_id, str), "Gene id should be an integer"
+        assert isinstance(gene_id, str), f"The provided gene id ({gene_id}) should be a string and not a {type(gene_id)}"
 
         try:
             gene = self._gene_getter[gene_id]
@@ -232,23 +232,23 @@ class Pangenome:
 
     def add_gene_family(self, family: GeneFamily):
         """
-        Get the :class:`ppanggolin.geneFamily.GeneFamily` object that has the given `name`.
-        If it does not exist, creates it.
-
-        :param family: The gene family to add in pangenomes
-
-        :raises KeyError: Exception if family with the same name already in pangenome
-        :raises Exception: Unexpected exception
+        Adds the given gene family to the pangenome. If a family with the same name already exists, raises a KeyError.
+        
+        :param family: The gene family to add to the pangenome
+        :raises KeyError: If a family with the same name already exists
+        :raises Exception: For any unexpected exceptions
         """
         try:
-            _ = self.get_gene_family(family.name)
+            self.get_gene_family(family.name)
         except KeyError:
+            # Family does not exist, so add it
             self._fam_getter[family.name] = family
             self.max_fam_id += 1
         except Exception as error:
-            raise Exception(error)
+            raise Exception(f"An unexpected error occurred when adding family {family} to pangenome: {str(error)}") from error
         else:
-            raise KeyError("Gene Family already exist")
+            raise KeyError(f"Cannot add family {family.name}: A family with the same name already exists.")
+
 
     """Graph methods"""
     @property
@@ -772,7 +772,7 @@ class Pangenome:
         """
         Whether or not the pangenome has metadata associated with any of its elements.
         """
-        return any(( status != "No" for status in self.status['metadata'].values()))
+        return any( status != "No" for status in self.status['metadata'].values())
 
 
     def select_elem(self, metatype: str):

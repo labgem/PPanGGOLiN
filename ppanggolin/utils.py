@@ -92,7 +92,7 @@ def check_tsv_sanity(tsv: Path):
     :param tsv: Path to the tsv containing organims information
     """
     try:
-        input_file = open(tsv, "r")
+        input_file = open(tsv)
     except OSError as ios_error:
         raise OSError(ios_error)
     except Exception as exception_error:
@@ -270,7 +270,7 @@ def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrappe
                     return TextIOWrapper(z.open(file_list[0], "r"))
     else:  # Non-compressed file
         if isinstance(file_or_file_path, Path):
-            return open(file_or_file_path, "r")
+            return open(file_or_file_path)
         else:
             return file_or_file_path
 

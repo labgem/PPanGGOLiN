@@ -116,7 +116,7 @@ def map_input_gene_to_family_all_aln(aln_res: Path, outdir: Path,
     aln_file_clean = outdir / "alignment_input_seqs_to_all_pangenome_genes.tsv"  # write the actual result file
     logging.getLogger("PPanGGOLiN").debug(f'Writing alignment file in {aln_file_clean}')
 
-    with open(aln_res, "r") as alnFile, open(aln_file_clean, "w") as aln_outfl:
+    with open(aln_res) as alnFile, open(aln_file_clean, "w") as aln_outfl:
         for line in alnFile:
             line_splitted = line.split()
 
@@ -151,7 +151,7 @@ def map_input_gene_to_family_rep_aln(aln_res: Path, outdir: Path,
 
     logging.getLogger("PPanGGOLiN").debug(f'Writing alignment file in {aln_file_clean}')
 
-    with open(aln_res, "r") as alnFile, open(aln_file_clean, "w") as aln_outfl:
+    with open(aln_res) as alnFile, open(aln_file_clean, "w") as aln_outfl:
         for line in alnFile:
             line_splitted = line.split()
 

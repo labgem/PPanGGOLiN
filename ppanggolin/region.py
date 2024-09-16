@@ -660,9 +660,8 @@ class Spot(MetaFeatures):
 
         :return: Families that bordering spot
         """
-        all_borders = []
-        for rgp in self.regions:
-            all_borders.append(rgp.get_bordering_genes(set_size, multigenics))
+        all_borders = [rgp.get_bordering_genes(set_size, multigenics)
+                       for rgp in self.regions]
 
         family_borders = []
         for borders in all_borders:
@@ -747,7 +746,7 @@ class Spot(MetaFeatures):
 
         :return: Dictionary with a representative rgp as the key and number of identical rgp as value
         """
-        return dict([(key, len(val)) for key, val in self._get_content().items()])
+        return {key: len(val) for key, val in self._get_content().items()}
 
     def count_uniq_ordered_set(self):
         """
@@ -755,7 +754,7 @@ class Spot(MetaFeatures):
 
         :return: Dictionary with a representative rgp as the key and number of identical rgp as value
         """
-        return dict([(key, len(val)) for key, val in self._get_ordered_set().items()])
+        return {key: len(val) for key, val in self._get_ordered_set().items()}
 
 
 class Module(MetaFeatures):

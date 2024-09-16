@@ -13,7 +13,6 @@ dependencies:
   - plotly=5
   - gmpy2=2
   - pandas=2
-  - colorlover=0.3
   - numpy=1
   - bokeh=3
   # Tool that are not in python 
