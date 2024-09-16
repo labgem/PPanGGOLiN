@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import pytest
+import pickle
 from random import randint
 from typing import Generator, Set
 
@@ -60,6 +61,15 @@ class TestMetadata:
         """
         assert isinstance(len(metadata), int)
         assert len(metadata) == 2
+
+    def test_metadata_pickling(self, metadata):
+        """Test that a Metadata object can be pickled and unpickled
+        """
+        pickled_metadata = pickle.dumps(metadata)
+        unpickled_metadata = pickle.loads(pickled_metadata)
+        assert metadata.source == unpickled_metadata.source
+        assert metadata.fields == unpickled_metadata.fields
+        assert len(metadata) == len(unpickled_metadata)
 
 
 class TestMetaFeatures:
@@ -132,3 +142,13 @@ class TestMetaFeatures:
         """
         with pytest.raises(AssertionError):
             metafeatures.add_metadata("not_metadata")
+
+    def test_metafeatures_pickling(self, metafeatures):
+        """Test that a MetaFeatures object can be pickled and unpickled
+        """
+        pickled_metafeatures = pickle.dumps(metafeatures)
+        unpickled_metafeatures = pickle.loads(pickled_metafeatures)
+
+        assert unpickled_metafeatures.number_of_metadata == metafeatures.number_of_metadata
+        assert list(unpickled_metafeatures.sources) == list(metafeatures.sources)
+        assert list(unpickled_metafeatures.metadata)[0].source == list(metafeatures.metadata)[0].source

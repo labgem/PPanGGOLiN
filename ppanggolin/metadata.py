@@ -66,6 +66,14 @@ class Metadata:
             raise AttributeError(f"{attr} is not an attribute of metadata")
         return self[attr]
 
+    def __getstate__(self):
+        """Prepare the object for pickling by returning a dictionary of its state."""
+        return self.__dict__.copy()
+
+    def __setstate__(self, state):
+        """Restore the object's state from the unpickled state."""
+        self.__dict__.update(state)
+
     @property
     def fields(self) -> List[str]:
         """Get all the field of the metadata
@@ -103,6 +111,17 @@ class MetaFeatures:
         """Constructor method
         """
         self._metadata_getter = defaultdict(dict)
+
+    def __getstate__(self):
+        """Prepare the object for pickling by returning a dictionary of its state."""
+        state = self.__dict__.copy()
+        state['_metadata_getter'] = dict(self._metadata_getter)  # Convert defaultdict to dict for pickling
+        return state
+
+    def __setstate__(self, state):
+        """Restore the object's state from the unpickled state."""
+        self.__dict__.update(state)
+        self._metadata_getter = defaultdict(dict, self._metadata_getter)
 
     @property
     def number_of_metadata(self) -> int:
