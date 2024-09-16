@@ -74,6 +74,8 @@ class TestGeneFamily:
         assert restored_family.removed == family.removed
 
         assert list(restored_family.genes) == list(family.genes)
+        for gene in restored_family.genes:
+            assert gene.family == family
 
     @pytest.mark.parametrize("partition, name",
                              [
@@ -361,13 +363,13 @@ class TestGeneFamily:
         """Tests that a Module object can be added to a GeneFamily object
         """
         module = Module(1)
-        family.set_module(module)
+        family.module = module
         assert module == family.module
 
     def test_add_non_module_as_module_in_family(self, family):
         """Tests that a non-module object cannot be added to Gene Family
         """
         with pytest.raises(TypeError):
-            family.set_module(323)
+            family.module = 323
 
     # TODO test mk_bitarray

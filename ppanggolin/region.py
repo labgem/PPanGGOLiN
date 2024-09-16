@@ -15,6 +15,7 @@ from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.metadata import MetaFeatures
 from ppanggolin.utils import find_region_border_position, get_consecutive_region_positions
 
+
 class Region(MetaFeatures):
     """
     The 'Region' class represents a region of genomic plasticity.
@@ -51,11 +52,9 @@ class Region(MetaFeatures):
         self._stopper = None
         self._coordinates = None
         self._overlaps_contig_edge = None
-        self._contig = None
-        self._organism = None
         self.ID = Region.id_counter
         self._spot = None
-        self.projected = False # If the rgp is from a projected genome. If true can have multiple spots
+        self.projected = False  # If the rgp is from a projected genome. If true can have multiple spots
         Region.id_counter += 1
 
     def __str__(self):
@@ -139,55 +138,6 @@ class Region(MetaFeatures):
         self._overlaps_contig_edge = None
 
         gene.RGP = self
-    
-    def identify_rgp_last_and_first_genes(self):
-        """
-        Identify first and last genes of the rgp by taking into account the circularity of contigs. 
-
-        Set the attributes _starter: first gene of the region  and _stopper: last gene of the region and _coordinates
-
-        """
-        rgp_genes_positions = list(self._genes_getter.keys() )
-
-        if len(rgp_genes_positions) == 0:
-            raise ValueError(f'RGP ({self.name}) has no gene associated.')
-        
-        gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
-        first_gene_position, last_gene_position = find_region_border_position(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
-
-        self._starter = self._genes_getter[first_gene_position]
-        self._stopper = self._genes_getter[last_gene_position]
-
-        if self._starter.start > self._stopper.stop: 
-            # this means region is overlapping the contig edge
-            if not gene.contig.is_circular:
-                raise ValueError(f'Region seems to be overlapping the contig (first gene {self._starter.position}:{self._starter.coordinates} '
-                                 f'and last gene {self._stopper.position}:{self._stopper.coordinates} ) '
-                                 f'but the contig is not circular. This is unexpected. {rgp_genes_positions}')
-
-            self._coordinates = [(self._starter.start, self._starter.contig.length), (1, self._stopper.stop)]
-            self._overlaps_contig_edge = True
-        else:
-            self._coordinates = [(self._starter.start, self._stopper.stop)]
-            self._overlaps_contig_edge = False
-
-    def get_ordered_genes(self) -> List[Gene]:
-        """
-        Get ordered genes of the region, taking into account the circularity of contigs.
-
-        :return: A list of genes ordered by their positions in the region.
-        """
-        
-        rgp_genes_positions = list(self._genes_getter.keys() )
-        
-        gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
-
-        consecutive_region_positions = get_consecutive_region_positions(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
-        
-        ordered_genes = [self._genes_getter[position] for ordered_positions in consecutive_region_positions for position in ordered_positions]
-
-        return ordered_genes
-
 
     def __getitem__(self, position: int) -> Gene:
         """Get the gene at the given position
@@ -204,6 +154,85 @@ class Region(MetaFeatures):
             raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
         else:
             return gene
+
+    def __delitem__(self, position):
+        """Remove the gene at the given position
+
+        :param position: Position of the gene
+
+        :raises KeyError: Gene at the given position does not exist"""
+        try:
+            del self._genes_getter[position]
+        except KeyError:
+            raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
+
+    def __getstate__(self):
+        """Return the state of the object for pickling."""
+        state = self.__dict__.copy()
+        state["_starter"] = None
+        state["_stopper"] = None
+        state["_coordinates"] = None
+        state["_overlaps_contig_edge"] = None
+        state["_spot"] = None
+        return state
+
+    def __setstate__(self, state):
+        """Restore the object state from the unpickled data."""
+        self.__dict__.update(state)
+        for gene in self.genes:
+            gene.RGP = self
+
+    def identify_rgp_last_and_first_genes(self):
+        """
+        Identify first and last genes of the rgp by taking into account the circularity of contigs.
+
+        Set the attributes _starter: first gene of the region  and _stopper: last gene of the region and _coordinates
+
+        """
+        rgp_genes_positions = list(self._genes_getter.keys())
+
+        if len(rgp_genes_positions) == 0:
+            raise ValueError(f'RGP ({self.name}) has no gene associated.')
+
+        gene = self._genes_getter[rgp_genes_positions[0]]  # get a gene of the region
+        first_gene_position, last_gene_position = find_region_border_position(region_positions=rgp_genes_positions,
+                                                                              contig_gene_count=gene.contig.number_of_genes)
+
+        self._starter = self._genes_getter[first_gene_position]
+        self._stopper = self._genes_getter[last_gene_position]
+
+        if self._starter.start > self._stopper.stop:
+            # this means region is overlapping the contig edge
+            if not gene.contig.is_circular:
+                raise ValueError(
+                    f'Region seems to be overlapping the contig (first gene {self._starter.position}:{self._starter.coordinates} '
+                    f'and last gene {self._stopper.position}:{self._stopper.coordinates} ) '
+                    f'but the contig is not circular. This is unexpected. {rgp_genes_positions}')
+
+            self._coordinates = [(self._starter.start, self._starter.contig.length), (1, self._stopper.stop)]
+            self._overlaps_contig_edge = True
+        else:
+            self._coordinates = [(self._starter.start, self._stopper.stop)]
+            self._overlaps_contig_edge = False
+
+    def get_ordered_genes(self) -> List[Gene]:
+        """
+        Get ordered genes of the region, taking into account the circularity of contigs.
+
+        :return: A list of genes ordered by their positions in the region.
+        """
+
+        rgp_genes_positions = list(self._genes_getter.keys())
+
+        gene = self._genes_getter[rgp_genes_positions[0]]  # get a gene of the region
+
+        consecutive_region_positions = get_consecutive_region_positions(region_positions=rgp_genes_positions,
+                                                                        contig_gene_count=gene.contig.number_of_genes)
+
+        ordered_genes = [self._genes_getter[position] for ordered_positions in consecutive_region_positions for position
+                         in ordered_positions]
+
+        return ordered_genes
 
     @property
     def starter(self) -> Gene:
@@ -264,17 +293,6 @@ class Region(MetaFeatures):
             self._spot = spot  # only 1 spot possible
         else:
             raise TypeError(f"Unexpected class / type for {type(spot)} when adding spot to a RGP")
-
-    def __delitem__(self, position):
-        """Remove the gene at the given position
-
-        :param position: Position of the gene
-
-        :raises KeyError: Gene at the given position does not exist"""
-        try:
-            del self._genes_getter[position]
-        except KeyError:
-            raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
 
     def add(self, gene: Gene):
         """Add a gene to the region
@@ -360,7 +378,7 @@ class Region(MetaFeatures):
 
         :return: Organism corresponding to the region
         """
-        return self._organism
+        return self.starter.organism
 
     @property
     def contig(self) -> Contig:
@@ -368,7 +386,7 @@ class Region(MetaFeatures):
 
         :return: Contig corresponding to the region
         """
-        return self._contig
+        return self.starter.contig
 
     @property
     def start(self) -> int:
@@ -456,7 +474,7 @@ class Region(MetaFeatures):
             if pos == init:
                 break  # looped around the contig
 
-         # Identifying right border
+        # Identifying right border
         right_border = []
         pos = self.stopper.position
         init = pos
@@ -536,7 +554,7 @@ class Spot(MetaFeatures):
         """
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
-        
+
         if not region.projected and region.spot is not None and region.spot != self:
             # In normal cases, a region should only belong to one spot. However, an exception arises in the projection command, 
             # where a projected RGP might link two spots in the spot graph.
@@ -586,6 +604,21 @@ class Spot(MetaFeatures):
         """Get the number of regions in the spot
         """
         return len(self._region_getter)
+
+    def __getstate__(self):
+        """Return the state of the object for pickling."""
+        state = self.__dict__.copy()
+        state["_uniqOrderedSet"] = None
+        state["_uniqContent"] = None
+        return state
+
+    def __setstate__(self, state):
+        """Restore the object state from the unpickled data."""
+        self.__dict__.update(state)
+        self._uniqOrderedSet = {}
+        self._uniqContent = {}
+        for region in self.regions:
+            region.spot = self
 
     def add(self, region: Region):
         """Add a region to the spot.
@@ -786,6 +819,21 @@ class Module(MetaFeatures):
             for family in families:
                 self.add(family)
 
+    def __getstate__(self):
+        """Customize the pickling behavior"""
+        state = self.__dict__.copy()
+        if self.bitarray is not None and isinstance(self.bitarray, gmpy2.xmpz):
+            state['bitarray'] = str(self.bitarray)  # Convert to a string for pickling
+        return state
+
+    def __setstate__(self, state):
+        """Customize the unpickling behavior"""
+        if 'bitarray' in state and isinstance(state['bitarray'], str):
+            state['bitarray'] = gmpy2.xmpz(state['bitarray'])
+        self.__dict__.update(state)
+        for family in self.families:
+            family.module = self
+
     def __repr__(self) -> str:
         """Module representation
         """
@@ -832,7 +880,7 @@ class Module(MetaFeatures):
         if name in self._families_getter and self[name] != family:
             raise KeyError("A different gene family with the same name already exist in the module")
         self._families_getter[name] = family
-        family.set_module(self)
+        family.module = self
 
     def __getitem__(self, name) -> GeneFamily:
         """Get the gene family for the given name in the module

@@ -63,7 +63,8 @@ class Feature(MetaFeatures):
     def __getstate__(self):
         """Customize the pickling behavior"""
         state = self.__dict__.copy()
-        # You can remove or adjust non-picklable attributes here
+        state["_contig"] = None
+        state["_organism"] = None
         return state
 
     def __setstate__(self, state):
@@ -91,6 +92,10 @@ class Feature(MetaFeatures):
             raise ValueError(
                 f"Coordinates of gene {self} have not been defined. Getting its length is then impossible.")
 
+    def __hash__(self) -> int:
+        """Return a hash value for the Feature object"""
+        return hash((self.ID, self.type, self.start, self.stop, self.strand, self.name))
+
     def __eq__(self, other: Feature) -> bool:
         """Compare two Feature objects for equality"""
         if not isinstance(other, Feature):
@@ -101,10 +106,6 @@ class Feature(MetaFeatures):
                 self.stop == other.stop and
                 self.strand == other.strand and
                 self.name == other.name)
-
-    def __hash__(self) -> int:
-        """Return a hash value for the Feature object"""
-        return hash((self.ID, self.type, self.start, self.stop, self.strand, self.name))
 
     @property
     def has_joined_coordinates(self) -> bool:
@@ -317,17 +318,40 @@ class Gene(Feature):
         self.genetic_code = None
         self.protein = None
 
+    def __hash__(self) -> int:
+        """Return a hash value for the Feature object"""
+        return hash((self.ID, self.type, self.start, self.stop, self.strand, self.name,
+                     self.position, self.genetic_code))
+
+    def __eq__(self, other: Gene) -> bool:
+        """Compare two Feature objects for equality"""
+        if not isinstance(other, Feature):
+            raise TypeError("A Gene object is expected to be compared to another one")
+        return (self.ID == other.ID and
+                self.type == other.type and
+                self.start == other.start and
+                self.stop == other.stop and
+                self.strand == other.strand and
+                self.name == other.name and
+                self.position == other.position and
+                self.genetic_code == other.genetic_code)
+
     def __getstate__(self):
         """Customize the pickling behavior"""
-        state = self.__dict__.copy()
-        # If family or RGP objects are not picklable, handle them here
-        state['_family'] = None if not hasattr(self, '_family') else self._family
-        state['_RGP'] = None if not hasattr(self, '_RGP') else self._RGP
+        state = super().__getstate__()
+        state["position"] = self.position
+        state["genetic_code"] = self.genetic_code
+        state["protein"] = self.protein
+        state["_family"] = None
+        state["_RGP"] = None
         return state
 
     def __setstate__(self, state):
         """Customize the unpickling behavior"""
-        self.__dict__.update(state)
+        super().__setstate__(state)
+        self.position = state["position"]
+        self.genetic_code = state["genetic_code"]
+        self.protein = state["protein"]
 
     @property
     def family(self):
@@ -366,7 +390,7 @@ class Gene(Feature):
         """
         from ppanggolin.region import Region
         if not isinstance(region, Region):
-            raise TypeError(f'Expected type Organism, got {type(region)}')
+            raise TypeError(f'Expected type Region, got {type(region)}')
         self._RGP = region
 
     @property
@@ -498,11 +522,14 @@ class Contig(MetaFeatures):
     def __getstate__(self):
         """Customize the pickling behavior"""
         state = self.__dict__.copy()
+        state["_organism"] = None
         return state
 
     def __setstate__(self, state):
         """Customize the unpickling behavior"""
         self.__dict__.update(state)
+        for gene in self.genes:
+            gene.contig = self
 
     @property
     def length(self) -> Union[int, None]:
@@ -861,6 +888,10 @@ class Organism(MetaFeatures):
         if 'bitarray' in state and isinstance(state['bitarray'], str):
             state['bitarray'] = gmpy2.xmpz(state['bitarray'])
         self.__dict__.update(state)
+        for contig in self.contigs:
+            contig.organism = self
+            for gene in contig.genes:
+                gene.organism = self
 
     def __str__(self) -> str:
         """String representation of the genome

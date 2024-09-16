@@ -85,12 +85,18 @@ class GeneFamily(MetaFeatures):
         state = self.__dict__.copy()
         # Remove non-picklable attributes and prevent circular reference problem
         state['_edges_getter'] = list({gf.name: edge for gf, edge in self._edges_getter.items()}.items())  # convert dict to list for pickling
+        state['_genePerOrg'] = None
+        state['_spot'] = None
+        state['_module'] = None
         return state
 
     def __setstate__(self, state):
         """Restore the object from the pickled state."""
         self.__dict__.update(state)
         self._edges_getter = dict(self._edges_getter)  # convert back to dict
+        self._genePerOrg = defaultdict(set)
+        for gene in self.genes:
+            gene.family = self
 
     def __len__(self) -> int:
         """Get the number of genes in the family
@@ -330,7 +336,7 @@ class GeneFamily(MetaFeatures):
         yield from self._spots
 
     @property
-    def module(self) -> Module:
+    def module(self):
         """Return all the modules belonging to the family
 
         :return: Generator of modules
@@ -338,10 +344,12 @@ class GeneFamily(MetaFeatures):
         return self._module
 
     @module.setter
-    def module(self, module: Module):
+    def module(self, module):
         """Set the modules belonging to the family
         :param module: module to set
         """
+        from ppanggolin.region import Module
+
         if not isinstance(module, Module):
             raise TypeError("Module object is expected to object of Module class")
         self._module = module
@@ -418,16 +426,6 @@ class GeneFamily(MetaFeatures):
         if not isinstance(spot, Spot):
             raise TypeError(f"A spot object is expected, you give a {type(spot)}")
         self._spots.add(spot)
-
-    def set_module(self, module: Module):
-        """Add the given module to the family
-
-        :param module: Module belonging to the family
-        """
-        from ppanggolin.region import Module   # prevent circular import error
-        if not isinstance(module, Module):
-            raise TypeError(f"A module object is expected, you give a {type(module)}")
-        self._module = module
 
     def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
         """Produces a bitarray representing the presence/absence of the family in the pangenome using the provided index

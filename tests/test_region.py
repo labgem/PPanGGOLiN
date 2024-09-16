@@ -1,8 +1,11 @@
 #! /usr/bin/env python3
 
 import pytest
+import pickle
 from typing import Generator, Set
 from random import randint
+
+import gmpy2
 
 from ppanggolin.region import Region, Spot, Module, GeneContext
 from ppanggolin.geneFamily import GeneFamily
@@ -245,6 +248,26 @@ class TestRegion:
         region.add(gene)
         assert region.contig.name == 'contig'
 
+    def test_pickle_serialization(self, region):
+        """Test pickling and unpickling the Region object.
+        """
+        pickled_region = pickle.dumps(region)
+        unpickled_region = pickle.loads(pickled_region)
+        assert region.name == unpickled_region.name
+        assert len(region) == len(unpickled_region)
+
+    def test_pickling_with_genes(self, region, genes):
+        """Test if the genes are correctly pickled and unpickled.
+        """
+        for gene in genes:
+            region.add(gene)
+        pickled_region = pickle.dumps(region)
+        unpickled_region = pickle.loads(pickled_region)
+        assert list(region.genes) == list(unpickled_region.genes)
+        for gene in region.genes:
+            a = unpickled_region.get(gene.position)
+            assert gene == unpickled_region.get(gene.position)
+
     def test_is_whole_contig_true(self, region):
         """Tests that the property is_whole_contig return True if the region has the same length as contig
         """
@@ -272,6 +295,19 @@ class TestRegion:
         starter.fill_parents(None, contig), stopper.fill_parents(None, contig)
         region.add(starter), region.add(stopper)
         assert region.is_whole_contig is False
+
+    def test_pickle_preserves_properties(self, region):
+        """Ensure properties like 'is_whole_contig' are preserved after pickling."""
+        starter, stopper = Gene('starter'), Gene('stopper')
+        starter.fill_annotations(start=1, stop=10, strand='+', position=0)
+        stopper.fill_annotations(start=11, stop=20, strand='+', position=1)
+        contig = Contig(0, "contig")
+        contig[starter.start], contig[stopper.start] = starter, stopper
+        starter.fill_parents(None, contig), stopper.fill_parents(None, contig)
+        region.add(starter), region.add(stopper)
+        pickled_region = pickle.dumps(region)
+        unpickled_region = pickle.loads(pickled_region)
+        assert region.is_whole_contig == unpickled_region.is_whole_contig
 
     def test_is_contig_border_true(self, region):
         """Test that property is_contig_border return true if the region is bordering the contig
@@ -680,7 +716,8 @@ class TestSpot:
         gene_1, gene_2 = Gene("gene_1"), Gene("gene_2")
         gene_1.fill_annotations(start=1, stop=10, strand='+', position=0)
         gene_2.fill_annotations(start=1, stop=10, strand='+', position=0)
-        gene_1.family, gene_2.family = GeneFamily(0, "Fam_0"), GeneFamily(1, "Fam_1")
+        fam1, fam2 = GeneFamily(0, "Fam_0"), GeneFamily(1, "Fam_1")
+        fam1.add(gene_1), fam2.add(gene_2)
         region_1[0], region_2[0] = gene_1, gene_2
         spot[region_1.name] = region_1
         with pytest.raises(KeyError):
@@ -724,6 +761,22 @@ class TestSpot:
         assert len(spot) == 0
         spot[region.name] = region
         assert len(spot) == 1
+
+    def test_pickle_serialization(self, spot):
+        """Test pickling and unpickling the Spot object."""
+        pickled_spot = pickle.dumps(spot)
+        unpickled_spot = pickle.loads(pickled_spot)
+
+        assert spot.ID == unpickled_spot.ID
+        assert len(spot) == len(unpickled_spot)
+
+    def test_pickling_with_regions(self, spot, region):
+        """Test if the regions are correctly pickled and unpickled."""
+        spot.add(region)
+        pickled_spot = pickle.dumps(spot)
+        unpickled_spot = pickle.loads(pickled_spot)
+
+        assert unpickled_spot.get("RGP_0").name == region.name
 
     @pytest.fixture
     def regions(self, genes):
@@ -784,6 +837,15 @@ class TestSpot:
             spot[region.name] = region
         spot.spot_2_families()
         assert all(set(family.spots) == {spot} for family in spot.families)
+
+    def test_pickle_preserves_properties(self, spot, regions):
+        """Ensure properties like number_of_families are preserved after pickling."""
+        for region in regions:
+            spot[region.name] = region
+        pickled_spot = pickle.dumps(spot)
+        unpickled_spot = pickle.loads(pickled_spot)
+
+        assert spot.number_of_families == unpickled_spot.number_of_families
 
     @pytest.fixture
     def srgps(self, regions):
@@ -901,6 +963,8 @@ class TestModule:
         """Test that adding a new family with the same name as another in the module return a KeyError
         """
         family_1, family_2 = GeneFamily(1, 'family_1'), GeneFamily(1, 'family_1')
+        family_1.add(Gene('gene1'))
+        family_2.add(Gene('gene2'))
         module[family_1.name] = family_1
         with pytest.raises(KeyError):
             module[family_2.name] = family_2
@@ -938,6 +1002,22 @@ class TestModule:
         fam = GeneFamily(randint(1, 20), f"fam{randint(1, 20)}")
         with pytest.raises(KeyError):
             del module[fam.name]
+
+    def test_pickle_module(self, module, family):
+        """Test that a Module object can be pickled and unpickled"""
+        module.add(family)
+        pickled_module = pickle.dumps(module)
+        unpickled_module = pickle.loads(pickled_module)
+        assert unpickled_module.ID == module.ID
+        assert len(unpickled_module._families_getter) == len(module._families_getter)
+        assert unpickled_module.get(family.name).name == family.name
+
+    def test_bitarray_in_module(self, module):
+        """Test if the bitarray is handled correctly during pickling"""
+        module.bitarray = gmpy2.xmpz(12345)  # Assign a sample bitarray value
+        pickled_module = pickle.dumps(module)
+        unpickled_module = pickle.loads(pickled_module)
+        assert unpickled_module.bitarray == gmpy2.xmpz(12345)
 
 
 class TestGeneContext:
@@ -1014,6 +1094,8 @@ class TestGeneContext:
         """Test that adding a new family with the same name as another in the context return a KeyError
         """
         family_1, family_2 = GeneFamily(1, 'family_1'), GeneFamily(1, 'family_1')
+        family_1.add(Gene('gene1'))
+        family_2.add(Gene('gene2'))
         context[family_1.name] = family_1
         with pytest.raises(KeyError):
             context[family_2.name] = family_2

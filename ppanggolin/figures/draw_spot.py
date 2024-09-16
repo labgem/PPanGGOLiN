@@ -49,7 +49,7 @@ def make_colors_for_iterable(it: set) -> dict:
     famcol = {}
     for element in it:
         col = list(random.choices(range(256), k=3))
-        if element == "none":
+        if element is None:
             famcol[element] = "#D3D3D3"
         else:
             famcol[element] = '#%02x%02x%02x' % (col[0], col[1], col[2])
@@ -283,7 +283,7 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
                 df["partition"].append(gene.family.named_partition)
                 df["family_color"].append(fam_col[gene.family])
                 df["partition_color"].append(partition_colors[gene.family.named_partition])
-                df["module"].append(fam_to_mod.get(gene.family, "none"))
+                df["module"].append(fam_to_mod.get(gene.family, None))
 
             # df["x"].append((abs(gene.start - start) + abs(gene.stop - start)) / 2)
             # df["width"].append(gene.stop - gene.start)
