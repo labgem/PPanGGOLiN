@@ -19,7 +19,7 @@ from ppanggolin.genome import Gene, Organism
 
 from ppanggolin.utils import (write_compressed_or_not, mk_outdir, create_tmpdir, read_compressed_or_not,
                               restricted_float, detect_filetype, run_subprocess)
-from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file
+from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file, write_fasta_gene_fam_from_pangenome_file, write_fasta_prot_fam_from_pangenome_file
 
 module_regex = re.compile(r'^module_\d+')  # \d == [0-9]
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
@@ -577,10 +577,32 @@ def launch(args: argparse.Namespace):
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
-                         regions=args.regions, genes=args.genes, proteins=args.proteins,
-                         gene_families=args.gene_families, prot_families=args.prot_families, compress=args.compress,
-                         disable_bar=args.disable_prog_bar, **translate_kwgs)
+
+    # if all(element_to_write is None for element_to_write in [args.regions, args.genes, args.proteins]):
+    if args.gene_families in ['all', 'persistent', 'shell', 'cloud']:
+
+        logging.getLogger("PPanGGOLiN").info("Writing the representative nucleotide sequences "
+                                            "of the gene families by reading the pangenome file directly.")
+
+        write_fasta_gene_fam_from_pangenome_file(pangenome_filename=args.pangenome, partition = args.gene_families,
+                                                output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
+        args.gene_families = None
+        
+    if args.prot_families in ['all', 'persistent', 'shell', 'cloud']:
+
+
+        logging.getLogger("PPanGGOLiN").info("Writing the representative protein sequences "
+                                            "of the gene families by reading the pangenome file directly.")
+        write_fasta_prot_fam_from_pangenome_file(pangenome_filename=args.pangenome, partition = args.prot_families,
+                                                output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
+
+        args.prot_families = None
+
+    if any(x for x in [args.regions, args.genes, args.proteins, args.gene_families, args.prot_families]):
+        write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
+                                regions=args.regions, genes=args.genes, proteins=args.proteins,
+                                gene_families=args.gene_families, prot_families=args.prot_families, compress=args.compress,
+                                disable_bar=args.disable_prog_bar, **translate_kwgs)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:

@@ -4,7 +4,7 @@
 import logging
 from optparse import Option
 from pathlib import Path
-from typing import Dict, Any, Set, List, Tuple, Optional
+from typing import Dict, Any, Iterator, Set, List, Tuple, Optional
 from collections import defaultdict
 
 # installed libraries
@@ -279,7 +279,7 @@ def get_non_redundant_gene_sequences_from_file(pangenome_filename: str, output: 
                 file_obj.write(f'{row["dna"].decode()}\n')
 
 
-def write_gene_sequences_from_pangenome_file(pangenome_filename: str, output: Path, list_cds: iter = None,
+def write_gene_sequences_from_pangenome_file(pangenome_filename: str, output: Path, list_cds: Optional[Iterator] = None,
                                              add: str = '', compress: bool = False, disable_bar: bool = False):
     """
     Writes the CDS sequences of the Pangenome object to a File object that can be filtered or not by a list of CDS,
@@ -307,6 +307,85 @@ def write_gene_sequences_from_pangenome_file(pangenome_filename: str, output: Pa
                     file_obj.write(seqid2seq[row["seqid"]] + "\n")
     logging.getLogger("PPanGGOLiN").debug("Gene sequences from pangenome file was written to "
                                           f"{output.absolute()}{'.gz' if compress else ''}")
+
+
+def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Path, partition: str,
+                         compress: bool = False, disable_bar=False):
+    """
+    Write representative nucleotide sequences of gene families
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param output: Path to output directory
+    :param gene_families: Selected partition of gene families
+    :param soft_core: Soft core threshold to use
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
+
+    outpath = output / f"{partition}_nucleotide_families.fasta"
+
+    parition_first_letter = partition[0].upper()
+
+    with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
+        gene_fam_info_table = h5f.root.geneFamiliesInfo
+        family_to_write = set()
+        seq_id_to_seqs = defaultdict(list)
+        for row in tqdm(read_chunks(gene_fam_info_table, chunk=20000), total=gene_fam_info_table.nrows, unit="family", disable=disable_bar):
+            
+            if partition == "all" or row['partition'].decode().startswith(parition_first_letter):
+                family_to_write.add(row['name'])
+
+
+        gene_seq_table = h5f.root.annotations.geneSequences
+        for row in tqdm(read_chunks(gene_seq_table, chunk=20000), total=gene_seq_table.nrows, unit="family", disable=disable_bar):
+            
+            if row['gene'] in family_to_write:
+                seq_id_to_seqs[row['seqid']].append(row['gene'].decode())
+
+        with write_compressed_or_not(outpath, compress) as file_obj:
+            seq_table = h5f.root.annotations.sequences
+            for row in read_chunks(seq_table, chunk=20000):
+                if row["seqid"] in seq_id_to_seqs:
+
+                    for seq_name in  seq_id_to_seqs[row["seqid"]]:
+                        
+                        file_obj.write(f">{seq_name}\n")
+                        file_obj.write(row["dna"].decode() + "\n")
+
+    logging.getLogger("PPanGGOLiN").info("Done writing the representative nucleotide sequences "
+                                         f"of the gene families : '{outpath}{'.gz' if compress else ''}")
+
+def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Path, partition: str,
+                         compress: bool = False, disable_bar=False):
+    """
+    Write representative amino acid sequences of gene families.
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param output: Path to output directory
+    :param prot_families: Selected partition of protein families
+    :param soft_core: Soft core threshold to use
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
+
+    outpath = output / f"{partition}_protein_families.faa"
+
+    parition_first_letter = partition[0].upper()
+    
+    with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f, write_compressed_or_not(outpath, compress) as fasta:
+
+        gene_fam_info_table = h5f.root.geneFamiliesInfo
+
+        for row in tqdm(read_chunks(gene_fam_info_table, chunk=20000), total=gene_fam_info_table.nrows, unit="family", disable=disable_bar):
+    
+            if partition == "all" or row['partition'].decode().startswith(parition_first_letter):
+                
+                fasta.write(f">{row['name'].decode()}\n")
+                fasta.write(row['protein'].decode() + "\n")
+
+    logging.getLogger("PPanGGOLiN").info(f"Done writing the representative amino acid sequences of the gene families:"
+                                         f"'{outpath}{'.gz' if compress else ''}'")
+    
 
 
 def read_graph(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
