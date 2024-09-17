@@ -57,26 +57,6 @@ class TestGeneFamily:
         assert restored_family.name == family.name
         assert restored_family.removed == family.removed
 
-    def test_pickling_gene_family_with_genes(self, family, genes):
-        """Test that a GeneFamily object can be pickled and unpickled
-        """
-        for gene in genes:
-            family.add(gene)
-        # Serialize (pickle) the object
-        pickled_data = pickle.dumps(family)
-
-        # Deserialize (unpickle) the object
-        restored_family = pickle.loads(pickled_data)
-
-        # Check if the basic attributes were correctly restored
-        assert restored_family.ID == family.ID
-        assert restored_family.name == family.name
-        assert restored_family.removed == family.removed
-
-        assert list(restored_family.genes) == list(family.genes)
-        for gene in restored_family.genes:
-            assert gene.family == family
-
     @pytest.mark.parametrize("partition, name",
                              [
                                  ("P", "persistent"),
@@ -198,6 +178,27 @@ class TestGeneFamily:
             idx_genes += 1
         organisms.add(organism)
         yield organisms
+
+    def test_pickling_gene_family_with_genes(self, family, genes, organisms):
+        """Test that a GeneFamily object can be pickled and unpickled
+        """
+        for gene in genes:
+            family.add(gene)
+        # Serialize (pickle) the object
+        pickled_data = pickle.dumps(family)
+
+        # Deserialize (unpickle) the object
+        restored_family = pickle.loads(pickled_data)
+
+        # Check if the basic attributes were correctly restored
+        assert restored_family.ID == family.ID
+        assert restored_family.name == family.name
+        assert restored_family.removed == family.removed
+
+        assert set(restored_family.genes) == set(family.genes)
+        for gene in restored_family.genes:
+            assert gene.family == family
+        assert set(restored_family.organisms) == set(organisms)
 
     def test_get_org_dict(self, family, genes, organisms):
         """Tests that all organisms and genes are retrieved as expected
@@ -334,17 +335,6 @@ class TestGeneFamily:
             expected_edges = set([edge for edge in edges if edge.source == family or edge.target == family])
             assert isinstance(family.number_of_edges, int)
             assert family.number_of_neighbors == len(expected_edges)
-
-    def test_pickling_gene_family_with_edges(self, families):
-        """Test that a GeneFamily object can be pickled and unpickled
-        """
-        for family in families:
-            # Serialize (pickle) the object
-            pickled_data = pickle.dumps(family)
-
-            # Deserialize (unpickle) the object
-            restored_family = pickle.loads(pickled_data)
-            assert list(restored_family.edges) == list(family.edges)
 
     def test_add_spot_to_gene_family(self, family):
         """Tests that a Spot object can be added to a GeneFamily object

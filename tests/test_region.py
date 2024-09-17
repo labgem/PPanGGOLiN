@@ -11,11 +11,13 @@ from ppanggolin.region import Region, Spot, Module, GeneContext
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Contig, Organism
 
+
 @pytest.fixture
 def contig() -> Contig:
     contig = Contig(0, 'contig_name')
     contig.length = 200
     return contig
+
 
 @pytest.fixture
 def genes(contig) -> Generator[Set[Gene], None, None]:
@@ -28,6 +30,7 @@ def genes(contig) -> Generator[Set[Gene], None, None]:
         gene.contig = contig
         genes.append(gene)
     return genes
+
 
 @pytest.fixture
 def gene(contig) -> Gene:
@@ -122,7 +125,7 @@ class TestRegion:
     def test_add_gene(self, region, gene):
         """Tests that genes can be aadded to a region
         """
-        
+
         region.add(gene)
 
         assert len(region._genes_getter) == 1
@@ -375,7 +378,6 @@ class TestRegion:
         with pytest.raises(ValueError):
             region[42] = gene
 
-
     def test_not_equal(self, region, genes):
         """Test difference between two regions
         """
@@ -421,21 +423,20 @@ class TestRegion:
             gene.fill_parents(contig=contig)
             contig.add(gene)
             genes.append(gene)
-        
+
         region.add(genes[2])
 
         assert region.starter == genes[2]
         assert region.stopper == genes[2]
         assert region.coordinates == genes[2].coordinates
         assert region.coordinates == [(genes[2].start, genes[2].stop)]
-        
+
         region.add(genes[3])
         region.add(genes[4])
 
         assert region.starter == genes[2]
         assert region.stopper == genes[4]
-        assert region.coordinates ==  [(genes[2].start, genes[4].stop)]
-
+        assert region.coordinates == [(genes[2].start, genes[4].stop)]
 
     def test_starter_stopper_with_contig_overlap(self, region):
         """
@@ -452,10 +453,9 @@ class TestRegion:
             gene.fill_parents(contig=contig)
             contig.add(gene)
             genes.append(gene)
-        
+
         region.add(genes[9])
         region.add(genes[0])
-
 
         assert region.starter == genes[9]
         assert region.stopper == genes[0]
@@ -477,7 +477,7 @@ class TestRegion:
             gene.fill_parents(contig=contig)
             contig.add(gene)
             genes.append(gene)
-        
+
         # add a gene that overlap the contig edge
         gene_that_overlap = Gene(f"gene_{str(10)}")
         gene_that_overlap.fill_annotations(start=300, stop=5, strand='+', position=10, coordinates=[(300, 400), (1, 5)])
@@ -485,14 +485,13 @@ class TestRegion:
         contig.add(gene_that_overlap)
         genes.append(gene_that_overlap)
 
-
         region.add(gene_that_overlap)
 
         assert region.starter == gene_that_overlap
         assert region.stopper == gene_that_overlap
-        assert region.coordinates == gene_that_overlap.coordinates 
-        assert region.coordinates ==  [(gene_that_overlap.start, contig.length), (1, gene_that_overlap.stop)]
-        
+        assert region.coordinates == gene_that_overlap.coordinates
+        assert region.coordinates == [(gene_that_overlap.start, contig.length), (1, gene_that_overlap.stop)]
+
         # if we add more genes around the one that overlap
 
         region.add(genes[9])
@@ -501,11 +500,9 @@ class TestRegion:
         region.add(genes[0])
         assert region.starter == genes[7]
         assert region.stopper == genes[0]
-        assert region.coordinates ==  [(genes[7].start, contig.length), (1, genes[0].stop)]
+        assert region.coordinates == [(genes[7].start, contig.length), (1, genes[0].stop)]
 
-
-
-    def test_get_bordering_genes(self,region):
+    def test_get_bordering_genes(self, region):
         """
         Test simple border.
         for a contig with 10 genes. Add gene from 1 to 8 into the region.  Gene at the border are 0 and 9
@@ -526,13 +523,12 @@ class TestRegion:
             contig.add(gene)
 
             genes.append(gene)
-        
+
         for gene in genes[1:-1]:
             region.add(gene)
 
         borders = region.get_bordering_genes(1, {})
         assert borders == [[genes[0]], [genes[-1]]]
-
 
     def test_get_bordering_genes_overlap_contigs(self, region):
         """
@@ -556,7 +552,7 @@ class TestRegion:
             contig.add(gene)
 
             genes.append(gene)
-        
+
         region.add(genes[0])
         region.add(genes[1])
         region.add(genes[9])
@@ -589,15 +585,14 @@ class TestRegion:
 
         borders = region.get_bordering_genes(1, {})
 
-        assert borders == [[], []] # no border
-
+        assert borders == [[], []]  # no border
 
     def test_get_bordering_genes_with_multigenic(self, region):
         """
         Test border with multigenic for a non circular contig with 10 genes. 
         Add gene from 3 to 7 into the region.
         gene 2 and 8 are mulitgenic
-        Gene at the border are 1 on the left and 9
+        Gene at the border are 1 on the left and 9 on the right
         """
 
         contig = Contig(0, 'contig_name')
@@ -606,7 +601,7 @@ class TestRegion:
         family = GeneFamily(1, "test")
         family.partition = "Persistent"
 
-        multigenic_family = GeneFamily(1, "test_mutligenic")
+        multigenic_family = GeneFamily(2, "test_mutligenic")
         multigenic_family.partition = "Persistent"
 
         genes = []
@@ -621,15 +616,13 @@ class TestRegion:
             contig.add(gene)
 
             genes.append(gene)
-        
+
         for gene in genes[3:8]:
             region.add(gene)
-
 
         borders = region.get_bordering_genes(1, {multigenic_family})
 
         assert borders == [[genes[1]], [genes[9]]]
-    
 
     def test_get_bordering_genes_with_all_multigenic(self, region):
         """
@@ -652,13 +645,14 @@ class TestRegion:
             contig.add(gene)
 
             genes.append(gene)
-        
+
         for gene in genes[1:-1]:
             region.add(gene)
 
         borders = region.get_bordering_genes(1, {family})
 
-        assert borders == [[], []] # no border
+        assert borders == [[], []]  # no border
+
 
 class TestSpot:
     @pytest.fixture
@@ -926,7 +920,7 @@ class TestModule:
     def test_len(self, module):
         """Test that len method work as expected
         """
-        module._families_getter["fam"] = GeneFamily(randint(1,5), "fam")
+        module._families_getter["fam"] = GeneFamily(randint(1, 5), "fam")
         assert isinstance(len(module), int)
         assert len(module) == 1
 

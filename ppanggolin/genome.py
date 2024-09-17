@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 from typing import Dict, Generator, List, Union, Set, Tuple, Iterable
 from collections import defaultdict
-import pickle
 
 # installed libraries
 import gmpy2
@@ -60,16 +59,25 @@ class Feature(MetaFeatures):
         self._contig = None
         self.dna = None
 
-    def __getstate__(self):
-        """Customize the pickling behavior"""
-        state = self.__dict__.copy()
-        state["_contig"] = None
-        state["_organism"] = None
-        return state
+    def __reduce__(self):
+        """
+        Customize how the object is pickled.
+
+        This method will return a tuple where:
+        1. The first element is the class to be used to recreate the object.
+        2. The second element is a tuple of arguments for the constructor.
+        3. The third element is the state of the object (usually the __dict__).
+        """
+        # We choose not to pickle _organism and _contig to avoid circular references.
+        state = super().__getstate__()
+        state['_organism'] = None  # Avoid pickling _organism
+        state['_contig'] = None  # Avoid pickling _contig
+
+        return self.__class__, (self.ID,), state
 
     def __setstate__(self, state):
         """Customize the unpickling behavior"""
-        self.__dict__.update(state)
+        super().__setstate__(state)
 
     def __str__(self) -> str:
         """String representation of the feature
@@ -94,7 +102,7 @@ class Feature(MetaFeatures):
 
     def __hash__(self) -> int:
         """Return a hash value for the Feature object"""
-        return hash((self.ID, self.type, self.start, self.stop, self.strand, self.name))
+        return hash(self.ID)
 
     def __eq__(self, other: Feature) -> bool:
         """Compare two Feature objects for equality"""
@@ -137,6 +145,9 @@ class Feature(MetaFeatures):
 
         :return: Organism of the feature
         """
+        if self._organism is None and self.contig is not None:
+            if self.contig.organism is not None:
+                self.organism = self.contig.organism
         return self._organism
 
     @organism.setter
@@ -320,8 +331,7 @@ class Gene(Feature):
 
     def __hash__(self) -> int:
         """Return a hash value for the Feature object"""
-        return hash((self.ID, self.type, self.start, self.stop, self.strand, self.name,
-                     self.position, self.genetic_code))
+        return hash(self.ID)
 
     def __eq__(self, other: Gene) -> bool:
         """Compare two Feature objects for equality"""
@@ -336,15 +346,15 @@ class Gene(Feature):
                 self.position == other.position and
                 self.genetic_code == other.genetic_code)
 
-    def __getstate__(self):
+    def __reduce__(self):
         """Customize the pickling behavior"""
-        state = super().__getstate__()
+        _, _, state = super().__reduce__()
         state["position"] = self.position
         state["genetic_code"] = self.genetic_code
         state["protein"] = self.protein
         state["_family"] = None
         state["_RGP"] = None
-        return state
+        return self.__class__, (self.ID,), state
 
     def __setstate__(self, state):
         """Customize the unpickling behavior"""
@@ -352,6 +362,8 @@ class Gene(Feature):
         self.position = state["position"]
         self.genetic_code = state["genetic_code"]
         self.protein = state["protein"]
+        self._family = state["_family"]
+        self._RGP = state["_RGP"]
 
     @property
     def family(self):
@@ -477,6 +489,28 @@ class Contig(MetaFeatures):
         self._organism = None
         self._length = None
 
+    def __hash__(self):
+        return hash(self.ID)
+
+    def __eq__(self, other: Contig):
+        if not isinstance(other, Contig):
+            raise TypeError(f"Contig object is expected. You give {type(other)}")
+        if hash(self) == hash(other):
+            return set(self.genes) == set(other.genes)
+        else:
+            return False
+
+    def __reduce__(self):
+        """Customize the pickling behavior"""
+        state = super().__getstate__()
+        return self.__class__, (self.ID, self.name,), state
+
+    def __setstate__(self, state):
+        """Customize the unpickling behavior"""
+        super().__setstate__(state)
+        for gene in self.genes:
+            gene.contig = self
+
     def __str__(self) -> str:
         """Returns a string representation of the contig
 
@@ -516,20 +550,6 @@ class Contig(MetaFeatures):
         self._genes_position.extend([None] * (gene.position - len(self._genes_position) + 1))
         self._genes_position[gene.position] = gene
         self._genes_getter[coordinate] = gene
-
-    # TODO define eq function
-
-    def __getstate__(self):
-        """Customize the pickling behavior"""
-        state = self.__dict__.copy()
-        state["_organism"] = None
-        return state
-
-    def __setstate__(self, state):
-        """Customize the unpickling behavior"""
-        self.__dict__.update(state)
-        for gene in self.genes:
-            gene.contig = self
 
     @property
     def length(self) -> Union[int, None]:
@@ -874,24 +894,33 @@ class Organism(MetaFeatures):
         self._families = None
         self.bitarray = None
 
-    def __getstate__(self):
+    def __reduce__(self):
         """Customize the pickling behavior"""
-        state = self.__dict__.copy()
+        state = super().__getstate__()
         # Handle non-picklable objects (like gmpy2.xmpz if used in bitarray)
         if self.bitarray is not None and isinstance(self.bitarray, gmpy2.xmpz):
             state['bitarray'] = str(self.bitarray)  # Convert to a string for pickling
-        return state
+        return self.__class__, (self.name,), state
 
     def __setstate__(self, state):
         """Customize the unpickling behavior"""
         # Restore the state and reinitialize any attributes as needed
         if 'bitarray' in state and isinstance(state['bitarray'], str):
             state['bitarray'] = gmpy2.xmpz(state['bitarray'])
-        self.__dict__.update(state)
+        super().__setstate__(state)
         for contig in self.contigs:
             contig.organism = self
-            for gene in contig.genes:
-                gene.organism = self
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other: Organism):
+        if not isinstance(other, Organism):
+            raise TypeError(f"An Organism object is expected. You give a {type(other)}.")
+        if hash(self) == hash(other):
+            return set(self.contigs) == set(other.contigs)
+        else:
+            return False
 
     def __str__(self) -> str:
         """String representation of the genome

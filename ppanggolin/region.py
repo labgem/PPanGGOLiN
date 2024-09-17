@@ -166,19 +166,19 @@ class Region(MetaFeatures):
         except KeyError:
             raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
 
-    def __getstate__(self):
+    def __reduce__(self):
         """Return the state of the object for pickling."""
-        state = self.__dict__.copy()
+        state = super().__getstate__()
         state["_starter"] = None
         state["_stopper"] = None
         state["_coordinates"] = None
         state["_overlaps_contig_edge"] = None
         state["_spot"] = None
-        return state
+        return self.__class__, (self.name,), state
 
     def __setstate__(self, state):
         """Restore the object state from the unpickled data."""
-        self.__dict__.update(state)
+        super().__setstate__(state)
         for gene in self.genes:
             gene.RGP = self
 
@@ -605,16 +605,16 @@ class Spot(MetaFeatures):
         """
         return len(self._region_getter)
 
-    def __getstate__(self):
+    def __reduce__(self):
         """Return the state of the object for pickling."""
-        state = self.__dict__.copy()
+        state = super().__getstate__()
         state["_uniqOrderedSet"] = None
         state["_uniqContent"] = None
-        return state
+        return self.__class__, (self.ID,), state
 
     def __setstate__(self, state):
         """Restore the object state from the unpickled data."""
-        self.__dict__.update(state)
+        super().__setstate__(state)
         self._uniqOrderedSet = {}
         self._uniqContent = {}
         for region in self.regions:
@@ -819,18 +819,18 @@ class Module(MetaFeatures):
             for family in families:
                 self.add(family)
 
-    def __getstate__(self):
+    def __reduce__(self):
         """Customize the pickling behavior"""
-        state = self.__dict__.copy()
+        state = super().__getstate__()
         if self.bitarray is not None and isinstance(self.bitarray, gmpy2.xmpz):
             state['bitarray'] = str(self.bitarray)  # Convert to a string for pickling
-        return state
+        return self.__class__, (self.ID,), state
 
     def __setstate__(self, state):
         """Customize the unpickling behavior"""
         if 'bitarray' in state and isinstance(state['bitarray'], str):
             state['bitarray'] = gmpy2.xmpz(state['bitarray'])
-        self.__dict__.update(state)
+        super().__setstate__(state)
         for family in self.families:
             family.module = self
 

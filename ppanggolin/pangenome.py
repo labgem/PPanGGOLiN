@@ -277,7 +277,7 @@ class Pangenome:
         except AttributeError:
             raise AttributeError("Genes are not linked to families. Check that you compute the gene families and post an"
                                  " issue on our GitHub")
-        key = frozenset([family_1, family_2 ])
+        key = frozenset([family_1, family_2])
         edge = self._edge_getter.get(key)
         if edge is None:
             edge = Edge(gene1, gene2)

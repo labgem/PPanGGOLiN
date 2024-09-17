@@ -115,13 +115,13 @@ class MetaFeatures:
     def __getstate__(self):
         """Prepare the object for pickling by returning a dictionary of its state."""
         state = self.__dict__.copy()
-        state['_metadata_getter'] = dict(self._metadata_getter)  # Convert defaultdict to dict for pickling
+        state['_metadata_getter'] = list(self._metadata_getter.items())  # Convert defaultdict to dict for pickling
         return state
 
     def __setstate__(self, state):
         """Restore the object's state from the unpickled state."""
         self.__dict__.update(state)
-        self._metadata_getter = defaultdict(dict, self._metadata_getter)
+        self._metadata_getter = defaultdict(dict, dict(self._metadata_getter))
 
     @property
     def number_of_metadata(self) -> int:

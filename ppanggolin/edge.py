@@ -46,13 +46,13 @@ class Edge:
     def __getstate__(self):
         """Prepare the object for pickling by returning a dictionary of its state."""
         state = self.__dict__.copy()
-        state['_organisms'] = dict(self._organisms)
+        state['_organisms'] = list(self._organisms.items())
         return state
 
     def __setstate__(self, state):
         """Restore the object's state from the unpickled state."""
         self.__dict__.update(state)
-        # Restore defaultdict
+        self._organisms = dict(self._organisms)
         self.source._edges_getter[self.target.name] = self.target
         self.target._edges_getter[self.source.name] = self.source
         self._organisms = defaultdict(list, self._organisms)

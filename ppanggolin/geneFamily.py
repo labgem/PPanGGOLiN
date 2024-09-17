@@ -80,23 +80,49 @@ class GeneFamily(MetaFeatures):
         """
         return f"{self.ID}: {self.name}"
 
-    def __getstate__(self):
+    def __hash__(self) -> int:
+        """
+        Returns the hash of the GeneFamily instance.
+
+        :returns: The hash value of the GeneFamily instance.
+        """
+        return hash((self.ID, self.name))
+
+    def __eq__(self, other: GeneFamily) -> bool:
+        """
+        Checks if two GeneFamily instances are equal based on their genes.
+
+        :param other: Another GeneFamily instance to compare.
+
+        :returns: True if the GeneFamily instances are equal, False otherwise.
+
+        :raises: TypeError: If the other object is not a GeneFamily instance.
+        """
+        if not isinstance(other, GeneFamily):
+            raise TypeError(
+                f"Expected another GeneFamily instance for comparison, but received {type(other)}"
+            )
+        return set(self.genes) == set(other.genes)
+
+    def __reduce__(self):
         """Customize pickling by removing non-picklable attributes."""
-        state = self.__dict__.copy()
+        state = super().__getstate__()
         # Remove non-picklable attributes and prevent circular reference problem
         state['_edges_getter'] = list({gf.name: edge for gf, edge in self._edges_getter.items()}.items())  # convert dict to list for pickling
-        state['_genePerOrg'] = None
-        state['_spot'] = None
+        state['_genePerOrg'] = list(self.get_org_dict().items())
+        state['_spots'] = None
         state['_module'] = None
-        return state
+        return self.__class__, (self.ID, self.name,), state
 
     def __setstate__(self, state):
         """Restore the object from the pickled state."""
-        self.__dict__.update(state)
-        self._edges_getter = dict(self._edges_getter)  # convert back to dict
-        self._genePerOrg = defaultdict(set)
+        super().__setstate__(state)
+        self._genePerOrg = defaultdict(set, dict(self._genePerOrg))
+        self._edges_getter = dict(self._edges_getter) # convert back to dict
         for gene in self.genes:
             gene.family = self
+            gene.contig[gene.position].gene = self
+
 
     def __len__(self) -> int:
         """Get the number of genes in the family
@@ -161,31 +187,6 @@ class GeneFamily(MetaFeatures):
             del self._genes_getter[identifier]
         except KeyError:
             raise KeyError(f"Gene with the name: {identifier} does not exist in the family")
-
-    def __hash__(self) -> int:
-        """
-        Returns the hash of the GeneFamily instance.
-
-        :returns:
-            int: The hash value of the GeneFamily instance.
-        """
-        return hash((self.name, self.ID))
-
-    def __eq__(self, other: GeneFamily) -> bool:
-        """
-        Checks if two GeneFamily instances are equal based on their genes.
-
-        :param other: Another GeneFamily instance to compare.
-
-        :returns: True if the GeneFamily instances are equal, False otherwise.
-
-        :raises: TypeError: If the other object is not a GeneFamily instance.
-        """
-        if not isinstance(other, GeneFamily):
-            raise TypeError(
-                f"Expected another GeneFamily instance for comparison, but received {type(other)}"
-            )
-        return set(self.genes) == set(other.genes)
 
     def add(self, gene: Gene):
         """Add a gene to the gene family, and sets the gene's :attr:family accordingly.
