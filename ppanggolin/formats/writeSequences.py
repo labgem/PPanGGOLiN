@@ -579,12 +579,12 @@ def launch(args: argparse.Namespace):
     pangenome.add_file(args.pangenome)
 
     # if all(element_to_write is None for element_to_write in [args.regions, args.genes, args.proteins]):
-    if args.gene_families in ['all', 'persistent', 'shell', 'cloud']:
+    if args.gene_families and args.gene_families in ['all', 'persistent', 'shell', 'cloud'] or module_regex.match(args.gene_families):
 
         logging.getLogger("PPanGGOLiN").info("Writing the representative nucleotide sequences "
                                             "of the gene families by reading the pangenome file directly.")
 
-        write_fasta_gene_fam_from_pangenome_file(pangenome_filename=args.pangenome, partition = args.gene_families,
+        write_fasta_gene_fam_from_pangenome_file(pangenome_filename=args.pangenome,  family_filter= args.gene_families,
                                                 output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
         args.gene_families = None
         
