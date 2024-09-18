@@ -39,7 +39,7 @@ def draw_ucurve(pangenome: Pangenome, output: Path, soft_core: float = 0.95,  di
     data_plot = []
     chao = "NA"
     if count[1]["pangenome"] > 0:
-        chao = round(pangenome.number_of_gene_families + ((count[0]["pangenome"] ^ 2) / (count[1]["pangenome"] * 2)), 2)
+        chao = round(pangenome.number_of_gene_families + (pow(count[1]["pangenome"], 2) / (count[2]["pangenome"] * 2)), 2)
     colors = {"pangenome": "black", "exact_accessory": "#EB37ED", "exact_core": "#FF2828", "soft_core": "#c7c938",
               "soft_accessory": "#996633", "shell": "#00D860", "persistent": "#F7A507", "cloud": "#79DEFF",
               "undefined": "#828282"}
