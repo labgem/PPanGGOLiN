@@ -603,7 +603,7 @@ def launch(args: argparse.Namespace):
         write_genes_from_pangenome_file(pangenome_filename=args.pangenome, gene_filter = args.genes,
                                                 output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
 
-        args.prot_families = None
+        args.genes = None
 
 
     if any(x for x in [args.regions, args.genes, args.proteins, args.gene_families, args.prot_families]):
