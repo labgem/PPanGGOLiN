@@ -308,18 +308,37 @@ def write_gene_sequences_from_pangenome_file(pangenome_filename: str, output: Pa
     logging.getLogger("PPanGGOLiN").debug("Gene sequences from pangenome file was written to "
                                           f"{output.absolute()}{'.gz' if compress else ''}")
 
+
+def read_rgp__genes_from_pangenome_file(h5f: tables.File) -> List[str]:
+    """
+    """
+    rgp_genes = [row["gene"] for row in read_chunks(h5f.root.RGP, chunk=20000)]
+
+    return rgp_genes
+
+
+def get_families_from_genes(h5f: tables.File , genes:Set[str]):
+    """
+    """
+    families = set()
+    for row in read_chunks(h5f.root.geneFamilies, chunk=20000):
+        if row['gene'] in genes:
+            families.add(row["geneFam"])
+
+    return families
+
 def read_module_families_from_pangenome_file(h5f: tables.File, module_name:str):
     """
     
     """
     family_to_write = set()
     module_id = int(module_name[len("module_"):])
-    print("MODULE", module_id)
     module_table = h5f.root.modules
+
     for row in read_chunks(module_table, chunk=20000):
         if row['module'] == module_id:
             family_to_write.add(row['geneFam'])
-    print("family_to_write", family_to_write)
+
     return family_to_write
 
 def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Path, family_filter: str,
@@ -337,11 +356,8 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
 
     outpath = output / f"{family_filter}_nucleotide_families.fasta"
 
-    
-
     with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
 
-        
         seq_id_to_seqs = defaultdict(list)
 
         if family_filter in ["all", 'persistent', 'shell', 'cloud']:
@@ -354,18 +370,26 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
                     family_to_write.add(row['name'])
 
 
-        if family_filter.startswith("module_"):
+        elif family_filter.startswith("module_"):
             family_to_write = read_module_families_from_pangenome_file(h5f, module_name=family_filter)
+        
+        elif family_filter == "rgp":
+            rgp_genes = read_rgp__genes_from_pangenome_file(h5f)
+            family_to_write = get_families_from_genes(h5f, rgp_genes)
 
         if len(family_to_write) == 0:
             logging.getLogger("PPanGGOLiN").warning(f"No families matching filter {family_filter}.")
             return
 
         gene_seq_table = h5f.root.annotations.geneSequences
+        match_count = 0
         for row in tqdm(read_chunks(gene_seq_table, chunk=20000), total=gene_seq_table.nrows, unit="family", disable=disable_bar):
             
             if row['gene'] in family_to_write:
                 seq_id_to_seqs[row['seqid']].append(row['gene'].decode())
+                match_count += 1
+        
+        assert match_count == len(family_to_write), f"Number of sequences found ({match_count}) does not match the number of expected family {len(family_to_write)}."
 
         with write_compressed_or_not(file_path=outpath, compress=compress) as file_obj:
             seq_table = h5f.root.annotations.sequences

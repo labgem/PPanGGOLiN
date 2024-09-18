@@ -578,8 +578,7 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
 
-    # if all(element_to_write is None for element_to_write in [args.regions, args.genes, args.proteins]):
-    if args.gene_families is not None and args.gene_families in ['all', 'persistent', 'shell', 'cloud'] or module_regex.match(args.gene_families):
+    if args.gene_families is not None and (args.gene_families in ['all', 'persistent', 'shell', 'cloud', "rgp"] or module_regex.match(args.gene_families)):
 
         logging.getLogger("PPanGGOLiN").info("Writing the representative nucleotide sequences "
                                             "of the gene families by reading the pangenome file directly.")
@@ -589,7 +588,6 @@ def launch(args: argparse.Namespace):
         args.gene_families = None
         
     if args.prot_families in ['all', 'persistent', 'shell', 'cloud']:
-
 
         logging.getLogger("PPanGGOLiN").info("Writing the representative protein sequences "
                                             "of the gene families by reading the pangenome file directly.")
