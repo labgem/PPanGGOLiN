@@ -404,7 +404,7 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
     logging.getLogger("PPanGGOLiN").info("Done writing the representative nucleotide sequences "
                                          f"of the gene families : '{outpath}{'.gz' if compress else ''}")
 
-def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Path, partition: str,
+def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Path, family_filter: str,
                          compress: bool = False, disable_bar=False):
     """
     Write representative amino acid sequences of gene families.
@@ -417,17 +417,32 @@ def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Pa
     :param disable_bar: Disable progress bar
     """
 
-    outpath = output / f"{partition}_protein_families.faa"
+    outpath = output / f"{family_filter}_protein_families.faa"
 
-    parition_first_letter = partition[0].upper()
-    
+    partition_filter = False
+    family_to_write = []
+
     with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f, write_compressed_or_not(outpath, compress) as fasta:
 
+        if family_filter in ["all", 'persistent', 'shell', 'cloud']:
+            partition_filter = True
+            parition_first_letter = family_filter[0].upper()
+
+        elif family_filter == "rgp":
+            rgp_genes = read_rgp__genes_from_pangenome_file(h5f)
+            family_to_write = get_families_from_genes(h5f, rgp_genes)
+        
+        elif family_filter.startswith("module_"):
+            family_to_write = read_module_families_from_pangenome_file(h5f, module_name=family_filter)
+        
         gene_fam_info_table = h5f.root.geneFamiliesInfo
 
         for row in tqdm(read_chunks(gene_fam_info_table, chunk=20000), total=gene_fam_info_table.nrows, unit="family", disable=disable_bar):
-    
-            if partition == "all" or row['partition'].decode().startswith(parition_first_letter):
+            
+            partition_match = partition_filter and (family_filter == "all" or row['partition'].decode().startswith(parition_first_letter))
+            family_match = row['name'] in family_to_write
+
+            if partition_match or family_match:
                 
                 fasta.write(f">{row['name'].decode()}\n")
                 fasta.write(row['protein'].decode() + "\n")

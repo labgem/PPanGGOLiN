@@ -587,11 +587,11 @@ def launch(args: argparse.Namespace):
                                                 output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
         args.gene_families = None
         
-    if args.prot_families in ['all', 'persistent', 'shell', 'cloud']:
+    if args.prot_families is not None and (args.prot_families in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(args.prot_families)):
 
         logging.getLogger("PPanGGOLiN").info("Writing the representative protein sequences "
                                             "of the gene families by reading the pangenome file directly.")
-        write_fasta_prot_fam_from_pangenome_file(pangenome_filename=args.pangenome, partition = args.prot_families,
+        write_fasta_prot_fam_from_pangenome_file(pangenome_filename=args.pangenome, family_filter = args.prot_families,
                                                 output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
 
         args.prot_families = None
