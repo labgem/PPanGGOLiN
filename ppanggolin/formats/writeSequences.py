@@ -19,7 +19,7 @@ from ppanggolin.genome import Gene, Organism
 
 from ppanggolin.utils import (write_compressed_or_not, mk_outdir, create_tmpdir, read_compressed_or_not,
                               restricted_float, detect_filetype, run_subprocess)
-from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file, write_fasta_gene_fam_from_pangenome_file, write_fasta_prot_fam_from_pangenome_file
+from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file, write_genes_from_pangenome_file,  write_fasta_gene_fam_from_pangenome_file, write_fasta_prot_fam_from_pangenome_file
 
 module_regex = re.compile(r'^module_\d+')  # \d == [0-9]
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
@@ -595,6 +595,16 @@ def launch(args: argparse.Namespace):
                                                 output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
 
         args.prot_families = None
+
+
+    if args.genes is not None and (args.genes in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(args.genes)):
+
+        logging.getLogger("PPanGGOLiN").info("Writing gene nucleotide sequences by reading the pangenome file directly.")
+        write_genes_from_pangenome_file(pangenome_filename=args.pangenome, gene_filter = args.genes,
+                                                output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
+
+        args.prot_families = None
+
 
     if any(x for x in [args.regions, args.genes, args.proteins, args.gene_families, args.prot_families]):
         write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,

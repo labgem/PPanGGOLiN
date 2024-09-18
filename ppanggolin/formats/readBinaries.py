@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 # default libraries
+import dis
 import logging
 from optparse import Option
 from pathlib import Path
 from typing import Dict, Any, Iterator, Set, List, Tuple, Optional
 from collections import defaultdict
+import numpy
 
 # installed libraries
 from tqdm import tqdm
@@ -341,6 +343,67 @@ def read_module_families_from_pangenome_file(h5f: tables.File, module_name:str):
 
     return family_to_write
 
+def get_families_matching_partition(h5f: tables.File, partition:str):
+    """
+    """
+    family_to_write = set()
+    
+    gene_fam_info_table = h5f.root.geneFamiliesInfo
+    parition_first_letter = partition[0].upper()
+
+    for row in read_chunks(gene_fam_info_table, chunk=20000):
+        
+        if partition == "all" or row['partition'].decode().startswith(parition_first_letter):
+            family_to_write.add(row['name'])
+
+    return family_to_write
+
+def get_genes_from_families(h5f: tables.File, families:List[numpy.byte]):
+    """
+    """
+    matching_genes = set()
+    
+    gene_fam_table = h5f.root.geneFamilies
+
+    for row in read_chunks(gene_fam_table, chunk=20000):
+        if row["geneFam"] in families:
+            matching_genes.add(row['gene'])
+
+    return matching_genes
+
+def get_seqid_to_genes(h5f: tables.File, genes:List[str], get_all_genes:bool = False, disable_bar:bool = False):
+    """
+    """
+
+    seq_id_to_genes = defaultdict(list)
+    gene_seq_table = h5f.root.annotations.geneSequences
+    match_count = 0
+    for row in tqdm(read_chunks(gene_seq_table, chunk=20000), total=gene_seq_table.nrows, unit="family", disable=disable_bar):
+        
+        if get_all_genes or row['gene'] in genes:
+            seq_id_to_genes[row['seqid']].append(row['gene'].decode())
+            match_count += 1
+
+    assert match_count == len(genes), f"Number of sequences found ({match_count}) does not match the number of expected genes {len(genes)}."
+
+    return seq_id_to_genes
+
+def write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes):
+    """
+    """
+    
+    with write_compressed_or_not(file_path=outpath, compress=compress) as file_obj:
+        seq_table = h5f.root.annotations.sequences
+        #TODO add tqm
+        for row in read_chunks(table=seq_table, chunk=20000):
+            if row["seqid"] in seq_id_to_genes:
+
+                for seq_name in  seq_id_to_genes[row["seqid"]]:
+                    
+                    file_obj.write(f">{seq_name}\n")
+                    file_obj.write(row["dna"].decode() + "\n")
+
+
 def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Path, family_filter: str,
                          compress: bool = False, disable_bar=False):
     """
@@ -358,16 +421,8 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
 
     with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
 
-        seq_id_to_seqs = defaultdict(list)
-
         if family_filter in ["all", 'persistent', 'shell', 'cloud']:
-            family_to_write = set()
-            gene_fam_info_table = h5f.root.geneFamiliesInfo
-            parition_first_letter = family_filter[0].upper()
-            for row in tqdm(read_chunks(gene_fam_info_table, chunk=20000), total=gene_fam_info_table.nrows, unit="family", disable=disable_bar):
-                
-                if family_filter == "all" or row['partition'].decode().startswith(parition_first_letter):
-                    family_to_write.add(row['name'])
+            family_to_write = get_families_matching_partition(h5f, family_filter)
 
 
         elif family_filter.startswith("module_"):
@@ -381,25 +436,9 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
             logging.getLogger("PPanGGOLiN").warning(f"No families matching filter {family_filter}.")
             return
 
-        gene_seq_table = h5f.root.annotations.geneSequences
-        match_count = 0
-        for row in tqdm(read_chunks(gene_seq_table, chunk=20000), total=gene_seq_table.nrows, unit="family", disable=disable_bar):
-            
-            if row['gene'] in family_to_write:
-                seq_id_to_seqs[row['seqid']].append(row['gene'].decode())
-                match_count += 1
-        
-        assert match_count == len(family_to_write), f"Number of sequences found ({match_count}) does not match the number of expected family {len(family_to_write)}."
+        seq_id_to_genes = get_seqid_to_genes(h5f, family_to_write)
 
-        with write_compressed_or_not(file_path=outpath, compress=compress) as file_obj:
-            seq_table = h5f.root.annotations.sequences
-            for row in read_chunks(table=seq_table, chunk=20000):
-                if row["seqid"] in seq_id_to_seqs:
-
-                    for seq_name in  seq_id_to_seqs[row["seqid"]]:
-                        
-                        file_obj.write(f">{seq_name}\n")
-                        file_obj.write(row["dna"].decode() + "\n")
+        write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes)
 
     logging.getLogger("PPanGGOLiN").info("Done writing the representative nucleotide sequences "
                                          f"of the gene families : '{outpath}{'.gz' if compress else ''}")
@@ -450,6 +489,48 @@ def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Pa
     logging.getLogger("PPanGGOLiN").info(f"Done writing the representative amino acid sequences of the gene families:"
                                          f"'{outpath}{'.gz' if compress else ''}'")
     
+
+def write_genes_from_pangenome_file(pangenome_filename: str, output: Path, gene_filter: str,
+                         compress: bool = False, disable_bar=False):
+    """
+    Write representative nucleotide sequences of gene families
+
+    :param pangenome: Pangenome object with gene families sequences
+    :param output: Path to output directory
+    :param gene_families: Selected partition of gene families
+    :param soft_core: Soft core threshold to use
+    :param compress: Compress the file in .gz
+    :param disable_bar: Disable progress bar
+    """
+
+    outpath = output / f"{gene_filter}_genes.fna"
+    get_all_genes = False
+
+    with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
+
+        if gene_filter in ['persistent', 'shell', 'cloud'] or gene_filter.startswith("module_"):
+
+            if gene_filter.startswith("module_"):
+                families = read_module_families_from_pangenome_file(h5f, module_name=gene_filter)
+                
+            else:
+                families = get_families_matching_partition(h5f, gene_filter)
+
+            genes_to_write = get_genes_from_families(h5f, families)
+
+        elif gene_filter == "rgp":
+            genes_to_write = read_rgp__genes_from_pangenome_file(h5f)
+
+        elif gene_filter == "all":
+            genes_to_write = []
+            get_all_genes = True
+
+        seq_id_to_genes = get_seqid_to_genes(h5f, genes_to_write, get_all_genes=get_all_genes, disable_bar=disable_bar)
+
+        write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes)
+        
+    logging.getLogger("PPanGGOLiN").info("Done writing the representative nucleotide sequences "
+                                         f"of the gene families : '{outpath}{'.gz' if compress else ''}")
 
 
 def read_graph(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
