@@ -37,8 +37,8 @@ SUBCOMMAND_TO_SUBPARSER = {
     "spot": ppanggolin.RGP.spot.subparser,
     "module": ppanggolin.mod.subparser,
     "context": ppanggolin.context.subparser,
-    "projection":ppanggolin.projection.subparser,
-    "rgp_cluster":ppanggolin.RGP.rgp_cluster.subparser,
+    "projection": ppanggolin.projection.subparser,
+    "rgp_cluster": ppanggolin.RGP.rgp_cluster.subparser,
     "metadata": ppanggolin.meta.subparser
 }
 
@@ -50,8 +50,8 @@ PPanGGOLiN ({version}) is an opensource bioinformatic tools, developed by the LA
 """
 
 pan_epilog = """
-For pangenome analyses, please cite: 
-Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph. 
+For pangenome analyses, please cite:
+Gautreau G et al. (2020) PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph.
 PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi.1007732
 """
 rgp_epilog = """
@@ -62,6 +62,6 @@ Bioinformatics, Volume 36, Issue Supplement_2, December 2020, Pages i651–i658,
 
 mod_epilog = """
 For module prediction, please cite:
-Bazin et al., panModule: detecting conserved modules in the variable regions of a pangenome graph. 
+Bazin et al., panModule: detecting conserved modules in the variable regions of a pangenome graph.
 biorxiv. https://doi.org/10.1101/2021.12.06.471380
 """

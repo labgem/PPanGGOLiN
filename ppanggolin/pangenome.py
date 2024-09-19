@@ -572,7 +572,7 @@ class Pangenome:
 
         :param region: Region to add in pangenome
 
-		:raise AssertionError: Error if region is not a Region object
+        :raise AssertionError: Error if region is not a Region object
         :raise KeyError: Error if another Region exist in pangenome with the same name
         """
         assert isinstance(region, Region), "A Region object is expected"
@@ -782,7 +782,7 @@ class Pangenome:
 
         :return: All elements from pangenome for the metatype
 
-		:raise AssertionError: Error if metatype is not a string
+        :raise AssertionError: Error if metatype is not a string
         :raise KeyError: Error if metatype is not recognized
         """
         assert isinstance(metatype, str), "Metatype name should be a string"
