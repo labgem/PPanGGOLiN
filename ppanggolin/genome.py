@@ -88,14 +88,14 @@ class Feature(MetaFeatures):
             return True
         else:
             return False
-    
+
     @property
     def overlaps_contig_edge(self) -> bool:
         """
         Check based on the coordinates of the feature, if the gene seems to overlap contig edge.
 
         """
-        
+
         start_stop = self.coordinates[0]
         for start_stop_next in self.coordinates[1:]:
             if start_stop > start_stop_next:
@@ -188,7 +188,7 @@ class Feature(MetaFeatures):
                 raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) should not be greater than stop ({stop_i}) in {self} from {self.organism}.")
             if start_i < 1 or stop_i < 1:
                 raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) and stop ({stop_i}) should be greater than 0 in {self} from {self.organism}.")
-        
+
         self.start = start
         self.stop = stop
         self.strand = strand
@@ -223,7 +223,7 @@ class Feature(MetaFeatures):
         :raise AssertionError: Sequence must be a string
         """
         assert isinstance(sequence, str), f"'str' type was expected for dna sequence but you provided a '{type(sequence)}' type object"
-        
+
         self.dna = sequence
 
     def string_coordinates(self) -> str:
@@ -231,23 +231,23 @@ class Feature(MetaFeatures):
         Return a string representation of the coordinates
         """
         return ','.join(f'{start}..{stop}' for start, stop in self.coordinates)
-    
+
     def start_relative_to(self, gene):
         """
         """
         if gene.start <= self.start:
             return self.start
         if gene.start > self.start:
-            return self.start + self.contig.length 
-    
+            return self.start + self.contig.length
+
     def stop_relative_to(self, gene):
         """
         """
         if gene.start <= self.stop:
             return self.stop
-        
+
         if gene.start > self.stop:
-            return self.stop + self.contig.length 
+            return self.stop + self.contig.length
 
 class RNA(Feature):
     """Save RNA from genome as an Object with some information for Pangenome
@@ -752,7 +752,7 @@ class Contig(MetaFeatures):
         :return: A list of lists containing ordered consecutive genes considering circularity.
         """
         gene_positions = [gene.position for gene in genes]
-        
+
         # Determine consecutive region positions
         consecutive_region_positions = get_consecutive_region_positions(region_positions=gene_positions, contig_gene_count=self.number_of_genes)
 

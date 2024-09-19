@@ -238,7 +238,7 @@ def write_gexf_nodes(gexf: TextIO, light: bool = True, soft_core: False = 0.95):
               'cloud': 'a="0" b="255" g="222" r="121"'}
     if not light:
         index = pan.get_org_index()
-    
+
     pan_metadata_sources = pan.metadata_sources("families")
 
     for fam in pan.gene_families:
@@ -514,7 +514,7 @@ def summarize_genome(organism: Organism,
     cloud_fragmented_family_count = len({g.family for g in cloud_fragmented_genes})
 
     families_with_fragment_count = persistent_fragmented_family_count + shell_fragmented_family_count + cloud_fragmented_family_count
-    
+
     families_count = persistent_family_count + shell_family_count + cloud_family_count
 
 
@@ -522,7 +522,7 @@ def summarize_genome(organism: Organism,
     if pangenome_persistent_count > 0:
         completeness = round((persistent_family_count / pangenome_persistent_count) * 100, 2)
 
-    
+
     orgs_families_in_multicopy_by_part = defaultdict(set)
     for family in organism.families:
         if len(family.get_org_dict()[organism]) > 1:
@@ -535,15 +535,15 @@ def summarize_genome(organism: Organism,
     orgs_cloud_families_in_multicopy_count = len(orgs_families_in_multicopy_by_part['cloud'])
 
     orgs_families_in_multicopy_count = orgs_persistent_families_in_multicopy_count + orgs_shell_families_in_multicopy_count + orgs_cloud_families_in_multicopy_count
-    
+
     single_copy_families_found_in_multicopy_count = len(pangenome_persistent_single_copy_families &  orgs_families_in_multicopy_by_part['persistent'])
     contamination = 'NA'
     if len(pangenome_persistent_single_copy_families) > 0:
         contamination =  round(100 * single_copy_families_found_in_multicopy_count / len(pangenome_persistent_single_copy_families) , 2)
-    
+
     fragmentation = 'NA'
     if families_count > 0:
-        fragmentation = round(100.0 * families_with_fragment_count / families_count, 2) 
+        fragmentation = round(100.0 * families_with_fragment_count / families_count, 2)
 
     soft_core_genes = {gene for gene in organism.genes if gene.family in soft_core_families}
     exact_core_genes = {gene for gene in organism.genes if gene.family in exact_core_families}
@@ -620,10 +620,10 @@ def write_persistent_duplication_statistics(pangenome: Pangenome, output: Path, 
                 mean_pres = len(fam) / fam.number_of_organisms
                 dup_ratio = fam.duplication_ratio(exclude_fragment=True)
                 is_scm = dup_ratio < dup_margin
-                
+
                 if is_scm:
                     single_copy_persistent.add(fam)
-                
+
                 writer.writerow({
                     "persistent_family": fam.name,
                     "duplication_ratio": round(dup_ratio, 3),
@@ -685,8 +685,8 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
     summaries = []
 
     for organism in pan.organisms:
-        
-        
+
+
         rgp_count = organism.number_of_regions if pan.status["predictedRGP"] != "No" else None
         spot_count = organism.number_of_spots if pan.status["spots"] != "No" else None
         module_count = organism.number_of_modules if pan.status["modules"] != "No" else None
@@ -703,7 +703,7 @@ def write_stats(output: Path, soft_core: float = 0.95, dup_margin: float = 0.05,
         summaries.append(organism_summary)
 
     write_summaries_in_tsv(summaries, output_file= output / "genomes_statistics.tsv", dup_margin=dup_margin, soft_core=soft_core, compress=compress)
-    
+
     logging.getLogger("PPanGGOLiN").info("Done writing genome per genome statistics")
 
 
@@ -788,7 +788,7 @@ def summarize_spots(spots: set, output: Path, compress: bool = False, file_name=
         """rounds to dp figures and returns a str of the provided value"""
         return str(round(value, 3)) if isinstance(value, float) else str(value)
 
-    
+
     file_path = output / file_name
 
     with write_compressed_or_not(file_path, compress) as fout:
@@ -841,7 +841,7 @@ def write_rgp_table(regions: Set[Region],
 
         regions = sorted(regions, key=lambda x: (
             x.organism.name, x.contig.name, x.ID))
-        
+
         for region in regions:
             row = {
                 "region": region.name,
@@ -1206,17 +1206,17 @@ def parser_flat(parser: argparse.ArgumentParser):
 
     optional.add_argument("--soft_core", required=False, type=restricted_float, default=0.95,
                           help="Soft core threshold to use")
-    
+
     optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
                           help="minimum ratio of genomes in which the family must have multiple genes "
                                "for it to be considered 'duplicated'")
-    
+
 
     optional.add_argument("--gexf", required=False, action="store_true",
                           help="write a gexf file with all the annotations and all the genes of each gene family")
     optional.add_argument("--light_gexf", required=False, action="store_true",
                           help="write a gexf file with the gene families and basic information about them")
-    
+
     optional.add_argument("--json", required=False, action="store_true", help="Writes the graph in a json file format")
 
     optional.add_argument("--csv", required=False, action="store_true",
@@ -1227,11 +1227,11 @@ def parser_flat(parser: argparse.ArgumentParser):
 
     optional.add_argument("--stats", required=False, action="store_true",
                           help="tsv files with some statistics for each each gene family")
-    
+
     optional.add_argument("--partitions", required=False, action="store_true",
                           help="list of families belonging to each partition, with one file per partitions and "
                                "one family per line")
-    
+
     optional.add_argument("--families_tsv", required=False, action="store_true",
                           help="Write a tsv file providing the association between genes and gene families")
 
@@ -1244,7 +1244,7 @@ def parser_flat(parser: argparse.ArgumentParser):
                           help="Write a tsv file listing functional modules and the families that belong to them")
     optional.add_argument("--spot_modules", required=False, action="store_true",
                           help="writes 2 files comparing the presence of modules within spots")
-    
+
     optional.add_argument("--compress", required=False, action="store_true", help="Compress the files in .gz")
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
 

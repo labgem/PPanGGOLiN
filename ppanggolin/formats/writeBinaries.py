@@ -471,19 +471,19 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
                                                "max_genomes_frequency": getmax(part_distribs["persistent"]),
                                                "sd_genomes_frequency": getstdev(part_distribs["persistent"]),
                                                "mean_genomes_frequency": getmean(part_distribs["persistent"])}
-        
+
         info_group._v_attrs.numberOfShell = named_part_counter["shell"]
         info_group._v_attrs.shellStats = {"min_genomes_frequency": getmin(part_distribs["shell"]),
                                           "max_genomes_frequency": getmax(part_distribs["shell"]),
                                           "sd_genomes_frequency": getstdev(part_distribs["shell"]),
                                           "mean_genomes_frequency": getmean(part_distribs["shell"])}
-        
+
         info_group._v_attrs.numberOfCloud = named_part_counter["cloud"]
         info_group._v_attrs.cloudStats = {"min_genomes_frequency": getmin(part_distribs["cloud"]),
                                           "max_genomes_frequency": getmax(part_distribs["cloud"]),
                                           "sd_genomes_frequency": getstdev(part_distribs["cloud"]),
                                           "mean_genomes_frequency": getmean(part_distribs["cloud"])}
-        
+
         info_group._v_attrs.numberOfPartitions = len(part_set)
         info_group._v_attrs.numberOfSubpartitions = subpart_counter
 
@@ -492,7 +492,7 @@ def write_info(pangenome: Pangenome, h5f: tables.File):
 
     if pangenome.status["spots"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfSpots = pangenome.number_of_spots
-    
+
     if pangenome.status["modules"] in ["Computed", "Loaded"]:
         info_group._v_attrs.numberOfModules = pangenome.number_of_modules
         info_group._v_attrs.numberOfFamiliesInModules = sum([len(mod) for mod in pangenome.modules])
@@ -517,8 +517,8 @@ def write_info_modules(pangenome: Pangenome, h5f: tables.File):
         """
         pangenome.compute_mod_bitarrays(part)
         return [popcount(module.bitarray) for module in pangenome.modules]
-    
-    
+
+
     if "/info" not in h5f:
         write_info(pangenome, h5f)
     info_group = h5f.root.info
@@ -526,12 +526,12 @@ def write_info_modules(pangenome: Pangenome, h5f: tables.File):
 
     mod_fam = [len(module) for module in pangenome.modules]
     sum_mod_fam = sum(mod_fam)
-    
+
     info_group._v_attrs.StatOfFamiliesInModules = {"min": getmin(mod_fam),
                                                     "max": getmax(mod_fam),
                                                     "sd": getstdev(mod_fam),
                                                     "mean": getmean(mod_fam)}
-    
+
     spec_pers = part_spec(part='persistent')
     spec_shell = part_spec(part='shell')
     spec_cloud = part_spec(part='cloud')
@@ -541,13 +541,13 @@ def write_info_modules(pangenome: Pangenome, h5f: tables.File):
                                                     "max": getmax(spec_pers),
                                                     "sd": getstdev(spec_pers),
                                                     "mean": getmean(spec_pers)}
-    
+
     info_group._v_attrs.ShellSpecInModules = {"percent": round((sum(spec_shell) / sum_mod_fam) * 100, 2) if sum_mod_fam > 0 else 0,
                                                 "min": getmin(spec_shell),
                                                 "max": getmax(spec_shell),
                                                 "sd": getstdev(spec_shell),
                                                 "mean": getmean(spec_shell)}
-    
+
     info_group._v_attrs.CloudSpecInModules = {"percent": round((sum(spec_cloud) / sum_mod_fam) * 100, 2) if sum_mod_fam > 0 else 0,
                                                 "min": getmin(spec_cloud),
                                                 "max": getmax(spec_cloud),
@@ -606,10 +606,10 @@ def erase_pangenome(pangenome: Pangenome, graph: bool = False, gene_families: bo
     :param metatype:
     :param source:
     """
-    
+
     if metadata and (metatype is None or source is None):
         raise ValueError("To erase metadata. You should provide metatype and source")
-    
+
     with tables.open_file(pangenome.file, "a") as h5f:
         status_group = h5f.root.status
         info_group = h5f.root.info
@@ -761,4 +761,4 @@ def write_pangenome(pangenome: Pangenome, filename, force: bool = False, disable
     h5f.close()
     logging.getLogger("PPanGGOLiN").info(f"Done writing the pangenome. It is in file : {filename}")
 
-    
+

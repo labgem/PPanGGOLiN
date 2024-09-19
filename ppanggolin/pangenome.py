@@ -546,7 +546,7 @@ class Pangenome:
                     multigenics.add(fam)
         return multigenics
 
-    
+
     def get_single_copy_persistent_families(self, dup_margin: float, exclude_fragments: bool) -> Set[GeneFamily]:
         """
         Retrieves gene families that are both persistent and single copy based on the provided criteria.
@@ -556,7 +556,7 @@ class Pangenome:
 
         :return: A set containing gene families that are both persistent and single copy.
         """
-        
+
         single_copy_fams = set()
 
         # Iterate through gene families and check for persistence and single copy status
@@ -735,7 +735,7 @@ class Pangenome:
         :return: The number of modules
         """
         return len(self._module_getter)
-    
+
     def soft_core_families(self, soft_core_threshold: float) -> Set[GeneFamily]:
         """
         Retrieves gene families considered part of the soft core based on the provided threshold.
@@ -752,7 +752,7 @@ class Pangenome:
                 soft_core_families.add(fam)
 
         return soft_core_families
-    
+
     def exact_core_families(self) -> Set[GeneFamily]:
         """
         Retrieves gene families considered as the exact core (present in all organisms).

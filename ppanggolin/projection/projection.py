@@ -131,7 +131,7 @@ def manage_input_genomes_annotation(
     :param config: Configuration dictionary.
     :return: A tuple of organisms, genome_name_to_path, and input_type.
     """
-    
+
     genome_name_to_path = None
     input_type = None
 
@@ -802,8 +802,8 @@ def manage_annotate_param(annotate_param_names: List[str], pangenome_args: argpa
 
     # Collecting annotate parameters from different sources
     # if they are found in pangenome param they are used
-    # elif they are found in config they are used 
-    # else use the default value.  
+    # elif they are found in config they are used
+    # else use the default value.
     for annotate_arg in annotate_param_names:
         if hasattr(pangenome_args, annotate_arg):
             param_val = getattr(pangenome_args, annotate_arg)
@@ -1183,7 +1183,7 @@ def check_projection_arguments(args: argparse.Namespace, parser: argparse.Argume
     :return: A string indicating the input mode ('single' or 'multiple').
     """
 
-    # Check if we annotate genomes from path files or only a single genome...  
+    # Check if we annotate genomes from path files or only a single genome...
     if not args.anno and not args.fasta:
         parser.error(
             "Please provide either a FASTA file or a tab-separated file listing sequence files using the '--fasta' option, "

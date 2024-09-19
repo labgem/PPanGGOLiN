@@ -31,7 +31,7 @@ def check_already_computed_metric(pangenome: Pangenome, genomes_fluidity: bool =
             if print_metric and not recompute:
                 print_computed_metric(info_group._v_attrs['genomes_fluidity'])
             return True
-    return False       
+    return False
 
 
 def compute_metrics(pangenome: Pangenome, genomes_fluidity: bool = False, families_fluidity: bool = False, disable_bar: bool = False) -> dict:
@@ -72,7 +72,7 @@ def write_metrics(pangenome: Pangenome, metrics_dict: dict, print_metrics: bool 
         # After all metrics have been written
         if print_metrics:
             print_computed_metric(metrics_dict['genomes_fluidity'])
-            
+
 def print_computed_metric(metrics_dict: dict):
     """
     Print metrics in yaml format

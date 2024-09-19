@@ -92,7 +92,7 @@ def parser_draw(parser: argparse.ArgumentParser):
                           help="draw plots for spots of the pangenome")
     optional.add_argument("--spots", required=False, default='all', nargs='+',
                           help="a comma-separated list of spots to draw (or 'all' to draw all spots, or 'synteny' to draw spots with different RGP syntenies).")
-    
+
     optional.add_argument("--nocloud", required=False, default=False, action="store_true",
                         help="Do not draw the cloud genes in the tile plot")
     optional.add_argument(
@@ -116,7 +116,7 @@ def parser_draw(parser: argparse.ArgumentParser):
                           nargs="+",
                           help="Which source of metadata should be written in the tile plot. "
                                "By default all metadata sources are included.")
-    
+
 
 
 if __name__ == '__main__':

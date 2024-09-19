@@ -374,18 +374,18 @@ def infer_singletons(pangenome: Pangenome):
 
 def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cpu: int = 1,
                                         tmpdir: Path = None, keep_tmp: bool = False):
-    
+
     logging.getLogger("PPanGGOLiN").info("Retrieving protein sequences of family representatives.")
 
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     with create_tmpdir(tmpdir, "get_proteins_sequences", keep_tmp) as tmp:
 
         repres_path = tmp / "representative.fna.gz"
-        
+
         with gzip.open(repres_path, mode="wt") as repres_seq:
 
             for family in pangenome.gene_families:
-                
+
                 if family.representative.dna is None:
                     raise ValueError(f'DNA sequence of representative gene {family.representative} is None. '
                                      'Sequence may not have been loaded correctly from the pangenome file or the pangenome has no gene sequences.')
@@ -395,18 +395,18 @@ def get_family_representative_sequences(pangenome: Pangenome, code: int = 11, cp
 
         translate_db = translate_genes(sequences=repres_path, tmpdir=tmp, cpu=cpu,
                                        is_single_line_fasta=True, code=code)
-        
+
         outpath = tmp / "representative_protein_genes.fna"
         cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, outpath]))
         run_subprocess(cmd, msg="MMSeqs convert2fasta failed with the following error:\n")
-        
+
         with open(outpath) as repres_prot:
             lines = repres_prot.readlines()
             while len(lines) > 0:
                 family_name = lines.pop(0).strip()[1:]
                 family_seq = lines.pop(0).strip()
                 family = pangenome.get_gene_family(family_name)
-                
+
                 family.add_sequence(family_seq)
 
 
@@ -432,10 +432,10 @@ def read_clustering_file(families_tsv_path: Path) -> Tuple[pd.DataFrame, bool]:
     logging.getLogger("PPanGGOLiN").info(
         f"Reading clustering file to group genes into families: {families_tsv_path.as_posix()}"
     )
-    
+
     # Detect compression type if any
     _, compress_type = is_compressed(families_tsv_path)
-    
+
     # Read the file with inferred compression if necessary
     families_df = pd.read_csv(
         families_tsv_path,
@@ -444,13 +444,13 @@ def read_clustering_file(families_tsv_path: Path) -> Tuple[pd.DataFrame, bool]:
         compression=compress_type if compress_type is not None else 'infer',
         dtype=str
     )
-    
+
     # Process DataFrame based on the number of columns
     if families_df.shape[1] == 2:
         families_df.columns = ["family", "gene"]
         families_df["representative"] = families_df.groupby('family')['gene'].transform('first')
         families_df["is_frag"] = False
-    
+
     elif families_df.shape[1] == 3:
         # Check if the third column is 'is_frag'
         if families_df[2].dropna().eq('F').all():
@@ -460,24 +460,24 @@ def read_clustering_file(families_tsv_path: Path) -> Tuple[pd.DataFrame, bool]:
         else:
             families_df.columns = ["family", "gene", "representative"]
             families_df["is_frag"] = False
-    
+
     elif families_df.shape[1] == 4:
         families_df.columns = ["family", "representative", "gene", "is_frag"]
-    
+
     else:
         raise ValueError(
             f"Unexpected number of columns ({families_df.shape[1]}). The file must have 2, 3, or 4 columns."
         )
-    
+
     # Ensure columns are strings
     families_df["family"] = families_df["family"].astype(str)
     families_df["gene"] = families_df["gene"].astype(str)
     families_df["representative"] = families_df["representative"].astype(str)
-    
+
     # Check for duplicate gene IDs
     if families_df["gene"].duplicated().any():
         raise Exception("It seems that there is duplicated gene id in your clustering.")
-    
+
     return families_df[["family", "representative", "gene", "is_frag"]], families_df["is_frag"].any()
 
 
@@ -520,7 +520,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
         return gene_obj
 
     for _, row in tqdm(families_df.iterrows(), total=families_df.shape[0], unit="line", disable=disable_bar):
-        
+
         fam_id, reprez_id, gene_id, is_frag = str(row['family']), str(row['representative']), str(row['gene']), bool(row['is_frag'])
 
         gene = get_gene_obj(gene_id)
@@ -530,13 +530,13 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
 
             try:
                 fam = pangenome.get_gene_family(fam_id)
-            
+
             except KeyError:  # Family not found so create and add
                 fam = GeneFamily(pangenome.max_fam_id, fam_id)
                 representative_gene = get_gene_obj(reprez_id)
                 if representative_gene is None:
                     raise KeyError(f"The gene {reprez_id} associated to family {fam_id} from the clustering file is not found in pangenome.")
-            
+
                 fam.representative = representative_gene
 
                 pangenome.add_gene_family(fam)
@@ -545,7 +545,7 @@ def read_clustering(pangenome: Pangenome, families_tsv_path: Path, infer_singlet
         else:
             raise KeyError(f"The gene {gene_id} associated to family {fam_id} from the clustering file is not found in pangenome.")
 
-            
+
     if nb_gene_with_fam < pangenome.number_of_genes:  # not all genes have an associated cluster
         if nb_gene_with_fam == 0:
             raise Exception("No gene ID in the cluster file matched any gene ID from the annotation step."

@@ -165,7 +165,7 @@ def check_metadata_arguments(args: argparse.Namespace, parser: argparse.Argument
     :param parser : parser of the command
     :return: A string indicating the input mode ('single' or 'multiple').
     """
-    
+
     # check required argument
     for required_arg in ["metadata", "source", "assign"]:
 

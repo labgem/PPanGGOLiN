@@ -481,7 +481,7 @@ def partition(pangenome: Pangenome, output: Path = None, beta: float = 2.5, sm_d
         pangenome.parameters["partition"]["chunk_size"] = chunk_size
     pangenome.parameters["partition"]["# computed nb of partitions"] = False
 
-    # the K value initially given by the user 
+    # the K value initially given by the user
     pangenome.parameters["partition"]["nb_of_partitions"] = kval
     if kval < 2:
         pangenome.parameters["partition"]["# computed nb of partitions"] = True
