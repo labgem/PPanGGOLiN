@@ -554,11 +554,11 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
         logging.getLogger("PPanGGOLiN").info("Writing the representative nucleotide sequences "
                                             "of the gene families by reading the pangenome file directly.")
 
-        write_fasta_gene_fam_from_pangenome_file(pangenome_filename=pangenome.file,  family_filter= gene_families,
+        write_fasta_gene_fam_from_pangenome_file(pangenome_filename=pangenome.file,  family_filter= gene_families, soft_core=soft_core,
                                                 output=output, compress=compress, disable_bar=disable_bar)
         gene_families = None
         
-    if prot_families is not None and (prot_families in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(prot_families)):
+    if prot_families is not None: #and (prot_families in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(prot_families)):
 
         logging.getLogger("PPanGGOLiN").info("Writing the representative protein sequences "
                                             "of the gene families by reading the pangenome file directly.")

@@ -432,7 +432,16 @@ def get_family_to_genome_count(h5f) -> Dict[bytes, int]:
 
     return family_to_genome_count
 
+def get_soft_core_families(h5f, soft_core:float):
+    """
+    """
+    family_to_genome_count = get_family_to_genome_count(h5f)
+    pangenome_info = read_info(h5f)
+    genome_count = pangenome_info["Content"]["Genomes"]
 
+    genome_count_threshold = genome_count * soft_core
+    soft_core_families = {family for family, fam_genome_count in family_to_genome_count.items() if fam_genome_count >= genome_count_threshold}
+    return soft_core_families
 
 def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Path, family_filter: str, soft_core:float = 0.95,
                                             compress: bool = False, disable_bar=False):
@@ -463,17 +472,10 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
             family_to_write = get_families_from_genes(h5f, rgp_genes)
 
         elif family_filter in ["softcore", "core"]:
-            family_to_genome_count = get_family_to_genome_count(h5f)
-            pangenome_info = read_info(h5f)
-            genome_count = pangenome_info["Content"]["Genomes"]
-
             if family_filter == "core":
-                family_to_write = {family for family, fam_genome_count in family_to_genome_count.items() if genome_count == fam_genome_count}
-
-            elif family_filter == "softcore":
-                genome_count_threshold = genome_count * soft_core
-                family_to_write = {family for family, fam_genome_count in family_to_genome_count.items() if fam_genome_count >= genome_count_threshold}
-                 
+                soft_core = 1.0
+        
+            family_to_write = get_soft_core_families(h5f, soft_core)
 
         if len(family_to_write) == 0:
             logging.getLogger("PPanGGOLiN").warning(f"No families matching filter {family_filter}.")
@@ -486,7 +488,8 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
     logging.getLogger("PPanGGOLiN").info("Done writing the representative nucleotide sequences "
                                          f"of the gene families : '{outpath}{'.gz' if compress else ''}")
 
-def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Path, family_filter: str,
+
+def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Path, family_filter: str, soft_core:float=0.95,
                          compress: bool = False, disable_bar=False):
     """
     Write representative amino acid sequences of gene families.
@@ -517,8 +520,15 @@ def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Pa
         elif family_filter.startswith("module_"):
             family_to_write = read_module_families_from_pangenome_file(h5f, module_name=family_filter)
         
+        elif family_filter in ["softcore", "core"]:
+            
+            soft_core_to_apply = 1.0 if family_filter == "core" else soft_core
+
+            family_to_write = get_soft_core_families(h5f, soft_core=soft_core_to_apply)
+
         gene_fam_info_table = h5f.root.geneFamiliesInfo
 
+        # TODO improve tqdm with total being the number of family to write
         for row in tqdm(read_chunks(gene_fam_info_table, chunk=20000), total=gene_fam_info_table.nrows, unit="family", disable=disable_bar):
             
             partition_match = partition_filter and (family_filter == "all" or row['partition'].decode().startswith(parition_first_letter))
