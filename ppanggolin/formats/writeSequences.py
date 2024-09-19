@@ -516,14 +516,10 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
         proteins = None
 
     if regions is not None:
-
         # load pangenome when writing region sequence
         check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_rgp=True, disable_bar=disable_bar)
 
-
-
-        if regions is not None:
-            write_regions_sequences(pangenome, output, regions, fasta, anno, compress, disable_bar)
+        write_regions_sequences(pangenome, output, regions, fasta, anno, compress, disable_bar)
  
 
 def launch(args: argparse.Namespace):
