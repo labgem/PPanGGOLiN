@@ -384,11 +384,11 @@ def get_seqid_to_genes(h5f: tables.File, genes:List[str], get_all_genes:bool = F
             seq_id_to_genes[row['seqid']].append(row['gene'].decode())
             match_count += 1
 
-    assert match_count == len(genes), f"Number of sequences found ({match_count}) does not match the number of expected genes {len(genes)}."
+    assert get_all_genes or match_count == len(genes), f"Number of sequences found ({match_count}) does not match the number of expected genes {len(genes)}."
 
     return seq_id_to_genes
 
-def write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes):
+def write_genes_seq_from_pangenome_file(h5f: tables.File, outpath, compress, seq_id_to_genes):
     """
     """
     
@@ -543,7 +543,7 @@ def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Pa
                                          f"'{outpath}{'.gz' if compress else ''}'")
     
 
-def write_genes_from_pangenome_file(pangenome_filename: str, output: Path, gene_filter: str,
+def write_genes_from_pangenome_file(pangenome_filename: str, output: Path, gene_filter: str, soft_core:float=0.95,
                          compress: bool = False, disable_bar=False):
     """
     Write representative nucleotide sequences of gene families
@@ -561,11 +561,16 @@ def write_genes_from_pangenome_file(pangenome_filename: str, output: Path, gene_
 
     with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
 
-        if gene_filter in ['persistent', 'shell', 'cloud'] or gene_filter.startswith("module_"):
+        if gene_filter in ['persistent', 'shell', 'cloud', "softcore", "core"] or gene_filter.startswith("module_"):
 
             if gene_filter.startswith("module_"):
                 families = read_module_families_from_pangenome_file(h5f, module_name=gene_filter)
+
+            elif gene_filter in ["softcore", "core"]:
                 
+                soft_core_to_apply = 1.0 if gene_filter == "core" else soft_core
+                families = get_soft_core_families(h5f, soft_core=soft_core_to_apply)
+                    
             else:
                 families = get_families_matching_partition(h5f, gene_filter)
 
