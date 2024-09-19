@@ -548,20 +548,61 @@ def write_sequence_files(pangenome: Pangenome, output: Path, fasta: Path = None,
     :param disable_bar: Disable progress bar
     """
 
-    check_pangenome_to_write_sequences(pangenome, regions, genes, proteins, gene_families, prot_families, disable_bar)
 
-    if prot_families is not None:
-        write_fasta_prot_fam(pangenome, output, prot_families, soft_core, compress, disable_bar)
-    if gene_families is not None:
-        write_fasta_gene_fam(pangenome, output, gene_families, soft_core, compress, disable_bar)
-    if genes is not None:
-        write_gene_sequences(pangenome, output, genes, soft_core, compress, disable_bar)
-    if proteins is not None:
-        write_gene_protein_sequences(pangenome, output, proteins, soft_core, compress, disable_bar=disable_bar,
-                                     **translate_kwgs)
-    if regions is not None:
-        write_regions_sequences(pangenome, output, regions, fasta, anno, compress, disable_bar)
+    if gene_families is not None: #and (gene_families in ['all', 'persistent', 'shell', 'cloud', "rgp"] or module_regex.match(gene_families)):
 
+        logging.getLogger("PPanGGOLiN").info("Writing the representative nucleotide sequences "
+                                            "of the gene families by reading the pangenome file directly.")
+
+        write_fasta_gene_fam_from_pangenome_file(pangenome_filename=pangenome.file,  family_filter= gene_families,
+                                                output=output, compress=compress, disable_bar=disable_bar)
+        gene_families = None
+        
+    if prot_families is not None and (prot_families in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(prot_families)):
+
+        logging.getLogger("PPanGGOLiN").info("Writing the representative protein sequences "
+                                            "of the gene families by reading the pangenome file directly.")
+        write_fasta_prot_fam_from_pangenome_file(pangenome_filename=pangenome.file, family_filter = prot_families,
+                                                output=output, compress=compress, disable_bar=disable_bar)
+
+        prot_families = None
+
+
+    if genes is not None and (genes in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(genes)):
+
+        logging.getLogger("PPanGGOLiN").info("Writing gene nucleotide sequences by reading the pangenome file directly.")
+        write_genes_from_pangenome_file(pangenome_filename=pangenome.file, gene_filter = genes,
+                                                output=output, compress=compress, disable_bar=disable_bar)
+
+        genes = None
+
+    if proteins is not None and (proteins in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(proteins)):
+        pass
+
+        # logging.getLogger("PPanGGOLiN").info("Writing gene nucleotide sequences by reading the pangenome file directly.")
+        # write_gene_protein_sequences(pangenome, output, proteins, soft_core, compress, disable_bar=disable_bar,
+        #                     **translate_kwgs)
+
+        # write_genes_from_pangenome_file(pangenome_filename=pangenome, gene_filter = genes,
+        #                                         output=output, compress=compress, disable_bar=disable_bar)
+
+        # proteins = None
+
+    if any(x for x in [regions, genes, proteins, gene_families, prot_families]):
+        check_pangenome_to_write_sequences(pangenome, regions, genes, proteins, gene_families, prot_families, disable_bar)
+
+        if prot_families is not None:
+            write_fasta_prot_fam(pangenome, output, prot_families, soft_core, compress, disable_bar)
+        if gene_families is not None:
+            write_fasta_gene_fam(pangenome, output, gene_families, soft_core, compress, disable_bar)
+        if genes is not None:
+            write_gene_sequences(pangenome, output, genes, soft_core, compress, disable_bar)
+        if proteins is not None:
+            write_gene_protein_sequences(pangenome, output, proteins, soft_core, compress, disable_bar=disable_bar,
+                                        **translate_kwgs)
+        if regions is not None:
+            write_regions_sequences(pangenome, output, regions, fasta, anno, compress, disable_bar)
+ 
 
 def launch(args: argparse.Namespace):
     """
@@ -578,39 +619,11 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
 
-    if args.gene_families is not None and (args.gene_families in ['all', 'persistent', 'shell', 'cloud', "rgp"] or module_regex.match(args.gene_families)):
 
-        logging.getLogger("PPanGGOLiN").info("Writing the representative nucleotide sequences "
-                                            "of the gene families by reading the pangenome file directly.")
-
-        write_fasta_gene_fam_from_pangenome_file(pangenome_filename=args.pangenome,  family_filter= args.gene_families,
-                                                output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
-        args.gene_families = None
-        
-    if args.prot_families is not None and (args.prot_families in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(args.prot_families)):
-
-        logging.getLogger("PPanGGOLiN").info("Writing the representative protein sequences "
-                                            "of the gene families by reading the pangenome file directly.")
-        write_fasta_prot_fam_from_pangenome_file(pangenome_filename=args.pangenome, family_filter = args.prot_families,
-                                                output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
-
-        args.prot_families = None
-
-
-    if args.genes is not None and (args.genes in ['all', 'persistent', 'shell', 'cloud', "rgp"]  or module_regex.match(args.genes)):
-
-        logging.getLogger("PPanGGOLiN").info("Writing gene nucleotide sequences by reading the pangenome file directly.")
-        write_genes_from_pangenome_file(pangenome_filename=args.pangenome, gene_filter = args.genes,
-                                                output=args.output, compress=args.compress, disable_bar=args.disable_prog_bar)
-
-        args.genes = None
-
-
-    if any(x for x in [args.regions, args.genes, args.proteins, args.gene_families, args.prot_families]):
-        write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
-                                regions=args.regions, genes=args.genes, proteins=args.proteins,
-                                gene_families=args.gene_families, prot_families=args.prot_families, compress=args.compress,
-                                disable_bar=args.disable_prog_bar, **translate_kwgs)
+    write_sequence_files(pangenome, args.output, fasta=args.fasta, anno=args.anno, soft_core=args.soft_core,
+                            regions=args.regions, genes=args.genes, proteins=args.proteins,
+                            gene_families=args.gene_families, prot_families=args.prot_families, compress=args.compress,
+                            disable_bar=args.disable_prog_bar, **translate_kwgs)
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:

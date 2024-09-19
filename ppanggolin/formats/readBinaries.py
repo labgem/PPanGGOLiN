@@ -394,7 +394,8 @@ def write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes)
     
     with write_compressed_or_not(file_path=outpath, compress=compress) as file_obj:
         seq_table = h5f.root.annotations.sequences
-        #TODO add tqm
+        #TODO add tqdm
+
         for row in read_chunks(table=seq_table, chunk=20000):
             if row["seqid"] in seq_id_to_genes:
 
@@ -404,8 +405,37 @@ def write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes)
                     file_obj.write(row["dna"].decode() + "\n")
 
 
-def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Path, family_filter: str,
-                         compress: bool = False, disable_bar=False):
+def get_gene_to_genome(h5f):
+    """
+    """
+    
+    contig_id_to_genome = {row["ID"]:row['genome']  for row in read_chunks( h5f.root.annotations.contigs, chunk=20000) }
+
+    gene_to_genome = {row["ID"]:contig_id_to_genome[row['contig'] ] for row in read_chunks( h5f.root.annotations.genes, chunk=20000) }
+
+    return gene_to_genome
+
+
+def get_family_to_genome_count(h5f) -> Dict[bytes, int]:
+    """
+    """
+    
+    contig_id_to_genome = {row["ID"]:row['genome']  for row in read_chunks( h5f.root.annotations.contigs, chunk=20000) }
+
+    gene_to_genome = {row["ID"]:contig_id_to_genome[row['contig'] ] for row in read_chunks( h5f.root.annotations.genes, chunk=20000) }
+
+    family_to_genomes = defaultdict(set)
+    for row in read_chunks( h5f.root.geneFamilies, chunk=20000):
+        family_to_genomes[row['geneFam']].add(gene_to_genome[row["gene"]])
+
+    family_to_genome_count = {fam: len(genomes) for fam, genomes in family_to_genomes.items()}
+
+    return family_to_genome_count
+
+
+
+def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Path, family_filter: str, soft_core:float = 0.95,
+                                            compress: bool = False, disable_bar=False):
     """
     Write representative nucleotide sequences of gene families
 
@@ -431,6 +461,19 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
         elif family_filter == "rgp":
             rgp_genes = read_rgp__genes_from_pangenome_file(h5f)
             family_to_write = get_families_from_genes(h5f, rgp_genes)
+
+        elif family_filter in ["softcore", "core"]:
+            family_to_genome_count = get_family_to_genome_count(h5f)
+            pangenome_info = read_info(h5f)
+            genome_count = pangenome_info["Content"]["Genomes"]
+
+            if family_filter == "core":
+                family_to_write = {family for family, fam_genome_count in family_to_genome_count.items() if genome_count == fam_genome_count}
+
+            elif family_filter == "softcore":
+                genome_count_threshold = genome_count * soft_core
+                family_to_write = {family for family, fam_genome_count in family_to_genome_count.items() if fam_genome_count >= genome_count_threshold}
+                 
 
         if len(family_to_write) == 0:
             logging.getLogger("PPanGGOLiN").warning(f"No families matching filter {family_filter}.")
