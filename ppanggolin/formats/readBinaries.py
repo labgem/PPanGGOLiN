@@ -311,17 +311,27 @@ def write_gene_sequences_from_pangenome_file(pangenome_filename: str, output: Pa
                                           f"{output.absolute()}{'.gz' if compress else ''}")
 
 
-def read_rgp__genes_from_pangenome_file(h5f: tables.File) -> List[str]:
+def read_rgp_genes_from_pangenome_file(h5f: tables.File) -> List[bytes]:
     """
+    Retrieves a list of RGP genes from the pangenome file.
+
+    :param h5f: The open HDF5 pangenome file containing RGP gene data.
+    :return: A list of gene names (as bytes) from the RGP.
     """
     rgp_genes = [row["gene"] for row in read_chunks(h5f.root.RGP, chunk=20000)]
 
     return rgp_genes
 
 
-def get_families_from_genes(h5f: tables.File , genes:Set[str]):
+def get_families_from_genes(h5f: tables.File, genes: Set[bytes]) -> Set[bytes]:
     """
+    Retrieves gene families associated with a specified set of genes from the pangenome file.
+
+    :param h5f: The open HDF5 pangenome file containing gene family data.
+    :param genes: A set of gene names (as bytes) for which to retrieve the associated families.
+    :return: A set of gene family names (as bytes) associated with the specified genes.
     """
+    
     families = set()
     for row in read_chunks(h5f.root.geneFamilies, chunk=20000):
         if row['gene'] in genes:
@@ -329,10 +339,17 @@ def get_families_from_genes(h5f: tables.File , genes:Set[str]):
 
     return families
 
-def read_module_families_from_pangenome_file(h5f: tables.File, module_name:str):
+def read_module_families_from_pangenome_file(h5f: tables.File, module_name: str) -> Set[bytes]:
+    """
+    Retrieves gene families associated with a specified module from the pangenome file.
+
+
+    :param h5f: The open HDF5 pangenome file containing module data.
+    :param module_name: The name of the module (as a string). The module ID is extracted from 
+                        the name by removing the "module_" prefix.
+    :return: A set of gene family names (as bytes) associated with the specified module.
     """
     
-    """
     family_to_write = set()
     module_id = int(module_name[len("module_"):])
     module_table = h5f.root.modules
@@ -343,9 +360,16 @@ def read_module_families_from_pangenome_file(h5f: tables.File, module_name:str):
 
     return family_to_write
 
-def get_families_matching_partition(h5f: tables.File, partition:str):
+def get_families_matching_partition(h5f: tables.File, partition: str) -> Set[bytes]:
     """
+    Retrieves gene families that match the specified partition.
+
+    :param h5f: The open HDF5 pangenome file containing gene family information.
+    :param partition: The partition name (as a string). If "all", all gene families are included. 
+                      Otherwise, it filters by the first letter of the partition.
+    :return: A set of gene family names (as bytes) that match the partition criteria.
     """
+
     family_to_write = set()
     
     gene_fam_info_table = h5f.root.geneFamiliesInfo
@@ -358,9 +382,18 @@ def get_families_matching_partition(h5f: tables.File, partition:str):
 
     return family_to_write
 
-def get_genes_from_families(h5f: tables.File, families:List[numpy.byte]):
+def get_genes_from_families(h5f: tables.File, families: List[bytes]) -> Set[bytes]:
     """
+    Retrieves a set of genes that belong to the specified families.
+
+    This function reads the gene family data from an HDF5 pangenome file and returns
+    a set of genes that are part of the given list of gene families.
+
+    :param h5f: The open HDF5 pangenome file containing gene family data.
+    :param families: A list of gene families (as bytes) to filter genes by.
+    :return: A set of genes (as bytes) that belong to the specified families.
     """
+    
     matching_genes = set()
     
     gene_fam_table = h5f.root.geneFamilies
@@ -371,14 +404,22 @@ def get_genes_from_families(h5f: tables.File, families:List[numpy.byte]):
 
     return matching_genes
 
-def get_seqid_to_genes(h5f: tables.File, genes:List[str], get_all_genes:bool = False, disable_bar:bool = False):
+def get_seqid_to_genes(h5f: tables.File, genes:List[str], get_all_genes:bool = False, disable_bar:bool = False) ->  Dict[int, List[str]]:
     """
+    Creates a mapping of sequence IDs to gene names.
+
+    :param h5f: The open HDF5 pangenome file containing gene sequence data.
+    :param genes: A list of gene names to include in the mapping (if `get_all_genes` is False).
+    :param get_all_genes: Boolean flag to indicate if all genes should be included in the mapping. 
+                          If set to True, all genes will be added regardless of the `genes` parameter.
+    :param disable_bar: Boolean flag to disable the progress bar if set to True.
+    :return: A dictionary mapping sequence IDs (integers) to lists of gene names (strings).
     """
 
     seq_id_to_genes = defaultdict(list)
     gene_seq_table = h5f.root.annotations.geneSequences
     match_count = 0
-    for row in tqdm(read_chunks(gene_seq_table, chunk=20000), total=gene_seq_table.nrows, unit="family", disable=disable_bar):
+    for row in tqdm(read_chunks(gene_seq_table, chunk=20000), total=gene_seq_table.nrows, unit="gene", disable=disable_bar):
         
         if get_all_genes or row['gene'] in genes:
             seq_id_to_genes[row['seqid']].append(row['gene'].decode())
@@ -388,25 +429,42 @@ def get_seqid_to_genes(h5f: tables.File, genes:List[str], get_all_genes:bool = F
 
     return seq_id_to_genes
 
-def write_genes_seq_from_pangenome_file(h5f: tables.File, outpath, compress, seq_id_to_genes):
+def write_genes_seq_from_pangenome_file(h5f: tables.File, outpath: Path, compress: bool, seq_id_to_genes: Dict[int, List[str]], disable_bar:bool):
     """
+    Writes gene sequences from the pangenome file to an output file. 
+    
+    Only sequences whose IDs match the ones in `seq_id_to_genes` will be written.
+
+    :param h5f: The open HDF5 pangenome file containing sequence data.
+    :param outpath: The path to the output file where sequences will be written.
+    :param compress: Boolean flag to indicate whether output should be compressed.
+    :param seq_id_to_genes: A dictionary mapping sequence IDs to lists of gene names.
+    :param disable_bar: Boolean flag to disable the progress bar if set to True.
     """
     
     with write_compressed_or_not(file_path=outpath, compress=compress) as file_obj:
+
         seq_table = h5f.root.annotations.sequences
-        #TODO add tqdm
 
-        for row in read_chunks(table=seq_table, chunk=20000):
-            if row["seqid"] in seq_id_to_genes:
+        with tqdm(total=len(seq_id_to_genes), unit="sequence", disable=disable_bar) as pbar:
 
-                for seq_name in  seq_id_to_genes[row["seqid"]]:
-                    
-                    file_obj.write(f">{seq_name}\n")
-                    file_obj.write(row["dna"].decode() + "\n")
+            for row in read_chunks(table=seq_table, chunk=20000):
+                if row["seqid"] in seq_id_to_genes:
+
+                    for seq_name in seq_id_to_genes[row["seqid"]]:
+                        file_obj.write(f">{seq_name}\n")
+                        file_obj.write(row["dna"].decode() + "\n")
+                
+
+                    pbar.update(1)
 
 
-def get_gene_to_genome(h5f):
+def get_gene_to_genome(h5f: tables.File) -> Dict[bytes, bytes]:
     """
+    Generates a mapping between gene IDs and their corresponding genome.
+
+    :param h5f: The open HDF5 pangenome file containing contig and gene annotations.
+    :return: A dictionary mapping gene IDs to genome names.
     """
     
     contig_id_to_genome = {row["ID"]:row['genome']  for row in read_chunks( h5f.root.annotations.contigs, chunk=20000) }
@@ -416,8 +474,12 @@ def get_gene_to_genome(h5f):
     return gene_to_genome
 
 
-def get_family_to_genome_count(h5f) -> Dict[bytes, int]:
+def get_family_to_genome_count(h5f: tables.File) -> Dict[bytes, int]:
     """
+    Computes the number of unique genomes associated with each gene family.
+
+    :param h5f: The open HDF5 pangenome file containing contig, gene, and gene family data.
+    :return: A dictionary mapping gene family names (as bytes) to the count of unique genomes.
     """
     
     contig_id_to_genome = {row["ID"]:row['genome']  for row in read_chunks( h5f.root.annotations.contigs, chunk=20000) }
@@ -432,8 +494,14 @@ def get_family_to_genome_count(h5f) -> Dict[bytes, int]:
 
     return family_to_genome_count
 
-def get_soft_core_families(h5f, soft_core:float):
+def get_soft_core_families(h5f: tables.File, soft_core: float) -> Set[bytes]:
     """
+    Identifies gene families that are present in at least a specified proportion of genomes.
+
+    :param h5f: The open HDF5 pangenome file containing gene family and genome data.
+    :param soft_core: The proportion of genomes (between 0 and 1) that a gene family must be present in
+                      to be considered a soft core family.
+    :return: A set of gene family names (as bytes) that are classified as soft core.
     """
     family_to_genome_count = get_family_to_genome_count(h5f)
     pangenome_info = read_info(h5f)
@@ -468,7 +536,7 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
             family_to_write = read_module_families_from_pangenome_file(h5f, module_name=family_filter)
         
         elif family_filter == "rgp":
-            rgp_genes = read_rgp__genes_from_pangenome_file(h5f)
+            rgp_genes = read_rgp_genes_from_pangenome_file(h5f)
             family_to_write = get_families_from_genes(h5f, rgp_genes)
 
         elif family_filter in ["softcore", "core"]:
@@ -483,7 +551,7 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
 
         seq_id_to_genes = get_seqid_to_genes(h5f, family_to_write)
 
-        write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes)
+        write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes, disable_bar=disable_bar)
 
     logging.getLogger("PPanGGOLiN").info("Done writing the representative nucleotide sequences "
                                          f"of the gene families : '{outpath}{'.gz' if compress else ''}")
@@ -514,7 +582,7 @@ def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Pa
             parition_first_letter = family_filter[0].upper()
 
         elif family_filter == "rgp":
-            rgp_genes = read_rgp__genes_from_pangenome_file(h5f)
+            rgp_genes = read_rgp_genes_from_pangenome_file(h5f)
             family_to_write = get_families_from_genes(h5f, rgp_genes)
         
         elif family_filter.startswith("module_"):
@@ -528,7 +596,7 @@ def write_fasta_prot_fam_from_pangenome_file(pangenome_filename: str, output: Pa
 
         gene_fam_info_table = h5f.root.geneFamiliesInfo
 
-        # TODO improve tqdm with total being the number of family to write
+
         for row in tqdm(read_chunks(gene_fam_info_table, chunk=20000), total=gene_fam_info_table.nrows, unit="family", disable=disable_bar):
             
             partition_match = partition_filter and (family_filter == "all" or row['partition'].decode().startswith(parition_first_letter))
@@ -577,7 +645,7 @@ def write_genes_from_pangenome_file(pangenome_filename: str, output: Path, gene_
             genes_to_write = get_genes_from_families(h5f, families)
 
         elif gene_filter == "rgp":
-            genes_to_write = read_rgp__genes_from_pangenome_file(h5f)
+            genes_to_write = read_rgp_genes_from_pangenome_file(h5f)
 
         elif gene_filter == "all":
             genes_to_write = []
@@ -585,7 +653,7 @@ def write_genes_from_pangenome_file(pangenome_filename: str, output: Path, gene_
 
         seq_id_to_genes = get_seqid_to_genes(h5f, genes_to_write, get_all_genes=get_all_genes, disable_bar=disable_bar)
 
-        write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes)
+        write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes, disable_bar=disable_bar)
         
     logging.getLogger("PPanGGOLiN").info("Done writing the representative nucleotide sequences "
                                          f"of the gene families : '{outpath}{'.gz' if compress else ''}")
