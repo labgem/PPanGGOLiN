@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
 # default libraries
-import dis
 import logging
-from optparse import Option
 from pathlib import Path
 from typing import Dict, Any, Iterator, Set, List, Tuple, Optional
 from collections import defaultdict
-import numpy
 
 # installed libraries
 from tqdm import tqdm
@@ -311,14 +308,14 @@ def write_gene_sequences_from_pangenome_file(pangenome_filename: str, output: Pa
                                           f"{output.absolute()}{'.gz' if compress else ''}")
 
 
-def read_rgp_genes_from_pangenome_file(h5f: tables.File) -> List[bytes]:
+def read_rgp_genes_from_pangenome_file(h5f: tables.File) -> Set[bytes]:
     """
     Retrieves a list of RGP genes from the pangenome file.
 
     :param h5f: The open HDF5 pangenome file containing RGP gene data.
     :return: A list of gene names (as bytes) from the RGP.
     """
-    rgp_genes = [row["gene"] for row in read_chunks(h5f.root.RGP, chunk=20000)]
+    rgp_genes = {row["gene"] for row in read_chunks(h5f.root.RGP, chunk=20000)}
 
     return rgp_genes
 
@@ -404,7 +401,7 @@ def get_genes_from_families(h5f: tables.File, families: List[bytes]) -> Set[byte
 
     return matching_genes
 
-def get_seqid_to_genes(h5f: tables.File, genes:List[str], get_all_genes:bool = False, disable_bar:bool = False) ->  Dict[int, List[str]]:
+def get_seqid_to_genes(h5f: tables.File, genes:Set[bytes], get_all_genes:bool = False, disable_bar:bool = False) ->  Dict[int, List[str]]:
     """
     Creates a mapping of sequence IDs to gene names.
 
@@ -428,6 +425,7 @@ def get_seqid_to_genes(h5f: tables.File, genes:List[str], get_all_genes:bool = F
     assert get_all_genes or match_count == len(genes), f"Number of sequences found ({match_count}) does not match the number of expected genes {len(genes)}."
 
     return seq_id_to_genes
+
 
 def write_genes_seq_from_pangenome_file(h5f: tables.File, outpath: Path, compress: bool, seq_id_to_genes: Dict[int, List[str]], disable_bar:bool):
     """
@@ -549,7 +547,7 @@ def write_fasta_gene_fam_from_pangenome_file(pangenome_filename: str, output: Pa
             logging.getLogger("PPanGGOLiN").warning(f"No families matching filter {family_filter}.")
             return
 
-        seq_id_to_genes = get_seqid_to_genes(h5f, family_to_write)
+        seq_id_to_genes = get_seqid_to_genes(h5f, set(family_to_write))
 
         write_genes_seq_from_pangenome_file(h5f, outpath, compress, seq_id_to_genes, disable_bar=disable_bar)
 
@@ -627,6 +625,7 @@ def write_genes_from_pangenome_file(pangenome_filename: str, output: Path, gene_
     outpath = output / f"{gene_filter}_genes.fna"
     get_all_genes = False
 
+
     with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
 
         if gene_filter in ['persistent', 'shell', 'cloud', "softcore", "core"] or gene_filter.startswith("module_"):
@@ -648,7 +647,7 @@ def write_genes_from_pangenome_file(pangenome_filename: str, output: Path, gene_
             genes_to_write = read_rgp_genes_from_pangenome_file(h5f)
 
         elif gene_filter == "all":
-            genes_to_write = []
+            genes_to_write = set()
             get_all_genes = True
 
         seq_id_to_genes = get_seqid_to_genes(h5f, genes_to_write, get_all_genes=get_all_genes, disable_bar=disable_bar)
