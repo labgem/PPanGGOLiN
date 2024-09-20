@@ -5,7 +5,7 @@ import argparse
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Set, Iterable, Union
+from typing import Dict, Iterable, Union
 import tempfile
 import shutil
 
@@ -14,12 +14,11 @@ from tqdm import tqdm
 
 # local libraries
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Gene, Organism
 
 from ppanggolin.utils import (write_compressed_or_not, mk_outdir, create_tmpdir, read_compressed_or_not,
                               restricted_float, detect_filetype, run_subprocess)
-from ppanggolin.formats.readBinaries import check_pangenome_info, write_gene_sequences_from_pangenome_file, write_genes_from_pangenome_file,  write_fasta_gene_fam_from_pangenome_file, write_fasta_prot_fam_from_pangenome_file
+from ppanggolin.formats.readBinaries import check_pangenome_info, write_genes_from_pangenome_file,  write_fasta_gene_fam_from_pangenome_file, write_fasta_prot_fam_from_pangenome_file
 
 module_regex = re.compile(r'^module_\d+')  # \d == [0-9]
 poss_values = ['all', 'persistent', 'shell', 'cloud', 'rgp', 'softcore', 'core', module_regex]
