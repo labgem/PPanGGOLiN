@@ -360,13 +360,17 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
 
     # Filter tags that would have a / as it is forbidden when writing the table in HDF5. Such tag can appear with db_xref formatting
     invalid_tag_names = []
-    for tag, _ in set(all_tag_to_value):
+    for tag, value in set(all_tag_to_value):
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 check_name_validity(tag)
         except ValueError as err:
             logging.getLogger("PPanGGOLiN").debug(f"{err}. The tag {tag} is ignored for metadata.")
+            invalid_tag_names.append(tag)
+
+        if value == "":
+            logging.getLogger("PPanGGOLiN").debug(f"Ignoring tag '{tag}' for metadata due to an empty value.")
             invalid_tag_names.append(tag)
 
     all_tag_to_value = [(tag, value) for tag, value in all_tag_to_value if tag not in invalid_tag_names]
