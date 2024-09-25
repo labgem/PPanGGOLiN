@@ -179,27 +179,31 @@ def get_metadata_len(select_elem: Union[List[Gene], List[Organism], List[GeneFam
     expected_rows = 0
 
     for element in select_elem:
-        if hasattr(element, 'name') and len(element.name) > 0:
-            if "ID" not in max_len_dict or len(element.name) > max_len_dict['ID']:
-                max_len_dict['ID'] = len(element.name)
+        if hasattr(element, 'name') and element.name:
+            max_len_dict['ID'] = max(max_len_dict.get('ID', 0), len(element.name))
         elif hasattr(element, 'ID'):
             if isinstance(element.ID, str):
-                if "ID" not in max_len_dict or len(element.ID) > max_len_dict['ID']:
-                    max_len_dict['ID'] = len(element.ID)
-            elif any(isinstance(element.ID, x) for x in [int, numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64]):
+                max_len_dict['ID'] = max(max_len_dict.get('ID', 0), len(element.ID))
+            elif isinstance(element.ID, (int, numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64)):
                 type_dict["ID"] = tables.Int64Col()
             else:
-                raise Exception(f"{type(element)} ID must be an integer")
+                raise TypeError(
+                    f"Invalid type for 'ID' in element '{element}': expected integer-like type but got "
+                    f"{type(element.ID).__name__}."
+                )
         else:
-            raise Exception("Unexpected attribute. A recent change could create this error."
-                            " Please report the error on our github.")
+            raise AttributeError(
+                f"Unexpected attribute in element '{element}': missing 'name' or 'ID'. "
+                "Please report this error on our GitHub."
+            )
+
         for metadata in element.get_metadata_by_source(source).values():
             for attr, value in ((k, v) for k, v in metadata.__dict__.items() if k != "source"):
                 if isinstance(value, bytes):
                     value = value.decode('UTF-8')
                 if isinstance(value, float) or isinstance(value, int):
                     if attr in type_dict:
-                        if type_dict[attr] != type(value):
+                        if isinstance(type_dict[attr] , type(value)):
                             if isinstance(value, float) and isinstance(type_dict[attr], int):
                                 type_dict[attr] = tables.Float64Col()
                     else:
@@ -215,8 +219,19 @@ def get_metadata_len(select_elem: Union[List[Gene], List[Organism], List[GeneFam
                         max_len_dict[attr] = len(value)
                 else:
                     logging.getLogger("PPanGGOLiN").debug(f"attr: {attr}, value: {value}")
-                    raise TypeError(f"{type(value)} is not acceptable")
+                    raise TypeError(
+                                    f"Invalid metadata type: The attribute '{attr}' from the pangenome element '{element}' "
+                                    f"has an unexpected value '{value}' of type '{type(value).__name__}'."
+                                )
+
             expected_rows += 1
+
+    for attribute, max_length in max_len_dict.items():
+        if max_length == 0:
+            raise ValueError(
+                f"Metadata attribute '{attribute}' has a length of 0, which is not allowed."
+            )
+
 
     return max_len_dict, type_dict, expected_rows
 
@@ -234,8 +249,11 @@ def write_metadata_metatype(h5f: tables.File, source: str, metatype: str,
     :param disable_bar: Disable progress bar
     """
     metatype_group = write_metadata_group(h5f, metatype)
-    meta_len = get_metadata_len(select_elements, source)
-    source_table = h5f.create_table(metatype_group, source, desc_metadata(*meta_len[:-1]), expectedrows=meta_len[-1])
+    max_len_dict, type_dict, expected_rows = get_metadata_len(select_elements, source)
+
+    desc_metadata(max_len_dict, type_dict)
+
+    source_table = h5f.create_table(metatype_group, source, desc_metadata(max_len_dict, type_dict), expectedrows=expected_rows)
     meta_row = source_table.row
     for element in tqdm(select_elements, unit=metatype, desc=f'Source = {source}', disable=disable_bar):
         for meta_id, metadata in element.get_metadata_by_source(source).items():
