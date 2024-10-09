@@ -36,7 +36,7 @@ def draw_tile_plot(pangenome: Pangenome,
     :param draw_dendrogram: If True, include a dendrogram in the tile plot.
     :param disable_bar: If True, disable the progress bar during processing.
     """
-    
+
     # Check if the pangenome has the required information and is partitioned
     check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_graph=True, disable_bar=disable_bar, need_metadata=add_metadata, sources=metadata_sources)
     if pangenome.status["partitioned"] == "No":
@@ -55,12 +55,12 @@ def draw_tile_plot(pangenome: Pangenome,
             "You can use the --nocloud flag to exclude cloud families from the plot. "
         )
 
-    
+
     logging.getLogger("PPanGGOLiN").info("Starting the process of drawing the tile plot...")
 
     # Prepare the data structures required for generating the tile plot
     families, org_index = prepare_data_structures(pangenome, nocloud)
-    
+
     # Build the presence-absence matrix for the families and generate the dendrogram if required
     mat_p_a = build_presence_absence_matrix(families, org_index)
     order_organisms, dendrogram_fig = generate_dendrogram(mat_p_a, org_index)
@@ -70,7 +70,7 @@ def draw_tile_plot(pangenome: Pangenome,
 
     # Create the tile plot figure with or without the dendrogram
     fig = create_tile_plot(binary_data, text_data, fam_order, separators, order_organisms, dendrogram_fig, draw_dendrogram)
-    
+
     # Save the plot to the specified output directory
     filename = output / "tile_plot.html"
     fig.write_html(filename)
@@ -87,13 +87,13 @@ def prepare_data_structures(pangenome: Pangenome, nocloud: bool) -> Tuple[set, d
     :param nocloud: If True, exclude gene families belonging to the cloud partition.
     :return: A tuple containing a set of gene families to be plotted and a dictionary mapping organisms to their indices.
     """
-    
+
     # Exclude gene families in the cloud partition if 'nocloud' is True; otherwise, include all gene families
     if nocloud:
         families = {fam for fam in pangenome.gene_families if not fam.partition.startswith("C")}
     else:
         families = set(pangenome.gene_families)
-    
+
     # Get the organism index mapping from the pangenome
     org_index = pangenome.get_org_index()
     return families, org_index
@@ -108,10 +108,10 @@ def build_presence_absence_matrix(families: set, org_index: dict) -> csc_matrix:
     :param org_index: A dictionary mapping each organism to its respective index in the matrix.
     :return: A sparse matrix (Compressed Sparse Column format) representing the presence-absence of gene families.
     """
-    
+
     # Initialize lists to store matrix data in a sparse format
     data, all_indexes, all_columns = [], [], []
-    
+
     # Iterate through each gene family to populate the presence-absence matrix
     for row, fam in enumerate(families):
         # Find the indices of organisms that have the current gene family
@@ -122,7 +122,7 @@ def build_presence_absence_matrix(families: set, org_index: dict) -> csc_matrix:
 
     # Construct the presence-absence matrix using Compressed Sparse Column format
     mat_p_a = csc_matrix((data, (all_indexes, all_columns)), shape=(len(families), len(org_index)), dtype='float')
-    
+
     return mat_p_a
 
 def generate_dendrogram(mat_p_a: csc_matrix, org_index: dict) -> Tuple[List, go.Figure]:
@@ -133,7 +133,7 @@ def generate_dendrogram(mat_p_a: csc_matrix, org_index: dict) -> Tuple[List, go.
     :param org_index: Dictionary mapping organism names to their respective indices in the matrix.
     :return: A tuple containing the ordered list of organisms and the dendrogram figure.
     """
-    
+
     # Extract organism names from the org_index dictionary
     genom_names = [org.name for org in org_index]
 
@@ -168,15 +168,15 @@ def process_tile_data(families: set, order_organisms: List) -> Tuple[List[List[f
     binary_data, text_data, fam_order = [], [], []
     partitions_dict = defaultdict(list)
     shell_subs = set()
-    
+
     # Group families by partition and identify shell subpartitions
     for fam in families:
         partitions_dict[fam.partition].append(fam)
         if fam.partition.startswith("S"):
             shell_subs.add(fam.partition)
-    
+
     ordered_nodes, separators = order_nodes(partitions_dict, shell_subs)
-    
+
     # Populate binary and text data for each family
     for node in ordered_nodes:
         fam_order.append(node.name)
@@ -186,7 +186,7 @@ def process_tile_data(families: set, order_organisms: List) -> Tuple[List[List[f
 
     # Generate hover text for the heatmap
     text_data = get_heatmap_hover_text(ordered_nodes, order_organisms)
-    
+
     return binary_data, text_data, fam_order, separators
 
 
@@ -198,7 +198,7 @@ def order_nodes(partitions_dict: dict, shell_subs: set) -> Tuple[List, List[Tupl
     :param shell_subs: A set of shell subpartition names.
     :return: A tuple containing the ordered list of gene families and a list of partition separators.
     """
-    
+
     # Sort persistent and cloud partitions by the number of organisms in descending order
     ordered_nodes_p = sorted(partitions_dict["P"], key=lambda n: n.number_of_organisms, reverse=True)
     ordered_nodes_c = sorted(partitions_dict["C"], key=lambda n: n.number_of_organisms, reverse=True)
@@ -216,7 +216,7 @@ def order_nodes(partitions_dict: dict, shell_subs: set) -> Tuple[List, List[Tupl
     # Append cloud partition to the ordered nodes list
     ordered_nodes += ordered_nodes_c
     partition_separators.append(("Cloud", partition_separators[-1][1] + len(ordered_nodes_c)))
-    
+
     return ordered_nodes, partition_separators
 
 
@@ -246,22 +246,22 @@ def create_partition_shapes(
 
         # Left vertical line for partition separator
         shapes.append(dict(
-            type='line', x0=-1, x1=-1, y0=sep_prec, y1=sep, 
-            line=dict(width=10, color=color), xref=xref, yref=yref, 
+            type='line', x0=-1, x1=-1, y0=sep_prec, y1=sep,
+            line=dict(width=10, color=color), xref=xref, yref=yref,
             name=partition_name, showlegend=True, legendgroup=partition_name
         ))
 
         # Right vertical line for partition separator
         shapes.append(dict(
-            type='line', x0=xval_max, x1=xval_max, y0=sep_prec, y1=sep, 
-            line=dict(width=10, color=color), xref=xref, yref=yref, 
+            type='line', x0=xval_max, x1=xval_max, y0=sep_prec, y1=sep,
+            line=dict(width=10, color=color), xref=xref, yref=yref,
             name=partition_name, showlegend=False, legendgroup=partition_name
         ))
 
         # Horizontal line across the partition boundary
         shapes.append(dict(
-            type='line', x0=-1, x1=xval_max, y0=sep, y1=sep, 
-            line=dict(width=1, color=color), xref=xref, yref=yref, 
+            type='line', x0=-1, x1=xval_max, y0=sep, y1=sep,
+            line=dict(width=1, color=color), xref=xref, yref=yref,
             name=partition_name, showlegend=False, legendgroup=partition_name
         ))
 
@@ -296,35 +296,35 @@ def get_heatmap_hover_text(ordered_families: List, order_organisms: List) -> Lis
     :return: A 2D list of strings representing hover text for each heatmap cell.
     """
     text_data = []
-    
+
     for family in ordered_families:
         text_per_family = []
-        
+
         for org in order_organisms:
             if org in family.organisms:
                 # gene_count = len(list(family.get_genes_per_org(org)))
                 genes = ";".join(map(str, family.get_genes_per_org(org)))
                 names = ";".join((gene.name for gene in family.get_genes_per_org(org) if gene.name))
-                
+
                 # Compile additional information about genes
                 extra_gene_info = f"genes:{genes}"
                 if names:
                     extra_gene_info += f'<br>names:{names}'
-                
+
                 metadata = "<br>".join((metadata_stringify(gene) for gene in family.get_genes_per_org(org) if gene.has_metadata()))
                 extra_gene_info += metadata
             else:
                 # gene_count = 0
                 extra_gene_info = np.nan  # Using np.nan instead of numpy.nan for consistency with numpy import
 
-            # To get a more explicit hover. But is quite heavy on the finam html               
+            # To get a more explicit hover. But is quite heavy on the finam html
             # gene_info = f"genome:{org.name}<br>family:{family.name}<br>gene_count:{gene_count}<br>{extra_gene_info}"
             # Light version:
             gene_info = extra_gene_info
             text_per_family.append(gene_info)
-        
+
         text_data.append(text_per_family)
-    
+
     return text_data
 
 def create_tile_plot(
@@ -350,7 +350,7 @@ def create_tile_plot(
     """
 
     xaxis_values = [org.name for org in order_organisms]
-    
+
     heatmap_color = {"presence":"#005AB5", # blue
         "multicopy":'#DC3220' # red
     }
@@ -399,7 +399,7 @@ def create_tile_plot(
                     shared_xaxes=True,
                     vertical_spacing=0.01,
                 row_heights=[0.2, 0.8])
-    
+
         for data in dendrogram_fig['data']:
             fig.add_trace(data,  row=1, col=1)
 
@@ -409,9 +409,9 @@ def create_tile_plot(
 
 
     heatmap[0]['x'] = dendrogram_fig['layout']['xaxis']['tickvals']
-   
+
     for data in heatmap:
-        
+
         fig.add_trace(data, row=heatmap_row, col=1)
 
     layout = go.Layout(title="Presence-Absence Matrix",
@@ -445,7 +445,7 @@ def create_tile_plot(
     xmax = dendrogram_fig['layout']['xaxis']['tickvals'][-1] +  dendrogram_fig['layout']['xaxis']['tickvals'][0] + 0.5
     shapes = create_partition_shapes(partition_separator, xmax, heatmap_row, partition_to_color)
 
-    fig.update_layout(go.Layout(shapes=shapes, 
+    fig.update_layout(go.Layout(shapes=shapes,
                                 showlegend=True,
                                 ))
 
@@ -459,4 +459,4 @@ def create_tile_plot(
 
     return fig
 
-    
+

@@ -88,7 +88,7 @@ def write_tsv_genome_file(organism: Organism, output: Path, compress: bool = Fal
             gene_info['Spot'] = str(gene.spot) if gene.spot is not None else None
         if need_modules:
             gene_info['Module'] = str(gene.family.module) if gene.family.has_module else None
-        
+
         # Add metadata
         gene_metadata = {f"gene_{key}":value for key, value in gene.formatted_metadata_dict(metadata_sep).items()}
         gene_info.update(gene_metadata)
@@ -146,10 +146,10 @@ def manage_module_colors(modules: Set[Module], window_size: int = 100) -> Dict[M
             color_mod_graph.add_edges_from(module_edges)
 
 
-    module_to_group = nx.coloring.greedy_color(color_mod_graph) 
+    module_to_group = nx.coloring.greedy_color(color_mod_graph)
 
 
-    # Attempt to have always the same color associated with the same module... 
+    # Attempt to have always the same color associated with the same module...
     module_to_color_int = {}
     group_with_color = []
     for module in sorted(modules, key=lambda x: x.ID):
@@ -157,7 +157,7 @@ def manage_module_colors(modules: Set[Module], window_size: int = 100) -> Dict[M
         if group not in group_with_color:
             group_with_color.append(group)
         module_to_color_int[module] = group_with_color.index(group)
-        
+
 
     # If you want to export the graph to see the coloring:
     # nx.set_node_attributes(color_mod_graph, module_to_color_int, name="color")
@@ -167,7 +167,7 @@ def manage_module_colors(modules: Set[Module], window_size: int = 100) -> Dict[M
     logging.getLogger().debug(f"We have found that {nb_colors} colors were necessary to color Modules.")
     colors = palette(nb_colors)
     module_to_color = {mod: colors[col_i] for mod, col_i in module_to_color_int.items()}
-    
+
     return module_to_color
 
 
@@ -304,10 +304,10 @@ def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[st
                             ("family", feature.family.name),
                             ("partition", feature.family.named_partition),
                             ('rgp', rgp),
-                            ('module', feature.family.module) # family.module can be None... 
+                            ('module', feature.family.module) # family.module can be None...
                         ]
 
-                        # adding attributes 
+                        # adding attributes
                         gene_metadata = [(f"gene_{key}", value) for key, value in
                                          feature.formatted_metadata_dict(metadata_sep).items()]
                         family_metadata = [(f"family_{key}", value) for key, value in
@@ -317,7 +317,7 @@ def write_gff_file(organism: Organism, outdir: Path, annotation_sources: Dict[st
                         attributes += family_metadata
 
                     # add an extra line of type gene
-                    stop = feature.stop 
+                    stop = feature.stop
                     if feature.overlaps_contig_edge:
                         stop = contig.length + feature.stop
 
@@ -391,10 +391,10 @@ def convert_overlapping_coordinates_for_gff(coordinates: List[Tuple[int, int]], 
     :param coordinates: List of tuples representing gene coordinates.
     :param contig_length: Length of the circular contig.
     """
-    
+
     start, stop = coordinates[0]
     new_coordinates =  [(start, stop )]
-    # convert all coordinates that are at the beginning 
+    # convert all coordinates that are at the beginning
     # of the contig to the extent of the contig
     for start_n, stop_n in coordinates[1:]:
         if start_n < start: # we are on the beginning of the contig
@@ -550,7 +550,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
                  "sources": metadata_sources
                  }
 
-    
+
     # Place here to raise an error if file doesn't found before to read pangenome
     organisms_file = fasta if fasta is not None else anno
 
@@ -587,7 +587,7 @@ def write_flat_genome_files(pangenome: Pangenome, output: Path, table: bool = Fa
                                                        "CDS": "external"}
             else:
                 organism_args["annotation_sources"] = {}
-     
+
         if table:
             # create _genePerOrg dict with get_org_dict methodbefore the multiprocessing to prevent putative errors.
             # As this is used in multiprocessing when computing nb_copy_in_genome.
@@ -702,7 +702,7 @@ def parser_flat(parser: argparse.ArgumentParser):
 
     optional.add_argument("-c", "--cpu", required=False, default=1, type=int,
                           help="Number of available cpus")
-    
+
     context = parser.add_argument_group(title="Contextually required arguments",
                                         description="With --proksee and --gff, the following arguments can be "
                                                     "used to add sequence information to the output file:")

@@ -219,7 +219,7 @@ class GeneFamily(MetaFeatures):
         """
         if not isinstance(identifier, str):
             raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
-        
+
         return identifier in self._genes_getter
 
 
@@ -451,7 +451,7 @@ class GeneFamily(MetaFeatures):
         :param exclude_fragment: A boolean indicating whether to exclude fragments when determining single copy families.
         :return: A boolean indicating whether the gene family is single copy.
         """
-        
+
         return self.duplication_ratio(exclude_fragment) < dup_margin
 
     def duplication_ratio(self, exclude_fragment: bool) -> bool:

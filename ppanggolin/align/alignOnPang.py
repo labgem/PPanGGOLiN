@@ -74,7 +74,7 @@ def align_seq_to_pang(target_seq_file: Union[Path, Iterable[Path]], query_seq_fi
         cov_mode = "0"  # coverage of query and target
 
     # mmseqs search command
-    # see https://github.com/soedinglab/MMseqs2/issues/373 Using a combination of param to no miss short proteins 
+    # see https://github.com/soedinglab/MMseqs2/issues/373 Using a combination of param to no miss short proteins
 
     with tempfile.NamedTemporaryFile(mode="w", dir=tmpdir.as_posix(), prefix="aln_result_db_file", suffix=".aln.DB",
                                      delete=False) as aln_db:

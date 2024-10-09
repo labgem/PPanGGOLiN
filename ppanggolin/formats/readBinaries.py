@@ -210,7 +210,7 @@ def read_join_coordinates(h5f: tables.File) -> Dict[str, List[Tuple[int, int]]]:
     genedata_id_to_coordinates = defaultdict(list)
 
     if not hasattr(h5f.root.annotations, "joinedCoordinates"):
-        # then the pangenome file has no joined annotations 
+        # then the pangenome file has no joined annotations
         # or has been made before the joined annotations coordinates
         return {}
 
@@ -263,7 +263,7 @@ def get_non_redundant_gene_sequences_from_file(pangenome_filename: str, output: 
     with tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f:
 
         # get a dictionary mapping seqid to cds_name
-        # seqid are uniq and can have multiple cds name. 
+        # seqid are uniq and can have multiple cds name.
         # We just want one of the cds name to have non-redundant fasta sequences
         seqid2cds_name = {}
         for row in read_chunks(h5f.root.annotations.geneSequences, chunk=20000):

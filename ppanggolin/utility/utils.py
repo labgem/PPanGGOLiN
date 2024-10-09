@@ -151,7 +151,7 @@ def launch_default_config(args: argparse.Namespace):
                                         sub_cmd in workflow_dependencies]
     elif initial_command == "projection":
         commands = [initial_command] + ['annotate']
-     
+
     else:
         commands = [initial_command]
 

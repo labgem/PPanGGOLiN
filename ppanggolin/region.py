@@ -115,7 +115,7 @@ class Region(MetaFeatures):
 
         if position != gene.position:
             raise ValueError(f"The given gene position ({position}) to set the gene in the region and the position of the gene ({gene.position})  are different. ")
-        
+
         if len(self) == 0:
             # first gene to be added to the region
             self._organism = gene.organism
@@ -132,14 +132,14 @@ class Region(MetaFeatures):
             raise KeyError("Another gene already exist at this position")
         self._genes_getter[position] = gene
 
-        # Adding a new gene imply to reidentify first (starter) and last (stopper) genes of the rgp. 
+        # Adding a new gene imply to reidentify first (starter) and last (stopper) genes of the rgp.
         self._starter = None
         self._stopper = None
         self._coordinates = None
         self._overlaps_contig_edge = None
 
         gene.RGP = self
-    
+
     def identify_rgp_last_and_first_genes(self):
         """
         Identify first and last genes of the rgp by taking into account the circularity of contigs. 
@@ -151,14 +151,14 @@ class Region(MetaFeatures):
 
         if len(rgp_genes_positions) == 0:
             raise ValueError(f'RGP ({self.name}) has no gene associated.')
-        
+
         gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
         first_gene_position, last_gene_position = find_region_border_position(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
 
         self._starter = self._genes_getter[first_gene_position]
         self._stopper = self._genes_getter[last_gene_position]
 
-        if self._starter.start > self._stopper.stop: 
+        if self._starter.start > self._stopper.stop:
             # this means region is overlapping the contig edge
             if not gene.contig.is_circular:
                 raise ValueError(f'Region seems to be overlapping the contig (first gene {self._starter.position}:{self._starter.coordinates} '
@@ -177,13 +177,13 @@ class Region(MetaFeatures):
 
         :return: A list of genes ordered by their positions in the region.
         """
-        
+
         rgp_genes_positions = list(self._genes_getter.keys() )
-        
+
         gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
 
         consecutive_region_positions = get_consecutive_region_positions(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
-        
+
         ordered_genes = [self._genes_getter[position] for ordered_positions in consecutive_region_positions for position in ordered_positions]
 
         return ordered_genes
@@ -213,9 +213,9 @@ class Region(MetaFeatures):
         """
         if self._starter is None:
             self.identify_rgp_last_and_first_genes()
-        
+
         return self._starter
-    
+
     @property
     def stopper(self) -> Gene:
         """
@@ -233,7 +233,7 @@ class Region(MetaFeatures):
         :return: coordinates of the region
         """
         if self._coordinates is None:
-            self.identify_rgp_last_and_first_genes() 
+            self.identify_rgp_last_and_first_genes()
         return self._coordinates
 
     def string_coordinates(self) -> str:
@@ -245,9 +245,9 @@ class Region(MetaFeatures):
     @property
     def overlaps_contig_edge(self) -> bool:
         if self._overlaps_contig_edge is None:
-            self.identify_rgp_last_and_first_genes() 
+            self.identify_rgp_last_and_first_genes()
         return self._overlaps_contig_edge
-    
+
     @property
     def spot(self) -> Union[Spot, None]:
         return self._spot
@@ -407,7 +407,7 @@ class Region(MetaFeatures):
         :raises AssertionError: No genes in the regions, it's not expected
         """
         assert len(self) > 0, "Your region has no genes. Something wrong happened."
-        
+
         if not self.contig.is_circular:
             first_gene = self.contig[0]
             last_gene = self.contig[-1]
@@ -536,12 +536,12 @@ class Spot(MetaFeatures):
         """
         if name in self._region_getter and self[name] != region:
             raise KeyError("A Region with the same name already exist in spot")
-        
+
         if not region.projected and region.spot is not None and region.spot != self:
-            # In normal cases, a region should only belong to one spot. However, an exception arises in the projection command, 
+            # In normal cases, a region should only belong to one spot. However, an exception arises in the projection command,
             # where a projected RGP might link two spots in the spot graph.
             # To handle this scenario without triggering failure, we check the 'projected' attribute of the given region.
-                     
+
             raise ValueError(f"The region '{region.name}' is already associated with spot '{region.spot.ID}' while being associated with spot '{self.ID}'. "
                                             "A region should only belong to one spot.")
 

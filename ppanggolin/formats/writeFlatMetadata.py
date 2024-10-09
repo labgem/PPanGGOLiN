@@ -16,8 +16,8 @@ from ppanggolin.utils import mk_outdir
 from ppanggolin.formats.readBinaries import check_pangenome_info
 
 
-def write_flat_metadata_files(pangenome: Pangenome, output: Path, 
-                              pangenome_elements: List[str] = None, metadata_sources: List[str] = None, 
+def write_flat_metadata_files(pangenome: Pangenome, output: Path,
+                              pangenome_elements: List[str] = None, metadata_sources: List[str] = None,
                               compress: bool = False, disable_bar: bool = False) -> None:
     """
     Main function to write flat metadata files from a pangenome.
@@ -30,7 +30,7 @@ def write_flat_metadata_files(pangenome: Pangenome, output: Path,
     :param compress: Compress the output files in .gz format
     :param disable_bar: Disable the progress bar
     """
-    
+
     if not pangenome.has_metadata():
         logging.getLogger("PPanGGOLiN").warning("No metadata is assigned to any pangenome element. Writing metadata is not possible.")
         return
@@ -57,31 +57,31 @@ def write_flat_metadata_files(pangenome: Pangenome, output: Path,
         if not element_to_sources:
             logging.getLogger("PPanGGOLiN").warning(f"None of the specified metadata sources ({metadata_sources}) match the requested pangenome elements: {pangenome_elements}.")
             return
-        
+
     logging.getLogger("PPanGGOLiN").info(f"Writing metadata for {', '.join(element_to_sources.keys())} from {len([s for sources in element_to_sources.values() for s in sources])} sources.")
-    
+
     need_dict = {
         "need_annotations": True,
         "need_families": "families" in element_to_sources,
         "need_rgp": "RGPs" in element_to_sources,
         "need_spots": "spots" in element_to_sources,
-        "need_modules": "modules" in element_to_sources, 
+        "need_modules": "modules" in element_to_sources,
         "need_metadata": True,
         "sources": metadata_sources
     }
-    
+
     check_pangenome_info(pangenome, disable_bar=disable_bar, **need_dict)
 
     element_type_to_attribute = {
-        "families": "gene_families", 
-        "genomes": "organisms", 
-        "RGPs": "regions", 
-        "genes": "genes", 
+        "families": "gene_families",
+        "genomes": "organisms",
+        "RGPs": "regions",
+        "genes": "genes",
         "modules": "modules",
-        "spots": "spots", 
+        "spots": "spots",
         "contigs": "contigs"
     }
-    
+
     for element_type, sources in element_to_sources.items():
         first_columns = [element_type]
         source_to_metadata = defaultdict(list)

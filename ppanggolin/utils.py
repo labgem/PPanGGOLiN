@@ -663,7 +663,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     else:
         config = {}
 
-    # convert config dict to defaultdict 
+    # convert config dict to defaultdict
     config = defaultdict(dict, config)
 
     cmd_subparser = subcommand_to_subparser[subcommand]
@@ -692,7 +692,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
                                         strict_config_check=True)
 
     if subcommand in WORKFLOW_SUBCOMMANDS:
-        # for workflow commands there is no section dedicated in the config: so no specific_args 
+        # for workflow commands there is no section dedicated in the config: so no specific_args
         # only general_parameters and  sections of commands launched in the worklow commands are used
         config_args = combine_args(config_general_args, config_input_args)
     else:
@@ -701,7 +701,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
         config_args = combine_args(config_general_args, config_specific_args)
         config_args = combine_args(config_args, config_input_args)
 
-    # manage priority between source of args 
+    # manage priority between source of args
     # cli > config > default
 
     args = overwrite_args(default_args, config_args, cli_args)
@@ -732,7 +732,7 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
             config_step_args = get_config_args(workflow_step, step_subparser, config, workflow_step,
                                                specific_step_params, strict_config_check=True)
 
-            # overwrite write and draw default when not specified in config 
+            # overwrite write and draw default when not specified in config
             if workflow_step == 'write_pangenome':
                 for out_flag in WRITE_PAN_FLAG_DEFAULT_IN_WF:
                     if out_flag not in config[workflow_step]:
@@ -829,7 +829,7 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
             # param is a flag
             if val is True:
                 arguments_to_parse.append(f"--{param}")
-            # if val is False or None we don't add id to the  
+            # if val is False or None we don't add id to the
         else:
             arguments_to_parse.append(f"--{param}")
 
@@ -1022,7 +1022,7 @@ def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int]
         last_position = sorted_positions[-1]
         # in a circular contig, if the window of a gene of interest overlaps the end/start of the contig
         # an out of scope position is added to the sorted positions to take into account those positions
-        # the returned window are always checked that its positions are not out of range... 
+        # the returned window are always checked that its positions are not out of range...
         # so there's no chance to find an out of scope position in final list
         if first_position - window_size < 0:
             out_of_scope_position = contig_size + first_position
@@ -1042,7 +1042,7 @@ def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int]
             windows_coordinates.append((start_po, end_po))
 
         elif position + window_size + 1 < next_po - window_size:
-            # If there is a gap between positions, add the current window 
+            # If there is a gap between positions, add the current window
             # and update the start position for the next window
             end_po = min(position + window_size, contig_size - 1)
 

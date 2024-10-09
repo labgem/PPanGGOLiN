@@ -53,7 +53,7 @@ class IdenticalRegions:
         self.rgps = identical_rgps
         self.is_contig_border = is_contig_border
         self.ID = Region.id_counter
-        
+
         Region.id_counter += 1
 
     def __eq__(self, other: 'IdenticalRegions') -> bool:
@@ -117,7 +117,7 @@ class IdenticalRegions:
         modules =  set()
         for rgp in self.rgps:
             modules |= rgp.modules
-            
+
         return modules
 
 def compute_grr(rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily], mode: Callable) -> float:
@@ -232,16 +232,16 @@ def add_rgp_metadata_to_graph(graph: nx.Graph, rgps: List[Union[Region, Identica
     """
     for rgp in rgps:
         element_to_metadata_sources = {"family":set(), "gene":set(), "module":set(), "spot":set()}
-        
+
 
         for family in rgp.families:
             element_to_metadata_sources["family"] |= {metadata.source for metadata in family.metadata}
             if family.module:
                 element_to_metadata_sources["module"] |= {metadata.source for metadata in family.module.metadata}
-    
+
         for gene in rgp.genes:
             element_to_metadata_sources["gene"] |= {metadata.source for metadata in gene.metadata}
-        
+
         if isinstance(rgp, Region):
             rgp_metadata = rgp.formatted_metadata_dict()
             if rgp.spot is not None:
@@ -250,7 +250,7 @@ def add_rgp_metadata_to_graph(graph: nx.Graph, rgps: List[Union[Region, Identica
         elif isinstance(rgp, IdenticalRegions):
             rgp_metadata_dicts = [ident_rgp.formatted_metadata_dict() for ident_rgp in rgp.rgps]
             rgp_metadata = join_dicts(rgp_metadata_dicts)
-            
+
             element_to_metadata_sources["spot"] |= {metadata.source for spot in rgp.spots for metadata in spot.metadata}
 
         else:
@@ -495,13 +495,13 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
     :param metadata_sep: The separator used to join multiple metadata values
     :param metadata_sources: Sources of the metadata to use and write in the outputs. None means all sources are used.
     """
-                 
+
     metatypes = set()
     need_metadata = False
     if add_metadata:
         for element in ["RGPs", "genes", "spots", "families", "modules"]:
             if pangenome.status["metadata"][element] == "inFile":
-                
+
                 sources_to_use = set(pangenome.status["metasources"][element])
 
                 if metadata_sources is not None:
@@ -520,7 +520,7 @@ def cluster_rgp(pangenome, grr_cutoff: float, output: str, basename: str,
     check_pangenome_info(pangenome, need_families=True, need_annotations=True,
                          disable_bar=disable_bar, need_rgp=True, need_spots=True, need_modules=True,
                          need_metadata=need_metadata,
-                         sources= metadata_sources,    
+                         sources= metadata_sources,
                          metatypes=metatypes)
 
     if pangenome.regions == 0:
@@ -700,7 +700,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
 
     optional.add_argument('--graph_formats', required=False, type=str, choices=['gexf', "graphml"], nargs="+",
                           default=['gexf', 'graphml'], help="Format of the output graph.")
-    
+
     optional.add_argument("--add_metadata",
                         required=False,
                         action="store_true",

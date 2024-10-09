@@ -161,8 +161,8 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
         try:
             start, stop = position.replace(">", "").replace("<", "").split('..')
         except ValueError:
-            # in some case there is only one position meaning that the gene is long of only one nt in this piece. 
-            # for instance : join(1038313,1..1016) 
+            # in some case there is only one position meaning that the gene is long of only one nt in this piece.
+            # for instance : join(1038313,1..1016)
             start = position.replace(">", "").replace("<", "")
             stop = start
         try:
@@ -304,8 +304,8 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
             current_qualifier = "location"
 
         elif line.strip().startswith('/'):
-            qualifier_line = line.strip()[1:] # [1:] used to remove / 
-            
+            qualifier_line = line.strip()[1:] # [1:] used to remove /
+
             if "=" in qualifier_line:
                 current_qualifier, value = qualifier_line.split('=', 1)
             else:
@@ -320,7 +320,7 @@ def parse_feature_lines(feature_lines: List[str]) -> Generator[Dict[str, str], N
             else:
                 current_feature[current_qualifier] = [value]
 
-        else: 
+        else:
             # the line does not start a qualifier so its the continuation of the last qualifier value.
             value = line.strip()
             value = value[:-1] if value.endswith('"') else value
@@ -617,7 +617,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             raise Exception(f"Each CDS type of the gff files must own a unique ID attribute. "
                             f"Not the case for file: {gff_file_path}")
         return element_id
-    
+
 
     def check_chevrons_in_start_and_stop(start: str, stop: str) -> Tuple[int, int, bool]:
         """
@@ -685,7 +685,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
             else:
                 fields_gff = [el.strip() for el in line.split('\t')]
                 attributes = get_gff_attributes(fields_gff)
-                
+
                 pseudogene = False
 
                 start, stop, has_chevron = check_chevrons_in_start_and_stop(start=fields_gff[gff_start], stop=fields_gff[gff_end])
@@ -708,7 +708,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
                     if fields_gff[gff_seqname] in circular_contigs or ('IS_CIRCULAR' in attributes and
                                                                        attributes['IS_CIRCULAR'] == "true"):
-                        # WARNING: In case we have prodigal gff with is_circular attributes. 
+                        # WARNING: In case we have prodigal gff with is_circular attributes.
                         # This would fail as contig is not defined. However is_circular should not be found in prodigal gff
                         logging.getLogger("PPanGGOLiN").debug(f"Contig {contig.name} is circular.")
                         contig.is_circular = True
@@ -753,7 +753,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         if id_attribute in id_attr_to_gene_id:  # the ID has already been seen at least once in this genome
 
                             existing_gene = id_attr_to_gene_id[id_attribute]
-                            new_gene_info = {"strand":fields_gff[gff_strand], 
+                            new_gene_info = {"strand":fields_gff[gff_strand],
                                             "type":fields_gff[gff_type],
                                             "name":name,
                                             "position":contig.number_of_genes,
@@ -762,7 +762,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                             "start": start,
                                             "stop": stop,
                                             "ID": id_attribute}
-                            
+
                             check_and_add_extra_gene_part(existing_gene, new_gene_info)
 
                             continue
@@ -886,7 +886,7 @@ def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separatio
         first_stop = gene.coordinates[0][1]
         for start, _ in gene.coordinates[1:]:
             if abs(start - first_stop) > max_separation:
-                # This is maybe to restrictive but lets go with that first. 
+                # This is maybe to restrictive but lets go with that first.
                 raise ValueError(
                     f"The coordinates of genes are too far apart ({abs(start - first_stop)}nt). This is unexpected. "
                     f"Gene coordinates : {gene.coordinates}")
@@ -926,10 +926,10 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
                         if len(new_coordinates) == 0:
                             raise ValueError(f"First gene start position ({start}) is higher than contig "
                                              f"length ({len(contig)}). This case is not handled.")
-                        
+
                         new_start = start - len(contig)
                         new_stop = stop - len(contig)
-                        
+
                         new_coordinates.append((new_start, new_stop))
 
                         warn_msg = (f"Start position ({start}) for gene {gene.name} is higher than contig {contig.name}"

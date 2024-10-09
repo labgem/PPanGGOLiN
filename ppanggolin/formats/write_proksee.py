@@ -27,8 +27,8 @@ def write_legend_items(features: List[str], module_to_color: Dict[Module, str] =
 
     :return: A data structure containing legend items based on the selected features and module colors.
     """
-    # use https://medialab.github.io/iwanthue/ to find nice colors 
-    # that associate well with established partition colors (orange, light green, light blue)    
+    # use https://medialab.github.io/iwanthue/ to find nice colors
+    # that associate well with established partition colors (orange, light green, light blue)
     main_colors = {
         "orange": "#e59c04",
         "light green": "#00d860",
@@ -194,7 +194,7 @@ def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: 
         # Add gene info in meta of proksee
         metadata_for_proksee = {"ID":gene.ID ,
                                 "family":gene.family.name}
-        
+
         if multigenics and gf in multigenics:
             metadata_for_proksee['multigenic'] = True
 
@@ -203,7 +203,7 @@ def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: 
 
         if gene.product:
             metadata_for_proksee['product'] = gene.product
-             
+
         if gene.spot:
             metadata_for_proksee['spot'] = gene.spot.ID
 
@@ -212,14 +212,14 @@ def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: 
 
         if gene.has_joined_coordinates:
             metadata_for_proksee['coordinates'] = gene.string_coordinates()
-        
+
         if gene.overlaps_contig_edge:
             metadata_for_proksee['overlaps_contig_edge'] = gene.overlaps_contig_edge
 
         metadata_for_proksee.update({f"gene_{k}": v for k, v in gene.formatted_metadata_dict(metadata_sep).items()})
         metadata_for_proksee.update({f"family_{k}": v for k, v in gene.family.formatted_metadata_dict(metadata_sep).items()})
-        
-        
+
+
         # Proksee handles circularity effectively. When a gene extends beyond the edge of the contig,
         # Proksee correctly displays the gene with its initial start (at the end of the contig) and final stop (at the beginning of the contig).
         # However, this only applies when there's a single contig. If there are multiple contigs, the feature overlaps all contigs, causing confusion.
@@ -244,11 +244,11 @@ def write_genes(organism: Organism, multigenics: Set[GeneFamily], metadata_sep: 
 
     # Process RNA genes
     for gene in tqdm(organism.rna_genes, total=organism.number_of_rnas(), unit="rnas", disable=disable_bar):
-        
+
         metadata_for_proksee = {"ID":gene.ID}
         if gene.product:
             metadata_for_proksee['product'] = gene.product
-        
+
         metadata_for_proksee.update(gene.formatted_metadata_dict(metadata_sep))
 
         coordinates_to_display = gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
@@ -279,7 +279,7 @@ def write_rgp(organism: Organism, metadata_sep:str = "|"):
     :return: A list of RGP data in a structured format.
     """
     rgp_data_list = []
-    
+
     # Iterate through each RGP in the pangenome
     for rgp in organism.regions:
         # Create an entry for the RGP in the data list
@@ -323,7 +323,7 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]], metadata_
         if gf_intersection:
             # Calculate the completion percentage
             metadata_for_proksee = {'completion': round(100 * len(gf_intersection) / len(set(module.families)), 1)}
-            
+
             metadata_for_proksee.update(module.formatted_metadata_dict(metadata_sep))
             # Create module data entries for genes within intersecting gene families
             for gf in gf_intersection:
@@ -341,7 +341,7 @@ def write_modules(organism: Organism, gf2genes: Dict[str, List[Gene]], metadata_
                             "meta": metadata_for_proksee
                     })
 
-                    
+
 
     return modules_data_list
 

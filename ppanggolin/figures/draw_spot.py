@@ -226,7 +226,7 @@ def is_gene_list_ordered(genes:List[Feature]):
             return True
         else:
             return False
-    
+
 
 def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnDataSource, list):
     """
@@ -244,12 +244,12 @@ def mk_source_data(genelists: list, fam_col: dict, fam_to_mod: dict) -> (ColumnD
           "gene_local_ID": []}
 
     for index, gene_list in enumerate(genelists):
-        
+
         genelist = gene_list[0]
 
         first_gene = genelist[0]
         last_gene = genelist[-1]
-        
+
         if is_gene_list_ordered(genelist):
             # if the order has been inverted, positioning elements on the figure is different
             ordered = True
@@ -460,11 +460,11 @@ def mk_genomes(gene_lists: list, ordered_counts: list) -> (ColumnDataSource, lis
         last_gene =  genelist[-1]
         if is_gene_list_ordered(genelist):
             # if the order has been inverted, positioning elements on the figure is different
-            width = abs(last_gene.stop_relative_to(first_gene ) - genelist[0].start) 
+            width = abs(last_gene.stop_relative_to(first_gene ) - genelist[0].start)
             df["width"].append(width)
         else:
             # order has been inverted
-            width = abs(last_gene.stop_relative_to(last_gene ) - last_gene.start) 
+            width = abs(last_gene.stop_relative_to(last_gene ) - last_gene.start)
             df["width"].append(width)
 
         df["x"].append((df["width"][-1]) / 2)
@@ -580,7 +580,7 @@ def draw_curr_spot(gene_lists: list, ordered_counts: list, fam_to_mod: dict, fam
     genome_tools = add_genome_tools(fig, recs, genome_recs, gene_source, genome_source, len(gene_lists), labels)
 
     save(column(fig, row(labels_tools, gene_tools), row(genome_tools)))
-    
+
 
 def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome: Pangenome, output: Path,
                         overlapping_match: int, exact_match: int, set_size: int, disable_bar: bool = False):
@@ -614,7 +614,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             for key_rgp, other_rgps in spot.get_uniq_to_rgp().items():
                 for rgp in other_rgps:
                     out_struc.write(f"{key_rgp.name}\t{key_rgp.organism.name}\t{rgp.name}\t{rgp.organism.name}\n")
-        
+
         fams = set()
         gene_lists = []
 
@@ -627,20 +627,20 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             right_border = [gene for gene in right_border_and_in_between_genes if gene.family.named_partition == "persistent" and gene.family not in multigenics]
 
             # in some rare case with plasmid left and right border can be made of the same genes
-            # we use a set to only have one gene represented.  
+            # we use a set to only have one gene represented.
             consecutive_genes_lists = contig.get_ordered_consecutive_genes(set(left_border_and_in_between_genes + right_border_and_in_between_genes + list(rgp.genes)))
-            
+
             consecutive_genes_and_rnas_lists = []
-        
-            for consecutive_genes in consecutive_genes_lists: 
-                
+
+            for consecutive_genes in consecutive_genes_lists:
+
                 start, stop = consecutive_genes[0].start, consecutive_genes[-1].stop
 
                 rnas_toadd = []
                 for rna in rgp.contig.RNAs:
                     if start < rna.start < stop:
                         rnas_toadd.append(rna)
-                
+
                 ordered_genes_with_rnas = sorted(consecutive_genes + rnas_toadd, key=lambda x: x.start)
                 consecutive_genes_and_rnas_lists.append(ordered_genes_with_rnas)
 
@@ -649,7 +649,7 @@ def draw_selected_spots(selected_spots: Union[List[Spot], Set[Spot]], pangenome:
             fams |= {gene.family for gene in ordered_genes if gene.type == "CDS"}
 
             gene_lists.append([ordered_genes, [left_border, right_border], rgp])
-            
+
         famcolors = make_colors_for_iterable(fams)
         # order all rgps the same way, and order them by similarity in gene content
         gene_lists = order_gene_lists(gene_lists, overlapping_match, exact_match, set_size)

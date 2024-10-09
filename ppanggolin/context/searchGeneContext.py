@@ -150,7 +150,7 @@ def search_gene_context_in_pangenome(pangenome: Pangenome, output: Path, sequenc
 
     compute_edge_metrics(gene_context_graph, jaccard_threshold)
 
-    # Filter graph 
+    # Filter graph
     filter_flag = f'is_jaccard_gene_>_{jaccard_threshold}'
 
     edges_to_remove = [(n, v) for n, v, d in gene_context_graph.edges(data=True) if not d[filter_flag]]
@@ -260,7 +260,7 @@ def make_graph_writable(context_graph):
     nodes_attributes_filtered = {f.name: filter_attribute(d) for f, d in context_graph.nodes(data=True)}
 
     # on top of attributes already contained in node of context graph
-    # add organisms and genes count that have the family, the partition and if the family was in initially requested 
+    # add organisms and genes count that have the family, the partition and if the family was in initially requested
     nodes_family_data = {f.name: {"genomes": f.number_of_organisms,
                                   "partition": f.named_partition,
                                   "genes": f.number_of_genes} for f in context_graph.nodes()}

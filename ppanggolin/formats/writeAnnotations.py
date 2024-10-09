@@ -308,11 +308,11 @@ def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates
     except tables.exceptions.NoSuchNodeError:
         joined_coordinates_tables = h5f.create_table(annotation, "joinedCoordinates", gene_joined_coordinates_desc(),
                                             expectedrows=number_of_gene_pieces)
-        
+
 
     logging.getLogger("PPanGGOLiN").debug(f"Writing {number_of_gene_pieces} piece of genes from "
                                           f"{len(genes_with_joined_coordinates_2_id)} genes that have joined coordinates ")
-    
+
     genedata_row = joined_coordinates_tables.row
     for genedata, genedata_id in tqdm(genes_with_joined_coordinates_2_id.items(), unit="genedata", disable=disable_bar):
         for index, (start, stop) in enumerate(genedata.coordinates):
@@ -321,7 +321,7 @@ def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates
             genedata_row["start"] = start
             genedata_row["stop"] = stop
             genedata_row['coordinate_rank'] = index
-        
+
             genedata_row.append()
 
     joined_coordinates_tables.flush()
@@ -360,7 +360,7 @@ def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.G
         genedata_row["name"] = genedata.name
         genedata_row["product"] = genedata.product
         genedata_row["has_joined_coordinates"] = genedata.has_joined_coordinates
-        
+
         genedata_row.append()
 
     genedata_table.flush()
@@ -400,9 +400,9 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: boo
         genedata2rna = write_rnas(pangenome, h5f, annotation, desc, disable_bar)
         write_genedata(pangenome, h5f, annotation, genedata2rna, disable_bar)
 
-    genes_with_joined_coordinates_2_id = {gene : gene_id for gene, gene_id in genedata2gene.items() if gene.has_joined_coordinates} 
+    genes_with_joined_coordinates_2_id = {gene : gene_id for gene, gene_id in genedata2gene.items() if gene.has_joined_coordinates}
     genes_with_joined_coordinates_2_id.update({gene : gene_id for gene, gene_id in genedata2rna.items() if gene.has_joined_coordinates})
-    
+
     write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates_2_id, disable_bar)
 
 def get_gene_sequences_len(pangenome: Pangenome) -> Tuple[int, int]:

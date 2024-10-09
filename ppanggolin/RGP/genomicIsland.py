@@ -29,7 +29,7 @@ class MatriceNode:
         self.state = 1 if score >= 0 else 0
         # current score of the node. If the given score is negative, set to 0.
         self.score = score if score >= 0 else 0
-        
+
 
 def extract_rgp(contig, node, rgp_id, naming) -> Region:
     """
@@ -120,7 +120,7 @@ def init_matrices(contig: Contig, multi: set, persistent_penalty: int = 3, varia
             zero_ind = prev
         mat.append(prev)
         logging.getLogger("PPanGGOLiN").debug(f"gene:{gene.ID};zero_ind:{zero_ind};curr_state:{curr_state};curr_score:{curr_score}.")
-    
+
     if zero_ind is None:
         zero_ind = prev#don't go further than the current node, if no node were at 0.
 
@@ -215,7 +215,7 @@ def compute_org_rgp( organism: Organism, multigenics: set,
     :return: A set of RGPs of the provided organism.
     """
     org_regions = set()
-    for contig in tqdm(organism.contigs, total=organism.number_of_contigs, unit="contig", disable=disable_bar): 
+    for contig in tqdm(organism.contigs, total=organism.number_of_contigs, unit="contig", disable=disable_bar):
         if contig.number_of_genes != 0:  # some contigs have no coding genes...
             # can definitely multiprocess this part, as not THAT much information is needed...
             matrix = init_matrices(contig, multigenics, persistent_penalty, variable_gain)
