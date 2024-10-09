@@ -127,22 +127,20 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
     :param string: The input string containing position information.
 
     :return: A tuple containing a list of tuples representing start and stop positions,
-             a boolean indicating whether it is complement, and
-             a boolean indicating whether it is likely a pseudogene.
+             a boolean indicating whether it is complement,
+             a boolean indicating whether it is a partial gene at start position and
+             a boolean indicating whether it is a partial gene at end position.
 
     :raises ValueError: If the string is not formatted as expected or if positions cannot be parsed as integers.
     """
     complement = False
     coordinates = []
-    pseudogene = False
+    has_partial_start = False
+    has_partial_end = False
 
     # Check if 'complement' exists in the string
     if 'complement' in string:
         complement = True
-
-    # Check if '>' or '<' exists in the string to identify pseudogene
-    if '>' in string or '<' in string:
-        pseudogene = True
 
     if "(" in string:
         # Extract positions found inside the parenthesis
@@ -155,6 +153,22 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
             raise ValueError(f'Gene position {string} is not formatted as expected.')
     else:
         positions = string.rstrip()
+
+
+    # Check if '>' or '<' exists in the positions to identify partial genes
+
+    if '>' in positions or '<' in positions:
+        if '<' in positions.split(',')[0]:
+            has_partial_start = True
+
+        if ">" in positions.split(',')[-1]:
+            has_partial_end = True
+        
+        inner_positions = ','.join(positions.split(',')[1:-1])
+
+        if  '>' in inner_positions or '<' in inner_positions or (not has_partial_end and not has_partial_start):
+            raise ValueError(f"Error parsing positions '{positions}' extracted from GBFF string '{string}'. "
+                            f"Chevrons are found in the inner position. This case is unexpected and not handle.")
 
     for position in positions.split(','):
 
@@ -173,7 +187,7 @@ def extract_positions(string: str) -> Tuple[List[Tuple[int, int]], bool, bool]:
 
         coordinates.append((start, stop))
 
-    return coordinates, complement, pseudogene
+    return coordinates, complement, has_partial_start, has_partial_end
 
 
 def parse_gbff_by_contig(gbff_file_path: Path) -> Generator[Tuple[List[str], List[str], List[str]], None, None]:
@@ -396,7 +410,7 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
 
 
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
-                  pseudo: bool = False, translation_table: int = 11) -> Tuple[Organism, bool]:
+                  use_pseudogenes: bool = False, translation_table: int = 11) -> Tuple[Organism, bool]:
     """
     Read a GBFF file and fills Organism, Contig and Genes objects based on information contained in this file
 
@@ -475,7 +489,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                         contig_to_metadata[contig].update(db_xref_for_metadata)
                     except ValueError:
                         logging.getLogger("PPanGGOLiN").warning(
-                            f"db_xref values does not have the expected format. Expect '\db_xref=<database>:<identifier> "
+                            f"db_xref values does not have the expected format. Expect 'db_xref=<database>:<identifier>' "
                             f"but got {feature['db_xref']} in file {gbff_file_path}. "
                             "db_xref tags is therefore not retrieved in contig/genomes metadata.")
 
@@ -483,12 +497,13 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
             genetic_code = ''
             if feature['feature_type'] not in ['CDS', 'rRNA', 'tRNA']:
                 continue
-            coordinates, is_complement, is_pseudo = extract_positions(''.join(feature['location']))
-            if is_pseudo and not pseudo:
+            coordinates, is_complement, has_partial_start, has_partial_end = extract_positions(''.join(feature['location']))
+
+            
+            if "pseudo" in feature and not use_pseudogenes:
                 continue
-            elif "pseudo" in feature and not pseudo:
-                continue
-            elif "transl_except" in feature and not pseudo:
+            
+            elif "transl_except" in feature and not use_pseudogenes:
                 # that's probably a 'stop' codon into selenocystein.
                 continue
 
@@ -498,6 +513,18 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                     genetic_code = translation_table
                 else:
                     genetic_code = int(feature["transl_table"])
+
+                if has_partial_start or has_partial_end:
+
+                    start, stop = coordinates[0][0], coordinates[-1][1]
+
+                    print('>'*100)
+                    print(start, stop)
+                    print(feature['codon_start'])
+                    
+                    print(coordinates)
+
+                    print('<'*100)
 
             strand = "-" if is_complement else "+"
 
