@@ -409,6 +409,76 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
     return genome_metadata, contig_to_uniq_metadata
 
 
+
+def fix_partial_gene_coordinates(
+    has_partial_start: bool, 
+    has_partial_end: bool, 
+    coordinates: List[Tuple[int, int]], 
+    is_complement: bool, 
+    start_shift: int
+) -> List[Tuple[int, int]]:
+    """
+    Adjusts gene coordinates if they have partial starts or ends, ensuring the gene length is a multiple of 3.
+    
+    If the gene is on the complement strand, the adjustments will be reversed (i.e., applied to the opposite ends).
+    
+    :param has_partial_start: Flag indicating if the gene has a partial start.
+    :param has_partial_end: Flag indicating if the gene has a partial end.
+    :param coordinates: List of coordinate tuples (start, stop) for the gene.
+    :param is_complement: Flag indicating if the gene is on the complement strand.
+    :param start_shift: The value by which the start coordinate should be shifted.
+    :return: A new list of adjusted coordinate tuples.
+    """
+    logging.getLogger("PPanGGOLiN").debug(f"Initial parameters - has_partial_start: {has_partial_start}, has_partial_end: {has_partial_end}, "
+                  f"coordinates: {coordinates}, is_complement: {is_complement}, start_shift: {start_shift}")
+
+    if not coordinates:
+        logging.getLogger("PPanGGOLiN").debug('No coordinates provided, returning empty list.')
+        return coordinates
+
+    # Create a new coordinates object so as not to modify the input
+    new_coordinates = coordinates.copy()
+
+    # Non-complement strand adjustments
+    if not is_complement:
+        if has_partial_start:
+            initial_start = new_coordinates[0][0] + start_shift
+            logging.getLogger("PPanGGOLiN").debug(f'Adding shift {start_shift} to initial start. New start: {initial_start}')
+            new_coordinates[0] = (initial_start, new_coordinates[0][1])
+
+        if has_partial_end:
+            # Ensure the gene length is a multiple of 3 by adjusting the last end
+            gene_length = sum([(stop - start + 1) for start, stop in new_coordinates])
+            last_end = new_coordinates[-1][1] - (gene_length % 3)
+            logging.getLogger("PPanGGOLiN").debug(f'Adjusting last end to ensure gene length is a multiple of 3. New end: {last_end}')
+            new_coordinates[-1] = (new_coordinates[-1][0], last_end)
+
+    # Complement strand adjustments
+    else:
+        if has_partial_end:
+            last_end = new_coordinates[-1][1] - start_shift
+            logging.getLogger("PPanGGOLiN").debug(f'Removing shift {start_shift} from last end. New last end: {last_end}')
+            new_coordinates[-1] = (new_coordinates[-1][0], last_end)
+
+        if has_partial_start:
+            # Adjust first start for complement strand
+            gene_length = sum([(stop - start + 1) for start, stop in new_coordinates])
+            initial_start = new_coordinates[0][0] + (gene_length % 3)
+            logging.getLogger("PPanGGOLiN").debug(f'Adding {gene_length % 3} to complement start to ensure gene length is a multiple of 3. New start: {initial_start}')
+            new_coordinates[0] = (initial_start, new_coordinates[0][1])
+
+    # Final length validation
+    gene_length = sum([(stop - start + 1) for start, stop in new_coordinates])
+    if gene_length % 3 != 0:
+        logging.getLogger("PPanGGOLiN").warning(f'Gene with coordinates: {coordinates} has a length that is not a multiple of 3 after adjusting for partiality with new cordinates ({new_coordinates}): {gene_length}')
+        raise ValueError(f'Gene with coordinates: {coordinates} has a length that is not a multiple of 3 after adjusting for partiality: {gene_length}')
+
+    logging.getLogger("PPanGGOLiN").debug(f'Final corrected coordinates: {new_coordinates}. Gene length = {gene_length}, '
+                  f'multiple of 3: {gene_length % 3 == 0}')
+
+    return new_coordinates
+
+
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
                   use_pseudogenes: bool = False, translation_table: int = 11) -> Tuple[Organism, bool]:
     """
@@ -514,17 +584,15 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 else:
                     genetic_code = int(feature["transl_table"])
 
+
                 if has_partial_start or has_partial_end:
 
-                    start, stop = coordinates[0][0], coordinates[-1][1]
+                    start_shift = 0 if 'codon_start' not in feature else int(feature['codon_start']) -1 # -1 is to be in zero based index. 
 
-                    print('>'*100)
-                    print(start, stop)
-                    print(feature['codon_start'])
+                    coordinates = fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates,is_complement=is_complement, start_shift=start_shift )
+
                     
-                    print(coordinates)
 
-                    print('<'*100)
 
             strand = "-" if is_complement else "+"
 
