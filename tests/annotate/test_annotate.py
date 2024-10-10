@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from ppanggolin.annotate.annotate import extract_positions, read_anno_file, parse_contig_header_lines, \
-    parse_gbff_by_contig, parse_feature_lines, parse_dna_seq_lines, read_org_gbff, combine_contigs_metadata, fix_partial_gene_coordinates
+    parse_gbff_by_contig, parse_feature_lines, parse_dna_seq_lines, read_org_gbff, combine_contigs_metadata, fix_partial_gene_coordinates, shift_start_coordinates, shift_end_coordinates
 
 
 @pytest.mark.parametrize("input_string, expected_positions, expected_complement, expected_partialgene_start, expected_partialgene_end", [
@@ -321,11 +321,92 @@ def test_combine_contigs_metadata():
     # Adjust both start and end on the complement strand.
     (True, True,  [(4, 9), (7, 12)], True, 2, [(5, 9), (7, 10)]),  # adjust start and end in complement mode
 
-    # Case 6: Empty coordinates
-    # Function should return an empty list without any errors.
-    (False, False, [], False, 5, []),  # Empty input should return empty
+    # Real tricky case from GCF_000623275.1
+    (False, True,  [(4681814, 4682911), (1, 1)], False, 0, [(4681814, 4682911)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
+
+    # Tricky case inspired by last case
+    (False, True,  [(30, 60), (1, 1)], False, 0, [(30, 59)]),  # ajust the end by removing two nt. In this case that remove the second part of the coordinates and one nt in the first part
+
+
+    # Tricky case inspired by last case
+    (True, False,  [(60, 60), (1, 9)], False, 1, [(1, 9)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
+
+    # Tricky case inspired by last case
+    (True, False,  [(60, 60), (1, 10)], False, 2, [(2, 10)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
+
+    # Very tricky case inspired by last case
+    (True, False,  [(59, 60), (60, 60), (1, 9)], False, 3, [(1, 9)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
+    
+    # Very tricky case inspired by last case
+    (True, True,  [(60, 61), (1, 8)], True, 3, [(61, 61), (1, 5)]),  #
+
+    
     
 ])
+
 def test_fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates, is_complement, start_shift, expected):
     result = fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates, is_complement, start_shift)
     assert result == expected
+
+
+
+def test_fix_partial_gene_coordinates_with_wrong_coordinates():
+
+    with pytest.raises(ValueError):
+        fix_partial_gene_coordinates(has_partial_start=False, has_partial_end=True,  
+                                     coordinates=[(1, 1)], is_complement=False, start_shift=0) # gene is too small, the length adjustement at the end lead to no gene
+
+    with pytest.raises(ValueError):
+        fix_partial_gene_coordinates(True, False, 
+                                     [(1, 1)], False, 1) # gene is too small, the length adjustement at the start lead to no gene
+    
+    with pytest.raises(ValueError):
+        fix_partial_gene_coordinates(True, True,
+                                     [(60,60), (1, 1)], False, 1) # gene is too small, the length adjustement at the start and at the end lead to no gene
+
+    with pytest.raises(ValueError):
+        fix_partial_gene_coordinates(True, False,
+                                     [], False, 1) # chevron in inner position
+        
+
+@pytest.mark.parametrize("coordinates, shift, expected", [
+
+    ([(11, 40)], 0, [(11, 40)]),
+
+    ([(1, 2)], 1, [(2, 2)]),
+
+    ([(1, 1), (1, 4)], 1, [(1, 4)]),
+
+    ([(1, 1), (1, 1), (1, 4)], 2, [(1, 4)]),
+
+    ([(1, 1), (1, 2), (1, 4)], 2, [(2, 2), (1, 4)]),
+
+
+    ])
+
+
+def test_shift_start_coordinates(coordinates, shift, expected):
+    result = shift_start_coordinates(coordinates, shift)
+    assert result == expected
+
+
+@pytest.mark.parametrize("coordinates, shift, expected", [
+
+    ([(11, 40)], 0, [(11, 40)]),
+
+    ([(1, 2)], 1, [(1, 1)]),
+
+    ([(1, 1), (1, 4)], 1, [(1, 1), (1, 3)]),
+
+    ([(1, 4), (4, 4), (4, 4)], 2, [(1, 4)]),
+
+    ([(18, 18), (1, 4)], 4, [(18, 18)]),
+
+
+    ])
+
+
+def test_shift_end_coordinates(coordinates, shift, expected):
+    result = shift_end_coordinates(coordinates, shift)
+    assert result == expected
+
