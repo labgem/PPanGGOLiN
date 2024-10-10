@@ -409,6 +409,77 @@ def combine_contigs_metadata(contig_to_metadata: Dict[str, Dict[str, str]]) -> T
     return genome_metadata, contig_to_uniq_metadata
 
 
+def reverse_complement_coordinates(coordinates: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """
+    Reverses and inverts the given list of coordinates. Each coordinate pair (start, end) is transformed into
+    (-end, -start) and the order of the coordinates is reversed.
+
+    :param coordinates: A list of tuples representing the coordinates to be reversed and inverted.
+    :return: A list of reversed and inverted coordinates.
+    """
+    # Reverse the order of coordinates and invert each start and end
+    logging.getLogger("PPanGGOLiN").debug(f'Reversing and inverting coordinates: {coordinates}')
+    return [(-end, -start) for start, end in coordinates[::-1]]
+
+
+def shift_end_coordinates(coordinates: List[Tuple[int, int]], shift: int) -> List[Tuple[int, int]]:
+    """
+    Shifts the end of a set of coordinates by a specified amount and then returns the final shifted coordinates.
+    This involves reversing the coordinates twice, shifting the start, and then returning the original orientation.
+
+    :param coordinates: A list of tuples representing the original coordinates.
+    :param shift: The amount by which the end coordinate should be shifted.
+    :return: The coordinates after the end shift and reverse complement transformations.
+    """
+    # Perform reverse complement, shift the start (corresponding to the original end), and reverse complement back
+    logging.getLogger("PPanGGOLiN").debug(f'Shifting end of coordinates {coordinates} by {shift}')
+    rc_coordinates = reverse_complement_coordinates(coordinates)
+    rc_coordinates_shifted = shift_start_coordinates(rc_coordinates, shift)
+    final_coordinates = reverse_complement_coordinates(rc_coordinates_shifted)
+
+    return final_coordinates
+
+
+def shift_start_coordinates(coordinates: List[Tuple[int, int]], shift: int) -> List[Tuple[int, int]]:
+    """
+    Shifts the start of the first coordinate in the list by the specified amount. If the shift results in
+    a negative or zero-length interval for the first coordinate, this interval is removed, and the shift is
+    propagated to the next coordinate if necessary.
+
+    :param coordinates: A list of tuples representing the coordinates.
+    :param shift: The amount by which the start coordinate should be shifted.
+    :return: A new list of coordinates with the shifted start.
+    """
+    new_coordinates = coordinates.copy()
+
+    # Shift the start of the first coordinate
+    adjusted_start = new_coordinates[0][0] + shift
+    logging.getLogger("PPanGGOLiN").debug(f'Shifting start of first coordinate by {shift}. New start: {adjusted_start}')
+
+    adjusted_coordinate_part = (adjusted_start, new_coordinates[0][1])
+    new_coordinates[0] = adjusted_coordinate_part
+
+    # Calculate length of the adjusted part
+    adjusted_part_length = adjusted_coordinate_part[1] - adjusted_coordinate_part[0] + 1
+
+    if adjusted_part_length <= 0:
+        # If the shift results in a zero or negative length, handle accordingly
+        if len(new_coordinates) <= 1:
+            raise ValueError(f'Shifting the start resulted in a gene with null or negative size. '
+                             f'Coordinates: {coordinates}, Shift: {shift}')
+        else:
+            logging.getLogger("PPanGGOLiN").warning(f'Coordinate part {new_coordinates[0]} resulted in a non-positive length after shift. Removing it.')
+            new_coordinates = new_coordinates[1:]
+
+            # If length is negative, propagate the shift to the next coordinate
+            if adjusted_part_length < 0:
+                new_shift = -adjusted_part_length
+                new_coordinates = shift_start_coordinates(new_coordinates, new_shift)
+
+    return new_coordinates
+
+
+
 
 def fix_partial_gene_coordinates(
     has_partial_start: bool, 
@@ -433,50 +504,42 @@ def fix_partial_gene_coordinates(
                   f"coordinates: {coordinates}, is_complement: {is_complement}, start_shift: {start_shift}")
 
     if not coordinates:
-        logging.getLogger("PPanGGOLiN").debug('No coordinates provided, returning empty list.')
-        return coordinates
-
-    # Create a new coordinates object so as not to modify the input
-    new_coordinates = coordinates.copy()
+        raise ValueError('No coordinates provided. Cannot fix partial gene coordinates.')
 
     # Non-complement strand adjustments
     if not is_complement:
         if has_partial_start:
-            initial_start = new_coordinates[0][0] + start_shift
-            logging.getLogger("PPanGGOLiN").debug(f'Adding shift {start_shift} to initial start. New start: {initial_start}')
-            new_coordinates[0] = (initial_start, new_coordinates[0][1])
+            coordinates = shift_start_coordinates(coordinates, start_shift)
 
         if has_partial_end:
             # Ensure the gene length is a multiple of 3 by adjusting the last end
-            gene_length = sum([(stop - start + 1) for start, stop in new_coordinates])
-            last_end = new_coordinates[-1][1] - (gene_length % 3)
-            logging.getLogger("PPanGGOLiN").debug(f'Adjusting last end to ensure gene length is a multiple of 3. New end: {last_end}')
-            new_coordinates[-1] = (new_coordinates[-1][0], last_end)
+            gene_length = sum([(stop - start + 1) for start, stop in coordinates])
+            end_shift = (gene_length % 3)
+
+            coordinates = shift_end_coordinates(coordinates, end_shift)
 
     # Complement strand adjustments
     else:
         if has_partial_end:
-            last_end = new_coordinates[-1][1] - start_shift
-            logging.getLogger("PPanGGOLiN").debug(f'Removing shift {start_shift} from last end. New last end: {last_end}')
-            new_coordinates[-1] = (new_coordinates[-1][0], last_end)
+            coordinates = shift_end_coordinates(coordinates, start_shift)
 
         if has_partial_start:
             # Adjust first start for complement strand
-            gene_length = sum([(stop - start + 1) for start, stop in new_coordinates])
-            initial_start = new_coordinates[0][0] + (gene_length % 3)
-            logging.getLogger("PPanGGOLiN").debug(f'Adding {gene_length % 3} to complement start to ensure gene length is a multiple of 3. New start: {initial_start}')
-            new_coordinates[0] = (initial_start, new_coordinates[0][1])
+            gene_length = sum([(stop - start + 1) for start, stop in coordinates])
+            start_shift = (gene_length % 3)
+            coordinates = shift_start_coordinates(coordinates, start_shift)
 
     # Final length validation
-    gene_length = sum([(stop - start + 1) for start, stop in new_coordinates])
+    gene_length = sum([(stop - start + 1) for start, stop in coordinates])
+
     if gene_length % 3 != 0:
-        logging.getLogger("PPanGGOLiN").warning(f'Gene with coordinates: {coordinates} has a length that is not a multiple of 3 after adjusting for partiality with new cordinates ({new_coordinates}): {gene_length}')
+        logging.getLogger("PPanGGOLiN").warning(f'Gene with coordinates: {coordinates} has a length that is not a multiple of 3 after adjusting for partiality with new cordinates ({coordinates}): {gene_length}')
         raise ValueError(f'Gene with coordinates: {coordinates} has a length that is not a multiple of 3 after adjusting for partiality: {gene_length}')
 
-    logging.getLogger("PPanGGOLiN").debug(f'Final corrected coordinates: {new_coordinates}. Gene length = {gene_length}, '
+    logging.getLogger("PPanGGOLiN").debug(f'Final corrected coordinates: {coordinates}. Gene length = {gene_length}, '
                   f'multiple of 3: {gene_length % 3 == 0}')
 
-    return new_coordinates
+    return coordinates
 
 
 def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: List[str],
@@ -590,9 +653,6 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                     start_shift = 0 if 'codon_start' not in feature else int(feature['codon_start']) -1 # -1 is to be in zero based index. 
 
                     coordinates = fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates,is_complement=is_complement, start_shift=start_shift )
-
-                    
-
 
             strand = "-" if is_complement else "+"
 
