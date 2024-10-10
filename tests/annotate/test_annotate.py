@@ -1,35 +1,47 @@
 import pytest
 from pathlib import Path
 from ppanggolin.annotate.annotate import extract_positions, read_anno_file, parse_contig_header_lines, \
-    parse_gbff_by_contig, parse_feature_lines, parse_dna_seq_lines, read_org_gbff, combine_contigs_metadata
+    parse_gbff_by_contig, parse_feature_lines, parse_dna_seq_lines, read_org_gbff, combine_contigs_metadata, fix_partial_gene_coordinates
 
 
-@pytest.mark.parametrize("input_string, expected_positions, expected_complement, expected_pseudogene", [
-    ("join(190..7695,7695..12071)", [(190, 7695), (7695, 12071)], False, False),
-    ("order(190..7695,7995..12071)", [(190, 7695), (7995, 12071)], False, False),
+@pytest.mark.parametrize("input_string, expected_positions, expected_complement, expected_partialgene_start, expected_partialgene_end", [
+    ("join(190..7695,7695..12071)", [(190, 7695), (7695, 12071)], False, False, False),
+    ("order(190..7695,7995..12071)", [(190, 7695), (7995, 12071)], False, False, False),
     ("complement(join(4359800..4360707,4360707..4360962,1..100))", [(4359800, 4360707), (4360707, 4360962), (1, 100)],
-     True, False),
+     True, False, False),
     ("complement(order(4359800..4360707,4360707..4360962,1..100))", [(4359800, 4360707), (4360707, 4360962), (1, 100)],
-     True, False),
-    ("join(6835405..6835731,1..1218)", [(6835405, 6835731), (1, 1218)], False, False),
-    ("join(1375484..1375555,1375557..1376579)", [(1375484, 1375555), (1375557, 1376579)], False, False),
-    ("complement(6815492..6816265)", [(6815492, 6816265)], True, False),
-    ("6811501..6812109", [(6811501, 6812109)], False, False),
-    ("complement(6792573..>6795461)", [(6792573, 6795461)], True, True),
-    ("join(1038313,1..1016)", [(1038313, 1038313), (1, 1016)], False, False),
-    ("1038313", [(1038313, 1038313)], False, False)
+     True, False, False),
+    ("join(6835405..6835731,1..1218)", [(6835405, 6835731), (1, 1218)], False, False, False),
+    ("join(1375484..1375555,1375557..1376579)", [(1375484, 1375555), (1375557, 1376579)], False, False, False),
+    ("complement(6815492..6816265)", [(6815492, 6816265)], True, False, False),
+    ("6811501..6812109", [(6811501, 6812109)], False, False, False),
+    ("complement(6792573..>6795461)", [(6792573, 6795461)], True, False, True),
+    ("complement(<6792573..6795461)", [(6792573, 6795461)], True, True, False),
+    ("complement(<6792573..>6795461)", [(6792573, 6795461)], True, True, True),
+    ("join(1038313,1..1016)", [(1038313, 1038313), (1, 1016)], False, False, False),
+    ("1038313", [(1038313, 1038313)], False, False, False)
 ])
-def test_extract_positions(input_string, expected_positions, expected_complement, expected_pseudogene):
-    positions, is_complement, is_pseudo = extract_positions(input_string)
+def test_extract_positions(input_string, expected_positions, expected_complement, expected_partialgene_start, expected_partialgene_end):
+    positions, is_complement, has_partial_start, has_partial_end  = extract_positions(input_string)
     assert positions == expected_positions
     assert is_complement == expected_complement
-    assert is_pseudo == expected_pseudogene
+    assert has_partial_start == expected_partialgene_start
+    assert has_partial_end == expected_partialgene_end
 
 
 def test_extract_positions_with_wrong_positions_format():
     with pytest.raises(ValueError):
         extract_positions("join(1038313,1..1016")  # string misses a closing parenthesis
 
+
+def test_extract_positions_with_strange_chevrons():
+    with pytest.raises(ValueError):
+        extract_positions("complement(join(4359800..>4360707,1..100))")  # chevron in inner position
+    with pytest.raises(ValueError):
+        extract_positions("complement(join(4359800..4360707,<1..100))")  # chevron in inner position
+
+    with pytest.raises(ValueError):
+        extract_positions("complement(join(4359800..4360707,1..<100))")  # start chevron in ending position
 
 def test_extract_positions_with_wrong_positions_format2():
     with pytest.raises(ValueError):
@@ -111,7 +123,7 @@ def test_with_joined_genes(genome_data_with_joined_genes):
 
 def test_read_org_gbff(genome_data_with_joined_genes):
     genome_name, genome_path, circular_contigs = genome_data_with_joined_genes
-    genome, _ = read_org_gbff(genome_name, genome_path, circular_contigs, pseudo=True)
+    genome, _ = read_org_gbff(genome_name, genome_path, circular_contigs, use_pseudogenes=True)
 
     # this genome has 2 genes that are joined. 
     assert genome.number_of_genes() == 917
@@ -250,3 +262,70 @@ def test_combine_contigs_metadata():
 
     assert genome_metadata == {"sp": "spA", "strain": "123"}
     assert contig_metadata == {"contig1": {"contig_feat": "ABC"}, "contig2": {"contig_feat": "XYZ"}, }
+
+
+@pytest.mark.parametrize("has_partial_start, has_partial_end, coordinates, is_complement, start_shift, expected", [
+    # Case 1: No partial start or end, expect no change in non-complement strand
+    # Coordinates are already correct, no need to modify anything.
+    (False, False, [(11, 40)], False, 0, [(11, 40)]),
+    
+    # Case 2: Partial start, no partial end (Non-complement)
+    # A shift of 1 is added to the start coordinate.
+    (True, False, [(10, 40)], False, 1, [(11, 40)]),  # start_shift of 1 added to start
+
+    # Case 2: Partial start, no partial end (Non-complement)
+    # A shift of 2 is added to the start coordinate.
+    (True, False, [(2, 33)], False, 2, [(4, 33)]),  # start_shift of 2 added to start
+    
+    # Case 3: No partial start, partial end (Non-complement)
+    # Adjust last coordinate to make gene length a multiple of 3.
+    (False, True, [(11, 41)], False, 0, [(11, 40)]),  # last end adjusted to be a multiple of 3
+
+    # Case 3: No partial start, partial end (Non-complement)
+    # Gene length is already a multiple of 3, so no changes needed.
+    (False, True, [(11, 40)], False, 0, [(11, 40)]),  # gene length already a multiple of 3 so no change is made
+    
+    # Case 4: Partial start and end (Non-complement)
+    # Both start and end need adjustment: add shift to start and adjust end to make gene length a multiple of 3.
+    (True, True, [(10, 41)], False, 1, [(11, 40)]),  # start_shift added to start, and length adjusted
+    
+    # Case 5: Partial start and no partial end on complement strand
+    # Adjust start since we are on the complement strand.
+    (True, False,  [(9, 40)], True, 0,  [(11, 40)]),  # length adjusted 
+    
+    # Case 5: No partial start but partial end on complement strand
+    # Shift removed from the last end on the complement strand.
+    (False, True,  [(9, 40)], True, 2,  [(9, 38)]),  # start_shift removed
+
+    # Case 5: Partial start and end on complement strand
+    # Adjust both start and end since we are on the complement strand, ensuring gene length is a multiple of 3.
+    (True, True,  [(8, 40)], True, 2,  [(9, 38)]),  # start_shift removed and length adjusted
+    
+    # Case 5: Joined coordinates without partial start or end
+    # Nothing to adjust as the gene is properly framed.
+    (False, False,  [(1, 9), (7, 12)], False, 0, [(1, 9), (7, 12)]),  # nothing to do
+
+    # Case 5: Joined coordinates with partial start
+    # Adjust the first start coordinate by the shift.
+    (True, False,  [(3, 9), (7, 12)], False, 1, [(4, 9), (7, 12)]),  # adjust start
+    
+    # Case 5: Joined coordinates with partial end
+    # Adjust the last end to ensure the gene length is a multiple of 3.
+    (False, True,  [(3, 9), (7, 12)], False, 0, [(3, 9), (7, 11)]),  # adjust end
+
+    # Case 5: Joined coordinates with partial start and partial end
+    # Adjust both start and end for correct gene length and frame shift.
+    (True, True,  [(3, 9), (7, 12)], False, 2, [(5, 9), (7, 10)]),  # adjust start and end
+
+    # Case 5: Joined coordinates with partial start and end on complement strand
+    # Adjust both start and end on the complement strand.
+    (True, True,  [(4, 9), (7, 12)], True, 2, [(5, 9), (7, 10)]),  # adjust start and end in complement mode
+
+    # Case 6: Empty coordinates
+    # Function should return an empty list without any errors.
+    (False, False, [], False, 5, []),  # Empty input should return empty
+    
+])
+def test_fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates, is_complement, start_shift, expected):
+    result = fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates, is_complement, start_shift)
+    assert result == expected
