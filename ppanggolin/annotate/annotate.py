@@ -482,8 +482,6 @@ def shift_start_coordinates(coordinates: List[Tuple[int, int]], shift: int) -> L
 
 
 def fix_partial_gene_coordinates(
-    has_partial_start: bool, 
-    has_partial_end: bool, 
     coordinates: List[Tuple[int, int]], 
     is_complement: bool, 
     start_shift: int,
