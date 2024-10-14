@@ -16,7 +16,7 @@ import warnings
 
 # installed libraries
 from tqdm import tqdm
-from tables.path import check_name_validity
+from tables.path import check_name_validity, NaturalNameWarning
 
 # local libraries
 from ppanggolin.annotate.synta import (annotate_organism, read_fasta, get_dna_sequence,
@@ -26,6 +26,9 @@ from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
 from ppanggolin.formats import write_pangenome
 from ppanggolin.metadata import Metadata
+
+# ignore NaturalNameWarning 
+warnings.filterwarnings('ignore', category=NaturalNameWarning)
 
 ctg_counter = contig_counter
 
