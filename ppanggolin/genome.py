@@ -286,6 +286,8 @@ class Gene(Feature):
         self._RGP = None
         self.genetic_code = None
         self.protein = None
+        self.is_partial = False # is the gene a partial gene ?
+        self.frame = 0 # One of '0', '1' or '2'. '0' indicates that the first base of the feature is the first base of a codon, '1' that the second base is the first base of a codon, and so on..
 
     @property
     def family(self):
@@ -349,11 +351,14 @@ class Gene(Feature):
         """
         return self.family.module
 
-    def fill_annotations(self, position: int = None, genetic_code: int = 11, **kwargs):
+    def fill_annotations(self, position: int = None, genetic_code: int = 11, is_partial:bool = False, frame:int = 0, **kwargs):
         """Fill Gene annotation provide by PPanGGOLiN dependencies
 
         :param position: Gene localization in genome
         :param genetic_code: Genetic code associated to gene
+        :param is_partial: is the gene a partial gene
+        :param frame: One of '0', '1' or '2'. '0' indicates that the first base of the feature is the first base of a codon, 
+                      '1' that the second base is the first base of a codon, and so on..
         :param kwargs: look at Feature.fill_annotations methods
 
         :raises TypeError: If position or genetic code value is not instance integers
@@ -363,8 +368,17 @@ class Gene(Feature):
             raise TypeError("position should be an integer")
         if not isinstance(genetic_code, int):
             raise TypeError("Genetic code should be an integer")
+        
+        if frame not in [0,1,2]:
+            raise ValueError("Frame should be equal to 0, 1 or 2.")
+        
+        if not isinstance(is_partial, bool):
+            raise TypeError("partial code should be an boolean")
+        
         self.position = position
         self.genetic_code = genetic_code
+        self.is_partial = is_partial
+        self._frame = frame
 
     def add_protein(self, protein: str):
         """Add a protein sequence corresponding to translated gene
@@ -377,6 +391,25 @@ class Gene(Feature):
             raise TypeError(f"'str' type was expected but you provided a '{type(protein)}' type object")
         self.protein = protein
 
+    @property
+    def frame(self) -> int:
+        """
+        Get the frame of the gene
+
+        """
+
+        return self._frame
+
+    @frame.setter
+    def frame(self, frame: int):
+        """Set the length of the contig
+
+        :param contig_len: length of the contig
+        """
+        if frame not in [0,1,2]:
+            raise ValueError("Frame should be equal to 0, 1 or 2.")
+        
+        self._frame = frame
 
 class Contig(MetaFeatures):
     """

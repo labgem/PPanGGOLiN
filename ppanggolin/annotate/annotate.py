@@ -517,8 +517,8 @@ def fix_partial_gene_coordinates(
             # Ensure the gene length is a multiple of 3 by adjusting the last end
             gene_length = sum([(stop - start + 1) for start, stop in coordinates])
             end_shift = (gene_length % 3)
-
-            coordinates = shift_end_coordinates(coordinates, end_shift)
+            if end_shift != 0:
+                coordinates = shift_end_coordinates(coordinates, end_shift)
 
     # Complement strand adjustments
     else:
@@ -529,7 +529,8 @@ def fix_partial_gene_coordinates(
             # Adjust first start for complement strand
             gene_length = sum([(stop - start + 1) for start, stop in coordinates])
             start_shift = (gene_length % 3)
-            coordinates = shift_start_coordinates(coordinates, start_shift)
+            if start_shift != 0:
+                coordinates = shift_start_coordinates(coordinates, start_shift)
 
     # Final length validation
     gene_length = sum([(stop - start + 1) for start, stop in coordinates])
@@ -659,7 +660,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
 
                     start_shift = 0 if 'codon_start' not in feature else int(feature['codon_start']) -1 # -1 is to be in zero based index. 
 
-                    coordinates = fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates,is_complement=is_complement, start_shift=start_shift )
+                    coordinates = fix_partial_gene_coordinates(coordinates,is_complement=is_complement, start_shift=start_shift )
 
             strand = "-" if is_complement else "+"
 
@@ -745,9 +746,9 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     used_transl_table_arg = 0
     global ctg_counter
 
-    (gff_seqname, _, gff_type, gff_start, gff_end, _, gff_strand, _, gff_attribute) = range(0, 9)
+    (gff_seqname, _, gff_type, gff_start, gff_end, _, gff_strand, frame, gff_attribute) = range(0, 9)
 
-    # Missing values: source, score, frame. They are unused.
+    # Missing values: source, score. They are unused.
     def get_gff_attributes(gff_fields: list) -> dict:
         """Parses the gff attribute's line and outputs the attributes_get in a dict structure.
 
@@ -851,8 +852,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 pseudogene = False
 
                 start, stop, has_chevron = check_chevrons_in_start_and_stop(start=fields_gff[gff_start], stop=fields_gff[gff_end])
-                if has_chevron:
-                    pseudogene = True
 
                 if fields_gff[gff_type] == 'region':
                     # keep region attributes to add them as metadata of genome and contigs
@@ -875,6 +874,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         logging.getLogger("PPanGGOLiN").debug(f"Contig {contig.name} is circular.")
                         contig.is_circular = True
                         assert contig.name == fields_gff[gff_seqname]
+
                 elif fields_gff[gff_type] == 'CDS' or "RNA" in fields_gff[gff_type]:
 
                     id_attribute = get_id_attribute(attributes)
@@ -891,12 +891,12 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                     if "PSEUDO" in attributes or "PSEUDOGENE" in attributes:
                         pseudogene = True
 
-                    product = attributes.pop('PRODUCT', "")
-                    if "TRANSL_TABLE" in attributes:
-                        genetic_code = int(attributes["TRANSL_TABLE"])
+                    if ("PARTIAL" in attributes and attributes["PARTIAL"].upper() == "TRUE") or has_chevron:
+                        is_partial = True
                     else:
-                        used_transl_table_arg += 1
-                        genetic_code = translation_table
+                        is_partial = False
+
+                    product = attributes.pop('PRODUCT', "")
 
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig
@@ -912,6 +912,18 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                 contig.length = int(attr_prodigal["seqlen"])
 
                     if fields_gff[gff_type] == "CDS" and (not pseudogene or (pseudogene and pseudo)):
+
+                        if "TRANSL_TABLE" in attributes:
+                            genetic_code = int(attributes["TRANSL_TABLE"])
+                        else:
+                            used_transl_table_arg += 1
+                            genetic_code = translation_table
+
+                        gene_frame = 0
+                        #  Get value of frame if valid
+                        if fields_gff[frame] in ['1', "2", "0"]:
+                            gene_frame = int(fields_gff[frame])
+
                         if id_attribute in id_attr_to_gene_id:  # the ID has already been seen at least once in this genome
 
                             existing_gene = id_attr_to_gene_id[id_attribute]
@@ -923,7 +935,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                             "local_identifier":gene_id,
                                             "start": start,
                                             "stop": stop,
-                                            "ID": id_attribute}
+                                            "ID": id_attribute,
+                                            "frame":gene_frame}
 
                             check_and_add_extra_gene_part(existing_gene, new_gene_info)
 
@@ -938,7 +951,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                               strand=fields_gff[gff_strand], gene_type=fields_gff[gff_type], name=name,
                                               position=contig.number_of_genes, product=product,
                                               local_identifier=gene_id,
-                                              genetic_code=genetic_code)
+                                              genetic_code=genetic_code, is_partial=is_partial, frame=gene_frame)
                         gene.fill_parents(org, contig)
                         gene_counter += 1
                         contig.add(gene)
@@ -957,6 +970,15 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
     # Correct coordinates of genes that overlap the edge of circulars contig
     correct_putative_overlaps(org.contigs)
+
+    # First partial genes coordinates
+    for contig in org.contigs:
+        for gene in contig.genes:
+            if gene.is_partial:
+                is_complement = gene.strand == '-'
+                if len(gene.coordinates) > 1:
+                    print("!!!"*15)
+                gene.coordinates = fix_partial_gene_coordinates(gene.coordinates, is_complement=is_complement, start_shift=gene.frame )
 
     # GET THE FASTA SEQUENCES OF THE GENES
     if fasta_string == "":
@@ -1040,6 +1062,12 @@ def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separatio
     if all(comparison):
         # The new gene info seems concordant with the gene object. We can try to merge them
         assert new_gene_info['start'] <= new_gene_info['stop'], "Start is greater than stop. Incorrect coordinates."
+
+        new_gene_is_before = (gene.strand == "+" and new_gene_info['start'] <  gene.start) or (gene.strand == "-" and new_gene_info['start'] >  gene.start)
+        if new_gene_is_before:
+            # new gene start if before the current gene 
+            # so its frame if used            
+            gene.frame = new_gene_info['frame']
 
         # Add new coordinates to gene's coordinates
         gene.coordinates = sorted(gene.coordinates + [(new_gene_info['start'], new_gene_info['stop'])])
