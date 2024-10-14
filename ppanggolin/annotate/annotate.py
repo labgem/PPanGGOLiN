@@ -486,7 +486,8 @@ def fix_partial_gene_coordinates(
     has_partial_end: bool, 
     coordinates: List[Tuple[int, int]], 
     is_complement: bool, 
-    start_shift: int
+    start_shift: int,
+    ensure_codon_multiple:bool = True
 ) -> List[Tuple[int, int]]:
     """
     Adjusts gene coordinates if they have partial starts or ends, ensuring the gene length is a multiple of 3.
@@ -500,7 +501,7 @@ def fix_partial_gene_coordinates(
     :param start_shift: The value by which the start coordinate should be shifted.
     :return: A new list of adjusted coordinate tuples.
     """
-    logging.getLogger("PPanGGOLiN").debug(f"Initial parameters - has_partial_start: {has_partial_start}, has_partial_end: {has_partial_end}, "
+    logging.getLogger("PPanGGOLiN").debug("Initial parameters: "
                   f"coordinates: {coordinates}, is_complement: {is_complement}, start_shift: {start_shift}")
 
     if not coordinates:
@@ -508,10 +509,10 @@ def fix_partial_gene_coordinates(
 
     # Non-complement strand adjustments
     if not is_complement:
-        if has_partial_start:
+        if start_shift != 0:
             coordinates = shift_start_coordinates(coordinates, start_shift)
 
-        if has_partial_end:
+        if ensure_codon_multiple:
             # Ensure the gene length is a multiple of 3 by adjusting the last end
             gene_length = sum([(stop - start + 1) for start, stop in coordinates])
             end_shift = (gene_length % 3)
@@ -520,10 +521,10 @@ def fix_partial_gene_coordinates(
 
     # Complement strand adjustments
     else:
-        if has_partial_end:
+        if start_shift != 0:
             coordinates = shift_end_coordinates(coordinates, start_shift)
 
-        if has_partial_start:
+        if ensure_codon_multiple:
             # Adjust first start for complement strand
             gene_length = sum([(stop - start + 1) for start, stop in coordinates])
             start_shift = (gene_length % 3)

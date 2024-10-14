@@ -264,88 +264,88 @@ def test_combine_contigs_metadata():
     assert contig_metadata == {"contig1": {"contig_feat": "ABC"}, "contig2": {"contig_feat": "XYZ"}, }
 
 
-@pytest.mark.parametrize("has_partial_start, has_partial_end, coordinates, is_complement, start_shift, expected", [
+@pytest.mark.parametrize("coordinates, is_complement, start_shift, expected", [
     # Case 1: No partial start or end, expect no change in non-complement strand
     # Coordinates are already correct, no need to modify anything.
-    (False, False, [(11, 40)], False, 0, [(11, 40)]),
+    ([(11, 40)], False, 0, [(11, 40)]),
     
     # Case 2: Partial start, no partial end (Non-complement)
     # A shift of 1 is added to the start coordinate.
-    (True, False, [(10, 40)], False, 1, [(11, 40)]),  # start_shift of 1 added to start
+    ([(10, 40)], False, 1, [(11, 40)]),  # start_shift of 1 added to start
 
     # Case 2: Partial start, no partial end (Non-complement)
     # A shift of 2 is added to the start coordinate.
-    (True, False, [(2, 33)], False, 2, [(4, 33)]),  # start_shift of 2 added to start
+    ([(2, 33)], False, 2, [(4, 33)]),  # start_shift of 2 added to start
     
     # Case 3: No partial start, partial end (Non-complement)
     # Adjust last coordinate to make gene length a multiple of 3.
-    (False, True, [(11, 41)], False, 0, [(11, 40)]),  # last end adjusted to be a multiple of 3
+    ([(11, 41)], False, 0, [(11, 40)]),  # last end adjusted to be a multiple of 3
 
     # Case 3: No partial start, partial end (Non-complement)
     # Gene length is already a multiple of 3, so no changes needed.
-    (False, True, [(11, 40)], False, 0, [(11, 40)]),  # gene length already a multiple of 3 so no change is made
+    ([(11, 40)], False, 0, [(11, 40)]),  # gene length already a multiple of 3 so no change is made
     
     # Case 4: Partial start and end (Non-complement)
     # Both start and end need adjustment: add shift to start and adjust end to make gene length a multiple of 3.
-    (True, True, [(10, 41)], False, 1, [(11, 40)]),  # start_shift added to start, and length adjusted
+    ([(10, 41)], False, 1, [(11, 40)]),  # start_shift added to start, and length adjusted
     
     # Case 5: Partial start and no partial end on complement strand
     # Adjust start since we are on the complement strand.
-    (True, False,  [(9, 40)], True, 0,  [(11, 40)]),  # length adjusted 
+    ([(9, 40)], True, 0,  [(11, 40)]),  # length adjusted 
     
     # Case 5: No partial start but partial end on complement strand
     # Shift removed from the last end on the complement strand.
-    (False, True,  [(9, 40)], True, 2,  [(9, 38)]),  # start_shift removed
+    ( [(9, 40)], True, 2,  [(9, 38)]),  # start_shift removed
 
     # Case 5: Partial start and end on complement strand
     # Adjust both start and end since we are on the complement strand, ensuring gene length is a multiple of 3.
-    (True, True,  [(8, 40)], True, 2,  [(9, 38)]),  # start_shift removed and length adjusted
+    ( [(8, 40)], True, 2,  [(9, 38)]),  # start_shift removed and length adjusted
     
     # Case 5: Joined coordinates without partial start or end
     # Nothing to adjust as the gene is properly framed.
-    (False, False,  [(1, 9), (7, 12)], False, 0, [(1, 9), (7, 12)]),  # nothing to do
+    ([(1, 9), (7, 12)], False, 0, [(1, 9), (7, 12)]),  # nothing to do
 
     # Case 5: Joined coordinates with partial start
     # Adjust the first start coordinate by the shift.
-    (True, False,  [(3, 9), (7, 12)], False, 1, [(4, 9), (7, 12)]),  # adjust start
+    ([(3, 9), (7, 12)], False, 1, [(4, 9), (7, 12)]),  # adjust start
     
     # Case 5: Joined coordinates with partial end
     # Adjust the last end to ensure the gene length is a multiple of 3.
-    (False, True,  [(3, 9), (7, 12)], False, 0, [(3, 9), (7, 11)]),  # adjust end
+    ([(3, 9), (7, 12)], False, 0, [(3, 9), (7, 11)]),  # adjust end
 
     # Case 5: Joined coordinates with partial start and partial end
     # Adjust both start and end for correct gene length and frame shift.
-    (True, True,  [(3, 9), (7, 12)], False, 2, [(5, 9), (7, 10)]),  # adjust start and end
+    ([(3, 9), (7, 12)], False, 2, [(5, 9), (7, 10)]),  # adjust start and end
 
     # Case 5: Joined coordinates with partial start and end on complement strand
     # Adjust both start and end on the complement strand.
-    (True, True,  [(4, 9), (7, 12)], True, 2, [(5, 9), (7, 10)]),  # adjust start and end in complement mode
+    ([(4, 9), (7, 12)], True, 2, [(5, 9), (7, 10)]),  # adjust start and end in complement mode
 
     # Real tricky case from GCF_000623275.1
-    (False, True,  [(4681814, 4682911), (1, 1)], False, 0, [(4681814, 4682911)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
+    ([(4681814, 4682911), (1, 1)], False, 0, [(4681814, 4682911)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
 
     # Tricky case inspired by last case
-    (False, True,  [(30, 60), (1, 1)], False, 0, [(30, 59)]),  # ajust the end by removing two nt. In this case that remove the second part of the coordinates and one nt in the first part
+    ([(30, 60), (1, 1)], False, 0, [(30, 59)]),  # ajust the end by removing two nt. In this case that remove the second part of the coordinates and one nt in the first part
 
 
     # Tricky case inspired by last case
-    (True, False,  [(60, 60), (1, 9)], False, 1, [(1, 9)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
+    ([(60, 60), (1, 9)], False, 1, [(1, 9)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
 
     # Tricky case inspired by last case
-    (True, False,  [(60, 60), (1, 10)], False, 2, [(2, 10)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
+    ([(60, 60), (1, 10)], False, 2, [(2, 10)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
 
     # Very tricky case inspired by last case
-    (True, False,  [(59, 60), (60, 60), (1, 9)], False, 3, [(1, 9)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
+    ([(59, 60), (60, 60), (1, 9)], False, 3, [(1, 9)]),  # ajust the end by removing one nt. In this case that remove the second part of the coordinates
     
     # Very tricky case inspired by last case
-    (True, True,  [(60, 61), (1, 8)], True, 3, [(61, 61), (1, 5)]),  #
+    ([(60, 61), (1, 8)], True, 3, [(61, 61), (1, 5)]),  #
 
     
     
 ])
 
-def test_fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates, is_complement, start_shift, expected):
-    result = fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordinates, is_complement, start_shift)
+def test_fix_partial_gene_coordinates(coordinates, is_complement, start_shift, expected):
+    result = fix_partial_gene_coordinates(coordinates, is_complement, start_shift)
     assert result == expected
 
 
@@ -353,20 +353,16 @@ def test_fix_partial_gene_coordinates(has_partial_start, has_partial_end, coordi
 def test_fix_partial_gene_coordinates_with_wrong_coordinates():
 
     with pytest.raises(ValueError):
-        fix_partial_gene_coordinates(has_partial_start=False, has_partial_end=True,  
-                                     coordinates=[(1, 1)], is_complement=False, start_shift=0) # gene is too small, the length adjustement at the end lead to no gene
+        fix_partial_gene_coordinates(coordinates=[(1, 1)], is_complement=False, start_shift=0) # gene is too small, the length adjustement at the end lead to no gene
 
     with pytest.raises(ValueError):
-        fix_partial_gene_coordinates(True, False, 
-                                     [(1, 1)], False, 1) # gene is too small, the length adjustement at the start lead to no gene
+        fix_partial_gene_coordinates([(1, 1)], False, 1) # gene is too small, the length adjustement at the start lead to no gene
     
     with pytest.raises(ValueError):
-        fix_partial_gene_coordinates(True, True,
-                                     [(60,60), (1, 1)], False, 1) # gene is too small, the length adjustement at the start and at the end lead to no gene
+        fix_partial_gene_coordinates([(60,60), (1, 1)], False, 1) # gene is too small, the length adjustement at the start and at the end lead to no gene
 
     with pytest.raises(ValueError):
-        fix_partial_gene_coordinates(True, False,
-                                     [], False, 1) # chevron in inner position
+        fix_partial_gene_coordinates([], False, 1) # chevron in inner position
         
 
 @pytest.mark.parametrize("coordinates, shift, expected", [
