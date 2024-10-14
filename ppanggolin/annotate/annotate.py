@@ -637,9 +637,14 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
                 continue
             
             elif "transl_except" in feature and not use_pseudogenes:
-                # that's probably a 'stop' codon into selenocystein.
-                continue
-
+                # that's probably a 'stop' codon into selenocystein. 
+                logging.getLogger("PPanGGOLiN").info(
+                    f"CDS '{feature['locus_tag']}' contains a 'transl_except' annotation ({feature['transl_except']}) "
+                    f"in contig '{contig}' in file '{gbff_file_path}'. "
+                    f"PPanGGOLiN does not handle 'transl_except' annotations. This gene's protein sequence "
+                    "will likely contain an internal stop codon when translated with PPanGGOLiN."
+                )
+                
             if feature['feature_type'] == 'CDS':
                 if feature['transl_table'] == "":
                     used_transl_table_arg += 1
