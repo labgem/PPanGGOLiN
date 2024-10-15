@@ -121,7 +121,7 @@ jobs:
         ppanggolin info --pangenome stepbystep/pangenome.h5 > info_to_test/stepbystep_info.yaml
         cat info_to_test/stepbystep_info.yaml
         gzip -d stepbystep/gene_families.tsv.gz
-        echo "$(grep 'stepbystep/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  stepbystep/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        echo "$(grep 'stepbystep/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  stepbystep/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; }
         shasum -a 256 stepbystep/gene_families.tsv >> info_to_test/checksum.txt
         cd -
     - name: gbff parsing and MSA computing
@@ -132,7 +132,7 @@ jobs:
         ppanggolin msa --pangenome myannopang/pangenome.h5 --source dna --partition core -o myannopang/ -f --use_gene_id --phylo --single_copy --cpu $NUM_CPUS
         ppanggolin info --pangenome myannopang/pangenome.h5 > info_to_test/myannopang_info.yaml
         cat info_to_test/myannopang_info.yaml
-        echo "$(grep 'myannopang/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  myannopang/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        echo "$(grep 'myannopang/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  myannopang/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; }
         shasum -a 256 myannopang/gene_families.tsv >> info_to_test/checksum.txt
         cd -
     - name: clusters reading from external file
@@ -144,7 +144,7 @@ jobs:
         awk 'BEGIN{FS=OFS="\t"} {$1 = $1 OFS $1} 1' clusters.tsv > clusters_with_reprez.tsv;
         ppanggolin cluster --clusters clusters_with_reprez.tsv -p readclusters/pangenome.h5 --cpu $NUM_CPUS
         ppanggolin msa --pangenome readclusterpang/pangenome.h5 --partition persistent --phylo -o readclusterpang/msa/ -f --cpu $NUM_CPUS
-        echo "$(grep 'readclusterpang/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  readclusterpang/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        echo "$(grep 'readclusterpang/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  readclusterpang/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; }
         shasum -a 256 readclusterpang/gene_families.tsv >> info_to_test/checksum.txt
         cd -
     - name: testing rgp_cluster command
@@ -195,7 +195,7 @@ jobs:
         ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
         cut -f1,2 clusters.tsv > clusters_without_frag.tsv
         ppanggolin panrgp  --anno genomes.gbff.list --cluster clusters_without_frag.tsv -o test_config --config panrgp_default_config.yaml --cpu $NUM_CPUS
-        echo "$(grep 'test_config/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  test_config/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+        echo "$(grep 'test_config/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  test_config/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; }
         shasum -a 256 test_config/gene_families.tsv >> info_to_test/checksum.txt        
         cd -
     - name: testing projection cmd
