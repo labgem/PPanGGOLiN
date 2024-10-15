@@ -421,7 +421,6 @@ def reverse_complement_coordinates(coordinates: List[Tuple[int, int]]) -> List[T
     :return: A list of reversed and inverted coordinates.
     """
     # Reverse the order of coordinates and invert each start and end
-    logging.getLogger("PPanGGOLiN").debug(f'Reversing and inverting coordinates: {coordinates}')
     return [(-end, -start) for start, end in coordinates[::-1]]
 
 
@@ -435,7 +434,6 @@ def shift_end_coordinates(coordinates: List[Tuple[int, int]], shift: int) -> Lis
     :return: The coordinates after the end shift and reverse complement transformations.
     """
     # Perform reverse complement, shift the start (corresponding to the original end), and reverse complement back
-    logging.getLogger("PPanGGOLiN").debug(f'Shifting end of coordinates {coordinates} by {shift}')
     rc_coordinates = reverse_complement_coordinates(coordinates)
     rc_coordinates_shifted = shift_start_coordinates(rc_coordinates, shift)
     final_coordinates = reverse_complement_coordinates(rc_coordinates_shifted)
@@ -457,7 +455,6 @@ def shift_start_coordinates(coordinates: List[Tuple[int, int]], shift: int) -> L
 
     # Shift the start of the first coordinate
     adjusted_start = new_coordinates[0][0] + shift
-    logging.getLogger("PPanGGOLiN").debug(f'Shifting start of first coordinate by {shift}. New start: {adjusted_start}')
 
     adjusted_coordinate_part = (adjusted_start, new_coordinates[0][1])
     new_coordinates[0] = adjusted_coordinate_part
@@ -502,8 +499,6 @@ def fix_partial_gene_coordinates(
     :param start_shift: The value by which the start coordinate should be shifted.
     :return: A new list of adjusted coordinate tuples.
     """
-    logging.getLogger("PPanGGOLiN").debug("Initial parameters: "
-                  f"coordinates: {coordinates}, is_complement: {is_complement}, start_shift: {start_shift}")
 
     if not coordinates:
         raise ValueError('No coordinates provided. Cannot fix partial gene coordinates.')
@@ -537,10 +532,6 @@ def fix_partial_gene_coordinates(
 
     if gene_length % 3 != 0:
         logging.getLogger("PPanGGOLiN").warning(f'Gene with coordinates: {coordinates} has a length that is not a multiple of 3 after adjusting for partiality with new cordinates ({coordinates}): {gene_length}')
-        raise ValueError(f'Gene with coordinates: {coordinates} has a length that is not a multiple of 3 after adjusting for partiality: {gene_length}')
-
-    logging.getLogger("PPanGGOLiN").debug(f'Final corrected coordinates: {coordinates}. Gene length = {gene_length}, '
-                  f'multiple of 3: {gene_length % 3 == 0}')
 
     return coordinates
 
@@ -921,7 +912,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
                         gene_frame = 0
                         #  Get value of frame if valid
-                        if fields_gff[frame] in ['1', "2", "0"]:
+                        if fields_gff[frame] in ["1", "2", "0"]:
                             gene_frame = int(fields_gff[frame])
 
                         if id_attribute in id_attr_to_gene_id:  # the ID has already been seen at least once in this genome
@@ -971,13 +962,11 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
     # Correct coordinates of genes that overlap the edge of circulars contig
     correct_putative_overlaps(org.contigs)
 
-    # First partial genes coordinates
+    # Fix partial genes coordinates
     for contig in org.contigs:
         for gene in contig.genes:
             if gene.is_partial:
                 is_complement = gene.strand == '-'
-                if len(gene.coordinates) > 1:
-                    print("!!!"*15)
                 gene.coordinates = fix_partial_gene_coordinates(gene.coordinates, is_complement=is_complement, start_shift=gene.frame )
 
     # GET THE FASTA SEQUENCES OF THE GENES
@@ -1218,6 +1207,10 @@ def local_identifiers_are_unique(genes: Iterable[Gene]) -> bool:
     gene_id_2_local = {}
     local_to_gene_id = {}
     for gene in genes:
+        if gene.local_identifier in  local_to_gene_id:
+            print(gene.local_identifier, "DUP")
+        if gene.ID in gene_id_2_local:
+            print(gene.ID, "DUP")
         gene_id_2_local[gene.ID] = gene.local_identifier
         local_to_gene_id[gene.local_identifier] = gene.ID
         if len(local_to_gene_id) != len(gene_id_2_local):
