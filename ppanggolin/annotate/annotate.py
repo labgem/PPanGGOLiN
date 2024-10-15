@@ -1207,10 +1207,6 @@ def local_identifiers_are_unique(genes: Iterable[Gene]) -> bool:
     gene_id_2_local = {}
     local_to_gene_id = {}
     for gene in genes:
-        if gene.local_identifier in  local_to_gene_id:
-            print(gene.local_identifier, "DUP")
-        if gene.ID in gene_id_2_local:
-            print(gene.ID, "DUP")
         gene_id_2_local[gene.ID] = gene.local_identifier
         local_to_gene_id[gene.local_identifier] = gene.ID
         if len(local_to_gene_id) != len(gene_id_2_local):
