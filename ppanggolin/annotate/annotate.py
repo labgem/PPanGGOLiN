@@ -4,6 +4,7 @@
 import argparse
 import logging
 from concurrent.futures import ProcessPoolExecutor
+from math import e
 from multiprocessing import get_context
 import os
 from pathlib import Path
@@ -651,7 +652,7 @@ def read_org_gbff(organism_name: str, gbff_file_path: Path, circular_contigs: Li
 
                     start_shift = 0 if 'codon_start' not in feature else int(feature['codon_start']) -1 # -1 is to be in zero based index. 
 
-                    coordinates = fix_partial_gene_coordinates(coordinates,is_complement=is_complement, start_shift=start_shift )
+                    coordinates = fix_partial_gene_coordinates(coordinates, is_complement=is_complement, start_shift=start_shift)
 
             strand = "-" if is_complement else "+"
 
@@ -869,12 +870,16 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                 elif fields_gff[gff_type] == 'CDS' or "RNA" in fields_gff[gff_type]:
 
                     id_attribute = get_id_attribute(attributes)
+                    locus_tag = attributes.get("LOCUS_TAG")
+                    protein_id = attributes.get("PROTEIN_ID")
+                    
+                    if locus_tag is not None:
+                        gene_id = locus_tag
 
-                    gene_id = attributes.get("PROTEIN_ID")
-                    # if there is a 'PROTEIN_ID' attribute, it's where the ncbi stores the actual gene ids, so we use that.
-                    if gene_id is None:
-                        # if it's not found, we get the one under the 'ID' field which must exist
-                        # (otherwise not a gff3 compliant file)
+                    elif protein_id is not None:
+                        gene_id = protein_id
+
+                    else:
                         gene_id = id_attribute
 
                     name = attributes.pop('NAME', attributes.pop('GENE', ""))
@@ -915,9 +920,8 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         if fields_gff[frame] in ["1", "2", "0"]:
                             gene_frame = int(fields_gff[frame])
 
-                        if id_attribute in id_attr_to_gene_id:  # the ID has already been seen at least once in this genome
-
-                            existing_gene = id_attr_to_gene_id[id_attribute]
+                        if gene_id in id_attr_to_gene_id:  # the ID has already been seen at least once in this genome
+                            existing_gene = id_attr_to_gene_id[gene_id]
                             new_gene_info = {"strand":fields_gff[gff_strand],
                                             "type":fields_gff[gff_type],
                                             "name":name,
@@ -926,7 +930,6 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                             "local_identifier":gene_id,
                                             "start": start,
                                             "stop": stop,
-                                            "ID": id_attribute,
                                             "frame":gene_frame}
 
                             check_and_add_extra_gene_part(existing_gene, new_gene_info)
@@ -935,7 +938,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
 
                         gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
 
-                        id_attr_to_gene_id[id_attribute] = gene
+                        id_attr_to_gene_id[gene_id] = gene
 
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
                         gene.fill_annotations(start=start, stop=stop,
@@ -943,6 +946,7 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                                               position=contig.number_of_genes, product=product,
                                               local_identifier=gene_id,
                                               genetic_code=genetic_code, is_partial=is_partial, frame=gene_frame)
+                        
                         gene.fill_parents(org, contig)
                         gene_counter += 1
                         contig.add(gene)
@@ -1074,13 +1078,22 @@ def check_and_add_extra_gene_part(gene: Gene, new_gene_info: Dict, max_separatio
         gene.start, gene.stop = gene.coordinates[0][0], gene.coordinates[-1][1]
 
         logging.getLogger("PPanGGOLiN").debug(
-            f"Gene {new_gene_info['ID']} is found in multiple parts. "
+            f"Gene {new_gene_info['local_identifier']} is found in multiple parts. "
             "These parts are merged into one gene. "
             f"New gene coordinates: {gene.coordinates}")
 
     else:
+        detailed_comparison = {
+            "same strand": f"{gene.strand} == {new_gene_info['strand']}: {gene.strand == new_gene_info['strand']}",
+            "same type": f"{gene.type} == {new_gene_info['type']}: {gene.type == new_gene_info['type']}",
+            "same product": f"{gene.product} == {new_gene_info['product']}: {gene.product == new_gene_info['product']}",
+            "same name": f"{gene.name} == {new_gene_info['name']}: {gene.name == new_gene_info['name']}",
+            "same local identifier": f"{gene.local_identifier} == {new_gene_info['local_identifier']}: {gene.local_identifier == new_gene_info['local_identifier']}",
+        }
+
+        
         raise ValueError(
-            f"Two genes have the same ID attributes but different info in some key attribute. {comparison}")
+            f"Two genes have the same id attributes but different info in some key attribute. {detailed_comparison}")
 
 
 def correct_putative_overlaps(contigs: Iterable[Contig]):
