@@ -139,6 +139,7 @@ jobs:
       shell: bash -l {0}
       run: |
         cd testingDataset
+        cat myannopang/gene_families.tsv | cut -f1,2,4 > clusters.tsv 
         ppanggolin panrgp --anno genomes.gbff.list --cluster clusters.tsv --output readclusterpang  --cpu $NUM_CPUS 
         ppanggolin annotate --anno genomes.gbff.list --output readclusters --cpu $NUM_CPUS
         awk 'BEGIN{FS=OFS="\t"} {$1 = $1 OFS $1} 1' clusters.tsv > clusters_with_reprez.tsv;
