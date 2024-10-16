@@ -7,8 +7,7 @@ import bz2
 import zipfile
 from typing import Generator
 
-from ppanggolin.utils import is_compressed, read_compressed_or_not, write_compressed_or_not
-
+from ppanggolin.utils import is_compressed, read_compressed_or_not, write_compressed_or_not,  has_non_ascii, replace_non_ascii
 
 class TestCompressed:
     """
@@ -157,3 +156,27 @@ class TestWriteCompressedOrNot:
             f.write("Test data")
         with open(plain_file_path, 'r') as f:
             assert f.read() == "Test data"
+
+
+# Test cases for has_non_ascii
+@pytest.mark.parametrize("input_string, expected", [
+    ("Escherichia_coli", False),  # All ASCII characters
+    ("Escherichia_colí", True),   # Contains non-ASCII character 'í'
+    ("simple_string", False),     # Simple ASCII string
+    ("Ωmega", True),              # Contains non-ASCII character 'Ω'
+    ("", False),                  # Empty string should return False
+])
+def test_has_non_ascii(input_string, expected):
+    assert has_non_ascii(input_string) == expected
+
+# Test cases for replace_non_ascii
+@pytest.mark.parametrize("input_string, replacement, expected", [
+    ("Escherichia_coli", "_", "Escherichia_coli"),  # All ASCII characters, no replacement needed
+    ("Escherichia_colí", "_", "Escherichia_col_"),  # Replace 'í' with '_'
+    ("Ωmega", "-", "-mega"),                        # Replace 'Ω' with '-'
+    ("Escherichia_Ωcoli", "X", "Escherichia_Xcoli"),# Replace 'Ω' with 'X'
+    ("", "_", ""),                                  # Empty string, no replacement
+])
+def test_replace_non_ascii(input_string, replacement, expected):
+    assert replace_non_ascii(input_string, replacement) == expected
+
