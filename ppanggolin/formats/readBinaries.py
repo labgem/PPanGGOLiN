@@ -863,6 +863,8 @@ def read_minimal_genes(pangenome: Pangenome, table: tables.Table, genedata_dict:
     :param chunk_size: Size of the chunk reading
     :param disable_bar: Disable progress bar
     """
+    logging.warning("LOADING MINIMAL INFO ON GENES")
+
     for counter, row in tqdm(enumerate(read_chunks(table, chunk=chunk_size)), total=table.nrows, unit="gene", disable=disable_bar):
         gene = Gene(row["ID"].decode())
         gene.fill_annotations(start=counter+1, stop=counter +2, strand="+",  position=counter,)
@@ -956,12 +958,12 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, load_organisms: bool
         read_contigs(pangenome, annotations.contigs, chunk_size=chunk_size, disable_bar=disable_bar)
 
     if load_genes:
-        genedata_dict = read_genedata(h5f)
+        # genedata_dict = read_genedata(h5f)
         read_minimal_genes(pangenome, annotations.genes, genedata_dict,
                    all([load_organisms, load_contigs]), chunk_size=chunk_size, disable_bar=disable_bar)
-    if load_rnas:
-        read_rnas(pangenome, annotations.RNAs, read_genedata(h5f) if genedata_dict is None else genedata_dict,
-                  all([load_organisms, load_contigs]), chunk_size=chunk_size, disable_bar=disable_bar)
+    # if load_rnas:
+    #     read_rnas(pangenome, annotations.RNAs, read_genedata(h5f) if genedata_dict is None else genedata_dict,
+    #               all([load_organisms, load_contigs]), chunk_size=chunk_size, disable_bar=disable_bar)
     pangenome.status["genomesAnnotated"] = "Loaded"
 
 
