@@ -852,6 +852,27 @@ def read_contigs(pangenome: Pangenome, table: tables.Table, chunk_size: int = 20
             organism.add(contig)
 
 
+def read_minimal_genes(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[int, Genedata],
+               link: bool = True, chunk_size: int = 20000, disable_bar: bool = False):
+    """Read genes in pangenome file to add them to the pangenome object
+
+    :param pangenome: Pangenome object
+    :param table: Genes table
+    :param genedata_dict: Dictionary to link genedata with gene
+    :param link: Allow to link gene to organism and contig
+    :param chunk_size: Size of the chunk reading
+    :param disable_bar: Disable progress bar
+    """
+    for counter, row in tqdm(enumerate(read_chunks(table, chunk=chunk_size)), total=table.nrows, unit="gene", disable=disable_bar):
+        gene = Gene(row["ID"].decode())
+        gene.fill_annotations(start=counter+1, stop=counter +2, strand="+",  position=counter,)
+        gene.is_fragment = row["is_fragment"]
+        if link:
+            contig = pangenome.get_contig(identifier=int(row["contig"]))
+            gene.fill_parents(contig.organism, contig)
+            contig.add(gene)
+
+
 def read_genes(pangenome: Pangenome, table: tables.Table, genedata_dict: Dict[int, Genedata],
                link: bool = True, chunk_size: int = 20000, disable_bar: bool = False):
     """Read genes in pangenome file to add them to the pangenome object
@@ -936,7 +957,7 @@ def read_annotation(pangenome: Pangenome, h5f: tables.File, load_organisms: bool
 
     if load_genes:
         genedata_dict = read_genedata(h5f)
-        read_genes(pangenome, annotations.genes, genedata_dict,
+        read_minimal_genes(pangenome, annotations.genes, genedata_dict,
                    all([load_organisms, load_contigs]), chunk_size=chunk_size, disable_bar=disable_bar)
     if load_rnas:
         read_rnas(pangenome, annotations.RNAs, read_genedata(h5f) if genedata_dict is None else genedata_dict,
