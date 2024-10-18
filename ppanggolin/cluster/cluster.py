@@ -475,8 +475,11 @@ def read_clustering_file(families_tsv_path: Path) -> Tuple[pd.DataFrame, bool]:
     families_df["representative"] = families_df["representative"].astype(str)
 
     # Check for duplicate gene IDs
-    if families_df["gene"].duplicated().any():
-        raise Exception("It seems that there is duplicated gene id in your clustering.")
+    duplicates = families_df[families_df["gene"].duplicated()]["gene"].unique()
+
+    if len(duplicates) > 0:
+        raise ValueError(f"Duplicate gene IDs found in your clustering: {', '.join(duplicates)}")
+
 
     return families_df[["family", "representative", "gene", "is_frag"]], families_df["is_frag"].any()
 

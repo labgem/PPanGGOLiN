@@ -222,6 +222,8 @@ class TestGene:
         assert gene._RGP is None
         assert gene.genetic_code is None
         assert gene.protein is None
+        assert gene.is_partial is False
+        assert gene._frame is None
 
     def test_fill_annotations(self, gene):
         """Tests that Gene annotations can be filled with valid parameters
@@ -237,6 +239,54 @@ class TestGene:
             gene.fill_annotations(start=1, stop=10, strand='+', position='10', genetic_code=4)
         with pytest.raises(TypeError):
             gene.fill_annotations(start=1, stop=10, strand='+', position=10, genetic_code="4")
+
+    @pytest.mark.parametrize("frame", [0, 1, 2])
+    def test_set_frame(self, frame):
+        """Tests that frame can be set
+        """
+        gene = Gene('gene')
+        gene.frame = frame
+        assert gene._frame == frame
+
+    @pytest.mark.parametrize("frame", [0, 1, 2])
+    def test_get_frame(self, frame):
+        """Tests that frame can be getting
+        """
+        gene = Gene('gene')
+        gene.frame = frame
+        assert gene.frame == frame
+
+    def test_raise_assertion_error_if_frame_not_set(self):
+        """Tests that frame cannot be return if it has not been set
+        """
+        gene = Gene('gene')
+        with pytest.raises(AssertionError):
+            _ = gene.frame
+
+    def test_raise_assertion_error_if_frame_already_set(self):
+        """Tests that frame cannot be set if it has already been set
+        """
+        gene = Gene('gene')
+        gene.frame = 1
+        with pytest.raises(AssertionError):
+            gene.frame = 2
+
+    @pytest.mark.parametrize("frame", [3, "1", 1.5])
+    def test_raise_value_error_if_frame_not_0_1_or_2(self, frame):
+        """Tests that frame cannot be set with value different from 0, 1 or 2
+        """
+        gene = Gene('gene')
+        with pytest.raises(ValueError):
+            gene.frame = frame
+
+    @pytest.mark.parametrize("frame", [0, 1, 2])
+    def test_fill_partial_gene(self, frame):
+        """Tests that Gene annotations can be filled with partial genes
+        """
+        gene = Gene('gene')
+        gene.fill_annotations(start=1, stop=10, strand='+', is_partial=True, frame=frame)
+        assert gene.is_partial is True
+        assert gene.frame == frame
 
     def test_add_protein(self, gene):
         """Tests that a protein sequence can be added to a Gene object
