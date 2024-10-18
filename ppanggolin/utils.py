@@ -1254,3 +1254,28 @@ def run_subprocess(cmd: List[str], output: Path = None, msg: str = "Subprocess f
         if output is not None:
             with open(output, 'w') as fout:
                 fout.write(result.stdout)
+
+
+
+def has_non_ascii(string_to_test: str) -> bool:
+    """
+    Check if a string contains any non-ASCII characters.
+
+    :param string_to_test: The string to check for non-ASCII characters.
+    :return: True if the string contains non-ASCII characters, False otherwise.
+    """
+    try:
+        string_to_test.encode('ascii')
+    except UnicodeEncodeError:
+        return True
+    return False
+
+def replace_non_ascii(string_with_ascii: str, replacement_string: str = "_") -> str:
+    """
+    Replace all non-ASCII characters in a string with a specified replacement string.
+
+    :param string_with_ascii: The string potentially containing non-ASCII characters.
+    :param replacement_string: The string to replace non-ASCII characters with (default is '_').
+    :return: A new string where all non-ASCII characters have been replaced.
+    """
+    return re.sub(r'[^\x00-\x7F]+', replacement_string, string_with_ascii)
