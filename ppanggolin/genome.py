@@ -12,6 +12,7 @@ import gmpy2
 from ppanggolin.metadata import MetaFeatures
 from ppanggolin.utils import get_consecutive_region_positions
 
+
 class Feature(MetaFeatures):
     """This is a general class representation of Gene, RNA
 
@@ -74,9 +75,10 @@ class Feature(MetaFeatures):
         """
 
         try:
-            return sum([(stop - start +1) for start, stop in self.coordinates ])
+            return sum([(stop - start + 1) for start, stop in self.coordinates])
         except TypeError:
-            raise ValueError(f"Coordinates of gene {self} have not been defined. Getting its length is then impossible.")
+            raise ValueError(
+                f"Coordinates of gene {self} have not been defined. Getting its length is then impossible.")
 
     @property
     def has_joined_coordinates(self) -> bool:
@@ -141,7 +143,7 @@ class Feature(MetaFeatures):
         self._contig = contig
 
     def fill_annotations(self, start: int, stop: int, strand: str, gene_type: str = "", name: str = "",
-                        product: str = "", local_identifier: str = "", coordinates: List[Tuple[int]] = None):
+                         product: str = "", local_identifier: str = "", coordinates: List[Tuple[int, int]] = None):
         """
         Fill general annotation for child classes
 
@@ -173,11 +175,13 @@ class Feature(MetaFeatures):
         if not isinstance(product, str):
             raise TypeError(f"Product should be str. Got {type(product)} instead in {self} from {self.organism}.")
         if not isinstance(local_identifier, str):
-            raise TypeError(f"Local identifier should be str. Got {type(local_identifier)} instead in {self} from {self.organism}.")
+            raise TypeError(
+                f"Local identifier should be str. Got {type(local_identifier)} instead in {self} from {self.organism}.")
         if strand not in ["+", "-"]:
             raise ValueError(f"Strand should be '+' or '-'. Got {strand} instead in {self} from {self.organism}.")
         if not isinstance(coordinates, list):
-            raise TypeError(f"Coordinates should be of type list. Got {type(coordinates)} instead in {self} from {self.organism}.")
+            raise TypeError(
+                f"Coordinates should be of type list. Got {type(coordinates)} instead in {self} from {self.organism}.")
 
         for start_i, stop_i in coordinates:
             if not isinstance(start_i, int):
@@ -185,9 +189,11 @@ class Feature(MetaFeatures):
             if not isinstance(stop_i, int):
                 raise TypeError(f"Stop should be int. Got {type(stop_i)} instead in {self} from {self.organism}.")
             if stop_i < start_i:
-                raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) should not be greater than stop ({stop_i}) in {self} from {self.organism}.")
+                raise ValueError(
+                    f"Wrong coordinates: {coordinates}. Start ({start_i}) should not be greater than stop ({stop_i}) in {self} from {self.organism}.")
             if start_i < 1 or stop_i < 1:
-                raise ValueError(f"Wrong coordinates: {coordinates}. Start ({start_i}) and stop ({stop_i}) should be greater than 0 in {self} from {self.organism}.")
+                raise ValueError(
+                    f"Wrong coordinates: {coordinates}. Start ({start_i}) and stop ({stop_i}) should be greater than 0 in {self} from {self.organism}.")
 
         self.start = start
         self.stop = stop
@@ -222,7 +228,8 @@ class Feature(MetaFeatures):
 
         :raise AssertionError: Sequence must be a string
         """
-        assert isinstance(sequence, str), f"'str' type was expected for dna sequence but you provided a '{type(sequence)}' type object"
+        assert isinstance(sequence,
+                          str), f"'str' type was expected for dna sequence but you provided a '{type(sequence)}' type object"
 
         self.dna = sequence
 
@@ -248,6 +255,7 @@ class Feature(MetaFeatures):
 
         if gene.start > self.stop:
             return self.stop + self.contig.length
+
 
 class RNA(Feature):
     """Save RNA from genome as an Object with some information for Pangenome
@@ -286,8 +294,8 @@ class Gene(Feature):
         self._RGP = None
         self.genetic_code = None
         self.protein = None
-        self.is_partial = False # is the gene a partial gene ?
-        self.frame = 0 # One of '0', '1' or '2'. '0' indicates that the first base of the feature is the first base of a codon, '1' that the second base is the first base of a codon, and so on..
+        self.is_partial = False  # is the gene a partial gene ?
+        self._frame = None  # One of '0', '1' or '2'. '0' indicates that the first base of the feature is the first base of a codon, '1' that the second base is the first base of a codon, and so on..
 
     @property
     def family(self):
@@ -351,7 +359,8 @@ class Gene(Feature):
         """
         return self.family.module
 
-    def fill_annotations(self, position: int = None, genetic_code: int = 11, is_partial:bool = False, frame:int = 0, **kwargs):
+    def fill_annotations(self, position: int = None, genetic_code: int = 11, is_partial: bool = False, frame: int = 0,
+                         **kwargs):
         """Fill Gene annotation provide by PPanGGOLiN dependencies
 
         :param position: Gene localization in genome
@@ -368,17 +377,14 @@ class Gene(Feature):
             raise TypeError("position should be an integer")
         if not isinstance(genetic_code, int):
             raise TypeError("Genetic code should be an integer")
-        
-        if frame not in [0,1,2]:
-            raise ValueError("Frame should be equal to 0, 1 or 2.")
-        
+
         if not isinstance(is_partial, bool):
             raise TypeError("partial code should be an boolean")
-        
+
         self.position = position
         self.genetic_code = genetic_code
         self.is_partial = is_partial
-        self._frame = frame
+        self.frame = frame
 
     def add_protein(self, protein: str):
         """Add a protein sequence corresponding to translated gene
@@ -397,6 +403,7 @@ class Gene(Feature):
         Get the frame of the gene
 
         """
+        assert self._frame is not None, "frame is already set and should not be set another time."
 
         return self._frame
 
@@ -406,10 +413,13 @@ class Gene(Feature):
 
         :param contig_len: length of the contig
         """
-        if frame not in [0,1,2]:
+        assert self._frame is None, "frame is already set and should not be set another time."
+
+        if frame not in [0, 1, 2]:
             raise ValueError("Frame should be equal to 0, 1 or 2.")
-        
+
         self._frame = frame
+
 
 class Contig(MetaFeatures):
     """
@@ -776,7 +786,6 @@ class Contig(MetaFeatures):
                 modules.add(module)
         yield from modules
 
-
     def get_ordered_consecutive_genes(self, genes: Iterable[Gene]) -> List[List[Gene]]:
         """
         Order the given genes considering the circularity of the contig.
@@ -787,11 +796,14 @@ class Contig(MetaFeatures):
         gene_positions = [gene.position for gene in genes]
 
         # Determine consecutive region positions
-        consecutive_region_positions = get_consecutive_region_positions(region_positions=gene_positions, contig_gene_count=self.number_of_genes)
+        consecutive_region_positions = get_consecutive_region_positions(region_positions=gene_positions,
+                                                                        contig_gene_count=self.number_of_genes)
 
-        consecutive_genes_lists = [[self[position] for position in consecutive_positions] for consecutive_positions in consecutive_region_positions]
+        consecutive_genes_lists = [[self[position] for position in consecutive_positions] for consecutive_positions in
+                                   consecutive_region_positions]
 
         return consecutive_genes_lists
+
 
 class Organism(MetaFeatures):
     """
