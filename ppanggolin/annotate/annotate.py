@@ -24,7 +24,7 @@ from ppanggolin.annotate.synta import (annotate_organism, read_fasta, get_dna_se
                                        init_contig_counter, contig_counter)
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.genome import Organism, Gene, RNA, Contig
-from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files
+from ppanggolin.utils import read_compressed_or_not, mk_file_name, detect_filetype, check_input_files, has_non_ascii, replace_non_ascii
 from ppanggolin.formats import write_pangenome
 from ppanggolin.metadata import Metadata
 
@@ -53,6 +53,8 @@ def check_annotate_args(args: argparse.Namespace):
         check_input_files(args.anno, True)
 
 
+
+
 def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: int, gene_id: str, dbxrefs: Set[str],
                 coordinates: List[Tuple[int, int]], strand: str, gene_type: str, position: int = None,
                 gene_name: str = "", product: str = "", genetic_code: int = 11, protein_id: str = "") -> Gene:
@@ -74,6 +76,15 @@ def create_gene(org: Organism, contig: Contig, gene_counter: int, rna_counter: i
     :param genetic_code: Genetic code used
     :param protein_id: Protein identifier
     """
+    # check for non ascii character in product field
+    if has_non_ascii(product):
+        
+        logging.getLogger("PPanGGOLiN").warning(
+                f"In genome '{org.name}', the 'product' field of gene '{gene_id}' contains non-ASCII characters: '{product}'. "
+                "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
+            )
+        product = replace_non_ascii(product)
+
 
     start, stop = coordinates[0][0], coordinates[-1][1]
 
@@ -889,6 +900,15 @@ def read_org_gff(organism: str, gff_file_path: Path, circular_contigs: List[str]
                         is_partial = False
 
                     product = attributes.pop('PRODUCT', "")
+                        
+                    if has_non_ascii(product):
+        
+                        logging.getLogger("PPanGGOLiN").warning(
+                                f"In genome '{organism}', the 'product' field of gene '{gene_id}' contains non-ASCII characters: '{product}'. "
+                                "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
+                            )
+                        product = replace_non_ascii(product)
+
 
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig
