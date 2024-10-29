@@ -35,7 +35,7 @@ def check_already_computed_metric(
                 "Genome fluidity has been already computed. "
                 "Use --force if you want to compute it again"
             )
-            if print_metric and not recompute:
+            if  print_metric and not recompute:
                 print_computed_metric(info_group._v_attrs["genomes_fluidity"])
             return True
     return False
