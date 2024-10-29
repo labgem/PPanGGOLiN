@@ -48,7 +48,8 @@ doc = [
     "sphinxcontrib.mermaid==0.9.2",
 ]
 test = [
-    "pytest==7"
+    "pytest==7",
+    "black==24.*"
 ]
 python_deps = [
     "tqdm==4.*",

@@ -25,7 +25,13 @@ def get_max_len_annotations(pangenome: Pangenome) -> Tuple[int, int, int, int, i
 
     :return: Maximum size of each annotation
     """
-    max_org_len, max_contig_len, max_gene_id_len, max_rna_id_len, max_gene_local_id = 1, 1, 1, 1, 1
+    max_org_len, max_contig_len, max_gene_id_len, max_rna_id_len, max_gene_local_id = (
+        1,
+        1,
+        1,
+        1,
+        1,
+    )
     for org in pangenome.organisms:
         if len(org.name) > max_org_len:
             max_org_len = len(org.name)
@@ -41,7 +47,13 @@ def get_max_len_annotations(pangenome: Pangenome) -> Tuple[int, int, int, int, i
                 if len(rna.ID) > max_rna_id_len:
                     max_rna_id_len = len(rna.ID)
 
-    return max_org_len, max_contig_len, max_gene_id_len, max_rna_id_len, max_gene_local_id
+    return (
+        max_org_len,
+        max_contig_len,
+        max_gene_id_len,
+        max_rna_id_len,
+        max_gene_local_id,
+    )
 
 
 def organism_desc(org_len: int) -> Dict[str, tables.StringCol]:
@@ -52,11 +64,16 @@ def organism_desc(org_len: int) -> Dict[str, tables.StringCol]:
 
     :return: Formatted table
     """
-    return {'name': tables.StringCol(itemsize=org_len)}
+    return {"name": tables.StringCol(itemsize=org_len)}
 
 
-def write_organisms(pangenome: Pangenome, h5f: tables.File, annotation: tables.Group,
-                    organism_desc: Dict[str, tables.StringCol], disable_bar=False):
+def write_organisms(
+    pangenome: Pangenome,
+    h5f: tables.File,
+    annotation: tables.Group,
+    organism_desc: Dict[str, tables.StringCol],
+    disable_bar=False,
+):
     """Write organisms information in the pangenome file
 
     :param pangenome: Annotated pangenome object
@@ -65,17 +82,27 @@ def write_organisms(pangenome: Pangenome, h5f: tables.File, annotation: tables.G
     :param organism_desc: Organisms table description.
     :param disable_bar: Allow disabling progress bar
     """
-    organism_table = h5f.create_table(annotation, "genomes", organism_desc,
-                                      expectedrows=pangenome.number_of_organisms)
-    logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_organisms} genomes")
+    organism_table = h5f.create_table(
+        annotation, "genomes", organism_desc, expectedrows=pangenome.number_of_organisms
+    )
+    logging.getLogger("PPanGGOLiN").debug(
+        f"Writing {pangenome.number_of_organisms} genomes"
+    )
     organism_row = organism_table.row
-    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
+    for org in tqdm(
+        pangenome.organisms,
+        total=pangenome.number_of_organisms,
+        unit="genome",
+        disable=disable_bar,
+    ):
         organism_row["name"] = org.name
         organism_row.append()
     organism_table.flush()
 
 
-def contig_desc(contig_len: int, org_len: int) -> Dict[str, Union[tables.StringCol, tables.BoolCol, tables.UInt32Col]]:
+def contig_desc(
+    contig_len: int, org_len: int
+) -> Dict[str, Union[tables.StringCol, tables.BoolCol, tables.UInt32Col]]:
     """Table description to save contig-related information
 
     :param contig_len: Maximum size of contig name
@@ -83,16 +110,22 @@ def contig_desc(contig_len: int, org_len: int) -> Dict[str, Union[tables.StringC
 
     :return: Formatted table
     """
-    return {'ID': tables.UInt32Col(),
-            'name': tables.StringCol(itemsize=contig_len),
-            "is_circular": tables.BoolCol(dflt=False),
-            'length': tables.UInt32Col(),
-            "genome": tables.StringCol(itemsize=org_len)}
+    return {
+        "ID": tables.UInt32Col(),
+        "name": tables.StringCol(itemsize=contig_len),
+        "is_circular": tables.BoolCol(dflt=False),
+        "length": tables.UInt32Col(),
+        "genome": tables.StringCol(itemsize=org_len),
+    }
 
 
-def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Group,
-                  contig_desc: Dict[str, Union[tables.StringCol, tables.BoolCol, tables.UInt32Col]],
-                  disable_bar=False):
+def write_contigs(
+    pangenome: Pangenome,
+    h5f: tables.File,
+    annotation: tables.Group,
+    contig_desc: Dict[str, Union[tables.StringCol, tables.BoolCol, tables.UInt32Col]],
+    disable_bar=False,
+):
     """Write contigs information in the pangenome file
     :param pangenome: Annotated pangenome object
     :param h5f: Pangenome file
@@ -100,10 +133,19 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
     :param contig_desc: Contigs table description
     :param disable_bar: Allow disabling progress bar
     """
-    contig_table = h5f.create_table(annotation, "contigs", contig_desc, expectedrows=pangenome.number_of_contigs)
-    logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_contigs} contigs")
+    contig_table = h5f.create_table(
+        annotation, "contigs", contig_desc, expectedrows=pangenome.number_of_contigs
+    )
+    logging.getLogger("PPanGGOLiN").debug(
+        f"Writing {pangenome.number_of_contigs} contigs"
+    )
     contig_row = contig_table.row
-    for contig in tqdm(pangenome.contigs, total=pangenome.number_of_contigs, unit="contigs", disable=disable_bar):
+    for contig in tqdm(
+        pangenome.contigs,
+        total=pangenome.number_of_contigs,
+        unit="contigs",
+        disable=disable_bar,
+    ):
         contig_row["ID"] = contig.ID
         contig_row["name"] = contig.name
         contig_row["is_circular"] = contig.is_circular
@@ -113,7 +155,9 @@ def write_contigs(pangenome: Pangenome, h5f: tables.File, annotation: tables.Gro
     contig_table.flush()
 
 
-def gene_desc(id_len: int, max_local_id: int) -> Dict[str, Union[tables.StringCol, tables.UInt32Col, tables.BoolCol]]:
+def gene_desc(
+    id_len: int, max_local_id: int
+) -> Dict[str, Union[tables.StringCol, tables.UInt32Col, tables.BoolCol]]:
     """Table description to save gene-related information
 
     :param id_len: Maximum size of gene name
@@ -121,16 +165,22 @@ def gene_desc(id_len: int, max_local_id: int) -> Dict[str, Union[tables.StringCo
 
     :return: Formatted table
     """
-    return {'ID': tables.StringCol(itemsize=id_len),
-            'genedata_id': tables.UInt32Col(),
-            'local': tables.StringCol(itemsize=max_local_id),
-            'is_fragment': tables.BoolCol(dflt=False),
-            'contig': tables.UInt32Col()}
+    return {
+        "ID": tables.StringCol(itemsize=id_len),
+        "genedata_id": tables.UInt32Col(),
+        "local": tables.StringCol(itemsize=max_local_id),
+        "is_fragment": tables.BoolCol(dflt=False),
+        "contig": tables.UInt32Col(),
+    }
 
 
-def write_genes(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group,
-                gene_desc: Dict[str, Union[tables.StringCol, tables.UInt32Col, tables.BoolCol]],
-                disable_bar=False) -> Dict[Genedata, int]:
+def write_genes(
+    pangenome: Pangenome,
+    h5f: tables.File,
+    annotation: tables.Group,
+    gene_desc: Dict[str, Union[tables.StringCol, tables.UInt32Col, tables.BoolCol]],
+    disable_bar=False,
+) -> Dict[Genedata, int]:
     """Write genes information in the pangenome file
 
     :param pangenome: Annotated pangenome object
@@ -143,10 +193,17 @@ def write_genes(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Grou
     """
     global genedata_counter
     genedata2gene = {}
-    gene_table = h5f.create_table(annotation, "genes", gene_desc, expectedrows=pangenome.number_of_genes)
+    gene_table = h5f.create_table(
+        annotation, "genes", gene_desc, expectedrows=pangenome.number_of_genes
+    )
     logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_genes} genes")
     gene_row = gene_table.row
-    for gene in tqdm(pangenome.genes, total=pangenome.number_of_genes, unit="gene", disable=disable_bar):
+    for gene in tqdm(
+        pangenome.genes,
+        total=pangenome.number_of_genes,
+        unit="gene",
+        disable=disable_bar,
+    ):
         gene_row["ID"] = gene.ID
         gene_row["is_fragment"] = gene.is_fragment
         gene_row["local"] = gene.local_identifier
@@ -171,14 +228,20 @@ def rna_desc(id_len: int) -> Dict[str, Union[tables.StringCol, tables.UInt32Col]
 
     :return: Formatted table
     """
-    return {'ID': tables.StringCol(itemsize=id_len),
-            'genedata_id': tables.UInt32Col(),
-            'contig': tables.UInt32Col()}
+    return {
+        "ID": tables.StringCol(itemsize=id_len),
+        "genedata_id": tables.UInt32Col(),
+        "contig": tables.UInt32Col(),
+    }
 
 
-def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group,
-               rna_desc: Dict[str, Union[tables.StringCol, tables.UInt32Col]],
-               disable_bar=False) -> Dict[Genedata, int]:
+def write_rnas(
+    pangenome: Pangenome,
+    h5f: tables.File,
+    annotation: tables.Group,
+    rna_desc: Dict[str, Union[tables.StringCol, tables.UInt32Col]],
+    disable_bar=False,
+) -> Dict[Genedata, int]:
     """Write RNAs information in the pangenome file
 
     :param pangenome: Annotated pangenome object
@@ -191,10 +254,14 @@ def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group
     """
     global genedata_counter
     genedata2rna = {}
-    rna_table = h5f.create_table(annotation, "RNAs", rna_desc, expectedrows=pangenome.number_of_genes)
+    rna_table = h5f.create_table(
+        annotation, "RNAs", rna_desc, expectedrows=pangenome.number_of_genes
+    )
     logging.getLogger("PPanGGOLiN").debug(f"Writing {pangenome.number_of_genes} genes")
     rna_row = rna_table.row
-    for rna in tqdm(pangenome.RNAs, total=pangenome.number_of_rnas, unit="RNA", disable=disable_bar):
+    for rna in tqdm(
+        pangenome.RNAs, total=pangenome.number_of_rnas, unit="RNA", disable=disable_bar
+    ):
         rna_row["ID"] = rna.ID
         rna_row["contig"] = rna.contig.ID
         genedata = get_genedata(rna)
@@ -209,7 +276,9 @@ def write_rnas(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group
     return genedata2rna
 
 
-def genedata_desc(type_len: int, name_len: int, product_len: int) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
+def genedata_desc(
+    type_len: int, name_len: int, product_len: int
+) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
     """
     Creates a table for gene-related data
 
@@ -219,19 +288,22 @@ def genedata_desc(type_len: int, name_len: int, product_len: int) -> Dict[str, U
     :return: Formatted table for gene metadata
     """
     return {
-        'genedata_id': tables.UInt32Col(),
-        'start': tables.UInt32Col(),
-        'stop': tables.UInt32Col(),
-        'strand': tables.StringCol(itemsize=1),
-        'gene_type': tables.StringCol(itemsize=type_len),
-        'position': tables.UInt32Col(),
-        'name': tables.StringCol(itemsize=name_len),
-        'product': tables.StringCol(itemsize=product_len),
-        'genetic_code': tables.UInt32Col(dflt=11),
-        'has_joined_coordinates':tables.BoolCol(dflt=False),
+        "genedata_id": tables.UInt32Col(),
+        "start": tables.UInt32Col(),
+        "stop": tables.UInt32Col(),
+        "strand": tables.StringCol(itemsize=1),
+        "gene_type": tables.StringCol(itemsize=type_len),
+        "position": tables.UInt32Col(),
+        "name": tables.StringCol(itemsize=name_len),
+        "product": tables.StringCol(itemsize=product_len),
+        "genetic_code": tables.UInt32Col(dflt=11),
+        "has_joined_coordinates": tables.BoolCol(dflt=False),
     }
 
-def gene_joined_coordinates_desc() -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
+
+def gene_joined_coordinates_desc() -> (
+    Dict[str, Union[tables.UIntCol, tables.StringCol]]
+):
     """
     Creates a table for gene-related data
 
@@ -241,11 +313,12 @@ def gene_joined_coordinates_desc() -> Dict[str, Union[tables.UIntCol, tables.Str
     :return: Formatted table for gene metadata
     """
     return {
-        'genedata_id': tables.UInt32Col(),
-        'start': tables.UInt32Col(),
-        'stop': tables.UInt32Col(),
-        'coordinate_rank': tables.UInt32Col(),
+        "genedata_id": tables.UInt32Col(),
+        "start": tables.UInt32Col(),
+        "stop": tables.UInt32Col(),
+        "coordinate_rank": tables.UInt32Col(),
     }
+
 
 def get_max_len_genedata(pangenome: Pangenome) -> Tuple[int, int, int]:
     """
@@ -290,10 +363,22 @@ def get_genedata(feature: Union[Gene, RNA]) -> Genedata:
     if isinstance(feature, Gene):
         position = feature.position
         genetic_code = feature.genetic_code
-    return Genedata(feature.start, feature.stop, feature.strand, feature.type, position, feature.name,
-                    feature.product, genetic_code, coordinates = feature.coordinates)
+    return Genedata(
+        feature.start,
+        feature.stop,
+        feature.strand,
+        feature.type,
+        position,
+        feature.name,
+        feature.product,
+        genetic_code,
+        coordinates=feature.coordinates,
+    )
 
-def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates_2_id, disable_bar):
+
+def write_gene_joined_coordinates(
+    h5f, annotation, genes_with_joined_coordinates_2_id, disable_bar
+):
     """Writing genedata information in pangenome file
 
     :param h5f: Pangenome file
@@ -301,34 +386,48 @@ def write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates
     :param genedata2gene: Dictionary linking genedata to gene identifier.
     :param disable_bar: Allow disabling progress bar
     """
-    number_of_gene_pieces = sum([len(gene.coordinates) for gene in genes_with_joined_coordinates_2_id])
+    number_of_gene_pieces = sum(
+        [len(gene.coordinates) for gene in genes_with_joined_coordinates_2_id]
+    )
 
     try:
         joined_coordinates_tables = annotation.joinedCoordinates
     except tables.exceptions.NoSuchNodeError:
-        joined_coordinates_tables = h5f.create_table(annotation, "joinedCoordinates", gene_joined_coordinates_desc(),
-                                            expectedrows=number_of_gene_pieces)
-        
+        joined_coordinates_tables = h5f.create_table(
+            annotation,
+            "joinedCoordinates",
+            gene_joined_coordinates_desc(),
+            expectedrows=number_of_gene_pieces,
+        )
 
-    logging.getLogger("PPanGGOLiN").debug(f"Writing {number_of_gene_pieces} piece of genes from "
-                                          f"{len(genes_with_joined_coordinates_2_id)} genes that have joined coordinates ")
-    
+    logging.getLogger("PPanGGOLiN").debug(
+        f"Writing {number_of_gene_pieces} piece of genes from "
+        f"{len(genes_with_joined_coordinates_2_id)} genes that have joined coordinates "
+    )
+
     genedata_row = joined_coordinates_tables.row
-    for genedata, genedata_id in tqdm(genes_with_joined_coordinates_2_id.items(), unit="genedata", disable=disable_bar):
+    for genedata, genedata_id in tqdm(
+        genes_with_joined_coordinates_2_id.items(), unit="genedata", disable=disable_bar
+    ):
         for index, (start, stop) in enumerate(genedata.coordinates):
 
             genedata_row["genedata_id"] = genedata_id
             genedata_row["start"] = start
             genedata_row["stop"] = stop
-            genedata_row['coordinate_rank'] = index
-        
+            genedata_row["coordinate_rank"] = index
+
             genedata_row.append()
 
     joined_coordinates_tables.flush()
 
 
-def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.Group,
-                   genedata2gene: Dict[Genedata, int], disable_bar=False):
+def write_genedata(
+    pangenome: Pangenome,
+    h5f: tables.File,
+    annotation: tables.Group,
+    genedata2gene: Dict[Genedata, int],
+    disable_bar=False,
+):
     """Writing genedata information in pangenome file
 
     :param pangenome: Pangenome object filled with annotation.
@@ -340,13 +439,21 @@ def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.G
     try:
         genedata_table = annotation.genedata
     except tables.exceptions.NoSuchNodeError:
-        genedata_table = h5f.create_table(annotation, "genedata", genedata_desc(*get_max_len_genedata(pangenome)),
-                                          expectedrows=len(genedata2gene))
+        genedata_table = h5f.create_table(
+            annotation,
+            "genedata",
+            genedata_desc(*get_max_len_genedata(pangenome)),
+            expectedrows=len(genedata2gene),
+        )
 
-    logging.getLogger("PPanGGOLiN").debug(f"Writing {len(genedata2gene)} gene-related data "
-                                          "(can be lower than the number of genes)")
+    logging.getLogger("PPanGGOLiN").debug(
+        f"Writing {len(genedata2gene)} gene-related data "
+        "(can be lower than the number of genes)"
+    )
     genedata_row = genedata_table.row
-    for genedata, genedata_id in tqdm(genedata2gene.items(), unit="genedata", disable=disable_bar):
+    for genedata, genedata_id in tqdm(
+        genedata2gene.items(), unit="genedata", disable=disable_bar
+    ):
         genedata_row["genedata_id"] = genedata_id
         genedata_row["start"] = genedata.start
         genedata_row["stop"] = genedata.stop
@@ -360,14 +467,21 @@ def write_genedata(pangenome: Pangenome,  h5f: tables.File, annotation: tables.G
         genedata_row["name"] = genedata.name
         genedata_row["product"] = genedata.product
         genedata_row["has_joined_coordinates"] = genedata.has_joined_coordinates
-        
+
         genedata_row.append()
 
     genedata_table.flush()
 
 
-def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: bool = True, rec_contigs: bool = True,
-                      rec_genes: bool = True, rec_rnas: bool = True, disable_bar: bool = False):
+def write_annotations(
+    pangenome: Pangenome,
+    h5f: tables.File,
+    rec_organisms: bool = True,
+    rec_contigs: bool = True,
+    rec_genes: bool = True,
+    rec_rnas: bool = True,
+    disable_bar: bool = False,
+):
     """Function writing all the pangenome annotations
 
     :param pangenome: Annotated pangenome
@@ -378,9 +492,13 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: boo
     :param rec_rnas: Allow writing RNAs in pangenomes
     :param disable_bar: Allow to disable progress bar
     """
-    annotation = h5f.create_group("/", "annotations", "Annotations of the pangenome organisms")
+    annotation = h5f.create_group(
+        "/", "annotations", "Annotations of the pangenome organisms"
+    )
 
-    org_len, contig_len, gene_id_len, rna_id_len, gene_local_id = get_max_len_annotations(pangenome)
+    org_len, contig_len, gene_id_len, rna_id_len, gene_local_id = (
+        get_max_len_annotations(pangenome)
+    )
 
     # I add these boolean in case we would one day only load organism, contig or genes, without the other.
 
@@ -400,10 +518,23 @@ def write_annotations(pangenome: Pangenome, h5f: tables.File, rec_organisms: boo
         genedata2rna = write_rnas(pangenome, h5f, annotation, desc, disable_bar)
         write_genedata(pangenome, h5f, annotation, genedata2rna, disable_bar)
 
-    genes_with_joined_coordinates_2_id = {gene : gene_id for gene, gene_id in genedata2gene.items() if gene.has_joined_coordinates} 
-    genes_with_joined_coordinates_2_id.update({gene : gene_id for gene, gene_id in genedata2rna.items() if gene.has_joined_coordinates})
-    
-    write_gene_joined_coordinates(h5f, annotation, genes_with_joined_coordinates_2_id, disable_bar)
+    genes_with_joined_coordinates_2_id = {
+        gene: gene_id
+        for gene, gene_id in genedata2gene.items()
+        if gene.has_joined_coordinates
+    }
+    genes_with_joined_coordinates_2_id.update(
+        {
+            gene: gene_id
+            for gene, gene_id in genedata2rna.items()
+            if gene.has_joined_coordinates
+        }
+    )
+
+    write_gene_joined_coordinates(
+        h5f, annotation, genes_with_joined_coordinates_2_id, disable_bar
+    )
+
 
 def get_gene_sequences_len(pangenome: Pangenome) -> Tuple[int, int]:
     """
@@ -421,7 +552,9 @@ def get_gene_sequences_len(pangenome: Pangenome) -> Tuple[int, int]:
     return max_gene_id_len, max_gene_type
 
 
-def gene_sequences_desc(gene_id_len: int, gene_type_len: int) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
+def gene_sequences_desc(
+    gene_id_len: int, gene_type_len: int
+) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
     """
     Create table to save gene sequences
 
@@ -433,7 +566,7 @@ def gene_sequences_desc(gene_id_len: int, gene_type_len: int) -> Dict[str, Union
     return {
         "gene": tables.StringCol(itemsize=gene_id_len),
         "seqid": tables.UInt32Col(),
-        "type": tables.StringCol(itemsize=gene_type_len)
+        "type": tables.StringCol(itemsize=gene_type_len),
     }
 
 
@@ -450,33 +583,42 @@ def get_sequence_len(pangenome: Pangenome) -> int:
     return max_seq_len
 
 
-def sequence_desc(max_seq_len: int) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
+def sequence_desc(
+    max_seq_len: int,
+) -> Dict[str, Union[tables.UIntCol, tables.StringCol]]:
     """
     Table description to save sequences
     :param max_seq_len: Maximum size of gene type
     :return: Formatted table
     """
-    return {
-        "seqid": tables.UInt32Col(),
-        "dna": tables.StringCol(itemsize=max_seq_len)
-    }
+    return {"seqid": tables.UInt32Col(), "dna": tables.StringCol(itemsize=max_seq_len)}
 
 
-def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
+def write_gene_sequences(
+    pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False
+):
     """
     Function writing all the pangenome gene sequences
     :param pangenome: Pangenome with gene sequences
     :param h5f: Pangenome HDF5 file without sequences
     :param disable_bar: Disable progress bar
     """
-    gene_seq = h5f.create_table("/annotations", "geneSequences", gene_sequences_desc(*get_gene_sequences_len(pangenome)),
-                                expectedrows=pangenome.number_of_genes)
+    gene_seq = h5f.create_table(
+        "/annotations",
+        "geneSequences",
+        gene_sequences_desc(*get_gene_sequences_len(pangenome)),
+        expectedrows=pangenome.number_of_genes,
+    )
     # process sequences to save them only once
     seq2seqid = {}
     id_counter = 0
     gene_row = gene_seq.row
-    for gene in tqdm(sorted(pangenome.genes, key=lambda x: x.ID), total=pangenome.number_of_genes, unit="gene",
-                     disable=disable_bar):
+    for gene in tqdm(
+        sorted(pangenome.genes, key=lambda x: x.ID),
+        total=pangenome.number_of_genes,
+        unit="gene",
+        disable=disable_bar,
+    ):
         curr_seq_id = seq2seqid.get(gene.dna)
         if curr_seq_id is None:
             curr_seq_id = id_counter
@@ -488,8 +630,12 @@ def write_gene_sequences(pangenome: Pangenome, h5f: tables.File, disable_bar: bo
         gene_row.append()
     gene_seq.flush()
 
-    seq_table = h5f.create_table("/annotations", "sequences", sequence_desc(get_sequence_len(pangenome)),
-                                 expectedrows=len(seq2seqid))
+    seq_table = h5f.create_table(
+        "/annotations",
+        "sequences",
+        sequence_desc(get_sequence_len(pangenome)),
+        expectedrows=len(seq2seqid),
+    )
 
     seq_row = seq_table.row
     for seq, seqid in seq2seqid.items():

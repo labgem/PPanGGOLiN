@@ -8,13 +8,13 @@ Status:
     RGP_Predicted: false
     Spots_Predicted: false
     Modules_Predicted: false
-    PPanGGOLiN_Version: 2.1.2
+    PPanGGOLiN_Version: 2.2.0
 
 Content:
-    Genes: 47961
+    Genes: 47986
     Genomes: 53
-    Families: 1084
-    Edges: 1318
+    Families: 1086
+    Edges: 1315
     Persistent:
         Family_count: 871
         min_genomes_frequency: 0.89
@@ -28,7 +28,7 @@ Content:
         sd_genomes_frequency: 0.18
         mean_genomes_frequency: 0.52
     Cloud:
-        Family_count: 157
+        Family_count: 159
         min_genomes_frequency: 0.02
         max_genomes_frequency: 0.23
         sd_genomes_frequency: 0.04

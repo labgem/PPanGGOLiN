@@ -59,7 +59,7 @@ class GeneFamily(MetaFeatures):
         """
         assert isinstance(family_id, int), "GeneFamily object id should be an integer"
         assert isinstance(name, str), "GeneFamily object name should be a string"
-        assert name != '', "GeneFamily object cannot be created with an empty name"
+        assert name != "", "GeneFamily object cannot be created with an empty name"
 
         super().__init__()
         self.name = str(name)
@@ -76,11 +76,8 @@ class GeneFamily(MetaFeatures):
         self.bitarray = None
 
     def __repr__(self) -> str:
-        """Family representation
-        """
+        """Family representation"""
         return f"{self.ID}: {self.name}"
-
-
 
     def __len__(self) -> int:
         """Get the number of genes in the family
@@ -90,7 +87,7 @@ class GeneFamily(MetaFeatures):
         return len(self._genes_getter)
 
     def __setitem__(self, identifier: str, gene: Gene):
-        """ Set gene to Gene Family
+        """Set gene to Gene Family
 
         :param identifier: ID of the gene
         :param gene: Gene object to add
@@ -102,11 +99,17 @@ class GeneFamily(MetaFeatures):
         # TODO look at change start for position
 
         if not isinstance(gene, Gene):
-            raise TypeError(f"'Gene' type was expected but you provided a '{type(gene)}' type object")
+            raise TypeError(
+                f"'Gene' type was expected but you provided a '{type(gene)}' type object"
+            )
         if not isinstance(identifier, str):
-            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+            raise TypeError(
+                f"Gene ID should be a string. You provided a '{type(identifier)}' type object"
+            )
         if identifier in self._genes_getter:
-            raise KeyError(f"Gene with name {identifier} already exists in the gene family")
+            raise KeyError(
+                f"Gene with name {identifier} already exists in the gene family"
+            )
         self._genes_getter[identifier] = gene
 
     # TODO define eq function
@@ -123,11 +126,15 @@ class GeneFamily(MetaFeatures):
         :raises KeyError: Gene with the given identifier does not exist in the contig
         """
         if not isinstance(identifier, str):
-            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+            raise TypeError(
+                f"Gene ID should be a string. You provided a '{type(identifier)}' type object"
+            )
         try:
             gene = self._genes_getter[identifier]
         except KeyError:
-            raise KeyError(f"Gene with the ID: {identifier} does not exist in the family")
+            raise KeyError(
+                f"Gene with the ID: {identifier} does not exist in the family"
+            )
         else:
             return gene
 
@@ -140,11 +147,15 @@ class GeneFamily(MetaFeatures):
         :raises KeyError: Gene with the given identifier does not exist in the contig
         """
         if not isinstance(identifier, str):
-            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+            raise TypeError(
+                f"Gene ID should be a string. You provided a '{type(identifier)}' type object"
+            )
         try:
             del self._genes_getter[identifier]
         except KeyError:
-            raise KeyError(f"Gene with the name: {identifier} does not exist in the family")
+            raise KeyError(
+                f"Gene with the name: {identifier} does not exist in the family"
+            )
 
     def add(self, gene: Gene):
         """Add a gene to the gene family, and sets the gene's :attr:family accordingly.
@@ -154,7 +165,9 @@ class GeneFamily(MetaFeatures):
         :raises TypeError: If the provided `gene` is of the wrong type
         """
         if not isinstance(gene, Gene):
-            raise TypeError(f"'Gene' type object was expected, but '{type(gene)}' type object was provided.")
+            raise TypeError(
+                f"'Gene' type object was expected, but '{type(gene)}' type object was provided."
+            )
         self[gene.ID] = gene
         gene.family = self
         if gene.organism is not None and gene.organism in self._genePerOrg:
@@ -171,7 +184,9 @@ class GeneFamily(MetaFeatures):
         :raises TypeError: If the identifier is not instance string
         """
         if not isinstance(identifier, str):
-            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+            raise TypeError(
+                f"Gene ID should be a string. You provided a '{type(identifier)}' type object"
+            )
         return self[identifier]
 
     def remove(self, identifier):
@@ -184,9 +199,10 @@ class GeneFamily(MetaFeatures):
         :raises TypeError: If the identifier is not instance string
         """
         if not isinstance(identifier, str):
-            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
+            raise TypeError(
+                f"Gene ID should be a string. You provided a '{type(identifier)}' type object"
+            )
         del self[identifier]
-
 
     @property
     def representative(self) -> Gene:
@@ -200,12 +216,12 @@ class GeneFamily(MetaFeatures):
 
     @representative.setter
     def representative(self, gene: Gene) -> None:
-        """Set the representative gene of the family
-        """
+        """Set the representative gene of the family"""
         if not isinstance(gene, Gene):
-            raise TypeError(f"Representative gene should be a Gene. Found a '{type(gene)}' type object")
+            raise TypeError(
+                f"Representative gene should be a Gene. Found a '{type(gene)}' type object"
+            )
         self._representative = gene
-
 
     def contains_gene_id(self, identifier):
         """
@@ -218,12 +234,13 @@ class GeneFamily(MetaFeatures):
         :raises TypeError: If the identifier is not instance string
         """
         if not isinstance(identifier, str):
-            raise TypeError(f"Gene ID should be a string. You provided a '{type(identifier)}' type object")
-        
+            raise TypeError(
+                f"Gene ID should be a string. You provided a '{type(identifier)}' type object"
+            )
+
         return identifier in self._genes_getter
 
-
-    #TODO define __eq__
+    # TODO define __eq__
     @property
     def partition(self):
         return self._partition if self._partition is not None else ""
@@ -250,7 +267,6 @@ class GeneFamily(MetaFeatures):
             return "shell"
         else:
             return "undefined"
-
 
     @property
     def edges(self) -> Generator[Edge, None, None]:
@@ -313,34 +329,29 @@ class GeneFamily(MetaFeatures):
 
     @property
     def number_of_neighbors(self) -> int:
-        """Get the number of neighbor for the current gene family
-        """
+        """Get the number of neighbor for the current gene family"""
         return len(self._edges_getter.keys())
 
     @property
     def number_of_edges(self) -> int:
-        """Get the number of edges for the current gene family
-        """
+        """Get the number of edges for the current gene family"""
         return len(self._edges_getter.values())
 
     @property
     def number_of_genes(self) -> int:
-        """Get the number of genes for the current gene family
-        """
+        """Get the number of genes for the current gene family"""
         return len(self._genes_getter)
 
     @property
     def number_of_organisms(self) -> int:
-        """Get the number of organisms for the current gene family
-        """
+        """Get the number of organisms for the current gene family"""
         if len(self._genePerOrg) == 0:
             _ = self.get_org_dict()
         return len(self._genePerOrg.keys())
 
     @property
     def number_of_spots(self) -> int:
-        """Get the number of spots for the current gene family
-        """
+        """Get the number of spots for the current gene family"""
         return len(self._spots)
 
     @property
@@ -361,8 +372,7 @@ class GeneFamily(MetaFeatures):
         self._edges_getter[target] = edge
 
     def get_edge(self, target: GeneFamily) -> Edge:
-        """Get the edge by the target gene family neighbor
-        """
+        """Get the edge by the target gene family neighbor"""
         return self._edges_getter[target]
 
     def add_sequence(self, seq: str):
@@ -379,7 +389,8 @@ class GeneFamily(MetaFeatures):
 
         :param spot: Spot belonging to the family
         """
-        from ppanggolin.region import Spot   # prevent circular import error
+        from ppanggolin.region import Spot  # prevent circular import error
+
         if not isinstance(spot, Spot):
             raise TypeError(f"A spot object is expected, you give a {type(spot)}")
         self._spots.add(spot)
@@ -389,12 +400,13 @@ class GeneFamily(MetaFeatures):
 
         :param module: Module belonging to the family
         """
-        from ppanggolin.region import Module   # prevent circular import error
+        from ppanggolin.region import Module  # prevent circular import error
+
         if not isinstance(module, Module):
             raise TypeError(f"A module object is expected, you give a {type(module)}")
         self._module = module
 
-    def mk_bitarray(self, index: Dict[Organism, int], partition: str = 'all'):
+    def mk_bitarray(self, index: Dict[Organism, int], partition: str = "all"):
         """Produces a bitarray representing the presence/absence of the family in the pangenome using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
@@ -402,18 +414,18 @@ class GeneFamily(MetaFeatures):
         :param partition: partition used to compute bitarray
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
-        if partition == 'all':
+        if partition == "all":
             logging.getLogger("PPanGGOLiN").debug("all")
             for org in self.organisms:
                 self.bitarray[index[org]] = 1
-        elif partition in ['shell', 'cloud']:
+        elif partition in ["shell", "cloud"]:
             logging.getLogger("PPanGGOLiN").debug("shell, cloud")
             if self.named_partition == partition:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
-        elif partition == 'accessory':
+        elif partition == "accessory":
             logging.getLogger("PPanGGOLiN").debug("accessory")
-            if self.named_partition in ['shell', 'cloud']:
+            if self.named_partition in ["shell", "cloud"]:
                 for org in self.organisms:
                     self.bitarray[index[org]] = 1
 
@@ -439,9 +451,10 @@ class GeneFamily(MetaFeatures):
         if len(self._genePerOrg) == 0:
             _ = self.get_org_dict()
         if org not in self._genePerOrg:
-            raise KeyError(f"Genome {org.name} does not have the gene family: {self.name}")
+            raise KeyError(
+                f"Genome {org.name} does not have the gene family: {self.name}"
+            )
         yield from self._genePerOrg[org]
-
 
     def is_single_copy(self, dup_margin: float, exclude_fragment: bool) -> bool:
         """
@@ -451,7 +464,7 @@ class GeneFamily(MetaFeatures):
         :param exclude_fragment: A boolean indicating whether to exclude fragments when determining single copy families.
         :return: A boolean indicating whether the gene family is single copy.
         """
-        
+
         return self.duplication_ratio(exclude_fragment) < dup_margin
 
     def duplication_ratio(self, exclude_fragment: bool) -> bool:
@@ -467,7 +480,9 @@ class GeneFamily(MetaFeatures):
         # Check if the family is in multicopy in all organisms
         for fam_genes_in_org in self.get_org_dict().values():
             if exclude_fragment:
-                genes_count = len([gene for gene in fam_genes_in_org if not gene.is_fragment])
+                genes_count = len(
+                    [gene for gene in fam_genes_in_org if not gene.is_fragment]
+                )
             else:
                 genes_count = len(fam_genes_in_org)
 
