@@ -49,7 +49,7 @@ doc = [
 ]
 test = [
     "pytest==7",
-    "black=24.*"
+    "black==24.*"
 ]
 python_deps = [
     "tqdm==4.*",
