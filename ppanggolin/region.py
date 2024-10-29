@@ -13,7 +13,11 @@ import gmpy2
 from ppanggolin.genome import Gene, Organism, Contig
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.metadata import MetaFeatures
-from ppanggolin.utils import find_region_border_position, get_consecutive_region_positions
+from ppanggolin.utils import (
+    find_region_border_position,
+    get_consecutive_region_positions,
+)
+
 
 class Region(MetaFeatures):
     """
@@ -36,6 +40,7 @@ class Region(MetaFeatures):
         - 'Starter': the first gene in the region.
         - 'stopper': the last gene in the region.
     """
+
     id_counter = 0
 
     def __init__(self, name: str):
@@ -55,7 +60,7 @@ class Region(MetaFeatures):
         self._organism = None
         self.ID = Region.id_counter
         self._spot = None
-        self.projected = False # If the rgp is from a projected genome. If true can have multiple spots
+        self.projected = False  # If the rgp is from a projected genome. If true can have multiple spots
         Region.id_counter += 1
 
     def __str__(self):
@@ -68,8 +73,7 @@ class Region(MetaFeatures):
         return f"RGP name:{self.name}"
 
     def __hash__(self) -> int:
-        """Create a hash value for the region
-        """
+        """Create a hash value for the region"""
         return id(self)
 
     def __lt__(self, obj):
@@ -89,16 +93,21 @@ class Region(MetaFeatures):
         :raises TypeError: Try to compare a region with another type object
         """
         if not isinstance(other, Region):
-            raise TypeError(f"'Region' type object was expected, but '{type(other)}' type object was provided.")
-        if [gene.family for gene in self.genes] == [gene.family for gene in other.genes]:
+            raise TypeError(
+                f"'Region' type object was expected, but '{type(other)}' type object was provided."
+            )
+        if [gene.family for gene in self.genes] == [
+            gene.family for gene in other.genes
+        ]:
             return True
-        if [gene.family for gene in self.genes] == [gene.family for gene in list(other.genes)[::-1]]:
+        if [gene.family for gene in self.genes] == [
+            gene.family for gene in list(other.genes)[::-1]
+        ]:
             return True
         return False
 
     def __len__(self) -> int:
-        """Get the number of genes in the region
-        """
+        """Get the number of genes in the region"""
         return len(self._genes_getter)
 
     def __setitem__(self, position: int, gene: Gene):
@@ -114,7 +123,9 @@ class Region(MetaFeatures):
         """
 
         if position != gene.position:
-            raise ValueError(f"The given gene position ({position}) to set the gene in the region and the position of the gene ({gene.position})  are different. ")
+            raise ValueError(
+                f"The given gene position ({position}) to set the gene in the region and the position of the gene ({gene.position})  are different. "
+            )
 
         if len(self) == 0:
             # first gene to be added to the region
@@ -123,11 +134,15 @@ class Region(MetaFeatures):
 
         if len(self) > 0:
             if gene.organism != self.organism:
-                raise ValueError(f"Gene {gene.name} is from a different genome than the first defined in RGP. "
-                                "That's not possible")
+                raise ValueError(
+                    f"Gene {gene.name} is from a different genome than the first defined in RGP. "
+                    "That's not possible"
+                )
             if gene.contig != self.contig:
-                raise ValueError(f"Gene {gene.name} is from a different contig than the first defined in RGP. "
-                                "That's not possible")
+                raise ValueError(
+                    f"Gene {gene.name} is from a different contig than the first defined in RGP. "
+                    "That's not possible"
+                )
         if position in self._genes_getter and self[position] != gene:
             raise KeyError("Another gene already exist at this position")
         self._genes_getter[position] = gene
@@ -142,18 +157,21 @@ class Region(MetaFeatures):
 
     def identify_rgp_last_and_first_genes(self):
         """
-        Identify first and last genes of the rgp by taking into account the circularity of contigs. 
+        Identify first and last genes of the rgp by taking into account the circularity of contigs.
 
         Set the attributes _starter: first gene of the region  and _stopper: last gene of the region and _coordinates
 
         """
-        rgp_genes_positions = list(self._genes_getter.keys() )
+        rgp_genes_positions = list(self._genes_getter.keys())
 
         if len(rgp_genes_positions) == 0:
-            raise ValueError(f'RGP ({self.name}) has no gene associated.')
+            raise ValueError(f"RGP ({self.name}) has no gene associated.")
 
-        gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
-        first_gene_position, last_gene_position = find_region_border_position(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
+        gene = self._genes_getter[rgp_genes_positions[0]]  # get a gene of the region
+        first_gene_position, last_gene_position = find_region_border_position(
+            region_positions=rgp_genes_positions,
+            contig_gene_count=gene.contig.number_of_genes,
+        )
 
         self._starter = self._genes_getter[first_gene_position]
         self._stopper = self._genes_getter[last_gene_position]
@@ -161,11 +179,16 @@ class Region(MetaFeatures):
         if self._starter.start > self._stopper.stop:
             # this means region is overlapping the contig edge
             if not gene.contig.is_circular:
-                raise ValueError(f'Region seems to be overlapping the contig (first gene {self._starter.position}:{self._starter.coordinates} '
-                                 f'and last gene {self._stopper.position}:{self._stopper.coordinates} ) '
-                                 f'but the contig is not circular. This is unexpected. {rgp_genes_positions}')
+                raise ValueError(
+                    f"Region seems to be overlapping the contig (first gene {self._starter.position}:{self._starter.coordinates} "
+                    f"and last gene {self._stopper.position}:{self._stopper.coordinates} ) "
+                    f"but the contig is not circular. This is unexpected. {rgp_genes_positions}"
+                )
 
-            self._coordinates = [(self._starter.start, self._starter.contig.length), (1, self._stopper.stop)]
+            self._coordinates = [
+                (self._starter.start, self._starter.contig.length),
+                (1, self._stopper.stop),
+            ]
             self._overlaps_contig_edge = True
         else:
             self._coordinates = [(self._starter.start, self._stopper.stop)]
@@ -178,16 +201,22 @@ class Region(MetaFeatures):
         :return: A list of genes ordered by their positions in the region.
         """
 
-        rgp_genes_positions = list(self._genes_getter.keys() )
+        rgp_genes_positions = list(self._genes_getter.keys())
 
-        gene = self._genes_getter[rgp_genes_positions[0]] # get a gene of the region
+        gene = self._genes_getter[rgp_genes_positions[0]]  # get a gene of the region
 
-        consecutive_region_positions = get_consecutive_region_positions(region_positions=rgp_genes_positions, contig_gene_count=gene.contig.number_of_genes)
+        consecutive_region_positions = get_consecutive_region_positions(
+            region_positions=rgp_genes_positions,
+            contig_gene_count=gene.contig.number_of_genes,
+        )
 
-        ordered_genes = [self._genes_getter[position] for ordered_positions in consecutive_region_positions for position in ordered_positions]
+        ordered_genes = [
+            self._genes_getter[position]
+            for ordered_positions in consecutive_region_positions
+            for position in ordered_positions
+        ]
 
         return ordered_genes
-
 
     def __getitem__(self, position: int) -> Gene:
         """Get the gene at the given position
@@ -201,7 +230,9 @@ class Region(MetaFeatures):
         try:
             gene = self._genes_getter[position]
         except KeyError:
-            raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
+            raise KeyError(
+                f"There is no gene at position {position} in RGP {self.name}"
+            )
         else:
             return gene
 
@@ -240,7 +271,7 @@ class Region(MetaFeatures):
         """
         Return a string representation of the coordinates
         """
-        return ','.join([f'{start}..{stop}' for start, stop in self.coordinates])
+        return ",".join([f"{start}..{stop}" for start, stop in self.coordinates])
 
     @property
     def overlaps_contig_edge(self) -> bool:
@@ -255,7 +286,7 @@ class Region(MetaFeatures):
     @spot.setter
     def spot(self, spot: Spot):
         """Sets the spot of the RGP
-        
+
         :param spot: spot to which the RGP is added
 
         :raise TypeError: if the given spot is not a Spot.
@@ -263,7 +294,9 @@ class Region(MetaFeatures):
         if isinstance(spot, Spot):
             self._spot = spot  # only 1 spot possible
         else:
-            raise TypeError(f"Unexpected class / type for {type(spot)} when adding spot to a RGP")
+            raise TypeError(
+                f"Unexpected class / type for {type(spot)} when adding spot to a RGP"
+            )
 
     def __delitem__(self, position):
         """Remove the gene at the given position
@@ -274,7 +307,9 @@ class Region(MetaFeatures):
         try:
             del self._genes_getter[position]
         except KeyError:
-            raise KeyError(f"There is no gene at position {position} in RGP {self.name}")
+            raise KeyError(
+                f"There is no gene at position {position} in RGP {self.name}"
+            )
 
     def add(self, gene: Gene):
         """Add a gene to the region
@@ -282,10 +317,12 @@ class Region(MetaFeatures):
         :param gene: Gene to add
         """
         if not isinstance(gene, Gene):
-            raise TypeError(f"Unexpected class / type for {type(gene)} "
-                            f"when adding it to a region of genomic plasticity")
+            raise TypeError(
+                f"Unexpected class / type for {type(gene)} "
+                f"when adding it to a region of genomic plasticity"
+            )
         if gene.position is None:
-            raise AttributeError(f'Gene {gene.name} is not fill with position')
+            raise AttributeError(f"Gene {gene.name} is not fill with position")
         self[gene.position] = gene
 
     def get(self, position: int) -> Gene:
@@ -298,7 +335,9 @@ class Region(MetaFeatures):
         :raises TypeError: Position is not an integer
         """
         if not isinstance(position, int):
-            raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
+            raise TypeError(
+                f"Position to get gene must be an integer. The provided type was {type(position)}"
+            )
         return self[position]
 
     def remove(self, position):
@@ -309,7 +348,9 @@ class Region(MetaFeatures):
         :raises TypeError: Position is not an integer
         """
         if not isinstance(position, int):
-            raise TypeError(f"Position to get gene must be an integer. The provided type was {type(position)}")
+            raise TypeError(
+                f"Position to get gene must be an integer. The provided type was {type(position)}"
+            )
         del self[position]
 
     @property
@@ -335,7 +376,9 @@ class Region(MetaFeatures):
 
         :return: Modules found in families of the RGP
         """
-        modules = {family.module for family in self.families if family.module is not None}
+        modules = {
+            family.module for family in self.families if family.module is not None
+        }
         return modules
 
     @property
@@ -352,11 +395,11 @@ class Region(MetaFeatures):
 
         :return: Size of the region
         """
-        return sum([(stop - start +1) for start, stop in self.coordinates])
+        return sum([(stop - start + 1) for start, stop in self.coordinates])
 
     @property
     def organism(self) -> Organism:
-        """ Get the Organism link to RGP
+        """Get the Organism link to RGP
 
         :return: Organism corresponding to the region
         """
@@ -364,7 +407,7 @@ class Region(MetaFeatures):
 
     @property
     def contig(self) -> Contig:
-        """ Get the starter contig link to RGP
+        """Get the starter contig link to RGP
 
         :return: Contig corresponding to the region
         """
@@ -372,7 +415,7 @@ class Region(MetaFeatures):
 
     @property
     def start(self) -> int:
-        """ 
+        """
         Get the starter start link to RGP
 
         :return: start position in the contig of the first gene of the RGP
@@ -381,7 +424,7 @@ class Region(MetaFeatures):
 
     @property
     def stop(self) -> int:
-        """ 
+        """
         Get the stopper stop link to RGP
 
         :return: start position in the contig of the last gene of the RGP
@@ -394,7 +437,10 @@ class Region(MetaFeatures):
 
         :return: True if whole contig else False
         """
-        if self.starter.position == 0 and self.stopper.position == self.contig.number_of_genes - 1:
+        if (
+            self.starter.position == 0
+            and self.stopper.position == self.contig.number_of_genes - 1
+        ):
             return True
         return False
 
@@ -416,16 +462,18 @@ class Region(MetaFeatures):
                 return True
         return False
 
-    def get_bordering_genes(self, n: int, multigenics: Set[GeneFamily], return_only_persistents:bool = True) -> List[List[Gene], List[Gene]]:
-        """ 
+    def get_bordering_genes(
+        self, n: int, multigenics: Set[GeneFamily], return_only_persistents: bool = True
+    ) -> List[List[Gene], List[Gene]]:
+        """
         Get the bordered genes in the region. Find the n persistent and single copy gene bordering the region.
         If return_only_persistents is False, the method return all genes included between the n single copy and persistent genes.
 
         :param n: Number of genes to get
         :param multigenics: pangenome graph multigenic persistent families
-        :param return_only_persistents: return only non multgenic persistent genes identify as the region. 
-                                        If False return all genes included between 
-                                        the borders made of n persistent and single copy genes around the region. 
+        :param return_only_persistents: return only non multgenic persistent genes identify as the region.
+                                        If False return all genes included between
+                                        the borders made of n persistent and single copy genes around the region.
 
         :return: A list of bordering genes in start and stop position
         """
@@ -435,7 +483,9 @@ class Region(MetaFeatures):
         pos = self.starter.position
         init = pos
         single_copy_persistent_count = 0
-        while single_copy_persistent_count < n and (pos != 0 or self.contig.is_circular):
+        while single_copy_persistent_count < n and (
+            pos != 0 or self.contig.is_circular
+        ):
             curr_gene = None
             if pos == 0:
                 if self.contig.is_circular:
@@ -443,11 +493,19 @@ class Region(MetaFeatures):
             else:
                 curr_gene = self.contig[pos - 1]
 
-            if curr_gene is not None and curr_gene.family not in multigenics and \
-                    curr_gene.family.named_partition == "persistent" and curr_gene not in genes_in_region:
+            if (
+                curr_gene is not None
+                and curr_gene.family not in multigenics
+                and curr_gene.family.named_partition == "persistent"
+                and curr_gene not in genes_in_region
+            ):
                 left_border.append(curr_gene)
-                single_copy_persistent_count +=1
-            elif curr_gene is not None and curr_gene not in genes_in_region and not return_only_persistents:
+                single_copy_persistent_count += 1
+            elif (
+                curr_gene is not None
+                and curr_gene not in genes_in_region
+                and not return_only_persistents
+            ):
                 left_border.append(curr_gene)
 
             pos -= 1
@@ -456,23 +514,33 @@ class Region(MetaFeatures):
             if pos == init:
                 break  # looped around the contig
 
-         # Identifying right border
+        # Identifying right border
         right_border = []
         pos = self.stopper.position
         init = pos
         single_copy_persistent_count = 0
-        while single_copy_persistent_count < n and (pos != self.contig.number_of_genes - 1 or self.contig.is_circular):
+        while single_copy_persistent_count < n and (
+            pos != self.contig.number_of_genes - 1 or self.contig.is_circular
+        ):
             curr_gene = None
             if pos == self.contig.number_of_genes - 1:
                 if self.contig.is_circular:
                     curr_gene = self.contig[0]
             else:
                 curr_gene = self.contig[pos + 1]
-            if curr_gene is not None and curr_gene.family not in multigenics and \
-                curr_gene.family.named_partition == "persistent" and curr_gene not in genes_in_region:
+            if (
+                curr_gene is not None
+                and curr_gene.family not in multigenics
+                and curr_gene.family.named_partition == "persistent"
+                and curr_gene not in genes_in_region
+            ):
                 right_border.append(curr_gene)
-                single_copy_persistent_count +=1
-            elif curr_gene is not None and curr_gene not in genes_in_region and not return_only_persistents:
+                single_copy_persistent_count += 1
+            elif (
+                curr_gene is not None
+                and curr_gene not in genes_in_region
+                and not return_only_persistents
+            ):
                 right_border.append(curr_gene)
             pos += 1
             if pos == self.contig.number_of_genes and self.contig.is_circular:
@@ -487,7 +555,7 @@ class Region(MetaFeatures):
 class Spot(MetaFeatures):
     """
     The 'Spot' class represents a region of genomic plasticity.
-    
+
     Methods:
         - 'regions': the property that generates the regions in the spot.
         - 'families': the property that generates the gene families in the spot.
@@ -509,7 +577,9 @@ class Spot(MetaFeatures):
         :param spot_id: Identifier of the spot
         """
         if not isinstance(spot_id, int):
-            raise TypeError(f"Spot identifier must be an integer. Given type is {type(spot_id)}")
+            raise TypeError(
+                f"Spot identifier must be an integer. Given type is {type(spot_id)}"
+            )
         super().__init__()
         self.ID = spot_id
         self._region_getter = {}
@@ -517,13 +587,11 @@ class Spot(MetaFeatures):
         self._uniqContent = {}
 
     def __repr__(self) -> str:
-        """Spot representation
-        """
+        """Spot representation"""
         return f"Spot {self.ID} - #RGP: {len(self)}"
 
     def __str__(self):
-        """String representation of the spot
-        """
+        """String representation of the spot"""
         return f"spot_{self.ID}"
 
     def __setitem__(self, name: str, region: Region):
@@ -542,8 +610,10 @@ class Spot(MetaFeatures):
             # where a projected RGP might link two spots in the spot graph.
             # To handle this scenario without triggering failure, we check the 'projected' attribute of the given region.
 
-            raise ValueError(f"The region '{region.name}' is already associated with spot '{region.spot.ID}' while being associated with spot '{self.ID}'. "
-                                            "A region should only belong to one spot.")
+            raise ValueError(
+                f"The region '{region.name}' is already associated with spot '{region.spot.ID}' while being associated with spot '{self.ID}'. "
+                "A region should only belong to one spot."
+            )
 
         self._region_getter[name] = region
         region.spot = self
@@ -559,7 +629,9 @@ class Spot(MetaFeatures):
         :raises TypeError: Name is not a string
         """
         if not isinstance(name, str):
-            raise TypeError(f"Name of the region must be a string. The provided type was {type(name)}")
+            raise TypeError(
+                f"Name of the region must be a string. The provided type was {type(name)}"
+            )
         try:
             region = self._region_getter[name]
         except KeyError:
@@ -576,15 +648,16 @@ class Spot(MetaFeatures):
         :raises TypeError: Name is not a string
         """
         if not isinstance(name, str):
-            raise TypeError(f"Name of the region must be a string. The provided type was {type(name)}")
+            raise TypeError(
+                f"Name of the region must be a string. The provided type was {type(name)}"
+            )
         try:
             del self._region_getter[name]
         except KeyError:
             raise KeyError(f"Region with {name} does not exist in spot")
 
     def __len__(self) -> int:
-        """Get the number of regions in the spot
-        """
+        """Get the number of regions in the spot"""
         return len(self._region_getter)
 
     def add(self, region: Region):
@@ -596,7 +669,9 @@ class Spot(MetaFeatures):
         :raises TypeError: Region is not an instance Region
         """
         if not isinstance(region, Region):
-            raise TypeError(f"A Region object is expected to be added to the spot. find type is {type(region)}")
+            raise TypeError(
+                f"A Region object is expected to be added to the spot. find type is {type(region)}"
+            )
         self[region.name] = region
 
     def get(self, name: str) -> Region:
@@ -647,26 +722,31 @@ class Spot(MetaFeatures):
         return len({family for region in self.regions for family in region.families})
 
     def spot_2_families(self):
-        """Add to Gene Families a link to spot
-        """
+        """Add to Gene Families a link to spot"""
         for family in self.families:
             family.add_spot(self)
 
-    def borders(self, set_size: int, multigenics) -> List[List[int, List[GeneFamily], List[GeneFamily]]]:
-        """ Extracts all the borders of all RGPs belonging to the spot
+    def borders(
+        self, set_size: int, multigenics
+    ) -> List[List[int, List[GeneFamily], List[GeneFamily]]]:
+        """Extracts all the borders of all RGPs belonging to the spot
 
         :param set_size: Number of genes to get
         :param multigenics: pangenome graph multigenic persistent families
 
         :return: Families that bordering spot
         """
-        all_borders = [rgp.get_bordering_genes(set_size, multigenics)
-                       for rgp in self.regions]
+        all_borders = [
+            rgp.get_bordering_genes(set_size, multigenics) for rgp in self.regions
+        ]
 
         family_borders = []
         for borders in all_borders:
             new = True
-            curr_set = [[gene.family for gene in borders[0]], [gene.family for gene in borders[1]]]
+            curr_set = [
+                [gene.family for gene in borders[0]],
+                [gene.family for gene in borders[1]],
+            ]
             for i, (c, former_borders) in enumerate(family_borders):
                 if former_borders == curr_set or former_borders == curr_set[::-1]:
                     family_borders[i][0] += 1
@@ -678,8 +758,7 @@ class Spot(MetaFeatures):
         return family_borders
 
     def _mk_uniq_ordered_set_obj(self):
-        """cluster RGP into groups that have an identical synteny
-        """
+        """cluster RGP into groups that have an identical synteny"""
         for rgp in self.regions:
             z = True
             for seen_rgp in self._uniqOrderedSet:
@@ -690,7 +769,7 @@ class Spot(MetaFeatures):
                 self._uniqOrderedSet[rgp] = {rgp}
 
     def _get_ordered_set(self) -> Dict[Region, Set[Region]]:
-        """ Creates the _uniqSyn object if it was never computed. Return it in any case
+        """Creates the _uniqSyn object if it was never computed. Return it in any case
 
         :return: RGP groups that have an identical synteny
         """
@@ -699,7 +778,7 @@ class Spot(MetaFeatures):
         return self._uniqOrderedSet
 
     def get_uniq_to_rgp(self) -> Dict[Region, Set[Region]]:
-        """ Get dictionary with a representing RGP as the key, and all identical RGPs as value
+        """Get dictionary with a representing RGP as the key, and all identical RGPs as value
 
         :return: Dictionary with a representing RGP as the key, and set of identical RGPs as value
         """
@@ -713,8 +792,7 @@ class Spot(MetaFeatures):
         return set(self._get_ordered_set().keys())
 
     def _mk_uniq_content(self):
-        """cluster RGP into groups that have identical gene content
-        """
+        """cluster RGP into groups that have identical gene content"""
         for rgp in self.regions:
             z = True
             for seen_rgp in self._uniqContent:
@@ -734,7 +812,7 @@ class Spot(MetaFeatures):
         return self._uniqContent
 
     def get_uniq_content(self) -> Set[Region]:
-        """ Get an Iterable of all the unique rgp (in terms of gene family content) in the spot
+        """Get an Iterable of all the unique rgp (in terms of gene family content) in the spot
 
         :return: Iterable of all the unique rgp (in terms of gene family content) in the spot
         """
@@ -776,7 +854,9 @@ class Module(MetaFeatures):
         :param families: Set of families which define the module
         """
         if not isinstance(module_id, int):
-            raise TypeError(f"Module identifier must be an integer. Given type is {type(module_id)}")
+            raise TypeError(
+                f"Module identifier must be an integer. Given type is {type(module_id)}"
+            )
         super().__init__()
         self.ID = module_id
         self._families_getter = {}
@@ -786,23 +866,19 @@ class Module(MetaFeatures):
                 self.add(family)
 
     def __repr__(self) -> str:
-        """Module representation
-        """
+        """Module representation"""
         return f"Module {self.ID} - #Families: {len(self)}"
 
     def __str__(self) -> str:
-        """String representation of the module
-        """
+        """String representation of the module"""
         return f"module_{self.ID}"
 
     def __hash__(self) -> int:
-        """Create a hash value for the module
-        """
+        """Create a hash value for the module"""
         return id(self)
 
     def __len__(self) -> int:
-        """Get the number of families in the module
-        """
+        """Get the number of families in the module"""
         return len(self._families_getter)
 
     def __eq__(self, other: Module) -> bool:
@@ -816,7 +892,9 @@ class Module(MetaFeatures):
         :raises TypeError: Try to compare a module with another type object
         """
         if not isinstance(other, Module):
-            raise TypeError(f"Another module is expected to be compared to the first one. You give a {type(other)}")
+            raise TypeError(
+                f"Another module is expected to be compared to the first one. You give a {type(other)}"
+            )
         return set(self.families) == set(other.families)
 
     def __setitem__(self, name: str, family: GeneFamily):
@@ -829,7 +907,9 @@ class Module(MetaFeatures):
         :raises KeyError: Another family with the same name already exists in the module
         """
         if name in self._families_getter and self[name] != family:
-            raise KeyError("A different gene family with the same name already exist in the module")
+            raise KeyError(
+                "A different gene family with the same name already exist in the module"
+            )
         self._families_getter[name] = family
         family.set_module(self)
 
@@ -845,7 +925,9 @@ class Module(MetaFeatures):
         try:
             family = self._families_getter[name]
         except KeyError:
-            raise KeyError(f"There isn't gene family with the name {name} in the module")
+            raise KeyError(
+                f"There isn't gene family with the name {name} in the module"
+            )
         else:
             return family
 
@@ -859,7 +941,9 @@ class Module(MetaFeatures):
         try:
             fam = self._families_getter[name]
         except KeyError:
-            raise KeyError(f"There isn't gene family with the name {name} in the module")
+            raise KeyError(
+                f"There isn't gene family with the name {name} in the module"
+            )
         else:
             del self._families_getter[name]
             fam._module = None  # TODO define method to remove a module from family
@@ -873,7 +957,9 @@ class Module(MetaFeatures):
         :raises TypeError: Region is not an instance Region
         """
         if not isinstance(family, GeneFamily):
-            raise TypeError(f"A gene family is expected to be added to module. Given type was {type(family)}")
+            raise TypeError(
+                f"A gene family is expected to be added to module. Given type was {type(family)}"
+            )
         self[family.name] = family
 
     def get(self, name: str) -> GeneFamily:
@@ -913,7 +999,7 @@ class Module(MetaFeatures):
             organisms |= set(fam.organisms)
         yield from organisms
 
-    def mk_bitarray(self, index: Dict[GeneFamily, int], partition: str = 'all'):
+    def mk_bitarray(self, index: Dict[GeneFamily, int], partition: str = "all"):
         """Produces a bitarray representing the presence / absence of families in the organism using the provided index
         The bitarray is stored in the :attr:`bitarray` attribute and is a :class:`gmpy2.xmpz` type.
 
@@ -921,27 +1007,29 @@ class Module(MetaFeatures):
         :param index: The index computed by :func:`ppanggolin.pangenome.Pangenome.getIndex`
         """
         self.bitarray = gmpy2.xmpz()  # pylint: disable=no-member
-        if partition == 'all':
+        if partition == "all":
             logging.getLogger("PPanGGOLiN").debug("all")
             for fam in self.families:
                 self.bitarray[index[fam]] = 1
-        elif partition == 'persistent':
+        elif partition == "persistent":
             logging.getLogger("PPanGGOLiN").debug("persistent")
             for fam in self.families:
-                if fam.named_partition in ['persistent']:
+                if fam.named_partition in ["persistent"]:
                     self.bitarray[index[fam]] = 1
-        elif partition in ['shell', 'cloud']:
+        elif partition in ["shell", "cloud"]:
             logging.getLogger("PPanGGOLiN").debug("shell, cloud")
             for fam in self.families:
                 if fam.named_partition == partition:
                     self.bitarray[index[fam]] = 1
-        elif partition == 'accessory':
+        elif partition == "accessory":
             logging.getLogger("PPanGGOLiN").debug("accessory")
             for fam in self.families:
-                if fam.named_partition in ['shell', 'cloud']:
+                if fam.named_partition in ["shell", "cloud"]:
                     self.bitarray[index[fam]] = 1
         else:
-            raise Exception("There is not any partition corresponding please report a github issue")
+            raise Exception(
+                "There is not any partition corresponding please report a github issue"
+            )
 
 
 class GeneContext:
@@ -958,7 +1046,12 @@ class GeneContext:
     - graph: context graph corresponding to the gene context
     """
 
-    def __init__(self, gc_id: int, families: Set[GeneFamily] = None, families_of_interest: Set[GeneFamily] = None):
+    def __init__(
+        self,
+        gc_id: int,
+        families: Set[GeneFamily] = None,
+        families_of_interest: Set[GeneFamily] = None,
+    ):
         """Constructor method
 
         :param gc_id: Identifier of the gene context.
@@ -967,7 +1060,9 @@ class GeneContext:
         """
 
         if not isinstance(gc_id, int):
-            raise TypeError(f"Gene context identifier must be an integer. Given type is {type(gc_id)}")
+            raise TypeError(
+                f"Gene context identifier must be an integer. Given type is {type(gc_id)}"
+            )
 
         self.ID = gc_id
         self._families_getter = {}
@@ -975,28 +1070,26 @@ class GeneContext:
         self._graph = None
         if families is not None:
             if not all(isinstance(fam, GeneFamily) for fam in families):
-                raise Exception("You provided elements that were not GeneFamily objects. "
-                                "GeneContexts are only made of GeneFamily objects.")
+                raise Exception(
+                    "You provided elements that were not GeneFamily objects. "
+                    "GeneContexts are only made of GeneFamily objects."
+                )
             self._families_getter = {family.name: family for family in families}
 
     def __repr__(self) -> str:
-        """Context representation
-        """
+        """Context representation"""
         return f"Context {self.ID} - #Families: {len(self)}"
 
     def __str__(self) -> str:
-        """String representation of the gene context
-        """
-        return f'GC_{str(self.ID)}'
+        """String representation of the gene context"""
+        return f"GC_{str(self.ID)}"
 
     def __hash__(self) -> int:
-        """Create a hash value for the region
-        """
+        """Create a hash value for the region"""
         return id(self)
 
     def __len__(self) -> int:
-        """Get the number of families in the context
-        """
+        """Get the number of families in the context"""
         return len(self._families_getter)
 
     def __eq__(self, other: GeneContext) -> bool:
@@ -1010,7 +1103,9 @@ class GeneContext:
         :raises TypeError: Try to compare a gene context with another type object
         """
         if not isinstance(other, GeneContext):
-            raise TypeError(f"Another context is expected to be compared to the first one. You give a {type(other)}")
+            raise TypeError(
+                f"Another context is expected to be compared to the first one. You give a {type(other)}"
+            )
         return set(self.families) == set(other.families)
 
     def __setitem__(self, name, family):
@@ -1023,9 +1118,13 @@ class GeneContext:
         :raises KeyError: Another family with the same name already exists in the context
         """
         if not isinstance(family, GeneFamily):
-            raise TypeError(f"A gene family is expected to be added to gene context. Given type was {type(family)}")
+            raise TypeError(
+                f"A gene family is expected to be added to gene context. Given type was {type(family)}"
+            )
         if name in self._families_getter and self[name] != family:
-            raise KeyError("A different gene family with the same name already exist in the gene context")
+            raise KeyError(
+                "A different gene family with the same name already exist in the gene context"
+            )
         self._families_getter[name] = family
 
     def __getitem__(self, name) -> GeneFamily:
@@ -1040,7 +1139,9 @@ class GeneContext:
         try:
             family = self._families_getter[name]
         except KeyError:
-            raise KeyError(f"There isn't gene family with the name {name} in the gene context")
+            raise KeyError(
+                f"There isn't gene family with the name {name} in the gene context"
+            )
         else:
             return family
 
@@ -1054,7 +1155,9 @@ class GeneContext:
         try:
             del self._families_getter[name]
         except KeyError:
-            raise KeyError(f"There isn't gene family with the name {name} in the gene context")
+            raise KeyError(
+                f"There isn't gene family with the name {name} in the gene context"
+            )
 
     @property
     def graph(self):
@@ -1089,6 +1192,8 @@ class GeneContext:
         :param family: The gene family to add.
         """
         if not isinstance(family, GeneFamily):
-            raise Exception("You did not provide a GeneFamily object. "
-                            "GeneContexts are only made of GeneFamily objects.")
+            raise Exception(
+                "You did not provide a GeneFamily object. "
+                "GeneContexts are only made of GeneFamily objects."
+            )
         self[family.name] = family

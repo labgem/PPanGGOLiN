@@ -19,7 +19,7 @@ from pyrodigal import GeneFinder, Sequence
 from ppanggolin.genome import Organism, Gene, RNA, Contig
 from ppanggolin.utils import is_compressed, read_compressed_or_not
 
-contig_counter: Value = Value('i', 0)
+contig_counter: Value = Value("i", 0)
 
 
 def init_contig_counter(value: Value):
@@ -36,8 +36,23 @@ def reverse_complement(seq: str):
     :return: reverse sequence
     """
 
-    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N', 'R': 'Y', 'Y': 'R',
-                  'S': 'S', 'W': 'W', 'K': 'M', 'M': 'K', 'B': 'V', 'V': 'B', 'D': 'H', 'H': 'D'}
+    complement = {
+        "A": "T",
+        "C": "G",
+        "G": "C",
+        "T": "A",
+        "N": "N",
+        "R": "Y",
+        "Y": "R",
+        "S": "S",
+        "W": "W",
+        "K": "M",
+        "M": "K",
+        "B": "V",
+        "V": "B",
+        "D": "H",
+        "H": "D",
+    }
     # see https://www.bioinformatics.org/sms/iupac.html for the code.
     rcseq = ""
     for i in reversed(seq):
@@ -45,7 +60,9 @@ def reverse_complement(seq: str):
     return rcseq
 
 
-def launch_aragorn(fna_file: str, org: Organism, contig_to_length: Dict[str, int]) -> defaultdict:
+def launch_aragorn(
+    fna_file: str, org: Organism, contig_to_length: Dict[str, int]
+) -> defaultdict:
     """
     Launches Aragorn to annotate tRNAs.
 
@@ -59,7 +76,7 @@ def launch_aragorn(fna_file: str, org: Organism, contig_to_length: Dict[str, int
     logging.getLogger("PPanGGOLiN").debug(f"aragorn command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=PIPE)
     # loading the whole thing, reverting it to 'pop' in order.
-    file_data = p.communicate()[0].decode().split("\n")[:: -1]
+    file_data = p.communicate()[0].decode().split("\n")[::-1]
     gene_objs = defaultdict(set)
     c = 0
     contig_name = ""
@@ -73,24 +90,40 @@ def launch_aragorn(fna_file: str, org: Organism, contig_to_length: Dict[str, int
             start, stop = map(int, ast.literal_eval(line_data[2].replace("c", "")))
             if start < 1 or stop < 1:
                 # In some case aragorn gives negative coordinates. This case is just ignored.
-                logging.warning(f'Aragorn gives non valid coordiates for a RNA gene in contig {contig_name}: {line_data}. This RNA is ignored.')
+                logging.warning(
+                    f"Aragorn gives non valid coordiates for a RNA gene in contig {contig_name}: {line_data}. This RNA is ignored."
+                )
                 continue
-            if start > contig_to_length[contig_name] or stop > contig_to_length[contig_name]:
-                logging.warning(f'Aragorn gives non valide coordiates for a RNA gene in contig {contig_name}. '
-                                f'Gene coordinates exceed contig length ({contig_to_length[contig_name]}): '
-                                f'{line_data}. This RNA is ignored.')
+            if (
+                start > contig_to_length[contig_name]
+                or stop > contig_to_length[contig_name]
+            ):
+                logging.warning(
+                    f"Aragorn gives non valide coordiates for a RNA gene in contig {contig_name}. "
+                    f"Gene coordinates exceed contig length ({contig_to_length[contig_name]}): "
+                    f"{line_data}. This RNA is ignored."
+                )
                 continue
 
             c += 1
-            gene = RNA(rna_id=locustag + '_tRNA_' + str(c).zfill(4))
-            gene.fill_annotations(start=start, stop=stop, strand="-" if line_data[2].startswith("c") else "+",
-                                  gene_type="tRNA", product=line_data[1] + line_data[4])
+            gene = RNA(rna_id=locustag + "_tRNA_" + str(c).zfill(4))
+            gene.fill_annotations(
+                start=start,
+                stop=stop,
+                strand="-" if line_data[2].startswith("c") else "+",
+                gene_type="tRNA",
+                product=line_data[1] + line_data[4],
+            )
             gene_objs[contig_name].add(gene)
     return gene_objs
 
 
-def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int = 11,
-                    use_meta: bool = False) -> defaultdict:
+def launch_prodigal(
+    contig_sequences: Dict[str, str],
+    org: Organism,
+    code: int = 11,
+    use_meta: bool = False,
+) -> defaultdict:
     """
     Launches Prodigal to annotate CDS. Takes a fna file name and a locustag to give an ID to the pred genes.
 
@@ -102,29 +135,40 @@ def launch_prodigal(contig_sequences: Dict[str, str], org: Organism, code: int =
     :return: Annotated genes in a list of gene objects
     """
     gene_objs = defaultdict(set)
-    sequences = {contig_name: Sequence(sequence) for contig_name, sequence in contig_sequences.items()}
+    sequences = {
+        contig_name: Sequence(sequence)
+        for contig_name, sequence in contig_sequences.items()
+    }
     gene_finder = GeneFinder(
         meta=use_meta,  # '-p meta' if meta is true else '-p single'
         closed=True,  # -c: Closed ends. Do not allow genes to run off edges.
         mask=True,  # -m: Treat runs of N as masked sequence; don't build genes across them.
-        min_gene=120  # This is to prevent error with mmseqs translatenucs that cut too short sequences
+        min_gene=120,  # This is to prevent error with mmseqs translatenucs that cut too short sequences
     )
 
     if not use_meta:
-        gene_finder.train(*contig_sequences.values(), force_nonsd=False,
-                          translation_table=code)  # -g: Specify a translation table to use (default 11).
+        gene_finder.train(
+            *contig_sequences.values(), force_nonsd=False, translation_table=code
+        )  # -g: Specify a translation table to use (default 11).
     gene_counter = 1
     for contig_name, sequence in sequences.items():
         for pred in gene_finder.find_genes(sequence):
             gene = Gene(gene_id=f"{org.name}_CDS_{str(gene_counter).zfill(4)}")
-            gene.fill_annotations(start=pred.begin, stop=pred.end, strand='-' if pred.strand == -1 else '+',
-                                  gene_type="CDS", genetic_code=code)
+            gene.fill_annotations(
+                start=pred.begin,
+                stop=pred.end,
+                strand="-" if pred.strand == -1 else "+",
+                gene_type="CDS",
+                genetic_code=code,
+            )
             gene_counter += 1
             gene_objs[contig_name].add(gene)
     return gene_objs
 
 
-def launch_infernal(fna_file: str, org: Organism, tmpdir: str, kingdom: str = "bacteria") -> defaultdict:
+def launch_infernal(
+    fna_file: str, org: Organism, tmpdir: str, kingdom: str = "bacteria"
+) -> defaultdict:
     """
     Launches Infernal in hmmer-only mode to annotate rRNAs.
 
@@ -138,21 +182,39 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str, kingdom: str = "b
     locustag = org.name
     modelfile = ""
     if kingdom == "bacteria":
-        modelfile = os.path.dirname(os.path.realpath(__file__)) + "/rRNA_DB/rRNA_bact.cm"
+        modelfile = (
+            os.path.dirname(os.path.realpath(__file__)) + "/rRNA_DB/rRNA_bact.cm"
+        )
     elif kingdom == "archaea":
-        modelfile = os.path.dirname(os.path.realpath(__file__)) + "/rRNA_DB/rRNA_arch.cm"
+        modelfile = (
+            os.path.dirname(os.path.realpath(__file__)) + "/rRNA_DB/rRNA_arch.cm"
+        )
 
     tmp_file = tempfile.NamedTemporaryFile(mode="r", dir=tmpdir)
-    cmd = ["cmscan", "--tblout", tmp_file.name, "--hmmonly", "--cpu", str(1), "--noali", modelfile, fna_file]
+    cmd = [
+        "cmscan",
+        "--tblout",
+        tmp_file.name,
+        "--hmmonly",
+        "--cpu",
+        str(1),
+        "--noali",
+        modelfile,
+        fna_file,
+    ]
     logging.getLogger("PPanGGOLiN").debug(f"infernal command : {' '.join(cmd)}")
     p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
     if err:
-        if err[0] == 'Error: ':
-            raise Exception(f"Infernal (cmscan) failed with error:  '{' '.join(err)}'. If you never used this script,"
-                            f" you should press the .cm file using cmpress executable from Infernal. "
-                            f"You should find the file in '{os.path.dirname(os.path.realpath(__file__))}/rRNA_DB/'.")
-        raise Exception(f"An error occurred with Infernal. Error is:  '{' '.join(err)}'.")
+        if err[0] == "Error: ":
+            raise Exception(
+                f"Infernal (cmscan) failed with error:  '{' '.join(err)}'. If you never used this script,"
+                f" you should press the .cm file using cmpress executable from Infernal. "
+                f"You should find the file in '{os.path.dirname(os.path.realpath(__file__))}/rRNA_DB/'."
+            )
+        raise Exception(
+            f"An error occurred with Infernal. Error is:  '{' '.join(err)}'."
+        )
     # never managed to test what happens if the .cm files are compressed with a 'bad' version of infernal,
     # so if that happens you are on your own.
 
@@ -163,16 +225,28 @@ def launch_infernal(fna_file: str, org: Organism, tmpdir: str, kingdom: str = "b
             c += 1
             line_data = line.split()
             strand = line_data[9]
-            start, stop = map(int, (line_data[8], line_data[7]) if strand == "-" else (line_data[7], line_data[8]))
+            start, stop = map(
+                int,
+                (
+                    (line_data[8], line_data[7])
+                    if strand == "-"
+                    else (line_data[7], line_data[8])
+                ),
+            )
             gene = RNA(rna_id=locustag + "_rRNA_" + str(c).zfill(4))
-            gene.fill_annotations(start=start, stop=stop, strand=strand, gene_type="rRNA",
-                                  product=" ".join(line_data[17:]))
+            gene.fill_annotations(
+                start=start,
+                stop=stop,
+                strand=strand,
+                gene_type="rRNA",
+                product=" ".join(line_data[17:]),
+            )
             gene_objs[line_data[2]].add(gene)
     return gene_objs
 
 
 def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str, str]:
-    """ Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
+    """Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
 
     :param org: Organism corresponding to fasta file
     :param fna_file: Input fasta file with sequences or list of each line as sequence
@@ -185,7 +259,7 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
         contig_seq = ""
         contig = None
         for line in fna_file:
-            if line.startswith('>'):
+            if line.startswith(">"):
                 if len(contig_seq) >= 1:  # contig filter = 1
                     contigs[contig.name] = contig_seq.upper()
                     contig.length = len(contig_seq)
@@ -204,12 +278,16 @@ def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str,
             contig.length = len(contig_seq)
 
     except AttributeError as e:
-        raise AttributeError(f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
-                             f"One possibility for this error is that the file did not start with a '>' "
-                             f"as it would be expected from a fna file.")
+        raise AttributeError(
+            f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
+            f"One possibility for this error is that the file did not start with a '>' "
+            f"as it would be expected from a fna file."
+        )
     except Exception as err:  # To manage other exception which can occur
-        raise Exception(f"{err}: Please check your input file and if everything looks fine, "
-                        "please post an issue on our github")
+        raise Exception(
+            f"{err}: Please check your input file and if everything looks fine, "
+            "please post an issue on our github"
+        )
     return contigs
 
 
@@ -229,15 +307,22 @@ def write_tmp_fasta(contigs: dict, tmpdir: str) -> tempfile._TemporaryFileWrappe
         tmp_file.write(f">{header}\n")
         j = 0
         while j < len(contigs[header]):
-            tmp_file.write(contigs[header][j: j + 60] + "\n")
+            tmp_file.write(contigs[header][j : j + 60] + "\n")
             j += 60
     tmp_file.flush()  # force write what remains in the buffer.
     return tmp_file
 
 
-def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, contig_sequences: Dict[str, str],
-                        tmpdir: str, norna: bool = False, kingdom: str = "bacteria",
-                        code: int = 11, use_meta: bool = False) -> defaultdict:
+def syntaxic_annotation(
+    org: Organism,
+    fasta_file: TextIOWrapper,
+    contig_sequences: Dict[str, str],
+    tmpdir: str,
+    norna: bool = False,
+    kingdom: str = "bacteria",
+    code: int = 11,
+    use_meta: bool = False,
+) -> defaultdict:
     """
     Runs the different software for the syntaxic annotation.
 
@@ -255,14 +340,23 @@ def syntaxic_annotation(org: Organism, fasta_file: TextIOWrapper, contig_sequenc
 
     # launching tools for syntaxic annotation
     genes = defaultdict(list)
-    for contig_name, genes_from_contig in launch_prodigal(contig_sequences=contig_sequences, org=org, code=code, use_meta=use_meta).items():
+    for contig_name, genes_from_contig in launch_prodigal(
+        contig_sequences=contig_sequences, org=org, code=code, use_meta=use_meta
+    ).items():
         genes[contig_name].extend(genes_from_contig)
     if not norna:
-        contig_to_length = {contig_name:len(contig_seq) for contig_name, contig_seq in contig_sequences.items()}
+        contig_to_length = {
+            contig_name: len(contig_seq)
+            for contig_name, contig_seq in contig_sequences.items()
+        }
 
-        for contig_name, genes_from_contig in launch_aragorn(fna_file=fasta_file.name, org=org, contig_to_length= contig_to_length).items():
+        for contig_name, genes_from_contig in launch_aragorn(
+            fna_file=fasta_file.name, org=org, contig_to_length=contig_to_length
+        ).items():
             genes[contig_name].extend(genes_from_contig)
-        for contig_name, genes_from_contig in launch_infernal(fna_file=fasta_file.name, org=org, kingdom=kingdom, tmpdir=tmpdir).items():
+        for contig_name, genes_from_contig in launch_infernal(
+            fna_file=fasta_file.name, org=org, kingdom=kingdom, tmpdir=tmpdir
+        ).items():
             genes[contig_name].extend(genes_from_contig)
     fasta_file.close()  # closing either tmp file or original fasta file.
     return genes
@@ -286,9 +380,17 @@ def overlap_filter(all_genes: defaultdict, allow_overlap: bool = False) -> defau
             for i, gene_i in enumerate(tmp_genes):
                 if i + 1 < len(tmp_genes):
                     gene_j = tmp_genes[i + 1]
-                    if gene_i.type != "CDS" and gene_j.type == "CDS" and gene_i.stop > gene_j.start:
+                    if (
+                        gene_i.type != "CDS"
+                        and gene_j.type == "CDS"
+                        and gene_i.stop > gene_j.start
+                    ):
                         rm_genes.add(gene_j)
-                    elif gene_i.type == "CDS" and gene_j.type != "CDS" and gene_i.stop > gene_j.start:
+                    elif (
+                        gene_i.type == "CDS"
+                        and gene_j.type != "CDS"
+                        and gene_i.stop > gene_j.start
+                    ):
                         rm_genes.add(gene_i)
 
         for gene in rm_genes:
@@ -314,14 +416,17 @@ def get_dna_sequence(contig_seq: str, gene: Union[Gene, RNA]) -> str:
     # check contig coordinate is in scope of contig seq length
     highest_position = max((stop for _, stop in gene.coordinates))
     assert highest_position <= len(
-        contig_seq), f"Coordinates of gene {gene} exceed length of the contig. Gene coordinates {gene.coordinates} vs contig length {len(contig_seq)}"
+        contig_seq
+    ), f"Coordinates of gene {gene} exceed length of the contig. Gene coordinates {gene.coordinates} vs contig length {len(contig_seq)}"
 
     # Extract gene seq
-    seq = ''.join([contig_seq[start - 1:stop] for start, stop in gene.coordinates])
+    seq = "".join([contig_seq[start - 1 : stop] for start, stop in gene.coordinates])
 
     # check length of extracted seq
-    assert len(seq) == len(gene), (f"The gene sequence of {gene} extracted from the contig does not have the expected length: "
-                                   f"extracted seq length {len(seq)}nt vs expected length based on gene coordinates ({gene.coordinates}) {len(gene)}nt ")
+    assert len(seq) == len(gene), (
+        f"The gene sequence of {gene} extracted from the contig does not have the expected length: "
+        f"extracted seq length {len(seq)}nt vs expected length based on gene coordinates ({gene.coordinates}) {len(gene)}nt "
+    )
 
     if gene.strand == "+":
         return seq
@@ -329,9 +434,17 @@ def get_dna_sequence(contig_seq: str, gene: Union[Gene, RNA]) -> str:
         return reverse_complement(seq)
 
 
-def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str], tmpdir: str,
-                      code: int = 11, norna: bool = False, kingdom: str = "bacteria",
-                      allow_overlap: bool = False, procedure: Optional[str] = None) -> Organism:
+def annotate_organism(
+    org_name: str,
+    file_name: Path,
+    circular_contigs: List[str],
+    tmpdir: str,
+    code: int = 11,
+    norna: bool = False,
+    kingdom: str = "bacteria",
+    allow_overlap: bool = False,
+    procedure: Optional[str] = None,
+) -> Organism:
     """
     Function to annotate a single organism
 
@@ -359,13 +472,16 @@ def annotate_organism(org_name: str, file_name: Path, circular_contigs: List[str
         if max_contig_len < 20000:  # case of short sequence
             use_meta = True
             logging.getLogger("PPanGGOLiN").info(
-                f"Using the metagenomic mode to predict genes for {org_name}, as all its contigs are < 20KB in size.")
+                f"Using the metagenomic mode to predict genes for {org_name}, as all its contigs are < 20KB in size."
+            )
 
         else:
             use_meta = False
     else:
         use_meta = True if procedure == "meta" else False
-    genes = syntaxic_annotation(org, fasta_file, contig_sequences, tmpdir, norna, kingdom, code, use_meta)
+    genes = syntaxic_annotation(
+        org, fasta_file, contig_sequences, tmpdir, norna, kingdom, code, use_meta
+    )
     genes = overlap_filter(genes, allow_overlap=allow_overlap)
 
     for contig_name, genes in genes.items():

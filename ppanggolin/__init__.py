@@ -39,7 +39,7 @@ SUBCOMMAND_TO_SUBPARSER = {
     "context": ppanggolin.context.subparser,
     "projection": ppanggolin.projection.subparser,
     "rgp_cluster": ppanggolin.RGP.rgp_cluster.subparser,
-    "metadata": ppanggolin.meta.subparser
+    "metadata": ppanggolin.meta.subparser,
 }
 
 

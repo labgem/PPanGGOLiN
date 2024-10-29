@@ -31,11 +31,15 @@ class Edge:
         """
         # TODO try to change for gene family ?
         if source_gene.family is None:
-            raise AttributeError(f"You cannot create a graph without gene families. "
-                                 f"gene {source_gene.ID} did not have a gene family.")
+            raise AttributeError(
+                f"You cannot create a graph without gene families. "
+                f"gene {source_gene.ID} did not have a gene family."
+            )
         if target_gene.family is None:
-            raise AttributeError(f"You cannot create a graph without gene families. "
-                                 f"gene {target_gene.ID} did not have a gene family.")
+            raise AttributeError(
+                f"You cannot create a graph without gene families. "
+                f"gene {target_gene.ID} did not have a gene family."
+            )
         self.source = source_gene.family
         self.target = target_gene.family
         self.source.set_edge(self.target, self)
@@ -77,11 +81,15 @@ class Edge:
 
     @property
     def gene_pairs(self) -> List[Tuple[Gene, Gene]]:
-        """ Get the list of all the gene pairs in the Edge
+        """Get the list of all the gene pairs in the Edge
 
         :return: A list of all the gene pairs in the Edge
         """
-        return [gene_pair for gene_list in self.get_organisms_dict().values() for gene_pair in gene_list]
+        return [
+            gene_pair
+            for gene_list in self.get_organisms_dict().values()
+            for gene_pair in gene_list
+        ]
 
     def add_genes(self, source_gene: Gene, target_gene: Gene):
         """
@@ -96,11 +104,17 @@ class Edge:
         :raises Exception: If the genes are not in the same organism.
         """
         if not isinstance(source_gene, Gene) or not isinstance(target_gene, Gene):
-            raise TypeError(f"Genes are expected to be added to edge. "
-                            f"Given type for source: {type(source_gene)} and target: {type(target_gene)}")
+            raise TypeError(
+                f"Genes are expected to be added to edge. "
+                f"Given type for source: {type(source_gene)} and target: {type(target_gene)}"
+            )
         if source_gene.organism is None or target_gene.organism is None:
-            raise ValueError("Genes are not associated to genome. It's needed to create add genes to edge")
+            raise ValueError(
+                "Genes are not associated to genome. It's needed to create add genes to edge"
+            )
         if source_gene.organism != target_gene.organism:
-            raise Exception(f"You tried to create an edge between two genes that are not even in the same genome ! "
-                            f"(genes are '{source_gene.ID}' and '{target_gene.ID}')")
+            raise Exception(
+                f"You tried to create an edge between two genes that are not even in the same genome ! "
+                f"(genes are '{source_gene.ID}' and '{target_gene.ID}')"
+            )
         self._organisms[source_gene.organism].append((source_gene, target_gene))
