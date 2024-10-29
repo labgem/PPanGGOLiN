@@ -8,6 +8,7 @@ from ppanggolin.workflow.all import launch_workflow, add_workflow_args
 
 """ a global workflow that does everything in one go. """
 
+
 def launch(args: argparse.Namespace):
     """
     Command launcher
@@ -24,7 +25,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :param sub_parser : sub_parser for all command
     :return : parser arguments for all command
     """
-    parser = sub_parser.add_parser("workflow", formatter_class=argparse.RawTextHelpFormatter)
+    parser = sub_parser.add_parser(
+        "workflow", formatter_class=argparse.RawTextHelpFormatter
+    )
 
     add_workflow_args(parser)
 

@@ -13,7 +13,9 @@ from ppanggolin.formats import read_info, read_parameters
 
 
 def print_yaml(yaml_dict: dict) -> None:
-    yaml_output = yaml.dump(yaml_dict, default_flow_style=False, sort_keys=False, indent=4)
+    yaml_output = yaml.dump(
+        yaml_dict, default_flow_style=False, sort_keys=False, indent=4
+    )
     print(yaml_output)
 
 
@@ -35,7 +37,7 @@ def read_status(h5f: tables.File):
         "RGP_Predicted": status_group._v_attrs.predictedRGP,
         "Spots_Predicted": status_group._v_attrs.predictedRGP,
         # Please confirm if this should be different from "RGP Predicted"
-        "Modules_Predicted": status_group._v_attrs.modules
+        "Modules_Predicted": status_group._v_attrs.modules,
     }
     status_to_print = {key: bool(val) for key, val in status_to_print.items()}
 
@@ -56,13 +58,21 @@ def read_metadata_status(h5f: tables.File):
     if hasattr(status_group._v_attrs, "metadata") and status_group._v_attrs.metadata:
         metastatus = status_group.metastatus
         metasources = status_group.metasources
-        metadata_info = {attr: ', '.join(metasources._v_attrs[attr]) for attr in metastatus._v_attrs._f_list()}
+        metadata_info = {
+            attr: ", ".join(metasources._v_attrs[attr])
+            for attr in metastatus._v_attrs._f_list()
+        }
 
     return {"Metadata": metadata_info}
 
 
-def print_info(pangenome: str, status: bool = False, content: bool = False, parameters: bool = False,
-               metadata: bool = False):
+def print_info(
+    pangenome: str,
+    status: bool = False,
+    content: bool = False,
+    parameters: bool = False,
+    metadata: bool = False,
+):
     """
     Main function to return information about pangenome
 
@@ -92,7 +102,9 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provide by user
     """
-    print_info(args.pangenome, args.status, args.content, args.parameters, args.metadata)
+    print_info(
+        args.pangenome, args.status, args.content, args.parameters, args.metadata
+    )
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -103,7 +115,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     :return : parser arguments for info command
     """
-    parser = sub_parser.add_parser("info", formatter_class=argparse.RawTextHelpFormatter)
+    parser = sub_parser.add_parser(
+        "info", formatter_class=argparse.RawTextHelpFormatter
+    )
     parser_info(parser)
     return parser
 
@@ -114,28 +128,58 @@ def parser_info(parser: argparse.ArgumentParser):
 
     :param parser: Parser for the 'info' argument.
     """
-    required = parser.add_argument_group(title="Required arguments",
-                                         description="Specify the following required argument:")
-    required.add_argument('-p', '--pangenome', required=True, type=Path,
-                          help="Path to the pangenome .h5 file")
+    required = parser.add_argument_group(
+        title="Required arguments",
+        description="Specify the following required argument:",
+    )
+    required.add_argument(
+        "-p",
+        "--pangenome",
+        required=True,
+        type=Path,
+        help="Path to the pangenome .h5 file",
+    )
 
-    options = parser.add_argument_group(title="Information Display Options (default: all)")
-    options.add_argument("-a", "--parameters", required=False, action="store_true",
-                         help="Display the parameters used or computed for each step of pangenome generation")
-    options.add_argument("-c", "--content", required=False, action="store_true",
-                         help="Display detailed information about the pangenome's content")
-    options.add_argument("-s", "--status", required=False, action="store_true",
-                         help="Display information about the statuses of different elements in the pangenome, "
-                              "indicating what has been computed or not")
-    options.add_argument("-m", "--metadata", required=False, action="store_true",
-                         help="Display a summary of the metadata saved in the pangenome")
+    options = parser.add_argument_group(
+        title="Information Display Options (default: all)"
+    )
+    options.add_argument(
+        "-a",
+        "--parameters",
+        required=False,
+        action="store_true",
+        help="Display the parameters used or computed for each step of pangenome generation",
+    )
+    options.add_argument(
+        "-c",
+        "--content",
+        required=False,
+        action="store_true",
+        help="Display detailed information about the pangenome's content",
+    )
+    options.add_argument(
+        "-s",
+        "--status",
+        required=False,
+        action="store_true",
+        help="Display information about the statuses of different elements in the pangenome, "
+        "indicating what has been computed or not",
+    )
+    options.add_argument(
+        "-m",
+        "--metadata",
+        required=False,
+        action="store_true",
+        help="Display a summary of the metadata saved in the pangenome",
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """To test local change and allow using debugger"""
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-        formatter_class=argparse.RawTextHelpFormatter)
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
 
     parser_info(main_parser)
     launch(main_parser.parse_args())
