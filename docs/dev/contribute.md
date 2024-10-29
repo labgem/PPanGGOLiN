@@ -11,15 +11,21 @@ For minor changes like fixing typos or making small edits, feel free to create a
 
 ## Setting Up the Development Environment
 
-1. **Fork the Repository:** Start by forking the repository to your GitHub account. 🍴
+1. **Fork the Repository:** 
+    Start by forking the repository to your GitHub account. 🍴
 
-2. **Clone the Forked Repository:** Clone your forked repository to your local machine.
+2. **Clone the Forked Repository:** 
+    Clone your forked repository to your local machine.
 
 3. **Get an Environment:** Create an environment with all PPanGGOLiN prerequisites installed. For that, you can follow installation instructions [here](../user/install.md#installing-from-source-code-github).
 
-4. **Branch from 'dev':** Begin your changes from the 'dev' branch, where we incorporate changes for the upcoming release.
+4. **Branch from 'dev':** 
+    Begin your changes from the 'dev' branch, where we incorporate changes for the upcoming release.
 
-5. **Install in Editable Mode:** To enable code editing and testing of new functionality, you can install PPanGGOLiN in editable mode using the following command:
+
+5. **Install in Editable Mode:** 
+
+    To enable code editing and testing of new functionality, you can install PPanGGOLiN in editable mode using the following command:
 
     ```bash
     pip install -e .
@@ -27,7 +33,8 @@ For minor changes like fixing typos or making small edits, feel free to create a
 
     This allows you to modify the code and experiment with new features directly. 
 
-6. **Apply Code Formatting with Black:** We have integrated Black as our code formatter to maintain consistent styling. Code changes are automatically checked via a GitHub Action in our CI, so ensure your code is formatted with Black before committing.
+6. **Apply Code Formatting with Black:** 
+    We have integrated [Black](https://github.com/psf/black)  as our code formatter to maintain consistent styling. Code changes are automatically checked via a GitHub Action in our CI, so **ensure your code is formatted with Black before committing**.
 
 
     ```{tip}
