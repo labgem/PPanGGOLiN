@@ -795,6 +795,7 @@ def annotate_input_genes_with_pangenome_families(
                 identity=identity,
                 coverage=coverage,
                 translation_table=translation_table,
+                disable_bar=disable_bar,
             )
         else:
             _, seqid_to_gene_family = get_input_seq_to_family_with_all(
