@@ -823,7 +823,7 @@ def read_org_gbff(
         contig.add_metadata(Metadata(source="annotation_file", **metadata_dict))
 
     if used_transl_table_arg:
-        logging.getLogger("PPanGGOLiN").info(
+        logging.getLogger("PPanGGOLiN").debug(
             f"transl_table tag was not found for {used_transl_table_arg} CDS "
             f"in {gbff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
         )
