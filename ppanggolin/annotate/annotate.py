@@ -1120,9 +1120,9 @@ def read_org_gff(
                             gene_frame = int(fields_gff[frame])
 
                         if (
-                            gene_id in id_attr_to_gene_id
+                            id_attribute in id_attr_to_gene_id
                         ):  # the ID has already been seen at least once in this genome
-                            existing_gene = id_attr_to_gene_id[gene_id]
+                            existing_gene = id_attr_to_gene_id[id_attribute]
                             new_gene_info = {
                                 "strand": fields_gff[gff_strand],
                                 "type": fields_gff[gff_type],
@@ -1141,7 +1141,7 @@ def read_org_gff(
 
                         gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
 
-                        id_attr_to_gene_id[gene_id] = gene
+                        id_attr_to_gene_id[id_attribute] = gene
 
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
                         gene.fill_annotations(
