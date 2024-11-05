@@ -1220,7 +1220,7 @@ def read_org_gff(
         add_metadata_from_gff_file(contig_name_to_region_info, org, gff_file_path)
 
     if used_transl_table_arg:
-        logging.getLogger("PPanGGOLiN").info(
+        logging.getLogger("PPanGGOLiN").debug(
             f"transl_table tag was not found for {used_transl_table_arg} CDS "
             f"in {gff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
         )
