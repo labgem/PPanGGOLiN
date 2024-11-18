@@ -245,29 +245,68 @@ def launch_infernal(
     return gene_objs
 
 
+def check_sequence_tuple(name: str, sequence: str):
+    """
+    Checks and validates a sequence name and its corresponding sequence.
+
+    :param name: The name (header) of the sequence, typically extracted from the FASTA file header.
+    :param sequence: The sequence string corresponding to the name, containing the nucleotide or protein sequence.
+
+    :return: A tuple containing the validated name and sequence.
+
+    :raises ValueError:
+        - If the sequence is empty, a ValueError is raised with a message containing the header name.
+        - If the name is empty, a ValueError is raised with a message containing a preview of the sequence.
+    """
+    if not sequence:
+        raise ValueError(f"Found an empty sequence with header '{name}'")
+
+    if not name:
+        raise ValueError(
+            f"Found a sequence with empty name (sequence starts as '{sequence[:60]}')"
+        )
+
+    return name, sequence
+
+
 def parse_fasta(
     fna_file: Union[TextIOWrapper, list]
 ) -> Generator[Tuple[str, str], None, None]:
-    """Yields each header and sequence from a FASTA file or stream as a tuple.
+    """Yields each sequence name and sequence from a FASTA file or stream as a tuple.
 
     :param fna_file: Input FASTA file or list of lines as sequences.
     :yield: Tuple with contig header (without '>') and sequence.
+    :raises ValueError: If the file does not contain valid FASTA format.
     """
-    header = None
-    sequence = []
+    name = None
+    sequence = ""
 
     for line in fna_file:
         line = line.strip()
-        if line.startswith(">"):  # New header
-            if header:  # Yield previous header and sequence
-                yield (header, "".join(sequence))
-            header = line[1:]  # Strip '>'
-            sequence = []
-        else:
-            sequence.append(line)
 
-    if header:  # Yield the final contig
-        yield (header, "".join(sequence))
+        if line.startswith(">"):  # New header
+            if name:  # Yield previous header and sequence if available
+                yield check_sequence_tuple(name, sequence)
+
+            name = line[1:].split()[
+                0
+            ]  # Strip '>' and extract the first word as the name
+            sequence = ""
+
+        elif line:  # Only append non-empty lines
+            sequence += line
+
+        else:
+            # You can skip or handle empty lines here if required
+            pass
+
+    # Yield the final contig if exists
+    if name:
+        yield check_sequence_tuple(name, sequence)
+
+    # Check if there was any valid data (at least one header and sequence)
+    if not name:
+        raise ValueError("The file does not contain any valid FASTA content.")
 
 
 def get_contigs_from_fasta_file(
@@ -283,8 +322,7 @@ def get_contigs_from_fasta_file(
     global contig_counter
     contigs = {}
 
-    for header, sequence in parse_fasta(fna_file):
-        contig_name = header.split()[0]
+    for contig_name, sequence in parse_fasta(fna_file):
 
         # Retrieve or create the contig
         try:
