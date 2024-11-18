@@ -1034,12 +1034,10 @@ def read_org_gff(
                             dbxref_metadata
                         )
 
-                    if fields_gff[gff_seqname] in circular_contigs or (
+                    if contig is not None and (
                         "IS_CIRCULAR" in attributes
                         and attributes["IS_CIRCULAR"] == "true"
                     ):
-                        # WARNING: In case we have prodigal gff with is_circular attributes.
-                        # This would fail as contig is not defined. However, is_circular should not be found in prodigal gff
                         logging.getLogger("PPanGGOLiN").debug(
                             f"Contig {contig.name} is circular."
                         )
@@ -1201,6 +1199,7 @@ def read_org_gff(
         contig_sequences = get_contigs_from_fasta_file(org, fasta_string.split("\n"))
 
         correct_putative_overlaps(org.contigs)
+
         for contig in org.contigs:
 
             for gene in contig.genes:
@@ -1610,6 +1609,14 @@ def get_gene_sequences_from_fastas(
             )
         with read_compressed_or_not(Path(elements[1])) as currFastaFile:
             fasta_dict[org] = get_contigs_from_fasta_file(org, currFastaFile)
+
+            # When dealing with GFF files, some genes may have coordinates extending beyond the actual
+            # length of contigs, especially when they overlap the edges. This usually needs to be split
+            # into two parts to handle the circular genome wrapping.
+            # If the GFF file lacks associated FASTA sequences and it was not possible to determine the
+            # contig length from the GFF file, we must apply this correction while parsing the external FASTA file.
+
+            correct_putative_overlaps(org.contigs)
 
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(
