@@ -1034,15 +1034,22 @@ def read_org_gff(
                             dbxref_metadata
                         )
 
-                    if contig is not None and (
+                    if (
                         "IS_CIRCULAR" in attributes
                         and attributes["IS_CIRCULAR"] == "true"
                     ):
-                        logging.getLogger("PPanGGOLiN").debug(
-                            f"Contig {contig.name} is circular."
-                        )
-                        contig.is_circular = True
-                        assert contig.name == fields_gff[gff_seqname]
+                        contig_name = fields_gff[gff_seqname]
+
+                        if contig is not None:
+                            logging.getLogger("PPanGGOLiN").debug(
+                                f"Contig {contig.name} is circular."
+                            )
+                            contig.is_circular = True
+                            assert contig.name == contig_name
+                        else:
+                            # contig object has not been initialized yet.
+                            # let's keep the circularity info in the circular_contigs list
+                            circular_contigs.append(contig_name)
 
                 elif fields_gff[gff_type] == "CDS" or "RNA" in fields_gff[gff_type]:
 
