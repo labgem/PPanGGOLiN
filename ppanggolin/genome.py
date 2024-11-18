@@ -553,8 +553,6 @@ class Contig(MetaFeatures):
     @property
     def length(self) -> Union[int, None]:
         """Get the length of the contig"""
-        if self._length is None:
-            logging.getLogger("PPanGGOLiN").warning("Contig length is unknown")
         return self._length
 
     @length.setter
