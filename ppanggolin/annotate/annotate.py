@@ -22,7 +22,7 @@ from tables.path import check_name_validity, NaturalNameWarning
 # local libraries
 from ppanggolin.annotate.synta import (
     annotate_organism,
-    read_fasta,
+    get_contigs_from_fasta_file,
     get_dna_sequence,
     init_contig_counter,
     contig_counter,
@@ -1182,9 +1182,6 @@ def read_org_gff(
                         rna_counter += 1
                         contig.add_rna(rna)
 
-    # Correct coordinates of genes that overlap the edge of circulars contig
-    correct_putative_overlaps(org.contigs)
-
     # Fix partial genes coordinates
     for contig in org.contigs:
         for gene in contig.genes:
@@ -1201,14 +1198,10 @@ def read_org_gff(
         has_fasta = False
 
     if has_fasta:
-        contig_sequences = read_fasta(
-            org, fasta_string.split("\n")
-        )  # _ is total contig length
+        contig_sequences = get_contigs_from_fasta_file(org, fasta_string.split("\n"))
+
+        correct_putative_overlaps(org.contigs)
         for contig in org.contigs:
-            if contig.length != len(contig_sequences[contig.name]):
-                raise ValueError(
-                    "The contig length defined is different than the sequence length"
-                )
 
             for gene in contig.genes:
                 gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
@@ -1616,7 +1609,7 @@ def get_gene_sequences_from_fastas(
                 f"your fasta file are different."
             )
         with read_compressed_or_not(Path(elements[1])) as currFastaFile:
-            fasta_dict[org] = read_fasta(org, currFastaFile)
+            fasta_dict[org] = get_contigs_from_fasta_file(org, currFastaFile)
 
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(

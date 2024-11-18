@@ -9,7 +9,7 @@ from multiprocessing import Value
 from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Generator, Tuple
 from pathlib import Path
 
 # install libraries
@@ -245,49 +245,65 @@ def launch_infernal(
     return gene_objs
 
 
-def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str, str]:
-    """Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
+def parse_fasta(
+    fna_file: Union[TextIOWrapper, list]
+) -> Generator[Tuple[str, str], None, None]:
+    """Yields each header and sequence from a FASTA file or stream as a tuple.
 
-    :param org: Organism corresponding to fasta file
-    :param fna_file: Input fasta file with sequences or list of each line as sequence
-
-    :return: Dictionary with contig_name as keys and contig sequence in values
+    :param fna_file: Input FASTA file or list of lines as sequences.
+    :yield: Tuple with contig header (without '>') and sequence.
     """
-    global contig_counter
-    try:
-        contigs = {}
-        contig_seq = ""
-        contig = None
-        for line in fna_file:
-            if line.startswith(">"):
-                if len(contig_seq) >= 1:  # contig filter = 1
-                    contigs[contig.name] = contig_seq.upper()
-                    contig.length = len(contig_seq)
-                contig_seq = ""
-                try:
-                    contig = org.get(line.split()[0][1:])
-                except KeyError:
-                    with contig_counter.get_lock():
-                        contig = Contig(contig_counter.value, line.split()[0][1:])
-                        contig_counter.value += 1
-                    org.add(contig)
-            else:
-                contig_seq += line.strip()
-        if len(contig_seq) >= 1:  # processing the last contig
-            contigs[contig.name] = contig_seq.upper()
-            contig.length = len(contig_seq)
+    header = None
+    sequence = []
 
-    except AttributeError as e:
-        raise AttributeError(
-            f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
-            f"One possibility for this error is that the file did not start with a '>' "
-            f"as it would be expected from a fna file."
-        )
-    except Exception as err:  # To manage other exception which can occur
-        raise Exception(
-            f"{err}: Please check your input file and if everything looks fine, "
-            "please post an issue on our github"
-        )
+    for line in fna_file:
+        line = line.strip()
+        if line.startswith(">"):  # New header
+            if header:  # Yield previous header and sequence
+                yield (header, "".join(sequence))
+            header = line[1:]  # Strip '>'
+            sequence = []
+        else:
+            sequence.append(line)
+
+    if header:  # Yield the final contig
+        yield (header, "".join(sequence))
+
+
+def get_contigs_from_fasta_file(
+    org: Organism, fna_file: Union[TextIOWrapper, list]
+) -> Dict[str, str]:
+    """Processes contigs from a parsed FASTA generator and stores in a dictionary.
+
+    :param org: Organism instance to update with contig info.
+    :param fna_file: Input FASTA file or list of lines as sequences.
+    :return: Dictionary with contig names as keys and sequences as values.
+    """
+
+    global contig_counter
+    contigs = {}
+
+    for header, sequence in parse_fasta(fna_file):
+        contig_name = header.split()[0]
+
+        # Retrieve or create the contig
+        try:
+            contig = org.get(contig_name)
+        except KeyError:
+            with contig_counter.get_lock():
+                contig = Contig(contig_counter.value, contig_name)
+                contig_counter.value += 1
+            org.add(contig)
+
+        # Update contig information
+        if contig.length is not None and contig.length != len(sequence):
+            raise ValueError(
+                f"Length mismatch for contig {contig_name}: expected {contig.length}, found {len(sequence)} from the fasta sequence."
+            )
+
+        contig.length = len(sequence)
+        contigs[contig_name] = sequence.upper()
+
     return contigs
 
 
@@ -464,7 +480,7 @@ def annotate_organism(
 
     fasta_file = read_compressed_or_not(file_name)
 
-    contig_sequences = read_fasta(org, fasta_file)
+    contig_sequences = get_contigs_from_fasta_file(org, fasta_file)
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
     if procedure is None:  # prodigal procedure is not force by user
