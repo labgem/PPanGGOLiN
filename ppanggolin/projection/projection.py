@@ -20,7 +20,7 @@ import networkx as nx
 import yaml
 
 # # local libraries
-from ppanggolin.annotate.synta import read_fasta, get_dna_sequence
+from ppanggolin.annotate.synta import get_contigs_from_fasta_file, get_dna_sequence
 from ppanggolin.annotate.annotate import (
     init_contig_counter,
     read_anno_file,
@@ -679,7 +679,7 @@ def get_gene_sequences_from_fasta_files(organisms, genome_name_to_annot_path):
         org_fasta_file = genome_name_to_annot_path[org.name]["path"]
 
         with read_compressed_or_not(org_fasta_file) as currFastaFile:
-            org_contig_to_seq = read_fasta(org, currFastaFile)
+            org_contig_to_seq = get_contigs_from_fasta_file(org, currFastaFile)
 
         for contig in org.contigs:
             try:
@@ -997,7 +997,7 @@ def retrieve_gene_sequences_from_fasta_file(input_organism, fasta_file):
     """
 
     with read_compressed_or_not(fasta_file) as currFastaFile:
-        contig_id2seq = read_fasta(input_organism, currFastaFile)
+        contig_id2seq = get_contigs_from_fasta_file(input_organism, currFastaFile)
 
     for contig in input_organism.contigs:
         try:

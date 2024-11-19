@@ -22,7 +22,7 @@ from tables.path import check_name_validity, NaturalNameWarning
 # local libraries
 from ppanggolin.annotate.synta import (
     annotate_organism,
-    read_fasta,
+    get_contigs_from_fasta_file,
     get_dna_sequence,
     init_contig_counter,
     contig_counter,
@@ -1034,17 +1034,22 @@ def read_org_gff(
                             dbxref_metadata
                         )
 
-                    if fields_gff[gff_seqname] in circular_contigs or (
+                    if (
                         "IS_CIRCULAR" in attributes
                         and attributes["IS_CIRCULAR"] == "true"
                     ):
-                        # WARNING: In case we have prodigal gff with is_circular attributes.
-                        # This would fail as contig is not defined. However, is_circular should not be found in prodigal gff
-                        logging.getLogger("PPanGGOLiN").debug(
-                            f"Contig {contig.name} is circular."
-                        )
-                        contig.is_circular = True
-                        assert contig.name == fields_gff[gff_seqname]
+                        contig_name = fields_gff[gff_seqname]
+
+                        if contig is not None:
+                            logging.getLogger("PPanGGOLiN").debug(
+                                f"Contig {contig.name} is circular."
+                            )
+                            contig.is_circular = True
+                            assert contig.name == contig_name
+                        else:
+                            # contig object has not been initialized yet.
+                            # let's keep the circularity info in the circular_contigs list
+                            circular_contigs.append(contig_name)
 
                 elif fields_gff[gff_type] == "CDS" or "RNA" in fields_gff[gff_type]:
 
@@ -1120,9 +1125,9 @@ def read_org_gff(
                             gene_frame = int(fields_gff[frame])
 
                         if (
-                            gene_id in id_attr_to_gene_id
+                            id_attribute in id_attr_to_gene_id
                         ):  # the ID has already been seen at least once in this genome
-                            existing_gene = id_attr_to_gene_id[gene_id]
+                            existing_gene = id_attr_to_gene_id[id_attribute]
                             new_gene_info = {
                                 "strand": fields_gff[gff_strand],
                                 "type": fields_gff[gff_type],
@@ -1141,7 +1146,7 @@ def read_org_gff(
 
                         gene = Gene(org.name + "_CDS_" + str(gene_counter).zfill(4))
 
-                        id_attr_to_gene_id[gene_id] = gene
+                        id_attr_to_gene_id[id_attribute] = gene
 
                         # here contig is filled in order, so position is the number of genes already stored in the contig.
                         gene.fill_annotations(
@@ -1182,9 +1187,6 @@ def read_org_gff(
                         rna_counter += 1
                         contig.add_rna(rna)
 
-    # Correct coordinates of genes that overlap the edge of circulars contig
-    correct_putative_overlaps(org.contigs)
-
     # Fix partial genes coordinates
     for contig in org.contigs:
         for gene in contig.genes:
@@ -1201,14 +1203,11 @@ def read_org_gff(
         has_fasta = False
 
     if has_fasta:
-        contig_sequences = read_fasta(
-            org, fasta_string.split("\n")
-        )  # _ is total contig length
+        contig_sequences = get_contigs_from_fasta_file(org, fasta_string.split("\n"))
+
+        correct_putative_overlaps(org.contigs)
+
         for contig in org.contigs:
-            if contig.length != len(contig_sequences[contig.name]):
-                raise ValueError(
-                    "The contig length defined is different than the sequence length"
-                )
 
             for gene in contig.genes:
                 gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
@@ -1220,7 +1219,7 @@ def read_org_gff(
         add_metadata_from_gff_file(contig_name_to_region_info, org, gff_file_path)
 
     if used_transl_table_arg:
-        logging.getLogger("PPanGGOLiN").info(
+        logging.getLogger("PPanGGOLiN").debug(
             f"transl_table tag was not found for {used_transl_table_arg} CDS "
             f"in {gff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
         )
@@ -1616,7 +1615,15 @@ def get_gene_sequences_from_fastas(
                 f"your fasta file are different."
             )
         with read_compressed_or_not(Path(elements[1])) as currFastaFile:
-            fasta_dict[org] = read_fasta(org, currFastaFile)
+            fasta_dict[org] = get_contigs_from_fasta_file(org, currFastaFile)
+
+            # When dealing with GFF files, some genes may have coordinates extending beyond the actual
+            # length of contigs, especially when they overlap the edges. This usually needs to be split
+            # into two parts to handle the circular genome wrapping.
+            # If the GFF file lacks associated FASTA sequences and it was not possible to determine the
+            # contig length from the GFF file, we must apply this correction while parsing the external FASTA file.
+
+            correct_putative_overlaps(org.contigs)
 
     if set(pangenome.organisms) > set(fasta_dict.keys()):
         missing = pangenome.number_of_organisms - len(
