@@ -29,24 +29,64 @@ import yaml
 from collections import defaultdict
 
 # all input params that exists in ppanggolin
-ALL_INPUT_PARAMS = ['fasta', 'anno', 'clusters', 'pangenome',
-                    "fasta_file", "annot_file", "genome_name"]  # the last three params is for projection cmd
+ALL_INPUT_PARAMS = [
+    "fasta",
+    "anno",
+    "clusters",
+    "pangenome",
+    "fasta_file",
+    "annot_file",
+    "genome_name",
+]  # the last three params is for projection cmd
 
 # all params that should be in the general_parameters section of the config file
-ALL_GENERAL_PARAMS = ['output', 'basename', 'rarefaction', 'no_flat_files', 'tmpdir', 'verbose', 'log',
-                      'disable_prog_bar', 'force', "config"]
+ALL_GENERAL_PARAMS = [
+    "output",
+    "basename",
+    "rarefaction",
+    "no_flat_files",
+    "tmpdir",
+    "verbose",
+    "log",
+    "disable_prog_bar",
+    "force",
+    "config",
+]
 
-WORKFLOW_SUBCOMMANDS = {'all', 'workflow', 'panrgp', 'panmodule'}
+WORKFLOW_SUBCOMMANDS = {"all", "workflow", "panrgp", "panmodule"}
 
 # command that can be launched inside a workflow subcommand
-ALL_WORKFLOW_DEPENDENCIES = ["annotate", "cluster", "graph", "partition", "rarefaction", "rgp", "spot", "module",
-                             "draw", "write_pangenome", "write_genomes"]
+ALL_WORKFLOW_DEPENDENCIES = [
+    "annotate",
+    "cluster",
+    "graph",
+    "partition",
+    "rarefaction",
+    "rgp",
+    "spot",
+    "module",
+    "draw",
+    "write_pangenome",
+    "write_genomes",
+]
 
 # Inside a workflow command, write output default is overwrite to output some flat files
-WRITE_PAN_FLAG_DEFAULT_IN_WF = ["csv", "Rtab", "gexf", "light_gexf",
-                                'stats', 'json', 'partitions', 'regions',
-                                'borders', 'modules', 'spot_modules', "spots", "families_tsv"]
-WRITE_GENOME_FLAG_DEFAULT_IN_WF = ['table', 'proksee', "gff"]
+WRITE_PAN_FLAG_DEFAULT_IN_WF = [
+    "csv",
+    "Rtab",
+    "gexf",
+    "light_gexf",
+    "stats",
+    "json",
+    "partitions",
+    "regions",
+    "borders",
+    "modules",
+    "spot_modules",
+    "spots",
+    "families_tsv",
+]
+WRITE_GENOME_FLAG_DEFAULT_IN_WF = ["table", "proksee", "gff"]
 
 DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "draw_spots"]
 
@@ -71,23 +111,29 @@ def check_log(log_file: str) -> TextIO:
             if os.access(log_file, os.W_OK):
                 return log_file
             else:
-                raise OSError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
+                raise OSError(
+                    f"The given log file {log_file} is not writable. Please check if it is accessible."
+                )
         else:
-            raise OSError(f"The given log file: {log_file} is a directory. Please provide a valid log file.")
+            raise OSError(
+                f"The given log file: {log_file} is a directory. Please provide a valid log file."
+            )
 
     # target does not exist, check perms on parent dir
     parent_dir = os.path.dirname(log_file)
     if not parent_dir:
-        parent_dir = '.'
+        parent_dir = "."
     # target is creatable if parent dir is writable
     if os.access(parent_dir, os.W_OK):
         return log_file
     else:
-        raise OSError(f"The given log file {log_file} is not writable. Please check if it is accessible.")
+        raise OSError(
+            f"The given log file {log_file} is not writable. Please check if it is accessible."
+        )
 
 
 def check_tsv_sanity(tsv: Path):
-    """ Check if the given tsv is readable for the next PPanGGOLiN step
+    """Check if the given tsv is readable for the next PPanGGOLiN step
 
     :param tsv: Path to the tsv containing organims information
     """
@@ -96,8 +142,10 @@ def check_tsv_sanity(tsv: Path):
     except OSError as ios_error:
         raise OSError(ios_error)
     except Exception as exception_error:
-        raise Exception(f"The following unexpected error happened when opening the list of genomes path: "
-                        f"{exception_error}")
+        raise Exception(
+            f"The following unexpected error happened when opening the list of genomes path: "
+            f"{exception_error}"
+        )
     else:
         name_set = set()
         duplicated_names = set()
@@ -107,9 +155,11 @@ def check_tsv_sanity(tsv: Path):
             if len(elements) <= 1:
                 raise Exception(f"No tabulation separator found in given file: {tsv}")
             if " " in elements[0]:
-                raise Exception(f"Your genome names contain spaces (The first encountered genome name that had "
-                                f"this string: '{elements[0]}'). To ensure compatibility with all of the dependencies "
-                                f"of PPanGGOLiN this is not allowed. Please remove spaces from your genome names.")
+                raise Exception(
+                    f"Your genome names contain spaces (The first encountered genome name that had "
+                    f"this string: '{elements[0]}'). To ensure compatibility with all of the dependencies "
+                    f"of PPanGGOLiN this is not allowed. Please remove spaces from your genome names."
+                )
             old_len = len(name_set)
             name_set.add(elements[0])
             if len(name_set) == old_len:
@@ -118,16 +168,20 @@ def check_tsv_sanity(tsv: Path):
             if not org_path.exists() and not tsv.parent.joinpath(org_path).exists():
                 non_existing_files.add(elements[1])
         if len(non_existing_files) != 0:
-            raise Exception(f"Some of the given files do not exist. The non-existing files are the following : "
-                            f"'{' '.join(non_existing_files)}'")
+            raise Exception(
+                f"Some of the given files do not exist. The non-existing files are the following : "
+                f"'{' '.join(non_existing_files)}'"
+            )
         if len(duplicated_names) != 0:
-            raise Exception(f"Some of your genomes have identical names. The duplicated names are the following : "
-                            f"'{' '.join(duplicated_names)}'")
+            raise Exception(
+                f"Some of your genomes have identical names. The duplicated names are the following : "
+                f"'{' '.join(duplicated_names)}'"
+            )
         input_file.close()
 
 
 def check_input_files(file: Path, check_tsv: bool = False):
-    """ Checks if the provided input files exist and are of the proper format
+    """Checks if the provided input files exist and are of the proper format
 
     :param file: Path to the file
     :param check_tsv: Allow checking tsv file for annotation or fasta list
@@ -136,7 +190,9 @@ def check_input_files(file: Path, check_tsv: bool = False):
         if check_tsv:
             check_tsv_sanity(file)
     else:
-        raise FileNotFoundError(f"No such file or directory: '{file.absolute().as_posix()}'")
+        raise FileNotFoundError(
+            f"No such file or directory: '{file.absolute().as_posix()}'"
+        )
 
 
 def set_verbosity_level(args):
@@ -151,26 +207,32 @@ def set_verbosity_level(args):
         elif args.verbose == 0:
             level = logging.WARNING  # only warnings and errors
 
-        if args.log != sys.stdout and not args.disable_prog_bar:  # if output is not to stdout we remove progress bars.
+        if (
+            args.log != sys.stdout and not args.disable_prog_bar
+        ):  # if output is not to stdout we remove progress bars.
             args.disable_prog_bar = True
         str_format = "%(asctime)s %(filename)s:l%(lineno)d %(levelname)s\t%(message)s"
-        datefmt = '%Y-%m-%d %H:%M:%S'
+        datefmt = "%Y-%m-%d %H:%M:%S"
         if args.log in [sys.stdout, sys.stderr]:
             # use stream
-            logging.basicConfig(stream=args.log, level=level,
-                                format=str_format,
-                                datefmt=datefmt)
+            logging.basicConfig(
+                stream=args.log, level=level, format=str_format, datefmt=datefmt
+            )
         else:
             # log is written in a files. basic condif uses filename
-            logging.basicConfig(filename=args.log, level=level,
-                                format=str_format,
-                                datefmt=datefmt)
-        logging.getLogger("PPanGGOLiN").info("Command: " + " ".join(arg for arg in sys.argv))
-        logging.getLogger("PPanGGOLiN").info(f"PPanGGOLiN version: {distribution('ppanggolin').version}")
+            logging.basicConfig(
+                filename=args.log, level=level, format=str_format, datefmt=datefmt
+            )
+        logging.getLogger("PPanGGOLiN").info(
+            "Command: " + " ".join(arg for arg in sys.argv)
+        )
+        logging.getLogger("PPanGGOLiN").info(
+            f"PPanGGOLiN version: {distribution('ppanggolin').version}"
+        )
 
 
 def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
-    """ Compute the jaccard similarities
+    """Compute the jaccard similarities
 
     :param mat:
     :param jaccard_similarity_th: threshold
@@ -184,13 +246,15 @@ def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
     # for columns
     bb = cols_sum[ab.indices]
     similarities = ab.copy()
-    similarities.data /= (aa + bb - ab.data)
+    similarities.data /= aa + bb - ab.data
     similarities.data[similarities.data < jaccard_similarity_th] = 0
     similarities.eliminate_zeros()
     return similarities
 
 
-def is_compressed(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]) -> Tuple[bool, Union[str, None]]:
+def is_compressed(
+    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]
+) -> Tuple[bool, Union[str, None]]:
     """
     Detects if a file is compressed based on its file signature.
 
@@ -201,10 +265,10 @@ def is_compressed(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO
     :raises TypeError: If the file type is not supported.
     """
     file_signatures = {
-        b'\x1f\x8b': 'gzip',
-        b'BZh': 'bz2',
-        b'\x50\x4b\x03\x04': 'zip',
-        b'\xfd\x37\x7a\x58\x5a\x00': 'xz'
+        b"\x1f\x8b": "gzip",
+        b"BZh": "bz2",
+        b"\x50\x4b\x03\x04": "zip",
+        b"\xfd\x37\x7a\x58\x5a\x00": "xz",
     }
 
     def check_file_signature(byte_stream) -> Tuple[bool, Union[str, None]]:
@@ -222,7 +286,7 @@ def is_compressed(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO
 
     # Determine the type of file and read its first few bytes
     if isinstance(file_or_file_path, Path):
-        with file_or_file_path.open('rb') as file:
+        with file_or_file_path.open("rb") as file:
             first_bytes = file.read(4)
     else:
         if isinstance(file_or_file_path, BinaryIO):
@@ -238,8 +302,9 @@ def is_compressed(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO
     return check_file_signature(first_bytes)
 
 
-def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]) \
-        -> Union[TextIOWrapper, BinaryIO, TextIO]:
+def read_compressed_or_not(
+    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]
+) -> Union[TextIOWrapper, BinaryIO, TextIO]:
     """
     Opens and reads a file, decompressing it if necessary.
 
@@ -256,15 +321,19 @@ def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrappe
     is_comp, comp_type = is_compressed(file_or_file_path)
     if is_comp:
         if comp_type == "gzip":
-            return gzip.open(file_or_file_path, 'rt')
+            return gzip.open(file_or_file_path, "rt")
         elif comp_type == "bz2":
-            return bz2.open(file_or_file_path, 'rt')
+            return bz2.open(file_or_file_path, "rt")
         elif comp_type == "xz":
-            raise NotImplementedError("Unfortunately PPanGGOLiN does not support xz compressed files. "
-                                      "Please report an issue on our GitHub to let us know we should work on it.")
+            raise NotImplementedError(
+                "Unfortunately PPanGGOLiN does not support xz compressed files. "
+                "Please report an issue on our GitHub to let us know we should work on it."
+            )
         elif comp_type == "zip":
             with zipfile.ZipFile(file_or_file_path, "r") as z:
-                logging.getLogger("PPanGGOLiN").warning("Assuming we want to read the first file in the ZIP archive")
+                logging.getLogger("PPanGGOLiN").warning(
+                    "Assuming we want to read the first file in the ZIP archive"
+                )
                 file_list = z.namelist()
                 if file_list:
                     return TextIOWrapper(z.open(file_list[0], "r"))
@@ -275,7 +344,9 @@ def read_compressed_or_not(file_or_file_path: Union[Path, BinaryIO, TextIOWrappe
             return file_or_file_path
 
 
-def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gzip.GzipFile, TextIOWrapper]:
+def write_compressed_or_not(
+    file_path: Path, compress: bool = False
+) -> Union[gzip.GzipFile, TextIOWrapper]:
     """
     Create a file-like object, compressed or not.
 
@@ -285,13 +356,13 @@ def write_compressed_or_not(file_path: Path, compress: bool = False) -> Union[gz
     :return: file-like object, compressed or not
     """
     if compress:
-        return gzip.open(file_path.parent / (file_path.name + '.gz'), mode="wt")
+        return gzip.open(file_path.parent / (file_path.name + ".gz"), mode="wt")
     else:
         return open(file_path, "w")
 
 
 def mk_outdir(output: Path, force: bool = False, exist_ok: bool = False):
-    """ Create a directory at the given output if it doesn't exist already
+    """Create a directory at the given output if it doesn't exist already
 
     :param output: Path where to create directory
     :param force: Force to write in the directory
@@ -300,12 +371,15 @@ def mk_outdir(output: Path, force: bool = False, exist_ok: bool = False):
     :raise FileExistError: The current path already exist and force is false
     """
     if not output.is_dir():
-        logging.getLogger("PPanGGOLiN").debug(f"Create output directory {output.absolute().as_posix()}")
+        logging.getLogger("PPanGGOLiN").debug(
+            f"Create output directory {output.absolute().as_posix()}"
+        )
         Path.mkdir(output, exist_ok=exist_ok)
     else:
         if not force:
             raise FileExistsError(
-                f"{output} already exists. Use -f if you want to overwrite the files in the directory")
+                f"{output} already exists. Use -f if you want to overwrite the files in the directory"
+            )
 
 
 @contextmanager
@@ -315,7 +389,8 @@ def create_tmpdir(main_dir, basename="tmpdir", keep_tmp=False):
 
         new_tmpdir = main_dir / dir_name
         logging.getLogger("PPanGGOLiN").debug(
-            f'Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained.')
+            f"Creating a temporary directory: {new_tmpdir.as_posix()}. This directory will be retained."
+        )
 
         mk_outdir(new_tmpdir, force=True)
         yield new_tmpdir
@@ -323,7 +398,8 @@ def create_tmpdir(main_dir, basename="tmpdir", keep_tmp=False):
     else:
         with tempfile.TemporaryDirectory(dir=main_dir, prefix=basename) as new_tmpdir:
             logging.getLogger("PPanGGOLiN").debug(
-                f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained.")
+                f"Creating a temporary directory: {new_tmpdir}. This directory won't be retained."
+            )
             yield Path(new_tmpdir)
 
 
@@ -343,7 +419,9 @@ def mk_file_name(basename: str, output: Path, force: bool = False) -> Path:
     mk_outdir(output, force)
 
     if filename.exists() and not force:
-        raise FileExistsError(f"{filename.name} already exists. Use -f if you want to overwrite the file")
+        raise FileExistsError(
+            f"{filename.name} already exists. Use -f if you want to overwrite the file"
+        )
     return filename
 
 
@@ -360,17 +438,20 @@ def detect_filetype(filename: Path) -> str:
         first_line = f.readline()
     if first_line.startswith("LOCUS       "):  # then this is probably a gbff/gbk file
         return "gbff"
-    elif re.match(r"##gff-version\s{1,3}3",
-                  first_line):  # prodigal gff header has two spaces between gff-version and 3... some gff user can have a tab
-        return 'gff'
+    elif re.match(
+        r"##gff-version\s{1,3}3", first_line
+    ):  # prodigal gff header has two spaces between gff-version and 3... some gff user can have a tab
+        return "gff"
     elif first_line.startswith(">"):
-        return 'fasta'
+        return "fasta"
     elif "\t" in first_line:
         return "tsv"
     else:
-        raise Exception(f"Filetype {filename} was not gff3 (file starts with '##gff-version 3') "
-                        "nor gbff/gbk (file starts with 'LOCUS       ') "
-                        "nor fasta (file starts with '>') nor tsv (file has '\t' in the first line). ")
+        raise Exception(
+            f"Filetype {filename} was not gff3 (file starts with '##gff-version 3') "
+            "nor gbff/gbk (file starts with 'LOCUS       ') "
+            "nor fasta (file starts with '>') nor tsv (file has '\t' in the first line). "
+        )
 
 
 def restricted_float(x: Union[int, float]) -> float:
@@ -442,8 +523,10 @@ def _plain_bfs(g: nx.Graph, source: Any, removed: set, weight: float):
                         edge_genes_v = g[v][n]["genes"][v]
                         edge_genes_n = g[v][n]["genes"][n]
                         # if the edge is indeed existent for most genes of both families, we use it
-                        if len(edge_genes_n) / len(g.nodes[n]["genes"]) >= weight and len(edge_genes_v) / len(
-                                g.nodes[v]["genes"]) >= weight:
+                        if (
+                            len(edge_genes_n) / len(g.nodes[n]["genes"]) >= weight
+                            and len(edge_genes_v) / len(g.nodes[v]["genes"]) >= weight
+                        ):
                             nextlevel.add(n)
 
 
@@ -476,13 +559,17 @@ def check_option_workflow(args):
     :param args: list of arguments
     """
     if args.clusters is not None and not any([args.fasta, args.anno]):
-        raise Exception("If you give --clusters option, you must give at least --fasta or --anno")
+        raise Exception(
+            "If you give --clusters option, you must give at least --fasta or --anno"
+        )
 
     if not any([args.fasta, args.anno]):
         raise Exception("At least one of --fasta or --anno must be given")
 
     if args.infer_singletons and args.clusters is None:
-        logging.getLogger("PPanGGOLiN").warning("--infer_singleton works only with --clusters.")
+        logging.getLogger("PPanGGOLiN").warning(
+            "--infer_singleton works only with --clusters."
+        )
 
 
 def parse_config_file(yaml_config_file: str) -> dict:
@@ -491,7 +578,7 @@ def parse_config_file(yaml_config_file: str) -> dict:
 
     :param yaml_config_file: config file in yaml
 
-    :return: dict of config with key the command and as value another dict with param as key and value as value. 
+    :return: dict of config with key the command and as value another dict with param as key and value as value.
     """
 
     with yaml_config_file as yaml_fh:
@@ -502,11 +589,15 @@ def parse_config_file(yaml_config_file: str) -> dict:
 
     # if config has a Parameters key. Update config with its content
     if config and "Parameters" in config:
-        config.update(config['Parameters'])
-        del config['Parameters']
+        config.update(config["Parameters"])
+        del config["Parameters"]
 
     # remove empty section that have no parameter specified in it. In this case they have a None value
-    config = {section: param_val_dict for section, param_val_dict in config.items() if param_val_dict is not None}
+    config = {
+        section: param_val_dict
+        for section, param_val_dict in config.items()
+        if param_val_dict is not None
+    }
     return config
 
 
@@ -517,17 +608,44 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
     :param subparser: A subparser object from any subcommand.
     """
 
-    common = subparser._action_groups.pop(1)  # get the 'optional arguments' action group.
+    common = subparser._action_groups.pop(
+        1
+    )  # get the 'optional arguments' action group.
     common.title = "Common arguments"
-    common.add_argument("--verbose", required=False, type=int, default=1, choices=[0, 1, 2],
-                        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)")
-    common.add_argument("--log", required=False, type=check_log, default="stdout", help="log output file")
-    common.add_argument("-d", "--disable_prog_bar", required=False, action="store_true",
-                        help="disables the progress bars")
-    common.add_argument('-f', '--force', action="store_true",
-                        help="Force writing in output directory and in pangenome output file.")
-    common.add_argument("--config", required=False, type=argparse.FileType(),
-                        help="Specify command arguments through a YAML configuration file.")
+    common.add_argument(
+        "--verbose",
+        required=False,
+        type=int,
+        default=1,
+        choices=[0, 1, 2],
+        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)",
+    )
+    common.add_argument(
+        "--log",
+        required=False,
+        type=check_log,
+        default="stdout",
+        help="log output file",
+    )
+    common.add_argument(
+        "-d",
+        "--disable_prog_bar",
+        required=False,
+        action="store_true",
+        help="disables the progress bars",
+    )
+    common.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force writing in output directory and in pangenome output file.",
+    )
+    common.add_argument(
+        "--config",
+        required=False,
+        type=argparse.FileType(),
+        help="Specify command arguments through a YAML configuration file.",
+    )
     subparser._action_groups.append(common)
 
 
@@ -545,7 +663,11 @@ def get_arg_name(arg_val: Union[str, TextIOWrapper]) -> Union[str, TextIOWrapper
     return arg_val
 
 
-def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Namespace, cli_args: argparse.Namespace):
+def overwrite_args(
+    default_args: argparse.Namespace,
+    config_args: argparse.Namespace,
+    cli_args: argparse.Namespace,
+):
     """
     Overwrite args objects.
 
@@ -559,12 +681,12 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
     :return: final arguments
     """
     args = argparse.Namespace()
-    all_params = [arg for arg in dir(default_args) if not arg.startswith('_')]
+    all_params = [arg for arg in dir(default_args) if not arg.startswith("_")]
 
     for param in all_params:
         default_val = getattr(default_args, param)
-        cli_val = getattr(cli_args, param, 'unspecified')
-        config_val = getattr(config_args, param, 'unspecified')
+        cli_val = getattr(cli_args, param, "unspecified")
+        config_val = getattr(config_args, param, "unspecified")
 
         if param in cli_args and param not in config_args:
             # Use the value from the command line argument
@@ -573,7 +695,8 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
             if default_val != cli_val and param != "config":
                 logging.getLogger("PPanGGOLiN").debug(
                     f'The parameter "--{param}: {get_arg_name(cli_val)}" has been specified in the command line with a non-default value.'
-                    f' Its value overwrites the default value ({get_arg_name(default_val)}).')
+                    f" Its value overwrites the default value ({get_arg_name(default_val)})."
+                )
 
         elif param not in cli_args and param in config_args:
             # Use the value from the config file
@@ -582,7 +705,8 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
             if default_val != config_val:
                 logging.getLogger("PPanGGOLiN").debug(
                     f'The parameter "--{param}: {get_arg_name(config_val)}" has been specified in the config file with a non-default value.'
-                    f' Its value overwrites the default value ({get_arg_name(default_val)}).')
+                    f" Its value overwrites the default value ({get_arg_name(default_val)})."
+                )
 
         elif param in cli_args and param in config_args:
             # Use the value from the command line argument (cli) if it's different from the config file (config)
@@ -591,15 +715,17 @@ def overwrite_args(default_args: argparse.Namespace, config_args: argparse.Names
             if cli_val == config_val and cli_val != default_val:
                 logging.getLogger("PPanGGOLiN").debug(
                     f'The parameter "--{param} {get_arg_name(cli_val)}" has been specified in both the command line '
-                    f'and the config file with the same values, but with non-default value. '
-                    f'Its value overwrites the default value ({get_arg_name(default_val)}).')
+                    f"and the config file with the same values, but with non-default value. "
+                    f"Its value overwrites the default value ({get_arg_name(default_val)})."
+                )
 
             elif cli_val != config_val and param != "config":
                 # Values in cli and config differ. Use the value from the command line argument (cli)
                 logging.getLogger("PPanGGOLiN").debug(
                     f'The parameter "--{param}" has been specified in both the command line ("{get_arg_name(cli_val)}") '
                     f'and the config file ("{get_arg_name(config_val)}") with different values. '
-                    f'The value from the command line argument is used.')
+                    f"The value from the command line argument is used."
+                )
         else:
             # Parameter is not defined in cli and in config. Use the default value.
             setattr(args, param, default_val)
@@ -617,7 +743,7 @@ def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
     :return: object with combined arguments
     """
 
-    other_arg_names = [arg for arg in dir(another_args) if not arg.startswith('_')]
+    other_arg_names = [arg for arg in dir(another_args) if not arg.startswith("_")]
 
     for arg_name in other_arg_names:
         arg_val = getattr(another_args, arg_name)
@@ -626,8 +752,11 @@ def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
     return args
 
 
-def get_args_differing_from_default(default_args: argparse.Namespace, final_args: argparse.Namespace,
-                                    param_to_ignore: Union[List[str], Set[str]] = None) -> dict:
+def get_args_differing_from_default(
+    default_args: argparse.Namespace,
+    final_args: argparse.Namespace,
+    param_to_ignore: Union[List[str], Set[str]] = None,
+) -> dict:
     """
     Get the parameters that have different value than default values.
 
@@ -638,25 +767,35 @@ def get_args_differing_from_default(default_args: argparse.Namespace, final_args
     :return: A dict with param that differ from default as key and the final value of the param as value
     """
     param_to_ignore = [] if param_to_ignore is None else param_to_ignore
-    all_params = [arg for arg in dir(final_args) if not arg.startswith('_') if arg not in param_to_ignore]
+    all_params = [
+        arg
+        for arg in dir(final_args)
+        if not arg.startswith("_")
+        if arg not in param_to_ignore
+    ]
 
-    params_that_differ = {param: getattr(final_args, param) for param in all_params if
-                          getattr(default_args, param) != getattr(final_args, param)}
+    params_that_differ = {
+        param: getattr(final_args, param)
+        for param in all_params
+        if getattr(default_args, param) != getattr(final_args, param)
+    }
 
     return params_that_differ
 
 
-def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_subparser: dict) -> argparse.Namespace:
+def manage_cli_and_config_args(
+    subcommand: str, config_file: str, subcommand_to_subparser: dict
+) -> argparse.Namespace:
     """
     Manage command line and config arguments for the given subcommand.
 
     This function parse arguments from the cmd line and config file and set up the following priority: cli > config > default
-    When the subcommand is a workflow, the subcommand used in workflows are also parsed in the config.  
+    When the subcommand is a workflow, the subcommand used in workflows are also parsed in the config.
 
 
     :params subcommand: Name of the subcommand.
     :params config_file: Path to the config file given in argument. If None, only default and cli arguments value are used.
-    :params subcommand_to_subparser: Dict with subcommand name as key and the corresponding subparser function as value. 
+    :params subcommand_to_subparser: Dict with subcommand name as key and the corresponding subparser function as value.
     """
     if config_file:
         config = parse_config_file(config_file)
@@ -672,32 +811,54 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
     cli_args = get_cli_args(cmd_subparser)
 
-    all_cmd_param_names = {arg_name for arg_name in dir(default_args) if not arg_name.startswith('_')}
+    all_cmd_param_names = {
+        arg_name for arg_name in dir(default_args) if not arg_name.startswith("_")
+    }
 
     input_params = {param for param in all_cmd_param_names if param in ALL_INPUT_PARAMS}
 
-    general_params = {param for param in all_cmd_param_names if param in ALL_GENERAL_PARAMS}
+    general_params = {
+        param for param in all_cmd_param_names if param in ALL_GENERAL_PARAMS
+    }
 
     specific_params = all_cmd_param_names - (input_params | general_params)
 
     all_unspecific_params = ALL_INPUT_PARAMS + ALL_GENERAL_PARAMS
     # manage logging first to correctly set it up and to be able to log any issue when using config file later on
-    config_general_args = get_config_args(subcommand, cmd_subparser, config, "general_parameters", general_params,
-                                          strict_config_check=False)
+    config_general_args = get_config_args(
+        subcommand,
+        cmd_subparser,
+        config,
+        "general_parameters",
+        general_params,
+        strict_config_check=False,
+    )
     general_args = overwrite_args(default_args, config_general_args, cli_args)
 
     set_verbosity_level(general_args)
 
-    config_input_args = get_config_args(subcommand, cmd_subparser, config, "input_parameters", input_params,
-                                        strict_config_check=True)
+    config_input_args = get_config_args(
+        subcommand,
+        cmd_subparser,
+        config,
+        "input_parameters",
+        input_params,
+        strict_config_check=True,
+    )
 
     if subcommand in WORKFLOW_SUBCOMMANDS:
         # for workflow commands there is no section dedicated in the config: so no specific_args
         # only general_parameters and  sections of commands launched in the worklow commands are used
         config_args = combine_args(config_general_args, config_input_args)
     else:
-        config_specific_args = get_config_args(subcommand, cmd_subparser, config, subcommand, specific_params,
-                                               strict_config_check=True)
+        config_specific_args = get_config_args(
+            subcommand,
+            cmd_subparser,
+            config,
+            subcommand,
+            specific_params,
+            strict_config_check=True,
+        )
         config_args = combine_args(config_general_args, config_specific_args)
         config_args = combine_args(config_args, config_input_args)
 
@@ -705,40 +866,64 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
     # cli > config > default
 
     args = overwrite_args(default_args, config_args, cli_args)
-    params_that_differ = get_args_differing_from_default(default_args, args, input_params)
+    params_that_differ = get_args_differing_from_default(
+        default_args, args, input_params
+    )
 
     if params_that_differ:
-        params_that_differ_str = ', '.join(f'{p}={v}' for p, v in params_that_differ.items())
+        params_that_differ_str = ", ".join(
+            f"{p}={v}" for p, v in params_that_differ.items()
+        )
         logging.getLogger("PPanGGOLiN").debug(
-            f"{len(params_that_differ)} {subcommand} parameters have non-default value: {params_that_differ_str}")
+            f"{len(params_that_differ)} {subcommand} parameters have non-default value: {params_that_differ_str}"
+        )
 
     # manage workflow command
     workflow_steps = []
     if subcommand in WORKFLOW_SUBCOMMANDS:
 
         for workflow_step in ALL_WORKFLOW_DEPENDENCIES:
-            if (workflow_step in ["rgp", "spot"] and subcommand in ["workflow", "panmodule"]) or \
-                    (workflow_step == "module" and subcommand in ["workflow", "panrgp"]):
+            if (
+                workflow_step in ["rgp", "spot"]
+                and subcommand in ["workflow", "panmodule"]
+            ) or (workflow_step == "module" and subcommand in ["workflow", "panrgp"]):
                 continue
-            logging.getLogger("PPanGGOLiN").debug(f'Parsing {workflow_step} arguments in config file.')
+            logging.getLogger("PPanGGOLiN").debug(
+                f"Parsing {workflow_step} arguments in config file."
+            )
             step_subparser = subcommand_to_subparser[workflow_step]
 
-            default_step_args = get_default_args(workflow_step, step_subparser, unwanted_args=all_unspecific_params)
+            default_step_args = get_default_args(
+                workflow_step, step_subparser, unwanted_args=all_unspecific_params
+            )
 
             # remove general args
-            all_param_names = {arg_name for arg_name in dir(default_step_args) if not arg_name.startswith('_')}
-            specific_step_params = {param_name for param_name in all_param_names if
-                                    param_name not in all_unspecific_params}
-            config_step_args = get_config_args(workflow_step, step_subparser, config, workflow_step,
-                                               specific_step_params, strict_config_check=True)
+            all_param_names = {
+                arg_name
+                for arg_name in dir(default_step_args)
+                if not arg_name.startswith("_")
+            }
+            specific_step_params = {
+                param_name
+                for param_name in all_param_names
+                if param_name not in all_unspecific_params
+            }
+            config_step_args = get_config_args(
+                workflow_step,
+                step_subparser,
+                config,
+                workflow_step,
+                specific_step_params,
+                strict_config_check=True,
+            )
 
             # overwrite write and draw default when not specified in config
-            if workflow_step == 'write_pangenome':
+            if workflow_step == "write_pangenome":
                 for out_flag in WRITE_PAN_FLAG_DEFAULT_IN_WF:
                     if out_flag not in config[workflow_step]:
                         setattr(default_step_args, out_flag, True)
 
-            if workflow_step == 'write_genomes':
+            if workflow_step == "write_genomes":
                 for out_flag in WRITE_GENOME_FLAG_DEFAULT_IN_WF:
                     if out_flag not in config[workflow_step]:
                         setattr(default_step_args, out_flag, True)
@@ -750,16 +935,24 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
 
-            step_params_that_differ = get_args_differing_from_default(default_step_args, step_args)
+            step_params_that_differ = get_args_differing_from_default(
+                default_step_args, step_args
+            )
 
             if step_params_that_differ:
-                step_params_that_differ_str = ', '.join(f'{p}={v}' for p, v in step_params_that_differ.items())
-                logging.getLogger("PPanGGOLiN").debug(f"{len(step_params_that_differ)} {workflow_step} parameters have "
-                                                      f"a non-default value: {step_params_that_differ_str}")
+                step_params_that_differ_str = ", ".join(
+                    f"{p}={v}" for p, v in step_params_that_differ.items()
+                )
+                logging.getLogger("PPanGGOLiN").debug(
+                    f"{len(step_params_that_differ)} {workflow_step} parameters have "
+                    f"a non-default value: {step_params_that_differ_str}"
+                )
 
             # add step name to differentiate the params
-            step_params_that_differ = {f'{workflow_step}:{param}': value for param, value in
-                                       step_params_that_differ.items()}
+            step_params_that_differ = {
+                f"{workflow_step}:{param}": value
+                for param, value in step_params_that_differ.items()
+            }
 
             params_that_differ.update(step_params_that_differ)
 
@@ -767,7 +960,9 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
             setattr(args, workflow_step, step_args)
 
     if params_that_differ:
-        logging.getLogger("PPanGGOLiN").info(f'{len(params_that_differ)} parameters have a non-default value.')
+        logging.getLogger("PPanGGOLiN").info(
+            f"{len(params_that_differ)} parameters have a non-default value."
+        )
 
     check_config_consistency(config, workflow_steps)
 
@@ -776,9 +971,9 @@ def manage_cli_and_config_args(subcommand: str, config_file: str, subcommand_to_
 
 def check_config_consistency(config: dict, workflow_steps: list):
     """
-    Check that the same parameter used in different subcommand inside a workflow has the same value. 
+    Check that the same parameter used in different subcommand inside a workflow has the same value.
 
-    If not, the function throw a logging.getLogger("PPanGGOLiN").warning. 
+    If not, the function throw a logging.getLogger("PPanGGOLiN").warning.
 
     :params config_dict: config dict with as key the section of the config file and as value another dict pairing name and value of parameters.
     :params workflow_steps: list of subcommand names used in the workflow execution.
@@ -798,17 +993,25 @@ def check_config_consistency(config: dict, workflow_steps: list):
         return len(hashable_values)
 
     # params used in multiple subcommands
-    all_params = [param for subcmd, param_to_value_dict in config.items() for param in param_to_value_dict if
-                  subcmd in workflow_steps]
+    all_params = [
+        param
+        for subcmd, param_to_value_dict in config.items()
+        for param in param_to_value_dict
+        if subcmd in workflow_steps
+    ]
     duplicate_params = [param for param in all_params if all_params.count(param) > 1]
 
     for duplicate_param in set(duplicate_params):
-        step_to_value = {step: param_to_value[duplicate_param] for step, param_to_value in config.items() if
-                         duplicate_param in param_to_value}
+        step_to_value = {
+            step: param_to_value[duplicate_param]
+            for step, param_to_value in config.items()
+            if duplicate_param in param_to_value
+        }
 
         if count_different_values(step_to_value.values()) > 1:
             logging.getLogger("PPanGGOLiN").warning(
-                f'The parameter {duplicate_param} used in multiple subcommands of the workflow is specified with different values in config file: {step_to_value}.')
+                f"The parameter {duplicate_param} used in multiple subcommands of the workflow is specified with different values in config file: {step_to_value}."
+            )
 
 
 def set_up_config_param_to_parser(config_param_val: dict) -> list:
@@ -841,8 +1044,9 @@ def set_up_config_param_to_parser(config_param_val: dict) -> list:
     return arguments_to_parse
 
 
-def get_subcommand_parser(subparser_fct: Callable, name: str = '') \
-        -> Tuple[argparse._SubParsersAction, argparse.ArgumentParser]:
+def get_subcommand_parser(
+    subparser_fct: Callable, name: str = ""
+) -> Tuple[argparse._SubParsersAction, argparse.ArgumentParser]:
     """
     Get subcommand parser object using the given subparser function.
 
@@ -860,10 +1064,11 @@ def get_subcommand_parser(subparser_fct: Callable, name: str = '') \
         prog = f"Parsing section {name} in config file"
         usage = "Yaml config file"
 
-    parser = argparse.ArgumentParser(prog=prog,
-                                     allow_abbrev=False, add_help=False)
+    parser = argparse.ArgumentParser(prog=prog, allow_abbrev=False, add_help=False)
 
-    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description="")
+    subparsers = parser.add_subparsers(
+        metavar="", dest="subcommand", title="subcommands", description=""
+    )
 
     sub = subparser_fct(subparsers)
     sub.usage = usage
@@ -876,7 +1081,9 @@ def get_subcommand_parser(subparser_fct: Callable, name: str = '') \
     return parser, sub
 
 
-def get_default_args(subcommand: str, subparser_fct: Callable, unwanted_args: list = None) -> argparse.Namespace:
+def get_default_args(
+    subcommand: str, subparser_fct: Callable, unwanted_args: list = None
+) -> argparse.Namespace:
     """
     Get default value for the arguments for the given subparser function.
 
@@ -884,21 +1091,29 @@ def get_default_args(subcommand: str, subparser_fct: Callable, unwanted_args: li
     :params subparser_fct: Subparser function to use. This subparser give the expected argument for the subcommand.
     :params unwanted_args: List of arguments to filter out.
 
-    :return args: arguments with default values. 
+    :return args: arguments with default values.
     """
     unwanted_args = [] if unwanted_args is None else unwanted_args
     parser, sub = get_subcommand_parser(subparser_fct, subcommand)
 
     # remove unwanted argumnents
-    sub._actions = [p_action for p_action in sub._actions if p_action.dest not in unwanted_args]
+    sub._actions = [
+        p_action for p_action in sub._actions if p_action.dest not in unwanted_args
+    ]
 
     args = parser.parse_args([subcommand])
 
     return args
 
 
-def get_config_args(subcommand: str, subparser_fct: Callable, config_dict: dict, config_section: str,
-                    expected_params: Union[List[str], Set[str]], strict_config_check: bool) -> argparse.Namespace:
+def get_config_args(
+    subcommand: str,
+    subparser_fct: Callable,
+    config_dict: dict,
+    config_section: str,
+    expected_params: Union[List[str], Set[str]],
+    strict_config_check: bool,
+) -> argparse.Namespace:
     """
     Parsing parameters of a specific section of the config file.
 
@@ -921,18 +1136,27 @@ def get_config_args(subcommand: str, subparser_fct: Callable, config_dict: dict,
     erase_default_value(sub)
 
     # Manage args
-    sub._actions = [p_action for p_action in sub._actions if p_action.dest in expected_params]
+    sub._actions = [
+        p_action for p_action in sub._actions if p_action.dest in expected_params
+    ]
 
     if not strict_config_check:
         # remove param found in config that are not expected by parser. useful for general_parameters.
         expected_args_names = [p_action.dest for p_action in sub._actions]
-        unexpected_config = [f'{name}:{value}' for name, value in config.items() if name not in expected_args_names]
-        config = {name: value for name, value in config.items() if name in expected_args_names}
+        unexpected_config = [
+            f"{name}:{value}"
+            for name, value in config.items()
+            if name not in expected_args_names
+        ]
+        config = {
+            name: value for name, value in config.items() if name in expected_args_names
+        }
 
         if unexpected_config:
             logging.getLogger("PPanGGOLiN").info(
-                f'While parsing {config_section} section in config file, {len(unexpected_config)} unexpected parameters '
-                f'were ignored : {" ".join(unexpected_config)}')
+                f"While parsing {config_section} section in config file, {len(unexpected_config)} unexpected parameters "
+                f'were ignored : {" ".join(unexpected_config)}'
+            )
     else:
         for param_name in config:
             if param_name not in expected_params:
@@ -951,7 +1175,7 @@ def get_config_args(subcommand: str, subparser_fct: Callable, config_dict: dict,
 
 def get_cli_args(subparser_fct: Callable) -> argparse.Namespace:
     """
-    Parse command line arguments using the specified parsing function. 
+    Parse command line arguments using the specified parsing function.
 
     :params subparser_fct: Subparser function to use. This subparser give the expected argument for the subcommand.
     """
@@ -965,14 +1189,14 @@ def get_cli_args(subparser_fct: Callable) -> argparse.Namespace:
 
     # remove argument that have not been specified
     delete_unspecified_args(cli_args)
-    delattr(cli_args, 'subcommand')
+    delattr(cli_args, "subcommand")
 
     return cli_args
 
 
 def erase_default_value(parser: argparse.ArgumentParser):
     """
-    Remove default action in the given list of argument parser actions. 
+    Remove default action in the given list of argument parser actions.
 
     This is dnoe to distinguish specified arguments.
 
@@ -996,8 +1220,12 @@ def delete_unspecified_args(args: argparse.Namespace):
             delattr(args, arg_name)
 
 
-def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int], window_size: int,
-                          is_circular: bool = False):
+def extract_contig_window(
+    contig_size: int,
+    positions_of_interest: Iterable[int],
+    window_size: int,
+    is_circular: bool = False,
+):
     """
     Extracts contiguous windows around positions of interest within a contig.
 
@@ -1014,8 +1242,10 @@ def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int]
 
     # Check if any position of interest is out of range
     if sorted_positions[0] < 0 or sorted_positions[-1] >= contig_size:
-        raise IndexError(f'Positions of interest are out of range. '
-                         f"Contig has {contig_size} genes while given min={sorted_positions[0]} & max={sorted_positions[-1]} positions")
+        raise IndexError(
+            f"Positions of interest are out of range. "
+            f"Contig has {contig_size} genes while given min={sorted_positions[0]} & max={sorted_positions[-1]} positions"
+        )
 
     if is_circular:
         first_position = sorted_positions[0]
@@ -1053,7 +1283,9 @@ def extract_contig_window(contig_size: int, positions_of_interest: Iterable[int]
     return windows_coordinates
 
 
-def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Path, List[str]]]]:
+def parse_input_paths_file(
+    path_list_file: Path,
+) -> Dict[str, Dict[str, Union[Path, List[str]]]]:
     """
     Parse an input paths file to extract genome information.
 
@@ -1066,7 +1298,9 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
     :raises FileNotFoundError: If a specified genome file path does not exist.
     :raises Exception: If there are no genomes in the provided file.
     """
-    logging.getLogger("PPanGGOLiN").info(f"Reading {path_list_file} to process genome files")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Reading {path_list_file} to process genome files"
+    )
     genome_name_to_genome_path = {}
 
     for line in read_compressed_or_not(path_list_file):
@@ -1081,13 +1315,14 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
 
             if not genome_file_path_alt.exists():
                 raise FileNotFoundError(
-                    f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist.")
+                    f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist."
+                )
             else:
                 genome_file_path = genome_file_path_alt
 
         genome_name_to_genome_path[genome_name] = {
             "path": genome_file_path,
-            "circular_contigs": putative_circular_contigs
+            "circular_contigs": putative_circular_contigs,
         }
 
     if len(genome_name_to_genome_path) == 0:
@@ -1096,7 +1331,9 @@ def parse_input_paths_file(path_list_file: Path) -> Dict[str, Dict[str, Union[Pa
     return genome_name_to_genome_path
 
 
-def flatten_nested_dict(nested_dict: Dict[str, Union[Dict, int, str, float]]) -> Dict[str, Union[int, str, float]]:
+def flatten_nested_dict(
+    nested_dict: Dict[str, Union[Dict, int, str, float]]
+) -> Dict[str, Union[int, str, float]]:
     """
     Flattens a nested dictionary into a flat dictionary by concatenating keys at different levels.
 
@@ -1105,7 +1342,7 @@ def flatten_nested_dict(nested_dict: Dict[str, Union[Dict, int, str, float]]) ->
     """
     flat_dict = {}
 
-    def flatten(dictionary, parent_key=''):
+    def flatten(dictionary, parent_key=""):
         for key, val in dictionary.items():
             new_key = f"{parent_key}_{key}" if parent_key else key
             if isinstance(val, dict):
@@ -1126,7 +1363,7 @@ def get_major_version(version: str) -> int:
     :raises ValueError: If the input version does not have the expected format.
     """
     try:
-        major_version = int(version.split('.')[0])
+        major_version = int(version.split(".")[0])
     except ValueError:
         raise ValueError(f"Version {version} does not have the expected format.")
 
@@ -1140,27 +1377,31 @@ def check_version_compatibility(file_version: str) -> None:
     :param file_version: A string representing the version of the pangenome file.
     """
     # Get the current PPanGGOLiN version
-    current_version = distribution('ppanggolin').version
+    current_version = distribution("ppanggolin").version
 
     current_version_major = get_major_version(current_version)
     file_major_version = get_major_version(file_version)
 
     # Check for compatibility issues
     if file_major_version != current_version_major:
-        logging.getLogger("PPanGGOLiN").error('Your pangenome file has been created with a different major version '
-                                              'of PPanGGOLiN than the one installed in the system. This mismatch may lead to compatibility issues.')
+        logging.getLogger("PPanGGOLiN").error(
+            "Your pangenome file has been created with a different major version "
+            "of PPanGGOLiN than the one installed in the system. This mismatch may lead to compatibility issues."
+        )
 
     if file_major_version < 2 and current_version_major >= 2:
-        raise ValueError(f'The provided pangenome file was created by PPanGGOLiN version {file_version}, which is '
-                         f'incompatible with the current PPanGGOLiN version {current_version}.')
+        raise ValueError(
+            f"The provided pangenome file was created by PPanGGOLiN version {file_version}, which is "
+            f"incompatible with the current PPanGGOLiN version {current_version}."
+        )
 
 
 def find_consecutive_sequences(sequence: List[int]) -> List[List[int]]:
     """
     Find consecutive sequences in a list of integers.
-    
+
     :param sequence: The input list of integers.
-    
+
     :return: A list of lists containing consecutive sequences of integers.
     """
     s_sequence = sorted(sequence)
@@ -1177,39 +1418,47 @@ def find_consecutive_sequences(sequence: List[int]) -> List[List[int]]:
     return consecutive_sequences
 
 
-def find_region_border_position(region_positions: List[int], contig_gene_count: int) -> Tuple[int, int]:
+def find_region_border_position(
+    region_positions: List[int], contig_gene_count: int
+) -> Tuple[int, int]:
     """
     Find the start and stop integers of the region considering circularity of the contig.
-    
+
     :param region_positions: List of positions that belong to the region.
     :param contig_gene_count: Number of gene in the contig. The contig is considered circular.
-    
+
     :return: A tuple containing the start and stop integers of the region.
     """
 
-    consecutive_region_positions = get_consecutive_region_positions(region_positions, contig_gene_count)
+    consecutive_region_positions = get_consecutive_region_positions(
+        region_positions, contig_gene_count
+    )
 
     return consecutive_region_positions[0][0], consecutive_region_positions[-1][-1]
 
 
-def get_consecutive_region_positions(region_positions: List[int], contig_gene_count: int) -> List[List[int]]:
+def get_consecutive_region_positions(
+    region_positions: List[int], contig_gene_count: int
+) -> List[List[int]]:
     """
     Order integers position of the region considering circularity of the contig.
-    
+
     :param region_positions: List of positions that belong to the region.
     :param contig_gene_count: Number of gene in the contig. The contig is considered circular.
-    
+
     :return: An ordered list of integers of the region.
-    
+
     :raises ValueError: If unexpected conditions are encountered.
     """
     if len(region_positions) == 0:
-        raise ValueError('Region has no position. This is unexpected.')
+        raise ValueError("Region has no position. This is unexpected.")
 
     consecutive_sequences = sorted(find_consecutive_sequences(region_positions))
 
     if len(consecutive_sequences) == 0:
-        raise ValueError('No consecutive sequences found in the region. This is unexpected.')
+        raise ValueError(
+            "No consecutive sequences found in the region. This is unexpected."
+        )
 
     elif len(consecutive_sequences) == 1:
         return consecutive_sequences
@@ -1217,22 +1466,32 @@ def get_consecutive_region_positions(region_positions: List[int], contig_gene_co
     elif len(consecutive_sequences) == 2:
         # Check for overlaps at the edge of the contig
         if consecutive_sequences[0][0] != 0:
-            raise ValueError(f'Two sequences of consecutive positions ({consecutive_sequences}) '
-                             f'indicate an overlap on the edge of the contig, but neither starts at the beginning of the contig (0).')
+            raise ValueError(
+                f"Two sequences of consecutive positions ({consecutive_sequences}) "
+                f"indicate an overlap on the edge of the contig, but neither starts at the beginning of the contig (0)."
+            )
 
         elif consecutive_sequences[-1][-1] != contig_gene_count - 1:
-            raise ValueError(f'Two sequences of consecutive positions ({consecutive_sequences}) '
-                             f'indicate an overlap on the edge of the contig, but neither ends at the end of the contig ({contig_gene_count - 1}).')
+            raise ValueError(
+                f"Two sequences of consecutive positions ({consecutive_sequences}) "
+                f"indicate an overlap on the edge of the contig, but neither ends at the end of the contig ({contig_gene_count - 1})."
+            )
 
         return [consecutive_sequences[-1], consecutive_sequences[0]]
 
     elif len(consecutive_sequences) > 2:
-        raise ValueError(f'More than two consecutive sequences found ({len(consecutive_sequences)}). '
-                         f'This is unexpected. Consecutive sequences: {consecutive_sequences}. '
-                         'The region should consist of consecutive positions along the contig.')
+        raise ValueError(
+            f"More than two consecutive sequences found ({len(consecutive_sequences)}). "
+            f"This is unexpected. Consecutive sequences: {consecutive_sequences}. "
+            "The region should consist of consecutive positions along the contig."
+        )
 
 
-def run_subprocess(cmd: List[str], output: Path = None, msg: str = "Subprocess failed with the following error:\n"):
+def run_subprocess(
+    cmd: List[str],
+    output: Path = None,
+    msg: str = "Subprocess failed with the following error:\n",
+):
     """Run a subprocess command and write the output to the given path.
 
     :param cmd: list of program arguments
@@ -1252,9 +1511,8 @@ def run_subprocess(cmd: List[str], output: Path = None, msg: str = "Subprocess f
         raise Exception(msg + subprocess_err.stderr)
     else:
         if output is not None:
-            with open(output, 'w') as fout:
+            with open(output, "w") as fout:
                 fout.write(result.stdout)
-
 
 
 def has_non_ascii(string_to_test: str) -> bool:
@@ -1265,10 +1523,11 @@ def has_non_ascii(string_to_test: str) -> bool:
     :return: True if the string contains non-ASCII characters, False otherwise.
     """
     try:
-        string_to_test.encode('ascii')
+        string_to_test.encode("ascii")
     except UnicodeEncodeError:
         return True
     return False
+
 
 def replace_non_ascii(string_with_ascii: str, replacement_string: str = "_") -> str:
     """
@@ -1278,4 +1537,4 @@ def replace_non_ascii(string_with_ascii: str, replacement_string: str = "_") -> 
     :param replacement_string: The string to replace non-ASCII characters with (default is '_').
     :return: A new string where all non-ASCII characters have been replaced.
     """
-    return re.sub(r'[^\x00-\x7F]+', replacement_string, string_with_ascii)
+    return re.sub(r"[^\x00-\x7F]+", replacement_string, string_with_ascii)

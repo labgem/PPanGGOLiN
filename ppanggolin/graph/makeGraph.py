@@ -21,9 +21,11 @@ def check_pangenome_former_graph(pangenome: Pangenome, force: bool = False):
     :param force: Allow to force write on Pangenome file
     """
     if pangenome.status["neighborsGraph"] == "inFile" and not force:
-        raise AttributeError("You are trying to make a neighbors graph that is already built. "
-                             "If you REALLY want to do that, use --force "
-                             "(it will erase everything except annotation data !)")
+        raise AttributeError(
+            "You are trying to make a neighbors graph that is already built. "
+            "If you REALLY want to do that, use --force "
+            "(it will erase everything except annotation data !)"
+        )
     elif pangenome.status["neighborsGraph"] == "inFile" and force:
         erase_pangenome(pangenome, graph=True)
 
@@ -38,21 +40,35 @@ def check_pangenome_for_neighbors_graph(pangenome, force, disable_bar=False):
     """
     check_pangenome_former_graph(pangenome, force)
     # TODO Check if possible to change for check_pangenome_info
-    if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded"] and \
-            pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
+    if pangenome.status["genomesAnnotated"] in [
+        "Computed",
+        "Loaded",
+    ] and pangenome.status["genesClustered"] in ["Computed", "Loaded"]:
         pass  # nothing to do, can just continue.
-    elif pangenome.status["genomesAnnotated"] == "inFile" and pangenome.status["genesClustered"] == "inFile":
-        read_pangenome(pangenome, annotation=True, gene_families=True, disable_bar=disable_bar)
-    elif pangenome.status["genesClustered"] == "No" and \
-            pangenome.status["genomesAnnotated"] in ['inFile', 'Computed', 'Loaded']:
-        raise Exception("You did not cluster the genes. See the 'ppanggolin cluster' if you want to do that.")
+    elif (
+        pangenome.status["genomesAnnotated"] == "inFile"
+        and pangenome.status["genesClustered"] == "inFile"
+    ):
+        read_pangenome(
+            pangenome, annotation=True, gene_families=True, disable_bar=disable_bar
+        )
+    elif pangenome.status["genesClustered"] == "No" and pangenome.status[
+        "genomesAnnotated"
+    ] in ["inFile", "Computed", "Loaded"]:
+        raise Exception(
+            "You did not cluster the genes. See the 'ppanggolin cluster' if you want to do that."
+        )
     else:
         # You probably can use readPangenome anyway.
-        msg = "Dev : You are probably writing a new workflow with a combination that I did not test." \
-              " You can probably use readPangenome instead of raising this Error. " \
-              "However please test it carefully.\n"
-        msg += " User : I have no idea how you got there. You probably did something unexpected. " \
-               "Post an issue with what you did at https://github.com/labgem/PPanGGOLiN\n"
+        msg = (
+            "Dev : You are probably writing a new workflow with a combination that I did not test."
+            " You can probably use readPangenome instead of raising this Error. "
+            "However please test it carefully.\n"
+        )
+        msg += (
+            " User : I have no idea how you got there. You probably did something unexpected. "
+            "Post an issue with what you did at https://github.com/labgem/PPanGGOLiN\n"
+        )
         raise NotImplementedError(msg)
 
 
@@ -68,8 +84,12 @@ def remove_high_copy_number(pangenome, number):
                 fam.removed = True
 
 
-def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
-                            force: bool = False, disable_bar: bool = False):
+def compute_neighbors_graph(
+    pangenome: Pangenome,
+    remove_copy_number: int = 0,
+    force: bool = False,
+    disable_bar: bool = False,
+):
     """
     Creates the Pangenome Graph. Will either load the information from the pangenome file if they are not loaded,
     or use the information loaded if they are.
@@ -85,7 +105,12 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
         remove_high_copy_number(pangenome, remove_copy_number)
 
     logging.getLogger("PPanGGOLiN").info("Computing the neighbors graph...")
-    bar = tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar)
+    bar = tqdm(
+        pangenome.organisms,
+        total=pangenome.number_of_organisms,
+        unit="genome",
+        disable=disable_bar,
+    )
     for org in bar:
         bar.set_description(f"Processing {org.name}")
         bar.refresh()
@@ -94,12 +119,16 @@ def compute_neighbors_graph(pangenome: Pangenome, remove_copy_number: int = 0,
             for gene in contig.genes:
                 try:
                     if not gene.family.removed:
-                        if prev is not None and not (prev.family == gene.family and (prev.is_fragment or
-                                                                                     gene.is_fragment)):
+                        if prev is not None and not (
+                            prev.family == gene.family
+                            and (prev.is_fragment or gene.is_fragment)
+                        ):
                             pangenome.add_edge(gene, prev)
                         prev = gene
                 except AttributeError:
-                    raise AttributeError("a Gene does not have a GeneFamily object associated")
+                    raise AttributeError(
+                        "a Gene does not have a GeneFamily object associated"
+                    )
                 except Exception:
                     raise Exception("Unexpected error. Please report on our github.")
             if prev is not None and contig.is_circular and contig.number_of_genes > 0:
@@ -121,8 +150,15 @@ def launch(args: argparse.Namespace):
     """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    compute_neighbors_graph(pangenome, args.remove_high_copy_number, args.force, disable_bar=args.disable_prog_bar)
-    write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
+    compute_neighbors_graph(
+        pangenome,
+        args.remove_high_copy_number,
+        args.force,
+        disable_bar=args.disable_prog_bar,
+    )
+    write_pangenome(
+        pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar
+    )
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -133,7 +169,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     :return : parser arguments for graph command
     """
-    parser = sub_parser.add_parser("graph", formatter_class=argparse.RawTextHelpFormatter)
+    parser = sub_parser.add_parser(
+        "graph", formatter_class=argparse.RawTextHelpFormatter
+    )
     parser_graph(parser)
     return parser
 
@@ -144,23 +182,32 @@ def parser_graph(parser: argparse.ArgumentParser):
 
     :param parser: parser for graph argument
     """
-    required = parser.add_argument_group(title="Required arguments",
-                                         description="Following arguments is required:")
-    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
+    required = parser.add_argument_group(
+        title="Required arguments", description="Following arguments is required:"
+    )
+    required.add_argument(
+        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+    )
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument('-r', '--remove_high_copy_number', type=int, default=0,
-                          help="Positive Number: Remove families having a number of copy of gene in a single genome "
-                               "above or equal to this threshold in at least one genome "
-                               "(0 or negative values are ignored).")
+    optional.add_argument(
+        "-r",
+        "--remove_high_copy_number",
+        type=int,
+        default=0,
+        help="Positive Number: Remove families having a number of copy of gene in a single genome "
+        "above or equal to this threshold in at least one genome "
+        "(0 or negative values are ignored).",
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """To test local change and allow using debugger"""
     from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-        formatter_class=argparse.RawTextHelpFormatter)
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
 
     parser_graph(main_parser)
     add_common_arguments(main_parser)

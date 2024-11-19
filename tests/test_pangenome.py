@@ -48,30 +48,23 @@ class TestPangenome:
             "_spot_getter": dict,
             "_module_getter": dict,
             "status": dict,
-            "parameters": dict
+            "parameters": dict,
         }
         status_keys = [
-            'genomesAnnotated',
-            'geneSequences',
-            'genesClustered',
-            'defragmented',
-            'geneFamilySequences',
-            'neighborsGraph',
-            'partitioned',
-            'predictedRGP',
-            'spots',
-            'modules',
-            "metadata",
-            "metasources"
-        ]
-        metadata_keys = [
-            "families",
-            "genes",
-            "genomes",
-            "RGPs",
+            "genomesAnnotated",
+            "geneSequences",
+            "genesClustered",
+            "defragmented",
+            "geneFamilySequences",
+            "neighborsGraph",
+            "partitioned",
+            "predictedRGP",
             "spots",
-            "modules"
+            "modules",
+            "metadata",
+            "metasources",
         ]
+        metadata_keys = ["families", "genes", "genomes", "RGPs", "spots", "modules"]
         for attr, attr_type in pangenome_attr_type.items():
             assert hasattr(pangenome, attr)
             assert isinstance(pangenome.__getattribute__(attr), attr_type)
@@ -113,13 +106,11 @@ class TestPangenome:
 
 
 class TestPangenomeOrganism(TestPangenome):
-    """This class tests methods in pangenome class associated to organisms.
-    """
+    """This class tests methods in pangenome class associated to organisms."""
 
     @pytest.fixture
     def organism(self) -> Generator[Organism, None, None]:
-        """Create a basic organism
-        """
+        """Create a basic organism"""
         yield Organism(name="organism")
 
     def test_add_organism(self, pangenome, organism):
@@ -166,7 +157,7 @@ class TestPangenomeOrganism(TestPangenome):
         :param pangenome: Pangenome object to test method
         """
         with pytest.raises(KeyError):
-            pangenome.get_organism('org')
+            pangenome.get_organism("org")
 
     def test_get_organism_with_name_not_instance_string(self, pangenome):
         """Ensure that it raises an AssertionError when a non-string name is passed as organism name.
@@ -210,8 +201,7 @@ class TestPangenomeOrganism(TestPangenome):
 
 
 class TestPangenomeGeneFamilies(TestPangenome):
-    """This class tests methods in pangenome class associated to gene families.
-    """
+    """This class tests methods in pangenome class associated to gene families."""
 
     @pytest.fixture
     def family(self) -> Generator[GeneFamily, None, None]:
@@ -285,7 +275,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
         """
         families = set()
         for i in range(randint(5, 20)):
-            family = GeneFamily(family_id=i, name=f'family{i}')
+            family = GeneFamily(family_id=i, name=f"family{i}")
             families.add(family)
         yield families
 
@@ -311,8 +301,7 @@ class TestPangenomeGeneFamilies(TestPangenome):
 
 
 class TestPangenomeGene(TestPangenome):
-    """This class tests methods in pangenome class associated to Gene.
-    """
+    """This class tests methods in pangenome class associated to Gene."""
 
     @pytest.fixture
     def genes(self) -> Generator[Set[Gene], None, None]:
@@ -441,8 +430,7 @@ class TestPangenomeGene(TestPangenome):
 
 
 class TestPangenomeEdge(TestPangenome):
-    """This class tests methods in pangenome class associated to Edge.
-    """
+    """This class tests methods in pangenome class associated to Edge."""
 
     @staticmethod
     def make_gene_pair(gene_id_1: int = 1, gene_id_2: int = 2) -> Tuple[Gene, Gene]:
@@ -512,8 +500,7 @@ class TestPangenomeEdge(TestPangenome):
 
 
 class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
-    """This class tests methods in pangenome class associated to binary methods.
-    """
+    """This class tests methods in pangenome class associated to binary methods."""
 
     # TODO Better test for this part
     def test_get_org_index(self, add_organisms, pangenome):
@@ -531,7 +518,9 @@ class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
             assert index not in index_know
             index_know.add(index)
 
-    def test_compute_family_bitarrays_with_index_already_computed(self, add_organisms, add_families, pangenome):
+    def test_compute_family_bitarrays_with_index_already_computed(
+        self, add_organisms, add_families, pangenome
+    ):
         """Tests the compute_family_bitarrays function in Pangenome class
 
         :param add_families: Add families to the pangenome object
@@ -540,7 +529,9 @@ class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
         org_idx = pangenome.get_org_index()
         assert pangenome.compute_family_bitarrays() == org_idx
 
-    def test_compute_family_bitarrays_without_index_already_computed(self, add_organisms, add_families, pangenome):
+    def test_compute_family_bitarrays_without_index_already_computed(
+        self, add_organisms, add_families, pangenome
+    ):
         """Tests the compute_family_bitarrays function of the Pangenome class.
 
         :param add_families: Add families to the pangenome
@@ -565,7 +556,9 @@ class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
             assert index not in index_know
             index_know.add(index)
 
-    def test_compute_org_bitarrays_with_index_already_computed(self, add_organisms, add_families, pangenome):
+    def test_compute_org_bitarrays_with_index_already_computed(
+        self, add_organisms, add_families, pangenome
+    ):
         """Tests the compute_family_bitarrays function in Pangenome class
 
         :param add_families: Add families to the pangenome object
@@ -574,7 +567,9 @@ class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
         fams_index = pangenome.get_fam_index()
         assert pangenome.compute_org_bitarrays() == fams_index
 
-    def test_compute_org_bitarrays_without_index_already_computed(self, add_organisms, add_families, pangenome):
+    def test_compute_org_bitarrays_without_index_already_computed(
+        self, add_organisms, add_families, pangenome
+    ):
         """Tests the compute_family_bitarrays function of the Pangenome class.
 
         :param add_families: Add families to the pangenome
@@ -586,8 +581,7 @@ class TestPangenomeBinary(TestPangenomeOrganism, TestPangenomeGeneFamilies):
 
 
 class TestPangenomeRGP(TestPangenome):
-    """This class tests methods in pangenome class associated to Region
-    """
+    """This class tests methods in pangenome class associated to Region"""
 
     def test_add_region(self, pangenome):
         """Tests the add_region method in the Pangenome class.
@@ -654,8 +648,7 @@ class TestPangenomeRGP(TestPangenome):
 
 
 class TestPangenomeSpot(TestPangenome):
-    """This class tests methods in pangenome class associated to Spot.
-    """
+    """This class tests methods in pangenome class associated to Spot."""
 
     def test_add_spot(self, pangenome):
         """Tests the add_spot method in the Pangenome class.
@@ -723,8 +716,7 @@ class TestPangenomeSpot(TestPangenome):
 
 
 class TestPangenomeModule(TestPangenome):
-    """This class tests methods in pangenome class associated to Modules.
-    """
+    """This class tests methods in pangenome class associated to Modules."""
 
     def test_add_module(self, pangenome):
         """Tests the add_module method in the Pangenome class.
@@ -792,8 +784,7 @@ class TestPangenomeModule(TestPangenome):
 
 
 class TestPangenomeMetadata(TestPangenome):
-    """This class tests methods in pangenome class associated to Metadata.
-    """
+    """This class tests methods in pangenome class associated to Metadata."""
 
     @pytest.fixture
     def add_element_to_pangenome(self, pangenome):
@@ -810,7 +801,7 @@ class TestPangenomeMetadata(TestPangenome):
         ctg = Contig(0, "Ctg")
         org.add(ctg)
         gene = Gene("Gene")
-        gene.fill_annotations(start=1, stop=100, position=0, strand='+')
+        gene.fill_annotations(start=1, stop=100, position=0, strand="+")
         gene.add_metadata(metadata=metadata)
         ctg.add(gene)
         pangenome.add_organism(org)
@@ -830,12 +821,25 @@ class TestPangenomeMetadata(TestPangenome):
         :param add_element_to_pangenome: Add elements to the pangenome
         :param pangenome: Access the pangenome object
         """
-        assert all(isinstance(elem, GeneFamily) for elem in set(pangenome.select_elem("families")))
-        assert all(isinstance(elem, Organism) for elem in set(pangenome.select_elem("genomes")))
-        assert all(isinstance(elem, Gene) for elem in set(pangenome.select_elem("genes")))
-        assert all(isinstance(elem, Region) for elem in set(pangenome.select_elem("RGPs")))
-        assert all(isinstance(elem, Spot) for elem in set(pangenome.select_elem("spots")))
-        assert all(isinstance(elem, Module) for elem in set(pangenome.select_elem("modules")))
+        assert all(
+            isinstance(elem, GeneFamily)
+            for elem in set(pangenome.select_elem("families"))
+        )
+        assert all(
+            isinstance(elem, Organism) for elem in set(pangenome.select_elem("genomes"))
+        )
+        assert all(
+            isinstance(elem, Gene) for elem in set(pangenome.select_elem("genes"))
+        )
+        assert all(
+            isinstance(elem, Region) for elem in set(pangenome.select_elem("RGPs"))
+        )
+        assert all(
+            isinstance(elem, Spot) for elem in set(pangenome.select_elem("spots"))
+        )
+        assert all(
+            isinstance(elem, Module) for elem in set(pangenome.select_elem("modules"))
+        )
         with pytest.raises(KeyError):
             pangenome.select_elem("error")
 
@@ -847,7 +851,7 @@ class TestPangenomeMetadata(TestPangenome):
         """
         for metatype in ["families", "genomes", "genes", "RGPs", "spots", "modules"]:
             assert isinstance(pangenome.metadata_sources(metatype), set)
-            assert pangenome.metadata_sources(metatype) == {'source'}
+            assert pangenome.metadata_sources(metatype) == {"source"}
 
     def test_metadata(self, add_element_to_pangenome, pangenome):
         """Tests the metadata generator of the Pangenome class.
@@ -859,7 +863,7 @@ class TestPangenomeMetadata(TestPangenome):
             for metadata_gen in pangenome.metadata(metatype):
                 for metadata in metadata_gen:
                     assert isinstance(metadata, Metadata)
-                    assert metadata.source == 'source'
+                    assert metadata.source == "source"
 
     def test_get_elem_by_metadata(self, add_element_to_pangenome, pangenome):
         """Tests the metadata generator filtered by metadata attribute of the Pangenome class.
@@ -867,13 +871,19 @@ class TestPangenomeMetadata(TestPangenome):
         :param add_element_to_pangenome: Add elements to the pangenome
         :param pangenome: Access the pangenome object
         """
-        for metatype, expected_type in {"families": GeneFamily, "genomes": Organism, "genes": Gene, "RGPs": Region,
-                                        "spots": Spot, "modules": Module}.items():
+        for metatype, expected_type in {
+            "families": GeneFamily,
+            "genomes": Organism,
+            "genes": Gene,
+            "RGPs": Region,
+            "spots": Spot,
+            "modules": Module,
+        }.items():
             for elem in pangenome.get_elem_by_metadata(metatype, attribute="attr"):
                 assert isinstance(elem, expected_type)
                 for metadata in elem.metadata:
                     assert isinstance(metadata, Metadata)
-                    assert metadata.source == 'source'
+                    assert metadata.source == "source"
 
     def test_get_elem_by_source(self, add_element_to_pangenome, pangenome):
         """Tests the metadata generator filtered by source of the Pangenome class.
@@ -881,10 +891,18 @@ class TestPangenomeMetadata(TestPangenome):
         :param add_element_to_pangenome: Add elements to the pangenome
         :param pangenome: Access the pangenome object
         """
-        for metatype, expected_type in {"families": GeneFamily, "genomes": Organism, "genes": Gene, "RGPs": Region,
-                                        "spots": Spot, "modules": Module}.items():
-            for elem in pangenome.get_elem_by_source(source='source', metatype=metatype):
+        for metatype, expected_type in {
+            "families": GeneFamily,
+            "genomes": Organism,
+            "genes": Gene,
+            "RGPs": Region,
+            "spots": Spot,
+            "modules": Module,
+        }.items():
+            for elem in pangenome.get_elem_by_source(
+                source="source", metatype=metatype
+            ):
                 assert isinstance(elem, expected_type)
                 for metadata in elem.metadata:
                     assert isinstance(metadata, Metadata)
-                    assert metadata.source == 'source'
+                    assert metadata.source == "source"

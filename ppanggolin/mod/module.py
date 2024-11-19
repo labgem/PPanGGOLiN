@@ -25,8 +25,10 @@ def check_pangenome_former_modules(pangenome: Pangenome, force: bool = False):
     :param force: Allow to force write on pangenome by erasing already present modules
     """
     if pangenome.status["modules"] == "inFile" and not force:
-        raise Exception("You are trying to detect modules on a pangenome which already has predicted modules. "
-                        "If you REALLY want to do that, use --force (it will erase modules previously predicted).")
+        raise Exception(
+            "You are trying to detect modules on a pangenome which already has predicted modules. "
+            "If you REALLY want to do that, use --force (it will erase modules previously predicted)."
+        )
     elif pangenome.status["modules"] == "inFile" and force:
         erase_pangenome(pangenome, modules=True)
 
@@ -34,32 +36,44 @@ def check_pangenome_former_modules(pangenome: Pangenome, force: bool = False):
 def compute_mod_graph(pangenome: Pangenome, t: int = 1, disable_bar: bool = False):
     """
     Computes a graph using all provided genomes with a transitive closure of size t
-    
+
     :param pangenome: pangenome with organisms to compute the graph
     :param t: the size of the transitive closure
     :param disable_bar: whether to show a progress bar or not
     """
 
     g = nx.Graph()
-    for org in tqdm(pangenome.organisms, total=pangenome.number_of_organisms, unit="genome", disable=disable_bar):
+    for org in tqdm(
+        pangenome.organisms,
+        total=pangenome.number_of_organisms,
+        unit="genome",
+        disable=disable_bar,
+    ):
         for contig in org.contigs:
             if contig.number_of_genes > 0:
                 start_gene = contig[0]
                 g.add_node(start_gene.family)
                 add_gene(g.nodes[start_gene.family], start_gene, fam_split=False)
                 for i, gene in enumerate(contig.genes):
-                    for j, a_gene in enumerate(contig.get_genes(i + 1, i + t + 2, outrange_ok=True), start=i + 1):
+                    for j, a_gene in enumerate(
+                        contig.get_genes(i + 1, i + t + 2, outrange_ok=True),
+                        start=i + 1,
+                    ):
                         g.add_edge(gene.family, a_gene.family)
                         edge = g[gene.family][a_gene.family]
                         add_gene(edge, gene)
                         add_gene(edge, a_gene)
-                        if j == i + t + 1 or i == 0:  # if it's the last gene of the series, or the first series
+                        if (
+                            j == i + t + 1 or i == 0
+                        ):  # if it's the last gene of the series, or the first series
                             add_gene(g.nodes[a_gene.family], a_gene, fam_split=False)
 
     return g
 
 
-def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int = 2, size: int = 3):
+def compute_modules(
+    g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int = 2, size: int = 3
+):
     """
     Computes modules using a graph built by :func:`ppanggolin.mod.module.compute_mod_graph` and different parameters
     defining how restrictive the modules will be.
@@ -77,8 +91,9 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     modules = set()
     c = 0
     for comp in connected_components(g, removed, weight):
-        if len(comp) >= size and not any(fam.named_partition == "persistent" and
-                                         fam not in multi for fam in comp):
+        if len(comp) >= size and not any(
+            fam.named_partition == "persistent" and fam not in multi for fam in comp
+        ):
             # keep only the modules with at least 'size' non-multigenic genes and
             # remove 'persistent' and non-multigenic modules
             modules.add(Module(module_id=c, families=comp))
@@ -86,8 +101,16 @@ def compute_modules(g: nx.Graph, multi: set, weight: float = 0.85, min_fam: int 
     return modules
 
 
-def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 3, min_presence: int = 2,
-                    transitive: int = 4, jaccard: float = 0.85, force: bool = False, disable_bar: bool = False):
+def predict_modules(
+    pangenome: Pangenome,
+    dup_margin: float = 0.05,
+    size: int = 3,
+    min_presence: int = 2,
+    transitive: int = 4,
+    jaccard: float = 0.85,
+    force: bool = False,
+    disable_bar: bool = False,
+):
     """
     Main function to predict module
 
@@ -102,16 +125,24 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
     """
     # check statuses and load info
     check_pangenome_former_modules(pangenome, force)
-    check_pangenome_info(pangenome, need_annotations=True, need_families=True, need_partitions=True,
-                         disable_bar=disable_bar)
+    check_pangenome_info(
+        pangenome,
+        need_annotations=True,
+        need_families=True,
+        need_partitions=True,
+        disable_bar=disable_bar,
+    )
 
     # compute the graph with transitive closure size provided as parameter
     start_time = time.time()
     logging.getLogger("PPanGGOLiN").info("Building the graph...")
     g = compute_mod_graph(pangenome, t=transitive, disable_bar=disable_bar)
     logging.getLogger("PPanGGOLiN").info(
-        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in")
-    logging.getLogger("PPanGGOLiN").info(f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges")
+        f"Took {round(time.time() - start_time, 2)} seconds to build the graph to find modules in"
+    )
+    logging.getLogger("PPanGGOLiN").info(
+        f"There are {nx.number_of_nodes(g)} nodes and {nx.number_of_edges(g)} edges"
+    )
 
     start_time = time.time()
     # get all multigenic gene families
@@ -125,8 +156,12 @@ def predict_modules(pangenome: Pangenome, dup_margin: float = 0.05, size: int = 
         fams |= set(mod.families)
         pangenome.add_module(mod)
 
-    logging.getLogger("PPanGGOLiN").info(f"There are {len(fams)} families among {len(modules)} modules")
-    logging.getLogger("PPanGGOLiN").info(f"Computing modules took {round(time.time() - start_time, 2)} seconds")
+    logging.getLogger("PPanGGOLiN").info(
+        f"There are {len(fams)} families among {len(modules)} modules"
+    )
+    logging.getLogger("PPanGGOLiN").info(
+        f"Computing modules took {round(time.time() - start_time, 2)} seconds"
+    )
 
     pangenome.status["modules"] = "Computed"
     pangenome.parameters["module"] = {}
@@ -145,10 +180,19 @@ def launch(args: argparse.Namespace):
     """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
-    predict_modules(pangenome=pangenome, dup_margin=args.dup_margin, size=args.size,
-                    min_presence=args.min_presence, transitive=args.transitive, jaccard=args.jaccard, force=args.force,
-                    disable_bar=args.disable_prog_bar)
-    write_pangenome(pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar)
+    predict_modules(
+        pangenome=pangenome,
+        dup_margin=args.dup_margin,
+        size=args.size,
+        min_presence=args.min_presence,
+        transitive=args.transitive,
+        jaccard=args.jaccard,
+        force=args.force,
+        disable_bar=args.disable_prog_bar,
+    )
+    write_pangenome(
+        pangenome, pangenome.file, args.force, disable_bar=args.disable_prog_bar
+    )
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -159,7 +203,9 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
     :return : parser arguments for align command
     """
-    parser = sub_parser.add_parser("module", formatter_class=argparse.RawTextHelpFormatter)
+    parser = sub_parser.add_parser(
+        "module", formatter_class=argparse.RawTextHelpFormatter
+    )
     parser_module(parser)
     return parser
 
@@ -170,36 +216,76 @@ def parser_module(parser: argparse.ArgumentParser):
 
     :param parser: parser for align argument
     """
-    required = parser.add_argument_group(title="Required arguments",
-                                         description="One of the following arguments is required :")
-    required.add_argument('-p', '--pangenome', required=False, type=Path, help="The pangenome .h5 file")
+    required = parser.add_argument_group(
+        title="Required arguments",
+        description="One of the following arguments is required :",
+    )
+    required.add_argument(
+        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+    )
     optional = parser.add_argument_group(title="Optional arguments")
-    optional.add_argument("--size", required=False, type=int, default=3,
-                          help="Minimal number of gene family in a module")
-    optional.add_argument("--dup_margin", required=False, type=restricted_float, default=0.05,
-                          help="minimum ratio of genomes in which the family must have multiple genes"
-                               " for it to be considered 'duplicated'")
-    optional.add_argument("-m", "--min_presence", required=False, type=int, default=2,
-                          help="Minimum number of times the module needs to be present in the pangenome to be reported."
-                               " Increasing it will improve precision but lower sensitivity.")
-    optional.add_argument("-t", "--transitive", required=False, type=int, default=4,
-                          help="Size of the transitive closure used to build the graph. "
-                               "This indicates the number of non related genes allowed in-between two related genes. "
-                               "Increasing it will improve precision but lower sensitivity a little.")
-    optional.add_argument("-s", "--jaccard", required=False, type=restricted_float, default=0.85,
-                          help="minimum jaccard similarity used to filter edges between gene families. "
-                               "Increasing it will improve precision but lower sensitivity a lot.")
+    optional.add_argument(
+        "--size",
+        required=False,
+        type=int,
+        default=3,
+        help="Minimal number of gene family in a module",
+    )
+    optional.add_argument(
+        "--dup_margin",
+        required=False,
+        type=restricted_float,
+        default=0.05,
+        help="minimum ratio of genomes in which the family must have multiple genes"
+        " for it to be considered 'duplicated'",
+    )
+    optional.add_argument(
+        "-m",
+        "--min_presence",
+        required=False,
+        type=int,
+        default=2,
+        help="Minimum number of times the module needs to be present in the pangenome to be reported."
+        " Increasing it will improve precision but lower sensitivity.",
+    )
+    optional.add_argument(
+        "-t",
+        "--transitive",
+        required=False,
+        type=int,
+        default=4,
+        help="Size of the transitive closure used to build the graph. "
+        "This indicates the number of non related genes allowed in-between two related genes. "
+        "Increasing it will improve precision but lower sensitivity a little.",
+    )
+    optional.add_argument(
+        "-s",
+        "--jaccard",
+        required=False,
+        type=restricted_float,
+        default=0.85,
+        help="minimum jaccard similarity used to filter edges between gene families. "
+        "Increasing it will improve precision but lower sensitivity a lot.",
+    )
 
-    optional.add_argument("-c", "--cpu", required=False, default=1, type=int, help="Number of available cpus")
+    optional.add_argument(
+        "-c",
+        "--cpu",
+        required=False,
+        default=1,
+        type=int,
+        help="Number of available cpus",
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """To test local change and allow using debugger"""
     from ppanggolin.utils import set_verbosity_level, add_common_arguments
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-        formatter_class=argparse.RawTextHelpFormatter)
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
 
     parser_module(main_parser)
     add_common_arguments(main_parser)

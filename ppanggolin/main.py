@@ -4,13 +4,20 @@
 import sys
 
 if sys.version_info < (3, 8):  # minimum is python3.8
-    raise AssertionError("Minimum python version to run PPanGGOLiN is 3.8. Your current python version is " +
-                         ".".join(map(str, sys.version_info)))
+    raise AssertionError(
+        "Minimum python version to run PPanGGOLiN is 3.8. Your current python version is "
+        + ".".join(map(str, sys.version_info))
+    )
 import argparse
 
 # local modules
 import ppanggolin.pangenome
-from ppanggolin.utils import check_input_files, set_verbosity_level, add_common_arguments, manage_cli_and_config_args
+from ppanggolin.utils import (
+    check_input_files,
+    set_verbosity_level,
+    add_common_arguments,
+    manage_cli_and_config_args,
+)
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
 import ppanggolin.graph
@@ -28,24 +35,36 @@ import ppanggolin.workflow
 import ppanggolin.meta
 import ppanggolin.utility
 
-from ppanggolin import SUBCOMMAND_TO_SUBPARSER, epilog, pan_epilog, rgp_epilog, mod_epilog, version
+from ppanggolin import (
+    SUBCOMMAND_TO_SUBPARSER,
+    epilog,
+    pan_epilog,
+    rgp_epilog,
+    mod_epilog,
+    version,
+)
+
 
 def cmd_line() -> argparse.Namespace:
-    """ Manage the command line argument given by user
+    """Manage the command line argument given by user
 
     :return: arguments given and readable by PPanGGOLiN
     """
     # need to manually write the description so that it's displayed into groups of subcommands ....
     desc = "\n"
-    desc += "All of the following subcommands have their own set of options. To see them for a given subcommand," \
-            " use it with -h or --help, as such:\n"
+    desc += (
+        "All of the following subcommands have their own set of options. To see them for a given subcommand,"
+        " use it with -h or --help, as such:\n"
+    )
     desc += "  ppanggolin <subcommand> -h\n"
     desc += "\n"
     desc += "  Basic:\n"
     desc += "    all           Easy workflow to run all possible analysis\n"
     desc += "    workflow      Easy workflow to run a pangenome analysis in one go\n"
-    desc += "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of" \
-            " insertion detection\n"
+    desc += (
+        "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of"
+        " insertion detection\n"
+    )
     desc += "    panmodule     Easy workflow to run a pangenome analysis with module prediction\n"
     desc += "  \n"
     desc += "  Expert:\n"
@@ -62,7 +81,9 @@ def cmd_line() -> argparse.Namespace:
     desc += "    write_genomes     Writes 'flat' files that represent the genomes along with their associated pangenome elements.\n"
     desc += "    write_metadata    Writes 'TSV' files that represent the metadata associated with elements of the pangenome.\n"
     desc += "    fasta             Writes fasta files for different elements of the pangenome.\n"
-    desc += "    info              Prints information about a given pangenome graph file.\n"
+    desc += (
+        "    info              Prints information about a given pangenome graph file.\n"
+    )
     desc += "    metrics           Compute several metrics on a given pangenome.\n"
     desc += "  \n"
     desc += "  Regions of Genomic Plasticity:\n"
@@ -73,8 +94,10 @@ def cmd_line() -> argparse.Namespace:
     desc += "  \n"
     desc += "  Analysis using reference pangenomes:\n"
     desc += "    msa          Compute Multiple Sequence Alignments for pangenome gene families.\n"
-    desc += "    align        Aligns a genome or a set of proteins to the pangenome gene families and " \
+    desc += (
+        "    align        Aligns a genome or a set of proteins to the pangenome gene families and "
         "predicts information from it.\n"
+    )
     desc += "    context      Local genomic context analysis.\n"
     desc += "    projection   Annotates external genomes with an existing pangenome.\n"
     desc += "  \n"
@@ -84,12 +107,16 @@ def cmd_line() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter,
-        epilog=epilog + pan_epilog + rgp_epilog + mod_epilog)
+        epilog=epilog + pan_epilog + rgp_epilog + mod_epilog,
+    )
 
-    parser.add_argument('-v', '--version', action='version',
-                        version='%(prog)s ' + version)
+    parser.add_argument(
+        "-v", "--version", action="version", version="%(prog)s " + version
+    )
 
-    subparsers = parser.add_subparsers(metavar="", dest="subcommand", title="subcommands", description=desc)
+    subparsers = parser.add_subparsers(
+        metavar="", dest="subcommand", title="subcommands", description=desc
+    )
     subparsers.required = True  # because python3 sent subcommands to hell apparently
 
     # print help if no subcommand is specified
@@ -106,7 +133,14 @@ def cmd_line() -> argparse.Namespace:
         sub.epilog = epilog
         if sub_cmd not in ["rgp", "spot", "module", "rgp_cluster"]:
             sub.epilog += pan_epilog
-        if sub_cmd not in ["annotate", "cluster", "graph", "partition", "rarefaction", "workflow"]:
+        if sub_cmd not in [
+            "annotate",
+            "cluster",
+            "graph",
+            "partition",
+            "rarefaction",
+            "workflow",
+        ]:
             if sub_cmd not in ["module", "panmodule"]:
                 sub.epilog += rgp_epilog
             if sub_cmd not in ["rgp", "spot", "rgp_cluster", "panrgp"]:
@@ -126,32 +160,60 @@ def cmd_line() -> argparse.Namespace:
 
     # First parse args to check that nothing is missing or not expected in cli and throw help when requested
     args = parser.parse_args()
-    if hasattr(args,  "config"):
+    if hasattr(args, "config"):
         # the two subcommand with no common args does not have config parameter. so we can skip this part for them.
-        args = manage_cli_and_config_args(args.subcommand, args.config, SUBCOMMAND_TO_SUBPARSER)
+        args = manage_cli_and_config_args(
+            args.subcommand, args.config, SUBCOMMAND_TO_SUBPARSER
+        )
     else:
         set_verbosity_level(args)
 
     if args.subcommand == "annotate" and args.fasta is None and args.anno is None:
-        parser.error("Please provide either a sequence file using the --fasta option or "
-                     "an annotation file using the --anno option to enable annotation. "
-                     "Use the command line or the config file.")
+        parser.error(
+            "Please provide either a sequence file using the --fasta option or "
+            "an annotation file using the --anno option to enable annotation. "
+            "Use the command line or the config file."
+        )
 
-    cmds_pangenome_required = ["cluster", "info", "module", "graph", "align",
-                               "context", "write_pangenome", "write_genomes", "write_metadata", "msa", "draw", "partition",
-                               "rarefaction", "spot", "fasta", "metrics", "rgp", "projection", "metadata"]
+    cmds_pangenome_required = [
+        "cluster",
+        "info",
+        "module",
+        "graph",
+        "align",
+        "context",
+        "write_pangenome",
+        "write_genomes",
+        "write_metadata",
+        "msa",
+        "draw",
+        "partition",
+        "rarefaction",
+        "spot",
+        "fasta",
+        "metrics",
+        "rgp",
+        "projection",
+        "metadata",
+    ]
     if args.subcommand in cmds_pangenome_required and args.pangenome is None:
-        parser.error("Please specify a pangenome file using the --pangenome argument, "
-                     "either through the command line or the config file.")
+        parser.error(
+            "Please specify a pangenome file using the --pangenome argument, "
+            "either through the command line or the config file."
+        )
 
     if args.subcommand == "align" and args.sequences is None:
-        parser.error("Please provide sequences (nucleotides or amino acids) for alignment "
-                     "with the pangenome gene families using the --sequences argument, "
-                     "either through the command line or the config file.")
+        parser.error(
+            "Please provide sequences (nucleotides or amino acids) for alignment "
+            "with the pangenome gene families using the --sequences argument, "
+            "either through the command line or the config file."
+        )
 
     if args.subcommand == "projection":
         # check argument correctness and determine input mode (single or multiple files) and add it to args.
-        input_mode = ppanggolin.projection.projection.check_projection_arguments(args, parser)
+        input_mode = ppanggolin.projection.projection.check_projection_arguments(
+            args, parser
+        )
         setattr(args, "input_mode", input_mode)
 
     if args.subcommand == "metadata":

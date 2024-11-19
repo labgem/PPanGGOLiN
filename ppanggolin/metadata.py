@@ -33,7 +33,9 @@ class Metadata:
         :raises Exception: Metadata is empty
         """
         if not isinstance(source, str):
-            raise TypeError(f"Metadata source name must be a string. Given type {type(source)}")
+            raise TypeError(
+                f"Metadata source name must be a string. Given type {type(source)}"
+            )
         if source == "":
             raise ValueError("Metadata source name should not be empty.")
         self.source = source
@@ -85,7 +87,7 @@ class Metadata:
 
     @staticmethod
     def _join_list(attr_list: Union[str, List[str]]):
-        return ','.join(attr_list)
+        return ",".join(attr_list)
 
 
 class MetaFeatures:
@@ -100,14 +102,12 @@ class MetaFeatures:
     """
 
     def __init__(self):
-        """Constructor method
-        """
+        """Constructor method"""
         self._metadata_getter = defaultdict(dict)
 
     @property
     def number_of_metadata(self) -> int:
-        """Get the number of metadata associated to feature
-        """
+        """Get the number of metadata associated to feature"""
         return sum(len(meta_dict) for meta_dict in self._metadata_getter.values())
 
     @property
@@ -122,7 +122,7 @@ class MetaFeatures:
 
     @property
     def sources(self) -> Generator[str, None, None]:
-        """ Get all metadata source in gene family
+        """Get all metadata source in gene family
 
         :return: Metadata source
         """
@@ -133,7 +133,7 @@ class MetaFeatures:
         Format metadata by combining source and field values.
 
         Given an object with metadata, this function creates a new dictionary where the keys
-        are formatted as 'source_field'. In some cases, it is possible to have multiple values for the same field, 
+        are formatted as 'source_field'. In some cases, it is possible to have multiple values for the same field,
         in this situation, values are concatenated with the specified separator.
 
         :param separator: The separator used to join multiple values for the same field (default is '|').
@@ -144,12 +144,17 @@ class MetaFeatures:
             for field in metadata.fields:
                 value = str(getattr(metadata, field))
                 if separator in value:
-                    raise ValueError(f"Metadata {field}={value} associated to {self} from source {metadata.source} "
-                                     f"contains in its value the separator character '{separator}'. "
-                                     "Please change separator in order to be able to write the metadata.")
+                    raise ValueError(
+                        f"Metadata {field}={value} associated to {self} from source {metadata.source} "
+                        f"contains in its value the separator character '{separator}'. "
+                        "Please change separator in order to be able to write the metadata."
+                    )
                 source_field_2_values[f"{metadata.source}_{field}"].append(str(value))
 
-        return {source_field: separator.join(values) for source_field, values in source_field_2_values.items()}
+        return {
+            source_field: separator.join(values)
+            for source_field, values in source_field_2_values.items()
+        }
 
     def add_metadata(self, metadata: Metadata, metadata_id: int = None) -> None:
         """Add metadata to metadata getter
@@ -159,7 +164,9 @@ class MetaFeatures:
 
         :raises AssertionError: Source or metadata is not with the correct type
         """
-        assert isinstance(metadata, Metadata), f"Metadata is not with type Metadata but with {type(metadata)}"
+        assert isinstance(
+            metadata, Metadata
+        ), f"Metadata is not with type Metadata but with {type(metadata)}"
 
         # Metadata_id should not already exist because the metadata are added from scratch to a new source,
         # or they are ridden
@@ -175,8 +182,10 @@ class MetaFeatures:
         except KeyError:
             self._metadata_getter[metadata.source][metadata_id] = metadata
         else:
-            raise KeyError(f"A metadata with ID {metadata_id} already exist "
-                           f"for source {metadata.source} in {str(self)}")
+            raise KeyError(
+                f"A metadata with ID {metadata_id} already exist "
+                f"for source {metadata.source} in {str(self)}"
+            )
 
     def get_metadata(self, source: str, metadata_id: int = None) -> Metadata:
         """Get metadata from metadata getter by its source and identifier
@@ -189,8 +198,10 @@ class MetaFeatures:
         try:
             metadata = self._metadata_getter[source][metadata_id]
         except KeyError:
-            raise KeyError(f"No metadata exist with ID {metadata_id}"
-                           f"for source {source} in {str(self)}")
+            raise KeyError(
+                f"No metadata exist with ID {metadata_id}"
+                f"for source {source} in {str(self)}"
+            )
         else:
             return metadata
 
@@ -203,8 +214,12 @@ class MetaFeatures:
 
         :raises AssertionError: Source is not with the correct type
         """
-        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
-        return self._metadata_getter.get(source)  # if source in _metadata_getter return value else None
+        assert isinstance(
+            source, str
+        ), f"Source is not a string but with {type(source)}"
+        return self._metadata_getter.get(
+            source
+        )  # if source in _metadata_getter return value else None
 
     def get_metadata_by_attribute(self, **kwargs) -> Generator[Metadata, None, None]:
         """Get metadata by one or more attribute
@@ -216,7 +231,10 @@ class MetaFeatures:
                 if hasattr(metadata, attr):
                     # BUG If value is a list, the join block detection.
                     # It would be better to keep a list and change in writing and reading metadata to join the list
-                    if getattr(metadata, attr, None) in value or getattr(metadata, attr, None) == value:
+                    if (
+                        getattr(metadata, attr, None) in value
+                        or getattr(metadata, attr, None) == value
+                    ):
                         yield metadata
 
     def del_metadata_by_source(self, source: str):
@@ -227,20 +245,26 @@ class MetaFeatures:
         :raises AssertionError: Source is not with the correct type
         :raises KeyError: Source does not belong in the MetaFeature
         """
-        assert isinstance(source, str), f"Source is not a string but with {type(source)}"
+        assert isinstance(
+            source, str
+        ), f"Source is not a string but with {type(source)}"
         if self._metadata_getter.pop(source, None) is None:
-            logging.getLogger("PPanGGOLiN").warning("The source to remove does not exist")
+            logging.getLogger("PPanGGOLiN").warning(
+                "The source to remove does not exist"
+            )
 
     def del_metadata_by_attribute(self, **kwargs):
-        """Remove a source from the feature
-        """
+        """Remove a source from the feature"""
         for source, metadata_dict in self._metadata_getter.items():
             for attr, value in kwargs.items():
                 for meta_id, metadata in metadata_dict.items():
                     if hasattr(metadata, attr):
                         # BUG If value is a list, the join block detection.
                         # It would be better to keep a list and change in writing and reading metadata to join the list
-                        if getattr(metadata, attr, None) in value or getattr(metadata, attr, None) == value:
+                        if (
+                            getattr(metadata, attr, None) in value
+                            or getattr(metadata, attr, None) == value
+                        ):
                             del self._metadata_getter[source][meta_id]
 
     def max_metadata_by_source(self) -> Tuple[str, int]:
@@ -248,7 +272,9 @@ class MetaFeatures:
 
         :return: Name of the source with the maximum annotation and the number of metadata corresponding
         """
-        max_source, max_meta = max(self._metadata_getter.items(), key=lambda x: len(x[1]))
+        max_source, max_meta = max(
+            self._metadata_getter.items(), key=lambda x: len(x[1])
+        )
         return max_source, len(max_meta)
 
     def has_metadata(self) -> bool:

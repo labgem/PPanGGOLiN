@@ -7,7 +7,14 @@ import bz2
 import zipfile
 from typing import Generator
 
-from ppanggolin.utils import is_compressed, read_compressed_or_not, write_compressed_or_not,  has_non_ascii, replace_non_ascii
+from ppanggolin.utils import (
+    is_compressed,
+    read_compressed_or_not,
+    write_compressed_or_not,
+    has_non_ascii,
+    replace_non_ascii,
+)
+
 
 class TestCompressed:
     """
@@ -20,7 +27,7 @@ class TestCompressed:
         Creates a temporary plain text file for testing.
         """
         file_path = tmp_path / "test.txt"
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             f.write(b"Test data")
         yield file_path
 
@@ -30,7 +37,7 @@ class TestCompressed:
         Creates a temporary gzip file for testing.
         """
         file_path = tmp_path / "test.gz"
-        with gzip.open(file_path, 'wb') as f:
+        with gzip.open(file_path, "wb") as f:
             f.write(b"Test data")
         yield file_path
 
@@ -40,7 +47,7 @@ class TestCompressed:
         Creates a temporary bz2 file for testing.
         """
         file_path = tmp_path / "test.bz2"
-        with bz2.open(file_path, 'wb') as f:
+        with bz2.open(file_path, "wb") as f:
             f.write(b"Test data")
         yield file_path
 
@@ -50,15 +57,14 @@ class TestCompressed:
         Creates a temporary zip file for testing.
         """
         file_path = tmp_path / "test.zip"
-        with zipfile.ZipFile(file_path, 'w') as z:
+        with zipfile.ZipFile(file_path, "w") as z:
             z.writestr("test.txt", "Test data")
         yield file_path
 
 
 class TestIsCompressed(TestCompressed):
     def test_is_compressed_with_plain_file(self, plain_file: Path) -> None:
-        """Test is_compressed function with a plain text file.
-        """
+        """Test is_compressed function with a plain text file."""
         assert is_compressed(plain_file) == (False, None)
 
     def test_is_compressed_with_gzip_file(self, gzip_file: Path) -> None:
@@ -91,6 +97,7 @@ class TestReadCompressedOrNot(TestCompressed):
     """
     Test cases for the read_compressed_or_not function.
     """
+
     def test_read_compressed_gzip(self, gzip_file: Path) -> None:
         """
         Test read_compressed_or_not function with a gzip file.
@@ -145,7 +152,7 @@ class TestWriteCompressedOrNot:
         """
         with write_compressed_or_not(plain_file_path, compress=True) as f:
             f.write("Test data")
-        with gzip.open(plain_file_path.with_suffix('.txt.gz'), 'rt') as f:
+        with gzip.open(plain_file_path.with_suffix(".txt.gz"), "rt") as f:
             assert f.read() == "Test data"
 
     def test_write_uncompressed(self, plain_file_path: Path) -> None:
@@ -154,29 +161,39 @@ class TestWriteCompressedOrNot:
         """
         with write_compressed_or_not(plain_file_path, compress=False) as f:
             f.write("Test data")
-        with open(plain_file_path, 'r') as f:
+        with open(plain_file_path, "r") as f:
             assert f.read() == "Test data"
 
 
 # Test cases for has_non_ascii
-@pytest.mark.parametrize("input_string, expected", [
-    ("Escherichia_coli", False),  # All ASCII characters
-    ("Escherichia_colí", True),   # Contains non-ASCII character 'í'
-    ("simple_string", False),     # Simple ASCII string
-    ("Ωmega", True),              # Contains non-ASCII character 'Ω'
-    ("", False),                  # Empty string should return False
-])
+@pytest.mark.parametrize(
+    "input_string, expected",
+    [
+        ("Escherichia_coli", False),  # All ASCII characters
+        ("Escherichia_colí", True),  # Contains non-ASCII character 'í'
+        ("simple_string", False),  # Simple ASCII string
+        ("Ωmega", True),  # Contains non-ASCII character 'Ω'
+        ("", False),  # Empty string should return False
+    ],
+)
 def test_has_non_ascii(input_string, expected):
     assert has_non_ascii(input_string) == expected
 
+
 # Test cases for replace_non_ascii
-@pytest.mark.parametrize("input_string, replacement, expected", [
-    ("Escherichia_coli", "_", "Escherichia_coli"),  # All ASCII characters, no replacement needed
-    ("Escherichia_colí", "_", "Escherichia_col_"),  # Replace 'í' with '_'
-    ("Ωmega", "-", "-mega"),                        # Replace 'Ω' with '-'
-    ("Escherichia_Ωcoli", "X", "Escherichia_Xcoli"),# Replace 'Ω' with 'X'
-    ("", "_", ""),                                  # Empty string, no replacement
-])
+@pytest.mark.parametrize(
+    "input_string, replacement, expected",
+    [
+        (
+            "Escherichia_coli",
+            "_",
+            "Escherichia_coli",
+        ),  # All ASCII characters, no replacement needed
+        ("Escherichia_colí", "_", "Escherichia_col_"),  # Replace 'í' with '_'
+        ("Ωmega", "-", "-mega"),  # Replace 'Ω' with '-'
+        ("Escherichia_Ωcoli", "X", "Escherichia_Xcoli"),  # Replace 'Ω' with 'X'
+        ("", "_", ""),  # Empty string, no replacement
+    ],
+)
 def test_replace_non_ascii(input_string, replacement, expected):
     assert replace_non_ascii(input_string, replacement) == expected
-
