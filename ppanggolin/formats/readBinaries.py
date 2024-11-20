@@ -989,7 +989,12 @@ def read_spots(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False
     table = h5f.root.spots
     spots = {}
     curr_spot_id = None
-    for row in tqdm(read_chunks(table, chunk=20000), total=table.nrows, unit="spot", disable=disable_bar):
+    for row in tqdm(
+        read_chunks(table, chunk=20000),
+        total=table.nrows,
+        unit="spot",
+        disable=disable_bar,
+    ):
         if curr_spot_id != int(row["spot"]):
             curr_spot_id = int(row["spot"])
             curr_spot = spots.get(curr_spot_id)
