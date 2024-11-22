@@ -1096,6 +1096,7 @@ def write_rgp_table(regions: Set[Region], output: Path, compress: bool = False):
             "stop",
             "length",
             "coordinates",
+            "score",
             "contigBorder",
             "wholeContig",
         ]
@@ -1117,6 +1118,7 @@ def write_rgp_table(regions: Set[Region], output: Path, compress: bool = False):
                 "stop": region.stop,
                 "length": region.length,
                 "coordinates": region.string_coordinates(),
+                "score": region.score,
                 "contigBorder": region.is_contig_border,
                 "wholeContig": region.is_whole_contig,
             }
