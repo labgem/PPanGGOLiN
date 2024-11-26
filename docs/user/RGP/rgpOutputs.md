@@ -25,6 +25,7 @@ The file has the following format :
 | stop         | The stop position of the RGP in the contig.                                                                                                                                                                         |
 | length       | The length of the RGP in nucleotide                                                                                                                                                                                 |
 | coordinates  | The coordinates of the region. If the region overlap the contig edges will be right with join coordinates syntax (*i.e* 1523..1758,1..57)                                                                           |
+| score        | Score of the RGP.                                                                                                                                                                                                   |
 | contigBorder | This is a boolean column. If the RGP is on a contig border it will be True, otherwise, it will be False. This often can indicate that, if an RGP is on a contig border it is probably not complete.                 |
 | wholeContig  | This is a boolean column. If the RGP is an entire contig, it will be True, and False otherwise. If a RGP is an entire contig it can possibly be a plasmid, a region flanked with repeat sequences or a contaminant. |
 
