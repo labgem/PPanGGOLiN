@@ -981,10 +981,9 @@ def read_spots(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False
     """
     Read hotspots in the pangenome HDF5 file and add them to the pangenome object.
 
-    Args:
-        pangenome (Pangenome): Pangenome object.
-        h5f (tables.File): Pangenome HDF5 file with spots computed.
-        disable_bar (bool): Whether to disable the progress bar.
+    :param pangenome: Pangenome object without spot
+    :param h5f: Pangenome HDF5 file with spot computed
+    :param disable_bar: Disable the progress bar
     """
     table = h5f.root.spots
     spots = {}
