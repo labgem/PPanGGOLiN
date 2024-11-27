@@ -51,7 +51,7 @@ class Region(MetaFeatures):
         super().__init__()
         self._genes_getter = {}
         self.name = name
-        self.score = 0
+        self.score = None
         self._starter = None
         self._stopper = None
         self._coordinates = None

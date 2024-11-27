@@ -971,7 +971,13 @@ def read_rgp(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False):
             region = pangenome.get_region(row["RGP"].decode())
         except KeyError:
             region = Region(row["RGP"].decode())
+
+            # starting from v2.2.1 score is part of RGP table in h5.
+            if "score" in row.dtype.names:
+                region.score = row["score"]
+
             pangenome.add_region(region)
+
         gene = pangenome.get_gene(row["gene"].decode())
         region.add(gene)
     pangenome.status["predictedRGP"] = "Loaded"

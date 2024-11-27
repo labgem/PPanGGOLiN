@@ -4,7 +4,7 @@
 import logging
 import argparse
 from pathlib import Path
-from typing import Set, Iterable, List, Tuple
+from typing import Set, Iterable
 
 # installed libraries
 from tqdm import tqdm
