@@ -299,6 +299,7 @@ def rgp_desc(max_rgp_len, max_gene_len):
     return {
         "RGP": tables.StringCol(itemsize=max_rgp_len),
         "gene": tables.StringCol(itemsize=max_gene_len),
+        "score": tables.UInt32Col(),
     }
 
 
@@ -355,6 +356,7 @@ def write_rgp(
         for gene in region.genes:
             rgp_row["RGP"] = region.name
             rgp_row["gene"] = gene.ID
+            rgp_row["score"] = region.score
             rgp_row.append()
     rgp_table.flush()
 

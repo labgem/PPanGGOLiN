@@ -16,6 +16,8 @@ from ppanggolin.annotate.annotate import (
     shift_end_coordinates,
 )
 
+from ppanggolin.annotate.synta import check_sequence_tuple, parse_fasta
+
 
 @pytest.mark.parametrize(
     "input_string, expected_positions, expected_complement, expected_partialgene_start, expected_partialgene_end",
@@ -531,3 +533,39 @@ def test_shift_start_coordinates(coordinates, shift, expected):
 def test_shift_end_coordinates(coordinates, shift, expected):
     result = shift_end_coordinates(coordinates, shift)
     assert result == expected
+
+
+def test_check_sequence_tuple_valid():
+    name, sequence = check_sequence_tuple("seq1", "ATGC")
+    assert name == "seq1"
+    assert sequence == "ATGC"
+
+
+def test_check_sequence_tuple_empty_name():
+    with pytest.raises(ValueError):
+        check_sequence_tuple("", "ATGC")
+
+
+def test_check_sequence_tuple_empty_sequence():
+    with pytest.raises(ValueError):
+        check_sequence_tuple("seq1", "")
+
+
+def test_parse_fasta_valid():
+    fasta_data = ">seq1\nATGC\n>seq2\nGCTA"
+
+    result = list(parse_fasta(fasta_data.split("\n")))
+
+    assert result == [("seq1", "ATGC"), ("seq2", "GCTA")]
+
+
+def test_parse_fasta_empty_sequence():
+    fasta_data = ">seq1\n>seq2\nGCTA"
+    with pytest.raises(ValueError):
+        list(parse_fasta(fasta_data.split("\n")))
+
+
+def test_parse_fasta_no_header():
+    fasta_data = "seq1\nATGC\nseq2\nGCTA".split("\n")
+    with pytest.raises(ValueError):
+        list(parse_fasta(fasta_data))

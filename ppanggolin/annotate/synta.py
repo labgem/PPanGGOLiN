@@ -9,7 +9,7 @@ from multiprocessing import Value
 from subprocess import Popen, PIPE
 import ast
 from collections import defaultdict
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Generator, Tuple
 from pathlib import Path
 
 # install libraries
@@ -245,49 +245,103 @@ def launch_infernal(
     return gene_objs
 
 
-def read_fasta(org: Organism, fna_file: Union[TextIOWrapper, list]) -> Dict[str, str]:
-    """Reads a fna file (or stream, or string) and stores it in a dictionary with contigs as key and sequence as value.
-
-    :param org: Organism corresponding to fasta file
-    :param fna_file: Input fasta file with sequences or list of each line as sequence
-
-    :return: Dictionary with contig_name as keys and contig sequence in values
+def check_sequence_tuple(name: str, sequence: str):
     """
-    global contig_counter
-    try:
-        contigs = {}
-        contig_seq = ""
-        contig = None
-        for line in fna_file:
-            if line.startswith(">"):
-                if len(contig_seq) >= 1:  # contig filter = 1
-                    contigs[contig.name] = contig_seq.upper()
-                    contig.length = len(contig_seq)
-                contig_seq = ""
-                try:
-                    contig = org.get(line.split()[0][1:])
-                except KeyError:
-                    with contig_counter.get_lock():
-                        contig = Contig(contig_counter.value, line.split()[0][1:])
-                        contig_counter.value += 1
-                    org.add(contig)
-            else:
-                contig_seq += line.strip()
-        if len(contig_seq) >= 1:  # processing the last contig
-            contigs[contig.name] = contig_seq.upper()
-            contig.length = len(contig_seq)
+    Checks and validates a sequence name and its corresponding sequence.
 
-    except AttributeError as e:
-        raise AttributeError(
-            f"{e}\nAn error was raised when reading file: '{fna_file.name}'. "
-            f"One possibility for this error is that the file did not start with a '>' "
-            f"as it would be expected from a fna file."
+    :param name: The name (header) of the sequence, typically extracted from the FASTA file header.
+    :param sequence: The sequence string corresponding to the name, containing the nucleotide or protein sequence.
+
+    :return: A tuple containing the validated name and sequence.
+
+    :raises ValueError:
+        - If the sequence is empty, a ValueError is raised with a message containing the header name.
+        - If the name is empty, a ValueError is raised with a message containing a preview of the sequence.
+    """
+    if not sequence:
+        raise ValueError(f"Found an empty sequence with header '{name}'")
+
+    if not name:
+        raise ValueError(
+            f"Found a sequence with empty name (sequence starts as '{sequence[:60]}')"
         )
-    except Exception as err:  # To manage other exception which can occur
-        raise Exception(
-            f"{err}: Please check your input file and if everything looks fine, "
-            "please post an issue on our github"
-        )
+
+    return name, sequence
+
+
+def parse_fasta(
+    fna_file: Union[TextIOWrapper, list]
+) -> Generator[Tuple[str, str], None, None]:
+    """Yields each sequence name and sequence from a FASTA file or stream as a tuple.
+
+    :param fna_file: Input FASTA file or list of lines as sequences.
+    :yield: Tuple with contig header (without '>') and sequence.
+    :raises ValueError: If the file does not contain valid FASTA format.
+    """
+    name = None
+    sequence = ""
+
+    for line in fna_file:
+        line = line.strip()
+
+        if line.startswith(">"):  # New header
+            if name:  # Yield previous header and sequence if available
+                yield check_sequence_tuple(name, sequence)
+
+            name = line[1:].split()[
+                0
+            ]  # Strip '>' and extract the first word as the name
+            sequence = ""
+
+        elif line:  # Only append non-empty lines
+            sequence += line
+
+        else:
+            # You can skip or handle empty lines here if required
+            pass
+
+    # Yield the final contig if exists
+    if name:
+        yield check_sequence_tuple(name, sequence)
+
+    # Check if there was any valid data (at least one header and sequence)
+    if not name:
+        raise ValueError("The file does not contain any valid FASTA content.")
+
+
+def get_contigs_from_fasta_file(
+    org: Organism, fna_file: Union[TextIOWrapper, list]
+) -> Dict[str, str]:
+    """Processes contigs from a parsed FASTA generator and stores in a dictionary.
+
+    :param org: Organism instance to update with contig info.
+    :param fna_file: Input FASTA file or list of lines as sequences.
+    :return: Dictionary with contig names as keys and sequences as values.
+    """
+
+    global contig_counter
+    contigs = {}
+
+    for contig_name, sequence in parse_fasta(fna_file):
+
+        # Retrieve or create the contig
+        try:
+            contig = org.get(contig_name)
+        except KeyError:
+            with contig_counter.get_lock():
+                contig = Contig(contig_counter.value, contig_name)
+                contig_counter.value += 1
+            org.add(contig)
+
+        # Update contig information
+        if contig.length is not None and contig.length != len(sequence):
+            raise ValueError(
+                f"Length mismatch for contig {contig_name}: expected {contig.length}, found {len(sequence)} from the fasta sequence."
+            )
+
+        contig.length = len(sequence)
+        contigs[contig_name] = sequence.upper()
+
     return contigs
 
 
@@ -464,7 +518,7 @@ def annotate_organism(
 
     fasta_file = read_compressed_or_not(file_name)
 
-    contig_sequences = read_fasta(org, fasta_file)
+    contig_sequences = get_contigs_from_fasta_file(org, fasta_file)
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
     if procedure is None:  # prodigal procedure is not force by user

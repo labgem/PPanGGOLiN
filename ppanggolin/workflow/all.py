@@ -603,6 +603,14 @@ def add_workflow_args(parser: argparse.ArgumentParser):
     )
 
     optional.add_argument(
+        "--use_pseudo",
+        required=False,
+        action="store_true",
+        help="In the context of provided annotation, use this option to read pseudogenes. "
+        "(Default behavior is to ignore them)",
+    )
+
+    optional.add_argument(
         "-K",
         "--nb_of_partitions",
         required=False,
