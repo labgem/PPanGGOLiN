@@ -135,7 +135,7 @@ class TestGeneFamily:
 
     @pytest.fixture
     def genes(self) -> Generator[Set[Gene], None, None]:
-        """Creeate a set of genes to fill gene families"""
+        """Create a set of genes to fill gene families"""
         genes = set()
         for i in range(1, randint(11, 20)):
             gene = Gene(f"gene_{str(i)}")
