@@ -117,8 +117,8 @@ def assign_metadata(
     :param source: A string representing the source of the metadata.
     :param metatype: A string representing the type of element to which metadata will be assigned.
     :param omit: A boolean indicating whether to raise an error if metadata cannot be assigned to an element.
-                 If True, metadata will not be assigned to elements that do not exist in the pangenome.
-                 If False, an error will be raised. Default is False.
+    If ``True``, metadata will not be assigned to elements that do not exist in the pangenome.
+    If ``False``, an error will be raised. Default is ``False``.
     :param disable_bar: A boolean indicating whether to disable the progress bar. Default is False.
 
     :raise KeyError: element name is not find in pangenome
@@ -228,7 +228,7 @@ def check_metadata_arguments(
     Check the arguments provided for  and raise errors if they are incompatible or missing.
 
     :param args: An argparse.Namespace object containing parsed command-line arguments.
-    :param parser : parser of the command
+    :param parser: parser of the command
     :return: A string indicating the input mode ('single' or 'multiple').
     """
 

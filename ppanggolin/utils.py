@@ -310,7 +310,7 @@ def read_compressed_or_not(
 
     Parameters:
     file (pathlib.Path, io.BytesIO, io.TextIOWrapper, io.TextIOBase): The file to read.
-        It can be a Path object from the pathlib module, a BytesIO object, a TextIOWrapper, or TextIOBase object.
+    It can be a Path object from the pathlib module, a BytesIO object, a TextIOWrapper, or TextIOBase object.
 
     Returns:
     str: The contents of the file, decompressed if it was a recognized compressed format.
@@ -506,7 +506,8 @@ def _plain_bfs(g: nx.Graph, source: Any, removed: set, weight: float):
     :param g: graph with the nodes
     :param source: current node
     :param removed: set of removed nodes
-    :param weight:threshold to remove node or not
+    :param weight: threshold to remove node or not
+
     """
 
     nextlevel = {source}

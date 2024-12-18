@@ -331,6 +331,7 @@ def write_projection_results(
 
 
     Note:
+
     - If `write_proksee` is True and input organisms have modules, module colors for ProkSee are obtained.
     - The function calls other functions such as `summarize_projection`, `read_genome_file`, `write_proksee_organism`,
       `write_gff_file`, and `write_summaries` to generate various output files and summaries.
@@ -1496,7 +1497,7 @@ def check_projection_arguments(
     Check the arguments provided for genome projection and raise errors if they are incompatible or missing.
 
     :param args: An argparse.Namespace object containing parsed command-line arguments.
-    :param parser : parser of the command
+    :param parser: parser of the command
     :return: A string indicating the input mode ('single' or 'multiple').
     """
 

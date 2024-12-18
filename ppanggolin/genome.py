@@ -889,6 +889,7 @@ class Organism(MetaFeatures):
     Describe the Genome content and some information
 
     Methods:
+
     - `families`: Returns a set of gene families present in the organism.
     - `genes`: Returns a generator to get genes in the organism.
     - `number_of_genes`: Returns the number of genes in the organism.
@@ -896,9 +897,10 @@ class Organism(MetaFeatures):
     - `get_contig`: Gets the contig with the given identifier in the organism, adding it if it does not exist.
     - `_create_contig`: Creates a new contig object and adds it to the contig dictionary.
     - `mk_bitarray`: Produces a bitarray representing the presence/absence of gene families
-                     in the organism using the provided index.
+      in the organism using the provided index.
 
     Fields:
+
     - `name`: Name of the organism.
     - `bitarray`: Bitarray representing the presence/absence of gene families in the organism.
     """
