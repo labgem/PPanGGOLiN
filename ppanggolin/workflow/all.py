@@ -283,7 +283,7 @@ def launch_workflow(
             draw_spots(
                 pangenome=pangenome,
                 output=args.output / "spot_figures",
-                spot_list="all",
+                spot_list=args.draw.spots,
                 disable_bar=args.disable_prog_bar,
             )
             spot_time += time.time() - start_spot_drawing
