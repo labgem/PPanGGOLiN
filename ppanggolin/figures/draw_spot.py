@@ -101,7 +101,7 @@ def row_order_gene_lists(gene_lists: list) -> list:
 
     if len(gene_lists) > sys.getrecursionlimit():
         sys.setrecursionlimit(
-            len(gene_lists)
+            len(gene_lists) * 2 - 1
         )  # we need the recursion limit to be higher than the number of regions.
 
     for index, genelist in enumerate([genelist[0] for genelist in gene_lists]):
