@@ -500,6 +500,7 @@ class Contig(MetaFeatures):
         self._genes_position = []
         self._organism = None
         self._length = None
+        self.dna = None
 
     def __str__(self) -> str:
         """Returns a string representation of the contig
