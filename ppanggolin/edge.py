@@ -47,6 +47,13 @@ class Edge:
         self._organisms = defaultdict(list)
         self.add_genes(source_gene, target_gene)
 
+        # Create the edge ID in the Edge class
+        self.edge_id = f"{self.source.ID}_{self.target.ID}"
+
+    @property
+    def id(self):
+        return self.edge_id
+
     @property
     def organisms(self) -> Generator[Organism, None, None]:
         """Get all the organisms belonging to the edge
