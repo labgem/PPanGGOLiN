@@ -340,6 +340,7 @@ def get_contigs_from_fasta_file(
             )
 
         contig.length = len(sequence)
+        contig.dna = sequence.upper()  # Store sequence directly in the contig object
         contigs[contig_name] = sequence.upper()
 
     return contigs
