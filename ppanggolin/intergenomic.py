@@ -16,7 +16,7 @@ class Intergenomic(Feature):
 
         # Dictionaries to manage sequences and gene pair associations
         self.sequence_dict = {}  # Maps sequence IDs to actual sequences
-        self.gene_pair_to_seqid = {}  # Maps gene pairs (ID tuple) to sequenc
+        self.gene_pair_to_seqid = {}  # Maps gene pairs (ID tuple) to sequence id
 
     def extract_sequences(self):
         """Extract the intergenomic sequences for each organism's gene pair."""
@@ -95,31 +95,3 @@ class Intergenomic(Feature):
 
         return gene_pair_dict
 
-    def write_fasta_for_intergenomic_sequences(self, output_dir: str):
-        """
-        Write the intergenomic sequences to separate FASTA files for each organism.
-
-        :param output_dir: Directory where the FASTA files will be saved.
-        """
-        # Ensure output directory exists
-        import os
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        # Iterate over the sequences for each organism
-        for organism_name, sequences in self.extract_sequences().items():
-            # Create a new FASTA file for this organism
-            fasta_file_path = os.path.join(output_dir, f"{organism_name}_intergenomic_sequences.fasta")
-            with open(fasta_file_path, 'w') as fasta_file:
-                for seq_data in sequences:
-                    gene_pair = seq_data['gene_pair']
-                    seq_id = seq_data['sequence_id']
-                    sequence = seq_data['sequence']
-                    overlap_type = seq_data['overlap_type']
-
-                    # Create a header for each gene pair
-                    header = f">{organism_name}_gene_pair_{gene_pair[0]}_{gene_pair[1]}_seqid_{seq_id}_overlap_{overlap_type}"
-                    fasta_file.write(f"{header}\n")
-                    fasta_file.write(f"{sequence}\n")
-
-            print(f"FASTA file for {organism_name} written to {fasta_file_path}")
