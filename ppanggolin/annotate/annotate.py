@@ -722,6 +722,9 @@ def read_org_gbff(
                 contig_counter.value += 1
             organism.add(contig)
             contig.length = contig_len
+        """ storing the sequence in contig.dna """
+        # Store the sequence directly in the Contig object
+        contig.dna = sequence
 
         for feature in features:
             if feature["feature_type"] == "source":
@@ -1208,6 +1211,13 @@ def read_org_gff(
         correct_putative_overlaps(org.contigs)
 
         for contig in org.contigs:
+
+            """storing the contig sequence directly to the Contig object"""
+            if contig.name in contig_sequences:
+                contig.dna = contig_sequences[contig.name]  # Store the sequence directly in the Contig object
+            else:
+                raise ValueError(f"Contig {contig.name} not found in the FASTA sequences provided.")
+            """ end of adding sequence"""
 
             for gene in contig.genes:
                 gene.add_sequence(get_dna_sequence(contig_sequences[contig.name], gene))
