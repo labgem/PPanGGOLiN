@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Iterator, Set, List, Tuple, Optional
 from collections import defaultdict
+from ppanggolin.intergenomic import Intergenomic
 
 # installed libraries
 from tqdm import tqdm
@@ -843,7 +844,10 @@ def read_graph(pangenome: Pangenome, h5f: tables.File, disable_bar: bool = False
     ):
         source = pangenome.get_gene(row["geneSource"].decode())
         target = pangenome.get_gene(row["geneTarget"].decode())
-        pangenome.add_edge(source, target)
+        edge = pangenome.add_edge(source, target)
+        # Create an Intergenomic object for each edge
+        intergenomic = Intergenomic(edge)
+
     pangenome.status["neighborsGraph"] = "Loaded"
 
 
