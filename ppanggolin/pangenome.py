@@ -38,7 +38,7 @@ class Pangenome:
         self._region_getter = {}
         self._spot_getter = {}
         self._module_getter = {}
-        self._intergenomic_getter = {}  # dictionnary that sotres all the intergenomic instances
+        self._intergenomic_getter = {}  # dictionnary that stores all the intergenomic instances with edge.id key
         self.status = {
             "genomesAnnotated": "No",
             "geneSequences": "No",
@@ -306,20 +306,27 @@ class Pangenome:
         if edge is None:
             edge = Edge(gene1, gene2)
             self._edge_getter[key] = edge
-            # creating an instance of intergenomic here
+            # Create an Intergenomic object and store it
             #intergenomic = Intergenomic(edge)
-            #intergenomic.extract_sequences()
+            #self._intergenomic_getter[edge.id] = intergenomic
         else:
             edge.add_genes(gene1, gene2)
         return edge
 
+    def extract_all_intergenomic_sequences(self, output_dir):
+        """Extract and save intergenomic sequences for all edges in the pangenome."""
+        # Create Intergenomic objects for each edge and write sequences to FASTA files
+        for edge in self._edge_getter.values():
+            intergenomic = Intergenomic(edge)
+            intergenomic.write_fasta_for_intergenomic_sequences(output_dir)
 
-    def add_intergenomic_sequences(self, edge: Edge):
-        """
-        Add intergenomic sequences for the given edge.
+    """
+    def add_intergenomic(self, edge: Edge):
 
-        :param edge: Edge object associated with the intergenomic sequences.
-        """
+        #Add intergenomic sequences for the given edge.
+
+        #:param edge: Edge object associated with the intergenomic sequences.
+        
         assert isinstance(edge, Edge), "Edge object are expected"
         intergenomic = Intergenomic(edge)
 
@@ -329,7 +336,7 @@ class Pangenome:
             intergenomic.write_fasta_for_intergenomic_sequences(self._intergenomic_getter)
         else:
             logging.getLogger("PPanGGOLiN").info(f"Intergenomic sequences for edge {edge.ID} already extracted.")
-
+    """
 
     @property
     def number_of_edges(self) -> int:
