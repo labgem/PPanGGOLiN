@@ -48,11 +48,11 @@ class Edge:
         self.add_genes(source_gene, target_gene)
 
         # Create the edge ID in the Edge class
-        self.edge_id = f"{self.source.ID}_{self.target.ID}"
+        self.ID = f"{self.source_gene.ID}_{self.target_gene.ID}"
 
     @property
     def id(self):
-        return self.edge_id
+        return self.ID
 
     @property
     def organisms(self) -> Generator[Organism, None, None]:
