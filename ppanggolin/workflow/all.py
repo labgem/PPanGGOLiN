@@ -182,22 +182,6 @@ def launch_workflow(
         disable_bar=args.disable_prog_bar,
     )
 
-    """to check if the function will work in the flow"""
-    # Extract intergenomic sequences
-    intergenomic_instances = []
-    for edge in pangenome.edges:
-        # Create an Intergenomic object for each edge
-        intergenomic = Intergenomic(edge)
-        intergenomic.extract_sequences()  # Extract the sequences for this edge
-        intergenomic_instances.append(intergenomic)
-
-    # Write the FASTA files for all organisms based on the extracted sequences
-    output_dir = Path(args.output_dir) if hasattr(args, 'output_dir') else Path('./output')
-    for intergenomic in intergenomic_instances:
-        intergenomic.write_fasta_for_intergenomic_sequences(output_dir)
-
-    """"""""
-
     graph_time = time.time() - start_graph
 
     start_part = time.time()
@@ -469,6 +453,23 @@ def launch_workflow(
         logging.getLogger("PPanGGOLiN").info(
             f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds"
         )
+    """ to check if the function will work in the flow"""
+        # Extract intergenomic sequences
+    intergenomic_instances = []
+    for edge in pangenome.edges:
+        # Create an Intergenomic object for each edge
+        intergenomic = Intergenomic(edge)
+        intergenomic.extract_sequences()  # Extract the sequences for this edge
+        intergenomic_instances.append(intergenomic)
+
+    print(f"Extracted sequences for edge {edge.id}")  # Debugging
+
+    # Write the FASTA files for all organisms based on the extracted sequences
+    output_dir = Path(args.output_dir) if hasattr(args, 'output_dir') else Path('./output')
+    for intergenomic in intergenomic_instances:
+        intergenomic.write_fasta_for_intergenomic_sequences(output_dir)
+
+        """"""""
 
     print_info(filename, content=True)
 
