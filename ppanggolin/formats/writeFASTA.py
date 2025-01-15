@@ -1,7 +1,6 @@
 
 from pathlib import Path
 
-
 def write_fasta_for_intergenomic_sequences(intergenomic, output_dir: Path):
     """Write the intergenomic sequences to FASTA files for each organism."""
     # Ensure the directory exists
