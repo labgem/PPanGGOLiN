@@ -417,6 +417,7 @@ def launch_workflow(
                 "Writing output genomes flat file is skipped."
             )
 
+
         desc_time = time.time() - start_desc
 
     logging.getLogger("PPanGGOLiN").info(
@@ -453,8 +454,9 @@ def launch_workflow(
         logging.getLogger("PPanGGOLiN").info(
             f"Writing descriptive files for the pangenome took : {round(desc_time, 2)} seconds"
         )
+
     """ to check if the function will work in the flow"""
-        # Extract intergenomic sequences
+    # Extract intergenomic sequences
     intergenomic_instances = []
     for edge in pangenome.edges:
         # Create an Intergenomic object for each edge
@@ -468,8 +470,8 @@ def launch_workflow(
     output_dir = Path(args.output_dir) if hasattr(args, 'output_dir') else Path('./output')
     for intergenomic in intergenomic_instances:
         intergenomic.write_fasta_for_intergenomic_sequences(output_dir)
-
         """"""""
+
 
     print_info(filename, content=True)
 
