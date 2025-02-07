@@ -896,16 +896,27 @@ def write_pangenome(
 
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded", "inFile"]:
         if pangenome.status["genomesAnnotated"] == "Computed":
-            complevel = int(os.getenv("HDF5_COMPRESSION_LEVEL", 1))
-            logging.warning(f'HDF5_COMPRESSION_LEVEL={complevel}')
+            complevel_default = 6
+            try:
+                complevel = int(
+                    os.getenv("PPANGGOLIN_HDF5_COMPRESSION_LEVEL", complevel_default)
+                )
+            except ValueError:
+                logging.getLogger("PPanGGOLiN").info(
+                    f"Invalid PPANGGOLIN_HDF5_COMPRESSION_LEVEL, using default value {complevel_default}"
+                )
+                complevel = complevel_default
 
-            shuffle = bool(os.getenv("HDF5_SHUFFLE", True))
-            logging.warning(f'HDF5_SHUFFLE={shuffle}')
-
-            
-            compression_filter = tables.Filters(
-                complevel=complevel, shuffle=shuffle, bitshuffle=False, complib="blosc2:zstd"
+            logging.getLogger("PPanGGOLiN").debug(
+                f"Using compression level {complevel} for the pangenome HDF5 file."
             )
+            compression_filter = tables.Filters(
+                complevel=complevel,
+                shuffle=False,
+                bitshuffle=False,
+                complib="blosc2:zstd",
+            )
+
             h5f = tables.open_file(filename, "w", filters=compression_filter)
             logging.getLogger("PPanGGOLiN").info("Writing genome annotations...")
 
