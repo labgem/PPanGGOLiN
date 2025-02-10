@@ -914,7 +914,7 @@ def write_pangenome(
                 complevel=complevel,
                 shuffle=True,
                 bitshuffle=False,
-                complib="blosc2:zstd",
+                complib="blosc:zstd",
             )
 
             h5f = tables.open_file(filename, "w", filters=compression_filter)
