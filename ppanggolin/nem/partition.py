@@ -171,11 +171,10 @@ def run_partitioning(
     log_likelihood = None
     entropy = None
     try:
-        with open(
-            nem_dir_path / f"nem_file_{str(kval)}.uf"
-        ) as partitions_nem_file, open(
-            nem_dir_path / f"nem_file_{str(kval)}.mf"
-        ) as parameters_nem_file:
+        with (
+            open(nem_dir_path / f"nem_file_{str(kval)}.uf") as partitions_nem_file,
+            open(nem_dir_path / f"nem_file_{str(kval)}.mf") as parameters_nem_file,
+        ):
             parameters = parameters_nem_file.readlines()
             log_likelihood = float(parameters[2].split()[3])
 
@@ -327,11 +326,12 @@ def write_nem_input_files(
     logging.getLogger("PPanGGOLiN").debug(
         "Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files"
     )
-    with open(tmpdir / "nem_file.str", "w") as str_file, open(
-        tmpdir / "nem_file.index", "w"
-    ) as index_file, open(tmpdir / "nem_file.nei", "w") as nei_file, open(
-        tmpdir / "nem_file.dat", "w"
-    ) as dat_file:
+    with (
+        open(tmpdir / "nem_file.str", "w") as str_file,
+        open(tmpdir / "nem_file.index", "w") as index_file,
+        open(tmpdir / "nem_file.nei", "w") as nei_file,
+        open(tmpdir / "nem_file.dat", "w") as dat_file,
+    ):
 
         nei_file.write("1\n")
         index_fam = {}
