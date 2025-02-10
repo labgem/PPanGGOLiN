@@ -4,6 +4,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
+  - python-blosc2
   - tqdm=4
   - pytables=3
   - pyrodigal=3
