@@ -912,7 +912,7 @@ def write_pangenome(
             )
             compression_filter = tables.Filters(
                 complevel=complevel,
-                shuffle=False,
+                shuffle=True,
                 bitshuffle=False,
                 complib="blosc2:zstd",
             )
