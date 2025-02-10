@@ -896,7 +896,7 @@ def write_pangenome(
 
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded", "inFile"]:
         if pangenome.status["genomesAnnotated"] == "Computed":
-            complevel_default = 1
+            complevel_default = 6
             try:
                 complevel = int(
                     os.getenv("PPANGGOLIN_HDF5_COMPRESSION_LEVEL", complevel_default)
@@ -912,7 +912,7 @@ def write_pangenome(
             )
             compression_filter = tables.Filters(
                 complevel=complevel,
-                shuffle=True,
+                shuffle=False,
                 bitshuffle=False,
                 complib="blosc:zstd",
             )
