@@ -5,7 +5,7 @@ import sys
 
 if sys.version_info < (3, 9):  # minimum is python3.9
     raise AssertionError(
-        "Minimum python version to run PPanGGOLiN is 3.8. Your current python version is "
+        "Minimum python version to run PPanGGOLiN is 3.9. Your current python version is "
         + ".".join(map(str, sys.version_info))
     )
 import argparse
