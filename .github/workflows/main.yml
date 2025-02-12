@@ -44,7 +44,7 @@ jobs:
         echo "NUM_CPUS=$nb_cpu_linux" >> "$GITHUB_ENV"
 
     - name: Get core number on macos
-      if: matrix.os == 'macos-13'
+      if: matrix.os == 'macos-latest'
       run: |
         nb_cpu_macos=`sysctl -n hw.ncpu`
         echo "Number of cores avalaible on the current macos runner $nb_cpu_macos"
