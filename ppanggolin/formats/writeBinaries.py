@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 import statistics
 from typing import Tuple, Union
 from importlib.metadata import distribution
+import os
 
 # installed libraries
 from tqdm import tqdm
@@ -895,9 +896,27 @@ def write_pangenome(
 
     if pangenome.status["genomesAnnotated"] in ["Computed", "Loaded", "inFile"]:
         if pangenome.status["genomesAnnotated"] == "Computed":
-            compression_filter = tables.Filters(
-                complevel=1, shuffle=True, bitshuffle=True, complib="blosc:zstd"
+            complevel_default = 6
+            try:
+                complevel = int(
+                    os.getenv("PPANGGOLIN_HDF5_COMPRESSION_LEVEL", complevel_default)
+                )
+            except ValueError:
+                logging.getLogger("PPanGGOLiN").info(
+                    f"Invalid PPANGGOLIN_HDF5_COMPRESSION_LEVEL, using default value {complevel_default}"
+                )
+                complevel = complevel_default
+
+            logging.getLogger("PPanGGOLiN").debug(
+                f"Using compression level {complevel} for the pangenome HDF5 file."
             )
+            compression_filter = tables.Filters(
+                complevel=complevel,
+                shuffle=False,
+                bitshuffle=False,
+                complib="blosc2:zstd",
+            )
+
             h5f = tables.open_file(filename, "w", filters=compression_filter)
             logging.getLogger("PPanGGOLiN").info("Writing genome annotations...")
 
