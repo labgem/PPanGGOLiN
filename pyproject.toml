@@ -76,8 +76,8 @@ Documentation = "https://ppanggolin.readthedocs.io"
 [project.scripts]
 ppanggolin = "ppanggolin.main:main"
 
-[tool.setuptools]
-packages = ["ppanggolin"]
+[tool.setuptools.packages.find]
+include = ["ppanggolin*"]
 
 #[tool.setuptools.package-data]
 #mypkg = ["*.txt", "*.rst"]
