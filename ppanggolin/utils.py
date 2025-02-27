@@ -138,7 +138,7 @@ def check_tsv_sanity(tsv: Path):
     :param tsv: Path to the tsv containing organims information
     """
     try:
-        input_file = open(tsv)
+        input_file = read_compressed_or_not(tsv)
     except OSError as ios_error:
         raise OSError(ios_error)
     except Exception as exception_error:
