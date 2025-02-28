@@ -132,52 +132,50 @@ def check_log(log_file: str) -> TextIO:
         )
 
 
-def check_tsv_sanity(tsv: Path):
-    """Check if the given tsv is readable for the next PPanGGOLiN step
+def check_tsv_sanity(tsv_file: Path):
+    """Check if the given TSV file is readable for the next PPanGGOLiN step.
 
-    :param tsv: Path to the tsv containing organims information
+    :param tsv: Path to the TSV containing organism information.
+    :raises ValueError: If the file format is incorrect or contains invalid genome names.
     """
-    try:
-        input_file = open(tsv)
-    except OSError as ios_error:
-        raise OSError(ios_error)
-    except Exception as exception_error:
-        raise Exception(
-            f"The following unexpected error happened when opening the list of genomes path: "
-            f"{exception_error}"
-        )
-    else:
+    with read_compressed_or_not(tsv_file) as input_file:
         name_set = set()
         duplicated_names = set()
         non_existing_files = set()
+
         for line in input_file:
             elements = [el.strip() for el in line.split("\t")]
+
             if len(elements) <= 1:
-                raise Exception(f"No tabulation separator found in given file: {tsv}")
-            if " " in elements[0]:
-                raise Exception(
-                    f"Your genome names contain spaces (The first encountered genome name that had "
-                    f"this string: '{elements[0]}'). To ensure compatibility with all of the dependencies "
-                    f"of PPanGGOLiN this is not allowed. Please remove spaces from your genome names."
+                raise ValueError(f"No tabulation separator found in file: {tsv_file}")
+
+            genome_name, genome_path = elements[0], elements[1]
+
+            if " " in genome_name:
+                raise ValueError(
+                    f"Genome names cannot contain spaces (first encountered: '{genome_name}'). "
+                    "Please remove spaces to ensure compatibility with PPanGGOLiN dependencies."
                 )
-            old_len = len(name_set)
-            name_set.add(elements[0])
-            if len(name_set) == old_len:
-                duplicated_names.add(elements[0])
-            org_path = Path(elements[1])
-            if not org_path.exists() and not tsv.parent.joinpath(org_path).exists():
-                non_existing_files.add(elements[1])
-        if len(non_existing_files) != 0:
-            raise Exception(
-                f"Some of the given files do not exist. The non-existing files are the following : "
-                f"'{' '.join(non_existing_files)}'"
+
+            if genome_name in name_set:
+                duplicated_names.add(genome_name)
+            name_set.add(genome_name)
+
+            org_path = Path(genome_path)
+            if (
+                not org_path.exists()
+                and not tsv_file.parent.joinpath(org_path).exists()
+            ):
+                non_existing_files.add(genome_path)
+
+        if non_existing_files:
+            raise ValueError(
+                f"Some specified genome files do not exist: {', '.join(non_existing_files)}"
             )
-        if len(duplicated_names) != 0:
-            raise Exception(
-                f"Some of your genomes have identical names. The duplicated names are the following : "
-                f"'{' '.join(duplicated_names)}'"
+        if duplicated_names:
+            raise ValueError(
+                f"Some genome names are duplicated: {', '.join(duplicated_names)}"
             )
-        input_file.close()
 
 
 def check_input_files(file: Path, check_tsv: bool = False):
