@@ -35,6 +35,20 @@ classifiers=[
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Bio-Informatics"]
 requires-python = ">=3.9"
+
+dependencies = [
+    "tqdm>=4.0.0,<5.0.0",
+    "tables>=3.0.0,<4.0.0",
+    "pyrodigal>=3.0.0,<4.0.0",
+    "networkx>=3.0.0,<4.0.0",
+    "scipy>=1.0.0,<2.0.0",
+    "plotly>=5.0.0,<6.0.0",
+    "gmpy2>=2.0.0,<3.0.0",
+    "pandas>=2.0.0,<3.0.0",
+    "numpy>1.24.0,<3.0.0",
+    "bokeh>=3.0.0,<4.0.0"
+]
+
 license = {file="LICENSE.txt"}
 
 [project.optional-dependencies]
@@ -51,18 +65,7 @@ test = [
     "pytest==7",
     "black==24.*"
 ]
-python_deps = [
-    "tqdm==4.*",
-    "tables==3.*",
-    "pyrodigal==3.*",
-    "networkx==3.*",
-    "scipy==1.*",
-    "plotly==5.*",
-    "gmpy2==2.*",
-    "pandas==2.*",
-    "numpy==1.24",
-    "bokeh==3.*"
-]
+
 #
 [project.urls]
 Homepage = "https://labgem.genoscope.cns.fr/2023/04/27/ppanggolin/"
@@ -73,8 +76,8 @@ Documentation = "https://ppanggolin.readthedocs.io"
 [project.scripts]
 ppanggolin = "ppanggolin.main:main"
 
-[tool.setuptools]
-packages = ["ppanggolin"]
+[tool.setuptools.packages.find]
+include = ["ppanggolin*"]
 
 #[tool.setuptools.package-data]
 #mypkg = ["*.txt", "*.rst"]
