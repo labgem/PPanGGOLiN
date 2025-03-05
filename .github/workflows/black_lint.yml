@@ -9,4 +9,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: psf/black@stable
         with:
-          version: pyproject.toml
+          use_pyproject: true
