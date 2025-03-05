@@ -36,6 +36,7 @@ from ppanggolin.utils import (
     check_input_files,
     has_non_ascii,
     replace_non_ascii,
+    check_tools_availability,
 )
 from ppanggolin.formats import write_pangenome
 from ppanggolin.metadata import Metadata

@@ -25,6 +25,7 @@ from ppanggolin.utils import (
     create_tmpdir,
     read_compressed_or_not,
     extract_contig_window,
+    check_tools_availability,
 )
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import (
@@ -91,6 +92,8 @@ def align_sequences_to_families(
 
     :return: Set of gene families of interest and dict which link gene families to sequence ID
     """
+    check_tools_availability(["mmseqs"])
+
     # Alignment of sequences on pangenome families
     families_of_interest = set()
     family_2_input_seqid = {}
