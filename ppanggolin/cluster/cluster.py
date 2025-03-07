@@ -25,6 +25,7 @@ from ppanggolin.utils import (
     restricted_float,
     run_subprocess,
     create_tmpdir,
+    check_tools_availability,
 )
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import (
@@ -464,6 +465,9 @@ def clustering(
     :param disable_bar: Disable the progress bar during clustering.
     :param keep_tmp_files: Keep temporary files (useful for debugging).
     """
+
+    check_tools_availability(["mmseqs"])
+
     date = time.strftime("_%Y-%m-%d_%H-%M-%S", time.localtime())
     dir_name = f"clustering_tmpdir_{date}_PID{os.getpid()}"
     with create_tmpdir(tmpdir, basename=dir_name, keep_tmp=keep_tmp_files) as tmp_path:
@@ -840,6 +844,7 @@ def launch(args: argparse.Namespace):
                 "--infer_singletons option is not compatible with clustering "
                 "creation. To infer singleton you should give a clustering"
             )
+
         clustering(
             pangenome,
             args.tmpdir,

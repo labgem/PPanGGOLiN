@@ -24,6 +24,7 @@ from ppanggolin.utils import (
     restricted_float,
     detect_filetype,
     run_subprocess,
+    check_tools_availability,
 )
 from ppanggolin.formats.readBinaries import (
     check_pangenome_info,
@@ -135,6 +136,8 @@ def translate_genes(
 
     :return: Path to the MMSeqs2 database
     """
+    check_tools_availability(["mmseqs"])
+
     seq_nucdb = create_mmseqs_db(
         [sequences] if isinstance(sequences, Path) else sequences,
         "nucleotides_db",
@@ -188,6 +191,9 @@ def write_gene_protein_sequences(
     :param code: Genetic code use to translate nucleotide sequences to protein sequences
     :param disable_bar: Disable progress bar
     """
+
+    check_tools_availability(["mmseqs"])
+
     with create_tmpdir(
         tmp if tmp is not None else Path(tempfile.gettempdir()),
         basename="translateGenes",

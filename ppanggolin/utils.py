@@ -8,15 +8,29 @@ import gzip
 import bz2
 import zipfile
 import argparse
+import inspect
+
 from io import TextIOWrapper
 from pathlib import Path
-from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable, Dict, Any
+from typing import (
+    TextIO,
+    Union,
+    BinaryIO,
+    Tuple,
+    List,
+    Set,
+    Iterable,
+    Dict,
+    Any,
+    Optional,
+)
 from contextlib import contextmanager
 import tempfile
 import time
 from itertools import zip_longest
 import re
 import subprocess
+import shutil
 
 import networkx as nx
 from importlib.metadata import distribution
@@ -1488,28 +1502,35 @@ def get_consecutive_region_positions(
 
 def run_subprocess(
     cmd: List[str],
-    output: Path = None,
+    output: Optional[Path] = None,
     msg: str = "Subprocess failed with the following error:\n",
 ):
-    """Run a subprocess command and write the output to the given path.
-
-    :param cmd: list of program arguments
-    :param output: path to write the subprocess output
-    :param msg: message to print if the subprocess fails
-
-    :return:
-
-    :raises subprocess.CalledProcessError: raise when the subprocess return a non-zero exit code
     """
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
+    Run a subprocess command and write the output to the given path.
+
+    :param cmd: List of program arguments.
+    :param output: Path to write the subprocess output (optional).
+    :param msg: Message to print if the subprocess fails.
+
+    :raises FileNotFoundError: If the command's executable is not found.
+    :raises subprocess.CalledProcessError: If the subprocess returns a non-zero exit code.
+    """
+    if not cmd or shutil.which(cmd[0]) is None:
+        raise FileNotFoundError(
+            f"Command '{cmd[0]}' not found. Please install it and try again."
+        )
+
+    logging.getLogger("PPanGGOLiN").debug(f"Running command: {' '.join(cmd)}")
+
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as subprocess_err:
-        for line in subprocess_err.stdout.split("\n"):
+        logging.getLogger("PPanGGOLiN").error(msg)
+        for line in subprocess_err.stderr.strip().split("\n"):
             logging.getLogger("PPanGGOLiN").error(line)
-        raise Exception(msg + subprocess_err.stderr)
+        raise
     else:
-        if output is not None:
+        if output:
             with open(output, "w") as fout:
                 fout.write(result.stdout)
 
@@ -1537,3 +1558,34 @@ def replace_non_ascii(string_with_ascii: str, replacement_string: str = "_") -> 
     :return: A new string where all non-ASCII characters have been replaced.
     """
     return re.sub(r"[^\x00-\x7F]+", replacement_string, string_with_ascii)
+
+
+def check_tools_availability(
+    tool_to_description: Union[Dict[str, str], List[str]],
+) -> dict[str, bool]:
+    """
+    Check if the given command-line tools are available in the system's PATH.
+
+    :param tool_to_description: A dictionary where keys are tool names and values are descriptions of their purpose, or a list of tool names.
+    :return: A dictionary with tool names as keys and boolean values indicating availability.
+    """
+    if isinstance(tool_to_description, list):
+        tool_to_description = {tool: "" for tool in tool_to_description}
+
+    availability = {
+        tool: shutil.which(tool) is not None for tool in tool_to_description
+    }
+
+    for tool, is_available in availability.items():
+        if not is_available:
+            caller_frame = inspect.stack()[1]
+            caller_module = caller_frame.frame.f_globals["__name__"]
+            caller_function = caller_frame.function
+
+            logging.getLogger("PPanGGOLiN").warning(
+                f"Missing required command: '{tool}' {tool_to_description[tool]}. "
+                f"This check was triggered in '{caller_function}' inside module '{caller_module}'. "
+                "Please install the missing command to ensure proper functionality of PPanGGOLiN."
+            )
+
+    return availability
