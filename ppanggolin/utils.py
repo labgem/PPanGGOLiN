@@ -8,6 +8,8 @@ import gzip
 import bz2
 import zipfile
 import argparse
+import inspect
+
 from io import TextIOWrapper
 from pathlib import Path
 from typing import (
@@ -1559,7 +1561,7 @@ def replace_non_ascii(string_with_ascii: str, replacement_string: str = "_") -> 
 
 
 def check_tools_availability(
-    tool_to_description: Union[Dict[str, str], List[str]]
+    tool_to_description: Union[Dict[str, str], List[str]],
 ) -> dict[str, bool]:
     """
     Check if the given command-line tools are available in the system's PATH.
@@ -1576,8 +1578,14 @@ def check_tools_availability(
 
     for tool, is_available in availability.items():
         if not is_available:
-            logging.getLogger("PPanGGOLiN").error(
-                f"The command '{tool}'{tool_to_description[tool]} is not found. Please install it to ensure proper functionality of PPanGGOLiN."
+            caller_frame = inspect.stack()[1]
+            caller_module = caller_frame.frame.f_globals["__name__"]
+            caller_function = caller_frame.function
+
+            logging.getLogger("PPanGGOLiN").warning(
+                f"Missing required command: '{tool}' {tool_to_description[tool]}. "
+                f"This check was triggered in '{caller_function}' inside module '{caller_module}'. "
+                "Please install the missing command to ensure proper functionality of PPanGGOLiN."
             )
 
     return availability
