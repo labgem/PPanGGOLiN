@@ -83,7 +83,7 @@ def check_metadata_format(metadata: Path, metatype: str) -> pd.DataFrame:
         "spots",
         "modules",
     ]
-    colname_check = re.compile("^[a-zA-Z_]\w*$")  # \w = [A-Za-z0-9_]
+    colname_check = re.compile(r"^[a-zA-Z_]\w*$")  # \w = [A-Za-z0-9_]
     metadata_df = pd.read_csv(
         metadata, sep="\t", header=0, quoting=csv.QUOTE_NONE, dtype={metatype: str}
     )
