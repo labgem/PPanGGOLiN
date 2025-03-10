@@ -87,6 +87,8 @@ Vers-mod  Date         Who  Description
 1.08-a    20-JUI-2017  GG   Add param input by file rather than by arguments
 \*/
 
+#define _GNU_SOURCE // FIX: Required for musl build because srandom is not POSIX
+#include <stdlib.h> 
 #include "nem_exe.h"   /* Prototype of exported mainfunc() */
 
 /* ==================== LOCAL FUNCTION PROTOTYPING =================== */
@@ -513,7 +515,7 @@ int nem(const char* Fname,
         if ( ( err = ReadMatrixFile( NemPara.StartName,     /*V1.04-a*/
 				                     Data.NbPts,
                                      StatModel.Spec.K, 
-                                     ClassifM ) ) != STS_OK )
+                                     &ClassifM ) ) != STS_OK ) // FIX: ReadMatrixFile needs a float**
             return err ;
         break ;
 
@@ -539,7 +541,7 @@ int nem(const char* Fname,
       if ( ( err = ReadLabelFile( NemPara.LabelName, Data.NbPts, 
 				                  & klabelfile,
                                   & Data.LabelV,
-                                  ClassifM ) ) != STS_OK )
+                                  &ClassifM ) ) != STS_OK ) // FIX: ReadMatrixFile needs a float**
         return err ;
 
       if ( klabelfile != StatModel.Spec.K ) {
