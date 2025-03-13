@@ -5,7 +5,6 @@ requires = [
     "cython"
 ]
 build-backend = "setuptools.build_meta"
-py_modules=["ppanggolin"]
 
 [project]
 name = "PPanGGOLiN"

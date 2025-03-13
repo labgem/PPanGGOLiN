@@ -16,6 +16,7 @@ Vers-mod  Date         Who  Description
 
 #include <sys/types.h>   /* time_t */
 #include <time.h>        /* time() */
+#define _GNU_SOURCE      // FIX: Required for musl build because srandom is not POSIX
 #include <stdlib.h>      /* srand48(), lrand48() */
 
 #include "nem_rnd.h"

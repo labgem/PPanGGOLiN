@@ -1,0 +1,87 @@
+name: Build and upload to PyPI
+
+# With the current configuration, the workflow (except PyPI upload)
+# will run on every pull request and on every push to dev branch.
+# This way we can track if some changes break the wheel builds.
+#
+# The PyPI publishing job will only run on release events.
+on:
+  workflow_dispatch: # This allows manual triggering of the workflow for testing on test.pypi.org
+    inputs:
+      publish_test:
+        description: "Publish on test.pypi.org"
+        required: false
+        default: false
+
+  pull_request:
+  push:
+    branches:
+      - dev
+  release:
+    types:
+      - released # Run only on release events, use 'published' to run on draft or pre-release
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # macos-13 is an Intel runner, macos-14 is an Apple Silicon runner
+        # Should we support Linux ARM? If so, add 'ubuntu-24.04-arm'
+        os: [ubuntu-latest, macos-13, macos-14, ubuntu-24.04-arm]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.0
+        # We skip: 
+        # - 32-bit builds
+        # - PyPy builds (check if ppanggolin works on PyPy first)
+        env:
+          CIBW_SKIP: "*_i686 pp*"
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  upload_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    # Publish on PyPI only on release events
+    if: (github.event_name == 'release' && github.event.action == 'released') || (github.event_name == 'workflow_dispatch' && inputs.publish_test == 'true')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        if: github.event_name == 'release' && github.event.action == 'released'
+        uses: pypa/gh-action-pypi-publish@release/v1
+      
+      - name: Publish to test.pypi.org
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_test == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
