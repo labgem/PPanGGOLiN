@@ -4,34 +4,36 @@
 Supported python version are 3.9, 3.10, 3.11 and 3.12
 ```
 
-## Installing PPanGGOLiN with Conda (recommended)
+## Installing PPanGGOLiN with Conda (Recommended)
 
-The best way to install PPanGGOLiN is through conda, accessible through the bioconda channel.
-To ensure a smoother installation and avoid conflicting dependencies, it's highly recommended to create a dedicated environment for PPanGGOLiN:
+The recommended way to install PPanGGOLiN is via Conda from the Bioconda channel. To ensure smooth installation and avoid dependency conflicts, it's best to create a dedicated Conda environment for PPanGGOLiN:
 
 ```bash
-# Install into a new conda environment
+# Create a new Conda environment and install PPanGGOLiN
 conda create -n ppanggo -c conda-forge -c bioconda ppanggolin
 
-# Check PPanGGOLiN install
+# Activate the environment
 conda activate ppanggo
+
+# Verify the installation
 ppanggolin --version
 ```
 
 ## Installing PPanGGOLiN from PyPI
 
-Since version 2.2.2, PPanGGOLiN is avalaible on Pypi and can be easily installed with pip. 
-
+Starting from version 2.2.2, PPanGGOLiN is available on PyPI and can be installed using pip:
 
 ```bash
 pip install ppanggolin
 
+# Verify the installation
 ppanggolin --version
 ```
 
 ```{warning}
-This will install PPanGGOLiN and its python dependencies but won't install non python dependencies required by many commands of PPanGGOLiN. Please make sure to install them to have a fully functional PPanGGOLiN. see [Installing PPanGGOLiN Dependencies](#install_dependecies) section for more detail.
-```
+While this method installs PPanGGOLiN and its Python dependencies, it does not install the non-Python dependencies required for many commands within PPanGGOLiN. Be sure to install them separately to ensure full functionality. See the [Installing PPanGGOLiN Dependencies](#install_dependencies) section for more details.
+``` 
+
 
 ## Installing from Source Code (GitHub)
 
