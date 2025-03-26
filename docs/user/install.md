@@ -11,17 +11,27 @@ To ensure a smoother installation and avoid conflicting dependencies, it's highl
 
 ```bash
 # Install into a new conda environment
-conda create -n ppanggo -c defaults -c conda-forge -c bioconda ppanggolin
+conda create -n ppanggo -c conda-forge -c bioconda ppanggolin
 
 # Check PPanGGOLiN install
 conda activate ppanggo
 ppanggolin --version
 ```
 
-```{tip}
-  For quicker installation and potential resolution of conflicting dependencies, consider using Mamba, an efficient alternative to conda.
+## Installing PPanGGOLiN from PyPI
+
+Since version 2.2.2, PPanGGOLiN is avalaible on Pypi and can be easily installed with pip. 
+
+
+```bash
+pip install ppanggolin
+
+ppanggolin --version
 ```
 
+```{warning}
+This will install PPanGGOLiN and its python dependencies but won't install non python dependencies required by many commands of PPanGGOLiN. Please make sure to install them to have a fully functional PPanGGOLiN. see [Installing PPanGGOLiN Dependencies](#install_dependecies) section for more detail.
+```
 
 ## Installing from Source Code (GitHub)
 
@@ -67,7 +77,7 @@ git clone https://github.com/labgem/PPanGGOLiN.git
 cd PPanGGOLiN
 ```
 
-**2. Installing PPanGGOLiN Dependencies**
+**2. Installing PPanGGOLiN Dependencies** <a name="install_dependecies"></a>
 
 To ensure the tool functions correctly, you need to install all dependencies listed in the [ppanggolin_env.yaml](../../ppanggolin_env.yaml) file.
 
@@ -84,14 +94,16 @@ Next, install the following non-Python software:
 - Skip installing Aragorn, Infernal, or MAFFT if you do not require their specific features.
 ```
 
-**3. Installing PPanGGOLiN with its Python Dependencies**
+
+
+**3. Installing PPanGGOLiN and its Python Dependencies**
 
 PPanGGOLiN's Python dependencies are specified in the `pyproject.toml` file under the optional dependencies category named `python_deps`. This configuration file is situated at the root of the PPanGGOLiN repository.
 
 To install PPanGGOLiN along with its Python dependencies, you can use the following pip command:
 
 ```bash
-pip install .[python_deps]
+pip install .
 ```
 
 
@@ -103,7 +115,7 @@ Follow these steps to obtain and install the development version:
 
 **1. Clone the Repository**
 
-Clone the 'dev' branch of the repository onto your local machine:
+Clone the `dev` branch of the repository onto your local machine:
 
 ```bash
 git clone --branch dev https://github.com/labgem/PPanGGOLiN.git
