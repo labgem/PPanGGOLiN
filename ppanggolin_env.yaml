@@ -1,7 +1,6 @@
 name: ppanggolin
 channels:
   - bioconda
-  - defaults
   - conda-forge
 dependencies:
   - tqdm>=4.0.0,<5.0.0
