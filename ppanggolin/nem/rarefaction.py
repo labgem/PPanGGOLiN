@@ -599,7 +599,7 @@ def make_rarefaction_curve(
         disable_bar=disable_bar,
     )
 
-    tmpdir_obj = tempfile.TemporaryDirectory(dir=tmpdir)
+    tmpdir_obj = tempfile.TemporaryDirectory(dir=tmpdir, delete=False)
     tmp_path = Path(tmpdir_obj.name)
 
     if float(pangenome.number_of_organisms) < max_sampling:
@@ -632,10 +632,21 @@ def make_rarefaction_curve(
             )
 
     logging.getLogger("PPanGGOLiN").info("Extracting samples ...")
-    all_samples = []
-    for i in range(min_sampling, max_sampling):  # each point
-        for _ in range(depth):  # number of samples per points
-            all_samples.append(set(random.sample(list(pangenome.organisms), i + 1)))
+    # all_samples = []
+    # for i in range(min_sampling, max_sampling):  # each point
+    #     for _ in range(depth):  # number of samples per points
+    #         all_samples.append(set(random.sample(list(pangenome.organisms), i + 1)))
+
+    logging.getLogger("PPanGGOLiN").warning(
+        "Sampling only 3 organism that are problematic for the rarefaction"
+    )
+    problematic_sample = []
+    for org in pangenome.organisms:
+        if org.name in ["3300014556_9", "GCA_900544325.1", "GCA_930972315.1"]:
+            problematic_sample.append(org)
+
+    all_samples = [problematic_sample]
+
     logging.getLogger("PPanGGOLiN").info(
         f"Done sampling genomes in the pan, there are {len(all_samples)} samples"
     )
@@ -702,23 +713,30 @@ def make_rarefaction_curve(
             )
         )
 
-    with get_context("fork").Pool(processes=cpu) as p:
-        # launch partitioning
-        logging.getLogger("PPanGGOLiN").info(" Partitioning all samples...")
-        bar = tqdm(range(len(args)), unit="samples partitioned", disable=disable_bar)
-        random.shuffle(
-            args
-        )  # shuffling the processing so that the progress bar is closer to reality.
-        for result in p.imap_unordered(launch_raref_nem, args):
-            samp_nb_per_part[result[1]] = {**result[0], **samp_nb_per_part[result[1]]}
-            bar.update()
-    bar.close()
+    # with get_context("fork").Pool(processes=cpu) as p:
+    #     # launch partitioning
+    #     logging.getLogger("PPanGGOLiN").info(" Partitioning all samples...")
+    #     bar = tqdm(range(len(args)), unit="samples partitioned", disable=disable_bar)
+    #     random.shuffle(
+    #         args
+    #     )  # shuffling the processing so that the progress bar is closer to reality.
+    #     for result in p.imap_unordered(launch_raref_nem, args):
+    #         samp_nb_per_part[result[1]] = {**result[0], **samp_nb_per_part[result[1]]}
+    #         bar.update()
+    # bar.close()
+    logging.getLogger("PPanGGOLiN").info(
+        f" Partitioning  without parallisation FLAT {len(args)} samples"
+    )
+    for arg in tqdm(args):
+
+        result = raref_nem(*arg)
+        samp_nb_per_part[result[1]] = {**result[0], **samp_nb_per_part[result[1]]}
 
     logging.getLogger("PPanGGOLiN").info("Done  partitioning everything")
     warnings.filterwarnings("ignore")
     draw_curve(output, samp_nb_per_part, max_sampling)
     warnings.resetwarnings()
-    tmpdir_obj.cleanup()
+    # tmpdir_obj.cleanup()
     logging.getLogger("PPanGGOLiN").info("Done making the rarefaction curves")
 
 
