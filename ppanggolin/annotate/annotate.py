@@ -1090,7 +1090,7 @@ def read_org_gff(
                     else:
                         is_partial = False
 
-                    product = attributes.pop("PRODUCT")
+                    product = attributes.pop("PRODUCT", "")
 
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig
