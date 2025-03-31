@@ -79,7 +79,7 @@ git clone https://github.com/labgem/PPanGGOLiN.git
 cd PPanGGOLiN
 ```
 
-**2. Installing PPanGGOLiN Dependencies** <a name="install_dependecies"></a>
+**2. Installing PPanGGOLiN Dependencies** <a name="install_dependencies"></a>
 
 To ensure the tool functions correctly, you need to install all dependencies listed in the [ppanggolin_env.yaml](../../ppanggolin_env.yaml) file.
 
