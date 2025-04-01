@@ -13,6 +13,7 @@ import inspect
 from io import TextIOWrapper
 from pathlib import Path
 from typing import (
+    Collection,
     TextIO,
     Union,
     BinaryIO,
@@ -265,7 +266,7 @@ def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
 
 
 def is_compressed(
-    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]
+    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO],
 ) -> Tuple[bool, Union[str, None]]:
     """
     Detects if a file is compressed based on its file signature.
@@ -315,7 +316,7 @@ def is_compressed(
 
 
 def read_compressed_or_not(
-    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]
+    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO],
 ) -> Union[TextIOWrapper, BinaryIO, TextIO]:
     """
     Opens and reads a file, decompressing it if necessary.
@@ -1345,7 +1346,7 @@ def parse_input_paths_file(
 
 
 def flatten_nested_dict(
-    nested_dict: Dict[str, Union[Dict, int, str, float]]
+    nested_dict: Dict[str, Union[Dict, int, str, float]],
 ) -> Dict[str, Union[int, str, float]]:
     """
     Flattens a nested dictionary into a flat dictionary by concatenating keys at different levels.
@@ -1535,29 +1536,42 @@ def run_subprocess(
                 fout.write(result.stdout)
 
 
-def has_non_ascii(string_to_test: str) -> bool:
+def has_non_ascii(string_to_test: Union[str, Collection[str]]) -> bool:
     """
-    Check if a string contains any non-ASCII characters.
+    Check if a string or a collection of strings contains any non-ASCII characters.
 
-    :param string_to_test: The string to check for non-ASCII characters.
-    :return: True if the string contains non-ASCII characters, False otherwise.
+    :param string_to_test: A single string or a collection of strings to check.
+    :return: True if any string contains non-ASCII characters, False otherwise.
     """
     try:
-        string_to_test.encode("ascii")
+        if isinstance(string_to_test, str):
+            string_to_test.encode("ascii")
+        else:
+            for item in string_to_test:
+                item.encode("ascii")
+        return False
     except UnicodeEncodeError:
         return True
-    return False
 
 
-def replace_non_ascii(string_with_ascii: str, replacement_string: str = "_") -> str:
+def replace_non_ascii(
+    string_with_ascii: Union[str, Collection[str]], replacement_string: str = "_"
+) -> Union[str, Collection[str]]:
     """
-    Replace all non-ASCII characters in a string with a specified replacement string.
+    Replace all non-ASCII characters in a string or a collection of strings
+    with a specified replacement string.
 
-    :param string_with_ascii: The string potentially containing non-ASCII characters.
+    :param string_with_ascii: A string or collection of strings potentially containing non-ASCII characters.
     :param replacement_string: The string to replace non-ASCII characters with (default is '_').
-    :return: A new string where all non-ASCII characters have been replaced.
+    :return: A new string or collection where all non-ASCII characters have been replaced.
     """
-    return re.sub(r"[^\x00-\x7F]+", replacement_string, string_with_ascii)
+
+    def replace(s: str) -> str:
+        return re.sub(r"[^\x00-\x7F]+", replacement_string, s)
+
+    if isinstance(string_with_ascii, str):
+        return replace(string_with_ascii)
+    return type(string_with_ascii)(replace(s) for s in string_with_ascii)
 
 
 def check_tools_availability(
