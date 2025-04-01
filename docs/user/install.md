@@ -96,6 +96,11 @@ Next, install the following non-Python software:
 - Skip installing Aragorn, Infernal, or MAFFT if you do not require their specific features.
 ```
 
+For Debian, Ubuntu, Linux Mint, Kali Linux, and all other distributions using apt you can run the following command:
+
+```bash
+sudo apt install mmseqs2 infernal aragorn mafft
+```
 
 
 **3. Installing PPanGGOLiN and its Python Dependencies**
