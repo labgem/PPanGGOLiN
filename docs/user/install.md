@@ -1,26 +1,38 @@
 # Installation
 
 ```{note}
-Supported python version are 3.9, 3.10, 3.11 and 3.12
+Supported Python versions are 3.9, 3.10, 3.11 and 3.12
 ```
 
-## Installing PPanGGOLiN with Conda (recommended)
+## Installing PPanGGOLiN with Conda (Recommended)
 
-The best way to install PPanGGOLiN is through conda, accessible through the bioconda channel.
-To ensure a smoother installation and avoid conflicting dependencies, it's highly recommended to create a dedicated environment for PPanGGOLiN:
+The recommended way to install PPanGGOLiN is via Conda from the Bioconda channel. To ensure smooth installation and avoid dependency conflicts, it's best to create a dedicated Conda environment for PPanGGOLiN:
 
 ```bash
-# Install into a new conda environment
-conda create -n ppanggo -c defaults -c conda-forge -c bioconda ppanggolin
+# Create a new Conda environment and install PPanGGOLiN
+conda create -n ppanggo -c conda-forge -c bioconda ppanggolin
 
-# Check PPanGGOLiN install
+# Activate the environment
 conda activate ppanggo
+
+# Verify the installation
 ppanggolin --version
 ```
 
-```{tip}
-  For quicker installation and potential resolution of conflicting dependencies, consider using Mamba, an efficient alternative to conda.
+## Installing PPanGGOLiN from PyPI
+
+Starting from version 2.2.2, PPanGGOLiN is available on PyPI and can be installed using pip:
+
+```bash
+pip install ppanggolin
+
+# Verify the installation
+ppanggolin --version
 ```
+
+```{warning}
+While this method installs PPanGGOLiN and its Python dependencies, it does not install the non-Python dependencies required for many commands within PPanGGOLiN. Be sure to install them separately to ensure full functionality. See the [Installing PPanGGOLiN Dependencies](#install_dependencies) section for more details.
+``` 
 
 
 ## Installing from Source Code (GitHub)
@@ -67,7 +79,7 @@ git clone https://github.com/labgem/PPanGGOLiN.git
 cd PPanGGOLiN
 ```
 
-**2. Installing PPanGGOLiN Dependencies**
+**2. Installing PPanGGOLiN Dependencies** <a name="install_dependencies"></a>
 
 To ensure the tool functions correctly, you need to install all dependencies listed in the [ppanggolin_env.yaml](../../ppanggolin_env.yaml) file.
 
@@ -84,14 +96,21 @@ Next, install the following non-Python software:
 - Skip installing Aragorn, Infernal, or MAFFT if you do not require their specific features.
 ```
 
-**3. Installing PPanGGOLiN with its Python Dependencies**
+For Debian, Ubuntu, Linux Mint, Kali Linux, and all other distributions using apt you can run the following command:
+
+```bash
+sudo apt install mmseqs2 infernal aragorn mafft
+```
+
+
+**3. Installing PPanGGOLiN and its Python Dependencies**
 
 PPanGGOLiN's Python dependencies are specified in the `pyproject.toml` file under the optional dependencies category named `python_deps`. This configuration file is situated at the root of the PPanGGOLiN repository.
 
 To install PPanGGOLiN along with its Python dependencies, you can use the following pip command:
 
 ```bash
-pip install .[python_deps]
+pip install .
 ```
 
 
@@ -103,7 +122,7 @@ Follow these steps to obtain and install the development version:
 
 **1. Clone the Repository**
 
-Clone the 'dev' branch of the repository onto your local machine:
+Clone the `dev` branch of the repository onto your local machine:
 
 ```bash
 git clone --branch dev https://github.com/labgem/PPanGGOLiN.git
