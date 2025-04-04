@@ -13,13 +13,13 @@ dynamic = ["version"]
 authors = [
     {name = "Guillaume Gautreau"},
     {name = "Adelme Bazin"},
-    {name = "Jérôme Arnoux", email = "jarnoux@genoscope.cns.fr"},
+    {name = "Jérôme Arnoux"},
     {name = "Jean Mainguy"},
 ]
 maintainers = [
     {name = "Guillaume Gautreau"},
     {name = "Adelme Bazin"},
-    {name = "Jérôme Arnoux", email = "jarnoux@genoscope.cns.fr"},
+    {name = "Jérôme Arnoux"},
     {name = "Jean Mainguy"},
 ]
 readme = "README.md"
@@ -70,16 +70,12 @@ test = [
 Homepage = "https://labgem.genoscope.cns.fr/2023/04/27/ppanggolin/"
 Repository = "https://github.com/labgem/PPanGGOLiN/"
 Documentation = "https://ppanggolin.readthedocs.io"
-#Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
-#
+
 [project.scripts]
 ppanggolin = "ppanggolin.main:main"
 
 [tool.setuptools.packages.find]
 include = ["ppanggolin*"]
-
-#[tool.setuptools.package-data]
-#mypkg = ["*.txt", "*.rst"]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
