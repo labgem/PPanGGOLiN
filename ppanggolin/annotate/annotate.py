@@ -36,6 +36,7 @@ from ppanggolin.utils import (
     check_input_files,
     has_non_ascii,
     replace_non_ascii,
+    check_tools_availability,
 )
 from ppanggolin.formats import write_pangenome
 from ppanggolin.metadata import Metadata
@@ -101,14 +102,6 @@ def create_gene(
     :param genetic_code: Genetic code used
     :param protein_id: Protein identifier
     """
-    # check for non ascii character in product field
-    if has_non_ascii(product):
-
-        logging.getLogger("PPanGGOLiN").warning(
-            f"In genome '{org.name}', the 'product' field of gene '{gene_id}' contains non-ASCII characters: '{product}'. "
-            "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
-        )
-        product = replace_non_ascii(product)
 
     start, stop = coordinates[0][0], coordinates[-1][1]
 
@@ -766,6 +759,16 @@ def read_org_gbff(
                     "will likely contain an internal stop codon when translated with PPanGGOLiN."
                 )
 
+            for field in ["product", "gene", "db_xref"]:
+
+                if field in feature and has_non_ascii(feature[field]):
+
+                    logging.getLogger("PPanGGOLiN").warning(
+                        f"In genome '{organism}', the '{field}' field of gene '{feature['locus_tag']}' contains non-ASCII characters: '{feature[field]}'. "
+                        "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
+                    )
+                    feature[field] = replace_non_ascii(feature[field])
+
             if feature["feature_type"] == "CDS":
                 if feature["transl_table"] == "":
                     used_transl_table_arg += 1
@@ -1013,6 +1016,14 @@ def read_org_gff(
                     start=fields_gff[gff_start], stop=fields_gff[gff_end]
                 )
 
+                for field in ["PRODUCT", "NAME", "DB_XREF", "DBXREF"]:
+                    if field in attributes and has_non_ascii(attributes[field]):
+                        logging.getLogger("PPanGGOLiN").warning(
+                            f"In genome '{organism}', the '{field}' field of feature '{attributes['locus_tag']}' contains non-ASCII characters: '{attributes[field]}'. "
+                            "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
+                        )
+                        attributes[field] = replace_non_ascii(attributes[field])
+
                 if fields_gff[gff_type] == "region":
                     # keep region attributes to add them as metadata of genome and contigs
                     # excluding some info as they are already contained in contig object.
@@ -1080,14 +1091,6 @@ def read_org_gff(
                         is_partial = False
 
                     product = attributes.pop("PRODUCT", "")
-
-                    if has_non_ascii(product):
-
-                        logging.getLogger("PPanGGOLiN").warning(
-                            f"In genome '{organism}', the 'product' field of gene '{gene_id}' contains non-ASCII characters: '{product}'. "
-                            "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
-                        )
-                        product = replace_non_ascii(product)
 
                     if contig is None or contig.name != fields_gff[gff_seqname]:
                         # get the current contig

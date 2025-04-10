@@ -277,13 +277,13 @@ def launch_workflow(
 
     if not args.no_flat_files:
 
-        if panrgp and args.draw.spots:
+        if panrgp and args.draw.draw_spots:
             start_spot_drawing = time.time()
             mk_outdir(args.output / "spot_figures", force=True)
             draw_spots(
                 pangenome=pangenome,
                 output=args.output / "spot_figures",
-                spot_list="all",
+                spot_list=args.draw.spots,
                 disable_bar=args.disable_prog_bar,
             )
             spot_time += time.time() - start_spot_drawing

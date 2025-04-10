@@ -7,7 +7,8 @@ NEM_DIR_PATH = "ppanggolin/nem/NEM/"
 setup(
     ext_modules=[
         Extension(
-            extra_compile_args=["-fcommon", "-Wno-int-conversion"],
+            # Force c99, NEM uses features deprecated in recent C standards
+            extra_compile_args=["-fcommon", "-Wno-int-conversion", "-std=c99"],
             name="nem_stats",
             sources=[
                 NEM_DIR_PATH + "nem_stats.pyx",

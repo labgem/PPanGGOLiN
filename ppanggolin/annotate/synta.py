@@ -11,13 +11,18 @@ import ast
 from collections import defaultdict
 from typing import Dict, List, Optional, Union, Generator, Tuple
 from pathlib import Path
+import shutil
 
 # install libraries
 from pyrodigal import GeneFinder, Sequence
 
 # local libraries
 from ppanggolin.genome import Organism, Gene, RNA, Contig
-from ppanggolin.utils import is_compressed, read_compressed_or_not
+from ppanggolin.utils import (
+    is_compressed,
+    read_compressed_or_not,
+    check_tools_availability,
+)
 
 contig_counter: Value = Value("i", 0)
 
@@ -74,6 +79,12 @@ def launch_aragorn(
     locustag = org.name
     cmd = ["aragorn", "-t", "-gcbact", "-l", "-w", fna_file]
     logging.getLogger("PPanGGOLiN").debug(f"aragorn command : {' '.join(cmd)}")
+
+    if shutil.which("aragorn") is None:
+        raise FileNotFoundError(
+            f"Command 'aragorn' not found. Please install it and try again."
+        )
+
     p = Popen(cmd, stdout=PIPE)
     # loading the whole thing, reverting it to 'pop' in order.
     file_data = p.communicate()[0].decode().split("\n")[::-1]
@@ -203,6 +214,11 @@ def launch_infernal(
         fna_file,
     ]
     logging.getLogger("PPanGGOLiN").debug(f"infernal command : {' '.join(cmd)}")
+    if shutil.which("cmscan") is None:
+        raise FileNotFoundError(
+            f"Command 'cmscan' from the tool Infernal is not found. Please install it and try again."
+        )
+
     p = Popen(cmd, stdout=open(os.devnull, "w"), stderr=PIPE)
     err = p.communicate()[1].decode().split()
     if err:
@@ -514,6 +530,10 @@ def annotate_organism(
 
     :return: Complete organism object for pangenome
     """
+
+    if not norna:
+        check_tools_availability({"aragorn": "", "cmscan": " from the tool Infernal"})
+
     org = Organism(org_name)
 
     fasta_file = read_compressed_or_not(file_name)

@@ -700,9 +700,10 @@ def write_fasta_prot_fam_from_pangenome_file(
     partition_filter = False
     family_to_write = []
 
-    with tables.open_file(
-        pangenome_filename, "r", driver_core_backing_store=0
-    ) as h5f, write_compressed_or_not(outpath, compress) as fasta:
+    with (
+        tables.open_file(pangenome_filename, "r", driver_core_backing_store=0) as h5f,
+        write_compressed_or_not(outpath, compress) as fasta,
+    ):
 
         if family_filter in ["all", "persistent", "shell", "cloud"]:
             partition_filter = True

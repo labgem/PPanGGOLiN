@@ -8,15 +8,30 @@ import gzip
 import bz2
 import zipfile
 import argparse
+import inspect
+
 from io import TextIOWrapper
 from pathlib import Path
-from typing import TextIO, Union, BinaryIO, Tuple, List, Set, Iterable, Dict, Any
+from typing import (
+    Collection,
+    TextIO,
+    Union,
+    BinaryIO,
+    Tuple,
+    List,
+    Set,
+    Iterable,
+    Dict,
+    Any,
+    Optional,
+)
 from contextlib import contextmanager
 import tempfile
 import time
 from itertools import zip_longest
 import re
 import subprocess
+import shutil
 
 import networkx as nx
 from importlib.metadata import distribution
@@ -132,52 +147,50 @@ def check_log(log_file: str) -> TextIO:
         )
 
 
-def check_tsv_sanity(tsv: Path):
-    """Check if the given tsv is readable for the next PPanGGOLiN step
+def check_tsv_sanity(tsv_file: Path):
+    """Check if the given TSV file is readable for the next PPanGGOLiN step.
 
-    :param tsv: Path to the tsv containing organims information
+    :param tsv: Path to the TSV containing organism information.
+    :raises ValueError: If the file format is incorrect or contains invalid genome names.
     """
-    try:
-        input_file = open(tsv)
-    except OSError as ios_error:
-        raise OSError(ios_error)
-    except Exception as exception_error:
-        raise Exception(
-            f"The following unexpected error happened when opening the list of genomes path: "
-            f"{exception_error}"
-        )
-    else:
+    with read_compressed_or_not(tsv_file) as input_file:
         name_set = set()
         duplicated_names = set()
         non_existing_files = set()
+
         for line in input_file:
             elements = [el.strip() for el in line.split("\t")]
+
             if len(elements) <= 1:
-                raise Exception(f"No tabulation separator found in given file: {tsv}")
-            if " " in elements[0]:
-                raise Exception(
-                    f"Your genome names contain spaces (The first encountered genome name that had "
-                    f"this string: '{elements[0]}'). To ensure compatibility with all of the dependencies "
-                    f"of PPanGGOLiN this is not allowed. Please remove spaces from your genome names."
+                raise ValueError(f"No tabulation separator found in file: {tsv_file}")
+
+            genome_name, genome_path = elements[0], elements[1]
+
+            if " " in genome_name:
+                raise ValueError(
+                    f"Genome names cannot contain spaces (first encountered: '{genome_name}'). "
+                    "Please remove spaces to ensure compatibility with PPanGGOLiN dependencies."
                 )
-            old_len = len(name_set)
-            name_set.add(elements[0])
-            if len(name_set) == old_len:
-                duplicated_names.add(elements[0])
-            org_path = Path(elements[1])
-            if not org_path.exists() and not tsv.parent.joinpath(org_path).exists():
-                non_existing_files.add(elements[1])
-        if len(non_existing_files) != 0:
-            raise Exception(
-                f"Some of the given files do not exist. The non-existing files are the following : "
-                f"'{' '.join(non_existing_files)}'"
+
+            if genome_name in name_set:
+                duplicated_names.add(genome_name)
+            name_set.add(genome_name)
+
+            org_path = Path(genome_path)
+            if (
+                not org_path.exists()
+                and not tsv_file.parent.joinpath(org_path).exists()
+            ):
+                non_existing_files.add(genome_path)
+
+        if non_existing_files:
+            raise ValueError(
+                f"Some specified genome files do not exist: {', '.join(non_existing_files)}"
             )
-        if len(duplicated_names) != 0:
-            raise Exception(
-                f"Some of your genomes have identical names. The duplicated names are the following : "
-                f"'{' '.join(duplicated_names)}'"
+        if duplicated_names:
+            raise ValueError(
+                f"Some genome names are duplicated: {', '.join(duplicated_names)}"
             )
-        input_file.close()
 
 
 def check_input_files(file: Path, check_tsv: bool = False):
@@ -253,7 +266,7 @@ def jaccard_similarities(mat: csc_matrix, jaccard_similarity_th) -> csc_matrix:
 
 
 def is_compressed(
-    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]
+    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO],
 ) -> Tuple[bool, Union[str, None]]:
     """
     Detects if a file is compressed based on its file signature.
@@ -303,14 +316,14 @@ def is_compressed(
 
 
 def read_compressed_or_not(
-    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO]
+    file_or_file_path: Union[Path, BinaryIO, TextIOWrapper, TextIO],
 ) -> Union[TextIOWrapper, BinaryIO, TextIO]:
     """
     Opens and reads a file, decompressing it if necessary.
 
     Parameters:
     file (pathlib.Path, io.BytesIO, io.TextIOWrapper, io.TextIOBase): The file to read.
-        It can be a Path object from the pathlib module, a BytesIO object, a TextIOWrapper, or TextIOBase object.
+    It can be a Path object from the pathlib module, a BytesIO object, a TextIOWrapper, or TextIOBase object.
 
     Returns:
     str: The contents of the file, decompressed if it was a recognized compressed format.
@@ -506,7 +519,8 @@ def _plain_bfs(g: nx.Graph, source: Any, removed: set, weight: float):
     :param g: graph with the nodes
     :param source: current node
     :param removed: set of removed nodes
-    :param weight:threshold to remove node or not
+    :param weight: threshold to remove node or not
+
     """
 
     nextlevel = {source}
@@ -1332,7 +1346,7 @@ def parse_input_paths_file(
 
 
 def flatten_nested_dict(
-    nested_dict: Dict[str, Union[Dict, int, str, float]]
+    nested_dict: Dict[str, Union[Dict, int, str, float]],
 ) -> Dict[str, Union[int, str, float]]:
     """
     Flattens a nested dictionary into a flat dictionary by concatenating keys at different levels.
@@ -1489,52 +1503,103 @@ def get_consecutive_region_positions(
 
 def run_subprocess(
     cmd: List[str],
-    output: Path = None,
+    output: Optional[Path] = None,
     msg: str = "Subprocess failed with the following error:\n",
 ):
-    """Run a subprocess command and write the output to the given path.
-
-    :param cmd: list of program arguments
-    :param output: path to write the subprocess output
-    :param msg: message to print if the subprocess fails
-
-    :return:
-
-    :raises subprocess.CalledProcessError: raise when the subprocess return a non-zero exit code
     """
-    logging.getLogger("PPanGGOLiN").debug(" ".join(cmd))
+    Run a subprocess command and write the output to the given path.
+
+    :param cmd: List of program arguments.
+    :param output: Path to write the subprocess output (optional).
+    :param msg: Message to print if the subprocess fails.
+
+    :raises FileNotFoundError: If the command's executable is not found.
+    :raises subprocess.CalledProcessError: If the subprocess returns a non-zero exit code.
+    """
+    if not cmd or shutil.which(cmd[0]) is None:
+        raise FileNotFoundError(
+            f"Command '{cmd[0]}' not found. Please install it and try again."
+        )
+
+    logging.getLogger("PPanGGOLiN").debug(f"Running command: {' '.join(cmd)}")
+
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as subprocess_err:
-        for line in subprocess_err.stdout.split("\n"):
+        logging.getLogger("PPanGGOLiN").error(msg)
+        for line in subprocess_err.stderr.strip().split("\n"):
             logging.getLogger("PPanGGOLiN").error(line)
-        raise Exception(msg + subprocess_err.stderr)
+        raise
     else:
-        if output is not None:
+        if output:
             with open(output, "w") as fout:
                 fout.write(result.stdout)
 
 
-def has_non_ascii(string_to_test: str) -> bool:
+def has_non_ascii(string_to_test: Union[str, Collection[str]]) -> bool:
     """
-    Check if a string contains any non-ASCII characters.
+    Check if a string or a collection of strings contains any non-ASCII characters.
 
-    :param string_to_test: The string to check for non-ASCII characters.
-    :return: True if the string contains non-ASCII characters, False otherwise.
+    :param string_to_test: A single string or a collection of strings to check.
+    :return: True if any string contains non-ASCII characters, False otherwise.
     """
     try:
-        string_to_test.encode("ascii")
+        if isinstance(string_to_test, str):
+            string_to_test.encode("ascii")
+        else:
+            for item in string_to_test:
+                item.encode("ascii")
+        return False
     except UnicodeEncodeError:
         return True
-    return False
 
 
-def replace_non_ascii(string_with_ascii: str, replacement_string: str = "_") -> str:
+def replace_non_ascii(
+    string_with_ascii: Union[str, Collection[str]], replacement_string: str = "_"
+) -> Union[str, Collection[str]]:
     """
-    Replace all non-ASCII characters in a string with a specified replacement string.
+    Replace all non-ASCII characters in a string or a collection of strings
+    with a specified replacement string.
 
-    :param string_with_ascii: The string potentially containing non-ASCII characters.
+    :param string_with_ascii: A string or collection of strings potentially containing non-ASCII characters.
     :param replacement_string: The string to replace non-ASCII characters with (default is '_').
-    :return: A new string where all non-ASCII characters have been replaced.
+    :return: A new string or collection where all non-ASCII characters have been replaced.
     """
-    return re.sub(r"[^\x00-\x7F]+", replacement_string, string_with_ascii)
+
+    def replace(s: str) -> str:
+        return re.sub(r"[^\x00-\x7F]+", replacement_string, s)
+
+    if isinstance(string_with_ascii, str):
+        return replace(string_with_ascii)
+    return type(string_with_ascii)(replace(s) for s in string_with_ascii)
+
+
+def check_tools_availability(
+    tool_to_description: Union[Dict[str, str], List[str]],
+) -> dict[str, bool]:
+    """
+    Check if the given command-line tools are available in the system's PATH.
+
+    :param tool_to_description: A dictionary where keys are tool names and values are descriptions of their purpose, or a list of tool names.
+    :return: A dictionary with tool names as keys and boolean values indicating availability.
+    """
+    if isinstance(tool_to_description, list):
+        tool_to_description = {tool: "" for tool in tool_to_description}
+
+    availability = {
+        tool: shutil.which(tool) is not None for tool in tool_to_description
+    }
+
+    for tool, is_available in availability.items():
+        if not is_available:
+            caller_frame = inspect.stack()[1]
+            caller_module = caller_frame.frame.f_globals["__name__"]
+            caller_function = caller_frame.function
+
+            logging.getLogger("PPanGGOLiN").warning(
+                f"Missing required command: '{tool}' {tool_to_description[tool]}. "
+                f"This check was triggered in '{caller_function}' inside module '{caller_module}'. "
+                "Please install the missing command to ensure proper functionality of PPanGGOLiN."
+            )
+
+    return availability

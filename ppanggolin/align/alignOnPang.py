@@ -21,6 +21,7 @@ from ppanggolin.utils import (
     read_compressed_or_not,
     create_tmpdir,
     run_subprocess,
+    check_tools_availability,
 )
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
@@ -721,6 +722,8 @@ def align(
     :param disable_bar: If True, disable the progress bar.
     :param keep_tmp: If True, keep temporary files.
     """
+
+    check_tools_availability(["mmseqs"])
 
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     if pangenome.status["geneFamilySequences"] not in ["inFile", "Loaded", "Computed"]:

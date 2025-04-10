@@ -16,7 +16,12 @@ from tqdm import tqdm
 from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.pangenome import Pangenome
-from ppanggolin.utils import mk_outdir, restricted_float, run_subprocess
+from ppanggolin.utils import (
+    mk_outdir,
+    restricted_float,
+    run_subprocess,
+    check_tools_availability,
+)
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
 
@@ -354,6 +359,8 @@ def write_msa_files(
     :param force: force to write in the directory
     :param disable_bar: Disable progress bar
     """
+    check_tools_availability(["mafft"])
+
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
 
     need_partitions = False

@@ -10,13 +10,12 @@ python:
       path: .
       extra_requirements:
         - doc
-        - python_deps
 
 # Set the OS, Python version and other tools you might need
 build:
   os: ubuntu-22.04
   tools:
-    python: "3.8"
+    python: "3.10"
 
   
 # Build documentation in the "docs/" directory with Sphinx
