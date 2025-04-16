@@ -109,7 +109,7 @@ def write_tracks(features: List[str]):
         tracks.append(
             {
                 "name": "RGP",
-                "separateFeaturesBy": "None",
+                "separateFeaturesBy": "none",
                 "position": "inside",
                 "thicknessRatio": 1,
                 "dataType": "feature",
@@ -122,7 +122,7 @@ def write_tracks(features: List[str]):
         tracks.append(
             {
                 "name": "Module",
-                "separateFeaturesBy": "None",
+                "separateFeaturesBy": "none",
                 "position": "inside",
                 "thicknessRatio": 1,
                 "dataType": "feature",
