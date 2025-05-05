@@ -218,6 +218,11 @@ def mk_regions(
         new_region.score = val
         if new_region.length > min_length:
             contig_regions.add(new_region)
+        else:
+            # Remove region reference in genes to not consider them when iterating genome RGP
+            for gene in new_region.genes:
+                gene._RGP = None
+
         rewrite_matrix(contig, matrix, index, persistent, continuity, multi)
         val, index = max_index_node(matrix)
     return contig_regions
