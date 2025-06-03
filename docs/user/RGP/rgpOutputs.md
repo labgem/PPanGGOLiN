@@ -89,9 +89,6 @@ Since there can be some variation in the borders, some spots will have multiple 
 file.
 The sum of the number for each spot_id should be exactly the number of RGPs in the spot.
 
-The flag `--borders` also creates a file call `border_protein_genes.fasta` that are the protein sequences of the gene
-family found in borders.
-
 In addition, the `--borders` option also generates a file named `border_protein_genes.fasta`, containing protein
 sequences corresponding to the gene families of the spot borders.
 
