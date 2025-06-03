@@ -46,7 +46,7 @@ SUBCOMMAND_TO_SUBPARSER = {
 version = distribution("ppanggolin").version
 
 epilog = f"""
-PPanGGOLiN ({version}) is an opensource bioinformatic tools, developed by the LABEGeM team, under CeCILL FREE SOFTWARE LICENSE AGREEMENT
+PPanGGOLiN ({version}) is an open-source bioinformatics tool developed by the LABGeM team, and distributed under the CeCILL Free Software License Agreement.
 """
 
 pan_epilog = """
