@@ -977,6 +977,11 @@ def read_org_gff(
                     has_fasta = True
                 elif line.startswith("sequence-region", 2, 17):
                     fields = [el.strip() for el in line.split()]
+                    if len(fields) != 4:
+                        raise Exception(
+                            "Pragma '##sequence-region' has an unexpected format. "
+                            f"Expecting the format '##sequence-region seqid start stop', and got the following: '{line.strip()}'"
+                        )
                     with contig_counter.get_lock():
                         contig = Contig(
                             contig_counter.value,
