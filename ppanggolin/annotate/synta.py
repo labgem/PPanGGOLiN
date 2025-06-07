@@ -102,7 +102,7 @@ def launch_aragorn(
             if start < 1 or stop < 1:
                 # In some case aragorn gives negative coordinates. This case is just ignored.
                 logging.warning(
-                    f"Aragorn gives non valid coordiates for a RNA gene in contig {contig_name}: {line_data}. This RNA is ignored."
+                    f"Aragorn gives non valid coordinates for a RNA gene in contig {contig_name}: {line_data}. This RNA is ignored."
                 )
                 continue
             if (
@@ -110,7 +110,7 @@ def launch_aragorn(
                 or stop > contig_to_length[contig_name]
             ):
                 logging.warning(
-                    f"Aragorn gives non valide coordiates for a RNA gene in contig {contig_name}. "
+                    f"Aragorn gives non valide coordinates for a RNA gene in contig {contig_name}. "
                     f"Gene coordinates exceed contig length ({contig_to_length[contig_name]}): "
                     f"{line_data}. This RNA is ignored."
                 )
