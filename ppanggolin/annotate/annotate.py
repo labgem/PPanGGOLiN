@@ -449,7 +449,7 @@ def combine_contigs_metadata(
     all_tag_to_value = [
         (tag, value)
         for source_info in contig_to_metadata.values()
-        for (tag, value) in source_info.items()
+        for tag, value in source_info.items()
         if isinstance(value, str)
     ]
 

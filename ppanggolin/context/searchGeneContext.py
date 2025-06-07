@@ -485,8 +485,7 @@ def add_edges_to_context_graph(
             for i, next_gene_index in enumerate(next_genes):
                 # Check if the next gene is within the contig windows
                 if not any(
-                    lower <= next_gene_index <= upper
-                    for (lower, upper) in contig_windows
+                    lower <= next_gene_index <= upper for lower, upper in contig_windows
                 ):
                     # next_gene_index is not in any range of genes in the context,
                     # so it is ignored along with all following genes
