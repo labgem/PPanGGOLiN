@@ -583,6 +583,10 @@ class Contig(MetaFeatures):
 
         :todo: It could be better that len return the number of genes in the contig
         """
+        if self.length is None:
+            raise ValueError(
+                f"Contig length of {self.name} from genome {self.organism} has not been defined. Getting its length is then impossible."
+            )
         return self.length
 
     # retrieve gene by start position
