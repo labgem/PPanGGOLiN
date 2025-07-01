@@ -265,7 +265,7 @@ def write_genes(
             {f"gene_{k}": v for k, v in gene.formatted_metadata_dict().items()}
         )
         metadata_for_proksee.update(
-            {f"family_{k}": v for k, v in gene.family.formatted_metadata_dict()}
+            {f"family_{k}": v for k, v in gene.family.formatted_metadata_dict().items()}
         )
 
         # Proksee handles circularity effectively. When a gene extends beyond the edge of the contig,
