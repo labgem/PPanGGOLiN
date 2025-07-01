@@ -164,14 +164,14 @@ class MetaFeatures:
         source_field_2_values = self.formatted_metadata_dict()
 
         for source_field, values in source_field_2_values.items():
-
-            for value in values:
-                if separator in value:
-                    raise ValueError(
-                        f"Metadata {source_field}={value} associated to {self} "
-                        f"contains in its value the separator character '{separator}'. "
-                        "Please change separator in order to be able to write the metadata."
-                    )
+            if len(values) > 1:
+                for value in values:
+                    if separator in value:
+                        raise ValueError(
+                            f"Metadata {source_field}={value} associated to {self} "
+                            f"contains in its value the separator character '{separator}'. "
+                            "Please change separator in order to be able to write the metadata."
+                        )
             source_field_2_concat_values[source_field] = separator.join(values)
 
         return source_field_2_concat_values
