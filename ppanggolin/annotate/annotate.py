@@ -1073,14 +1073,14 @@ def read_org_gff(
                     locus_tag = attributes.get("LOCUS_TAG")
                     protein_id = attributes.get("PROTEIN_ID")
 
-                    # if locus_tag is not None and False:
-                    #     gene_id = locus_tag
+                    if locus_tag is not None:
+                        gene_id = locus_tag
 
-                    # elif protein_id is not None and False:
-                    #     gene_id = protein_id
+                    elif protein_id is not None:
+                        gene_id = protein_id
 
-                    # else:
-                    gene_id = id_attribute
+                    else:
+                        gene_id = id_attribute
 
                     name = attributes.pop("NAME", attributes.pop("GENE", ""))
 
