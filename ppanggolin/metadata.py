@@ -128,7 +128,26 @@ class MetaFeatures:
         """
         yield from self._metadata_getter.keys()
 
-    def formatted_metadata_dict(self, separator: str = "|") -> Dict[str, str]:
+    def formatted_metadata_dict(self) -> Dict[str, List[str]]:
+        """
+        Format metadata by combining source and field values.
+
+        Given an object with metadata, this function creates a new dictionary where the keys
+        are formatted as 'source_field'.
+
+        :return: A dictionary with formatted metadata.
+        """
+
+        source_field_2_values = defaultdict(list)
+        for metadata in self.metadata:
+            for field in metadata.fields:
+                value = str(getattr(metadata, field))
+
+                source_field_2_values[f"{metadata.source}_{field}"].append(value)
+
+        return source_field_2_values
+
+    def formatted_metadata_dict_to_string(self, separator: str = "|") -> Dict[str, str]:
         """
         Format metadata by combining source and field values.
 
@@ -139,25 +158,27 @@ class MetaFeatures:
         :param separator: The separator used to join multiple values for the same field (default is '|').
         :return: A dictionary with formatted metadata.
         """
-        source_field_2_values = defaultdict(list)
-        for metadata in self.metadata:
-            for field in metadata.fields:
-                value = str(getattr(metadata, field))
+
+        source_field_2_concat_values = {}
+
+        source_field_2_values = self.formatted_metadata_dict()
+
+        for source_field, values in source_field_2_values.items():
+
+            for value in values:
                 if separator in value:
                     raise ValueError(
-                        f"Metadata {field}={value} associated to {self} from source {metadata.source} "
+                        f"Metadata {source_field}={value} associated to {self} "
                         f"contains in its value the separator character '{separator}'. "
                         "Please change separator in order to be able to write the metadata."
                     )
-                source_field_2_values[f"{metadata.source}_{field}"].append(str(value))
+            source_field_2_concat_values[source_field] = separator.join(values)
 
-        return {
-            source_field: separator.join(values)
-            for source_field, values in source_field_2_values.items()
-        }
+        return source_field_2_concat_values
 
     def add_metadata(self, metadata: Metadata, metadata_id: int = None) -> None:
-        """Add metadata to metadata getter
+        """
+        Add metadata to metadata getter
 
         :param metadata: metadata value to add for the source
         :param metadata_id: metadata identifier
