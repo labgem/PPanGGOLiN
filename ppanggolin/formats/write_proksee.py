@@ -164,33 +164,31 @@ def initiate_proksee_data(
         "tracks": proksee_tracks,
         "sequence": {},
         "captions": [proksee_captions],
-        "meta": organism.formatted_metadata_dict(),  # metadata
     }
 
     return {"cgview": cgview_data}
 
 
 def write_contig(
-    organism: Organism, genome_sequences: Dict[str, str] = None, metadata_sep: str = "|"
+    organism: Organism, genome_sequences: Dict[str, str] = None
 ) -> List[Dict]:
     """
     Writes contig data for a given organism in proksee format.
 
     :param organism: The organism for which contig data will be written.
-    :param metadata_sep: The separator used to join multiple metadata values
     :param genome_sequences: A dictionary mapping contig names to their DNA sequences (default: None).
 
     :return: A list of contig data in a structured format.
     """
     contigs_data_list = []
 
-    genome_metadata = organism.formatted_metadata_dict(metadata_sep)
+    genome_metadata = organism.formatted_metadata_dict()
     for contig in tqdm(organism.contigs, unit="contig", disable=True):
 
         metadata_for_proksee = {"is_circular": bool(contig.is_circular)}
 
         metadata_for_proksee.update(genome_metadata)
-        metadata_for_proksee.update(contig.formatted_metadata_dict(metadata_sep))
+        metadata_for_proksee.update(contig.formatted_metadata_dict())
 
         metadata_for_proksee = {
             key: val
@@ -216,14 +214,12 @@ def write_contig(
 def write_genes(
     organism: Organism,
     multigenics: Set[GeneFamily],
-    metadata_sep: str = "|",
     disable_bar: bool = True,
 ) -> Tuple[List[Dict], Dict[str, List[Gene]]]:
     """
     Writes gene data for a given organism, including both protein-coding genes and RNA genes.
 
     :param organism: The organism for which gene data will be written.
-    :param metadata_sep: The separator used to join multiple metadata values
     :param disable_bar: A flag to disable the progress bar when processing genes (default: True).
 
     :return: List of gene data in a structured format and a dictionary mapping gene families to genes.
@@ -266,16 +262,10 @@ def write_genes(
             metadata_for_proksee["overlaps_contig_edge"] = gene.overlaps_contig_edge
 
         metadata_for_proksee.update(
-            {
-                f"gene_{k}": v
-                for k, v in gene.formatted_metadata_dict(metadata_sep).items()
-            }
+            {f"gene_{k}": v for k, v in gene.formatted_metadata_dict().items()}
         )
         metadata_for_proksee.update(
-            {
-                f"family_{k}": v
-                for k, v in gene.family.formatted_metadata_dict(metadata_sep).items()
-            }
+            {f"family_{k}": v for k, v in gene.family.formatted_metadata_dict().items()}
         )
 
         # Proksee handles circularity effectively. When a gene extends beyond the edge of the contig,
@@ -316,7 +306,7 @@ def write_genes(
         if gene.product:
             metadata_for_proksee["product"] = gene.product
 
-        metadata_for_proksee.update(gene.formatted_metadata_dict(metadata_sep))
+        metadata_for_proksee.update(gene.formatted_metadata_dict())
 
         coordinates_to_display = (
             gene.coordinates if gene.overlaps_contig_edge else [(gene.start, gene.stop)]
@@ -341,11 +331,10 @@ def write_genes(
     return genes_data_list, gf2gene
 
 
-def write_rgp(organism: Organism, metadata_sep: str = "|"):
+def write_rgp(organism: Organism):
     """
     Writes RGP (Region of Genomic Plasticity) data for a given organism in proksee format.
     :param organism: The specific organism for which RGP data will be written.
-    :param metadata_sep: The separator used to join multiple metadata values
 
     :return: A list of RGP data in a structured format.
     """
@@ -359,7 +348,7 @@ def write_rgp(organism: Organism, metadata_sep: str = "|"):
         if rgp.overlaps_contig_edge:
             metadata_for_proksee["overlaps_contig_edge"] = rgp.overlaps_contig_edge
 
-        metadata_for_proksee.update(rgp.formatted_metadata_dict(metadata_sep))
+        metadata_for_proksee.update(rgp.formatted_metadata_dict())
 
         for start, stop in rgp.coordinates:
             rgp_data_list.append(
@@ -378,14 +367,14 @@ def write_rgp(organism: Organism, metadata_sep: str = "|"):
 
 
 def write_modules(
-    organism: Organism, gf2genes: Dict[str, List[Gene]], metadata_sep: str = "|"
+    organism: Organism,
+    gf2genes: Dict[str, List[Gene]],
 ):
     """
     Writes module data in proksee format for a list of modules associated with a given organism.
 
     :param organism: The organism to which the modules are associated.
     :param gf2genes: A dictionary that maps gene families to the genes they contain.
-    :param metadata_sep: The separator used to join multiple metadata values
 
     :return: A list of module data in a structured format.
     """
@@ -403,7 +392,7 @@ def write_modules(
                 )
             }
 
-            metadata_for_proksee.update(module.formatted_metadata_dict(metadata_sep))
+            metadata_for_proksee.update(module.formatted_metadata_dict())
             # Create module data entries for genes within intersecting gene families
             for gf in gf_intersection:
                 for gene in gf2genes[gf.name]:
@@ -432,7 +421,6 @@ def write_proksee_organism(
     module_to_colors: Dict[Module, str] = None,
     genome_sequences: Dict[str, str] = None,
     multigenics: Set[GeneFamily] = [],
-    metadata_sep: str = "|",
     compress: bool = False,
 ):
     """
@@ -444,29 +432,24 @@ def write_proksee_organism(
     :param features: A list of features to include in the ProkSee data, e.g., ["rgp", "modules", "all"].
     :param module_to_colors: A dictionary mapping modules to their assigned colors.
     :param genome_sequences: The genome sequences for the organism.
-    :param metadata_sep: The separator used to join multiple metadata values
     :param compress: Compress the output file
     """
     proksee_data = initiate_proksee_data(features, organism, module_to_colors)
 
     proksee_data["cgview"]["sequence"]["contigs"] = write_contig(
-        organism, genome_sequences, metadata_sep=metadata_sep
+        organism, genome_sequences
     )
 
-    genes_features, gf2genes = write_genes(
-        organism, multigenics=multigenics, metadata_sep=metadata_sep
-    )
+    genes_features, gf2genes = write_genes(organism, multigenics=multigenics)
 
     proksee_data["cgview"]["features"] = genes_features
 
     if ("rgp" in features or "all" in features) and organism.regions is not None:
-        proksee_data["cgview"]["features"] += write_rgp(
-            organism=organism, metadata_sep=metadata_sep
-        )
+        proksee_data["cgview"]["features"] += write_rgp(organism=organism)
 
     if module_to_colors is not None and ("modules" in features or "all" in features):
         proksee_data["cgview"]["features"] += write_modules(
-            organism=organism, gf2genes=gf2genes, metadata_sep=metadata_sep
+            organism=organism, gf2genes=gf2genes
         )
 
     logging.debug(f"Write ProkSee for {organism.name}")
