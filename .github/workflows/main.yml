@@ -83,12 +83,13 @@ jobs:
     #     activate-environment: ppanggolin
     - uses: conda-incubator/setup-miniconda@v3
       with:
-        use-mamba: true  # accélère l'installation
-        channels: conda-forge,bioconda
-        environment-file: ppanggolin_env.yaml
+        use-mamba: true
         miniforge-variant: Mambaforge
-        cache-environment: true
-        cache: true
+        miniforge-version: latest
+        environment-file: ppanggolin_env.yaml
+        activate-environment: ppanggolin_env  # name from your YAML file
+        auto-activate-base: false
+        cache-downloads: true   # cache package tarballs (works reliably)
     - name: Install ppanggolin
       shell: bash -l {0}
       run: |
@@ -155,12 +156,14 @@ jobs:
     #     activate-environment: ppanggolin
     - uses: conda-incubator/setup-miniconda@v3
       with:
-        use-mamba: true  # accélère l'installation
-        channels: conda-forge,bioconda
-        environment-file: ppanggolin_env.yaml
+        use-mamba: true
         miniforge-variant: Mambaforge
-        cache-environment: true
-        cache: true
+        miniforge-version: latest
+        environment-file: ppanggolin_env.yaml
+        activate-environment: ppanggolin_env  # name from your YAML file
+        auto-activate-base: false
+        cache-downloads: true   # cache package tarballs (works reliably)
+
     - name: Install ppanggolin
       shell: bash -l {0}
       run: |
