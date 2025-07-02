@@ -20,9 +20,11 @@ on:
     
 
   pull_request:
+    branches:
+      - master
   push:
     branches:
-      - dev
+      - master
   release:
     types:
       - released # Run only on release events, use 'published' to run on draft or pre-release

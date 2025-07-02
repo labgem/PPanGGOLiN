@@ -931,3 +931,10 @@ class Pangenome:
         for elem in self.select_elem(metatype):
             if elem.has_source(source):
                 yield elem
+
+    def contig_lengths_unavailable(self) -> bool:
+        """Check if the pangenome has contig lengths unavailable
+
+        :return: True if contig lengths are unavailable, False otherwise
+        """
+        return any(contig.length is None for contig in self.contigs)

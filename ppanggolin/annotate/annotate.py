@@ -1825,6 +1825,17 @@ def launch(args: argparse.Namespace):
                     "You will be able to proceed with your analysis "
                     "ONLY if you provide the clustering results in the next step."
                 )
+
+            if pangenome.contig_lengths_unavailable():
+                raise ValueError(
+                    "Unable to determine contig lengths from the provided GFF files. "
+                    "Contig length must be specified using the ##sequence-region pragma. "
+                    "Additionally, no FASTA sequences were provided. "
+                    "As a result, contig lengths cannot be inferred.\n"
+                    "To resolve this, please provide a FASTA file using the '--fasta' option, "
+                    "or modify your GFF files to include sufficient information to deduce contig lengths."
+                )
+
         else:
             if args.fasta:
                 logging.getLogger("PPanGGOLiN").warning(
