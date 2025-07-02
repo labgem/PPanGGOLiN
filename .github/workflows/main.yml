@@ -93,11 +93,11 @@ jobs:
           hashFiles('ppanggolin_env.yaml') }}
     - uses: conda-incubator/setup-miniconda@v3
       with:
-        # use-mamba: true
+        use-mamba: true
         python-version: ${{ matrix.python-version }}
         environment-file: ppanggolin_env.yaml
         activate-environment: ppanggolin
-        conda-remove-defaults: "true"
+        # conda-remove-defaults: "true"
         use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
 
 
