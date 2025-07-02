@@ -94,7 +94,7 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
-        channels: conda-forge,bioconda
+        channels: conda-forge,bioconda,defaults
         environment-file: ppanggolin_env.yaml
         activate-environment: ppanggolin
         use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
