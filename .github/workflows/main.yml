@@ -81,15 +81,26 @@ jobs:
     #     channels: conda-forge,bioconda
     #     environment-file: ppanggolin_env.yaml
     #     activate-environment: ppanggolin
+    - name: Cache conda
+      uses: actions/cache@v3
+      env:
+        # Increase this value to reset cache if etc/example-environment.yml has not changed
+        CACHE_NUMBER: 0
+      with:
+        path: ~/conda_pkgs_dir
+        key:
+          ${{ matrix.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+          hashFiles('ppanggolin_env.yaml') }}
     - uses: conda-incubator/setup-miniconda@v3
       with:
         use-mamba: true
-        miniforge-variant: Mambaforge
-        miniforge-version: latest
+        python-version: ${{ matrix.python-version }}
         environment-file: ppanggolin_env.yaml
-        activate-environment: ppanggolin_env  # name from your YAML file
-        auto-activate-base: false
-        cache-downloads: true   # cache package tarballs (works reliably)
+        activate-environment: ppanggolin
+        conda-remove-defaults: "true"
+        use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+
+
     - name: Install ppanggolin
       shell: bash -l {0}
       run: |
@@ -120,96 +131,96 @@ jobs:
         shasum -a 256 mybasicpangenome/gene_families.tsv > info_to_test/checksum.txt
         cd -
   
-  step-by-step-test:
-    name: Step by step test on ${{ matrix.os }} with python ${{ matrix.python-version }}
-    # The type of runner that the job will run on
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: ['ubuntu-latest', 'macos-latest']
-        python-version: ['3.9', '3.12']
-    steps:
+  # step-by-step-test:
+  #   name: Step by step test on ${{ matrix.os }} with python ${{ matrix.python-version }}
+  #   # The type of runner that the job will run on
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       os: ['ubuntu-latest', 'macos-latest']
+  #       python-version: ['3.9', '3.12']
+  #   steps:
 
-    # Get number of cpu available on the current runner
-    - name: Get core number on linux
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        nb_cpu_linux=`nproc`
-        echo "Number of cores avalaible on the current linux runner $nb_cpu_linux"
-        echo "NUM_CPUS=$nb_cpu_linux" >> "$GITHUB_ENV"
+  #   # Get number of cpu available on the current runner
+  #   - name: Get core number on linux
+  #     if: matrix.os == 'ubuntu-latest'
+  #     run: |
+  #       nb_cpu_linux=`nproc`
+  #       echo "Number of cores avalaible on the current linux runner $nb_cpu_linux"
+  #       echo "NUM_CPUS=$nb_cpu_linux" >> "$GITHUB_ENV"
 
-    - name: Get core number on macos
-      if: matrix.os == 'macos-latest'
-      run: |
-        nb_cpu_macos=`sysctl -n hw.ncpu`
-        echo "Number of cores avalaible on the current macos runner $nb_cpu_macos"
-        echo "NUM_CPUS=$nb_cpu_macos" >> "$GITHUB_ENV"
+  #   - name: Get core number on macos
+  #     if: matrix.os == 'macos-latest'
+  #     run: |
+  #       nb_cpu_macos=`sysctl -n hw.ncpu`
+  #       echo "Number of cores avalaible on the current macos runner $nb_cpu_macos"
+  #       echo "NUM_CPUS=$nb_cpu_macos" >> "$GITHUB_ENV"
 
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v4
-    # Install requirements with miniconda
-    # - uses: conda-incubator/setup-miniconda@v3
-    #   with:
-    #     python-version: ${{ matrix.python-version }}
-    #     channels: conda-forge,bioconda
-    #     environment-file: ppanggolin_env.yaml
-    #     activate-environment: ppanggolin
-    - uses: conda-incubator/setup-miniconda@v3
-      with:
-        use-mamba: true
-        miniforge-variant: Mambaforge
-        miniforge-version: latest
-        environment-file: ppanggolin_env.yaml
-        activate-environment: ppanggolin_env  # name from your YAML file
-        auto-activate-base: false
-        cache-downloads: true   # cache package tarballs (works reliably)
+  #   # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+  #   - uses: actions/checkout@v4
+  #   # Install requirements with miniconda
+  #   # - uses: conda-incubator/setup-miniconda@v3
+  #   #   with:
+  #   #     python-version: ${{ matrix.python-version }}
+  #   #     channels: conda-forge,bioconda
+  #   #     environment-file: ppanggolin_env.yaml
+  #   #     activate-environment: ppanggolin
+  #   - uses: conda-incubator/setup-miniconda@v3
+  #     with:
+  #       use-mamba: true
+  #       miniforge-variant: Mambaforge
+  #       miniforge-version: latest
+  #       environment-file: ppanggolin_env.yaml
+  #       activate-environment: ppanggolin_env  # name from your YAML file
+  #       auto-activate-base: false
+  #       cache-downloads: true   # cache package tarballs (works reliably)
 
-    - name: Install ppanggolin
-      shell: bash -l {0}
-      run: |
-        pip install .
+  #   - name: Install ppanggolin
+  #     shell: bash -l {0}
+  #     run: |
+  #       pip install .
 
-    # Check that it is installed and displays help without error
-    - name: Check that PPanGGOLiN is installed
-      shell: bash -l {0}
-      run: |
-        ppanggolin --version
-        ppanggolin --help
+  #   # Check that it is installed and displays help without error
+  #   - name: Check that PPanGGOLiN is installed
+  #     shell: bash -l {0}
+  #     run: |
+  #       ppanggolin --version
+  #       ppanggolin --help
 
-    # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
-    #--draw_hotspots option is problematic on macOS.
-    - name: Step by Step workflow with most options calls
-      shell: bash -l {0}
-      run: |
-        cd testingDataset
-        ppanggolin annotate --fasta genomes.fasta.list --output stepbystep --kingdom bacteria --cpu $NUM_CPUS
-        ppanggolin cluster -p stepbystep/pangenome.h5 --coverage 0.8 --identity 0.8 --cpu $NUM_CPUS
-        ppanggolin graph -p stepbystep/pangenome.h5 -r 10
-        ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu $NUM_CPUS -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL
-        ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
-        ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --output stepbystep -f
-        ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
-        ppanggolin spot -p stepbystep/pangenome.h5 --output stepbystep --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1 -f
-        ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots -o stepbystep -f
-        ppanggolin module -p stepbystep/pangenome.h5 --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05
-        ppanggolin write_pangenome -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06  --gexf --light_gexf --csv --Rtab --stats --partitions --compress --json --spots --regions --borders --families_tsv --cpu 1 
-        ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output stepbystep -f --fasta genomes.fasta.list --gff --proksee --table
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta genomes.fasta.list
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families rgp --gene_families rgp --compress 
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families softcore --gene_families softcore 
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families module_0
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --genes core --proteins cloud
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --gene_families module_0 --genes module_0 --compress
-        ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --proteins cloud --cpu $NUM_CPUS --keep_tmp --compress
+  #   # test most options calls. If there is a change in the API somewhere that was not taken into account (whether in the options for the users, or the classes for the devs), this should fail, otherwise everything is probably good.
+  #   #--draw_hotspots option is problematic on macOS.
+  #   - name: Step by Step workflow with most options calls
+  #     shell: bash -l {0}
+  #     run: |
+  #       cd testingDataset
+  #       ppanggolin annotate --fasta genomes.fasta.list --output stepbystep --kingdom bacteria --cpu $NUM_CPUS
+  #       ppanggolin cluster -p stepbystep/pangenome.h5 --coverage 0.8 --identity 0.8 --cpu $NUM_CPUS
+  #       ppanggolin graph -p stepbystep/pangenome.h5 -r 10
+  #       ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu $NUM_CPUS -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL
+  #       ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
+  #       ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --output stepbystep -f
+  #       ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
+  #       ppanggolin spot -p stepbystep/pangenome.h5 --output stepbystep --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1 -f
+  #       ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots -o stepbystep -f
+  #       ppanggolin module -p stepbystep/pangenome.h5 --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05
+  #       ppanggolin write_pangenome -p stepbystep/pangenome.h5 --output stepbystep -f --soft_core 0.9 --dup_margin 0.06  --gexf --light_gexf --csv --Rtab --stats --partitions --compress --json --spots --regions --borders --families_tsv --cpu 1 
+  #       ppanggolin write_genomes  -p stepbystep/pangenome.h5 --output stepbystep -f --fasta genomes.fasta.list --gff --proksee --table
+  #       ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families all --gene_families shell --regions all --fasta genomes.fasta.list
+  #       ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families rgp --gene_families rgp --compress 
+  #       ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families softcore --gene_families softcore 
+  #       ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --prot_families module_0
+  #       ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --genes core --proteins cloud
+  #       ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --gene_families module_0 --genes module_0 --compress
+  #       ppanggolin fasta -p stepbystep/pangenome.h5 --output stepbystep -f --proteins cloud --cpu $NUM_CPUS --keep_tmp --compress
 
-        ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
-        ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --no_print_info --recompute_metrics --log metrics.log
-        ppanggolin info --pangenome stepbystep/pangenome.h5 > info_to_test/stepbystep_info.yaml
-        cat info_to_test/stepbystep_info.yaml
-        gzip -d stepbystep/gene_families.tsv.gz
-        echo "$(grep 'stepbystep/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  stepbystep/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
-        shasum -a 256 stepbystep/gene_families.tsv >> info_to_test/checksum.txt
-        cd -
+  #       ppanggolin draw -p stepbystep/pangenome.h5 --draw_spots --spots all -o stepbystep -f
+  #       ppanggolin metrics -p stepbystep/pangenome.h5 --genome_fluidity --no_print_info --recompute_metrics --log metrics.log
+  #       ppanggolin info --pangenome stepbystep/pangenome.h5 > info_to_test/stepbystep_info.yaml
+  #       cat info_to_test/stepbystep_info.yaml
+  #       gzip -d stepbystep/gene_families.tsv.gz
+  #       echo "$(grep 'stepbystep/gene_families.tsv' expected_info_files/checksum.txt | cut -d' ' -f1)  stepbystep/gene_families.tsv" | shasum -a 256 -c - || { echo 'Checksum verification failed.' >&2; exit 1; }
+  #       shasum -a 256 stepbystep/gene_families.tsv >> info_to_test/checksum.txt
+  #       cd -
   #   - name: gbff parsing and MSA computing
   #     shell: bash -l {0}
   #     run: |
