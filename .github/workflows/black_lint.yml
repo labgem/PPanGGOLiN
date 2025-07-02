@@ -1,6 +1,10 @@
 name: Lint
 
-on: [pull_request]
+on:
+  pull_request:
+    paths:
+      - '**.py'        # only trigger if a .py file is changed
+      - 'pyproject.toml'  # optional: trigger if black config changes too
 
 jobs:
   lint:
