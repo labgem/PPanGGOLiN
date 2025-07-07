@@ -78,12 +78,6 @@ def launch_workflow(
         )
         anno_time = time.time() - start_anno
 
-        start_writing = time.time()
-        write_pangenome(
-            pangenome, filename, args.force, disable_bar=args.disable_prog_bar
-        )
-        writing_time = time.time() - start_writing
-
         if args.clusters is not None:
             start_clust = time.time()
             read_clustering(
@@ -122,6 +116,12 @@ def launch_workflow(
                 keep_tmp_files=args.cluster.keep_tmp,
             )
         clust_time = time.time() - start_clust
+
+        start_writing = time.time()
+        write_pangenome(
+            pangenome, filename, args.force, disable_bar=args.disable_prog_bar
+        )
+        writing_time = time.time() - start_writing
 
     elif args.fasta is not None:
         if args.clusters is not None:

@@ -282,7 +282,7 @@ def add_rgp_metadata_to_graph(
             }
 
         if isinstance(rgp, Region):
-            rgp_metadata = rgp.formatted_metadata_dict()
+            rgp_metadata = rgp.formatted_metadata_dict_to_string()
             if rgp.spot is not None:
                 element_to_metadata_sources["spot"] = {
                     metadata.source for metadata in rgp.spot.metadata
@@ -290,7 +290,7 @@ def add_rgp_metadata_to_graph(
 
         elif isinstance(rgp, IdenticalRegions):
             rgp_metadata_dicts = [
-                ident_rgp.formatted_metadata_dict() for ident_rgp in rgp.rgps
+                ident_rgp.formatted_metadata_dict_to_string() for ident_rgp in rgp.rgps
             ]
             rgp_metadata = join_dicts(rgp_metadata_dicts)
 
