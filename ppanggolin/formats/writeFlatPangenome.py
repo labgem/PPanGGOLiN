@@ -849,7 +849,6 @@ def write_stats(
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
     :param compress: Compress the file in .gz
 
-    :return: A set containing gene families identified as single copy persistent markers.
     """
     logging.getLogger("PPanGGOLiN").info("Writing pangenome statistics...")
 
@@ -1607,7 +1606,7 @@ def parser_flat(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.05,
-        help="minimum ratio of genomes in which the family must have multiple genes "
+        help="Minimum ratio of genomes in which the family must have multiple genes "
         "for it to be considered 'duplicated'",
     )
 
@@ -1615,69 +1614,70 @@ def parser_flat(parser: argparse.ArgumentParser):
         "--gexf",
         required=False,
         action="store_true",
-        help="write a gexf file with all the annotations and all the genes of each gene family",
+        help="Generate a detailed GEXF file with all genes and annotations for each family",
     )
     optional.add_argument(
         "--light_gexf",
         required=False,
         action="store_true",
-        help="write a gexf file with the gene families and basic information about them",
+        help="Generate a simplified GEXF file with basic gene family information",
     )
 
     optional.add_argument(
         "--json",
         required=False,
         action="store_true",
-        help="Writes the graph in a json file format",
+        help="Export the graph in JSON file format",
     )
 
     optional.add_argument(
         "--csv",
         required=False,
         action="store_true",
-        help="csv file format as used by Roary, among others. "
-        "The alternative gene ID will be the partition, if there is one",
+        help=(
+            "Export gene presence/absence in CSV format (compatible with Roary). "
+            "Uses partitions as alternative gene IDs if available."
+        ),
     )
     optional.add_argument(
         "--Rtab",
         required=False,
         action="store_true",
-        help="tabular file for the gene binary presence absence matrix",
+        help="Export gene presence/absence as a tabular binary matrix",
     )
 
     optional.add_argument(
         "--stats",
         required=False,
         action="store_true",
-        help="tsv files with some statistics for each each gene family",
+        help="Generate genome and gene family statistics files: 'genome_statistics.tsv' and 'mean_persistent_duplication.tsv'.",
     )
 
     optional.add_argument(
         "--partitions",
         required=False,
         action="store_true",
-        help="list of families belonging to each partition, with one file per partitions and "
-        "one family per line",
+        help="Generate one file per partition listing the gene families it contains",
     )
 
     optional.add_argument(
         "--families_tsv",
         required=False,
         action="store_true",
-        help="Write a tsv file providing the association between genes and gene families",
+        help="Write a TSV file mapping genes to their corresponding gene families",
     )
 
     optional.add_argument(
         "--regions",
         required=False,
         action="store_true",
-        help="Writes the predicted RGP and descriptive metrics in 'plastic_regions.tsv'",
+        help="Write predicted RGPs (Regions of Genomic Plasticity) and metrics to 'plastic_regions.tsv'",
     )
     optional.add_argument(
         "--spots",
         required=False,
         action="store_true",
-        help="Write spot summary and a list of all RGP in each spot",
+        help="Write spot summary and list all RGPs (Regions of Genomic Plasticity) per spot",
     )
     optional.add_argument(
         "--borders",
@@ -1689,20 +1689,20 @@ def parser_flat(parser: argparse.ArgumentParser):
         "--modules",
         required=False,
         action="store_true",
-        help="Write a tsv file listing functional modules and the families that belong to them",
+        help="Write a TSV file listing functional modules and their associated gene families",
     )
     optional.add_argument(
         "--spot_modules",
         required=False,
         action="store_true",
-        help="writes 2 files comparing the presence of modules within spots",
+        help="Generate two files comparing module presence across spots",
     )
 
     optional.add_argument(
         "--compress",
         required=False,
         action="store_true",
-        help="Compress the files in .gz",
+        help="Compress output files using gzip (.gz)",
     )
     optional.add_argument(
         "-c",
