@@ -20,6 +20,7 @@ from tqdm import tqdm
 from tables.path import check_name_validity, NaturalNameWarning
 
 # local libraries
+from ppanggolin import genome
 from ppanggolin.annotate.synta import (
     annotate_organism,
     get_contigs_from_fasta_file,
@@ -818,9 +819,11 @@ def read_org_gbff(
     genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(
         contig_to_metadata
     )
-    organism.add_metadata(
-        metadata=Metadata(source="annotation_file", **genome_metadata)
-    )
+
+    if genome_metadata:
+        organism.add_metadata(
+            metadata=Metadata(source="annotation_file", **genome_metadata)
+        )
 
     for contig, metadata_dict in contig_to_uniq_metadata.items():
         contig.add_metadata(Metadata(source="annotation_file", **metadata_dict))
