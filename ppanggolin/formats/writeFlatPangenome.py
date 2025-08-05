@@ -1650,7 +1650,10 @@ def parser_flat(parser: argparse.ArgumentParser):
         "--stats",
         required=False,
         action="store_true",
-        help="Generate genome and gene family statistics files: 'genome_statistics.tsv' and 'mean_persistent_duplication.tsv'.",
+        help=(
+            "Generate genome statistics ('genome_statistics.tsv') and duplication summary "
+            "of persistent families ('mean_persistent_duplication.tsv')"
+        ),
     )
 
     optional.add_argument(
