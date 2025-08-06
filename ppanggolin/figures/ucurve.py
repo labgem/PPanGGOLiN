@@ -46,7 +46,7 @@ def compute_family_counts(
             is_partitioned = True
             if fam.partition == "U":
                 has_undefined = True
-            family_count_by_org_and_part[nb_org][fam.named_partition] += 1
+            family_count_by_org_and_part[nb_org][fam.named_partition.capitalize()] += 1
 
         family_count_by_org_and_part[nb_org]["pangenome"] += 1
         max_family_count = max(
@@ -80,6 +80,7 @@ def build_ucurve_plot(
     has_undefined: bool,
     chao: float,
     soft_core: float,
+    number_of_gene_families: int,
 ) -> go.Figure:
     """
     Build a U-curve bar plot of gene family frequencies across genomes.
@@ -95,6 +96,7 @@ def build_ucurve_plot(
     :param has_undefined: Flag indicating presence of undefined gene families.
     :param chao: Chao1 richness estimator value, shown in the plot title.
     :param soft_core: Threshold fraction defining the soft core genome, used to draw a vertical line.
+    :param number_of_gene_families: Total number of gene families in the pangenome.
 
     :return: A Plotly Figure object containing the U-curve bar plot.
     """
@@ -105,9 +107,9 @@ def build_ucurve_plot(
         "exact_core": "#FF2828",
         "soft_core": "#c7c938",
         "soft_accessory": "#996633",
-        "shell": "#00D860",
-        "persistent": "#F7A507",
-        "cloud": "#79DEFF",
+        "Shell": "#00D860",
+        "Persistent": "#F7A507",
+        "Cloud": "#79DEFF",
         "undefined": "#828282",
     }
 
@@ -115,7 +117,7 @@ def build_ucurve_plot(
 
     if is_partitioned and not has_undefined:
         # Build stacked bars for persistent, shell, and cloud partitions
-        for part in ["persistent", "shell", "cloud"]:
+        for part in ["Persistent", "Shell", "Cloud"]:
             values = [
                 count[nb_org][part] for nb_org in range(1, number_of_organisms + 1)
             ]
@@ -144,7 +146,14 @@ def build_ucurve_plot(
     soft_core_pos = number_of_organisms * soft_core
 
     layout = go.Layout(
-        title=f"Gene families frequency distribution (U shape), chao={chao}",
+        title=dict(
+            text="Gene families frequency distribution (U shape)",
+            # font=dict(size=16),
+            subtitle=dict(
+                text=f"Gene Families: {number_of_gene_families} | Chao1: {chao}",
+                font=dict(color="gray", size=14),
+            ),
+        ),
         xaxis=dict(title="Occurring in x genomes"),
         yaxis=dict(title="# of gene families (F)"),
         barmode="stack",
@@ -155,7 +164,7 @@ def build_ucurve_plot(
                 x1=soft_core_pos,
                 y0=0,
                 y1=max_bar,
-                line=dict(width=5, dash="dashdot", color="grey"),
+                line=dict(dash="dashdot", color="grey"),
                 # This line marks the soft core genome threshold
             )
         ],
@@ -200,6 +209,7 @@ def draw_ucurve(
         has_undefined,
         chao,
         soft_core,
+        pangenome.number_of_gene_families,
     )
 
     output_file = output / "Ushaped_plot.html"
