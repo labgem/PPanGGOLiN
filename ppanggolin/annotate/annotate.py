@@ -1404,6 +1404,9 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
 
                 gene.coordinates = new_coordinates
 
+                gene.start = new_coordinates[0][0]
+                gene.stop = new_coordinates[-1][1]
+
 
 def read_anno_file(
     organism_name: str,
