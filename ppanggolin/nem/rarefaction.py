@@ -64,6 +64,8 @@ def raref_nem(
     kmm = [3, 20] if krange is None else krange
 
     if kval < 3:
+        tmpdir_eval = tmpdir / f"{str(index)}_eval"
+        mk_outdir(tmpdir_eval, force=False, exist_ok=True)
         kval = ppp.evaluate_nb_partitions(
             organisms=samp,
             sm_degree=sm_degree,
@@ -71,7 +73,7 @@ def raref_nem(
             chunk_size=chunk_size,
             krange=kmm,
             seed=seed,
-            tmpdir=tmpdir / f"{str(index)}_eval",
+            tmpdir=tmpdir_eval,
         )
 
     if len(samp) <= chunk_size:  # all good, just write stuff.

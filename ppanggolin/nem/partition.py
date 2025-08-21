@@ -434,7 +434,6 @@ def evaluate_nb_partitions(
     """
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     newtmpdir = tmpdir / "eval_partitions"
-    mk_outdir(tmpdir, force=False)
 
     if len(organisms) > chunk_size:
         select_organisms = set(random.sample(list(organisms), chunk_size))
