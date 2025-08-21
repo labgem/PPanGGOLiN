@@ -104,6 +104,10 @@ jobs:
         ppanggolin graph -p stepbystep/pangenome.h5 -r 10
         ppanggolin partition --output stepbystep -f -p stepbystep/pangenome.h5 --cpu $NUM_CPUS -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL
         ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --depth 5 --min 1 --max 50 -ms 10 -fd -ck 30 -K 3 --soft_core 0.9 -se $RANDOM
+
+        # Check reestimate K with depth 1 and min 40 to avoid long computation time
+        ppanggolin rarefaction --output stepbystep -f -p stepbystep/pangenome.h5 --reestimate_K --depth 1 --min 40
+
         ppanggolin draw -p stepbystep/pangenome.h5 --tile_plot --nocloud --soft_core 0.92 --ucurve --output stepbystep -f
         ppanggolin rgp -p stepbystep/pangenome.h5 --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05
         ppanggolin spot -p stepbystep/pangenome.h5 --output stepbystep --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1 -f
