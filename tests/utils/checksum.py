@@ -1,16 +1,22 @@
 from pathlib import Path
 import hashlib
 import json
+import gzip
 
 GOLDEN_JSON = Path("testingDataset/expected_info_files/expected_hashes.json")
 
 
-def compute_sha256(file_path: Path) -> str:
-    """Compute SHA256 of a file."""
+def compute_sha256(file_path: Path, decompress_gz: bool = False) -> str:
+    """Compute sha256 hash of a file. If decompress_gz=True, hash the uncompressed content."""
     sha256 = hashlib.sha256()
-    with file_path.open("rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            sha256.update(chunk)
+    if decompress_gz and file_path.suffix == ".gz":
+        with gzip.open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256.update(chunk)
+    else:
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256.update(chunk)
     return sha256.hexdigest()
 
 
@@ -30,10 +36,18 @@ def save_golden_hashes(hashes: dict):
 
 
 def assert_or_update_hash(file_path: Path, update_golden: bool):
-    """Compare file hash with golden or update it if --update-golden is set."""
-    actual_hash = compute_sha256(file_path)
+    """Compare file hash with golden or update it if --update-golden is set.
+    If file is gzipped, compute hash on the uncompressed content and drop the `.gz` extension.
+    """
+    is_gz = file_path.suffix == ".gz"
+    actual_hash = compute_sha256(file_path, decompress_gz=is_gz)
+
+    # Normalize filename (strip .gz if needed)
+    fname = str(file_path.relative_to(file_path.parents[1]))
+    if is_gz:
+        fname = fname[:-3]  # remove ".gz"
+
     golden_hashes = load_golden_hashes()
-    fname = str(file_path.relative_to(file_path.parents[1]))  # store relative path in JSON
 
     if update_golden:
         golden_hashes[fname] = actual_hash
@@ -41,7 +55,7 @@ def assert_or_update_hash(file_path: Path, update_golden: bool):
         print(f"[update-golden] Updated hash for {fname}: {actual_hash}")
     else:
         expected_hash = golden_hashes.get(fname)
-        assert expected_hash is not None, (
-            f"No golden hash for {fname}. Run pytest with --update-golden first."
-        )
+        assert (
+            expected_hash is not None
+        ), f"No golden hash for {fname}. Run pytest with --update-golden first."
         assert actual_hash == expected_hash, f"Checksum mismatch for {fname}"

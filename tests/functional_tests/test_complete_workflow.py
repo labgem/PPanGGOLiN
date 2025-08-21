@@ -1,14 +1,9 @@
-# default libraries
-from pathlib import Path
-from unittest.mock import patch
-import subprocess
 import pytest
 
 
-# local library
-from ppanggolin.main import main
 from tests.utils.checksum import assert_or_update_hash
-from tests.utils.file_compare import assert_or_update_file
+from tests.utils.file_compare import check_pangenome_info
+from tests.utils.run_ppanggolin import run_ppanggolin_command
 
 
 @pytest.fixture(scope="module")
@@ -17,8 +12,7 @@ def pangenome_dir(tmp_path_factory, num_cpus):
     outdir = tmp_path / "mybasicpangenome"
 
     cmd = f"ppanggolin all --cpu {num_cpus} --fasta testingDataset/genomes.fasta.list --output {outdir}"
-    with patch("sys.argv", cmd.split()):
-        main()
+    run_ppanggolin_command(cmd)
 
     return outdir
 
@@ -30,20 +24,14 @@ def test_pangenome_created(pangenome_dir):
 
 def test_info_command(pangenome_dir, tmp_path, update_golden):
     info_file = tmp_path / "mybasicpangenome_info.yaml"
-    cmd = f"ppanggolin info --pangenome {pangenome_dir / 'pangenome.h5'} --content --parameters --status"
-
-    with patch("sys.argv", cmd.split()):
-        main()
-
-    with open(info_file, "w") as f:
-        subprocess.run(cmd.split(), check=True, stdout=f)
-
-    assert info_file.exists()
-    assert info_file.stat().st_size > 0
-    assert_or_update_file(info_file, update_golden)
+    pangenome = pangenome_dir / "pangenome.h5"
+    check_pangenome_info(
+        pangenome=pangenome, info_file=info_file, update_golden=update_golden
+    )
 
 
 FILES_TO_CHECK = ["gene_families.tsv"]
+
 
 @pytest.mark.parametrize("fname", FILES_TO_CHECK)
 def test_file_checksums(pangenome_dir, fname, update_golden):
