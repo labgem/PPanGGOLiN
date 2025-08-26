@@ -942,7 +942,7 @@ def draw_spots(
         )
         selected_spots = list(pangenome.spots)
     elif spot_list == "synteny" or any(x == "synteny" for x in spot_list):
-        logging.getLogger().debug(
+        logging.getLogger("PPanGGOLiN").debug(
             "'synteny' value is found in spot list, all spots with more than 1 conserved synteny are drawn."
         )
         selected_spots = [

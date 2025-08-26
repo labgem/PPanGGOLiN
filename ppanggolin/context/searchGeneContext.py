@@ -202,7 +202,7 @@ def search_gene_context_in_pangenome(
     # Compute the graph with transitive closure size provided as parameter
     start_time = time.time()
 
-    logging.getLogger().info("Building the graph...")
+    logging.getLogger("PPanGGOLiN").info("Building the graph...")
 
     gene_context_graph, _ = compute_gene_context_graph(
         families=families_of_interest,
@@ -211,12 +211,12 @@ def search_gene_context_in_pangenome(
         disable_bar=disable_bar,
     )
 
-    logging.getLogger().info(
+    logging.getLogger("PPanGGOLiN").info(
         f"Took {round(time.time() - start_time, 2)} "
         f"seconds to build the graph to find common gene contexts"
     )
 
-    logging.getLogger().debug(
+    logging.getLogger("PPanGGOLiN").debug(
         f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and "
         f"{nx.number_of_edges(gene_context_graph)} edges"
     )
@@ -231,8 +231,8 @@ def search_gene_context_in_pangenome(
     ]
     gene_context_graph.remove_edges_from(edges_to_remove)
 
-    logging.getLogger().debug(f"Filtering context graph on {filter_flag}")
-    logging.getLogger().debug(
+    logging.getLogger("PPanGGOLiN").debug(f"Filtering context graph on {filter_flag}")
+    logging.getLogger("PPanGGOLiN").debug(
         f"Context graph made of {nx.number_of_nodes(gene_context_graph)} nodes and "
         f"{nx.number_of_edges(gene_context_graph)} edges"
     )
@@ -243,7 +243,7 @@ def search_gene_context_in_pangenome(
     out_graph_file = write_graph(gene_context_graph, output, graph_format)
 
     if len(gene_contexts) != 0:
-        logging.getLogger().info(
+        logging.getLogger("PPanGGOLiN").info(
             f"There are {sum(len(gc) for gc in gene_contexts)} families among {len(gene_contexts)} gene contexts"
         )
 
@@ -746,7 +746,9 @@ def export_context_to_dataframe(
 
     df.to_csv(output, sep="\t", na_rep="NA")
 
-    logging.getLogger().debug(f"detected gene context(s) are listed in: '{output}'")
+    logging.getLogger("PPanGGOLiN").debug(
+        f"detected gene context(s) are listed in: '{output}'"
+    )
 
 
 def launch(args: argparse.Namespace):

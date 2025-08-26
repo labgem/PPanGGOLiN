@@ -178,7 +178,9 @@ def assign_metadata(
                     f"{metatype} {row[metatype]} does not exist in pangenome. Check name in your file"
                 )
             else:
-                logging.getLogger().debug(f"{metatype}: {row[metatype]} doesn't exist")
+                logging.getLogger("PPanGGOLiN").debug(
+                    f"{metatype}: {row[metatype]} doesn't exist"
+                )
         else:
             element.add_metadata(
                 Metadata(
@@ -215,7 +217,7 @@ def launch(args: argparse.Namespace):
         omit=args.omit,
         disable_bar=args.disable_prog_bar,
     )
-    logging.getLogger().info("Metadata assignment Done")
+    logging.getLogger("PPanGGOLiN").info("Metadata assignment Done")
     write_pangenome(
         pangenome, pangenome.file, force=args.force, disable_bar=args.disable_prog_bar
     )
