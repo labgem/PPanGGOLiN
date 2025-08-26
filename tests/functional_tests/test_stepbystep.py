@@ -30,36 +30,41 @@ cd -
 
 
 @pytest.fixture(scope="session")
-def stepbystep_pangenome(tmp_path_factory, num_cpus):
+def stepbystep_pangenome(tmp_path_factory, num_cpus, request):
+    """Run ppanggolin step-by-step workflow once and cache the result across pytest runs."""
+    cache = request.config.cache
+    cached_path = cache.get("ppanggolin/stepbystep_pangenome", None)
 
+    if cached_path and Path(cached_path).exists():
+        # ✅ reuse cached result
+        return Path(cached_path)
+
+    # Otherwise recompute
     outdir = tmp_path_factory.mktemp("stepbystep_test") / "stepbystep"
-
-    cmd = f"ppanggolin annotate --fasta testingDataset/genomes.fasta.list --output {outdir} --kingdom bacteria --cpu {num_cpus}"
-    run_ppanggolin_command(cmd)
-
     pangenome = outdir / "pangenome.h5"
 
-    cmd = f"ppanggolin cluster -p {pangenome} --coverage 0.8 --identity 0.8 --cpu {num_cpus}"
-    run_ppanggolin_command(cmd)
+    commands = [
+        f"ppanggolin annotate --fasta testingDataset/genomes.fasta.list "
+        f"--output {outdir} --kingdom bacteria --cpu {num_cpus}",
+        f"ppanggolin cluster -p {pangenome} --coverage 0.8 --identity 0.8 --cpu {num_cpus}",
+        f"ppanggolin graph -p {pangenome} -r 10",
+        f"ppanggolin partition --output {outdir} -f -p {pangenome} --cpu {num_cpus} "
+        f"-b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL",
+        f"ppanggolin rgp -p {pangenome} --persistent_penalty 2 --variable_gain 1 "
+        f"--min_score 3 --dup_margin 0.05",
+        f"ppanggolin spot -p {pangenome} --output {outdir} --spot_graph "
+        f"--overlapping_match 2 --set_size 3 --exact_match_size 1 -f",
+        f"ppanggolin module -p {pangenome} --transitive 4 --size 3 "
+        f"--jaccard 0.86 --dup_margin 0.05",
+        f"ppanggolin metrics -p {pangenome} --genome_fluidity --no_print_info "
+        f"--recompute_metrics --log metrics.log",
+    ]
 
-    cmd = f"ppanggolin graph -p {pangenome} -r 10"
-    run_ppanggolin_command(cmd)
+    for cmd in commands:
+        run_ppanggolin_command(cmd)
 
-    cmd = f"ppanggolin partition --output {outdir} -f -p {pangenome} --cpu {num_cpus} -b 2.6 -ms 10 -fd -ck 500 -Kmm 3 12 -im 0.04 --draw_ICL"
-    run_ppanggolin_command(cmd)
-
-    cmd = f"ppanggolin rgp -p {pangenome} --persistent_penalty 2 --variable_gain 1 --min_score 3 --dup_margin 0.05"
-    run_ppanggolin_command(cmd)
-
-    cmd = f"ppanggolin spot -p {pangenome} --output {outdir} --spot_graph --overlapping_match 2 --set_size 3 --exact_match_size 1 -f"
-    run_ppanggolin_command(cmd)
-
-    cmd = f"ppanggolin module -p {pangenome} --transitive 4 --size 3 --jaccard 0.86 --dup_margin 0.05"
-    run_ppanggolin_command(cmd)
-
-    cmd = f"ppanggolin metrics -p {pangenome} --genome_fluidity --no_print_info --recompute_metrics --log metrics.log"
-    run_ppanggolin_command(cmd)
-
+    # Save to pytest cache for reuse
+    cache.set("ppanggolin/stepbystep_pangenome", str(pangenome))
     return pangenome
 
 

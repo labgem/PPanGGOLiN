@@ -54,10 +54,12 @@ OUTDIR_COMMANDS_AND_FILES = [
     OUTDIR_COMMANDS_AND_FILES,
     ids=[case[0] for case in OUTDIR_COMMANDS_AND_FILES],
 )
-def test_rgp_cluster_outputs(stepbystep_pangenome, tmp_path, test_outdir, cmd_template, expected_files):
+def test_rgp_cluster_outputs(
+    fasta_all_wf_pangenome, tmp_path, test_outdir, cmd_template, expected_files
+):
     """Run rgp_cluster with various options and check expected files exist."""
     outdir = tmp_path / test_outdir
-    cmd = cmd_template.format(pangenome=stepbystep_pangenome, outdir=outdir)
+    cmd = cmd_template.format(pangenome=fasta_all_wf_pangenome, outdir=outdir)
 
     run_ppanggolin_command(cmd)
 
