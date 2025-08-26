@@ -34,7 +34,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--cpu",
         action="store",
-        default="2",
+        default="1",
         help="Number of CPUs to use in functional tests",
     )
     parser.addoption(
@@ -51,7 +51,7 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def num_cpus(request):
     return request.config.getoption("--cpu")
 
