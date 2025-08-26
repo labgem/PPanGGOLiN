@@ -79,7 +79,7 @@ jobs:
     # Check that unit tests are all passing
     - name: Unit tests
       shell: bash -l {0}
-      run: pytest   
+      run: pytest --full --cov=ppanggolin --cov-report=xml --cov-report=term --cpu $NUM_CPUS 
 
     # Test the complete workflow
     - name: Complete workflow

@@ -63,6 +63,7 @@ doc = [
 test = [
     "pytest==7",
     "black==24.*"
+    "pytest-cov==6",
 ]
 
 #
