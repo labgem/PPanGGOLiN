@@ -48,7 +48,9 @@ def test_pangenome_created(fasta_all_wf_pangenome):
 def test_info_command(fasta_all_wf_pangenome, tmp_path, update_golden):
     info_file = tmp_path / "mybasicpangenome_info.yaml"
     check_pangenome_info(
-        pangenome=fasta_all_wf_pangenome, info_file=info_file, update_golden=update_golden
+        pangenome=fasta_all_wf_pangenome,
+        info_file=info_file,
+        update_golden=update_golden,
     )
 
 

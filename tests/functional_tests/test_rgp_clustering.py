@@ -1,4 +1,5 @@
 from tests.functional_tests.test_fasta_all_wf import fasta_all_wf_pangenome
+
 # tests/functional_tests/test_stepbystep.py
 from pathlib import Path
 import pytest
@@ -19,32 +20,21 @@ OUTDIR_COMMANDS_AND_FILES = [
     (
         "rgp_cluster_default",
         "ppanggolin rgp_cluster --pangenome {pangenome} --output {outdir}",
-        [
-            "rgp_cluster.gexf",
-            "rgp_cluster.tsv"
-
- ],
+        ["rgp_cluster.gexf", "rgp_cluster.tsv"],
     ),
     (
         "rgp_cluster_graph_formats",
         "ppanggolin rgp_cluster --pangenome {pangenome} "
         "--ignore_incomplete_rgp --grr_metric max_grr -f "
         "--graph_formats graphml gexf --output {outdir}",
-        [
-            "rgp_cluster.gexf",
-            "rgp_cluster.graphml",
-            "rgp_cluster.tsv"
-        ],
+        ["rgp_cluster.gexf", "rgp_cluster.graphml", "rgp_cluster.tsv"],
     ),
     (
         "rgp_clustering_no_identical_rgp_merging",
         "ppanggolin rgp_cluster --pangenome {pangenome} "
         "--no_identical_rgp_merging --graph_formats graphml "
         "--output {outdir}",
-        [
-            "rgp_cluster.graphml",
-            "rgp_cluster.tsv"
-        ],
+        ["rgp_cluster.graphml", "rgp_cluster.tsv"],
     ),
 ]
 

@@ -36,7 +36,6 @@ OUTDIR_COMMANDS_AND_FILES = [
 ]
 
 
-
 @pytest.mark.parametrize(
     "test_outdir, cmd_template, expected_files",
     OUTDIR_COMMANDS_AND_FILES,

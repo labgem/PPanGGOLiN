@@ -6,7 +6,7 @@ from tests.utils.run_ppanggolin import run_ppanggolin_command
 from tests.functional_tests.test_stepbystep import stepbystep_pangenome
 
 OUTDIR_COMMANDS_AND_FILES = [
-     (
+    (
         "write_pangenome_outdir",
         "ppanggolin write_pangenome -p {pangenome} --output {outdir} -f "
         "--soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --csv --Rtab --stats "
@@ -36,6 +36,7 @@ OUTDIR_COMMANDS_AND_FILES = [
         ],
     ),
 ]
+
 
 @pytest.mark.parametrize(
     "test_outdir, cmd_template, expected_files",

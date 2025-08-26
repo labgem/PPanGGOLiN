@@ -59,9 +59,8 @@ def cluster_file(gbff_wf_pangenome, tmp_path_factory):
 
 
 def test_pangenome_created(gbff_wf_pangenome):
-    
+
     logging.info(gbff_wf_pangenome)
-    
 
     pangenome_dir = gbff_wf_pangenome.parent
     assert pangenome_dir.exists()

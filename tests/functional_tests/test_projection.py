@@ -43,7 +43,12 @@ ppanggolin projection -p myannopang/pangenome.h5 --anno GBFF/plasmid_NC_017433.1
 
 @pytest.fixture
 def make_head_list(tmp_path):
-    def _make_head_list(original_file: str, prefix: str = "input_genome_", n: int = 10, data_dir='testingDataset') -> Path:
+    def _make_head_list(
+        original_file: str,
+        prefix: str = "input_genome_",
+        n: int = 10,
+        data_dir="testingDataset",
+    ) -> Path:
         """Create a head list file with a prefix (like `head file | sed 's/^/prefix/g'`)."""
         head_file = tmp_path / (Path(original_file).name + ".head.list")
         with open(original_file) as fin, open(head_file, "w") as fout:
@@ -55,9 +60,13 @@ def make_head_list(tmp_path):
                 line = f"{prefix}{genome_name}\t{data_dir}/{path}\n"
                 fout.write(line)
         return head_file
+
     return _make_head_list
 
-def test_projection_from_list_of_gbff(fasta_all_wf_pangenome, make_head_list, tmp_path, num_cpus):
+
+def test_projection_from_list_of_gbff(
+    fasta_all_wf_pangenome, make_head_list, tmp_path, num_cpus
+):
     head_file = make_head_list("testingDataset/genomes.gbff.list")
     outdir = tmp_path / "projection_from_list_of_gbff"
 
@@ -70,7 +79,9 @@ def test_projection_from_list_of_gbff(fasta_all_wf_pangenome, make_head_list, tm
     assert outdir.exists()
 
 
-def test_projection_from_list_of_fasta(gbff_wf_pangenome, make_head_list, tmp_path, num_cpus):
+def test_projection_from_list_of_fasta(
+    gbff_wf_pangenome, make_head_list, tmp_path, num_cpus
+):
     head_file = make_head_list("testingDataset/genomes.fasta.list")
     outdir = tmp_path / "projection_from_list_of_fasta"
 
@@ -96,6 +107,7 @@ def test_projection_from_single_fasta(fasta_all_wf_pangenome, tmp_path, num_cpus
 
     assert outdir.exists()
 
+
 def test_projection_from_gff_prodigal(fasta_all_wf_pangenome, tmp_path, num_cpus):
     outdir = tmp_path / "projection_from_gff_prodigal"
     cmd = (
@@ -107,7 +119,6 @@ def test_projection_from_gff_prodigal(fasta_all_wf_pangenome, tmp_path, num_cpus
 
     run_ppanggolin_command(cmd)
     assert outdir.exists()
-
 
 
 def test_projection_plasmid_with_chevron(gbff_wf_pangenome, tmp_path, num_cpus):
@@ -131,19 +142,20 @@ def test_projection_gff_plus_fasta(gbff_wf_pangenome, tmp_path):
     run_ppanggolin_command(cmd)
 
 
-def test_projection_from_list_of_gbff(fasta_all_wf_pangenome, make_head_list, tmp_path, num_cpus):
+def test_projection_from_list_of_gbff(
+    fasta_all_wf_pangenome, make_head_list, tmp_path, num_cpus
+):
 
     gbff_head_file = make_head_list("testingDataset/genomes.gbff.list", n=3)
     fna_file = tmp_path / "genomes.fna.GFFplasmidNoSeq.list"
     plasmide_file_basename = "testingDataset/GBFF/plasmid_GCF_000093005.1_ASM9300v1"
-    plasmide_name= "GFF_plasmid_No_seq"
+    plasmide_name = "GFF_plasmid_No_seq"
 
     with open(gbff_head_file, "a") as fout:
         fout.write(f"{plasmide_name}\t{plasmide_file_basename}.gff.gz\n")
 
     with open(fna_file, "w") as fout:
         fout.write(f"{plasmide_name}\t{plasmide_file_basename}.fna.gz\n")
-
 
     outdir = tmp_path / "projection_from_list_of_gbff"
 

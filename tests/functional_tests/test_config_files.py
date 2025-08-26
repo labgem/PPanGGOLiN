@@ -16,6 +16,7 @@ from tests.utils.checksum import assert_or_update_hash
 import logging
 
 import pytest
+
 """
 ppanggolin utils --default_config panrgp -o panrgp_default_config.yaml
 cut -f1,2 clusters.tsv > clusters_without_frag.tsv
@@ -40,33 +41,32 @@ def pangenome_default_config(cluster_file, tmp_path_factory, num_cpus, request):
     outdir = tmp_path / "config_pangenome"
     pangenome = outdir / "pangenome.h5"
     config_file = tmp_path / "panrgp_default_config.yaml"
-    
+
     cmd = f"ppanggolin utils --default_config panrgp -o {config_file}"
     run_ppanggolin_command(cmd)
 
-    
     cmd = (
         f"ppanggolin panrgp --cpu {num_cpus} "
         f"--anno testingDataset/genomes.gbff.list --output {outdir} "
         f"--cluster {cluster_file} -o {outdir} --config {config_file} "
         f"--cpu {num_cpus}"
     )
-    
+
     run_ppanggolin_command(cmd)
 
     # Save to pytest cache for reuse in later pytest runs
     cache.set("ppanggolin/config_file_pangenome", str(pangenome))
-    cache.set("ppanggolin/config_file_pangenome_gene_families.tsv", str(outdir / "gene_families.tsv"))
+    cache.set(
+        "ppanggolin/config_file_pangenome_gene_families.tsv",
+        str(outdir / "gene_families.tsv"),
+    )
 
     return pangenome
 
 
-
-
 def test_pangenome_created(pangenome_default_config):
-    
+
     logging.info(pangenome_default_config)
-    
 
     pangenome_dir = pangenome_default_config.parent
     assert pangenome_dir.exists()
@@ -74,6 +74,8 @@ def test_pangenome_created(pangenome_default_config):
 
 
 FILES_TO_CHECK = ["gene_families.tsv"]
+
+
 @pytest.mark.parametrize("fname", FILES_TO_CHECK)
 def test_file_checksums(pangenome_default_config, fname, update_golden):
     pangenome_dir = pangenome_default_config.parent
