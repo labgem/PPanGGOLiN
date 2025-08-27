@@ -6,7 +6,7 @@ from tests.utils.checksum import assert_or_update_hash
 from tests.utils.file_compare import check_pangenome_info
 from tests.utils.run_ppanggolin import run_ppanggolin_command
 import logging
-import shutil
+from tests.utils.cache_utils import run_with_cache
 
 # create a module-level logger
 logger = logging.getLogger(__name__)
@@ -25,27 +25,21 @@ cd -
 
 @pytest.fixture(scope="session")
 def fasta_all_wf_pangenome(num_cpus, request):
-    """Run ppanggolin all once and cache the result directory across pytest runs."""
 
-    cache_dir = Path(request.config.cache.makedir("fasta_all_wf"))
-    pangenome = cache_dir / "mybasicpangenome" / "pangenome.h5"
+    cache_dir = Path(request.config.cache.makedir("pang_test"))
+    outdir = cache_dir / "mybasicpangenome"
 
-    if pangenome.exists():
-        logger.warning(f"Reusing cached fasta_all_wf_pangenome: {pangenome}")
-    else:
-        logger.info(f"Recomputing fasta_all_wf_pangenome in {cache_dir}")
-        # remove previous output directory if it exists
-        outdir = cache_dir / "mybasicpangenome"
-        if outdir.exists():
-            shutil.rmtree(outdir)
-
-        cmd = (
-            f"ppanggolin all --cpu {num_cpus} "
-            f"--fasta testingDataset/genomes.fasta.list --output {outdir}"
-        )
-        run_ppanggolin_command(cmd)
-
-    return pangenome
+    cmd = (
+        f"ppanggolin all --cpu {num_cpus} "
+        f"--fasta testingDataset/genomes.fasta.list --output {outdir}"
+    )
+    outdir = run_with_cache(
+        request,
+        cache_key="ppanggolin/fasta_all_wf_dir",
+        outdir=outdir,
+        cmds=[cmd],
+    )
+    return outdir / "pangenome.h5"
 
 
 def test_pangenome_created(fasta_all_wf_pangenome):

@@ -5,6 +5,7 @@ from pathlib import Path
 from tests.utils.checksum import assert_or_update_hash
 from tests.utils.file_compare import check_pangenome_info
 from tests.utils.run_ppanggolin import run_ppanggolin_command
+from tests.utils.cache_utils import run_with_cache
 
 logger = logging.getLogger(__name__)
 
@@ -20,26 +21,21 @@ shasum -a 256 myannopang/gene_families.tsv >> info_to_test/checksum.txt
 
 
 @pytest.fixture(scope="session")
-def gbff_wf_pangenome(tmp_path_factory, num_cpus, request):
-    """Run ppanggolin workflow on GBFF files once and cache the result directory."""
-    cache = request.config.cache
-    cached_dir = cache.get("ppanggolin/gbff_wf_dir", None)
+def gbff_wf_pangenome(num_cpus, request):
 
-    if cached_dir and Path(cached_dir).exists():
-        outdir = Path(cached_dir)
-        logger.warning("Reusing cached gbff_wf_pangenome at %s", outdir)
-    else:
-        tmp_path = tmp_path_factory.mktemp("pang_test")
-        outdir = tmp_path / "myannopang"
-        cmd = (
-            f"ppanggolin workflow --cpu {num_cpus} "
-            f"--anno testingDataset/genomes.gbff.list --output {outdir}"
-        )
-        logger.info("Running gbff workflow: %s", cmd)
-        run_ppanggolin_command(cmd)
-        cache.set("ppanggolin/gbff_wf_dir", str(outdir))
-        logger.info("Cached gbff workflow output at %s", outdir)
+    cache_dir = Path(request.config.cache.makedir("pang_test"))
+    outdir = cache_dir / "myannopang"
 
+    cmd = (
+        f"ppanggolin workflow --cpu {num_cpus} "
+        f"--anno testingDataset/genomes.gbff.list --output {outdir}"
+    )
+    outdir = run_with_cache(
+        request,
+        cache_key="ppanggolin/gbff_wf_dir",
+        outdir=outdir,
+        cmds=[cmd],
+    )
     return outdir / "pangenome.h5"
 
 
