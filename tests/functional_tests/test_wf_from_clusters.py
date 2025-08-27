@@ -45,7 +45,7 @@ def gbff_panrgp_from_cluster_pangenome(cluster_file, num_cpus, request):
 
     outdir = run_with_cache(
         request,
-        cache_key="ppanggolin/gbff_wf_dir",
+        cache_key="ppanggolin/gbff_panrgp_from_cluster_pangenome",
         outdir=outdir,
         cmds=[cmd],
     )
