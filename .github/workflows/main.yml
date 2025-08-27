@@ -77,7 +77,7 @@ jobs:
         ppanggolin --help
 
     # Check that unit tests are all passing
-    - name: Unit tests
+    - name: Unit and functional tests
       shell: bash -l {0}
       run: pytest --full --cov=ppanggolin --cov-report=term --cpu $NUM_CPUS 
 
