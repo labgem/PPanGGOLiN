@@ -5,10 +5,11 @@ from tests.utils.run_ppanggolin import run_ppanggolin_command
 
 logger = logging.getLogger(__name__)
 
+
 def run_with_cache(request, cache_key: str, outdir: str, cmds: List[str]) -> Path:
     """
     Run a ppanggolin command if no cached result exists, otherwise reuse cache.
-    
+
     """
     cache = request.config.cache
     cached_dir = cache.get(cache_key, None)
@@ -17,7 +18,7 @@ def run_with_cache(request, cache_key: str, outdir: str, cmds: List[str]) -> Pat
     if cached_dir and Path(cached_dir).exists():
         outdir = Path(cached_dir)
         logger.warning(f"Reusing cached result for {cache_key} at {outdir}")
-        
+
     else:
 
         for cmd in cmds:
