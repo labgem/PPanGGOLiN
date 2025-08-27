@@ -35,6 +35,13 @@ OUTDIR_COMMANDS_AND_FILES = [
             "partitions/soft_core.txt",
         ],
     ),
+    (
+        "write_pangenome_outdir_json",
+        "ppanggolin write_pangenome -p {pangenome} --output {outdir} --json",
+        [
+            "pangenomeGraph.json",
+        ],
+    ),
 ]
 
 

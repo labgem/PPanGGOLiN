@@ -12,6 +12,7 @@ from tests.functional_tests.test_gbff_basic_wf import (
     cluster_file_with_representative,
     gbff_wf_pangenome,
 )
+from tests.utils.cache_utils import run_with_cache
 
 
 logger = logging.getLogger(__name__)
@@ -31,27 +32,23 @@ cd -
 
 
 @pytest.fixture(scope="session")
-def gbff_panrgp_from_cluster_pangenome(
-    tmp_path_factory, cluster_file, num_cpus, request
-):
-    """Run ppanggolin workflow on GBFF files once and cache the result directory."""
-    cache = request.config.cache
-    cached_dir = cache.get("ppanggolin/gbff_panrgp_from_cluster_dir", None)
+def gbff_panrgp_from_cluster_pangenome(cluster_file, num_cpus, request):
 
-    if cached_dir and Path(cached_dir).exists():
-        outdir = Path(cached_dir)
-        logger.warning(f"Reusing cached gbff_panrgp_from_cluster_pangenome at {outdir}")
-    else:
-        tmp_path = tmp_path_factory.mktemp("pang_test")
-        outdir = tmp_path / "readclusterpang"
-        cmd = (
-            f"ppanggolin panrgp --cpu {num_cpus} "
-            f"--anno testingDataset/genomes.gbff.list --output {outdir} "
-            f"--cluster {cluster_file}"
-        )
-        run_ppanggolin_command(cmd)
-        cache.set("ppanggolin/gbff_panrgp_from_cluster_dir", str(outdir))
-        logger.info(f"Cached gbff workflow output at {outdir}")
+    cache_dir = Path(request.config.cache.makedir("pang_test"))
+    outdir = cache_dir / "readclusterpang"
+
+    cmd = (
+        f"ppanggolin panrgp --cpu {num_cpus} "
+        f"--anno testingDataset/genomes.gbff.list --output {outdir} "
+        f"--cluster {cluster_file}"
+    )
+
+    outdir = run_with_cache(
+        request,
+        cache_key="ppanggolin/gbff_wf_dir",
+        outdir=outdir,
+        cmds=[cmd],
+    )
 
     return outdir / "pangenome.h5"
 

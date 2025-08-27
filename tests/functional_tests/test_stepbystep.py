@@ -1,8 +1,8 @@
 # tests/functional_tests/test_stepbystep.py
 from pathlib import Path
-from venv import logger
 import pytest
 import logging
+import shutil
 
 from tests.utils.checksum import assert_or_update_hash
 from tests.utils.file_compare import check_pangenome_info
@@ -100,3 +100,18 @@ def test_info_command(stepbystep_pangenome, tmp_path, update_golden):
     check_pangenome_info(
         pangenome=stepbystep_pangenome, info_file=info_file, update_golden=update_golden
     )
+
+
+def test_relaunch_step(stepbystep_pangenome, tmp_path):
+
+    fresh_outdir = tmp_path / "fresh_pangenome"
+    fresh_outdir.mkdir(parents=True, exist_ok=True)
+
+    # copy the pangenome HDF5
+    pangenome = fresh_outdir / stepbystep_pangenome.name
+
+    shutil.copy2(stepbystep_pangenome, pangenome)
+
+    cmd = f"ppanggolin rgp -p {pangenome} -f"
+
+    run_ppanggolin_command(cmd)
