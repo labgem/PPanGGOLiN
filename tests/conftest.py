@@ -1,4 +1,5 @@
 import pytest
+import logging
 
 import ppanggolin.annotate.annotate as annotate
 import ppanggolin.annotate.synta as synta
@@ -71,3 +72,10 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "functional_tests" in str(item.fspath):
             item.add_marker(skip_functional)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def restrict_logging():
+    """Only show logs from tests, not from ppanggolin internals."""
+
+    logging.getLogger("PPanGGOLiN").setLevel(logging.ERROR)

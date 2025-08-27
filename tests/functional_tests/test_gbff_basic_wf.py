@@ -6,6 +6,7 @@ from tests.utils.checksum import assert_or_update_hash
 from tests.utils.file_compare import check_pangenome_info
 from tests.utils.run_ppanggolin import run_ppanggolin_command
 
+logger = logging.getLogger(__name__)
 
 """
 
@@ -26,6 +27,7 @@ def gbff_wf_pangenome(tmp_path_factory, num_cpus, request):
 
     if cached_dir and Path(cached_dir).exists():
         outdir = Path(cached_dir)
+        logger.warning("Reusing cached gbff_wf_pangenome at %s", outdir)
     else:
         tmp_path = tmp_path_factory.mktemp("pang_test")
         outdir = tmp_path / "myannopang"
@@ -33,11 +35,11 @@ def gbff_wf_pangenome(tmp_path_factory, num_cpus, request):
             f"ppanggolin workflow --cpu {num_cpus} "
             f"--anno testingDataset/genomes.gbff.list --output {outdir}"
         )
+        logger.info("Running gbff workflow: %s", cmd)
         run_ppanggolin_command(cmd)
-        # Cache the directory for future pytest runs
         cache.set("ppanggolin/gbff_wf_dir", str(outdir))
+        logger.info("Cached gbff workflow output at %s", outdir)
 
-    print(outdir)
     return outdir / "pangenome.h5"
 
 
@@ -54,6 +56,40 @@ def cluster_file(gbff_wf_pangenome, tmp_path_factory):
             parts = line.strip().split("\t")
             if len(parts) >= 2:
                 fout.write(f"{parts[0]}\t{parts[1]}\n")
+
+    return cluster_file
+
+
+@pytest.fixture(scope="session")
+def cluster_file_with_representative(gbff_wf_pangenome, tmp_path_factory):
+
+    gene_families_file = gbff_wf_pangenome.parent / "gene_families.tsv"
+
+    cluster_file = (
+        tmp_path_factory.mktemp("cluster") / "clusters_with_representative.tsv"
+    )
+
+    with open(gene_families_file) as fin, open(cluster_file, "w") as fout:
+        for line in fin:
+            parts = line.strip().split("\t")
+            if len(parts) >= 2:
+                fout.write(f"{parts[0]}\t{parts[1]}\t{parts[0]}\n")
+
+    return cluster_file
+
+
+@pytest.fixture(scope="session")
+def cluster_file_with_fragments(gbff_wf_pangenome, tmp_path_factory):
+
+    gene_families_file = gbff_wf_pangenome.parent / "gene_families.tsv"
+
+    cluster_file = tmp_path_factory.mktemp("cluster") / "clusters_with_fragments.tsv"
+
+    with open(gene_families_file) as fin, open(cluster_file, "w") as fout:
+        for line in fin:
+            parts = line.strip().split("\t")
+            if len(parts) >= 4:
+                fout.write(f"{parts[0]}\t{parts[1]}\t{parts[3]}\n")
 
     return cluster_file
 

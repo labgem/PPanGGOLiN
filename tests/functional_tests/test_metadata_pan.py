@@ -31,8 +31,9 @@ METADATA_DB_AND_FILES = [
     ("db6", "testingDataset/metadata/metadata_modules.tsv", "modules"),
 ]
 
+
 @pytest.fixture(scope="session")
-def pangenome_with_all_metadata(fasta_all_wf_pangenome, tmp_path_factory):
+def pangenome_with_metadata(fasta_all_wf_pangenome, tmp_path_factory):
     """
     Add all metadata to a fresh pangenome and return the modified HDF5 file.
     """
@@ -43,7 +44,6 @@ def pangenome_with_all_metadata(fasta_all_wf_pangenome, tmp_path_factory):
     # copy the pangenome HDF5
     pangenome = fresh_outdir / fasta_all_wf_pangenome.name
     shutil.copy2(fasta_all_wf_pangenome, pangenome)
-
 
     outdir = tmp_path / "metadata_added"
     outdir.mkdir(exist_ok=True)
@@ -56,13 +56,14 @@ def pangenome_with_all_metadata(fasta_all_wf_pangenome, tmp_path_factory):
 
     return pangenome
 
-def test_write_metadata(pangenome_with_all_metadata, tmp_path):
+
+def test_write_metadata(pangenome_with_metadata, tmp_path):
     """
     Test ppanggolin write_metadata command to produce flat metadata files.
     """
     outdir = tmp_path / "metadata_flat_output"
 
-    cmd = f"ppanggolin write_metadata -p {pangenome_with_all_metadata} -o {outdir}"
+    cmd = f"ppanggolin write_metadata -p {pangenome_with_metadata} -o {outdir}"
     run_ppanggolin_command(cmd)
 
     # Check that some expected metadata files exist

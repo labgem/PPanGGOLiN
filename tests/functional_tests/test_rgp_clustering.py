@@ -1,4 +1,5 @@
 from tests.functional_tests.test_fasta_all_wf import fasta_all_wf_pangenome
+from tests.functional_tests.test_metadata_pan import pangenome_with_metadata
 
 # tests/functional_tests/test_stepbystep.py
 from pathlib import Path
@@ -53,6 +54,24 @@ def test_rgp_cluster_outputs(
 
     run_ppanggolin_command(cmd)
 
+    for fname in expected_files:
+        fpath = Path(outdir) / fname
+        assert fpath.exists(), f"Expected file {fname} not found after `{cmd}`"
+        assert fpath.stat().st_size > 0, f"File {fname} is empty after `{cmd}`"
+
+
+def test_rgp_cluster_with_metadata(pangenome_with_metadata, tmp_path):
+    """Run rgp_cluster with various options and check expected files exist."""
+
+    outdir = tmp_path / "rgp_cluster_with_metadata"
+
+    cmd = (
+        f"ppanggolin rgp_cluster --pangenome {pangenome_with_metadata} "
+        f"--output {outdir} --add_metadata"
+    )
+    run_ppanggolin_command(cmd)
+
+    expected_files = ["rgp_cluster.gexf", "rgp_cluster.tsv", "rgp_cluster.graphml"]
     for fname in expected_files:
         fpath = Path(outdir) / fname
         assert fpath.exists(), f"Expected file {fname} not found after `{cmd}`"

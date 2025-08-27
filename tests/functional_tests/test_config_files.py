@@ -73,12 +73,8 @@ def test_pangenome_created(pangenome_default_config):
     assert pangenome_default_config.exists()
 
 
-FILES_TO_CHECK = ["gene_families.tsv"]
-
-
-@pytest.mark.parametrize("fname", FILES_TO_CHECK)
-def test_file_checksums(pangenome_default_config, fname, update_golden):
+def test_file_checksums(pangenome_default_config, update_golden):
     pangenome_dir = pangenome_default_config.parent
-    file_path = pangenome_dir / fname
+    file_path = pangenome_dir / "gene_families.tsv"
     assert file_path.exists(), f"{file_path} does not exist"
     assert_or_update_hash(file_path, update_golden)
