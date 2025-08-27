@@ -18,7 +18,7 @@ def test_context_by_sequences(gbff_wf_pangenome, num_cpus, tmp_path):
     """Test ppanggolin context using input sequences."""
 
     logger.info("Running context test with sequences")
-    
+
     outdir = tmp_path / "test_context"
     cmd = (
         f"ppanggolin context --pangenome {gbff_wf_pangenome} "
@@ -33,7 +33,7 @@ def test_context_by_sequences(gbff_wf_pangenome, num_cpus, tmp_path):
         "gene_contexts.tsv",
         "gene_to_gene_family.tsv",
         "graph_context.graphml",
-        "sequences_partition_projection.tsv"
+        "sequences_partition_projection.tsv",
     ]
 
     for fname in expected_files:
@@ -59,10 +59,7 @@ def test_context_by_family_id(gbff_wf_pangenome, num_cpus, tmp_path):
 
     run_ppanggolin_command(cmd)
 
-    expected_files = [
-        "gene_contexts.tsv",
-        "graph_context.graphml" 
-    ]
+    expected_files = ["gene_contexts.tsv", "graph_context.graphml"]
 
     for fname in expected_files:
         fpath = outdir / fname

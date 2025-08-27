@@ -6,7 +6,12 @@ from tests.utils.checksum import assert_or_update_hash
 from tests.utils.file_compare import check_pangenome_info
 from tests.utils.run_ppanggolin import run_ppanggolin_command
 
-from tests.functional_tests.test_gbff_basic_wf import cluster_file, cluster_file_with_fragments, cluster_file_with_representative, gbff_wf_pangenome
+from tests.functional_tests.test_gbff_basic_wf import (
+    cluster_file,
+    cluster_file_with_fragments,
+    cluster_file_with_representative,
+    gbff_wf_pangenome,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +31,9 @@ cd -
 
 
 @pytest.fixture(scope="session")
-def gbff_panrgp_from_cluster_pangenome(tmp_path_factory, cluster_file, num_cpus, request):
+def gbff_panrgp_from_cluster_pangenome(
+    tmp_path_factory, cluster_file, num_cpus, request
+):
     """Run ppanggolin workflow on GBFF files once and cache the result directory."""
     cache = request.config.cache
     cached_dir = cache.get("ppanggolin/gbff_panrgp_from_cluster_dir", None)
@@ -61,7 +68,9 @@ def test_pangenome_created(gbff_panrgp_from_cluster_pangenome):
 def test_info_command(gbff_panrgp_from_cluster_pangenome, tmp_path, update_golden):
     info_file = tmp_path / "panrgp_from_existing_cluster_info.yaml"
     check_pangenome_info(
-        pangenome=gbff_panrgp_from_cluster_pangenome, info_file=info_file, update_golden=update_golden
+        pangenome=gbff_panrgp_from_cluster_pangenome,
+        info_file=info_file,
+        update_golden=update_golden,
     )
 
 
@@ -86,18 +95,15 @@ def annotate_pangenome(tmp_path_factory, num_cpus):
     return outdir / "pangenome.h5"
 
 
-def test_cluster_from_existing_clustering(annotate_pangenome, cluster_file_with_representative, update_golden):
+def test_cluster_from_existing_clustering(
+    annotate_pangenome, cluster_file_with_representative, update_golden
+):
 
-
-    cmd = (
-        f"ppanggolin cluster  -p {annotate_pangenome} --clusters {cluster_file_with_representative}"
-    )
+    cmd = f"ppanggolin cluster  -p {annotate_pangenome} --clusters {cluster_file_with_representative}"
     outdir = annotate_pangenome.parent
     run_ppanggolin_command(cmd)
 
-    cmd = (
-        f"ppanggolin write_pangenome -p {annotate_pangenome} --output {outdir} -f --families_tsv -f"
-    )
+    cmd = f"ppanggolin write_pangenome -p {annotate_pangenome} --output {outdir} -f --families_tsv -f"
 
     run_ppanggolin_command(cmd)
 

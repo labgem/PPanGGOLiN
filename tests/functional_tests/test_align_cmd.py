@@ -22,12 +22,14 @@ def test_align(fasta_all_wf_pangenome, num_cpus, tmp_path):
 
     run_ppanggolin_command(cmd)
 
-    expected_outputs = ["alignment_input_seqs_to_pangenome_gene_families.tsv",
-                        "info_input_seq.tsv",
-                        "sequences_partition_projection.tsv",
-                        "spot_0.gexf",
-                        "spot_0.html",
-                        "spot_0_identical_rgps.tsv"]
+    expected_outputs = [
+        "alignment_input_seqs_to_pangenome_gene_families.tsv",
+        "info_input_seq.tsv",
+        "sequences_partition_projection.tsv",
+        "spot_0.gexf",
+        "spot_0.html",
+        "spot_0_identical_rgps.tsv",
+    ]
     for fname in expected_outputs:
         fpath = align_outdir / fname
         assert fpath.exists(), f"Expected file {fname} not found after `{cmd}`"
