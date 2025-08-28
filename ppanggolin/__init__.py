@@ -56,7 +56,7 @@ PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi
 """
 rgp_epilog = """
 For genomic islands and spots of insertion detection, please cite:
-Bazin et al. (2020) panRGP: a pangenome-based method to predict genomic islands and explore their diversity,
+Bazin A et al. (2020) panRGP: a pangenome-based method to predict genomic islands and explore their diversity,
 Bioinformatics, Volume 36, Issue Supplement_2, Pages i651–i658, https://doi.org/10.1093/bioinformatics/btaa792
 """
 
