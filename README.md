@@ -116,13 +116,23 @@ We cannot correct bugs if we do not know about them, and will try to help you th
 # Citation
 If you use this tool for your research, please cite:
 
-Gautreau G et al. (2020) **PPanGGOLiN**: Depicting microbial diversity via a partitioned pangenome graph.
-PLOS Computational Biology 16(3): e1007732. <https://doi.org/10.1371/journal.pcbi.1007732>
+> **PPanGGOLiN: Depicting microbial diversity via a partitioned pangenome graph**
+> Gautreau G et al. (2020)
+> *PLOS Computational Biology 16(3): e1007732.*
+> doi: [10.1371/journal.pcbi.1007732](https://doi.org/10.1371/journal.pcbi.1007732)
+
 
 If you use this tool to study genomic islands, please cite:
 
-Bazin et al., panRGP: a pangenome-based method to predict genomic islands and explore their diversity, Bioinformatics, Volume 36, Issue Supplement_2, December 2020, Pages i651–i658, <https://doi.org/10.1093/bioinformatics/btaa792>
+
+> **panRGP: a pangenome-based method to predict genomic islands and explore their diversity**
+> Bazin et al. (2020)
+> *Bioinformatics, Volume 36, Issue Supplement_2, Pages i651–i658*
+> doi: [10.1093/bioinformatics/btaa792](https://doi.org/10.1093/bioinformatics/btaa792)
 
 If you use this tool to study modules, please cite:
 
-Bazin et al., panModule: detecting conserved modules in the variable regions of a pangenome graph. biorxiv. <https://doi.org/10.1101/2021.12.06.471380>
+> **panModule: detecting conserved modules in the variable regions of a pangenome graph**
+> Bazin et al. (2021)
+> *bioRxiv* 
+> doi: [10.1101/2021.12.06.471380](https://doi.org/10.1101/2021.12.06.471380)
