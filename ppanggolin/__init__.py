@@ -56,12 +56,12 @@ PLOS Computational Biology 16(3): e1007732. https://doi.org/10.1371/journal.pcbi
 """
 rgp_epilog = """
 For genomic islands and spots of insertion detection, please cite:
-Bazin et al., panRGP: a pangenome-based method to predict genomic islands and explore their diversity,
-Bioinformatics, Volume 36, Issue Supplement_2, December 2020, Pages i651–i658, https://doi.org/10.1093/bioinformatics/btaa792
+Bazin A et al. (2020) panRGP: a pangenome-based method to predict genomic islands and explore their diversity.
+Bioinformatics, Volume 36, Issue Supplement_2, Pages i651–i658, https://doi.org/10.1093/bioinformatics/btaa792
 """
 
 mod_epilog = """
 For module prediction, please cite:
-Bazin et al., panModule: detecting conserved modules in the variable regions of a pangenome graph.
-biorxiv. https://doi.org/10.1101/2021.12.06.471380
+Bazin A et al. (2021) panModule: detecting conserved modules in the variable regions of a pangenome graph.
+bioRxiv. https://doi.org/10.1101/2021.12.06.471380
 """
