@@ -64,6 +64,8 @@ def raref_nem(
     kmm = [3, 20] if krange is None else krange
 
     if kval < 3:
+        tmpdir_eval = tmpdir / f"{str(index)}_eval"
+        mk_outdir(tmpdir_eval, force=False, exist_ok=True)
         kval = ppp.evaluate_nb_partitions(
             organisms=samp,
             sm_degree=sm_degree,
@@ -71,7 +73,7 @@ def raref_nem(
             chunk_size=chunk_size,
             krange=kmm,
             seed=seed,
-            tmpdir=tmpdir / f"{str(index)}_eval",
+            tmpdir=tmpdir_eval,
         )
 
     if len(samp) <= chunk_size:  # all good, just write stuff.
@@ -805,15 +807,15 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Minimum number of organisms in a sample",
+        help="Minimum number of genomes in a sample",
     )
     optional.add_argument(
         "--max",
         required=False,
         type=float,
         default=100,
-        help="Maximum number of organisms in a sample (if above the number of provided organisms, "
-        "the provided organisms will be the maximum)",
+        help="Maximum number of genomes in a sample (if above the number of provided genomes, "
+        "the provided genomes will be the maximum)",
     )
 
     optional.add_argument(
@@ -842,7 +844,7 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         default=False,
         action="store_true",
         help="use if the dispersion around the centroid vector of each partition during must be free."
-        " It will be the same for all organisms by default.",
+        " It will be the same for all genomes by default.",
     )
     optional.add_argument(
         "-ck",
@@ -850,7 +852,7 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         required=False,
         default=500,
         type=int,
-        help="Size of the chunks when performing partitioning using chunks of organisms. "
+        help="Size of the chunks when performing partitioning using chunks of genomes. "
         "Chunk partitioning will be used automatically "
         "if the number of genomes is above this number.",
     )
