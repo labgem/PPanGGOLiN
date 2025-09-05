@@ -1,0 +1,8 @@
+{
+    "mybasicpangenome/gene_families.tsv": "9d6219523e890b08c467c936590b37436e915840a797ea161c9707041c3b821c",
+    "stepbystep/gene_families.tsv": "9d6219523e890b08c467c936590b37436e915840a797ea161c9707041c3b821c",
+    "myannopang/gene_families.tsv": "5cb88afbc1a49e7d21531d36d5ee3471a87834f4bb82578347dc92231ba0a452",
+    "config_pangenome/gene_families.tsv": "d9698f054a14d8fcea35542c7d8338ea73f6d128bd287adfa01e99be40c80dc4",
+    "readclusters/gene_families.tsv": "d9698f054a14d8fcea35542c7d8338ea73f6d128bd287adfa01e99be40c80dc4",
+    "readclusterpang/gene_families.tsv": "d9698f054a14d8fcea35542c7d8338ea73f6d128bd287adfa01e99be40c80dc4"
+}

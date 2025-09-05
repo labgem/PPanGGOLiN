@@ -271,7 +271,11 @@ def parse_arguments():
         "--ignored_files",
         nargs="+",
         help="File to ignore for the comparison",
-        default=["pangenomeGraph.json", "pangenomeGraph.json.gz"],
+        default=[
+            "pangenomeGraph.json",
+            "pangenomeGraph.json.gz",
+            "expected_hashes.json",
+        ],
     )
 
     args = parser.parse_args()
