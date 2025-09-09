@@ -4,6 +4,7 @@
 import argparse
 import logging
 from concurrent.futures import ProcessPoolExecutor
+from itertools import chain
 
 from multiprocessing import get_context
 import os
@@ -20,6 +21,7 @@ from tqdm import tqdm
 from tables.path import check_name_validity, NaturalNameWarning
 
 # local libraries
+from ppanggolin import genome
 from ppanggolin.annotate.synta import (
     annotate_organism,
     get_contigs_from_fasta_file,
@@ -36,7 +38,6 @@ from ppanggolin.utils import (
     check_input_files,
     has_non_ascii,
     replace_non_ascii,
-    check_tools_availability,
 )
 from ppanggolin.formats import write_pangenome
 from ppanggolin.metadata import Metadata
@@ -818,9 +819,11 @@ def read_org_gbff(
     genome_metadata, contig_to_uniq_metadata = combine_contigs_metadata(
         contig_to_metadata
     )
-    organism.add_metadata(
-        metadata=Metadata(source="annotation_file", **genome_metadata)
-    )
+
+    if genome_metadata:
+        organism.add_metadata(
+            metadata=Metadata(source="annotation_file", **genome_metadata)
+        )
 
     for contig, metadata_dict in contig_to_uniq_metadata.items():
         contig.add_metadata(Metadata(source="annotation_file", **metadata_dict))
@@ -1356,7 +1359,8 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
     """
 
     for contig in contigs:
-        for gene in contig.genes:
+
+        for gene in chain(contig.genes, contig.RNAs):
             if gene.stop > len(contig):
                 # Adjust gene coordinates to handle circular contig
                 gene.start = 1  # Start gene at the beginning of the contig
@@ -1400,6 +1404,9 @@ def correct_putative_overlaps(contigs: Iterable[Contig]):
                     )
 
                 gene.coordinates = new_coordinates
+
+                gene.start = new_coordinates[0][0]
+                gene.stop = new_coordinates[-1][1]
 
 
 def read_anno_file(
