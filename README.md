@@ -3,6 +3,7 @@
 [![Actions](https://img.shields.io/github/actions/workflow/status/althonos/pyrodigal/test.yml?branch=main&logo=github&style=flat-square&maxAge=300)](https://github.com/labgem/ppanggolin/actions)
 [![License](https://anaconda.org/bioconda/ppanggolin/badges/license.svg)](http://www.cecill.info/licences.fr.html)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/ppanggolin?style=flat-square&maxAge=3600&logo=anaconda)](https://anaconda.org/bioconda/ppanggolin)
+[![PyPI version](https://badge.fury.io/py/PPanGGOLiN.svg?cache-control=no-cache)](https://pypi.org/project/PPanGGOLiN/)
 [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/labgem/ppanggolin/)
 [![GitHub issues](https://img.shields.io/github/issues/labgem/ppanggolin.svg?style=flat-square&maxAge=600)](https://github.com/labgem/ppanggolin/issues)
 [![Docs](https://img.shields.io/readthedocs/ppanggolin/latest?style=flat-square&maxAge=600)](https://ppanggolin.readthedocs.io)
