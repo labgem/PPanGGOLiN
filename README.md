@@ -1,6 +1,6 @@
 # PPanGGOLiN: Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors
 
-[![Actions](https://img.shields.io/github/actions/workflow/status/althonos/pyrodigal/test.yml?branch=main&logo=github&style=flat-square&maxAge=300)](https://github.com/labgem/ppanggolin/actions)
+[![Actions](https://img.shields.io/github/actions/workflow/status/labgem/PPanGGOLiN/main.yml?branch=master&event=pull_request&label=build&logo=github)](https://github.com/labgem/PPanGGOLiN/actions/workflows/main.yml)
 [![License](https://anaconda.org/bioconda/ppanggolin/badges/license.svg)](http://www.cecill.info/licences.fr.html)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/ppanggolin?style=flat-square&maxAge=3600&logo=anaconda)](https://anaconda.org/bioconda/ppanggolin)
 [![PyPI version](https://badge.fury.io/py/PPanGGOLiN.svg?cache-control=no-cache)](https://pypi.org/project/PPanGGOLiN/)
