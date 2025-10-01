@@ -1,6 +1,21 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      # if any of this files or directory changed, trigger the CI
+      # The only case where it is not triggerd is when docs/ is modified
+      - 'tests/**'
+      - 'testingDataset/**'
+      - '.github/**'
+      - 'ppanggolin/**'
+      - 'MANIFEST.in'
+      - 'VERSION'
+      - 'ppanggolin_env.yaml'
+      - 'pyproject.toml'
+      - 'setup.py'
   pull_request:
     branches: 
       - '*'
