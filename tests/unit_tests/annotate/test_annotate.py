@@ -131,7 +131,7 @@ def genome_data():
     Fixture providing common data for the tests.
     """
     script_path = Path(__file__).resolve()
-    ppanggolin_main_dir = script_path.parent.parent.parent
+    ppanggolin_main_dir = script_path.parent.parent.parent.parent
 
     genome_path = (
         ppanggolin_main_dir
@@ -148,7 +148,7 @@ def genome_data_with_joined_genes():
     Fixture providing gbff file with joined genes
     """
     script_path = Path(__file__).resolve()
-    ppanggolin_main_dir = script_path.parent.parent.parent
+    ppanggolin_main_dir = script_path.parent.parent.parent.parent
 
     genome_path = (
         ppanggolin_main_dir

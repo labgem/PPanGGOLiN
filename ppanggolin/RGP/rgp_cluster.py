@@ -421,7 +421,7 @@ def dereplicate_rgp(
     :return: A list of dereplicated RGPs (Region or IdenticalRegions objects). For RGPs with the same families,
              they will be grouped together in IdenticalRegions objects.
     """
-    logging.info(f"Dereplicating {len(rgps)} RGPs")
+    logging.getLogger("PPanGGOLiN").info(f"Dereplicating {len(rgps)} RGPs")
     families_to_rgps = defaultdict(list)
 
     for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
@@ -448,7 +448,7 @@ def dereplicate_rgp(
             identical_region_count += 1
             dereplicated_rgps.append(identical_rgp)
 
-    logging.info(f"{len(dereplicated_rgps)} unique RGPs")
+    logging.getLogger("PPanGGOLiN").info(f"{len(dereplicated_rgps)} unique RGPs")
     return dereplicated_rgps
 
 
@@ -512,7 +512,9 @@ def cluster_rgp_on_grr(graph: nx.Graph, clustering_attribute: str = "grr"):
             name=f"{clustering_attribute}_cluster",
         )
 
-    logging.info(f"Graph has {len(partitions)} clusters using {clustering_attribute}")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Graph has {len(partitions)} clusters using {clustering_attribute}"
+    )
 
 
 def get_spot_id(rgp: Region, rgp_to_spot: Dict[Region, int]) -> str:
@@ -614,7 +616,7 @@ def cluster_rgp(
                         )
                         == 0
                     ):
-                        logging.info(
+                        logging.getLogger("PPanGGOLiN").info(
                             f"Metadata for {element} found in pangenome, but none match the specified sources {metadata_sources}. "
                             f"Current source for {element}: {sources_to_use}."
                         )
@@ -626,7 +628,7 @@ def cluster_rgp(
 
                 need_metadata = True
                 metatypes.add(element)
-                logging.info(
+                logging.getLogger("PPanGGOLiN").info(
                     f"Metadata for {element} found in pangenome with sources {sources_to_use}. They will be included in the RGP graph."
                 )
 
@@ -656,7 +658,7 @@ def cluster_rgp(
         ignored_rgp_count = pangenome.number_of_rgp - len(valid_rgps)
         total_rgp_count = pangenome.number_of_rgp
 
-        logging.info(
+        logging.getLogger("PPanGGOLiN").info(
             f"Ignoring {ignored_rgp_count}/{total_rgp_count} ({100 * ignored_rgp_count / total_rgp_count:.2f}%) "
             "RGPs that are located at a contig border and are likely incomplete."
         )
@@ -686,7 +688,9 @@ def cluster_rgp(
 
     pairs_count = len(rgp_pairs)
 
-    logging.info(f"Computing GRR metric for {pairs_count:,} pairs of RGP.")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Computing GRR metric for {pairs_count:,} pairs of RGP."
+    )
 
     pairs_of_rgps_metrics = []
 
@@ -710,7 +714,7 @@ def cluster_rgp(
         )
 
     # cluster rgp based on grr value
-    logging.info(
+    logging.getLogger("PPanGGOLiN").info(
         f"Louvain_communities clustering of RGP  based on {grr_metric} on {grr_graph}."
     )
 
@@ -721,7 +725,9 @@ def cluster_rgp(
     }
 
     if not unmerge_identical_rgps:
-        logging.info("Add info on identical RGPs merged in the graph")
+        logging.getLogger("PPanGGOLiN").info(
+            "Add info on identical RGPs merged in the graph"
+        )
         add_info_to_identical_rgps(grr_graph, identical_rgps_objects, rgp_to_spot)
 
     rgps_in_graph = (
@@ -729,7 +735,7 @@ def cluster_rgp(
     )
 
     # add some attribute to the graph nodes.
-    logging.info("Add RGP information to the graph")
+    logging.getLogger("PPanGGOLiN").info("Add RGP information to the graph")
     add_info_to_rgp_nodes(grr_graph, rgp_objects_in_graph, rgp_to_spot)
 
     if need_metadata:
@@ -738,16 +744,22 @@ def cluster_rgp(
     if "gexf" in graph_formats:
         # writing graph in gexf format
         graph_file_name = os.path.join(output, f"{basename}.gexf")
-        logging.info(f"Writing graph in gexf format in {graph_file_name}.")
+        logging.getLogger("PPanGGOLiN").info(
+            f"Writing graph in gexf format in {graph_file_name}."
+        )
         nx.readwrite.gexf.write_gexf(grr_graph, graph_file_name)
 
     if "graphml" in graph_formats:
         graph_file_name = os.path.join(output, f"{basename}.graphml")
-        logging.info(f"Writing graph in graphml format in {graph_file_name}.")
+        logging.getLogger("PPanGGOLiN").info(
+            f"Writing graph in graphml format in {graph_file_name}."
+        )
         nx.readwrite.graphml.write_graphml(grr_graph, graph_file_name)
 
     outfile = os.path.join(output, f"{basename}.tsv")
-    logging.info(f"Writing rgp clusters in tsv format in {outfile}")
+    logging.getLogger("PPanGGOLiN").info(
+        f"Writing rgp clusters in tsv format in {outfile}"
+    )
 
     write_rgp_cluster_table(outfile, grr_graph, rgps_in_graph, grr_metric, rgp_to_spot)
 

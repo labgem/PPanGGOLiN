@@ -52,29 +52,57 @@ Update docs to reflect changes—clear descriptions and examples are always help
 
 ## Tests
 
-### Continuous Integration (CI) Workflow
+### Running the Test Suite
 
-We've set up a CI workflow in the Actions tab that executes a series of PPanGGOLiN commands to validate their functionality, and also compares the contents of the PPanGGOLiN info files generated during the workflow with the expected ones stored in the `testingDataset` directory. If you've introduced a new feature, consider adding a command line to the CI YAML file to test it and ensure its seamless integration.
+We use **pytest** for both unit and functional tests.
 
-The CI workflow can be launched locally using the Python script `launch_test_locally.py` located in the `testingDataset` directory. This script reads the CI pipeline file and creates a bash script to facilitate local execution of the pipeline.
+Custom options are available to control execution:
 
+* `--cpu=N` → number of CPUs to use in functional tests (default: 2).
+* `--full` → run both unit tests and functional tests (default: unit tests only).
+* `--update-golden` → update golden hashes instead of just checking them (used when expected output has legitimately changed).
 
-To setup the local execution with 10 CPUs in the local_CI directory, execute the following command:
-
-```bash
-python testingDataset/launch_test_locally.py -o local_CI -c 10 
-
-```
-
-Then, run the local CI using the following command:
+Example: run the full test suite on 12 CPUs with coverage:
 
 ```bash
-(cd local_CI; bash launch_test_command.sh)
+pytest --full -v --cpu 12
 ```
 
-### Unit Tests
+This will generate a coverage report in the terminal and a detailed HTML version in `htmlcov/index.html`.
 
-While not mandatory for all PPanGGOLiN code, incorporating unit tests for your additions can be advantageous. The test suite is located in the 'tests' directory at the root of the project.
+### Caching of Functional Test Data
+
+Some functional tests require building pangenomes, which is computationally expensive.
+To avoid recomputing them every time, we use **pytest’s cache system**.
+
+* On first run, the pangenome is built and stored in the pytest cache.
+* On subsequent runs, the cached directory is reused, saving a lot of time.
+* To force a fresh build (e.g., after code changes affecting pangenome creation), clear the cache with:
+
+```bash
+pytest --cache-clear --full --cpu 12
+```
+
+This ensures pangenomes are recomputed from scratch.
+
+
+### Golden Files
+
+Some tests compare generated files against **golden references** (checksums).
+If your changes intentionally modify output formats, you can update the golden references with:
+
+```bash
+pytest --full --update-golden
+```
+
+This will rewrite the stored golden hashes with the new outputs.
+
+
+### In CI
+
+The GitHub Actions CI workflow automatically runs pytest with the appropriate options to validate new code.
+If you add a new feature, make sure to also add corresponding tests under `tests/` so it gets covered locally and in CI.
+
 
 ## Creating a Pull Request
 
