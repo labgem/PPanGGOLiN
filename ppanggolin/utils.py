@@ -1603,3 +1603,28 @@ def check_tools_availability(
             )
 
     return availability
+
+class Timer:
+    def __init__(self, name: str = None, logger: logging.Logger = None):
+        """
+        Context manager to measure execution time.
+
+        :param name: Optional name of the code block
+        :param logger: Optional logger to log the elapsed time
+        """
+        self.name = name
+        self.logger = logger
+        self.start_time = None
+        self.elapsed = None
+
+    def __enter__(self):
+        self.start_time = time.perf_counter()
+        return self  
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.elapsed = time.perf_counter() - self.start_time
+        msg = f"[Timer:{self.name if self.name else ''}] {self.elapsed:.4f} seconds"
+        if self.logger:
+            self.logger.info(msg)
+        else:
+            print(msg)

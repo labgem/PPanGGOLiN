@@ -19,9 +19,478 @@ import pandas as pd
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.formats import check_pangenome_info
-from ppanggolin.utils import restricted_float, mk_outdir
+from ppanggolin.utils import restricted_float, mk_outdir, Timer
 from ppanggolin.geneFamily import GeneFamily
 
+import typing as tp
+from dataclasses import dataclass
+from pyroaring import BitMap
+from ppanggolin.formats.h5reader import H5Reader, TableAttribute
+
+class RegionProxy:
+    def __init__(self, ID: int, name: str, families: BitMap, *,
+                 children=None, modules=None, contig=None, organism=None, length=0):
+        self.ID: int = ID
+        self.name: str = name
+        self.families: BitMap = families
+        self.children: set[RegionProxy] = children
+        self.modules: set[int] = modules
+
+        if self.children:
+            self.organism: str = next(iter(self.children)).organism
+            self.contig: str = next(iter(self.children)).contig
+        else:
+            self.organism: str = organism
+            self.contig: str = contig
+
+        self.length: int = length
+        self.nb_families: int = len(self.families)
+        
+        # TODO
+        self.is_contig_border: bool = False
+        self.is_whole_contig: bool = False
+
+    @property
+    def is_identical_region(self) -> bool:
+        return self.children is not None and len(self.children) > 0
+    
+    def __repr__(self):
+        return f"RegionProxy2(ID={self.ID}, name='{self.name}')"
+    
+    def __str__(self):
+        return self.name
+    
+    def __hash__(self) -> int:
+        return id(self)
+    
+    def __eq__(self, rhs: "RegionProxy") -> bool:
+        return all(self.families == rhs.families,
+                   self.children == rhs.children,
+                   self.is_contig_border == rhs.is_contig_border)
+
+    def __lt__(self, obj):
+        return self.ID < obj.ID
+
+    def __gt__(self, obj):
+        return self.ID > obj.ID
+
+    def __le__(self, obj):
+        return self.ID <= obj.ID
+
+    def __ge__(self, obj):
+        return self.ID >= obj.ID
+    
+@dataclass
+class RGPTable:
+    rgp: tp.Annotated[str, TableAttribute(name="RGP", transform=lambda x: x.decode('utf-8'))]
+    gene: tp.Annotated[str, TableAttribute(name="gene", transform=lambda x: x.decode('utf-8'))]
+    _table: str = "/RGP"
+
+@dataclass
+class GeneFamTable:
+    gene: tp.Annotated[str, TableAttribute(name="gene", transform=lambda x: x.decode('utf-8'))]
+    family: tp.Annotated[str, TableAttribute(name="geneFam", transform=lambda x: x.decode('utf-8'))]
+    _table: str = "/geneFamilies"
+
+@dataclass
+class AnnotationsGeneTable:
+    name: tp.Annotated[str, TableAttribute(name="ID", transform=lambda x: x.decode('utf-8'))]
+    contig: tp.Annotated[int, TableAttribute(name="contig")]
+    _table: str = "/annotations/genes"
+
+@dataclass
+class RGPSpotTable:
+    rgp: tp.Annotated[str, TableAttribute(name="RGP", transform=lambda x: x.decode('utf-8'))]
+    spot: tp.Annotated[int, TableAttribute(name="spot")]
+    _table: str = "/spots"
+
+@dataclass
+class ModuleTable:
+    fam: tp.Annotated[str, TableAttribute(name="geneFam", transform=lambda x: x.decode('utf-8'))]
+    module: tp.Annotated[int, TableAttribute(name="module")]
+    _table: str = "/modules"
+
+@dataclass
+class ContigTable:
+    genome: tp.Annotated[str, TableAttribute(name="genome", transform=lambda x: x.decode('utf-8'))]
+    contig: tp.Annotated[str, TableAttribute(name="name", transform=lambda x: x.decode('utf-8'))]
+    is_circular: tp.Annotated[bool, TableAttribute(name="is_circular")]
+    idx: tp.Annotated[int, TableAttribute(name="ID")]
+    _table: str = "/annotations/contigs"
+
+@dataclass
+class GenesTable:
+    name: tp.Annotated[str, TableAttribute(name="ID", transform=lambda x: x.decode('utf-8'))]
+    genedata: tp.Annotated[int, TableAttribute(name="genedata_id")]
+    contig: tp.Annotated[int, TableAttribute(name="contig")]
+    _table: str = "/annotations/genes"
+
+@dataclass
+class GeneDataTable:
+    idx: tp.Annotated[int, TableAttribute(name="genedata_id")]
+    contig: tp.Annotated[int, TableAttribute(name="contig")]
+    start: tp.Annotated[int, TableAttribute(name="start")]
+    stop: tp.Annotated[int, TableAttribute(name="stop")]
+    position: tp.Annotated[int, TableAttribute(name="position")]
+    _table: str = "/annotations/genedata"
+
+@dataclass
+class RGPGeneProxy:
+    start: int
+    stop: int
+    position: int
+
+@dataclass
+class RGPGenes:
+    contig: int
+    is_circular_contig: bool   
+    genes: list[RGPGeneProxy] = []
+
+@dataclass
+class RGPMetric:
+    max_grr: float
+    min_grr: float
+    incomplete_aware_grr: float
+    shared_family: int
+
+RGPMetricType = tp.Literal["max_grr", "min_grr", "incomplete_aware_grr"]
+
+@dataclass
+class RGPClusteringOptions:
+    grr_cutoff: float = 0.3
+    metric: RGPMetricType = "incomplete_aware_grr"
+    unmerge_identical_rgps: bool = True
+    output: Path = Path("rgp_clustering")
+    basename: str = "rgp_cluster"
+    graph_formats: list[str] = ("gexf", "graphml")
+    with_metadata: bool = False
+    metadata_sources: list[str] = []
+    metadata_sep: str = "|"
+
+class RGPClustering:
+    def __init__(self, pangenome_h5: Path):
+        self.h5 = Path(pangenome_h5)
+        self.rgps: set[RegionProxy] = set()
+        self.metrics: list[RGPMetric] = []
+        self.identical_regions: int = 0
+        self.graph: nx.Graph = nx.Graph()
+        self._rgp_to_spot: dict[str, int] = None
+        self._fam_to_modules: dict[str, set[str]] = None
+        self._contig_to_organism: dict[str, str] = None
+        self._rgp_to_nb_genes: dict[str, int] = None
+    
+    def _get_rgp_spot(self, reader: H5Reader) -> dict[str, int]:
+        rgp_to_spot: dict[str, int] = {}
+        for table in reader.fetch(RGPSpotTable):
+            rgp_to_spot[table.rgp] = table.spot
+        return rgp_to_spot
+
+    def _get_fam_to_modules(self, reader: H5Reader) -> dict[str, set[str]]:
+        fam_to_modules: dict[str, set[str]] = defaultdict(set)
+        for table in reader.fetch(ModuleTable):
+            fam_to_modules[table.fam].add(table.module)
+        return fam_to_modules
+    
+    def _get_contig_to_organism(self, reader: H5Reader) -> dict[str, str]:
+        contig_to_organism: dict[str, str] = {}
+        for table in reader.fetch(ContigTable):
+            contig_to_organism[table.contig] = table.genome
+        return contig_to_organism
+    
+    def _get_rgp_genes(self, reader: H5Reader, all_rgp_genes: set[str], rgp_with_genes: dict[str, set[str]]) -> dict[str, RGPGenes]:
+        rgp_genes: dict[str, RGPGenes] = {}
+        override = {"name": {"predicate" : lambda x: x in all_rgp_genes}}
+        
+        genes: dict[str, tuple[int, int]] = {}
+        for table in reader.fetch(GenesTable, override):
+            genes[table.name] = (table.genedata, table.contig)
+
+        for rgp, rgenes in rgp_with_genes.items():
+            rgp_genes[rgp] = RGPGenes(
+                
+            )
+            
+
+
+    def _get_rgp_fam(self, reader: H5Reader) -> dict[str, set[tuple[str, int]]]:
+        rgp_with_genes: dict[str, set[str]] = defaultdict(set)
+        all_rgp_genes: set[str] = set()
+
+        for table in reader.fetch(RGPTable):
+            rgp_with_genes[table.rgp].add(table.gene)
+            all_rgp_genes.add(table.gene)
+
+        self._rgp_to_nb_genes: dict[str, int] = {
+            rgp_name: len(genes) for rgp_name, genes in rgp_with_genes.items()
+        }
+
+        gene_to_family: dict[str, str] = {}
+        for table in reader.fetch(GeneFamTable):
+            gene_to_family[table.gene] = table.family
+
+        unique_families = set(gene_to_family.values())
+        family_ids = {fam: idx for idx, fam in enumerate(unique_families)}
+        
+        rgp_with_fams = defaultdict(set)
+        for rgp_name, genes in rgp_with_genes.items():
+            for gene in genes:
+                fam = gene_to_family[gene]
+                fam_id = family_ids[fam]
+                rgp_with_fams[rgp_name].add((fam, fam_id))
+        
+        return rgp_with_fams
+    
+    def _construct_single(self, idx: int, rgp: tuple[str, set[tuple[str, int]]]):
+        contig = rgp[0].split("_RGP_")[0]
+        return RegionProxy(
+            ID=idx,
+            name=rgp[0],
+            families=BitMap(fam_id for _, fam_id in rgp[1]),
+            modules=BitMap(
+                module_id
+                for fam, _ in rgp[1]
+                for module_id in self._fam_to_modules.get(fam, [])
+            ),
+            contig=contig,
+            organism=self._contig_to_organism[contig],
+            length=self._rgp_to_nb_genes[rgp[0]],
+        )
+    
+    def _construct_single_and_add(self, idx: int, rgp: tuple[str, set[tuple[str, int]]]):
+        self.graph.add_node(idx)
+        self.rgps.add(self._construct_single(idx, rgp))
+
+    def _construct_multiple(self, idx: int, rgps: list[tuple[str, set[tuple[str, int]]]]):
+        return RegionProxy(
+            ID=idx,
+            name=f"identical_rgps_{self.identical_regions}",
+            families=BitMap(fam_id for _, fam_id in rgps[0][1]),
+            children=set(
+                self._construct_single(i, rgp)
+                for i, rgp in enumerate(rgps, start=idx + 1)
+            ),
+            modules=BitMap(
+                module_id
+                for fam, _ in rgps[0][1]
+                for module_id in self._fam_to_modules.get(fam, [])
+            ),
+            contig=self._contig_to_organism,
+        )
+    
+    def _construct_multiple_and_add(self, idx: int, rgps: list[tuple[str, set[tuple[str, int]]]]):
+        self.rgps.add(self._construct_multiple(idx, rgps))
+        self.graph.add_node(idx)
+        self.identical_regions += 1
+
+    def _construct_and_add(self, idx: int, rgps: list[tuple[str, set[tuple[str, int]]]]):
+        if len(rgps) == 1:
+            self._construct_single_and_add(idx, rgps[0])
+        else:
+            self._construct_multiple_and_add(idx, rgps)
+
+    def _grr(self, b1: BitMap, b2: BitMap, mode: Callable) -> float:
+        return len(b1 & b2) / mode(len(b1), len(b2))
+    
+    def _rgp_metric(self, r1: RegionProxy, r2: RegionProxy, grr_cutoff: float, metric: RGPMetricType) -> RGPMetric:
+        if r1.is_contig_border or r2.is_contig_border:
+            agrr = self._grr(r1.families, r2.families, min)
+            max_grr = self._grr(r1.families, r2.families, max)
+            min_grr = agrr
+        else:
+            agrr = self._grr(r1.families, r2.families, max)
+            min_grr = self._grr(r1.families, r2.families, min)
+            max_grr = agrr
+
+        m = RGPMetric(max_grr, min_grr, agrr, len(r1.families & r2.families))
+        return m if getattr(m, metric) >= grr_cutoff else None
+    
+    def _construct_regions(self):
+        logging.info("Loading RGPs from pangenome H5 file")
+
+        with H5Reader(self.h5) as reader:
+            rgp_with_fams = self._get_rgp_fam(reader)
+            self._rgp_to_spot = self._get_rgp_spot(reader)
+            self._fam_to_modules = self._get_fam_to_modules(reader)
+            self._contig_to_organism = self._get_contig_to_organism(reader)
+            fams_to_rgps = defaultdict(list)
+
+            for rgp_name, fams in rgp_with_fams.items():
+                fams_key = tuple(sorted(fam_id for _, fam_id in fams))
+                fams_to_rgps[fams_key].append((rgp_name, fams))
+
+            idx = 0
+            for rgps in fams_to_rgps.values():
+                self._construct_and_add(idx, rgps)
+                idx += len(rgps) + 1 if len(rgps) > 1 else 1
+
+        logging.info(f"{len(rgp_with_fams)} RGPs loaded from pangenome ({len(self.rgps)} unique RGPs after dereplication)")
+
+    def _compute_all_metrics(self, grr_cutoff: float, metric: RGPMetricType):
+        logging.info("Computing RGP metrics")
+        
+        nb_pairs = 0
+        for r1, r2 in combinations(self.rgps, 2):
+            if len(r1.families & r2.families) == 0:
+                continue
+        
+            nb_pairs += 1
+            if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
+                self.metrics.append(m)
+                self.graph.add_edge(r1.ID, r2.ID, **m.__dict__)
+        logging.info(f"RGP metrics computed for {nb_pairs:,} pairs of RGPs ({len(self.metrics)} selected after GRR cutoff)")
+
+    def _louvain_clustering(self, metric: RGPMetricType):
+        logging.info(f"Clustering RGPs using Louvain communities on '{metric}' metric")
+        
+        partitions = nx.algorithms.community.louvain_communities(
+            self.graph, weight=metric
+        )
+        for i, nodes in enumerate(partitions):
+            nx.set_node_attributes(
+                self.graph,
+                {node: f"cluster_{i}" for node in nodes},
+                name=f"{metric}_cluster",
+            )
+        
+        logging.info(f"Graph has {len(partitions)} clusters using '{metric}'")
+
+    def _add_edges_to_identical_rgps(self):
+        logging.info("Unmerging identical RGPs in the graph")
+
+        unmerged = 0
+        edge_data = {
+            "max_grr": 1.0,
+            "min_grr": 1.0,
+            "grr": 1.0,
+            "identical_famillies": True,
+        }
+
+        for rgp in self.rgps:
+            if not rgp.is_identical_region:
+                continue
+
+            unmerged += 1
+            self.graph.add_nodes_from(
+                (child.ID for child in rgp.children),
+                identical_rcp_group=rgp.name,
+            )
+
+            edges = [
+                (r1.ID, r2.ID, edge_data)
+                for r1, r2 in combinations(rgp.children, 2)
+            ]
+
+            for connected in self.graph.neighbors(rgp.ID):
+                data = self.graph[rgp.ID][connected]
+                edges += [
+                    (child.ID, connected, data)
+                    for child in rgp.children
+                ]
+            
+            self.graph.add_edges_from(edges)
+            self.graph.remove_node(rgp.ID)
+        
+        logging.info(f"Unmerged {unmerged} identical RGPs")
+
+    def _spot_id(self, rgp: RegionProxy) -> str:
+        if rgp.name in self._rgp_to_spot:
+            return f"spot_{self._rgp_to_spot[rgp.name]}"
+        else:
+            return "No spot"
+        
+    def _add_info_to_identical_rgps(self):
+        logging.info("Adding info to identical RGPs in graph")
+
+        identical = 0
+        for rgp in self.rgps:
+            if not rgp.is_identical_region:
+                continue
+            
+            identical += 1
+            spots = {self._spot_id(child) for child in rgp.children}
+
+            self.graph.nodes[rgp.ID].update({
+                "identical_rgp_group": True,
+                "name": rgp.name,
+                "families_count": len(rgp.families),
+                "identical_rgp_count": len(rgp.children),
+                "identical_rgp_names": ";".join(child.name for child in rgp.children),
+                "identical_rgp_contig_border_count": len(
+                    [True for child in rgp.children if child.is_contig_border]
+                ),
+                "identical_rgp_whole_contig_count": len(
+                    [True for child in rgp.children if child.is_whole_contig]
+                ),
+                "identical_rgp_spots": ";".join(spots),
+                "spot_id": (
+                    spots.pop()
+                    if len(spots) == 1
+                    else "Multiple spots"
+                ),
+                "modules": ",".join(str(module) for module in rgp.modules),
+            })
+
+        logging.info(f"Added info to {identical} identical RGPs")
+
+    def _make_info_from_rgp(self, rgp: RegionProxy) -> dict:
+        return {
+            "contig": rgp.contig,
+            "genome": rgp.organism,
+            "name": rgp.name,
+            "genes_count": rgp.length,
+            "is_contig_border": rgp.is_contig_border,
+            "is_whole_contig": rgp.is_whole_contig,
+            "spot_id": self._spot_id(rgp),
+            "modules": ";".join(str(module) for module in rgp.modules),
+            "families_count": rgp.nb_families,
+        }
+    
+    def _add_info_to_rgps(self):
+        logging.info("Adding info to RGPs in graph")
+        annotated = 0
+        for rgp in self.rgps:
+            if rgp.ID in self.graph:
+                self.graph.nodes[rgp.ID].update(self._make_info_from_rgp(rgp))
+                annotated += 1
+            
+            if rgp.children:
+                for child in rgp.children:
+                    if child.ID in self.graph:
+                        self.graph.nodes[child.ID].update(self._make_info_from_rgp(child))
+                        annotated += 1
+
+        logging.info(f"Added info to {annotated} RGPs")
+
+    def _write_graphs(self, output: Path, basename: str, graph_formats: list[str]):
+        if "gexf" in graph_formats:
+            graph_filename = output / f"{basename}.gexf"
+            logging.info(f"Writing RGP graph in GEXF format to {graph_filename}")
+            nx.write_gexf(self.graph, graph_filename)
+        if "graphml" in graph_formats:
+            graph_filename = output / f"{basename}.graphml"
+            logging.info(f"Writing RGP graph in GraphML format to {graph_filename}")
+            nx.write_graphml(self.graph, graph_filename)
+    
+    def _write_outputs(self, output: Path, basename: str, graph_formats: list[str]):
+        self._write_graphs(output, basename, graph_formats)
+
+    def run(self, options: RGPClusteringOptions):
+        self._construct_regions()
+        self._compute_all_metrics(options.grr_cutoff, options.metric)
+        self._louvain_clustering(options.metric)
+        
+        if options.unmerge_identical_rgps:
+            self._add_edges_to_identical_rgps()
+        else:
+            self._add_info_to_identical_rgps()
+        
+        self._add_info_to_rgps()
+
+        self._write_outputs(options.output, options.basename, options.graph_formats)
+
+    @property
+    def rgp_count(self) -> int:
+        return len(self.rgps)
 
 class IdenticalRegions:
     """
@@ -491,7 +960,6 @@ def compute_rgp_metric(
     if edge_metrics[grr_metric] >= grr_cutoff:
         return rgp_a.ID, rgp_b.ID, edge_metrics
 
-
 def cluster_rgp_on_grr(graph: nx.Graph, clustering_attribute: str = "grr"):
     """
     Cluster rgp based on grr using louvain communities clustering.
@@ -698,7 +1166,6 @@ def cluster_rgp(
             pairs_of_rgps_metrics.append(pair_metrics)
 
     grr_graph.add_edges_from(pairs_of_rgps_metrics)
-
     identical_rgps_objects = [
         rgp for rgp in dereplicated_rgps if isinstance(rgp, IdenticalRegions)
     ]
@@ -764,20 +1231,40 @@ def launch(args: argparse.Namespace):
 
     pangenome.add_file(args.pangenome)
 
-    cluster_rgp(
-        pangenome,
-        grr_cutoff=args.grr_cutoff,
-        output=args.output,
-        basename=args.basename,
-        ignore_incomplete_rgp=args.ignore_incomplete_rgp,
-        unmerge_identical_rgps=args.no_identical_rgp_merging,
-        grr_metric=args.grr_metric,
-        disable_bar=args.disable_prog_bar,
-        graph_formats=args.graph_formats,
-        add_metadata=args.add_metadata,
-        metadata_sep=args.metadata_sep,
-        metadata_sources=args.metadata_sources,
-    )
+    A = int(os.environ.get("PPNEW"))
+
+    if A == 0 or A == 2:
+        with Timer("OLD", logging):
+            cluster_rgp(
+                pangenome,
+                grr_cutoff=args.grr_cutoff,
+                output=args.output,
+                basename=args.basename,
+                ignore_incomplete_rgp=args.ignore_incomplete_rgp,
+                unmerge_identical_rgps=args.no_identical_rgp_merging,
+                grr_metric=args.grr_metric,
+                disable_bar=args.disable_prog_bar,
+                graph_formats=args.graph_formats,
+                add_metadata=args.add_metadata,
+                metadata_sep=args.metadata_sep,
+                metadata_sources=args.metadata_sources,
+            )
+    if A == 1 or A == 2: 
+        with Timer("NEW", logging):
+            clustering = RGPClustering(args.pangenome)
+            clustering.run(
+                RGPClusteringOptions(
+                    unmerge_identical_rgps=args.no_identical_rgp_merging,
+                    grr_cutoff=args.grr_cutoff,
+                    metric=args.grr_metric,
+                    output=args.output,
+                    basename=args.basename,
+                    graph_formats=args.graph_formats,
+                    with_metadata=args.add_metadata,
+                    metadata_sep=args.metadata_sep,
+                    metadata_sources=args.metadata_sources,
+                )
+            )
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
