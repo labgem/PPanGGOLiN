@@ -688,7 +688,8 @@ class RGPClustering:
         self._write_graphs(output, basename, graph_formats)
 
     def run(self, options: RGPClusteringOptions):
-        self._construct_regions()
+        with Timer("_construct_regions", logging):
+            self._construct_regions()
         self._compute_all_metrics(options.grr_cutoff, options.metric)
         self._louvain_clustering(options.metric)
 
