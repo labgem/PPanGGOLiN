@@ -16,6 +16,7 @@ import networkx as nx
 import pandas as pd
 
 # local libraries
+from ppanggolin import RGP
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Region, Spot, Module
 from ppanggolin.formats import check_pangenome_info
@@ -23,13 +24,25 @@ from ppanggolin.utils import restricted_float, mk_outdir, Timer
 from ppanggolin.geneFamily import GeneFamily
 
 import typing as tp
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pyroaring import BitMap
 from ppanggolin.formats.h5reader import H5Reader, TableAttribute
 
 class RegionProxy:
-    def __init__(self, ID: int, name: str, families: BitMap, *,
-                 children=None, modules=None, contig=None, organism=None, length=0):
+
+    def __init__(
+        self,
+        ID: int,
+        name: str,
+        families: BitMap,
+        is_contig_border: bool,
+        is_whole_contig: bool,
+        children=None,
+        modules=None,
+        contig=None,
+        organism=None,
+        length=0,
+    ):
         self.ID: int = ID
         self.name: str = name
         self.families: BitMap = families
@@ -45,24 +58,23 @@ class RegionProxy:
 
         self.length: int = length
         self.nb_families: int = len(self.families)
-        
-        # TODO
-        self.is_contig_border: bool = False
-        self.is_whole_contig: bool = False
+
+        self.is_contig_border: bool = is_contig_border
+        self.is_whole_contig: bool = is_whole_contig
 
     @property
     def is_identical_region(self) -> bool:
         return self.children is not None and len(self.children) > 0
-    
+
     def __repr__(self):
         return f"RegionProxy2(ID={self.ID}, name='{self.name}')"
-    
+
     def __str__(self):
         return self.name
-    
+
     def __hash__(self) -> int:
         return id(self)
-    
+
     def __eq__(self, rhs: "RegionProxy") -> bool:
         return all(self.families == rhs.families,
                    self.children == rhs.children,
@@ -79,7 +91,7 @@ class RegionProxy:
 
     def __ge__(self, obj):
         return self.ID >= obj.ID
-    
+
 @dataclass
 class RGPTable:
     rgp: tp.Annotated[str, TableAttribute(name="RGP", transform=lambda x: x.decode('utf-8'))]
@@ -127,8 +139,8 @@ class GenesTable:
 
 @dataclass
 class GeneDataTable:
+    # gene_type: tp.Annotated[str, TableAttribute(name="gene_type", transform=lambda x: x.decode('utf-8'))]
     idx: tp.Annotated[int, TableAttribute(name="genedata_id")]
-    contig: tp.Annotated[int, TableAttribute(name="contig")]
     start: tp.Annotated[int, TableAttribute(name="start")]
     stop: tp.Annotated[int, TableAttribute(name="stop")]
     position: tp.Annotated[int, TableAttribute(name="position")]
@@ -144,7 +156,34 @@ class RGPGeneProxy:
 class RGPGenes:
     contig: int
     is_circular_contig: bool   
-    genes: list[RGPGeneProxy] = []
+    genes: list[RGPGeneProxy]
+
+
+@dataclass
+class RGPInfo:
+    name: str
+    families: set[str]
+    families_ids: set[int]
+    is_contig_border: bool
+    is_whole_contig: bool
+    contig: str
+
+
+@dataclass
+class ContigBorderPosition:
+    last_gene_position: int
+    last_gene_idx: int
+    first_gene_idx: int
+    first_gene_position: int
+    gene_count: int
+
+
+@dataclass
+class ContigBorderGenes:
+    first_gene: str
+    last_gene: str
+    gene_count: int
+
 
 @dataclass
 class RGPMetric:
@@ -152,6 +191,15 @@ class RGPMetric:
     min_grr: float
     incomplete_aware_grr: float
     shared_family: int
+
+
+@dataclass
+class Contig:
+    organism: str
+    is_circular: bool
+    idx: int
+    name: str
+
 
 RGPMetricType = tp.Literal["max_grr", "min_grr", "incomplete_aware_grr"]
 
@@ -164,7 +212,7 @@ class RGPClusteringOptions:
     basename: str = "rgp_cluster"
     graph_formats: list[str] = ("gexf", "graphml")
     with_metadata: bool = False
-    metadata_sources: list[str] = []
+    metadata_sources: list[str] = field(default_factory=list)
     metadata_sep: str = "|"
 
 class RGPClustering:
@@ -178,7 +226,8 @@ class RGPClustering:
         self._fam_to_modules: dict[str, set[str]] = None
         self._contig_to_organism: dict[str, str] = None
         self._rgp_to_nb_genes: dict[str, int] = None
-    
+        self._rgp_to_contig_info: dict[str, RGPGenes] = None
+
     def _get_rgp_spot(self, reader: H5Reader) -> dict[str, int]:
         rgp_to_spot: dict[str, int] = {}
         for table in reader.fetch(RGPSpotTable):
@@ -190,35 +239,114 @@ class RGPClustering:
         for table in reader.fetch(ModuleTable):
             fam_to_modules[table.fam].add(table.module)
         return fam_to_modules
-    
+
     def _get_contig_to_organism(self, reader: H5Reader) -> dict[str, str]:
         contig_to_organism: dict[str, str] = {}
         for table in reader.fetch(ContigTable):
             contig_to_organism[table.contig] = table.genome
         return contig_to_organism
-    
-    def _get_rgp_genes(self, reader: H5Reader, all_rgp_genes: set[str], rgp_with_genes: dict[str, set[str]]) -> dict[str, RGPGenes]:
-        rgp_genes: dict[str, RGPGenes] = {}
-        override = {"name": {"predicate" : lambda x: x in all_rgp_genes}}
-        
-        genes: dict[str, tuple[int, int]] = {}
-        for table in reader.fetch(GenesTable, override):
-            genes[table.name] = (table.genedata, table.contig)
 
-        for rgp, rgenes in rgp_with_genes.items():
-            rgp_genes[rgp] = RGPGenes(
-                
+    def _get_contig_to_is_circular(self, reader: H5Reader) -> dict[str, bool]:
+        circular_contig_ids: dict[str, bool] = {}
+        for table in reader.fetch(ContigTable):
+            circular_contig_ids[table.idx] = table.is_circular
+        return circular_contig_ids
+
+    def _get_contig_to_info(self, reader: H5Reader):
+
+        contig_to_info: dict[str, Contig] = {}
+        for table in reader.fetch(ContigTable):
+            contig_to_info[table.contig] = Contig(
+                organism=table.genome,
+                is_circular=table.is_circular,
+                idx=table.idx,
+                name=table.contig,
             )
-            
 
+        return contig_to_info
 
-    def _get_rgp_fam(self, reader: H5Reader) -> dict[str, set[tuple[str, int]]]:
+    def _get_contig_border_genes(
+        self, reader: H5Reader, all_rgp_genes: set[str] = None
+    ) -> dict[str, ContigBorderPosition]:
+        """
+        Get contig information such as if it is circular, last gene position and last gene idx.
+        """
+
+        genedata_to_contig_ids: dict[int, list[int]] = defaultdict(list)
+
+        contig_genedata_id_to_gene_name: dict[tuple[int, int], str] = {}
+
+        # Map gene name with genetadata id
+        # and contig id with genmetadata id in annotations/genes table
+        # TODO do not process contig that have no RGP
+
+        for table in reader.fetch(GenesTable):
+            genedata_to_contig_ids[table.genedata].append(table.contig)
+            contig_genedata_id_to_gene_name[(table.contig, table.genedata)] = table.name
+
+        # Create a contig info dictionary to store contig information
+        contig_to_info: dict[int, ContigBorderPosition] = {}
+
+        for table in reader.fetch(GeneDataTable):
+            # Problem with RNA genes that are not in GenesTable
+            # We could filter based on gene_type columns but need to retrieve this column
+            # and convert it to string when parsing GeneDataTable which takes time
+            # quick and dirty solution for now:
+            try:
+                contig_ids = genedata_to_contig_ids[table.idx]
+            except KeyError:
+                continue
+            for contig_id in contig_ids:
+                if contig_id not in contig_to_info:
+                    contig_to_info[contig_id] = ContigBorderPosition(
+                        last_gene_position=table.position,
+                        last_gene_idx=table.idx,
+                        first_gene_position=table.position,
+                        first_gene_idx=table.idx,
+                        gene_count=0,
+                    )
+                contig_to_info[contig_id].gene_count += 1
+
+                if table.position > contig_to_info[contig_id].last_gene_position:
+                    contig_to_info[contig_id].last_gene_position = table.position
+                    contig_to_info[contig_id].last_gene_idx = table.idx
+
+                if table.position < contig_to_info[contig_id].first_gene_position:
+                    contig_to_info[contig_id].first_gene_position = table.position
+                    contig_to_info[contig_id].first_gene_idx = table.idx
+
+        assert all(
+            info.first_gene_position == 0 for info in contig_to_info.values()
+        ), "Some contigs have no gene at position 0"
+
+        contig_id_to_name = {
+            contig_info.idx: contig_info.name
+            for contig_info in self._contig_to_info.values()
+        }
+
+        contig_name_to_border_genes = {
+            contig_id_to_name[contig_id]: ContigBorderGenes(
+                first_gene=contig_genedata_id_to_gene_name[
+                    contig_id, info.first_gene_idx
+                ],
+                last_gene=contig_genedata_id_to_gene_name[
+                    contig_id, info.last_gene_idx
+                ],
+                gene_count=info.gene_count,
+            )
+            for contig_id, info in contig_to_info.items()
+        }
+        return contig_name_to_border_genes
+
+    def _get_rgp_info(self, reader: H5Reader) -> list[RGPInfo]:
         rgp_with_genes: dict[str, set[str]] = defaultdict(set)
         all_rgp_genes: set[str] = set()
 
         for table in reader.fetch(RGPTable):
             rgp_with_genes[table.rgp].add(table.gene)
             all_rgp_genes.add(table.gene)
+
+        contig_to_border_genes = self._get_contig_border_genes(reader)
 
         self._rgp_to_nb_genes: dict[str, int] = {
             rgp_name: len(genes) for rgp_name, genes in rgp_with_genes.items()
@@ -230,59 +358,95 @@ class RGPClustering:
 
         unique_families = set(gene_to_family.values())
         family_ids = {fam: idx for idx, fam in enumerate(unique_families)}
-        
-        rgp_with_fams = defaultdict(set)
+
+        rgp_infos: list[RGPInfo] = []
+
         for rgp_name, genes in rgp_with_genes.items():
+
+            rgp_families_ids: set[int] = set()  # TODO Use BitMap here directly??
+            rgp_families: set[str] = set()
+            contig_name = rgp_name.split("_RGP_")[0]
             for gene in genes:
+
                 fam = gene_to_family[gene]
                 fam_id = family_ids[fam]
-                rgp_with_fams[rgp_name].add((fam, fam_id))
-        
-        return rgp_with_fams
-    
-    def _construct_single(self, idx: int, rgp: tuple[str, set[tuple[str, int]]]):
-        contig = rgp[0].split("_RGP_")[0]
+                rgp_families.add(fam)
+                rgp_families_ids.add(fam_id)
+
+            contig_border_info = contig_to_border_genes[contig_name]
+            is_contig_circular = self._contig_to_info[contig_name].is_circular
+
+            is_contig_border = False
+            if not is_contig_circular and (
+                contig_border_info.first_gene in genes
+                or contig_border_info.last_gene in genes
+            ):
+                is_contig_border = True
+
+            is_whole_contig = False
+            if len(genes) == contig_border_info.gene_count:
+                is_whole_contig = True
+
+            info = RGPInfo(
+                name=rgp_name,
+                families=rgp_families,
+                families_ids=rgp_families_ids,
+                is_contig_border=is_contig_border,
+                is_whole_contig=is_whole_contig,
+                contig=contig_name,
+            )
+            rgp_infos.append(info)
+
+        return rgp_infos
+
+    def _construct_single(self, idx: int, rgp: RGPInfo):
         return RegionProxy(
             ID=idx,
-            name=rgp[0],
-            families=BitMap(fam_id for _, fam_id in rgp[1]),
+            name=rgp.name,
+            families=BitMap(rgp.families_ids),
             modules=BitMap(
                 module_id
-                for fam, _ in rgp[1]
+                for fam in rgp.families
                 for module_id in self._fam_to_modules.get(fam, [])
             ),
-            contig=contig,
-            organism=self._contig_to_organism[contig],
-            length=self._rgp_to_nb_genes[rgp[0]],
+            contig=rgp.contig,
+            organism=self._contig_to_info[rgp.contig].organism,
+            length=self._rgp_to_nb_genes[rgp.name],
+            is_contig_border=rgp.is_contig_border,
+            is_whole_contig=rgp.is_whole_contig,
         )
-    
-    def _construct_single_and_add(self, idx: int, rgp: tuple[str, set[tuple[str, int]]]):
+
+    def _construct_single_and_add(self, idx: int, rgp: RGPInfo):
         self.graph.add_node(idx)
         self.rgps.add(self._construct_single(idx, rgp))
 
-    def _construct_multiple(self, idx: int, rgps: list[tuple[str, set[tuple[str, int]]]]):
+    def _construct_multiple(self, idx: int, rgps: list[RGPInfo]):
         return RegionProxy(
             ID=idx,
             name=f"identical_rgps_{self.identical_regions}",
-            families=BitMap(fam_id for _, fam_id in rgps[0][1]),
+            families=BitMap(rgps[0].families_ids),
             children=set(
                 self._construct_single(i, rgp)
                 for i, rgp in enumerate(rgps, start=idx + 1)
             ),
             modules=BitMap(
                 module_id
-                for fam, _ in rgps[0][1]
+                for fam in rgps[0].families
                 for module_id in self._fam_to_modules.get(fam, [])
             ),
             contig=self._contig_to_organism,
+            # identical regions object is considered on a contig border if all rgp are contig border
+            is_contig_border=all(rgp.is_contig_border for rgp in rgps),
+            # identical regions object is considered as whole contig if all rgp are whole contig
+            is_whole_contig=all(rgp.is_whole_contig for rgp in rgps),
         )
-    
-    def _construct_multiple_and_add(self, idx: int, rgps: list[tuple[str, set[tuple[str, int]]]]):
+
+    def _construct_multiple_and_add(self, idx: int, rgps: list[RGPInfo]):
         self.rgps.add(self._construct_multiple(idx, rgps))
         self.graph.add_node(idx)
         self.identical_regions += 1
 
-    def _construct_and_add(self, idx: int, rgps: list[tuple[str, set[tuple[str, int]]]]):
+    def _construct_and_add(self, idx: int, rgps: list[RGPInfo]):
         if len(rgps) == 1:
             self._construct_single_and_add(idx, rgps[0])
         else:
@@ -290,7 +454,7 @@ class RGPClustering:
 
     def _grr(self, b1: BitMap, b2: BitMap, mode: Callable) -> float:
         return len(b1 & b2) / mode(len(b1), len(b2))
-    
+
     def _rgp_metric(self, r1: RegionProxy, r2: RegionProxy, grr_cutoff: float, metric: RGPMetricType) -> RGPMetric:
         if r1.is_contig_border or r2.is_contig_border:
             agrr = self._grr(r1.families, r2.families, min)
@@ -303,36 +467,45 @@ class RGPClustering:
 
         m = RGPMetric(max_grr, min_grr, agrr, len(r1.families & r2.families))
         return m if getattr(m, metric) >= grr_cutoff else None
-    
+
     def _construct_regions(self):
         logging.info("Loading RGPs from pangenome H5 file")
 
         with H5Reader(self.h5) as reader:
-            rgp_with_fams = self._get_rgp_fam(reader)
+
+            # self._contig_to_organism = self._get_contig_to_organism(reader)
+            # self._contig_id_to_is_circular = self._get_contig_to_is_circular(reader)
+            self._contig_to_info = self._get_contig_to_info(reader)
+
+            rgp_infos = self._get_rgp_info(reader)
             self._rgp_to_spot = self._get_rgp_spot(reader)
             self._fam_to_modules = self._get_fam_to_modules(reader)
-            self._contig_to_organism = self._get_contig_to_organism(reader)
-            fams_to_rgps = defaultdict(list)
 
-            for rgp_name, fams in rgp_with_fams.items():
-                fams_key = tuple(sorted(fam_id for _, fam_id in fams))
-                fams_to_rgps[fams_key].append((rgp_name, fams))
+            fams_to_rgps: defaultdict[tuple[int], list[RGPInfo]] = defaultdict(list)
 
+            for info in rgp_infos:
+                fams_key = tuple(sorted(fam_id for fam_id in info.families_ids))
+                fams_to_rgps[fams_key].append(info)
+            print(
+                f"{len(fams_to_rgps)} unique family combinations found for {len(rgp_infos)} RGPs"
+            )
             idx = 0
             for rgps in fams_to_rgps.values():
                 self._construct_and_add(idx, rgps)
                 idx += len(rgps) + 1 if len(rgps) > 1 else 1
 
-        logging.info(f"{len(rgp_with_fams)} RGPs loaded from pangenome ({len(self.rgps)} unique RGPs after dereplication)")
+        logging.info(
+            f"{len(rgp_infos)} RGPs loaded from pangenome ({len(self.rgps)} unique RGPs after dereplication)"
+        )
 
     def _compute_all_metrics(self, grr_cutoff: float, metric: RGPMetricType):
         logging.info("Computing RGP metrics")
-        
+
         nb_pairs = 0
         for r1, r2 in combinations(self.rgps, 2):
             if len(r1.families & r2.families) == 0:
                 continue
-        
+
             nb_pairs += 1
             if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
                 self.metrics.append(m)
@@ -341,7 +514,7 @@ class RGPClustering:
 
     def _louvain_clustering(self, metric: RGPMetricType):
         logging.info(f"Clustering RGPs using Louvain communities on '{metric}' metric")
-        
+
         partitions = nx.algorithms.community.louvain_communities(
             self.graph, weight=metric
         )
@@ -351,7 +524,7 @@ class RGPClustering:
                 {node: f"cluster_{i}" for node in nodes},
                 name=f"{metric}_cluster",
             )
-        
+
         logging.info(f"Graph has {len(partitions)} clusters using '{metric}'")
 
     def _add_edges_to_identical_rgps(self):
@@ -386,10 +559,10 @@ class RGPClustering:
                     (child.ID, connected, data)
                     for child in rgp.children
                 ]
-            
+
             self.graph.add_edges_from(edges)
             self.graph.remove_node(rgp.ID)
-        
+
         logging.info(f"Unmerged {unmerged} identical RGPs")
 
     def _spot_id(self, rgp: RegionProxy) -> str:
@@ -397,7 +570,7 @@ class RGPClustering:
             return f"spot_{self._rgp_to_spot[rgp.name]}"
         else:
             return "No spot"
-        
+
     def _add_info_to_identical_rgps(self):
         logging.info("Adding info to identical RGPs in graph")
 
@@ -405,7 +578,7 @@ class RGPClustering:
         for rgp in self.rgps:
             if not rgp.is_identical_region:
                 continue
-            
+
             identical += 1
             spots = {self._spot_id(child) for child in rgp.children}
 
@@ -444,7 +617,7 @@ class RGPClustering:
             "modules": ";".join(str(module) for module in rgp.modules),
             "families_count": rgp.nb_families,
         }
-    
+
     def _add_info_to_rgps(self):
         logging.info("Adding info to RGPs in graph")
         annotated = 0
@@ -452,7 +625,7 @@ class RGPClustering:
             if rgp.ID in self.graph:
                 self.graph.nodes[rgp.ID].update(self._make_info_from_rgp(rgp))
                 annotated += 1
-            
+
             if rgp.children:
                 for child in rgp.children:
                     if child.ID in self.graph:
@@ -470,7 +643,7 @@ class RGPClustering:
             graph_filename = output / f"{basename}.graphml"
             logging.info(f"Writing RGP graph in GraphML format to {graph_filename}")
             nx.write_graphml(self.graph, graph_filename)
-    
+
     def _write_outputs(self, output: Path, basename: str, graph_formats: list[str]):
         self._write_graphs(output, basename, graph_formats)
 
@@ -478,12 +651,12 @@ class RGPClustering:
         self._construct_regions()
         self._compute_all_metrics(options.grr_cutoff, options.metric)
         self._louvain_clustering(options.metric)
-        
+
         if options.unmerge_identical_rgps:
             self._add_edges_to_identical_rgps()
         else:
             self._add_info_to_identical_rgps()
-        
+
         self._add_info_to_rgps()
 
         self._write_outputs(options.output, options.basename, options.graph_formats)
@@ -1265,6 +1438,49 @@ def launch(args: argparse.Namespace):
                     metadata_sources=args.metadata_sources,
                 )
             )
+    if A == 2:
+        # comparison of RGP between old and new implementation
+        rgp_name_to_rgp_proxy = {}
+        for rgp_proxy in clustering.rgps:
+            if rgp_proxy.children:
+                for child_rgp_proxy in rgp_proxy.children:
+                    rgp_name_to_rgp_proxy[child_rgp_proxy.name] = child_rgp_proxy
+            else:
+                rgp_name_to_rgp_proxy[rgp_proxy.name] = rgp_proxy
+
+        for region in pangenome.regions:
+            rgp_proxy = rgp_name_to_rgp_proxy[region.name]
+
+            # Log debug info when either region has is_contig_border=True or is_whole_contig=True
+            if region.is_contig_border or rgp_proxy.is_contig_border or region.is_whole_contig or rgp_proxy.is_whole_contig:
+                logging.debug(
+                    f"Comparing RGP: {region.name}\n"
+                    f"  Region object:\n"
+                    f"    - name: {region.name}\n"
+                    f"    - is_contig_border: {region.is_contig_border}\n"
+                    f"    - is_whole_contig: {region.is_whole_contig}\n"
+                    f"    - families count: {region.number_of_families}\n"
+                    f"    - genes count: {len(region)}\n"
+                    f"    - contig: {region.contig.name}\n"
+                    f"    - organism: {region.organism.name}\n"
+                    f"  RegionProxy object:\n"
+                    f"    - name: {rgp_proxy.name}\n"
+                    f"    - is_contig_border: {rgp_proxy.is_contig_border}\n"
+                    f"    - is_whole_contig: {rgp_proxy.is_whole_contig}\n"
+                    f"    - families count: {len(rgp_proxy.families)}\n"
+                    f"    - genes count: {rgp_proxy.length}\n"
+                    f"    - contig: {rgp_proxy.contig}\n"
+                    f"    - organism: {rgp_proxy.organism}"
+                )
+
+            if region.is_contig_border != rgp_proxy.is_contig_border:
+                logging.error(f"Mismatch in is_contig_border for RGP: {region.name}")
+
+            if region.is_whole_contig != rgp_proxy.is_whole_contig:
+                logging.error(f"Mismatch in is_whole_contig for RGP: {region.name}")
+
+            assert region.is_contig_border == rgp_proxy.is_contig_border, region.name
+            assert region.is_whole_contig == rgp_proxy.is_whole_contig, region.name
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
