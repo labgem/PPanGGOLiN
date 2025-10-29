@@ -163,7 +163,7 @@ class RGPGenes:
 class RGPInfo:
     name: str
     families: set[str]
-    families_ids: set[int]
+    families_ids: BitMap
     is_contig_border: bool
     is_whole_contig: bool
     contig: str
@@ -252,37 +252,44 @@ class RGPClustering:
             circular_contig_ids[table.idx] = table.is_circular
         return circular_contig_ids
 
-    def _get_contig_to_info(self, reader: H5Reader):
+    def _get_contig_to_info(
+        self, reader: H5Reader, contigs_to_keep: set[str] = None
+    ) -> dict[str, Contig]:
 
         contig_to_info: dict[str, Contig] = {}
         for table in reader.fetch(ContigTable):
-            contig_to_info[table.contig] = Contig(
-                organism=table.genome,
-                is_circular=table.is_circular,
-                idx=table.idx,
-                name=table.contig,
-            )
+            if contigs_to_keep is None or table.contig in contigs_to_keep:
+                contig_to_info[table.contig] = Contig(
+                    organism=table.genome,
+                    is_circular=table.is_circular,
+                    idx=table.idx,
+                    name=table.contig,
+                )
 
         return contig_to_info
 
     def _get_contig_border_genes(
-        self, reader: H5Reader, all_rgp_genes: set[str] = None
+        self, reader: H5Reader
     ) -> dict[str, ContigBorderPosition]:
         """
         Get contig information such as if it is circular, last gene position and last gene idx.
         """
 
+        contig_ids_with_rgp = {
+            contig_info.idx for contig_info in self._rgp_contig_to_info.values()
+        }
         genedata_to_contig_ids: dict[int, list[int]] = defaultdict(list)
 
-        contig_genedata_id_to_gene_name: dict[tuple[int, int], str] = {}
+        # contig_genedata_id_to_gene_name: dict[tuple[int, int], str] = {}
 
         # Map gene name with genetadata id
         # and contig id with genmetadata id in annotations/genes table
-        # TODO do not process contig that have no RGP
 
         for table in reader.fetch(GenesTable):
+            if table.contig not in contig_ids_with_rgp:
+                continue
             genedata_to_contig_ids[table.genedata].append(table.contig)
-            contig_genedata_id_to_gene_name[(table.contig, table.genedata)] = table.name
+            # contig_genedata_id_to_gene_name[(table.contig, table.genedata)] = table.name
 
         # Create a contig info dictionary to store contig information
         contig_to_info: dict[int, ContigBorderPosition] = {}
@@ -321,8 +328,26 @@ class RGPClustering:
 
         contig_id_to_name = {
             contig_info.idx: contig_info.name
-            for contig_info in self._contig_to_info.values()
+            for contig_info in self._rgp_contig_to_info.values()
         }
+
+        # compute mapping (contig_id, genedata_id) to gene_name info only for border genes
+        # need to go through GenesTable again to get gene names
+        contig_genedata_id_to_gene_name = {
+            (contig_id, info.first_gene_idx): None
+            for contig_id, info in contig_to_info.items()
+        }
+        contig_genedata_id_to_gene_name.update(
+            {
+                (contig_id, info.last_gene_idx): None
+                for contig_id, info in contig_to_info.items()
+            }
+        )
+        for table in reader.fetch(GenesTable):
+            if (table.contig, table.genedata) in contig_genedata_id_to_gene_name:
+                contig_genedata_id_to_gene_name[(table.contig, table.genedata)] = (
+                    table.name
+                )
 
         contig_name_to_border_genes = {
             contig_id_to_name[contig_id]: ContigBorderGenes(
@@ -336,15 +361,22 @@ class RGPClustering:
             )
             for contig_id, info in contig_to_info.items()
         }
+
         return contig_name_to_border_genes
 
-    def _get_rgp_info(self, reader: H5Reader) -> list[RGPInfo]:
-        rgp_with_genes: dict[str, set[str]] = defaultdict(set)
-        all_rgp_genes: set[str] = set()
+    def _get_rgp_genes(self, reader: H5Reader) -> dict[str, set[str]]:
+        rgp_genes: dict[str, set[str]] = defaultdict(set)
 
         for table in reader.fetch(RGPTable):
-            rgp_with_genes[table.rgp].add(table.gene)
-            all_rgp_genes.add(table.gene)
+            rgp_genes[table.rgp].add(table.gene)
+
+        return rgp_genes
+
+    def _get_rgp_info(
+        self,
+        reader: H5Reader,
+        rgp_with_genes: dict[str, set[str]],
+    ) -> list[RGPInfo]:
 
         contig_to_border_genes = self._get_contig_border_genes(reader)
 
@@ -363,7 +395,7 @@ class RGPClustering:
 
         for rgp_name, genes in rgp_with_genes.items():
 
-            rgp_families_ids: set[int] = set()  # TODO Use BitMap here directly??
+            rgp_families_ids: BitMap = BitMap()
             rgp_families: set[str] = set()
             contig_name = rgp_name.split("_RGP_")[0]
             for gene in genes:
@@ -374,7 +406,7 @@ class RGPClustering:
                 rgp_families_ids.add(fam_id)
 
             contig_border_info = contig_to_border_genes[contig_name]
-            is_contig_circular = self._contig_to_info[contig_name].is_circular
+            is_contig_circular = self._rgp_contig_to_info[contig_name].is_circular
 
             is_contig_border = False
             if not is_contig_circular and (
@@ -403,14 +435,14 @@ class RGPClustering:
         return RegionProxy(
             ID=idx,
             name=rgp.name,
-            families=BitMap(rgp.families_ids),
+            families=rgp.families_ids,
             modules=BitMap(
                 module_id
                 for fam in rgp.families
                 for module_id in self._fam_to_modules.get(fam, [])
             ),
             contig=rgp.contig,
-            organism=self._contig_to_info[rgp.contig].organism,
+            organism=self._rgp_contig_to_info[rgp.contig].organism,
             length=self._rgp_to_nb_genes[rgp.name],
             is_contig_border=rgp.is_contig_border,
             is_whole_contig=rgp.is_whole_contig,
@@ -424,7 +456,7 @@ class RGPClustering:
         return RegionProxy(
             ID=idx,
             name=f"identical_rgps_{self.identical_regions}",
-            families=BitMap(rgps[0].families_ids),
+            families=rgps[0].families_ids,
             children=set(
                 self._construct_single(i, rgp)
                 for i, rgp in enumerate(rgps, start=idx + 1)
@@ -475,9 +507,17 @@ class RGPClustering:
 
             # self._contig_to_organism = self._get_contig_to_organism(reader)
             # self._contig_id_to_is_circular = self._get_contig_to_is_circular(reader)
-            self._contig_to_info = self._get_contig_to_info(reader)
 
-            rgp_infos = self._get_rgp_info(reader)
+            rgp_to_genes = self._get_rgp_genes(reader)
+
+            contigs_with_rgp = {rgp_name.split("_RGP_")[0] for rgp_name in rgp_to_genes}
+
+            self._rgp_contig_to_info = self._get_contig_to_info(
+                reader, contigs_with_rgp
+            )
+
+            rgp_infos = self._get_rgp_info(reader, rgp_to_genes)
+
             self._rgp_to_spot = self._get_rgp_spot(reader)
             self._fam_to_modules = self._get_fam_to_modules(reader)
 
