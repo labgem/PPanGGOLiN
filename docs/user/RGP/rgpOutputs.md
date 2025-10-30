@@ -29,6 +29,23 @@ The file has the following format :
 | contigBorder | This is a boolean column. If the RGP is on a contig border it will be True, otherwise, it will be False. This often can indicate that, if an RGP is on a contig border it is probably not complete.                 |
 | wholeContig  | This is a boolean column. If the RGP is an entire contig, it will be True, and False otherwise. If a RGP is an entire contig it can possibly be a plasmid, a region flanked with repeat sequences or a contaminant. |
 
+
+### RGP to gene families
+
+The `rgp_families.tsv` is a TSV file that maps each RGP to its gene family content.
+
+It can be written with the following command:
+
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --regions_families -o rgp_outputs
+```
+
+| Column    | Description                                                                           |
+|-----------|---------------------------------------------------------------------------------------|
+| rgp_id    | The RGP identifier (found in 'region' column of `regions_of_genomic_plasticity.tsv`). |
+| family_id | The gene family identifier present in the RGP.                                         |
+
+
 ### Spots
 
 The `spots.tsv` is a tsv file that links the spots in `summarize_spots.tsv` with the RGPs
