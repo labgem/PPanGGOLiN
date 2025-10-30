@@ -4,6 +4,7 @@
 import logging
 import argparse
 import os
+import resource
 from itertools import combinations
 from collections.abc import Callable
 from collections import defaultdict
@@ -27,6 +28,7 @@ import typing as tp
 from dataclasses import dataclass, field
 from pyroaring import BitMap
 from ppanggolin.formats.h5reader import H5Reader, TableAttribute
+
 
 class RegionProxy:
 
@@ -505,9 +507,6 @@ class RGPClustering:
 
         with H5Reader(self.h5) as reader:
 
-            # self._contig_to_organism = self._get_contig_to_organism(reader)
-            # self._contig_id_to_is_circular = self._get_contig_to_is_circular(reader)
-
             rgp_to_genes = self._get_rgp_genes(reader)
 
             contigs_with_rgp = {rgp_name.split("_RGP_")[0] for rgp_name in rgp_to_genes}
@@ -526,9 +525,7 @@ class RGPClustering:
             for info in rgp_infos:
                 fams_key = tuple(sorted(fam_id for fam_id in info.families_ids))
                 fams_to_rgps[fams_key].append(info)
-            print(
-                f"{len(fams_to_rgps)} unique family combinations found for {len(rgp_infos)} RGPs"
-            )
+
             idx = 0
             for rgps in fams_to_rgps.values():
                 self._construct_and_add(idx, rgps)
@@ -679,28 +676,64 @@ class RGPClustering:
             graph_filename = output / f"{basename}.gexf"
             logging.info(f"Writing RGP graph in GEXF format to {graph_filename}")
             nx.write_gexf(self.graph, graph_filename)
+
+            rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+            logging.info(f"Memory after writing GEXF: RSS peak={rss_peak:.2f} MB")
+
         if "graphml" in graph_formats:
             graph_filename = output / f"{basename}.graphml"
             logging.info(f"Writing RGP graph in GraphML format to {graph_filename}")
             nx.write_graphml(self.graph, graph_filename)
 
+            rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+            logging.info(f"Memory after writing GraphML: RSS peak={rss_peak:.2f} MB")
+
     def _write_outputs(self, output: Path, basename: str, graph_formats: list[str]):
         self._write_graphs(output, basename, graph_formats)
 
     def run(self, options: RGPClusteringOptions):
+
+        # Get initial memory
+        rss_start = (
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        )  # Convert to MB (on Linux, ru_maxrss is in KB)
+        logging.info(f"Memory at start: RSS peak={rss_start:.2f} MB")
+
         with Timer("_construct_regions", logging):
             self._construct_regions()
+
+        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logging.info(f"Memory after _construct_regions: RSS peak={rss_peak:.2f} MB")
+
         self._compute_all_metrics(options.grr_cutoff, options.metric)
+
+        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logging.info(f"Memory after _compute_all_metrics: RSS peak={rss_peak:.2f} MB")
+
         self._louvain_clustering(options.metric)
+
+        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logging.info(f"Memory after _louvain_clustering: RSS peak={rss_peak:.2f} MB")
 
         if options.unmerge_identical_rgps:
             self._add_edges_to_identical_rgps()
         else:
             self._add_info_to_identical_rgps()
 
+        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logging.info(
+            f"Memory after identical_rgps processing: RSS peak={rss_peak:.2f} MB"
+        )
+
         self._add_info_to_rgps()
 
+        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logging.info(f"Memory after _add_info_to_rgps: RSS peak={rss_peak:.2f} MB")
+
         self._write_outputs(options.output, options.basename, options.graph_formats)
+
+        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logging.info(f"Memory after _write_outputs: RSS peak={rss_peak:.2f} MB")
 
     @property
     def rgp_count(self) -> int:
