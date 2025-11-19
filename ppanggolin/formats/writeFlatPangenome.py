@@ -1075,6 +1075,29 @@ def write_regions(output: Path, compress: bool = False):
     write_rgp_table(pan.regions, output, compress)
 
 
+def write_regions_families(output: Path, compress: bool = False):
+    """
+    Write the file providing the association between regions of genomic plasticity and gene families.
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
+
+    fname = output / "rgp_families.tsv"
+    with write_compressed_or_not(fname, compress) as tab:
+        fieldnames = [
+            "rgp_id",
+            "family_id",
+        ]
+
+        writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter="\t")
+        writer.writeheader()
+
+        for rgp in pan.regions:
+            for family in rgp.families:
+                writer.writerow({"rgp_id": rgp.name, "family_id": family.name})
+
+
 def write_rgp_table(regions: Set[Region], output: Path, compress: bool = False):
     """
     Write the file providing information about regions of genomic plasticity.
@@ -1341,6 +1364,7 @@ def write_pangenome_flat_files(
     partitions: bool = False,
     families_tsv: bool = False,
     regions: bool = False,
+    regions_families: bool = False,
     spots: bool = False,
     borders: bool = False,
     modules: bool = False,
@@ -1389,6 +1413,7 @@ def write_pangenome_flat_files(
             modules,
             spot_modules,
             regions,
+            regions_families,
         ]
     ):
         raise Exception("You did not indicate what file you wanted to write.")
@@ -1422,6 +1447,7 @@ def write_pangenome_flat_files(
         or modules
         or spot_modules
         or regions
+        or regions_families
     ):
         needAnnotations = True
         needFamilies = True
@@ -1437,7 +1463,7 @@ def write_pangenome_flat_files(
             metatype = "families"
         else:
             needMetadata = False
-    if spots or borders or spot_modules or regions:
+    if spots or borders or spot_modules or regions or regions_families:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
         needSpots = True
@@ -1500,6 +1526,12 @@ def write_pangenome_flat_files(
             processes.append(p.apply_async(func=write_spots, args=(output, compress)))
         if regions:
             processes.append(p.apply_async(func=write_regions, args=(output, compress)))
+
+        if regions_families:
+            processes.append(
+                p.apply_async(func=write_regions_families, args=(output, compress))
+            )
+
         if borders:
             processes.append(
                 p.apply_async(func=write_borders, args=(output, dup_margin, compress))
@@ -1548,6 +1580,7 @@ def launch(args: argparse.Namespace):
         partitions=args.partitions,
         families_tsv=args.families_tsv,
         regions=args.regions,
+        regions_families=args.regions_families,
         spots=args.spots,
         borders=args.borders,
         modules=args.modules,
@@ -1673,6 +1706,14 @@ def parser_flat(parser: argparse.ArgumentParser):
         action="store_true",
         help="Writes the predicted RGP and descriptive metrics in 'plastic_regions.tsv'",
     )
+
+    optional.add_argument(
+        "--regions_families",
+        required=False,
+        action="store_true",
+        help="Write a TSV file mapping each RGP to its gene family content in 'rgp_families.tsv'",
+    )
+
     optional.add_argument(
         "--spots",
         required=False,
