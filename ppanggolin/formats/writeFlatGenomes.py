@@ -210,7 +210,7 @@ def manage_module_colors(
     # nx.readwrite.graphml.write_graphml(color_mod_graph, f"module_graph_window_size{window_size}.graphml")
 
     nb_colors = len(set(module_to_color_int.values()))
-    logging.getLogger().debug(
+    logging.getLogger("PPanGGOLiN").debug(
         f"We have found that {nb_colors} colors were necessary to color Modules."
     )
     colors = palette(nb_colors)

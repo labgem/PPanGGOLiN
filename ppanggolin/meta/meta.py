@@ -8,13 +8,15 @@ import csv
 import re
 
 # installed libraries
+import tables
 from tqdm import tqdm
 import pandas as pd
 
 # local libraries
+from ppanggolin.formats.writeMetadata import write_metadata
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.metadata import Metadata
-from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
+from ppanggolin.formats import check_pangenome_info, erase_pangenome, write_status
 
 
 def check_pangenome_metadata(
@@ -33,12 +35,16 @@ def check_pangenome_metadata(
     :param disable_bar: Disable bar
     """
     need_dic = {
-        "need_annotations": True,
+        "need_annotations": False,
         "need_families": False,
         "need_rgp": False,
         "need_spots": False,
         "need_modules": False,
     }
+    if metatype in ["families", "modules"]:
+        need_dic["need_annotations"] = False
+    else:
+        need_dic["need_annotations"] = True
 
     if metatype in ["families", "RGPs", "spots", "modules"]:
         need_dic["need_families"] = True
@@ -178,7 +184,9 @@ def assign_metadata(
                     f"{metatype} {row[metatype]} does not exist in pangenome. Check name in your file"
                 )
             else:
-                logging.getLogger().debug(f"{metatype}: {row[metatype]} doesn't exist")
+                logging.getLogger("PPanGGOLiN").debug(
+                    f"{metatype}: {row[metatype]} doesn't exist"
+                )
         else:
             element.add_metadata(
                 Metadata(
@@ -215,10 +223,12 @@ def launch(args: argparse.Namespace):
         omit=args.omit,
         disable_bar=args.disable_prog_bar,
     )
-    logging.getLogger().info("Metadata assignment Done")
-    write_pangenome(
-        pangenome, pangenome.file, force=args.force, disable_bar=args.disable_prog_bar
-    )
+    logging.getLogger("PPanGGOLiN").info("Metadata assignment Done")
+
+    with tables.open_file(pangenome.file, "a") as h5f:
+
+        write_metadata(pangenome, h5f, disable_bar=args.disable_prog_bar)
+        write_status(pangenome, h5f)
 
 
 def check_metadata_arguments(

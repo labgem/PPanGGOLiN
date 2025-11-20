@@ -1,8 +1,9 @@
 # PPanGGOLiN: Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors
 
-[![Actions](https://img.shields.io/github/actions/workflow/status/althonos/pyrodigal/test.yml?branch=main&logo=github&style=flat-square&maxAge=300)](https://github.com/labgem/ppanggolin/actions)
+[![Actions](https://img.shields.io/github/actions/workflow/status/labgem/PPanGGOLiN/main.yml?branch=master&label=CI&logo=github)](https://github.com/labgem/PPanGGOLiN/actions/workflows/main.yml)
 [![License](https://anaconda.org/bioconda/ppanggolin/badges/license.svg)](http://www.cecill.info/licences.fr.html)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/ppanggolin?style=flat-square&maxAge=3600&logo=anaconda)](https://anaconda.org/bioconda/ppanggolin)
+[![PyPI version](https://badge.fury.io/py/PPanGGOLiN.svg?cache-control=no-cache)](https://pypi.org/project/PPanGGOLiN/)
 [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/labgem/ppanggolin/)
 [![GitHub issues](https://img.shields.io/github/issues/labgem/ppanggolin.svg?style=flat-square&maxAge=600)](https://github.com/labgem/ppanggolin/issues)
 [![Docs](https://img.shields.io/readthedocs/ppanggolin/latest?style=flat-square&maxAge=600)](https://ppanggolin.readthedocs.io)
@@ -43,7 +44,7 @@ To ensure a smoother installation and avoid conflicting dependencies, it's highl
 
 ```bash
 # Install PPanGGOLiN into a new conda environment
-conda create -n ppanggolin -c defaults -c conda-forge -c bioconda ppanggolin
+conda create -n ppanggolin -c conda-forge -c bioconda ppanggolin
 
 # Check PPanGGOLiN install
 conda activate ppanggolin

@@ -5,8 +5,8 @@ Status:
     Gene_Families_with_Sequences: true
     Neighbors_Graph: true
     Pangenome_Partitioned: true
-    RGP_Predicted: false
-    Spots_Predicted: false
+    RGP_Predicted: true
+    Spots_Predicted: true
     Modules_Predicted: false
     PPanGGOLiN_Version: 2.2.6
 
@@ -14,7 +14,7 @@ Content:
     Genes: 47986
     Genomes: 53
     Families: 1086
-    Edges: 1315
+    Edges: 1327
     Persistent:
         Family_count: 871
         min_genomes_frequency: 0.89
@@ -34,6 +34,8 @@ Content:
         sd_genomes_frequency: 0.04
         mean_genomes_frequency: 0.04
     Number_of_partitions: 3
+    RGP: 42
+    Spots: 6
 
 Parameters:
     annotate:
@@ -41,13 +43,8 @@ Parameters:
         use_pseudo: False
         # read_annotations_from_file: True
     cluster:
-        coverage: 0.8
-        identity: 0.8
-        mode: 1
-        # defragmentation: True
-        no_defrag: False
-        translation_table: 11
-        # read_clustering_from_file: False
+        # read_clustering_from_file: True
+        infer_singletons: False
     graph:
     partition:
         beta: 2.5
@@ -59,6 +56,16 @@ Parameters:
         nb_of_partitions: -1
         # final nb of partitions: 3
         krange: [3, 20]
+    rgp:
+        persistent_penalty: 3
+        variable_gain: 1
+        min_length: 3000
+        min_score: 4
+        dup_margin: 0.05
+    spot:
+        set_size: 3
+        overlapping_match: 2
+        exact_match_size: 1
 
 Metadata:
     contigs: annotation_file

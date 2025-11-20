@@ -849,7 +849,6 @@ def write_stats(
     :param dup_margin: minimum ratio of organisms in which family must have multiple genes to be considered duplicated
     :param compress: Compress the file in .gz
 
-    :return: A set containing gene families identified as single copy persistent markers.
     """
     logging.getLogger("PPanGGOLiN").info("Writing pangenome statistics...")
 
@@ -1073,6 +1072,29 @@ def write_regions(output: Path, compress: bool = False):
     """
 
     write_rgp_table(pan.regions, output, compress)
+
+
+def write_regions_families(output: Path, compress: bool = False):
+    """
+    Write the file providing the association between regions of genomic plasticity and gene families.
+
+    :param output: Path to output directory
+    :param compress: Compress the file in .gz
+    """
+
+    fname = output / "rgp_families.tsv"
+    with write_compressed_or_not(fname, compress) as tab:
+        fieldnames = [
+            "rgp_id",
+            "family_id",
+        ]
+
+        writer = csv.DictWriter(tab, fieldnames=fieldnames, delimiter="\t")
+        writer.writeheader()
+
+        for rgp in pan.regions:
+            for family in rgp.families:
+                writer.writerow({"rgp_id": rgp.name, "family_id": family.name})
 
 
 def write_rgp_table(regions: Set[Region], output: Path, compress: bool = False):
@@ -1341,6 +1363,7 @@ def write_pangenome_flat_files(
     partitions: bool = False,
     families_tsv: bool = False,
     regions: bool = False,
+    regions_families: bool = False,
     spots: bool = False,
     borders: bool = False,
     modules: bool = False,
@@ -1389,6 +1412,7 @@ def write_pangenome_flat_files(
             modules,
             spot_modules,
             regions,
+            regions_families,
         ]
     ):
         raise Exception("You did not indicate what file you wanted to write.")
@@ -1422,6 +1446,7 @@ def write_pangenome_flat_files(
         or modules
         or spot_modules
         or regions
+        or regions_families
     ):
         needAnnotations = True
         needFamilies = True
@@ -1437,7 +1462,7 @@ def write_pangenome_flat_files(
             metatype = "families"
         else:
             needMetadata = False
-    if spots or borders or spot_modules or regions:
+    if spots or borders or spot_modules or regions or regions_families:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
         needSpots = True
@@ -1500,6 +1525,12 @@ def write_pangenome_flat_files(
             processes.append(p.apply_async(func=write_spots, args=(output, compress)))
         if regions:
             processes.append(p.apply_async(func=write_regions, args=(output, compress)))
+
+        if regions_families:
+            processes.append(
+                p.apply_async(func=write_regions_families, args=(output, compress))
+            )
+
         if borders:
             processes.append(
                 p.apply_async(func=write_borders, args=(output, dup_margin, compress))
@@ -1548,6 +1579,7 @@ def launch(args: argparse.Namespace):
         partitions=args.partitions,
         families_tsv=args.families_tsv,
         regions=args.regions,
+        regions_families=args.regions_families,
         spots=args.spots,
         borders=args.borders,
         modules=args.modules,
@@ -1607,7 +1639,7 @@ def parser_flat(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.05,
-        help="minimum ratio of genomes in which the family must have multiple genes "
+        help="Minimum ratio of genomes in which the family must have multiple genes "
         "for it to be considered 'duplicated'",
     )
 
@@ -1615,69 +1647,81 @@ def parser_flat(parser: argparse.ArgumentParser):
         "--gexf",
         required=False,
         action="store_true",
-        help="write a gexf file with all the annotations and all the genes of each gene family",
+        help="Generate a detailed GEXF file with all genes and annotations for each family",
     )
     optional.add_argument(
         "--light_gexf",
         required=False,
         action="store_true",
-        help="write a gexf file with the gene families and basic information about them",
+        help="Generate a simplified GEXF file with basic gene family information",
     )
 
     optional.add_argument(
         "--json",
         required=False,
         action="store_true",
-        help="Writes the graph in a json file format",
+        help="Export the graph in JSON file format",
     )
 
     optional.add_argument(
         "--csv",
         required=False,
         action="store_true",
-        help="csv file format as used by Roary, among others. "
-        "The alternative gene ID will be the partition, if there is one",
+        help=(
+            "Export gene presence/absence in CSV format (compatible with Roary). "
+            "Uses partitions as alternative gene IDs if available."
+        ),
     )
     optional.add_argument(
         "--Rtab",
         required=False,
         action="store_true",
-        help="tabular file for the gene binary presence absence matrix",
+        help="Export gene presence/absence as a tabular binary matrix",
     )
 
     optional.add_argument(
         "--stats",
         required=False,
         action="store_true",
-        help="tsv files with some statistics for each each gene family",
+        help=(
+            "Generate genome statistics ('genome_statistics.tsv') and duplication summary "
+            "of persistent families ('mean_persistent_duplication.tsv')"
+        ),
     )
 
     optional.add_argument(
         "--partitions",
         required=False,
         action="store_true",
-        help="list of families belonging to each partition, with one file per partitions and "
-        "one family per line",
+        help="Generate one file per partition listing the gene families it contains",
     )
 
     optional.add_argument(
         "--families_tsv",
         required=False,
         action="store_true",
-        help="Write a tsv file providing the association between genes and gene families",
+        help="Write a TSV file mapping genes to their corresponding gene families",
     )
 
     optional.add_argument(
         "--regions",
         required=False,
         action="store_true",
-        help="Writes the predicted RGP and descriptive metrics in 'plastic_regions.tsv'",
+        help="Write predicted RGPs (Regions of Genomic Plasticity) and metrics to 'plastic_regions.tsv'",
     )
+
+    optional.add_argument(
+        "--regions_families",
+        required=False,
+        action="store_true",
+        help="Write a TSV file mapping each RGP to its gene family content in 'rgp_families.tsv'",
+    )
+
     optional.add_argument(
         "--spots",
         required=False,
         action="store_true",
-        help="Write spot summary and a list of all RGP in each spot",
+        help="Write spot summary and list all RGPs (Regions of Genomic Plasticity) per spot",
     )
     optional.add_argument(
         "--borders",
@@ -1689,20 +1733,20 @@ def parser_flat(parser: argparse.ArgumentParser):
         "--modules",
         required=False,
         action="store_true",
-        help="Write a tsv file listing functional modules and the families that belong to them",
+        help="Write a TSV file listing functional modules and their associated gene families",
     )
     optional.add_argument(
         "--spot_modules",
         required=False,
         action="store_true",
-        help="writes 2 files comparing the presence of modules within spots",
+        help="Generate two files comparing module presence across spots",
     )
 
     optional.add_argument(
         "--compress",
         required=False,
         action="store_true",
-        help="Compress the files in .gz",
+        help="Compress output files using gzip (.gz)",
     )
     optional.add_argument(
         "-c",
