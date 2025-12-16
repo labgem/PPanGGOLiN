@@ -587,7 +587,7 @@ def get_organism_list(organisms_filt: str, pangenome: Pangenome) -> Set[Organism
 def mp_write_genomes_file(
     organism: Organism,
     output: Path,
-    organisms_file: Path = None,
+    genome_file: Path = None,
     proksee: bool = False,
     gff: bool = False,
     table: bool = False,
@@ -597,7 +597,7 @@ def mp_write_genomes_file(
 
     :param organism: Specify the organism to be written
     :param output: Specify the path to the output directory
-    :param organisms_file: Read the genome sequences from a file
+    :param genome_file: Read the genome sequences from a file
     :param proksee: Write a proksee file for the organism
     :param gff:  Write the gff file for the organism
     :param table: Write the organism file for the organism
@@ -607,8 +607,8 @@ def mp_write_genomes_file(
     """
 
     genome_sequences = None
-    if organisms_file and (gff or proksee):
-        genome_sequences = read_genome_file(organisms_file, organism)
+    if genome_file and (gff or proksee):
+        genome_sequences = read_genome_file(genome_file, organism)
 
     if proksee:
 
