@@ -30,11 +30,7 @@ void  RandomSeedByTime( void )
 
     t = time( 0 ) ;
 
-#ifdef __TURBOC__
     srand( (unsigned) t ) ;
-#else
-    srandom( t ) ; /*V1.04-b*/
-#endif
 }
 
 
@@ -52,12 +48,7 @@ int   RandomInteger( int Mini, int Maxi )
 
     span = Maxi - Mini + 1 ;
 
-#ifdef __TURBOC__
     nrandom = rand( ) ;
-#else
-    nrandom = random( ) ; /*V1.04-b*/
-#endif
-
     result = ( (int) ( nrandom % span ) ) + Mini  ;
 
     return  result ;
@@ -79,11 +70,7 @@ float   RandomFloat( float Mini, float Maxi )
 
     span = Maxi - Mini ;
 
-#ifdef __TURBOC__
     nrandom = rand( ) ;
-#else
-    nrandom = random( ) ; /*V1.04-b*/
-#endif
 
     result = ( (float) nrandom / MAXRAND ) * span + Mini  ;
 
