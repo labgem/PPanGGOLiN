@@ -766,6 +766,15 @@ def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
     return args
 
 
+def get_arg_names_from_namespace(args_namespace: argparse.Namespace) -> List[str]:
+    """Extract all argument names from a Namespace object, excluding private attributes.
+
+    :param args_namespace: An argparse Namespace object
+    :return: List of argument names (excluding those starting with '_')
+    """
+    return [arg for arg in dir(args_namespace) if not arg.startswith("_")]
+
+
 def get_args_differing_from_default(
     default_args: argparse.Namespace,
     final_args: argparse.Namespace,
@@ -876,6 +885,9 @@ def manage_cli_and_config_args(
         config_args = combine_args(config_general_args, config_specific_args)
         config_args = combine_args(config_args, config_input_args)
 
+    specified_args = get_arg_names_from_namespace(config_args)
+    specified_args += get_arg_names_from_namespace(cli_args)
+
     # manage priority between source of args
     # cli > config > default
 
@@ -949,6 +961,8 @@ def manage_cli_and_config_args(
 
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
 
+            specified_args += get_arg_names_from_namespace(config_step_args)
+
             step_params_that_differ = get_args_differing_from_default(
                 default_step_args, step_args
             )
@@ -979,6 +993,9 @@ def manage_cli_and_config_args(
         )
 
     check_config_consistency(config, workflow_steps)
+
+    # Add specified_args attribute to track user-specified arguments
+    args.specified_args = set(specified_args)
 
     return args
 

@@ -53,6 +53,8 @@ def launch_workflow(
 
     check_option_workflow(args)
     check_annotate_args(args)
+    is_translation_table_specified = "translation_table" in args.specified_args
+
     pangenome = Pangenome()
 
     filename = mk_file_name(args.basename, args.output, args.force)
@@ -74,6 +76,7 @@ def launch_workflow(
             pseudo=args.annotate.use_pseudo,
             cpu=args.annotate.cpu,
             translation_table=args.annotate.translation_table,
+            is_translation_table_specified=is_translation_table_specified,
             disable_bar=args.disable_prog_bar,
         )
         anno_time = time.time() - start_anno
@@ -110,6 +113,7 @@ def launch_workflow(
                 disable_bar=args.disable_prog_bar,
                 defrag=not args.cluster.no_defrag,
                 code=args.cluster.translation_table,
+                is_translation_table_specified=is_translation_table_specified,
                 coverage=args.cluster.coverage,
                 identity=args.cluster.identity,
                 mode=args.cluster.mode,
@@ -162,6 +166,7 @@ def launch_workflow(
             disable_bar=args.disable_prog_bar,
             defrag=not args.cluster.no_defrag,
             code=args.cluster.translation_table,
+            is_translation_table_specified=is_translation_table_specified,
             coverage=args.cluster.coverage,
             identity=args.cluster.identity,
             mode=args.cluster.mode,

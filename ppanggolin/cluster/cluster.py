@@ -6,7 +6,7 @@ import tempfile
 from collections import defaultdict
 import os
 import argparse
-from typing import Tuple, Dict, Set
+from typing import Tuple, Dict, Set, Optional
 from pathlib import Path
 import time
 import gzip
@@ -437,12 +437,65 @@ def read_gene2fam(pangenome: Pangenome, gene_to_fam: dict, disable_bar: bool = F
         fam.add(gene_obj)
 
 
+def check_genetic_code_to_use(
+    genetic_code_from_annotation: Optional[int],
+    is_user_specified: bool,
+    user_translation_table: int,
+) -> int:
+    """
+    Determine the genetic code to use for clustering based on annotation data and user input.
+
+    This function implements the following priority logic:
+    1. If the user explicitly specified a translation table, it takes precedence
+       (with a warning if it differs from the annotation)
+    2. If a genetic code was determined from annotations, use it
+    3. Otherwise, use the default/user-provided translation table
+
+    :param genetic_code_from_annotation: Genetic code determined from annotation files
+                                         (None if no information was found)
+    :param is_user_specified: Whether the translation table was explicitly specified by the user
+    :param user_translation_table: The translation table value provided by the user
+                                   (default or explicitly specified)
+
+    :return: The genetic code to use for translation during clustering
+    """
+    logger = logging.getLogger("PPanGGOLiN")
+
+    # Case 1: User explicitly specified a translation table
+    if is_user_specified:
+        # Critical warning if user's choice differs from what was found in annotations
+        if (
+            genetic_code_from_annotation is not None
+            and genetic_code_from_annotation != user_translation_table
+        ):
+            logger.critical(
+                f"The specified translation table ({user_translation_table}) conflicts with the "
+                f"table used during the annotation step ({genetic_code_from_annotation}). "
+                f"Using different translation tables between annotation and clustering steps will produce "
+                f"inconsistent and potentially incorrect results. This should NOT be done unless you fully "
+                f"understand the implications. Proceeding with user-specified table: {user_translation_table}."
+            )
+        return user_translation_table
+
+    # Case 2: No user specification, use genetic code from annotations if available
+    if genetic_code_from_annotation is not None:
+        return genetic_code_from_annotation
+
+    # Case 3: No user specification and no annotation data, use default
+    logger.info(
+        f"No genetic code information found in the annotation files. "
+        f"Using the default translation table: {user_translation_table}."
+    )
+    return user_translation_table
+
+
 def clustering(
     pangenome: Pangenome,
     tmpdir: Path,
     cpu: int = 1,
     defrag: bool = True,
     code: int = 11,
+    is_translation_table_specified: bool = False,
     coverage: float = 0.8,
     identity: float = 0.8,
     mode: int = 1,
@@ -465,6 +518,15 @@ def clustering(
     :param disable_bar: Disable the progress bar during clustering.
     :param keep_tmp_files: Keep temporary files (useful for debugging).
     """
+
+    code = check_genetic_code_to_use(
+        pangenome.parameters["annotate"]["translation_table"],
+        is_translation_table_specified,
+        code,
+    )
+    is_translation_table_specified = (
+        "translation_table" in pangenome.parameters["annotate"]
+    )
 
     check_tools_availability(["mmseqs"])
 
@@ -844,13 +906,14 @@ def launch(args: argparse.Namespace):
                 "--infer_singletons option is not compatible with clustering "
                 "creation. To infer singleton you should give a clustering"
             )
-
+        is_translation_table_specified = "translation_table" in args.specified_args
         clustering(
             pangenome,
             args.tmpdir,
             args.cpu,
             defrag=not args.no_defrag,
             code=args.translation_table,
+            is_translation_table_specified=is_translation_table_specified,
             coverage=args.coverage,
             identity=args.identity,
             mode=args.mode,

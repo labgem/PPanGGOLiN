@@ -13,7 +13,7 @@ import tempfile
 import time
 from typing import List, Set, Tuple, Iterable, Dict, Generator, Union
 import re
-from collections import defaultdict
+from collections import defaultdict, Counter
 import warnings
 
 # installed libraries
@@ -645,7 +645,6 @@ def read_org_gbff(
     gbff_file_path: Path,
     circular_contigs: List[str],
     use_pseudogenes: bool = False,
-    translation_table: int = 11,
 ) -> Tuple[Organism, bool]:
     """
     Read a GBFF file and fills Organism, Contig and Genes objects based on information contained in this file
@@ -654,12 +653,10 @@ def read_org_gbff(
     :param gbff_file_path: Path to corresponding GBFF file
     :param circular_contigs: list of contigs
     :param use_pseudogenes: Allow to read pseudogenes
-    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
 
 
     :return: Organism complete and true for sequence in file
     """
-    used_transl_table_arg = 0
     global ctg_counter
 
     organism = Organism(organism_name)
@@ -771,10 +768,8 @@ def read_org_gbff(
                     feature[field] = replace_non_ascii(feature[field])
 
             if feature["feature_type"] == "CDS":
-                if feature["transl_table"] == "":
-                    used_transl_table_arg += 1
-                    genetic_code = translation_table
-                else:
+                genetic_code = 0
+                if feature["transl_table"] != "":
                     genetic_code = int(feature["transl_table"])
 
                 if has_partial_start or has_partial_end:
@@ -828,12 +823,6 @@ def read_org_gbff(
     for contig, metadata_dict in contig_to_uniq_metadata.items():
         contig.add_metadata(Metadata(source="annotation_file", **metadata_dict))
 
-    if used_transl_table_arg:
-        logging.getLogger("PPanGGOLiN").debug(
-            f"transl_table tag was not found for {used_transl_table_arg} CDS "
-            f"in {gbff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
-        )
-
     return organism, True
 
 
@@ -869,7 +858,6 @@ def read_org_gff(
     gff_file_path: Path,
     circular_contigs: List[str],
     pseudo: bool = False,
-    translation_table: int = 11,
 ) -> Tuple[Organism, bool]:
     """
     Read annotation from GFF file
@@ -878,13 +866,11 @@ def read_org_gff(
     :param gff_file_path: Path corresponding to GFF file
     :param circular_contigs: List of circular contigs
     :param pseudo: Allow to read pseudogene
-    :param translation_table: Translation table (genetic code) to use when transl_table is missing from CDS tags.
 
 
     :return: Organism object and if there are sequences associated or not
     """
     # TODO: This function would need some refactoring.
-    used_transl_table_arg = 0
     global ctg_counter
 
     (
@@ -1123,12 +1109,9 @@ def read_org_gff(
                     if fields_gff[gff_type] == "CDS" and (
                         not pseudogene or (pseudogene and pseudo)
                     ):
-
+                        genetic_code = 0
                         if "TRANSL_TABLE" in attributes:
                             genetic_code = int(attributes["TRANSL_TABLE"])
-                        else:
-                            used_transl_table_arg += 1
-                            genetic_code = translation_table
 
                         gene_frame = 0
                         #  Get value of frame if valid
@@ -1229,11 +1212,6 @@ def read_org_gff(
     if contig_name_to_region_info:
         add_metadata_from_gff_file(contig_name_to_region_info, org, gff_file_path)
 
-    if used_transl_table_arg:
-        logging.getLogger("PPanGGOLiN").debug(
-            f"transl_table tag was not found for {used_transl_table_arg} CDS "
-            f"in {gff_file_path}. Provided translation_table argument value was used instead: {translation_table}."
-        )
     return org, has_fasta
 
 
@@ -1414,7 +1392,6 @@ def read_anno_file(
     filename: Path,
     circular_contigs: list,
     pseudo: bool = False,
-    translation_table: int = 11,
 ) -> Tuple[Organism, bool]:
     """
     Read a GBFF file for one organism
@@ -1432,7 +1409,7 @@ def read_anno_file(
     if filetype == "gff":
         try:
             org, has_fasta = read_org_gff(
-                organism_name, filename, circular_contigs, pseudo, translation_table
+                organism_name, filename, circular_contigs, pseudo
             )
         except Exception as err:
             raise Exception(
@@ -1443,7 +1420,7 @@ def read_anno_file(
     elif filetype == "gbff":
         try:
             org, has_fasta = read_org_gbff(
-                organism_name, filename, circular_contigs, pseudo, translation_table
+                organism_name, filename, circular_contigs, pseudo
             )
         except Exception as err:
             raise Exception(
@@ -1491,6 +1468,116 @@ def chose_gene_identifiers(pangenome: Pangenome) -> bool:
         return False
 
 
+def determine_genetic_code_to_use(
+    user_translation_table: int,
+    is_user_specified: bool,
+    genetic_code_from_annotation: int = None,
+) -> int:
+    """
+    Determine the genetic code to use for the pangenome.
+
+    This function implements the following priority logic:
+    1. Extract genetic code from annotation files
+    2. If user explicitly specified a translation table and it differs from annotation,
+       issue a warning and use the user-specified value
+    3. If no genetic code found in annotations, use the user-specified/default table
+
+    :param pangenome: A Pangenome object containing genes with genetic_code attributes
+    :param user_translation_table: The translation table value provided by the user
+                                   (default or explicitly specified)
+    :param is_user_specified: Whether the translation table was explicitly specified by the user
+
+    :return: The genetic code to use for the pangenome
+    """
+    logger = logging.getLogger("PPanGGOLiN")
+
+    # Case 1: No genetic code found in annotations
+    if genetic_code_from_annotation is None:
+        logger.info(
+            f"No genetic code information found in the annotation files. "
+            f"Using the {'specified' if is_user_specified else 'default'} translation table: {user_translation_table}."
+        )
+        return user_translation_table
+
+    # Case 2: User specified a different translation table than what was found
+    if is_user_specified and user_translation_table != genetic_code_from_annotation:
+        logger.warning(
+            f"The specified translation table ({user_translation_table}) differs from the "
+            f"genetic code found in the annotation files ({genetic_code_from_annotation}). "
+            f"This is unusual and may indicate an inconsistency. "
+            f"Using the specified translation table: {user_translation_table}."
+        )
+        return user_translation_table
+
+    # Case 3: Use genetic code from annotations
+    return genetic_code_from_annotation
+
+
+def determine_genetic_code_from_annotation_files(pangenome):
+    """
+    Determine the genetic code from the pangenome based on gene annotations.
+
+    This function counts the occurrence of each genetic code across all genes in the pangenome
+    (excluding genes with genetic_code == 0) and selects the most common one. A pangenome is
+    expected to have a unique genetic code, so a warning is issued if multiple genetic codes
+    are detected, including examples of genes and genomes with different codes.
+
+    :param pangenome: A Pangenome object containing genes with genetic_code attributes
+
+    :return: The most common genetic code (int) found in the pangenome, or None if no genetic
+             code information is available in the annotations (all genes have genetic_code == 0)
+
+    :warning: Issues a warning if multiple genetic codes are detected in the pangenome
+    """
+
+    genetic_code_counter = Counter(
+        gene.genetic_code for gene in pangenome.genes if gene.genetic_code != 0
+    )
+
+    cds_count = sum(genetic_code_counter.values())
+
+    # Handle case where no genetic code was found in annotations (all genes have genetic_code == 0)
+    if len(genetic_code_counter) == 0:
+        return None
+
+    most_common_genetic_code = genetic_code_counter.most_common(1)[0][0]
+
+    # Check if there are multiple genetic codes in the pangenome
+    if len(genetic_code_counter) > 1:
+        # Collect examples of genes with different genetic codes
+        genetic_code_examples = defaultdict(list)
+        for gene in pangenome.genes:
+            if (
+                gene.genetic_code != 0
+                and len(genetic_code_examples[gene.genetic_code]) < 1
+            ):
+                # Limit to 1 example per genetic code
+                genetic_code_examples[gene.genetic_code].append(
+                    (gene.ID, gene.organism.name)
+                )
+
+        # Build warning message
+        warning_msg = (
+            f"Multiple genetic codes parsed from the annotation files ({len(genetic_code_counter)} different codes). "
+            f"This is unusual as genes from a pangenome are expected to have a unique genetic code. "
+            f"Using the most common genetic code: {most_common_genetic_code} "
+            f"(found in {genetic_code_counter[most_common_genetic_code]}/{cds_count} CDS). "
+            f"Genetic code distribution: {dict(genetic_code_counter)}. Examples:\n"
+        )
+
+        for code, examples in sorted(genetic_code_examples.items()):
+            warning_msg += f"  - Genetic code {code}: "
+            example_strs = [
+                f"gene '{gene_id}' from genome '{genome}'"
+                for gene_id, genome in examples
+            ]
+            warning_msg += ", ".join(example_strs) + "\n"
+
+        logging.getLogger("PPanGGOLiN").warning(warning_msg)
+
+    return most_common_genetic_code
+
+
 def local_identifiers_are_unique(genes: Iterable[Gene]) -> bool:
     """
     Check if local_identifiers of genes are uniq in order to decide if they should be used as gene id.
@@ -1517,6 +1604,7 @@ def read_annotations(
     cpu: int = 1,
     pseudo: bool = False,
     translation_table: int = 11,
+    is_translation_table_specified: bool = False,
     disable_bar: bool = False,
 ):
     """
@@ -1550,7 +1638,7 @@ def read_annotations(
         ):  # Check tsv sanity test if it's not one it's the other
             org_path = organisms_file.parent.joinpath(org_path)
 
-        args.append((name, org_path, circular_contigs, pseudo, translation_table))
+        args.append((name, org_path, circular_contigs, pseudo))
 
     with ProcessPoolExecutor(
         mp_context=get_context("fork"),
@@ -1575,6 +1663,14 @@ def read_annotations(
 
     # decide whether we use local ids or ppanggolin ids.
     used_local_identifiers = chose_gene_identifiers(pangenome)
+
+    genetic_code_from_annotation = determine_genetic_code_from_annotation_files(
+        pangenome
+    )
+    translation_table_to_use = determine_genetic_code_to_use(
+        translation_table, is_translation_table_specified, genetic_code_from_annotation
+    )
+
     if used_local_identifiers:
         logging.getLogger("PPanGGOLiN").info(
             "gene identifiers used in the provided annotation files were unique, "
@@ -1592,9 +1688,16 @@ def read_annotations(
         "# used_local_identifiers"
     ] = used_local_identifiers
     pangenome.parameters["annotate"]["use_pseudo"] = pseudo
+    pangenome.parameters["annotate"][
+        "# is_translation_table_user_specified"
+    ] = is_translation_table_specified
+    pangenome.parameters["annotate"][
+        "# translation_table_from_annotation_files"
+    ] = genetic_code_from_annotation
+    pangenome.parameters["annotate"]["translation_table"] = translation_table_to_use
     pangenome.parameters["annotate"]["# read_annotations_from_file"] = True
 
-    if any(genome.has_metadata() for genome in pangenome.organisms):
+    if any(genome_obj.has_metadata() for genome_obj in pangenome.organisms):
         pangenome.status["metadata"]["genomes"] = "Computed"
         pangenome.status["metasources"]["genomes"].append("annotation_file")
 
@@ -1806,12 +1909,16 @@ def launch(args: argparse.Namespace):
         )
     elif args.anno is not None:
         # TODO add warning for option not compatible with read_annotations
+
+        is_translation_table_specified = "translation_table" in args.specified_args
+
         read_annotations(
             pangenome,
             args.anno,
             cpu=args.cpu,
             pseudo=args.use_pseudo,
             translation_table=args.translation_table,
+            is_translation_table_specified=is_translation_table_specified,
             disable_bar=args.disable_prog_bar,
         )
         if pangenome.status["geneSequences"] == "No":
