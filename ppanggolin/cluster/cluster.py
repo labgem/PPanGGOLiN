@@ -831,6 +831,7 @@ def read_clustering(
     pangenome.parameters["cluster"]["infer_singletons"] = infer_singleton
     pangenome.parameters["cluster"]["translation_table"] = code
 
+
 def launch(args: argparse.Namespace):
     """
     Command launcher
