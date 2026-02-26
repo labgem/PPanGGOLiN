@@ -142,6 +142,11 @@ def get_status(pangenome: Pangenome, pangenome_file: Path):
         )
         pangenome.status["ppanggolin_version"] = None
 
+    if hasattr(status_group._v_attrs, "translation_table"):
+        pangenome.status["translation_table"] = int(
+            status_group._v_attrs.translation_table
+        )
+
     if status_group._v_attrs.Partitioned:
         pangenome.status["partitioned"] = "inFile"
 

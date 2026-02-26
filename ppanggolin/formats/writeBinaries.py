@@ -561,7 +561,11 @@ def write_status(pangenome: Pangenome, h5f: tables.File):
     )
     status_group._v_attrs.metadata = write_metadata_status(pangenome, h5f, status_group)
     status_group._v_attrs.version = distribution("ppanggolin").version
-
+    print("=" * 10)
+    print(pangenome.status)
+    print("=" * 10)
+    status_group._v_attrs.translation_table = pangenome.status["translation_table"]
+    print(status_group._v_attrs)
 
 def write_info(pangenome: Pangenome, h5f: tables.File):
     """
