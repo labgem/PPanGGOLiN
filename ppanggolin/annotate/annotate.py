@@ -2041,7 +2041,10 @@ def parser_annot(parser: argparse.ArgumentParser):
         required=False,
         type=int,
         default=11,
-        help="Translation table (genetic code) to use.",
+        help="Translation table (genetic code) to use. "
+        "If not specified and using annotation files (--anno), "
+        "the translation table information found in the annotation files will be used. "
+        "Otherwise, the default genetic code 11 will be used.",
     )
     optional.add_argument(
         "--basename",
