@@ -41,6 +41,7 @@ from ppanggolin.utils import (
     get_default_args,
     check_input_files,
     parse_input_paths_file,
+    check_translation_table_to_use,
 )
 from ppanggolin.align.alignOnPang import (
     write_gene_to_gene_family,
@@ -171,6 +172,7 @@ def manage_input_genomes_annotation(
     disable_bar: bool,
     tmpdir: str,
     config: dict,
+    translation_table: int,
 ):
     """
     Manage the input genomes annotation based on the provided mode and parameters.
@@ -187,6 +189,7 @@ def manage_input_genomes_annotation(
     :param disable_bar: Flag to disable progress bar.
     :param tmpdir: Temporary directory path.
     :param config: Configuration dictionary.
+    :param translation_table: Translation table (genetic code) to use.
     :return: A tuple of organisms, genome_name_to_path, and input_type.
     """
 
@@ -226,7 +229,6 @@ def manage_input_genomes_annotation(
             genome_name_to_path,
             cpu=cpu,
             pseudo=use_pseudo,
-            translation_table=int(pangenome_params.cluster.translation_table),
             disable_bar=disable_bar,
         )
 
@@ -273,7 +275,7 @@ def manage_input_genomes_annotation(
             genome_name_to_fasta_path=genome_name_to_path,
             tmpdir=tmpdir,
             cpu=cpu,
-            translation_table=int(pangenome_params.cluster.translation_table),
+            translation_table=translation_table,
             norna=annotate_params.norna,
             kingdom=annotate_params.kingdom,
             allow_overlap=annotate_params.allow_overlap,
@@ -583,7 +585,6 @@ def read_annotation_files(
     genome_name_to_annot_path: Dict[str, dict],
     cpu: int = 1,
     pseudo: bool = False,
-    translation_table: int = 11,
     disable_bar: bool = False,
 ) -> Tuple[List[Organism], Dict[Organism, bool]]:
     """
@@ -593,7 +594,6 @@ def read_annotation_files(
     :param organisms_file: List of GBFF files for each organism
     :param cpu: number of CPU cores to use
     :param pseudo: allow to read pseudogène
-    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
     :param disable_bar: Disable the progresse bar
     """
 
@@ -610,7 +610,6 @@ def read_annotation_files(
             org_info["path"],
             org_info["circular_contigs"],
             pseudo,
-            translation_table,
         )
         for org_name, org_info in genome_name_to_annot_path.items()
     ]
@@ -1563,6 +1562,13 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
 
+    is_translation_table_specified = "translation_table" in args.specified_args
+    translation_table = check_translation_table_to_use(
+        pangenome.status["translation_table"],
+        is_translation_table_specified,
+        args.translation_table,
+    )
+
     predict_rgp, project_spots, project_modules = check_pangenome_for_projection(
         pangenome, args.fast
     )
@@ -1610,6 +1616,7 @@ def launch(args: argparse.Namespace):
         disable_bar=args.disable_prog_bar,
         tmpdir=args.tmpdir,
         config=args.config,
+        translation_table=translation_table,
     )
 
     input_org_to_lonely_genes_count = annotate_input_genes_with_pangenome_families(
@@ -1622,7 +1629,7 @@ def launch(args: argparse.Namespace):
         identity=args.identity,
         coverage=args.coverage,
         tmpdir=args.tmpdir,
-        translation_table=int(pangenome_params.cluster.translation_table),
+        translation_table=translation_table,
         keep_tmp=args.keep_tmp,
         disable_bar=args.disable_prog_bar,
     )
@@ -1771,6 +1778,16 @@ def parser_projection(parser: argparse.ArgumentParser):
         + "_PID"
         + str(os.getpid()),
         help="Output directory",
+    )
+
+    optional.add_argument(
+        "--translation_table",
+        required=False,
+        type=int,
+        default=11,
+        help="Translation table (genetic code) to use. "
+        "If not specified, the translation table used when building the pangenome will be used. "
+        "This can be accessed using 'ppanggolin info'.",
     )
 
     optional.add_argument(

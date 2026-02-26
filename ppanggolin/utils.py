@@ -892,6 +892,7 @@ def manage_cli_and_config_args(
     # cli > config > default
 
     args = overwrite_args(default_args, config_args, cli_args)
+
     params_that_differ = get_args_differing_from_default(
         default_args, args, input_params
     )
@@ -961,8 +962,6 @@ def manage_cli_and_config_args(
 
             step_args = overwrite_args(default_step_args, config_step_args, cli_args)
 
-            specified_args += get_arg_names_from_namespace(config_step_args)
-
             step_params_that_differ = get_args_differing_from_default(
                 default_step_args, step_args
             )
@@ -984,8 +983,14 @@ def manage_cli_and_config_args(
 
             params_that_differ.update(step_params_that_differ)
 
+            specified_step_args = get_arg_names_from_namespace(config_step_args)
+            step_args.specified_args = set(specified_step_args)
+
             # Add args namespace of the step to the initial args namespace
             setattr(args, workflow_step, step_args)
+
+    # Add specified_args attribute to track user-specified arguments
+    args.specified_args = set(specified_args)
 
     if params_that_differ:
         logging.getLogger("PPanGGOLiN").info(
@@ -993,9 +998,6 @@ def manage_cli_and_config_args(
         )
 
     check_config_consistency(config, workflow_steps)
-
-    # Add specified_args attribute to track user-specified arguments
-    args.specified_args = set(specified_args)
 
     return args
 
@@ -1620,3 +1622,62 @@ def check_tools_availability(
             )
 
     return availability
+
+
+def check_translation_table_to_use(
+    pangenome_translation_table: Optional[int],
+    is_user_specified: bool,
+    user_translation_table: int,
+) -> int:
+    """
+    Determine the translation table to use based on what has been used previously and user input.
+
+    This function implements the following priority logic:
+    1. If the user explicitly specified a translation table, it takes precedence
+       (with a warning if it differs from previous usage)
+    2. If a translation table was used previously in the pangenome, use it
+    3. Otherwise, use the default/user-provided translation table
+
+    :param pangenome_translation_table: Translation table used in previous pangenome analysis steps
+                                         (None if no information was found)
+    :param is_user_specified: Whether the translation table was explicitly specified by the user
+    :param user_translation_table: The translation table value provided by the user
+                                   (default or explicitly specified)
+
+    :return: The translation table to use for translation
+    """
+    logger = logging.getLogger("PPanGGOLiN")
+
+    # Case 1: User explicitly specified a translation table
+    if is_user_specified:
+        # Critical warning if user's choice differs from what was used previously
+        if (
+            pangenome_translation_table is not None
+            and pangenome_translation_table != user_translation_table
+        ):
+            logger.critical(
+                f"The specified translation table ({user_translation_table}) conflicts with the "
+                f"table used previously for this pangenome ({pangenome_translation_table}). "
+                f"Using different translation tables between pangenome analysis steps will produce "
+                f"inconsistent and potentially incorrect results. This should NOT be done unless you fully "
+                f"understand the implications. Proceeding with user-specified table: {user_translation_table}."
+            )
+        else:
+            logger.debug(
+                f"Using user-specified translation table: {user_translation_table}"
+            )
+        return user_translation_table
+
+    # Case 2: No user specification, use genetic code from previous steps if available
+    if pangenome_translation_table is not None:
+        logger.debug(
+            f"Using translation table from previous pangenome analysis: {pangenome_translation_table}"
+        )
+        return pangenome_translation_table
+
+    # Case 3: No user specification and no previous data, use default
+    logger.info(
+        f"No translation table information found in previous pangenome analysis. "
+        f"Using the default translation table: {user_translation_table}."
+    )
+    return user_translation_table

@@ -21,7 +21,6 @@ from tqdm import tqdm
 from tables.path import check_name_validity, NaturalNameWarning
 
 # local libraries
-from ppanggolin import genome
 from ppanggolin.annotate.synta import (
     annotate_organism,
     get_contigs_from_fasta_file,
@@ -1400,7 +1399,6 @@ def read_anno_file(
     :param filename: Path to the corresponding file
     :param circular_contigs: list of sequence in contig
     :param pseudo: allow to read pseudogene
-    :param translation_table: Translation table (genetic code) to use when /transl_table is missing from CDS tags.
 
     :return: Annotated organism for pangenome and true for sequence in file
     """
@@ -1683,6 +1681,7 @@ def read_annotations(
         )
 
     pangenome.status["genomesAnnotated"] = "Computed"
+    pangenome.status["translation_table"] = translation_table_to_use
     pangenome.parameters["annotate"] = {}
     pangenome.parameters["annotate"][
         "# used_local_identifiers"
@@ -1874,6 +1873,8 @@ def annotate_pangenome(
     pangenome.status["geneSequences"] = (
         "Computed"  # the gene objects have their respective gene sequences.
     )
+    pangenome.status["translation_table"] = translation_table
+
     pangenome.parameters["annotate"] = {}
     pangenome.parameters["annotate"]["norna"] = norna
     pangenome.parameters["annotate"]["kingdom"] = kingdom
@@ -1921,6 +1922,7 @@ def launch(args: argparse.Namespace):
             is_translation_table_specified=is_translation_table_specified,
             disable_bar=args.disable_prog_bar,
         )
+
         if pangenome.status["geneSequences"] == "No":
             if args.fasta:
                 logging.getLogger("PPanGGOLiN").info(

@@ -25,6 +25,7 @@ from ppanggolin.utils import (
     detect_filetype,
     run_subprocess,
     check_tools_availability,
+    check_translation_table_to_use,
 )
 from ppanggolin.formats.readBinaries import (
     check_pangenome_info,
@@ -551,16 +552,24 @@ def launch(args: argparse.Namespace):
     :param args: All arguments provide by user
     """
     check_write_sequences_args(args)
-    translate_kwgs = {
-        "code": args.translation_table,
-        "cpu": args.cpu,
-        "tmp": args.tmpdir,
-        "keep_tmp": args.keep_tmp,
-    }
+
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
 
+    is_translation_table_specified = "translation_table" in args.specified_args
+    translation_table = check_translation_table_to_use(
+        pangenome.status["translation_table"],
+        is_translation_table_specified,
+        args.translation_table,
+    )
+
+    translate_kwgs = {
+        "code": translation_table,
+        "cpu": args.cpu,
+        "tmp": args.tmpdir,
+        "keep_tmp": args.keep_tmp,
+    }
     write_sequence_files(
         pangenome,
         args.output,
@@ -711,8 +720,10 @@ def parser_seq(parser: argparse.ArgumentParser):
     optional.add_argument(
         "--translation_table",
         required=False,
-        default="11",
-        help="Translation table (genetic code) to use.",
+        default=11,
+        help="Translation table (genetic code) to use. "
+        "If not specified, the translation table used when building the pangenome will be used. "
+        "This can be accessed using 'ppanggolin info'.",
     )
     optional.add_argument(
         "--cpu", required=False, default=1, type=int, help="Number of available threads"

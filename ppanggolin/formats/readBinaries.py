@@ -142,10 +142,20 @@ def get_status(pangenome: Pangenome, pangenome_file: Path):
         )
         pangenome.status["ppanggolin_version"] = None
 
-    if hasattr(status_group._v_attrs, "translation_table"):
+    if (
+        hasattr(status_group._v_attrs, "translation_table")
+        and status_group._v_attrs.translation_table is not None
+    ):
         pangenome.status["translation_table"] = int(
             status_group._v_attrs.translation_table
         )
+    elif status_group._v_attrs.translation_table is None:
+        raise ValueError(
+            f"The provided pangenome file {pangenome_file} has a translation_table attribute in its status but it is set to None."
+            " This issue may indicate that the file is corrupted or that the translation table was not properly stored."
+        )
+    else:
+        pangenome.status["translation_table"] = None
 
     if status_group._v_attrs.Partitioned:
         pangenome.status["partitioned"] = "inFile"
