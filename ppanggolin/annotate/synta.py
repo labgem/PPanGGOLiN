@@ -183,7 +183,7 @@ def launch_prodigal(
             gene_counter += 1
             gene_objs[contig_name].add(gene)
 
-    if len(genetic_code_count) >= 1:
+    if len(genetic_code_count) > 1:
         logging.getLogger("PPanGGOLiN").warning(
             f"Pyrodigal used multiple translation tables for genome '{org.name}' "
             f"using mode {'meta' if use_meta else 'single'}, which is unexpected. "
