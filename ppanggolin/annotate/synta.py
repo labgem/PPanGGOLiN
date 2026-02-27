@@ -8,7 +8,7 @@ from io import TextIOWrapper
 from multiprocessing import Value
 from subprocess import Popen, PIPE
 import ast
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import Dict, List, Optional, Union, Generator, Tuple
 from pathlib import Path
 import shutil
@@ -162,18 +162,34 @@ def launch_prodigal(
             *contig_sequences.values(), force_nonsd=False, translation_table=code
         )  # -g: Specify a translation table to use (default 11).
     gene_counter = 1
+
+    genetic_code_count = Counter()
+
     for contig_name, sequence in sequences.items():
-        for pred in gene_finder.find_genes(sequence):
+
+        genes = gene_finder.find_genes(sequence)
+        translation_table = genes.training_info.translation_table
+        genetic_code_count[translation_table] += 1
+
+        for pred in genes:
             gene = Gene(gene_id=f"{org.name}_CDS_{str(gene_counter).zfill(4)}")
             gene.fill_annotations(
                 start=pred.begin,
                 stop=pred.end,
                 strand="-" if pred.strand == -1 else "+",
                 gene_type="CDS",
-                genetic_code=code,
+                genetic_code=translation_table,
             )
             gene_counter += 1
             gene_objs[contig_name].add(gene)
+
+    if len(genetic_code_count) >= 1:
+        logging.getLogger("PPanGGOLiN").warning(
+            f"Pyrodigal used multiple translation tables for genome '{org.name}' "
+            f"using mode {'meta' if use_meta else 'single'}, which is unexpected. "
+            f"A genome is expected to have a single genetic code. "
+            f"Translation table distribution across contigs: {dict(genetic_code_count)}"
+        )
     return gene_objs
 
 
@@ -541,18 +557,19 @@ def annotate_organism(
     contig_sequences = get_contigs_from_fasta_file(org, fasta_file)
     if is_compressed(file_name):  # TODO simply copy file with shutil.copyfileobj
         fasta_file = write_tmp_fasta(contig_sequences, tmpdir)
+
     if procedure is None:  # prodigal procedure is not force by user
-        max_contig_len = max(len(contig) for contig in org.contigs)
-        if max_contig_len < 20000:  # case of short sequence
+        sum_contig_len = sum(len(contig) for contig in org.contigs)
+        if sum_contig_len < 20000:  # case of short sequence
             use_meta = True
             logging.getLogger("PPanGGOLiN").info(
-                f"Using the metagenomic mode to predict genes for {org_name}, as all its contigs are < 20KB in size."
+                f"Using metagenomic mode for {org_name} (total contig length: {sum_contig_len}bp < 20kb threshold)"
             )
-
         else:
             use_meta = False
     else:
         use_meta = True if procedure == "meta" else False
+
     genes = syntaxic_annotation(
         org, fasta_file, contig_sequences, tmpdir, norna, kingdom, code, use_meta
     )
