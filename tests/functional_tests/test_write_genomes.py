@@ -44,6 +44,32 @@ def _check_subdirs(outdir: Path, expected: dict):
         ), f"Expected {count} files in {subdir}, found {len(files)}"
 
 
+def _verify_gff_contains_fasta(gff_dir: Path):
+    """Helper to verify GFF files contain FASTA sequences at the end."""
+    assert gff_dir.exists(), f"GFF output directory {gff_dir} not found"
+
+    gff_files = list(gff_dir.glob("*.gff"))
+    assert len(gff_files) > 0, "No GFF files found"
+
+    for gff_file in gff_files:
+        with open(gff_file, "r") as f:
+            content = f.read()
+            assert "##FASTA" in content, f"Missing ##FASTA directive in {gff_file.name}"
+            fasta_section = content.split("##FASTA")
+            assert (
+                len(fasta_section) == 2
+            ), f"Expected exactly one ##FASTA directive in {gff_file.name}"
+            fasta_content = fasta_section[1].strip()
+            assert (
+                len(fasta_content) > 0
+            ), f"No FASTA sequences found after ##FASTA in {gff_file.name}"
+            fasta_lines = fasta_content.split("\n")
+            has_fasta_header = any(line.startswith(">") for line in fasta_lines)
+            assert (
+                has_fasta_header
+            ), f"No FASTA headers (lines starting with '>') found in {gff_file.name}"
+
+
 def test_write_genomes(stepbystep_pangenome, tmp_path):
     outdir = tmp_path / "write_genomes_outdir"
     cmd = (
@@ -53,6 +79,7 @@ def test_write_genomes(stepbystep_pangenome, tmp_path):
     )
     run_ppanggolin_command(cmd)
     _check_subdirs(outdir, {"gff": 51, "proksee": 51, "table": 51})
+    _verify_gff_contains_fasta(outdir / "gff")
 
 
 def test_write_genomes_from_anno_list(gbff_wf_pangenome, tmp_path):
@@ -63,7 +90,7 @@ def test_write_genomes_from_anno_list(gbff_wf_pangenome, tmp_path):
         open(genome_list, "w") as f_out,
     ):
         for i, line in enumerate(f_in):
-            if i >= 10:  # limit to first 10 for test speed
+            if i >= 4:  # limit to first 4 for test speed
                 break
             f_out.write(line.split()[0] + "\n")
 
@@ -73,7 +100,8 @@ def test_write_genomes_from_anno_list(gbff_wf_pangenome, tmp_path):
         f"--anno testingDataset/genomes.gbff.list --gff --table --genomes {genome_list}"
     )
     run_ppanggolin_command(cmd)
-    _check_subdirs(outdir, {"gff": 10, "table": 10})
+    _check_subdirs(outdir, {"gff": 4, "table": 4})
+    _verify_gff_contains_fasta(outdir / "gff")
 
 
 def test_write_genomes_from_cmdline(stepbystep_pangenome, tmp_path):
