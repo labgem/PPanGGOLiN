@@ -155,6 +155,7 @@ def launch_prodigal(
         closed=True,  # -c: Closed ends. Do not allow genes to run off edges.
         mask=True,  # -m: Treat runs of N as masked sequence; don't build genes across them.
         min_gene=120,  # This is to prevent error with mmseqs translatenucs that cut too short sequences
+        min_mask=9,  # -M: Minimum length of masked sequence to trigger masking (default 50).
     )
 
     if not use_meta:
