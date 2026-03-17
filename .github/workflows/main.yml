@@ -97,6 +97,7 @@ jobs:
       run: pytest --full --cov=ppanggolin --cov-report=term --cpu $NUM_CPUS 
 
     - name: Archive diff files
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: comparison-results_${{ matrix.os }}_python${{ matrix.python-version }}
