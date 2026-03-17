@@ -14,10 +14,10 @@ Content:
     Genes: 45423
     Genomes: 51
     Families: 1004
-    Edges: 1067
+    Edges: 1070
     Persistent:
         Family_count: 873
-        min_genomes_frequency: 0.86
+        min_genomes_frequency: 0.84
         max_genomes_frequency: 1.0
         sd_genomes_frequency: 0.01
         mean_genomes_frequency: 0.99
@@ -37,8 +37,8 @@ Content:
     Genomes_fluidity:
         all: 0.025
         shell: 0.554
-        cloud: 0.04
-        accessory: 0.622
+        cloud: 0.041
+        accessory: 0.623
     RGP: 66
     Spots: 2
     Modules:
