@@ -920,6 +920,7 @@ def parser_align(parser: argparse.ArgumentParser):
     optional.add_argument(
         "--translation_table",
         required=False,
+        type=int,
         default=11,
         help="Translation table (genetic code) to use. "
         "If not specified, the translation table used when building the pangenome will be used. "

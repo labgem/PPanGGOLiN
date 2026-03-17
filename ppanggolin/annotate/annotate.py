@@ -1480,10 +1480,11 @@ def determine_genetic_code_to_use(
        issue a warning and use the user-specified value
     3. If no genetic code found in annotations, use the user-specified/default table
 
-    :param pangenome: A Pangenome object containing genes with genetic_code attributes
     :param user_translation_table: The translation table value provided by the user
                                    (default or explicitly specified)
     :param is_user_specified: Whether the translation table was explicitly specified by the user
+    :param genetic_code_from_annotation: Genetic code value inferred from annotation files,
+                                         or None if no genetic code was found
 
     :return: The genetic code to use for the pangenome
     """
@@ -1911,7 +1912,8 @@ def launch(args: argparse.Namespace):
     elif args.anno is not None:
         # TODO add warning for option not compatible with read_annotations
 
-        is_translation_table_specified = "translation_table" in args.specified_args
+        specified_args = getattr(args, "specified_args", set())
+        is_translation_table_specified = "translation_table" in specified_args
 
         read_annotations(
             pangenome,

@@ -557,7 +557,8 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
 
-    is_translation_table_specified = "translation_table" in args.specified_args
+    specified_args = getattr(args, "specified_args", set())
+    is_translation_table_specified = "translation_table" in specified_args
     translation_table = check_translation_table_to_use(
         pangenome.status["translation_table"],
         is_translation_table_specified,
@@ -720,6 +721,7 @@ def parser_seq(parser: argparse.ArgumentParser):
     optional.add_argument(
         "--translation_table",
         required=False,
+        type=int,
         default=11,
         help="Translation table (genetic code) to use. "
         "If not specified, the translation table used when building the pangenome will be used. "
