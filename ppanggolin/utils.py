@@ -43,6 +43,7 @@ from scipy.sparse import csc_matrix
 import yaml
 from collections import defaultdict
 
+
 # all input params that exists in ppanggolin
 ALL_INPUT_PARAMS = [
     "fasta",
@@ -1625,7 +1626,7 @@ def check_tools_availability(
 
 
 def check_translation_table_to_use(
-    pangenome_translation_table: Optional[int],
+    pangenome: "Pangenome",
     is_user_specified: bool,
     user_translation_table: int,
 ) -> int:
@@ -1638,8 +1639,7 @@ def check_translation_table_to_use(
     2. If a translation table was used previously in the pangenome, use it
     3. Otherwise, use the default/user-provided translation table
 
-    :param pangenome_translation_table: Translation table used in previous pangenome analysis steps
-                                         (None if no information was found)
+    :param pangenome: Pangenome object containing information from previous analysis steps, including the translation table used if available
     :param is_user_specified: Whether the translation table was explicitly specified by the user
     :param user_translation_table: The translation table value provided by the user
                                    (default or explicitly specified)
@@ -1647,6 +1647,56 @@ def check_translation_table_to_use(
     :return: The translation table to use for translation
     """
     logger = logging.getLogger("PPanGGOLiN")
+
+    pangenome_translation_table = pangenome.status.get("translation_table", None)
+
+    if pangenome_translation_table is None:
+        logger.debug(
+            "No translation table found in pangenome status. Attempting to infer from parameters if available."
+        )
+
+        trans_table_from_annotate_param = pangenome.parameters.get("annotate", {}).get(
+            "translation_table", None
+        )
+        trans_table_from_cluster_param = pangenome.parameters.get("cluster", {}).get(
+            "translation_table", None
+        )
+
+        if (
+            trans_table_from_annotate_param is not None
+            and trans_table_from_cluster_param is not None
+        ):
+            # Both parameters exist
+            if trans_table_from_annotate_param == trans_table_from_cluster_param:
+                pangenome_translation_table = trans_table_from_annotate_param
+                logger.debug(
+                    f"Found consistent translation table in annotate and cluster parameters: {pangenome_translation_table}"
+                )
+            else:
+                # Conflicting values - use annotate with warning
+                logger.warning(
+                    f"Conflicting translation table information found in annotate and cluster parameters: "
+                    f"annotate={trans_table_from_annotate_param}, cluster={trans_table_from_cluster_param}. "
+                    f"Using annotate translation table: {trans_table_from_annotate_param}."
+                )
+                pangenome_translation_table = trans_table_from_annotate_param
+        elif trans_table_from_annotate_param is not None:
+            # Only annotate parameter exists
+            pangenome_translation_table = trans_table_from_annotate_param
+            logger.debug(
+                f"Found translation table in annotate parameters: {pangenome_translation_table}"
+            )
+        elif trans_table_from_cluster_param is not None:
+            # Only cluster parameter exists
+            pangenome_translation_table = trans_table_from_cluster_param
+            logger.debug(
+                f"Found translation table in cluster parameters: {pangenome_translation_table}"
+            )
+        else:
+            # Neither parameter exists
+            logger.debug(
+                "No translation table information found in pangenome status or parameters."
+            )
 
     # Case 1: User explicitly specified a translation table
     if is_user_specified:

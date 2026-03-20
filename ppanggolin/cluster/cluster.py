@@ -844,7 +844,7 @@ def launch(args: argparse.Namespace):
     specified_args = getattr(args, "specified_args", set())
     is_translation_table_specified = "translation_table" in specified_args
     translation_table = check_translation_table_to_use(
-        pangenome.status["translation_table"],
+        pangenome,
         is_translation_table_specified,
         args.translation_table,
     )
