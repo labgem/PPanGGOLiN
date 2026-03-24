@@ -18,6 +18,7 @@ from ppanggolin.utils import (
 )
 from ppanggolin.annotate.annotate import (
     annotate_pangenome,
+    determine_genetic_code_from_annotation_files,
     read_annotations,
     get_gene_sequences_from_fastas,
     check_annotate_args,
@@ -53,6 +54,15 @@ def launch_workflow(
 
     check_option_workflow(args)
     check_annotate_args(args)
+    check_translation_table(args)
+
+    # check if translation_table has been specified by the user
+    is_translation_table_specified = (
+        "translation_table" in args.annotate.specified_args
+        or "translation_table" in args.cluster.specified_args
+        or "translation_table" in args.specified_args
+    )
+
     pangenome = Pangenome()
 
     filename = mk_file_name(args.basename, args.output, args.force)
@@ -74,9 +84,12 @@ def launch_workflow(
             pseudo=args.annotate.use_pseudo,
             cpu=args.annotate.cpu,
             translation_table=args.annotate.translation_table,
+            is_translation_table_specified=is_translation_table_specified,
             disable_bar=args.disable_prog_bar,
         )
         anno_time = time.time() - start_anno
+
+        translation_table = pangenome.status["translation_table"]
 
         if args.clusters is not None:
             start_clust = time.time()
@@ -84,7 +97,7 @@ def launch_workflow(
                 pangenome,
                 args.clusters,
                 infer_singleton=args.cluster.infer_singletons,
-                code=args.cluster.translation_table,
+                code=translation_table,
                 cpu=args.cluster.cpu,
                 tmpdir=args.tmpdir,
                 keep_tmp=args.cluster.keep_tmp,
@@ -109,7 +122,7 @@ def launch_workflow(
                 force=args.force,
                 disable_bar=args.disable_prog_bar,
                 defrag=not args.cluster.no_defrag,
-                code=args.cluster.translation_table,
+                code=translation_table,
                 coverage=args.cluster.coverage,
                 identity=args.cluster.identity,
                 mode=args.cluster.mode,
@@ -154,6 +167,7 @@ def launch_workflow(
         writing_time = time.time() - start_writing
 
         start_clust = time.time()
+
         clustering(
             pangenome,
             tmpdir=args.tmpdir,
@@ -161,7 +175,7 @@ def launch_workflow(
             force=args.force,
             disable_bar=args.disable_prog_bar,
             defrag=not args.cluster.no_defrag,
-            code=args.cluster.translation_table,
+            code=pangenome.status["translation_table"],
             coverage=args.cluster.coverage,
             identity=args.cluster.identity,
             mode=args.cluster.mode,
@@ -477,6 +491,52 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     return parser
 
 
+def check_translation_table(args):
+    """
+    Check translation table consistency in workflow context.
+    """
+
+    translation_table_specified_in_annotate = (
+        "translation_table" in args.annotate.specified_args
+    )
+    translation_table_specified_in_cluster = (
+        "translation_table" in args.cluster.specified_args
+    )
+
+    if args.annotate.translation_table != args.cluster.translation_table:
+        if (
+            translation_table_specified_in_annotate
+            and translation_table_specified_in_cluster
+        ):
+
+            raise argparse.ArgumentError(
+                argument=None,
+                message=f"Different translation tables specified for annotation ({args.annotate.translation_table}) "
+                f"and clustering ({args.cluster.translation_table}). This is not allowed as the translation table "
+                f"used for annotation must be the same as the one used for clustering to ensure consistency.",
+            )
+
+        if (
+            translation_table_specified_in_annotate
+            and not translation_table_specified_in_cluster
+        ):
+            logging.getLogger("PPanGGOLiN").warning(
+                f"Translation table specified for annotation ({args.annotate.translation_table}) but not for clustering. "
+                f"Clustering will use the translation table specified for annotation to ensure consistency."
+            )
+            args.cluster.translation_table = args.annotate.translation_table
+
+        if (
+            translation_table_specified_in_cluster
+            and not translation_table_specified_in_annotate
+        ):
+            logging.getLogger("PPanGGOLiN").warning(
+                f"Translation table specified for clustering ({args.cluster.translation_table}) but not for annotation. "
+                f"Annotation will use the translation table specified for clustering to ensure consistency."
+            )
+            args.annotate.translation_table = args.cluster.translation_table
+
+
 def add_workflow_args(parser: argparse.ArgumentParser):
     """
     Parser for important arguments that can be changed in CLI.
@@ -555,7 +615,10 @@ def add_workflow_args(parser: argparse.ArgumentParser):
         required=False,
         type=int,
         default=11,
-        help="Translation table (genetic code) to use.",
+        help="Translation table (genetic code) to use. "
+        "If not specified and using annotation files (--anno), "
+        "the translation table information found in the annotation files will be used. "
+        "Otherwise, the default genetic code 11 will be used.",
     )
 
     optional.add_argument(

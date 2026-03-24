@@ -5,7 +5,6 @@ import time
 from _io import TextIOWrapper
 import logging
 import tempfile
-import subprocess
 import argparse
 from collections import defaultdict, Counter
 from typing import List, Tuple, Set, Dict, Union, Iterable, Any
@@ -22,6 +21,7 @@ from ppanggolin.utils import (
     create_tmpdir,
     run_subprocess,
     check_tools_availability,
+    check_translation_table_to_use,
 )
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.region import Spot
@@ -816,6 +816,16 @@ def launch(args: argparse.Namespace):
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
+
+    specified_args = getattr(args, "specified_args", set())
+    is_translation_table_specified = "translation_table" in specified_args
+
+    translation_table = check_translation_table_to_use(
+        pangenome,
+        is_translation_table_specified,
+        args.translation_table,
+    )
+
     align(
         pangenome=pangenome,
         sequence_file=args.sequences,
@@ -828,7 +838,7 @@ def launch(args: argparse.Namespace):
         getinfo=args.getinfo,
         use_representatives=args.fast,
         draw_related=args.draw_related,
-        translation_table=args.translation_table,
+        translation_table=translation_table,
         disable_bar=args.disable_prog_bar,
         keep_tmp=args.keep_tmp,
     )
@@ -910,8 +920,11 @@ def parser_align(parser: argparse.ArgumentParser):
     optional.add_argument(
         "--translation_table",
         required=False,
-        default="11",
-        help="Translation table (genetic code) to use.",
+        type=int,
+        default=11,
+        help="Translation table (genetic code) to use. "
+        "If not specified, the translation table used when building the pangenome will be used. "
+        "This can be accessed using 'ppanggolin info'.",
     )
     optional.add_argument(
         "--getinfo",

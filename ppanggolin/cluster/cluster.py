@@ -26,6 +26,7 @@ from ppanggolin.utils import (
     run_subprocess,
     create_tmpdir,
     check_tools_availability,
+    check_translation_table_to_use,
 )
 from ppanggolin.formats.writeBinaries import write_pangenome, erase_pangenome
 from ppanggolin.formats.readBinaries import (
@@ -828,6 +829,7 @@ def read_clustering(
     pangenome.parameters["cluster"] = {}
     pangenome.parameters["cluster"]["# read_clustering_from_file"] = True
     pangenome.parameters["cluster"]["infer_singletons"] = infer_singleton
+    pangenome.parameters["cluster"]["translation_table"] = code
 
 
 def launch(args: argparse.Namespace):
@@ -838,19 +840,27 @@ def launch(args: argparse.Namespace):
     """
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
+
+    specified_args = getattr(args, "specified_args", set())
+    is_translation_table_specified = "translation_table" in specified_args
+    translation_table = check_translation_table_to_use(
+        pangenome,
+        is_translation_table_specified,
+        args.translation_table,
+    )
+
     if args.clusters is None:
         if args.infer_singletons is True:
             logging.getLogger("PPanGGOLiN").warning(
                 "--infer_singletons option is not compatible with clustering "
                 "creation. To infer singleton you should give a clustering"
             )
-
         clustering(
             pangenome,
             args.tmpdir,
             args.cpu,
             defrag=not args.no_defrag,
-            code=args.translation_table,
+            code=translation_table,
             coverage=args.coverage,
             identity=args.identity,
             mode=args.mode,
@@ -864,7 +874,6 @@ def launch(args: argparse.Namespace):
             args.tmpdir,
             args.cpu,
             args.no_defrag,
-            args.translation_table,
             args.coverage,
             args.identity,
             args.mode,
@@ -876,7 +885,7 @@ def launch(args: argparse.Namespace):
             pangenome,
             args.clusters,
             args.infer_singletons,
-            args.translation_table,
+            translation_table,
             args.cpu,
             args.tmpdir,
             args.keep_tmp,
@@ -968,8 +977,11 @@ def parser_clust(parser: argparse.ArgumentParser):
     optional.add_argument(
         "--translation_table",
         required=False,
-        default="11",
-        help="Translation table (genetic code) to use.",
+        default=11,
+        type=int,
+        help="Translation table (genetic code) to use. "
+        "If not specified, the translation table used when building the pangenome will be used. "
+        "This can be accessed using 'ppanggolin info'.",
     )
     optional.add_argument(
         "-c",

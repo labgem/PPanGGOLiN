@@ -43,6 +43,7 @@ from scipy.sparse import csc_matrix
 import yaml
 from collections import defaultdict
 
+
 # all input params that exists in ppanggolin
 ALL_INPUT_PARAMS = [
     "fasta",
@@ -766,6 +767,15 @@ def combine_args(args: argparse.Namespace, another_args: argparse.Namespace):
     return args
 
 
+def get_arg_names_from_namespace(args_namespace: argparse.Namespace) -> List[str]:
+    """Extract all argument names from a Namespace object, excluding private attributes.
+
+    :param args_namespace: An argparse Namespace object
+    :return: List of argument names (excluding those starting with '_')
+    """
+    return [arg for arg in dir(args_namespace) if not arg.startswith("_")]
+
+
 def get_args_differing_from_default(
     default_args: argparse.Namespace,
     final_args: argparse.Namespace,
@@ -876,10 +886,14 @@ def manage_cli_and_config_args(
         config_args = combine_args(config_general_args, config_specific_args)
         config_args = combine_args(config_args, config_input_args)
 
+    specified_args = get_arg_names_from_namespace(config_args)
+    specified_args += get_arg_names_from_namespace(cli_args)
+
     # manage priority between source of args
     # cli > config > default
 
     args = overwrite_args(default_args, config_args, cli_args)
+
     params_that_differ = get_args_differing_from_default(
         default_args, args, input_params
     )
@@ -970,8 +984,14 @@ def manage_cli_and_config_args(
 
             params_that_differ.update(step_params_that_differ)
 
+            specified_step_args = get_arg_names_from_namespace(config_step_args)
+            step_args.specified_args = set(specified_step_args)
+
             # Add args namespace of the step to the initial args namespace
             setattr(args, workflow_step, step_args)
+
+    # Add specified_args attribute to track user-specified arguments
+    args.specified_args = set(specified_args)
 
     if params_that_differ:
         logging.getLogger("PPanGGOLiN").info(
@@ -1603,3 +1623,111 @@ def check_tools_availability(
             )
 
     return availability
+
+
+def check_translation_table_to_use(
+    pangenome: "Pangenome",
+    is_user_specified: bool,
+    user_translation_table: int,
+) -> int:
+    """
+    Determine the translation table to use based on what has been used previously and user input.
+
+    This function implements the following priority logic:
+    1. If the user explicitly specified a translation table, it takes precedence
+       (with a warning if it differs from previous usage)
+    2. If a translation table was used previously in the pangenome, use it
+    3. Otherwise, use the default/user-provided translation table
+
+    :param pangenome: Pangenome object containing information from previous analysis steps, including the translation table used if available
+    :param is_user_specified: Whether the translation table was explicitly specified by the user
+    :param user_translation_table: The translation table value provided by the user
+                                   (default or explicitly specified)
+
+    :return: The translation table to use for translation
+    """
+    logger = logging.getLogger("PPanGGOLiN")
+
+    pangenome_translation_table = pangenome.status.get("translation_table", None)
+
+    if pangenome_translation_table is None:
+        logger.debug(
+            "No translation table found in pangenome status. Attempting to infer from parameters if available."
+        )
+
+        trans_table_from_annotate_param = pangenome.parameters.get("annotate", {}).get(
+            "translation_table", None
+        )
+        trans_table_from_cluster_param = pangenome.parameters.get("cluster", {}).get(
+            "translation_table", None
+        )
+
+        if (
+            trans_table_from_annotate_param is not None
+            and trans_table_from_cluster_param is not None
+        ):
+            # Both parameters exist
+            if trans_table_from_annotate_param == trans_table_from_cluster_param:
+                pangenome_translation_table = trans_table_from_annotate_param
+                logger.debug(
+                    f"Found consistent translation table in annotate and cluster parameters: {pangenome_translation_table}"
+                )
+            else:
+                # Conflicting values - use annotate with warning
+                logger.warning(
+                    f"Conflicting translation table information found in annotate and cluster parameters: "
+                    f"annotate={trans_table_from_annotate_param}, cluster={trans_table_from_cluster_param}. "
+                    f"Using annotate translation table: {trans_table_from_annotate_param}."
+                )
+                pangenome_translation_table = trans_table_from_annotate_param
+        elif trans_table_from_annotate_param is not None:
+            # Only annotate parameter exists
+            pangenome_translation_table = trans_table_from_annotate_param
+            logger.debug(
+                f"Found translation table in annotate parameters: {pangenome_translation_table}"
+            )
+        elif trans_table_from_cluster_param is not None:
+            # Only cluster parameter exists
+            pangenome_translation_table = trans_table_from_cluster_param
+            logger.debug(
+                f"Found translation table in cluster parameters: {pangenome_translation_table}"
+            )
+        else:
+            # Neither parameter exists
+            logger.debug(
+                "No translation table information found in pangenome status or parameters."
+            )
+
+    # Case 1: User explicitly specified a translation table
+    if is_user_specified:
+        # Critical warning if user's choice differs from what was used previously
+        if (
+            pangenome_translation_table is not None
+            and pangenome_translation_table != user_translation_table
+        ):
+            logger.critical(
+                f"The specified translation table ({user_translation_table}) conflicts with the "
+                f"table used previously for this pangenome ({pangenome_translation_table}). "
+                f"Using different translation tables between pangenome analysis steps will produce "
+                f"inconsistent and potentially incorrect results. This should NOT be done unless you fully "
+                f"understand the implications. Proceeding with user-specified table: {user_translation_table}."
+            )
+        else:
+            logger.debug(
+                f"Using user-specified translation table: {user_translation_table}"
+            )
+        return user_translation_table
+
+    # Case 2: No user specification, use genetic code from previous steps if available
+    if pangenome_translation_table is not None:
+        logger.debug(
+            f"Using translation table from previous pangenome analysis: {pangenome_translation_table}"
+        )
+        return pangenome_translation_table
+
+    # Case 3: No user specification and no previous data, use default
+    logger.info(
+        f"No translation table information found in previous pangenome analysis. "
+        f"Using the default translation table: {user_translation_table}."
+    )
+    return user_translation_table

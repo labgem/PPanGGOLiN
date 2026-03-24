@@ -41,6 +41,13 @@ def read_status(h5f: tables.File):
     }
     status_to_print = {key: bool(val) for key, val in status_to_print.items()}
 
+    if (
+        hasattr(status_group._v_attrs, "translation_table")
+        and status_group._v_attrs.translation_table is not None
+    ):
+        status_to_print["translation_table"] = int(
+            status_group._v_attrs.translation_table
+        )
     status_to_print["PPanGGOLiN_Version"] = str(status_group._v_attrs.version)
 
     return {"Status": status_to_print}
