@@ -9,7 +9,7 @@ Status:
     Spots_Predicted: false
     Modules_Predicted: false
     translation_table: 11
-    PPanGGOLiN_Version: 2.2.6
+    PPanGGOLiN_Version: 2.3.0
 
 Content:
     Genes: 47986
