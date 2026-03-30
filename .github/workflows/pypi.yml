@@ -35,9 +35,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # macos-13 is an Intel runner, macos-14 is an Apple Silicon runner
+        # macos-14 is an Apple Silicon runner
         # Should we support Linux ARM? If so, add 'ubuntu-24.04-arm'
-        os: [ubuntu-latest, macos-13, macos-14, ubuntu-24.04-arm]
+        # macos 13 is not supported by github anymore. 
+        os: [ubuntu-latest, macos-14, ubuntu-24.04-arm]
 
     steps:
       - uses: actions/checkout@v4
