@@ -8,7 +8,8 @@ Status:
     RGP_Predicted: true
     Spots_Predicted: true
     Modules_Predicted: false
-    PPanGGOLiN_Version: 2.2.6
+    translation_table: 11
+    PPanGGOLiN_Version: 2.3.0
 
 Content:
     Genes: 47986
@@ -41,10 +42,14 @@ Parameters:
     annotate:
         # used_local_identifiers: True
         use_pseudo: False
+        # is_translation_table_user_specified: False
+        # translation_table_from_annotation_files: 11
+        translation_table: 11
         # read_annotations_from_file: True
     cluster:
         # read_clustering_from_file: True
         infer_singletons: False
+        translation_table: 11
     graph:
     partition:
         beta: 2.5

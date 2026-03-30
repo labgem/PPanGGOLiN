@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import logging
-from typing import Dict, Generator, List, Union, Set, Tuple, Iterable
+from typing import Dict, Generator, List, Optional, Union, Set, Tuple, Iterable
 from collections import defaultdict
 
 # installed libraries
@@ -394,8 +394,8 @@ class Gene(Feature):
 
     def fill_annotations(
         self,
-        position: int = None,
-        genetic_code: int = 11,
+        position: Optional[int] = None,
+        genetic_code: int = 0,  # 0 mean that the genetic code is not specified
         is_partial: bool = False,
         frame: int = 0,
         **kwargs,

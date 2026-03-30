@@ -624,11 +624,7 @@ int nem(const char* Fname,
 
     if ( err == STS_OK )
     {
-#ifdef __TURBOC__
       srand( (unsigned) NemPara.Seed ) ;
-#else
-      srandom( NemPara.Seed ) ;  /*V1.04-g*/
-#endif
 
         if ( ( err = ClassifyByNem( &NemPara, &Spatial, &Data, 
                                     &StatModel, ClassifM, 

@@ -21,6 +21,7 @@ from ppanggolin.utils import (
     restricted_float,
     run_subprocess,
     check_tools_availability,
+    check_translation_table_to_use,
 )
 from ppanggolin.formats.readBinaries import check_pangenome_info
 from ppanggolin.genetic_codes import genetic_codes
@@ -387,17 +388,6 @@ def write_msa_files(
         single_copy=single_copy,
     )
 
-    # check that the code is similar than the one used previously, if there is one
-    if "translation_table" in pangenome.parameters["cluster"]:
-        if pangenome.parameters["cluster"]["translation_table"] != str(
-            translation_table
-        ):
-            logging.getLogger("PPanGGOLiN").warning(
-                "The translation table used during clustering "
-                f"('{pangenome.parameters['cluster']['translation_table']}') "
-                f"is different than the one provided now ('{translation_table}')"
-            )
-
     compute_msa(
         families,
         outdir,
@@ -435,6 +425,16 @@ def launch(args: argparse.Namespace):
     mk_outdir(args.output, args.force)
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
+
+    is_translation_table_specified = "translation_table" in getattr(
+        args, "specified_args", set()
+    )
+    translation_table = check_translation_table_to_use(
+        pangenome,
+        is_translation_table_specified,
+        args.translation_table,
+    )
+
     write_msa_files(
         pangenome,
         args.output,
@@ -445,7 +445,7 @@ def launch(args: argparse.Namespace):
         soft_core=args.soft_core,
         phylo=args.phylo,
         use_gene_id=args.use_gene_id,
-        translation_table=args.translation_table,
+        translation_table=translation_table,
         dup_margin=args.dup_margin,
         single_copy=args.single_copy,
         force=args.force,
@@ -555,7 +555,9 @@ def parser_msa(parser: argparse.ArgumentParser):
         required=False,
         default=11,
         type=int,
-        help="Translation table (genetic code) to use.",
+        help="Translation table (genetic code) to use. "
+        "If not specified, the translation table used when building the pangenome will be used. "
+        "This can be accessed using 'ppanggolin info'.",
     )
     optional.add_argument(
         "-c",

@@ -8,16 +8,17 @@ Status:
     RGP_Predicted: true
     Spots_Predicted: true
     Modules_Predicted: true
-    PPanGGOLiN_Version: 2.2.6
+    translation_table: 11
+    PPanGGOLiN_Version: 2.3.0
 
 Content:
-    Genes: 45429
+    Genes: 45423
     Genomes: 51
-    Families: 1010
-    Edges: 1075
+    Families: 1004
+    Edges: 1070
     Persistent:
         Family_count: 873
-        min_genomes_frequency: 0.86
+        min_genomes_frequency: 0.84
         max_genomes_frequency: 1.0
         sd_genomes_frequency: 0.01
         mean_genomes_frequency: 0.99
@@ -28,7 +29,7 @@ Content:
         sd_genomes_frequency: 0.18
         mean_genomes_frequency: 0.45
     Cloud:
-        Family_count: 99
+        Family_count: 93
         min_genomes_frequency: 0.02
         max_genomes_frequency: 0.22
         sd_genomes_frequency: 0.05
@@ -36,9 +37,9 @@ Content:
     Number_of_partitions: 3
     Genomes_fluidity:
         all: 0.025
-        shell: 0.553
-        cloud: 0.039
-        accessory: 0.624
+        shell: 0.554
+        cloud: 0.041
+        accessory: 0.623
     RGP: 66
     Spots: 2
     Modules:

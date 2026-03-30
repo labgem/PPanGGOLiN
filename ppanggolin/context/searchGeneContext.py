@@ -26,6 +26,7 @@ from ppanggolin.utils import (
     read_compressed_or_not,
     extract_contig_window,
     check_tools_availability,
+    check_translation_table_to_use,
 )
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.align.alignOnPang import (
@@ -762,12 +763,22 @@ def launch(args: argparse.Namespace):
 
     pangenome = Pangenome()
     pangenome.add_file(args.pangenome)
+
+    is_translation_table_specified = "translation_table" in getattr(
+        args, "specified_args", set()
+    )
+    translation_table = check_translation_table_to_use(
+        pangenome,
+        is_translation_table_specified,
+        args.translation_table,
+    )
+
     align_args = {
         "no_defrag": args.no_defrag,
         "use_representatives": args.fast,
         "identity": args.identity,
         "coverage": args.coverage,
-        "translation_table": args.translation_table,
+        "translation_table": translation_table,
         "tmpdir": args.tmpdir,
         "keep_tmp": args.keep_tmp,
         "cpu": args.cpu,
@@ -916,8 +927,11 @@ def parser_context(parser: argparse.ArgumentParser):
     align.add_argument(
         "--translation_table",
         required=False,
-        default="11",
-        help="The translation table to use when the input sequences are nucleotide sequences. ",
+        type=int,
+        default=11,
+        help="The translation table to use when the input sequences are nucleotide sequences. "
+        "If not specified, the translation table used when building the pangenome will be used. "
+        "This can be accessed using 'ppanggolin info'.",
     )
     align.add_argument(
         "--tmpdir",
