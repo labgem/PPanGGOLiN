@@ -1,0 +1,615 @@
+                        ==========
+                        NEM Manual
+                        ==========
+
+%PrintHelpGeneral
+
+Goal
+====
+
+    This program computes a partition of a given set of objects 
+    described by one or several numeric variables and by their 
+    spatial relationships, using the 'Neighborhood EM' algorithm 
+    (NEM). This algorithm is derived from the EM algorithm applied
+    to a hidden Markov random field model. Its new feature consists in
+    taking into account some spatial interdependance between the 
+    objects.
+
+    It may be used for:
+
+    - unsupervised segmentation of color or gray-level images 
+      (points = pixel values, geographic position = pixel coordinates) ;
+
+    - clustering of spatial data like socio-economical activities of
+      neighbouring counties, etc.
+
+    The algorithm takes as input an objects-variables table, 
+    and a specification of the neighborhood relationship between 
+    the objects. It produces as output a fuzzy or a hard partition 
+    of the objects.  The main algorithm is described in the following
+    paper:
+
+Ambroise, C., Dang, V.M. and Govaert, G. (1997). Clustering of spatial
+  data by the EM algorithm, in A.~Soares, J.~G\'omez-Hernandez and
+  R.~Froidevaux, eds, `geoENV I - Geostatistics for Environmental
+  Applications', Vol. 9 of `Quantitative Geology and Geostatistics', 
+  Kluwer Academic Publisher, pp.~493--504.
+
+
+Changing default parameters
+===========================
+
+    The behaviour of this clustering algorithm can be adjusted in many
+    ways to fit a particular problem. The main possibilities
+    are described below.  
+
+    - The assumed degree of spatial interdependance is controlled by
+    the value of the 'beta' coefficient (option '-b beta_value'). The higher
+    it is, the smoother the partition will look in the geographic
+    space, but the less it will fit to the data. The default value (1.0)
+    seems to work well in most image segmentation problems where the
+    patches are supposed to be spatially smooth. For beta's lowest
+    value (0.0), the algorithm is the same as Dempster et al's EM
+    algorithm (1974), and does a 'spatially blind' segmentation.
+
+    - The algorithm 'Neighborhood Classification EM' (NCEM) can be used
+    instead of NEM (option '-a ncem'). The principle of NCEM consists in
+    'hardening' the classification matrix at each iteration (C-step
+    after the E-step). Practically, NCEM converges faster than NEM,
+    but gives a poorer segmentation on data containing a high level of
+    noise.  
+
+    - In some applications, the class may be already known for a part of
+    the sample. Such a knowledge can be taken into account by the
+    Neighborhood EM algorithm, and may improve considerably the resulting
+    classification (option '-s l file.ck').  
+
+    - Incomplete observations are taken into account in the
+    probabilistic model and the program.  It is simply assumed that
+    the missingness occurs at random, i.e. it does not depend on the
+    missing value itself nor on the unobserved class.
+
+
+Notice
+======
+
+    The program is only provided to make it easier to test the
+    behavior of the Neighborhood EM clustering algorithm and compare
+    it with other algorithms.    Although I have tried to write and 
+    test the program as carefully as possible, it is not guaranteed 
+    to be error-free.  Please contact me if you have
+    any questions or problems in using it.  Please also mention its
+    origin if you use it for a published work. Finally I would be
+    interested to know for what kind of problem you have found
+    this program to be of use.
+
+Van Mô Dang
+Van.Mo.Dang@utc.fr
+http://www.hds.utc.fr/~mdang
+
+
+%end PrintHelpGeneral
+
+%PrintHelpOptions
+
+Command Syntax
+==============
+
+ Usage :    nem_exe   file  K  [ option1 option2 ... ]
+ ------- 
+
+ Arguments :
+ -----------
+   file       base name of input files ___.str and ___.dat
+   K          number of classes
+
+ Options :   [ default  ] { possible values }
+ --------- 
+
+ 
+  -a algo   [ nem      ]   { nem ncem gem }
+     Algorithm to compute classification at E-step of each iteration : 
+      ncem = crisp classification by ICM procedure
+      nem  = fuzzy classification by mean field approximation
+      gem  = fuzzy classification by Gibbs sampling (Monte-Carlo simulations)
+
+  -b beta   [ 1        ]   (0.0 <= beta <= 4)
+     Coefficient of spatial smoothing to apply. This matches the 
+     Potts random field strength of interaction with 4-neighbor contexts.
+     Notice that b = 0 is equivalent to EM for a mixture model.
+
+  -c wh thr [clas  0.04]   { none clas crit } and (>0)
+
+       none     = no convergence test, i.e. do all specified iterations.
+
+       clas thr = stop the iterations when the largest difference
+                  between previous and current classification matrix
+                  is <= threshold. A threshold 0.04 is usually optimal.
+
+       crit thr = stop the iterations when 
+                  | (current_crit - last_crit)/current_crit | < threshold.
+                  A threshold of 0.001 is usually best.  The test uses 
+                  the criterion selected by the option -C.
+
+  -f format [ hard     ]   { hard fuzzy }
+     Format of output partition. Hard = N integers having values from
+     1 to nk : for each observation, give the number of the class where
+     it has highest grade of membership. Fuzzy = N x K reals between
+     0 and 1 : for each observation, give its grade of membership in
+     each class.
+
+  -i itmax  [ 100      ]   (>= 0)
+     Maximum number of NEM iterations.
+
+  -l dolog  [ n        ]   { y n }
+     Produce a log file or not to see the results of each iteration.
+
+  -m f p d  [norm p_ s__]  { norm lapl } { p_ pk } { s__ sk_ s_d skd }
+
+     Mixture model assumption to use
+
+      norm/lapl/bern : normal, Laplace or Bernoulli distributions
+                       Bernoulli distributions are for binary data
+
+      p_/pk     : clusters have equal / varying proportions
+
+      s__/...   : variance model
+                    s__ : same variance in all clusters and variables
+                    sk_ : one variance per cluster, same in all variables
+                    s_d : one variance per variable, same in all clusters
+                    skd : one variance per cluster and variable
+
+                  the variables are assumed independent within a cluster
+
+  -n neigh  [ 4        ]   { 4 f }
+     Neighborhood specification to use in the case of an image.
+     4 = default 4-nearest neighbor system. f = specify neighborhood
+     window in file.nei.
+
+  -o fout   [ file     ]
+     Output files basename ___.cf, ___.mf and ___.log. Default is 
+     to use input file basename. Specify '-' to output the
+     classification to standard output; useful to pipe the result to an 
+     'nem_exe -s f -' session.
+
+  -s init   [ s 1      ]   { s <v> | f <ini.uf> | r <n> | l <file> } 
+     Initialization mode.
+     -s s <v>   
+        Sort observations by variable <v>, then divide them
+        in K quantiles of equal size to get initial partition.
+
+     -s f <ini.uf>
+        Read initial fuzzy classification from file <ini.uf>. 
+        '-s f -' reads from standard input.
+
+     -s r <n>
+        Start <n> times from random parameters (means chosen at
+        random among the observations), then keep result with highest
+        criterion.
+
+     -s l <file>
+        Use partially known labels given in <file> to compute initial 
+        parameters. Those labels remain fixed throughout the
+        clustering process.
+
+     -s mi <para> 
+     -s mf <para>
+        Use specified parameters at beginning (mi) or throughout the
+        clustering process (mf). Parameters syntax :
+        p_1 ... p_{K-1}   m_11 .. m_1D m21 ... m_KD   s_11 ... s_KD.
+        The s_kd are the standard errors for normal distributions, or
+        the scale parameters for the Laplace distributions.
+
+  -t tie    [ random   ]   { random first }
+     How to choose the class with highest probability when several
+     classes have same maximum probability in MAP
+     classification. 'random' draws uniformly between ex-aequo
+     classes, 'first' chooses class with lowest index.
+ 
+
+  -B bmod   [ fix      ]   { fix psgrad heu_d heu_l }
+     Procedure to estimate beta automatically :
+      fix   = no estimation of beta, use beta given by option '-b'
+      psgrad = pseudo-likelihood gradient ascent
+      heu_d = heuristic using drop of fuzzy within cluster inertia
+      heu_l = heuristic using drop of mixture likelihood
+
+  -C crit   [ U        ]   local maximum criterion { U M D L }
+     Criterion used to select the best local solution from random starts :
+      U = fuzzy spatial clustering criterion
+      M = fuzzy pseudo-likelihood
+      D = fuzzy within cluster inertia
+      L = likelihood of mixture parameters
+
+  -G nit conv step rand [  1 0.001 0.0 0 ]  
+     Parameters of beta gradient estimation
+      nit = number of gradient iterations
+      conv = threshold to test convergence (|g'|<conv*N is tested)
+      step = > 0 for fixed step, <= 0 for Newton step = 1/g''
+      rand = in -s r  init mode, initial beta random (1) or fixed by -b (0)
+
+  -H bstep bmax ddrop dloss lloss [ 0.10 2.0 0.8 0.5 0.02 ]  
+     Parameters of beta D and L heuristics :
+      bstep = step of beta increase
+      bmax  = maximal value of beta to test
+      ddrop = threshold of allowed D drop (higher = less detection)
+      dloss = threshold of allowed D loss (higher = less detection)
+      lloss = threshold of allowed L loss (higher = less detection)
+
+  -I eiter  [ 1        ]   (>= 1)
+     Number of internal E-step iterations (nem and ncem algorithms),
+     i.e. number of sweeps through whole dataset to compute
+     classification at each iteration.  For gem algorithm, indicates
+     number of sweeps through the dataset to compute the average
+     frequency of class occurrence -> a large value is recommended
+     for the gem algorithm (typically 50).
+
+  -M miss   [ replace  ]    { replace ignore }
+     How to deal with missing data.  Replace by expected value (EM) or
+     ignore when computing mean (maximize fuzzy clustering criterion).
+
+  -O order  [ direct   ]   order of site visit { direct random }
+     Order in which to classify the observations at E-step.
+      direct = given order 1..N
+      random = random permutation of 1..N
+
+  -S seed   [ <time>  ]    (integer)
+     Specify a seed for the random number generator. Default uses
+     current system clock.
+
+  -T test   [ n       ]    { y n }
+     Print some debugging information or not.
+
+  -U update [ seq      ]   { seq para }
+     Update the class of the sites in a sequential or parallel manner.
+     'seq' works best. 'para' is more grounded, because it is EM with
+     mean field approximation, but it requires a low spatial smoothing.
+
+You may also just type arguments : 
+
+  -v                      versions information
+  -h help_topic           longer help - help topics are
+     general
+     options
+     examples
+     filein
+     fileout
+     versions
+ 
+ 
+%end PrintHelpOptions
+
+%PrintHelpExamples
+
+    Examples :
+    ----------
+ nem_exe  myimg  3 -b 0.5 -s r 10 -o Res/myimg3r_05 >&! Res/myimg3r_05.out &
+
+    This unix command clusters data set myimg (files myimg.dat, myimg.str)
+    into 3 classes ; spatial coefficient is 0.5 ; do 10 random starts ;
+    save results in files Res/myimg3r_05.* (___.cf ___.log ___.mf) .
+    Last part of the command is unix-specific : it saves screen output
+    to file Res/myimg3r_05.out and executes the program in background.
+
+%end PrintHelpExamples
+
+
+%PrintHelpFileIn
+
+Input Files
+===========
+
+    Input files are in ASCII format.
+    2 or 3 input files are required : file.str   file.dat   [ file.nei ]
+    2 optional input files :          file.u0    file.ck
+
+ 1) file.str
+ -----------
+    This gives the structure of the data : 
+    type of spatial repartition (image, spatial or non-spatial),
+    number of objects and variables. This file may start with
+    comment lines to describe the dataset (lines beginning with #).
+
+    - Ex 1 : Color image (each pixel is described by 3 variables) 
+             of 200 lines (height) and 300 columns (width)
+    # RGB biomedical coloscopic image. Look for 3 or 4 classes.
+    I 200 300 3
+
+
+    - Ex 2 : Spatial dataset of 3000 objects described by 4 variables
+    # Economic data on counties (region of Centre). About 5 classes.
+    S 3000 4
+
+
+    - Ex 3 : Non-spatial dataset of 3000 objects described by 4 variables
+    # Companies characteristics for risk assessment. About 6 classes.
+    N 3000 4
+
+
+ 2) file.dat
+ -----------
+    Contains the objects-variables table (only the non-spatial
+    variables).  Missing data are specified by NaN.
+
+
+    If the dataset is an image, the pixels must be listed 
+    line-by-line first, i.e. : 
+
+    x(1,1) x(1,2) ... x(1,nc)  
+    x(2,1) x(2,2) ... x(2,nc)
+    ...
+    x(nl,1) x(nl,2) ... x(nl,nc)
+
+    where nl = number of lines, nc = number of columns, and 
+    x(i,j) = values of pixel at line i and column j (a set of 3
+    numbers for a color image).
+
+    - Ex 1 : Color image
+    50 100 120
+    51  99 122
+    ...
+
+    - Ex 2 : Spatial data (4 variables)
+    0.31 200 41 1200 
+    0.28 202 43 1180
+    ...
+
+
+ 3) file.nei
+ -----------
+    Specifies the spatial relationships between the objects. 
+    * For an image, this file is optional and allows to specify
+    a particular neighborhood system ; if no file is specified,
+    default neighborhood system taken is 4-nearest neighbours.
+    * For other spatial data, this file is required.
+
+    Format is different for an image and other spatial data
+    (see examples below).
+
+    - Ex 1 : 4 nearest-neighbours in an image (default)
+    -1 1           /* at most 1 pixel on the left and 1 on the right */
+    -1 1           /* at most 1 pixel up and 1 down */
+    0 1 0          
+    1 0 1          /* 4 equally weighted neighbors : */
+    0 1 0	   /* up,left,right,down */            
+
+    - Ex 2 : other spatial data, unweighted neighborhood graph
+    0              /* 0 = no weight specified (use default weight = 1.0) */
+    1   3   2 5 7  /* object 1 has 3 neighbors : objects 2, 5 and 7 */
+    2   2   1 3
+    ...
+
+
+    - Ex 2 : other spatial data, weighted neighborhood graph
+    1                           /* 1 = weights are specified */
+    1   3   2 5 7  0.5 0.6 0.8  /* object 1 has 3 neighbors : 2, 5 and 7 */
+    2   2   1 3    0.3 0.5
+    ...
+
+
+ 4.a) file.ck  (option -s l file.ck)
+ ------------
+    Gives the class of the points for which the label is already
+    known. Expected format is N + 1 integers (N being the total
+    number of objects in the sample) :
+    - the first number is the number of classes K ;
+    - the N following integers, in the same order as the
+    objects in file.dat, indicate the class to which the
+    corresponding object belongs.  If the value is 0 or greater than the
+    number of classes, then the object is considered to have no known
+    label (its label will be computed by the algorithm). 
+
+    In the current implementation, each class must contain at least
+    one observation with known label. Those pre-labeled observations
+    are used to initialize the centers of the clusters.
+
+    5     /* number of classes */
+    0     /* object 1 has no known label */
+    5     /* object 2 belongs to class 5 */
+    1     /* object 3 belongs to class 1 */
+    ...
+
+
+ 4.b) file.u0  (option -s f)
+ ------------
+    Gives an initial fuzzy classification to start the algorithm. 
+
+    0.9 0.1  /* object 1 : initial membership = 0.9/0.1 in class 1/2 */
+    0.3 0.7  /* object 2 : initial membership = 0.3/0.7 in class 1/2 */
+
+
+%end PrintHelpFileIn
+
+
+
+%PrintHelpFileOut
+
+Output Files
+============
+
+    Output files are in ASCII format.
+    2 files are output :              file.cf    file.mf
+    1 optional file is output :       file.log
+
+
+ 1) file.cf (or file.uf for fuzzy partition)
+ -------------------------------------------
+    Gives the partition found by the algorithm.
+
+    - Ex 1 : Image segmented in 2 'hard' classes (linewise order, as the 
+           input data file)
+    1        /* Object 1 belongs to class 1 */
+    1        /* Object 2 belongs to class 1 */
+    2        /* Object 3 belongs to class 2 */
+    1
+    2
+    2
+    ...
+
+    - Ex 2 : Data segmented in 3 fuzzy classes
+    0.2  0.7  0.1    /* Object 1 : class 1 with probability 0.2 , etc. */
+    0.8  0.05 0.015
+    ...
+
+
+ 2) file.mf
+ ----------
+    
+    This file gives the values of criteria optimized by the algorithm,
+    and the parameters of the mixture calculated by the
+    algorithm (means, proportions, scale parameter). Example: 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~ START EXAMPLE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Command line : 
+ 
+  nem_exe intro 2 -b 1.00 -f fuzzy -R intro.cr -o intro_b10 -s r 10 -C M 
+ 
+Criteria U=NEM, D=Hathaway, L=mixture, M=markov ps-like, error
+
+  56.3807    -2671.73    -1788.76    -2793.36   0.335938
+ 
+Beta (fixed)
+  1.0000
+Mu (4), Pk, and sigma (4) of the 2 classes
+ 
+   0.947  0.00456  0.0199  0.998   0.5    1.15226  1.15226  1.15226  1.15226 
+   0.0614 1.03     0.864  -0.163   0.5    1.15226  1.15226  1.15226  1.15226 
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~ END EXAMPLE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+ 3) file.log
+ -----------
+    Details each iteration results (optimized criterion and 
+    class parameters).
+
+
+%end PrintHelpFileOut
+
+
+%PrintHelpVersions
+
+History of modifications
+========================
+
+Version 0.00  (01.02.1996)
+------------
+First version released on WEB. Initialization by sorting variable.
+
+
+Version 1.00  (31.05.1996)  
+------------
+Random initializations. Image default neighborhood system. Long help.
+
+
+Version 1.01  (27.06.1996)  
+------------
+Added an -a ncem option to implement the crisp clustering version of NEM.
+
+Each observation is now updated sequentially in turn. The previous 
+parallel updating would produce chessboard-like images for high betas.
+
+
+Version 1.02  (17.10.1996)
+------------
+Added the possibility to take into account a partial knowledge
+of the classification into the clustering procedure 
+(option '-s l <file.ck>').
+
+
+Version 1.03  (02.10.1997)  
+------------
+If a partial knowledge of the classification is available, the
+intial cluster centers are computed from the observations with
+known labels.  
+
+The log file is made optional (option '-l y').  The ___.mf file now
+also contains the estimated cluster proportions, volumes and
+covariance matrices and the values of the final criteria.
+
+
+Version 1.04  (11.01.1998)  
+------------
+
+Two heuristics are implemented to estimate the spatial smoothness
+coefficient beta.  The first heuristic is based on detecting a sharp
+drop in the fuzzy within-cluster inertia D, or a sufficient decrease
+from its maximum value, when beta is slowly increased.  The second
+heuristic is based on detecting a sufficient decrease of the
+log-likelihood L of the mixture parameters from its maximum value.
+The heuristics may be invoked with '-B heu_d' or '-B heu_l'. Their
+default parameters may be changed with '-H ...'. 
+
+The final partition may now be printed to standard ouput instead of to a
+file (option '-o -').  The result can thus be redirected as an 
+initial partition to another nem_exe session's input.
+
+The initial partition may now be read from any file with option '-s f
+foo.bar' (previously inputbasename.u0 was used).  In particular, the
+partition may be read from standard input (option '-s f -').  This allows
+to read the initial partition through a pipe from the result of a previous 
+nem_exe session.
+
+At each iteration, the fuzzy classification at the E-step may now be
+computed by either of two methods :
+- Neighborhood EM's fixed point technique (default, '-a nem')
+- Gibbsian EM's Gibbs sampler technique ('-a gem').
+
+A longer explanation is given for the options and successive versions
+(option '-h helptopic').
+
+Other options have been added, to test the effect of alternative
+parameter values.  Those options usually do not change considerably
+the default behaviour of the algorithm :
+
+- At the E-step of each iteration, the classification may now be
+  updated in a random order instead of 1..N (option '-O random').
+- The seed of the random number generator may now be given (option '-S seed').
+- The number of E-step internal iterations may be changed (option '-I eiter').
+- The convergence threshold may also be changed (option '-c cvthres').
+- Another criterion than U may be chosen to select best result ('-C crit').
+- Compute the classification error in two-class case ('-R refclass').
+
+A few internal changes were also made to make the program portable to
+the djgpp gcc compiler for MS-DOS (srand48 replaced by srandom).
+
+
+Version 1.05  (09-APR-1998)  
+------------
+
+This version mainly adds the capability to deal with missing data.
+This means that some of the N observation vectors may be incompletely
+observed.  In the 'name.dat' file, use NaN to indicate unobserved
+components of an observation vector.  Two slightly different
+techniques are provided to deal with missing data.  The first and
+default behaviour (invoked using switch '-M replace') roughly consists
+in replacing any missing component with its expected value.  This
+technique implements the EM procedure and finds parameters maximizing
+the likelihood.  The alternative behaviour (invoked using switch '-M
+ignore') consists in ignoring missing components.  This means that the
+means are computed using only observed components.  This alternative
+technique finds a classification matrix and parameters which maximize
+the fuzzy classifying log-likelihood.  It appears to converge a bit
+faster than the 'replace' mode.
+
+The iteration count is displayed in a more economic way now (all the
+iteration numbers were displayed separately).
+
+A new criterion is computed, the fuzzy pseudo-likelihood, named M.
+Using this criterion in order to choose the best result 
+may prove less sensitive to the value of beta than using U.
+
+In the random start strategy, two initialization tactics have been
+made more sensible.  The initial volumes are computed as whole volume
+/ number of classes (the whole volume was used previously).  The means
+are redrawn until all drawn means are different --- this avoids the
+problem of artificially merging together two classes.
+
+A few internal changes were also made in order to allow direct call to
+the program from as a Matlab function.  This allowed to detect and
+remove a few potential bugs that had gone unnoticed (a file not
+closed, use of memory just after freeing it).
+
+
+%end PrintHelpVersions

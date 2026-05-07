@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pynem"
+version = "0.1.0"
+description = "Neighborhood EM for spatial clustering on graphs"
+requires-python = ">=3.9"
+license = "MIT"
+dependencies = [
+    "numpy>=1.22",
+    "scipy>=1.8",
+    "networkx>=2.8",
+    "matplotlib>=3.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

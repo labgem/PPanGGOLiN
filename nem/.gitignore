@@ -1,0 +1,53 @@
+# C build artifacts
+*.o
+*.exe
+csrc/nem_exe
+csrc/geo2nei
+csrc/randord
+csrc/err2
+csrc/tcpu
+csrc/txt2hlp
+csrc/g_*
+csrc/nem_tmp
+csrc/t_nem_*
+
+# NEM output files
+*.cf
+*.mf
+*.uf
+*.log
+cumul.u.txt
+
+# Quarto
+README.html
+README_files/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SVN (legacy)
+.svn/
+CLAUDE.md
+commands-tmp.md
