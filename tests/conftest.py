@@ -14,8 +14,8 @@ def reset_globals():
     """Reset ppanggolin global variables before each test."""
     annotate.ctg_counter = 0
     synta.contig_counter = 0
-    partition.samples = []
-    partition.pan = Pangenome()
+    partition._samples = []
+    partition._pangenome = Pangenome()
     writeFlatPangenome.pan = Pangenome()
     writeFlatPangenome.needAnnotations = False
     writeFlatPangenome.needFamilies = False

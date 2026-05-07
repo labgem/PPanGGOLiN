@@ -14,7 +14,7 @@ from shutil import copytree
 from pathlib import Path
 
 # installed libraries
-from typing import Union, Tuple, List
+from typing import Dict, List, Optional, Tuple, Union
 
 from tqdm import tqdm
 import plotly.offline as out_plotly
@@ -28,9 +28,298 @@ from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pang
 # cython library (local)
 import nem_stats
 
-pan = Pangenome()
-samples = []
+# Module-level state shared with forked worker processes.
+# These are written in the main process *before* any Pool is created so that
+# forked child processes inherit the objects via copy-on-write without any
+# serialisation (pickling a large Pangenome for every task would be slow).
+_pangenome: Pangenome = Pangenome()
+_samples: List[set] = []
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NEM file helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _read_family_index(nem_dir: Path) -> List[str]:
+    """Return gene-family names in NEM row order."""
+    with open(nem_dir / "nem_file.index") as fh:
+        return [line.split("\t")[1].strip() for line in fh]
+
+
+def _partition_label_map(kval: int) -> Dict[int, str]:
+    """Map 0-based cluster index to a partition label (P / S1…Sk-2 / C)."""
+    labels: Dict[int, str] = {0: "P", kval - 1: "C"}
+    for i in range(1, kval - 1):
+        labels[i] = f"S{i}"
+    return labels
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# C NEM backend
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _write_cnem_init_file(path: Path, kval: int, nb_org: int) -> None:
+    """Write the NEM parameter initialisation file (.m)."""
+    step = 0.5 / math.ceil(kval / 2)
+    pichenette = 0.1 if kval == 2 else 0.0
+    mu: List[str] = []
+    epsilon: List[str] = []
+    for k in range(1, kval + 1):
+        if k <= kval / 2:
+            mu += ["1"] * nb_org
+            epsilon += [str((step * k) - pichenette)] * nb_org
+        else:
+            mu += ["0"] * nb_org
+            epsilon += [str((step * (kval - k + 1)) - pichenette)] * nb_org
+    with open(path, "w") as fh:
+        fh.write("1 ")
+        # Keep enough precision so the (k-1) proportions never sum above 1.
+        base_prop = format(1.0 / float(kval), ".12g")
+        fh.write(" ".join([base_prop] * (kval - 1)) + " ")
+        fh.write(" ".join(mu) + " " + " ".join(epsilon))
+
+
+def _parse_cnem_output(
+    nem_dir: Path,
+    kval: int,
+    nb_org: int,
+    just_log_likelihood: bool,
+) -> Union[Tuple[dict, dict, float], Tuple[int, float, float]]:
+    """Read .uf and .mf output files produced by C NEM."""
+    index_fam = _read_family_index(nem_dir)
+    labels = _partition_label_map(kval)
+
+    with (
+        open(nem_dir / f"nem_file_{kval}.uf") as uf,
+        open(nem_dir / f"nem_file_{kval}.mf") as mf,
+    ):
+        params_lines = mf.readlines()
+        log_likelihood = float(params_lines[2].split()[3])
+
+        all_parameters: Dict[str, tuple] = {}
+        for k, line in enumerate(params_lines[-kval:]):
+            vector = line.split()
+            mu_k = [bool(float(v)) for v in vector[:nb_org]]
+            epsilon_k = [float(v) for v in vector[nb_org + 1:]]
+            proportion = float(vector[nb_org])
+            if k == 0:
+                all_parameters["persistent"] = (mu_k, epsilon_k, proportion)
+            elif k == kval - 1:
+                all_parameters["cloud"] = (mu_k, epsilon_k, proportion)
+            else:
+                all_parameters[f"shell_{k}"] = (mu_k, epsilon_k, proportion)
+
+        partitions: Dict[str, str] = {}
+        entropy = 0.0
+        for i, line in enumerate(uf):
+            probs = [float(x) for x in line.split()]
+            if just_log_likelihood:
+                entropy += sum(math.log(p) * p for p in probs if p > 0)
+            else:
+                max_p = max(probs)
+                best = [j for j, p in enumerate(probs) if p == max_p]
+                partitions[index_fam[i]] = (
+                    "S_" if (len(best) > 1 or max_p < 0.5) else labels[best[0]]
+                )
+
+    if just_log_likelihood:
+        return kval, log_likelihood, entropy
+    return partitions, all_parameters, log_likelihood
+
+
+def _log_cnem_failure(
+    logger,
+    err,
+    nem_dir: Path,
+    kval: int,
+    nb_org: int,
+    beta: float,
+    seed: int,
+    free_dispersion: bool,
+    init: str,
+    itermax: int,
+    just_log_likelihood: bool,
+) -> None:
+    if just_log_likelihood:
+        logger.warning(
+            "A C NEM run failed while estimating the optimal number of partitions "
+            "(candidate K=%d skipped). See: %s", kval, nem_dir
+        )
+    else:
+        logger.warning(
+            "A C NEM run failed for this dataset/chunk and was skipped. See: %s",
+            nem_dir,
+        )
+    logger.debug(
+        "C NEM failure: error=%r, kval=%d, nb_org=%d, beta=%.4f, seed=%d, "
+        "free_dispersion=%s, init=%s, itermax=%d, "
+        "index_exists=%s, uf_exists=%s, mf_exists=%s",
+        err, kval, nb_org, beta, seed, free_dispersion, init, itermax,
+        (nem_dir / "nem_file.index").is_file(),
+        (nem_dir / f"nem_file_{kval}.uf").is_file(),
+        (nem_dir / f"nem_file_{kval}.mf").is_file(),
+    )
+
+
+def _run_cnem(
+    nem_dir: Path,
+    nb_org: int,
+    beta: float,
+    free_dispersion: bool,
+    kval: int,
+    seed: int,
+    init: str,
+    itermax: int,
+    just_log_likelihood: bool,
+) -> Union[Tuple[dict, dict, float], Tuple[int, float, float], Tuple[dict, None, None]]:
+    """Run the C NEM extension and return partitioning results."""
+    logger = logging.getLogger("PPanGGOLiN")
+
+    if init in ("param_file", "init_from_old"):
+        _write_cnem_init_file(nem_dir / f"nem_file_init_{kval}.m", kval, nb_org)
+
+    init_random, init_param_file = 1, 2
+    use_param_init = init in ("param_file", "init_from_old")
+
+    logger.debug("Running C NEM…")
+    nem_stats.nem(
+        Fname=str(nem_dir / "nem_file").encode("ascii"),
+        nk=kval,
+        algo=b"nem",
+        beta=beta,
+        convergence=b"clas",
+        convergence_th=0.01,
+        format=b"fuzzy",
+        it_max=itermax,
+        dolog=True,
+        model_family=b"bern",
+        proportion=b"pk",
+        dispersion=b"skd" if free_dispersion else b"sk_",
+        init_mode=init_param_file if use_param_init else init_random,
+        init_file=(str(nem_dir / f"nem_file_init_{kval}") + ".m").encode("ascii"),
+        out_file_prefix=str(nem_dir / f"nem_file_{kval}").encode("ascii"),
+        seed=seed,
+    )
+
+    uf_path = nem_dir / f"nem_file_{kval}.uf"
+    if not uf_path.is_file():
+        logger.debug(
+            "C NEM produced no output (run may have failed): "
+            "kval=%d, nb_org=%d, beta=%.4f, seed=%d", kval, nb_org, beta, seed
+        )
+        return ({}, None, None) if not just_log_likelihood else (kval, None, None)
+
+    try:
+        return _parse_cnem_output(nem_dir, kval, nb_org, just_log_likelihood)
+    except (OSError, ValueError) as err:
+        _log_cnem_failure(logger, err, nem_dir, kval, nb_org, beta, seed,
+                          free_dispersion, init, itermax, just_log_likelihood)
+        return ({}, None, None) if not just_log_likelihood else (kval, None, None)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python NEM (pynem) backend
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _run_pynem(
+    nem_dir: Path,
+    nb_org: int,
+    beta: float,
+    free_dispersion: bool,
+    kval: int,
+    seed: int,
+    init: str,
+    itermax: int,
+    just_log_likelihood: bool,
+) -> Union[Tuple[dict, dict, float], Tuple[int, float, float], Tuple[dict, None, None]]:
+    """Run the pure-Python pynem backend and return partitioning results."""
+    import numpy as np
+    import pynem as _pynem
+    from ppanggolin.nem.pynem_adapter import PPanGGOLiNEM
+
+    logger = logging.getLogger("PPanGGOLiN")
+    logger.debug("Running Python NEM (pynem)…")
+
+    G = _pynem.io.read_graph(nem_dir / "nem_file")
+
+    init_mode = "random"
+    init_kwargs: dict = {}
+    if init in ("param_file", "init_from_old"):
+        step = 0.5 / math.ceil(kval / 2)
+        pichenette = 0.1 if kval == 2 else 0.0
+        centers = np.zeros((kval, nb_org))
+        dispersions = np.zeros((kval, nb_org))
+        for k in range(1, kval + 1):
+            if k <= kval / 2:
+                centers[k - 1] = 1.0
+                dispersions[k - 1] = (step * k) - pichenette
+            else:
+                centers[k - 1] = 0.0
+                dispersions[k - 1] = (step * (kval - k + 1)) - pichenette
+        init_mode = "param_file"
+        init_kwargs = dict(
+            init_centers=centers,
+            init_dispersions=dispersions,
+            init_proportions=np.full(kval, 1.0 / kval),
+        )
+
+    try:
+        model = PPanGGOLiNEM(
+            n_clusters=kval,
+            beta=beta,
+            family="bernoulli",
+            dispersion="skd" if free_dispersion else "sk_",
+            proportion="pk",
+            init=init_mode,
+            max_iter=itermax,
+            tol=0.01,
+            convergence="classification",
+            random_state=seed,
+            verbose=0,
+            **init_kwargs,
+        )
+        model.fit(G)
+    except Exception as exc:
+        logger.warning("Python NEM (pynem) run failed: %r", exc)
+        return ({}, None, None) if not just_log_likelihood else (kval, None, None)
+
+    index_fam = _read_family_index(nem_dir)
+
+    if just_log_likelihood:
+        ll = float(model.criteria_["L"])
+        C = model.membership_
+        entropy = float(np.sum(C * np.log(np.maximum(C, 1e-300))))
+        return kval, ll, entropy
+
+    labels = _partition_label_map(kval)
+    C = model.membership_
+    partitions: Dict[str, str] = {}
+    for i, name in enumerate(index_fam):
+        row = C[i]
+        max_p = float(row.max())
+        best = [j for j, p in enumerate(row) if p == max_p]
+        partitions[name] = (
+            "S_" if (len(best) > 1 or max_p < 0.5) else labels[best[0]]
+        )
+
+    all_parameters: Dict[str, tuple] = {}
+    for k in range(kval):
+        mu_k = [bool(round(v)) for v in model.centers_[k]]
+        epsilon_k = list(map(float, model.dispersions_[k]))
+        prop_k = float(model.proportions_[k])
+        if k == 0:
+            all_parameters["persistent"] = (mu_k, epsilon_k, prop_k)
+        elif k == kval - 1:
+            all_parameters["cloud"] = (mu_k, epsilon_k, prop_k)
+        else:
+            all_parameters[f"shell_{k}"] = (mu_k, epsilon_k, prop_k)
+
+    return partitions, all_parameters, float(model.criteria_["L"])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unified dispatcher
+# ─────────────────────────────────────────────────────────────────────────────
 
 def run_partitioning(
     nem_dir_path: Path,
@@ -43,246 +332,72 @@ def run_partitioning(
     keep_files: bool = False,
     itermax: int = 100,
     just_log_likelihood: bool = False,
+    backend: str = "cnem",
+    # Deprecated: use backend="pynem" instead
+    use_pynem: bool = False,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
+    """Run NEM partitioning using the requested backend.
+
+    :param nem_dir_path: directory containing NEM input files
+    :param nb_org: number of organisms
+    :param beta: spatial-smoothing strength (0 → standard EM)
+    :param free_dispersion: per-organism dispersion per cluster
+    :param kval: number of clusters
+    :param seed: random seed
+    :param init: initialisation mode ('param_file' or 'random')
+    :param keep_files: retain intermediate NEM files
+    :param itermax: maximum EM iterations
+    :param just_log_likelihood: return only log-likelihood statistics (for K selection)
+    :param backend: 'cnem' (C extension, default) or 'pynem' (pure Python)
+    :param use_pynem: deprecated alias for backend='pynem'
+    :return:
+        * ``just_log_likelihood=False``: ``(partitions_dict, parameters_dict, log_likelihood)``
+        * ``just_log_likelihood=True``:  ``(kval, log_likelihood, entropy)``
     """
-    Main function to make partitioning
-
-    :param nem_dir_path: Path to directory with nem files
-    :param nb_org: Number of organisms
-    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param kval: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
-    :param seed: seed used to generate random numbers
-    :param init: Initiate nem parameters with pangenome parameters or randomly
-    :param keep_files: True if you want to keep the NEM files
-    :param itermax: Maximum iteration to compute partitioning
-    :param just_log_likelihood: Return only nem parameter result
-
-    :return: Nem parameters and if not just log likelihood the families associated to partition
-    """
-    logger = logging.getLogger("PPanGGOLiN")
-    logger.debug("run_partitioning...")
-    if init == "param_file":
-        with open(nem_dir_path / f"nem_file_init_{str(kval)}.m", "w") as m_file:
-            m_file.write("1 ")  # 1 to initialize parameter,
-            # Keep enough precision so the provided (k-1) proportions never sum above 1.
-            base_proportion = format(1.0 / float(kval), ".12g")
-            m_file.write(" ".join([base_proportion] * (kval - 1)) + " ")
-            # 1/K give the initial proportion to each class
-            # (the last proportion is automatically determined by subtraction in nem)
-            mu = []
-            epsilon = []
-            step = 0.5 / (math.ceil(kval / 2))
-            pichenette = 0.1 if kval == 2 else 0
-            for k in range(1, kval + 1):
-                if k <= kval / 2:
-                    mu += ["1"] * nb_org
-                    epsilon += [str((step * k) - pichenette)] * nb_org
-                else:
-                    mu += ["0"] * nb_org
-                    epsilon += [str((step * (kval - k + 1)) - pichenette)] * nb_org
-
-            m_file.write(" ".join(mu) + " " + " ".join(epsilon))
-
-    algo = b"nem"  # fuzzy classification by mean field approximation
-    model = b"bern"  # multivariate Bernoulli mixture model
-    proportion = b"pk"  # equal proportion :  "p_"     varying proportion : "pk"
-
-    variance_model = b"skd" if free_dispersion else b"sk_"
-    # one variance per partition and organism : "sdk"      one variance per partition,
-    # same in all organisms : "sd_"   one variance per organism,
-    # same in all partition : "s_d"    same variance in organisms and partitions : "s__"
-
-    convergence = b"clas"
-    convergence_th = 0.01
-    # (INIT_SORT, init_random, init_param_file, INIT_FILE, INIT_LABEL, INIT_NB) = range(0,6)
-    init_random, init_param_file = range(1, 3)
-    logger.debug("Running NEM...")
-    logger.debug(
-        [
-            nem_dir_path.as_posix().encode("ascii") + b"/nem_file",
-            kval,
-            algo,
-            beta,
-            convergence,
-            convergence_th,
-            b"fuzzy",
-            itermax,
-            True,
-            model,
-            proportion,
-            variance_model,
-            init_param_file if init in ["param_file", "init_from_old"] else init_random,
-            nem_dir_path.as_posix().encode("ascii")
-            + b"/nem_file_init_"
-            + str(kval).encode("ascii")
-            + b".m",
-            nem_dir_path.as_posix().encode("ascii")
-            + b"/nem_file_"
-            + str(kval).encode("ascii"),
-            seed,
-        ]
+    if use_pynem and backend == "cnem":
+        backend = "pynem"
+    runner = _run_pynem if backend == "pynem" else _run_cnem
+    return runner(
+        nem_dir_path, nb_org, beta, free_dispersion,
+        kval, seed, init, itermax, just_log_likelihood,
     )
-    nem_stats.nem(
-        Fname=nem_dir_path.as_posix().encode("ascii") + b"/nem_file",
-        nk=kval,
-        algo=algo,
-        beta=beta,
-        convergence=convergence,
-        convergence_th=convergence_th,
-        format=b"fuzzy",
-        it_max=itermax,
-        dolog=True,
-        model_family=model,
-        proportion=proportion,
-        dispersion=variance_model,
-        init_mode=(
-            init_param_file if init in ["param_file", "init_from_old"] else init_random
-        ),
-        init_file=nem_dir_path.as_posix().encode("ascii")
-        + b"/nem_file_init_"
-        + str(kval).encode("ascii")
-        + b".m",
-        out_file_prefix=nem_dir_path.as_posix().encode("ascii")
-        + b"/nem_file_"
-        + str(kval).encode("ascii"),
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Multiprocessing workers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _partition_sample_worker(args: tuple):
+    """Pool worker: write NEM files for one organism sub-sample and partition it.
+
+    Uses the module-level ``_samples`` list and ``_pangenome`` object inherited
+    by forked child processes at fork() time.
+    """
+    (
+        index, kval, beta, sm_degree, free_dispersion,
+        seed, init, tmpdir, keep_tmp_files, backend,
+    ) = args
+    currtmpdir = tmpdir / str(index)
+    samp = _samples[index]
+    edges_weight, nb_fam = write_nem_input_files(currtmpdir, samp, sm_degree)
+    return run_partitioning(
+        currtmpdir,
+        len(samp),
+        beta * (nb_fam / edges_weight),
+        free_dispersion,
+        kval=kval,
         seed=seed,
+        init=init,
+        keep_files=keep_tmp_files,
+        backend=backend,
     )
 
-    logger.debug("After running NEM...")
 
-    no_nem = False
-    nem_out_path = nem_dir_path / f"nem_file_{str(kval)}.uf"
-    if nem_out_path.is_file():
-        logger.debug("Reading NEM results...")
-    elif not just_log_likelihood:
-        # logging.getLogger("PPanGGOLiN").warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(K)+".uf")
-        no_nem = True
-    else:
-        logger.debug(f"No NEM output file found: {nem_out_path.absolute().as_posix()}")
-        no_nem = True
-    if no_nem:
-        logger.debug(
-            "NEM output file is missing after run (run may have failed): "
-            f"expected_uf={nem_out_path.as_posix()}, kval={kval}, nb_org={nb_org}, "
-            f"beta={beta}, seed={seed}, itermax={itermax}, just_log_likelihood={just_log_likelihood}"
-        )
-    index_fam = []
+def nem_single(args) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
+    """Legacy wrapper: call run_partitioning with positional args tuple.
 
-    with open(nem_dir_path / "nem_file.index") as index_nem_file:
-        for line in index_nem_file:
-            index_fam.append(line.split("\t")[1].strip())
-
-    partitions_list = ["U"] * len(index_fam)
-    all_parameters = {}
-    log_likelihood = None
-    entropy = None
-    try:
-        with (
-            open(nem_dir_path / f"nem_file_{str(kval)}.uf") as partitions_nem_file,
-            open(nem_dir_path / f"nem_file_{str(kval)}.mf") as parameters_nem_file,
-        ):
-
-            parameters = parameters_nem_file.readlines()
-            log_likelihood = float(parameters[2].split()[3])
-
-            sum_mu_k = []
-            sum_epsilon_k = []
-
-            for k, line in enumerate(parameters[-kval:]):
-                vector = line.split()
-                mu_k = [bool(float(mu_kj)) for mu_kj in vector[0:nb_org]]
-                epsilon_k = [float(epsilon_kj) for epsilon_kj in vector[nb_org + 1 :]]
-                proportion = float(vector[nb_org])
-                sum_mu_k.append(sum(mu_k))
-                sum_epsilon_k.append(sum(epsilon_k))
-                if k == 0:
-                    all_parameters["persistent"] = (mu_k, epsilon_k, proportion)
-                elif k == kval - 1:
-                    all_parameters["cloud"] = (mu_k, epsilon_k, proportion)
-                else:
-                    all_parameters["shell_" + str(k)] = (mu_k, epsilon_k, proportion)
-
-            parti = {0: "P", kval - 1: "C"}
-
-            for i in range(1, kval - 1):
-                parti[i] = "S" + str(i)
-            entropy = 0
-
-            for i, line in enumerate(partitions_nem_file):
-                elements = [float(el) for el in line.split()]
-                if just_log_likelihood:
-                    entropy += sum(
-                        [
-                            math.log(float(el)) * float(el) if float(el) > 0 else 0
-                            for el in elements
-                        ]
-                    )
-                else:
-                    max_prob = max([float(el) for el in elements])
-                    positions_max_prob = [
-                        pos for pos, prob in enumerate(elements) if prob == max_prob
-                    ]
-                    if len(positions_max_prob) > 1 or max_prob < 0.5:
-                        partitions_list[i] = (
-                            "S_"  # SHELL in case of doubt gene families is attributed to shell
-                        )
-                    else:
-                        partitions_list[i] = parti[positions_max_prob.pop()]
-
-    except OSError as error:
-        if just_log_likelihood:
-            logger.warning(
-                "A NEM run failed while estimating the optimal number of partitions "
-                "(testing a candidate K), and this candidate was skipped. "
-                "Final partitioning can still succeed. "
-                f"See temporary files/logs in: {nem_dir_path.as_posix()}"
-            )
-        else:
-            logger.warning(
-                "A NEM run failed for this dataset/chunk and was skipped. "
-                "In chunked mode, other chunks can still complete and final partitioning may still succeed. "
-                f"See temporary files/logs in: {nem_dir_path.as_posix()}"
-            )
-        logger.debug(
-            "NEM failure details: "
-            f"error={repr(error)}, errno={getattr(error, 'errno', None)}, "
-            f"strerror={getattr(error, 'strerror', None)}, filename={getattr(error, 'filename', None)}"
-        )
-        logger.debug(
-            "NEM run context: "
-            f"cwd={Path.cwd().as_posix()}, pid={os.getpid()}, kval={kval}, nb_org={nb_org}, "
-            f"beta={beta}, free_dispersion={free_dispersion}, seed={seed}, init={init}, "
-            f"itermax={itermax}, keep_files={keep_files}, just_log_likelihood={just_log_likelihood}"
-        )
-        logger.debug(
-            "NEM files status: "
-            f"index_exists={(nem_dir_path / 'nem_file.index').is_file()}, "
-            f"uf_exists={(nem_dir_path / f'nem_file_{str(kval)}.uf').is_file()}, "
-            f"mf_exists={(nem_dir_path / f'nem_file_{str(kval)}.mf').is_file()}, "
-            f"init_exists={(nem_dir_path / f'nem_file_init_{str(kval)}.m').is_file()}"
-        )
-        return {}, None, None  # return empty objects
-
-    except ValueError:
-        # return the default partitions_list which correspond to undefined
-        pass
-
-    if just_log_likelihood:
-        return kval, log_likelihood, entropy
-    else:
-        return dict(zip(index_fam, partitions_list)), all_parameters, log_likelihood
-
-
-def nem_single(
-    args: List[Tuple[Path, int, float, bool, int, int, str, bool, int, bool]]
-) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
-    """
-    Allow to run partitioning in multiprocessing to evaluate partition number
-
-    :param args: {nem_dir_path: str, nb_org: int, beta: float, free_dispersion: bool, kval: int, seed: int,
-                  init: str, keep_files: bool, itermax: int, just_log_likelihood: bool}
-    :return: Result of run partitioning
+    :param args: positional arguments for run_partitioning
+    :return: Result of run_partitioning
     """
     return run_partitioning(*args)
 
@@ -297,48 +412,36 @@ def partition_nem(
     init: str = "param_file",
     tmpdir: Path = None,
     keep_tmp_files: bool = False,
+    use_pynem: bool = False,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
-    """
+    """Legacy wrapper; prefer _partition_sample_worker for new code.
 
     :param index: Index of the sample group
     :param tmpdir: temporary directory path
     :param kval: Number of partitions to use
-    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param sm_degree:  Maximum degree of the nodes to be included in the smoothing process.
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param seed: seed used to generate random numbers
-    :param init: Initiate nem parameters with pangenome parameters or randomly
-    :param keep_tmp_files: True if you want to keep the temporary NEM files
-
-    :return:
+    :param beta: spatial-smoothing strength
+    :param sm_degree: maximum adjacency degree for smoothing
+    :param free_dispersion: allow per-organism dispersion per partition
+    :param seed: random seed
+    :param init: initialisation mode
+    :param keep_tmp_files: retain temporary NEM files
+    :param use_pynem: deprecated; sets backend to 'pynem'
+    :return: partitioning result tuple
     """
-    currtmpdir = tmpdir / f"{str(index)}"  # unique directory name
-    samp = samples[index]  # org_samples accessible because it is a global variable.
-
-    edges_weight, nb_fam = write_nem_input_files(
-        tmpdir=currtmpdir, organisms=samp, sm_degree=sm_degree
-    )
-    return run_partitioning(
-        currtmpdir,
-        len(samp),
-        beta * (nb_fam / edges_weight),
-        free_dispersion,
-        kval=kval,
-        seed=seed,
-        init=init,
-        keep_files=keep_tmp_files,
+    backend = "pynem" if use_pynem else "cnem"
+    return _partition_sample_worker(
+        (index, kval, beta, sm_degree, free_dispersion,
+         seed, init, tmpdir, keep_tmp_files, backend)
     )
 
 
-def nem_samples(
-    pack: tuple,
-) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
-    """run partitioning
-    :param pack: {index: int, tmpdir: str, beta: float, sm_degree: int, free_dispersion: bool, kval: int, seed: int, init: str, keep_tmp_files: bool}
+def nem_samples(pack: tuple) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
+    """Legacy wrapper for _partition_sample_worker.
 
-    :return:
+    :param pack: argument tuple for _partition_sample_worker
+    :return: partitioning result tuple
     """
-    return partition_nem(*pack)
+    return _partition_sample_worker(pack)
 
 
 def write_nem_input_files(
@@ -378,7 +481,7 @@ def write_nem_input_files(
             default_dat.append("0")
             index_org[org] = index
 
-        for fam in pan.gene_families:
+        for fam in _pangenome.gene_families:
             fam_organisms = set(fam.organisms)
             # could use bitarrays if this part is limiting?
             if not organisms.isdisjoint(fam_organisms):
@@ -436,86 +539,144 @@ def write_nem_input_files(
     return total_edges_weight / 2, len(index_fam)
 
 
+def _draw_icl_curve(
+    all_bics: dict,
+    all_icls: dict,
+    all_lls: dict,
+    best_k: int,
+    max_icl_k: int,
+    icl_margin: float,
+    krange: list,
+    output: Path,
+) -> None:
+    """Write a Plotly ICL/BIC/log-likelihood curve to *output* as HTML."""
+    x_sorted = sorted(all_bics.keys())
+    traces = [
+        go.Scatter(x=x_sorted, y=[all_bics[k] for k in x_sorted],
+                   name="BIC", mode="lines+markers"),
+        go.Scatter(x=x_sorted, y=[all_icls[k] for k in x_sorted],
+                   name="ICL", mode="lines+markers"),
+        go.Scatter(x=x_sorted, y=[all_lls[k] for k in x_sorted],
+                   name="log likelihood", mode="lines+markers"),
+    ]
+    layout = go.Layout(
+        title=f"ICL curve (best K={best_k}, ICL_margin={icl_margin})",
+        titlefont=dict(size=20),
+        xaxis=dict(title="number of partitions"),
+        yaxis=dict(title="ICL / BIC / log likelihood"),
+        plot_bgcolor="#ffffff",
+        shapes=[
+            dict(type="line", x0=best_k, x1=best_k, y0=0,
+                 y1=all_icls[best_k],
+                 line=dict(width=1, dash="dashdot", color="black")),
+            dict(type="line", x0=max_icl_k, x1=max_icl_k, y0=0,
+                 y1=all_icls[max_icl_k],
+                 line=dict(width=1, dash="dashdot", color="black")),
+            dict(type="line", x0=best_k, x1=max_icl_k,
+                 y0=all_icls[max_icl_k], y1=all_icls[max_icl_k],
+                 line=dict(width=1, dash="dashdot", color="black")),
+            dict(type="line", x0=2, x1=krange[1],
+                 y0=all_icls[best_k], y1=all_icls[best_k],
+                 line=dict(width=1, dash="dashdot", color="black")),
+        ],
+    )
+    fig = go.Figure(data=traces, layout=layout)
+    out_plotly.plot(fig, filename=str(output / f"ICL_curve_K{best_k}.html"),
+                    auto_open=False)
+
+
 def evaluate_nb_partitions(
     organisms: set,
-    output: Path = None,
+    output: Optional[Path] = None,
     sm_degree: int = 10,
     free_dispersion: bool = False,
     chunk_size: int = 500,
-    krange: list = None,
+    krange: Optional[list] = None,
     icl_margin: float = 0.05,
     draw_icl: bool = False,
     cpu: int = 1,
     seed: int = 42,
-    tmpdir: Path = None,
+    tmpdir: Optional[Path] = None,
     disable_bar: bool = False,
+    backend: str = "cnem",
+    # Deprecated: use backend="pynem" instead
+    use_pynem: bool = False,
 ) -> int:
-    """
-    Evaluate the optimal number of partition for the pangenome
+    """Evaluate the optimal number of partitions for the pangenome.
 
-    :param organisms: Set of organisms from pangenome
-    :param tmpdir: temporary directory path
-    :param output: output directory path to draw ICL
-    :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
-    :param krange: Range of K values to test when detecting K automatically.
-    :param icl_margin: margin use to select the lowest K in maximizing ICL
-    :param draw_icl: draw the ICL curve for all the tested K values.
-    :param cpu: Number of available core
-    :param seed: seed used to generate random numbers
-    :param disable_bar: Disable progress bar
-
-    :return: Ideal number of partition computed
+    :param organisms: organisms to include in the evaluation
+    :param output: directory for the optional ICL plot
+    :param sm_degree: maximum adjacency degree for smoothing
+    :param free_dispersion: allow per-organism dispersion per partition
+    :param chunk_size: if more organisms than this, sub-sample for K evaluation
+    :param krange: [K_min, K_max] search range
+    :param icl_margin: fraction of max-ICL range used to prefer lower K
+    :param draw_icl: write the ICL curve HTML
+    :param cpu: parallel workers
+    :param seed: random seed
+    :param tmpdir: base temporary directory
+    :param disable_bar: suppress tqdm bar
+    :param backend: 'cnem' or 'pynem'
+    :param use_pynem: deprecated alias for backend='pynem'
+    :return: optimal K (≥ 3)
     """
+    if use_pynem and backend == "cnem":
+        backend = "pynem"
+
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
+    krange = krange or [3, 20]
     newtmpdir = tmpdir / "eval_partitions"
 
     if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(list(organisms), chunk_size))
+        # Sort by name for reproducible sampling
+        select_organisms = set(
+            random.sample(sorted(organisms, key=lambda o: o.name), chunk_size)
+        )
     else:
         select_organisms = set(organisms)
 
     _, nb_fam = write_nem_input_files(newtmpdir, select_organisms, sm_degree)
-    max_icl_k = 0
-    args_partitionning = []
-    for k in range(krange[0] - 1, krange[1] + 1):
-        args_partitionning.append(
-            (
-                newtmpdir,
-                len(select_organisms),
-                0,
-                free_dispersion,
-                k,
-                seed,
-                "param_file",
-                True,
-                10,
-                True,
-            )
-        )  # follow order run_partitionning args
-    all_log_likelihood = []
 
+    # Build one args tuple per candidate K (positional → run_partitioning)
+    args_partionning = [
+        (
+            newtmpdir,
+            len(select_organisms),
+            0,            # beta=0: no spatial smoothing during K scan
+            free_dispersion,
+            k,
+            seed,
+            "param_file",
+            True,         # keep_files
+            10,           # itermax (coarse scan)
+            True,         # just_log_likelihood
+            backend,
+        )
+        for k in range(krange[0] - 1, krange[1] + 1)
+    ]
+
+    all_log_likelihood = []
     if cpu > 1:
         bar = tqdm(
-            range(len(args_partitionning)),
+            range(len(args_partionning)),
             unit="Number of partitions",
             disable=disable_bar,
         )
         with get_context("fork").Pool(processes=cpu) as p:
-            for result in p.imap_unordered(nem_single, args_partitionning):
+            for result in p.imap_unordered(nem_single, args_partionning):
                 all_log_likelihood.append(result)
                 bar.update()
             p.close()
             p.join()
         bar.close()
-    else:  # for the case where it is called in a daemonic subprocess with a single cpu
-        for arguments in args_partitionning:
+    else:
+        for arguments in args_partionning:
             all_log_likelihood.append(nem_single(arguments))
 
-    all_bics = defaultdict(float)
-    all_icls = defaultdict(float)
-    all_lls = defaultdict(float)
+    all_bics: Dict[int, float] = defaultdict(float)
+    all_icls: Dict[int, float] = defaultdict(float)
+    all_lls: Dict[int, float] = defaultdict(float)
+
     for k_candidate, log_likelihood, entropy in all_log_likelihood:
         if log_likelihood is not None:
             nb_params = k_candidate * (
@@ -523,119 +684,33 @@ def evaluate_nb_partitions(
                 + 1
                 + (len(select_organisms) if free_dispersion else 1)
             )
-            all_bics[k_candidate] = log_likelihood - 0.5 * (
-                math.log(nb_params) * nb_fam
-            )  # Calculate BIC
-            all_icls[k_candidate] = all_bics[k_candidate] - entropy
+            bic = log_likelihood - 0.5 * math.log(nb_params) * nb_fam
+            all_bics[k_candidate] = bic
+            all_icls[k_candidate] = bic - entropy
             all_lls[k_candidate] = log_likelihood
 
     chosen_k = 3
     best_k = chosen_k
+    max_icl_k = chosen_k
 
     if len(all_bics) > 3:
         max_icl_k = max(all_icls, key=all_icls.get)
         delta_icl = (all_icls[max_icl_k] - min(all_icls.values())) * icl_margin
         best_k = min(
-            {
-                k
-                for k, icl in all_icls.items()
-                if icl >= all_icls[max_icl_k] - delta_icl and k <= max_icl_k
-            }
+            k for k, icl in all_icls.items()
+            if icl >= all_icls[max_icl_k] - delta_icl and k <= max_icl_k
         )
         chosen_k = best_k if best_k >= 3 else chosen_k
 
-    if len(all_bics) > 0 and draw_icl:
-        traces = [
-            go.Scatter(
-                x=sorted(all_bics.keys()),
-                y=[all_bics[key] for key in sorted(all_bics.keys())],
-                name="BIC",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_icls.keys()),
-                y=[all_icls[key] for key in sorted(all_icls.keys())],
-                name="ICL",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_lls.keys()),
-                y=[all_lls[key] for key in sorted(all_lls.keys())],
-                name="log likelihood",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_bics.keys()),
-                y=[all_bics[key] for key in sorted(all_bics.keys())],
-                name="BIC",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_icls.keys()),
-                y=[all_icls[key] for key in sorted(all_icls.keys())],
-                name="ICL",
-                mode="lines+markers",
-            ),
-            go.Scatter(
-                x=sorted(all_lls.keys()),
-                y=[all_lls[key] for key in sorted(all_lls.keys())],
-                name="log likelihood",
-                mode="lines+markers",
-            ),
-        ]
-        layout = go.Layout(
-            title="ICL curve (best K is "
-            + str(best_k)
-            + ", ICL_th= is "
-            + str(icl_margin)
-            + ")",
-            titlefont=dict(size=20),
-            xaxis=dict(title="number of partitions"),
-            yaxis=dict(title="ICL, BIC, log likelihood"),
-            plot_bgcolor="#ffffff",
-            shapes=[
-                dict(
-                    type="line",
-                    x0=best_k,
-                    x1=best_k,
-                    y0=0,
-                    y1=all_icls[best_k],
-                    line=dict(dict(width=1, dash="dashdot", color="black")),
-                ),
-                dict(
-                    type="line",
-                    x0=max_icl_k,
-                    x1=max_icl_k,
-                    y0=0,
-                    y1=all_icls[max_icl_k],
-                    line=dict(dict(width=1, dash="dashdot", color="black")),
-                ),
-                dict(
-                    type="line",
-                    x0=best_k,
-                    x1=max_icl_k,
-                    y0=all_icls[max_icl_k],
-                    y1=all_icls[max_icl_k],
-                    line=dict(dict(width=1, dash="dashdot", color="black")),
-                ),
-                dict(
-                    type="line",
-                    x0=2,
-                    x1=krange[1],
-                    y0=all_icls[best_k],
-                    y1=all_icls[best_k],
-                    line=dict(dict(width=1, dash="dashdot", color="black")),
-                ),
-            ],
-        )
-        fig = go.Figure(data=traces, layout=layout)
-        out_plot = output / f"ICL_curve_K{str(best_k)}.html"
-        out_plotly.plot(fig, filename=out_plot.as_posix(), auto_open=False)
+    if all_bics and draw_icl and output is not None:
+        _draw_icl_curve(all_bics, all_icls, all_lls, best_k, max_icl_k,
+                        icl_margin, krange, output)
+
     return chosen_k
 
 
-def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False):
-    """checks pangenome status and .h5 files for former partitions, delete them if allowed or raise an error
+def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False) -> None:
+    """Check pangenome status for former partitions; erase them if *force* is True.
 
     :param pangenome: Pangenome object
     :param force: Allow to force write on Pangenome file
@@ -650,50 +725,156 @@ def check_pangenome_former_partition(pangenome: Pangenome, force: bool = False):
         erase_pangenome(pangenome, partition=True)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Chunked partitioning helper
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _run_chunked_partitioning(
+    organisms: set,
+    tmp_path: Path,
+    kval: int,
+    beta: float,
+    sm_degree: int,
+    free_dispersion: bool,
+    seed: int,
+    init: str,
+    keep_tmp_files: bool,
+    backend: str,
+    chunk_size: int,
+    cpu: int,
+    disable_bar: bool,
+) -> Dict[str, str]:
+    """Partition by repeated random sub-sampling and majority vote.
+
+    Organisms are shuffled into chunks of *chunk_size*.  Each chunk is
+    partitioned independently.  A family's final label is the one that
+    receives ≥ 50 % of votes after sufficient sampling.
+
+    :return: mapping family_name → partition_label
+    """
+    logger = logging.getLogger("PPanGGOLiN")
+
+    # Vote tallies: first character of label ('P', 'S', 'C', or 'U')
+    cpt_partition: Dict[str, Dict[str, int]] = {}
+    families = set()
+    for fam in _pangenome.gene_families:
+        families.add(fam)
+        cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
+
+    pansize = len(families)
+    validated: set = set()
+    org_nb_sample: Counter = Counter({org: 0 for org in organisms})
+    condition = len(organisms) / chunk_size
+    start = time.time()
+
+    def _tally_result(res) -> None:
+        """Record votes from one chunk result and mark families validated."""
+        for node, nem_class in res[0].items():
+            cpt_partition[node][nem_class[0]] += 1
+            sum_partionning = sum(cpt_partition[node].values())
+            if (
+                sum_partionning > len(organisms) / chunk_size
+                and max(cpt_partition[node].values()) >= sum_partionning * 0.5
+            ) or (sum_partionning > len(organisms)):
+                if node not in validated:
+                    if max(cpt_partition[node].values()) < sum_partionning * 0.5:
+                        # No majority even after exhaustive sampling → undefined
+                        cpt_partition[node]["U"] = len(organisms)
+                    validated.add(node)
+
+    while len(validated) < pansize:
+        prev = len(_samples)
+        # Ensure every organism appears in at least `condition` samples
+        while not all(val >= condition for val in org_nb_sample.values()):
+            shuffled_orgs = list(organisms)
+            random.shuffle(shuffled_orgs)
+            while len(shuffled_orgs) > chunk_size:
+                _samples.append(set(shuffled_orgs[:chunk_size]))
+                for org in _samples[-1]:
+                    org_nb_sample[org] += 1
+                shuffled_orgs = shuffled_orgs[chunk_size:]
+
+        args = [
+            (i, kval, beta, sm_degree, free_dispersion,
+             seed, init, tmp_path, keep_tmp_files, backend)
+            for i in range(prev, len(_samples))
+        ]
+
+        logger.info("Launching NEM on %d chunk samples (backend=%s, cpu=%d)…",
+                    len(args), backend, cpu)
+        with get_context("fork").Pool(processes=cpu) as p:
+            bar = tqdm(range(len(args)), unit=" samples partitioned",
+                       disable=disable_bar)
+            for result in p.imap_unordered(nem_samples, args):
+                _tally_result(result)
+                bar.update()
+            bar.close()
+            condition += 1
+            logger.debug(
+                "%d validated families out of %d.", len(validated), pansize
+            )
+            p.close()
+            p.join()
+
+    logger.info(
+        "Did %d partitionings with chunks of size %d among %d genomes in %.1f s.",
+        len(_samples), chunk_size, len(organisms), time.time() - start,
+    )
+    return {fam: max(data, key=data.get) for fam, data in cpt_partition.items()}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main entry point
+# ─────────────────────────────────────────────────────────────────────────────
+
 def partition(
     pangenome: Pangenome,
-    output: Path = None,
+    output: Optional[Path] = None,
     beta: float = 2.5,
     sm_degree: int = 10,
     free_dispersion: bool = False,
     chunk_size: int = 500,
     kval: int = -1,
-    krange: list = None,
+    krange: Optional[list] = None,
     icl_margin: float = 0.05,
     draw_icl: bool = False,
     cpu: int = 1,
     seed: int = 42,
-    tmpdir: Path = None,
+    tmpdir: Optional[Path] = None,
     keep_tmp_files: bool = False,
     force: bool = False,
     disable_bar: bool = False,
-):
-    """
-    Partitioning the pangenome
+    backend: str = "cnem",
+) -> None:
+    """Assign every gene family in *pangenome* to a partition.
 
-    :param pangenome: Pangenome containing GeneFamilies to align with sequence set
-    :param tmpdir: temporary directory path
-    :param output: output directory path to draw ICL
-    :param beta: strength of the smoothing using the graph topology during partitioning. 0 deactivate spatial smoothing
-    :param sm_degree: Maximum degree of the nodes to be included in the smoothing process.
-    :param free_dispersion: use if the dispersion around the centroid vector of each partition during must be free.
-    :param chunk_size: Size of the chunks when performing partitioning using chunks of organisms.
-    :param kval: Number of partitions to use. Must be at least 2. If under 2, it will be detected automatically.
-    :param krange: Range of K values to test when detecting K automatically.
-    :param icl_margin: margin use to select the lowest K in maximizing ICL
-    :param draw_icl: draw the ICL curve for all the tested K values.
-    :param cpu: Number of available core
-    :param seed: seed used to generate random numbers
-    :param keep_tmp_files: True if you want to keep the temporary NEM files
-    :param force: Allow to force write on Pangenome file
-    :param disable_bar: Disable progress bar
+    Partitions are Persistent (P), Shell (S1…Sk-2), and Cloud (C) according
+    to the Neighborhood EM model.
+
+    :param pangenome: pangenome to partition
+    :param output: output directory (required when *draw_icl* or *keep_tmp_files*)
+    :param beta: spatial-smoothing strength; 0 disables smoothing
+    :param sm_degree: maximum adjacency degree included in the smoothing
+    :param free_dispersion: allow per-organism dispersion per partition
+    :param chunk_size: max organisms per NEM run; excess triggers chunked mode
+    :param kval: number of partitions (< 2 → auto-detected)
+    :param krange: [K_min, K_max] search range for auto K
+    :param icl_margin: tolerance margin for choosing the lowest adequate K
+    :param draw_icl: write an ICL curve HTML to *output*
+    :param cpu: parallel worker count
+    :param seed: random seed
+    :param tmpdir: base directory for temporary files
+    :param keep_tmp_files: copy NEM temporary files to *output*
+    :param force: overwrite an existing partition in the pangenome
+    :param disable_bar: suppress tqdm progress bars
+    :param backend: 'cnem' (C extension, default) or 'pynem' (pure Python)
+    :param use_pynem: deprecated alias for backend='pynem'
     """
+    global _pangenome, _samples
+
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     kmm = [3, 20] if krange is None else krange
-    global samples
-    global pan
 
-    pan = pangenome
     if draw_icl and output is None:
         raise Exception(
             "Combination of option impossible: "
@@ -707,35 +888,41 @@ def partition(
         need_graph=True,
         disable_bar=disable_bar,
     )
+
     organisms = set(pangenome.organisms)
-
-    if keep_tmp_files:
-        # Create a temporary directory without auto-cleanup
-        tmp_dir = tempfile.mkdtemp(dir=tmpdir)
-        tmp_path = Path(tmp_dir)
-    else:
-        # Create a temporary directory with auto-cleanup
-        tmp_dir = tempfile.TemporaryDirectory(dir=tmpdir)
-        tmp_path = Path(tmp_dir.name)
-
     if len(organisms) <= 10:
         logging.getLogger("PPanGGOLiN").warning(
             f"The number of selected genomes is too low ({len(organisms)} "
             f"genomes used) to robustly partition the graph"
         )
 
-    pangenome.parameters["partition"] = {}
-    pangenome.parameters["partition"]["beta"] = beta
-    pangenome.parameters["partition"]["max_degree_smoothing"] = sm_degree
-    pangenome.parameters["partition"]["free_dispersion"] = free_dispersion
-    pangenome.parameters["partition"]["ICL_margin"] = icl_margin
-    pangenome.parameters["partition"]["seed"] = seed
+    # Expose pangenome and sample list via module globals so forked workers
+    # can access them without serialisation.
+    _pangenome = pangenome
+    _samples = []
+    random.seed(seed)
+
+    if keep_tmp_files:
+        tmp_path = Path(tempfile.mkdtemp(dir=tmpdir))
+        tmp_cleanup = None
+    else:
+        tmp_dir_obj = tempfile.TemporaryDirectory(dir=tmpdir)
+        tmp_path = Path(tmp_dir_obj.name)
+        tmp_cleanup = tmp_dir_obj
+
+    pangenome.parameters["partition"] = {
+        "beta": beta,
+        "max_degree_smoothing": sm_degree,
+        "free_dispersion": free_dispersion,
+        "ICL_margin": icl_margin,
+        "seed": seed,
+        "nb_of_partitions": kval,
+        "# computed nb of partitions": False,
+        "krange": kmm,
+    }
     if len(organisms) > chunk_size:
         pangenome.parameters["partition"]["chunk_size"] = chunk_size
-    pangenome.parameters["partition"]["# computed nb of partitions"] = False
 
-    # the K value initially given by the user
-    pangenome.parameters["partition"]["nb_of_partitions"] = kval
     if kval < 2:
         pangenome.parameters["partition"]["# computed nb of partitions"] = True
         logging.getLogger("PPanGGOLiN").info(
@@ -754,120 +941,41 @@ def partition(
             seed,
             tmp_path,
             disable_bar,
+            backend=backend,
         )
         logging.getLogger("PPanGGOLiN").info(
             f"The number of partitions has been evaluated at {kval}"
         )
 
     pangenome.parameters["partition"]["# final nb of partitions"] = kval
-    pangenome.parameters["partition"]["krange"] = kmm
     init = "param_file"
 
-    partitioning_results = {}
-
-    families = set()
-    cpt = 0
-    cpt_partition = {}
-    random.seed(seed)
-
-    for fam in pangenome.gene_families:
-        families.add(fam)
-        if chunk_size < len(organisms):
-            cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
-
-    start_partitioning = time.time()
     logging.getLogger("PPanGGOLiN").info("Partitioning...")
-    pansize = len(families)
+    start_partitioning = time.time()
+
     if chunk_size < len(organisms):
-        validated = set()
-
-        def validate_family(res):
-            """
-            Validate partition assignation to families
-
-            :param res: Partitioning results
-            """
-            for node, nem_class in res[0].items():
-                cpt_partition[node][nem_class[0]] += 1
-                sum_partionning = sum(cpt_partition[node].values())
-                if (
-                    sum_partionning > len(organisms) / chunk_size
-                    and max(cpt_partition[node].values()) >= sum_partionning * 0.5
-                ) or (sum_partionning > len(organisms)):
-                    if node not in validated:
-                        if max(cpt_partition[node].values()) < sum_partionning * 0.5:
-                            cpt_partition[node]["U"] = len(organisms)
-                            # if despite len(select_organisms) partionning,
-                            # an abosolute majority is not found then the families is set to undefined
-                        validated.add(node)
-
-        org_nb_sample = Counter()
-        for org in organisms:
-            org_nb_sample[org] = 0
-        condition = len(organisms) / chunk_size
-        while len(validated) < pansize:
-            prev = len(samples)  # if we've been sampling already, samples is not empty.
-            while not all(val >= condition for val in org_nb_sample.values()):
-                # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = list(organisms)  # copy select_organisms
-                random.shuffle(shuffled_orgs)  # shuffle the copied list
-                while len(shuffled_orgs) > chunk_size:
-                    samples.append(set(shuffled_orgs[:chunk_size]))
-                    for org in samples[-1]:
-                        org_nb_sample[org] += 1
-                    shuffled_orgs = shuffled_orgs[chunk_size:]
-            args = []
-            # tmpdir, beta, sm_degree, free_dispersion, K, seed
-            for i, _ in enumerate(samples[prev:], start=prev):
-                args.append(
-                    (
-                        i,
-                        kval,
-                        beta,
-                        sm_degree,
-                        free_dispersion,
-                        seed,
-                        init,
-                        tmp_path,
-                        keep_tmp_files,
-                    )
-                )
-
-            logging.getLogger("PPanGGOLiN").info("Launching NEM")
-            with get_context("fork").Pool(processes=cpu) as p:
-                # launch partitioning
-                bar = tqdm(
-                    range(len(args)), unit=" samples partitioned", disable=disable_bar
-                )
-                for result in p.imap_unordered(nem_samples, args):
-                    validate_family(result)
-                    bar.update()
-
-                bar.close()
-                condition += (
-                    1  # if len(validated) < pan_size, we will want to resample more.
-                )
-                logging.getLogger("PPanGGOLiN").debug(
-                    f"There are {len(validated)} validated families out of {pansize} families."
-                )
-                p.close()
-                p.join()
-        for fam, data in cpt_partition.items():
-            partitioning_results[fam] = max(data, key=data.get)
-
-        # need to compute the median vectors of each partition ???
-        partitioning_results = [partitioning_results, []]  # introduces a 'non feature'.
-
-        logging.getLogger("PPanGGOLiN").info(
-            f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
-            f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds."
+        # ── Chunked mode ───────────────────────────────────────────────────
+        family_partitions = _run_chunked_partitioning(
+            organisms=organisms,
+            tmp_path=tmp_path,
+            kval=kval,
+            beta=beta,
+            sm_degree=sm_degree,
+            free_dispersion=free_dispersion,
+            seed=seed,
+            init=init,
+            keep_tmp_files=keep_tmp_files,
+            backend=backend,
+            chunk_size=chunk_size,
+            cpu=cpu,
+            disable_bar=disable_bar,
         )
     else:
-        edges_weight, nb_fam = write_nem_input_files(
-            tmp_path / f"{str(cpt)}", organisms, sm_degree=sm_degree
-        )
-        partitioning_results = run_partitioning(
-            tmp_path / f"{str(cpt)}",
+        # ── Single run ─────────────────────────────────────────────────────
+        nem_dir = tmp_path / "0"
+        edges_weight, nb_fam = write_nem_input_files(nem_dir, organisms, sm_degree)
+        result = run_partitioning(
+            nem_dir,
             len(organisms),
             beta * (nb_fam / edges_weight),
             free_dispersion,
@@ -875,42 +983,42 @@ def partition(
             seed=seed,
             init=init,
             keep_files=keep_tmp_files,
+            backend=backend,
         )
-        if partitioning_results == [{}, None, None]:
+        if not result[0]:
             raise Exception(
                 "Statistical partitioning does not work on your data. "
                 "This usually happens because you used very few (<15) genomes."
             )
-        cpt += 1
+        family_partitions = result[0]
         logging.getLogger("PPanGGOLiN").info(
             f"Partitioned {len(organisms)} genomes in "
             f"{round(time.time() - start_partitioning, 2)} seconds."
         )
 
-    # pangenome.savePartitionParameters(K, beta, free_dispersion, sm_degree, partitioning_results[1], chunk_size)
-
-    for fam_name, part in partitioning_results[0].items():
+    for fam_name, part in family_partitions.items():
         pangenome.get_gene_family(fam_name).partition = part
 
     pangenome.status["partitioned"] = "Computed"
-    if not keep_tmp_files:
-        tmp_dir.cleanup()
-    else:
+
+    if keep_tmp_files and output is not None:
         copytree(tmp_path, output / "NEM_files/")
+    elif tmp_cleanup is not None:
+        tmp_cleanup.cleanup()
 
 
 def launch(args: argparse.Namespace):
-    """
-    Command launcher
+    """Command launcher.
 
-    :param args: All arguments provide by user
+    :param args: All arguments provided by user
     """
     if args.draw_ICL or args.keep_tmp_files:
         mk_outdir(args.output, args.force)
-    global pan
-    pan.add_file(args.pangenome)
+    pangenome = Pangenome()
+    pangenome.add_file(args.pangenome)
+    backend = "pynem" if getattr(args, "use_pynem", False) else "cnem"
     partition(
-        pan,
+        pangenome,
         args.output,
         args.beta,
         args.max_degree_smoothing,
@@ -926,9 +1034,11 @@ def launch(args: argparse.Namespace):
         args.keep_tmp_files,
         args.force,
         disable_bar=args.disable_prog_bar,
+        backend=backend,
     )
     logging.getLogger("PPanGGOLiN").debug("Write partition in pangenome")
-    write_pangenome(pan, pan.file, args.force, disable_bar=args.disable_prog_bar)
+    write_pangenome(pangenome, pangenome.file, args.force,
+                    disable_bar=args.disable_prog_bar)
     logging.getLogger("PPanGGOLiN").debug("Partitioning is finished")
 
 
@@ -1075,6 +1185,14 @@ def parser_partition(parser: argparse.ArgumentParser):
         type=str,
         default=Path(tempfile.gettempdir()),
         help="directory for storing temporary files",
+    )
+    optional.add_argument(
+        "--use_pynem",
+        required=False,
+        default=False,
+        action="store_true",
+        help="Use the pure-Python pynem backend instead of the default C NEM implementation. "
+        "Requires the pynem package to be installed.",
     )
 
 
