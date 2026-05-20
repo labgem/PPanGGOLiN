@@ -239,9 +239,7 @@ def compute_msa(
         )
 
         protein_fasta = Path(newtmpdir.name) / "all_genes_proteins.faa"
-        cmd = list(
-            map(str, ["mmseqs", "convert2fasta", translate_db, protein_fasta])
-        )
+        cmd = list(map(str, ["mmseqs", "convert2fasta", translate_db, protein_fasta]))
         run_subprocess(
             cmd, msg="MMSeqs convert2fasta failed with the following error:\n"
         )
@@ -253,7 +251,9 @@ def compute_msa(
     args = []
     logging.getLogger("PPanGGOLiN").info("Preparing input files for MSA...")
     for family in tqdm(families, unit="family", disable=disable_bar):
-        fname = write_fasta_families(family, newtmpdir, source, use_gene_id, protein_dict)
+        fname = write_fasta_families(
+            family, newtmpdir, source, use_gene_id, protein_dict
+        )
         args.append((fname, output, family.name))
 
     logging.getLogger("PPanGGOLiN").info("Computing the MSA ...")
