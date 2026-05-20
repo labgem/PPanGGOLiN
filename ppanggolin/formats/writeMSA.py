@@ -4,7 +4,6 @@
 import argparse
 import logging
 import tempfile
-import time
 from multiprocessing import get_context
 from pathlib import Path
 from typing import Dict, Set, List, Tuple
@@ -13,7 +12,6 @@ from typing import Dict, Set, List, Tuple
 from tqdm import tqdm
 
 # local libraries
-from ppanggolin.genome import Gene
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import (
@@ -24,7 +22,7 @@ from ppanggolin.utils import (
     check_translation_table_to_use,
 )
 from ppanggolin.formats.readBinaries import check_pangenome_info
-from ppanggolin.genetic_codes import genetic_codes
+from ppanggolin.formats.writeSequences import translate_genes
 
 
 def get_families_to_write(
@@ -94,83 +92,86 @@ def get_families_to_write(
         return families
 
 
-def translate(gene: Gene, code: Dict[str, Dict[str, str]]) -> Tuple[str, bool]:
-    """translates the given dna sequence with the given translation table
+def write_single_copy_genes_fasta(families: Set[GeneFamily], output_path: Path) -> None:
+    """Write nucleotide sequences of all single-copy genes from the given families
+    to a single FASTA file, one gene per line (single-line format).
 
-    :param gene: given gene
-    :param code: translation table corresponding to genetic code to use
-
-    :return: protein sequence
+    :param families: Set of gene families to extract genes from
+    :param output_path: Path to the output FASTA file
     """
-    # code:  https://www.bioinformatics.org/sms/iupac.html
-    start_table = code["start_table"]
-    table = code["trans_table"]
-    mod = len(gene.dna) % 3
-    partial = False
-    if mod != 0:
-        partial = True
-        msg = (
-            f"Gene {gene.ID} {'' if gene.local_identifier == '' else 'with local identifier ' + gene.local_identifier}"
-            f" has a sequence length of {len(gene.dna)} which modulo 3 was different than 0."
-        )
-        logging.getLogger("PPANGGOLIN").debug(msg)
-    protein = start_table[gene.dna[0:3]]
-    for i in range(3, len(gene.dna) - mod, 3):
-        codon = gene.dna[i : i + 3]
-        try:
-            protein += table[codon]
-        except KeyError:  # codon was not planned for. Probably can't determine it.
-            protein += "X"  # X is for unknown
-    return protein, partial
+    with open(output_path, "w") as fasta:
+        for family in families:
+            for genes in family.get_org_dict().values():
+                if len(genes) == 1:
+                    gene = next(iter(genes))
+                    fasta.write(f">{gene.ID}\n{gene.dna}\n")
+
+
+def parse_protein_fasta(fasta_path: Path) -> Dict[str, str]:
+    """Parse a protein FASTA file into a gene-id-to-sequence dictionary.
+
+    :param fasta_path: Path to the protein FASTA file
+
+    :return: Dictionary mapping gene IDs to protein sequences
+    """
+    protein_dict = {}
+    gene_id = None
+    seq_parts: List[str] = []
+    with open(fasta_path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(">"):
+                if gene_id is not None:
+                    protein_dict[gene_id] = "".join(seq_parts)
+                gene_id = line[1:].split()[0]
+                seq_parts = []
+            else:
+                seq_parts.append(line)
+        if gene_id is not None:
+            protein_dict[gene_id] = "".join(seq_parts)
+    return protein_dict
 
 
 def write_fasta_families(
     family: GeneFamily,
     tmpdir: tempfile.TemporaryDirectory,
-    code_table: Dict[str, Dict[str, str]],
     source: str = "protein",
     use_gene_id: bool = False,
-) -> Tuple[Path, bool]:
-    """Write fasta files for each gene family
+    protein_dict: Dict[str, str] = None,
+) -> Path:
+    """Write a FASTA file of sequences for a single gene family.
+
+    Only genes present in exactly one copy per organism are included.
 
     :param family: gene family to write
     :param tmpdir: path to temporary directory
     :param source: indicates whether to use protein or dna sequences to compute the msa
     :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
-    :param code_table: Genetic code to use
+    :param protein_dict: mapping of gene IDs to protein sequences (required when source is 'protein')
 
-    :return: path to fasta file
+    :return: path to the written FASTA file
     """
-    # have a directory for each gene family, to make deletion of tmp files simpler
-
     f_name = Path(tmpdir.name) / f"{family.name}.fasta"
 
-    # get genes that are present in only one copy for our family in each organism.
     single_copy_genes = []
     for genes in family.get_org_dict().values():
         if len(genes) == 1:
             single_copy_genes.extend(genes)
 
     with open(f_name, "w") as f_obj:
-        partial = False
         for gene in single_copy_genes:
-            if use_gene_id:
-                f_obj.write(f">{gene.ID}\n")
-            else:
-                f_obj.write(f">{gene.organism.name}\n")
+            header = gene.ID if use_gene_id else gene.organism.name
+            f_obj.write(f">{header}\n")
             if source == "dna":
                 f_obj.write(gene.dna + "\n")
             elif source == "protein":
-                protein, part = translate(gene, code_table)
-                if not partial:
-                    partial = part
-                f_obj.write(protein + "\n")
+                f_obj.write(protein_dict[gene.ID] + "\n")
             else:
                 raise ValueError(
                     f"Unknown sequence source '{source}' provided. Expected 'dna' or 'protein'."
                 )
 
-    return f_name, partial
+    return f_name
 
 
 def launch_mafft(fname: Path, output: Path, fam_name: str):
@@ -204,7 +205,7 @@ def compute_msa(
     cpu: int = 1,
     source: str = "protein",
     use_gene_id: bool = False,
-    code: str = "11",
+    code: int = 11,
     disable_bar: bool = False,
 ):
     """
@@ -216,33 +217,45 @@ def compute_msa(
     :param tmpdir: path to temporary directory
     :param source: indicates whether to use protein or dna sequences to compute the msa
     :param use_gene_id: Use gene identifiers rather than organism names for sequences in the family MSA
-    :param code: Genetic code to use
+    :param code: Translation table (genetic code) to use
     :param disable_bar: Disable progress bar
     """
     newtmpdir = tempfile.TemporaryDirectory(dir=tmpdir)
 
-    write_total = 0
+    protein_dict: Dict[str, str] = {}
+    if source == "protein":
+        logging.getLogger("PPanGGOLiN").info(
+            "Translating gene sequences with MMseqs2..."
+        )
+        genes_fasta = Path(newtmpdir.name) / "all_genes.fna"
+        write_single_copy_genes_fasta(families, genes_fasta)
+
+        translate_db = translate_genes(
+            sequences=genes_fasta,
+            tmpdir=Path(newtmpdir.name),
+            cpu=cpu,
+            is_single_line_fasta=True,
+            code=code,
+        )
+
+        protein_fasta = Path(newtmpdir.name) / "all_genes_proteins.faa"
+        cmd = list(
+            map(str, ["mmseqs", "convert2fasta", translate_db, protein_fasta])
+        )
+        run_subprocess(
+            cmd, msg="MMSeqs convert2fasta failed with the following error:\n"
+        )
+        protein_dict = parse_protein_fasta(protein_fasta)
+        logging.getLogger("PPanGGOLiN").info(
+            f"Translated {len(protein_dict)} gene sequences."
+        )
+
     args = []
     logging.getLogger("PPanGGOLiN").info("Preparing input files for MSA...")
-    code_table = genetic_codes(code)
-
-    partial = False
     for family in tqdm(families, unit="family", disable=disable_bar):
-        start_write = time.time()
-        fname, part = write_fasta_families(
-            family, newtmpdir, code_table, source, use_gene_id
-        )
-        if not partial:
-            partial = part
-        write_total = write_total + (time.time() - start_write)
+        fname = write_fasta_families(family, newtmpdir, source, use_gene_id, protein_dict)
         args.append((fname, output, family.name))
 
-    if partial:
-        logging.getLogger("PPanGGOLiN").warning(
-            "Partial gene was found during translation. "
-            "Last nucleotides were removed to translate. "
-            "Use --verbose 2 to see genes that are partial"
-        )
     logging.getLogger("PPanGGOLiN").info("Computing the MSA ...")
     with get_context("fork").Pool(cpu) as p:
         with tqdm(total=len(families), unit="family", disable=disable_bar) as bar:
@@ -336,7 +349,7 @@ def write_msa_files(
     soft_core: float = 0.95,
     phylo: bool = False,
     use_gene_id: bool = False,
-    translation_table: str = "11",
+    translation_table: int = 11,
     dup_margin: float = 0.95,
     single_copy: bool = True,
     force: bool = False,
@@ -360,7 +373,10 @@ def write_msa_files(
     :param force: force to write in the directory
     :param disable_bar: Disable progress bar
     """
-    check_tools_availability(["mafft"])
+    tools = ["mafft"]
+    if source == "protein":
+        tools.append("mmseqs")
+    check_tools_availability(tools)
 
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
 
@@ -395,7 +411,7 @@ def write_msa_files(
         tmpdir=tmpdir,
         source=source,
         use_gene_id=use_gene_id,
-        code=str(translation_table),
+        code=translation_table,
         disable_bar=disable_bar,
     )
     logging.getLogger("PPanGGOLiN").info(
