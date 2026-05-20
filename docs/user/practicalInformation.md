@@ -9,8 +9,7 @@ The benefit of this approach is the ability to exclusively store and manipulate 
 
 Once the pangenome is established, including gene clustering, partitioning, optional prediction of Regions of Genome Plasticity (RGP), Spots of insertions, and functional modules, it becomes a versatile input for various PPanGGOLiN commands. For instance, the [`msa` command](MSA.md) generates multiple sequence alignments of genes, the [`projection` command](./projection.md) annotates external genomes with the pangenome content, and the [`context` command](./genomicContext.md) identifies genomic contexts of proteins of interest.
 
-PPanGGOLiN utilizes the [pytable](https://www.pytables.org/index.html) Python library for handling the pangenome HDF-5 file. While graphical user interface tools like ['ViTables'](https://vitables.org/index.html) allow manual exploration and editing of the file, it's cautioned against, as it may compromise compatibility with PPanGGOLiN.
-
+PPanGGOLiN uses the [pytable](https://www.pytables.org/index.html) Python library for handling the pangenome HDF-5 file. While graphical user interface tools like ['ViTables'](https://vitables.org/index.html) allow for manual exploration and editing of the file, it's cautioned against, as it may compromise compatibility with PPanGGOLiN.
 
 You can use the command `info` to get comprehensive insights into the contents and construction process of a pangenome file. 
 
@@ -24,14 +23,15 @@ ppanggolin info -p pangenome.h5
 Most of PPanGGOLiN's commands should be run with as many CPUs as you can give them by using the --cpu option as PPanGGOLiN's speed increases relatively well with the number of CPUs. 
 While the 'smallest' pangenomes (up to a few hundred genomes) can be easily analyzed on a normal desktop computer, 
 the biggest ones will require a good amount of RAM.
-For example, 40 strains of *E. coli* were analyzed in 3 minutes using 1.2Go of RAM using 16 threads. 
-1000 strains were analyzed in 45 minutes with 14 Go of RAM using 16 threads, and as of writing those lines (October 2019), 
-20 656 genomes was the biggest pangenome we did, and it required about a day and 120 Go of RAM.
+For example, 40 strains of *E. coli* were analyzed with 16 threads in 3 minutes using 1.2Go of RAM, 
+1000 strains were analyzed with 16 threads in 45 minutes using 14 Go of RAM, and as of writing (October 2019), 
+the biggest pangenome we constructed used 20 656 genomes, and it required about a day and 120 Go of RAM.
 The following graphic can give you an idea of the time it takes for a pangenome analysis given the number of genomes in input.
 
 ```{image} ../_static/runtimes.png
 :align: center
 ```
+
 This data was collected using PPanGGOLiN v1.1.72.
 
 ## Usage and basic options
@@ -45,14 +45,14 @@ You can specify the output directory (if not provided, one with a unique random 
 If you work in a strange environment that has no, or little available disk space in the '/tmp' (or your system equivalent, what is stored in TMPDIR) directory, you can specify a new temporary directory using `--tmp`
 
 If you want to redo an analysis from scratch and store it in a directory that already exists, you will have to use the `--force` option. 
-Be wary, however, that the data in that directory will be overwritten if named identically as any output file written by ppanggolin.
+Be aware, however, that the data in that directory will be overwritten if named identically as any output file written by PPanGGOLiN.
 
 PPanGGOLiN is deliberately very verbose, to help users understand each stage of the analysis. 
 If you want, verbosity can be reduced in several ways.
-First, you can specify the verbosity level with the `--verbose` option. 
-With `0` will show only warnings and errors, `1` will add the information (default value), and if you encounter any problem you can use the debug level with value `2`.
-Then you can also remove the progress bars with the option `--disable_prog_bar`
-Finally, you can also save PPanGGOLiN logs in a file by indicating its path with the option `--log`.
+Firstly, you can specify the verbosity level with the `--verbose` option.
+Set to `0` it will show only warnings and errors, `1` will add information (default value), and `2` is the debug level in case you encounter any problems.
+Secondly, you can also remove the progress bars with the option `--disable_prog_bar`.
+Finally, you can also save PPanGGOLiN logs to a file by indicating its path with the `--log` option.
 
 ## Configuration file
 
@@ -130,7 +130,7 @@ annotate:
 ```
 
 ## Issues, Questions, Remarks
-If you have any question or issue with installing, using or understanding **PPanGGOLiN**, please do not hesitate to post an [issue in github](https://github.com/labgem/PPanGGOLiN/issues)!
+If you have any question or issue with installing, using or understanding **PPanGGOLiN**, please do not hesitate to post an [issue on github](https://github.com/labgem/PPanGGOLiN/issues)!
 We cannot correct bugs if we do not know about them, and will try to help you the best we can.
 
 Before reporting a bug, if possible please add the option `--verbose 2` to your command to provide additional information. Please also add some context and tell us what you were trying to do.

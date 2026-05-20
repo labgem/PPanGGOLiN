@@ -7,7 +7,6 @@ In the end, you will have a partitioned pangenome graph with predicted **RGP, sp
 [//]: # (### PPanGGOLiN: Pangenome analyses from list of annotated files)
 
 
-
 ```{mermaid}
 
 ---
@@ -17,12 +16,10 @@ align: center
 
 %%{init: {'theme':'default'}}%%
 
-
 graph LR
 
     i[input genomes] --> a
    
-
         r:::panrgp
         s:::panrgp
         m:::panmodule
@@ -42,7 +39,6 @@ graph LR
         end
         
         subgraph Region of Genomic Plasticity
-        
         p --> r(rgp)
         r --> s(spot)
         end
@@ -56,12 +52,10 @@ graph LR
     classDef panmodule fill:#d44066
     classDef workflow fill:#d4ae40
 
-
 ```
 
-The minimal subcommand only need your own annotations files (using `.gff` or `.gbff`/`.gbk` files) 
-as long as they include the genomic dna sequences, such as the ones provided by Prokka or Bakta.
- 
+The minimal subcommand only needs your own annotation files (`.gff` or `.gbff`/`.gbk` files), as long as they include the genomic dna sequences like those provided by Prokka or Bakta.
+
 ```bash
 ppanggolin all --anno genomes.gbff.list
 ```
@@ -77,7 +71,7 @@ The file **genomes.gbff.list** is a tab-separated file with the following organi
 An example with 50 _Chlamydia trachomatis_ genomes can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.gbff.list) directory.
 
 [//]: # (### PPanGGOLiN: Pangenome analyses from list of fasta files)
-You can also give PPanGGOLiN `.fasta` files, such as:
+You can also give PPanGGOLiN `.fasta` files, as such:
 
 ```
 ppanggolin all --fasta genomes.fasta.list
@@ -93,7 +87,7 @@ Again you must use a tab-separated file but this time with the following organis
 Same, an example can be found in the [testingDataset](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.fasta.list) directory.
 
 ```{tip}
-Downloading genomes from NCBI refseq or genbank for a species of interest can be easily accomplished using CLI tools like [ncbi-genome-download](https://github.com/kblin/ncbi-genome-download) or the [genome updater](https://github.com/pirovc/genome_updater) script.
+Downloading genomes from NCBI refseq or genbank for a species of interest can be done easily using CLI tools like [ncbi-genome-download](https://github.com/kblin/ncbi-genome-download) or the [genome updater](https://github.com/pirovc/genome_updater) script.
 
 For instance to download the GTDB refseq genomes of Bradyrhizobium japonicum with genome updater, you can run the following command 
 ```bash
@@ -103,9 +97,9 @@ genome_updater.sh -d "refseq"  -o "B_japonicum_genomes" -M "gtdb" -T "s__Bradyrh
 
 After the completion of the `all` command, all of your genomes have had their genes predicted, the genes have been clustered into gene families, a pangenome graph has been successfully constructed and partitioned into three distinct partitions: **persistent**, **shell**, and **cloud**. Additionally, **RGP, spots, and modules** have been detected within your pangenome.
 
-The results of the workflow is saved in the  **pangenome.h5** file, which is in the HDF-5 file format.
+The results of the workflow is saved in the **pangenome.h5** file, which is in the HDF-5 file format.
 When you run an analysis using this file as input, the results of that analysis will be added to the file to supplement the data that are already stored in it. 
-The idea behind this is that you can store and manipulate your pangenome with PPanGGOLiN by using this file only. It will keep all the information about what was done, all the parameters used, and all the pangenome's content.
+The idea behind this is that you can store and manipulate your pangenome with PPanGGOLiN using only this file. It will keep all the information about what was done, all the parameters used, and of all the pangenome's content.
 
 ```{tip}
 Many option are available to tune your analysis. Take a look [here](../PangenomeAnalyses/pangenomeAnalyses.md#workflow).

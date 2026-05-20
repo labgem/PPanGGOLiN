@@ -26,7 +26,7 @@ ppanggolin partition -p pangenome.h5
 
 The command also has quite a few options. 
 Most of them are not self-explanatory. 
-If you want to know what they do, you should read the PPanGGOLiN paper (you can read it [here](https://journals.plos.org/ploscompbiol/article?rev=2&id=10.1371/journal.pcbi.1007732)) where the statistical methods used are thoroughly described.
+If you want to know what they do, you should read the PPanGGOLiN paper (you can read it [here](https://doi.org/10.1371/journal.pcbi.1007732) where the statistical methods used are thoroughly described.
 
 The one parameter that might be of importance is the `-K`, or `--nb_of_partitions` parameter. 
 This will define the number of classes (`K`) used to partition the pangenome. 

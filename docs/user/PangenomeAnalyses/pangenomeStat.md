@@ -1,6 +1,38 @@
 ### Pangenome statistics
 
-The command `ppanggolin write_pangenome` allows to write 'flat' files that describe the pangenome and its elements.
+The sub-command `ppanggolin write_pangenome` writes 'flat' files that describe the pangenome and its elements. Toggle which of the files below are output by providing the corresponding flags.
+
+#### Mean Persistent Duplication
+
+The `mean_persistent_duplication.tsv` file lists the gene families along with their duplication ratios, average presence in the pangenome, and classification as 'single copy markers.' In this context, a gene family is not considered in single copy if it appears in single copy in less than 5% of the genomes by default. This default threshold can be adjusted using the `--dup_margin` parameter. The chosen threshold value for generating this file is indicated within a comment line starting with a '#'.
+
+This notion of single copy markers is used for calculating contamination values in the [genome statistics table](#genome-statistics-table) described below.
+
+Below an example excerpt from this file:
+
+```tsv
+#duplication_margin=0.05
+persistent_family	duplication_ratio	mean_presence	is_single_copy_marker
+J4H57_RS02250	0.0	1.0	True
+K6U54_RS13115	0.0	1.0	True
+J4H33_RS19875	0.0	1.0	True
+J4H71_RS19770	0.0	1.0	True
+NB568_RS20780	0.0	1.0	True
+JCM18904_4793	0.0	1.0	True
+JCM18904_4607	0.0	1.0	True
+JCM18904_2671	0.003	1.003	True
+JCM18904_2527	0.0	1.0	True
+K04M1_RS08450	0.698	1.698	False
+[...]
+```
+
+The `mean_persistent_duplication.tsv` file, can be generated using the `write_pangenome` subcommand with the `--stats` flag as such:
+
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --stats
+```
+
+The `--stats` flag will also generate the `genomes_statistics.tsv` file desdcribed [below](#genome-statistics-table).
 
 #### Genome statistics table
 
@@ -46,19 +78,17 @@ This file comprises 32 columns described in the following table:
 | Modules                     | Number of module IDs within gene families                                  |
 
 
-
-
 ```{note}
 If you have predicted RGPs, spots or modules in your pangenome, corresponding columns will be added.
 ```
 
-This table can be generated using the `write_pangenome` subcommand with the flag `--stats` as such : 
+This table can be generated using the `write_pangenome` subcommand with the `--stats` flag as such:
 
 ```bash
 ppanggolin write_pangenome -p pangenome.h5 --stats
 ```
 
-The flag `--stats` will also generate the `mean_persistent_duplication.tsv` file desdcribe [here](#mean-persistent-duplication).
+The `--stats` flag will also generate the `mean_persistent_duplication.tsv` file desdcribed [above](#mean-persistent-duplication).
 
 ##### Genome Metrics Overview
 
@@ -72,43 +102,6 @@ In this computation, fragmented genes are excluded. Therefore, if a family exist
 
 **- Fragmentation**
 The fragmentation value denotes the proportion of families containing fragmented genes within the genome. A high fragmentation value may indicate a highly fragmented genome.
-
-
-#### Mean Persistent Duplication
-
-The `mean_persistent_duplication.tsv` file lists the gene families along with their duplication ratios, average presence in the pangenome, and classification as 'single copy markers.' In this context, a gene family is not considered in single copy if it appears in single copy in less than 5% of the genomes by default. This default threshold can be adjusted using the `--dup_margin` parameter. The chosen threshold value for generating this file is indicated within a comment line starting with a '#'.
-
-This notion of single copy markers is used for calculating contamination values in the [genome statistics table](#genome-statistics-table) described earlier.
-
-Below an example excerpt from this file:
-
-```tsv
-#duplication_margin=0.05
-persistent_family	duplication_ratio	mean_presence	is_single_copy_marker
-J4H57_RS02250	0.0	1.0	True
-K6U54_RS13115	0.0	1.0	True
-J4H33_RS19875	0.0	1.0	True
-J4H71_RS19770	0.0	1.0	True
-NB568_RS20780	0.0	1.0	True
-JCM18904_4793	0.0	1.0	True
-JCM18904_4607	0.0	1.0	True
-JCM18904_2671	0.003	1.003	True
-JCM18904_2527	0.0	1.0	True
-K04M1_RS08450	0.698	1.698	False
-[...]
-
-```
-
-The `mean_persistent_duplication.tsv` file, can be generated using the `write_pangenome` subcommand with the flag `--stats` as such : 
-
-```bash
-ppanggolin write_pangenome -p pangenome.h5 --stats
-```
-
-
-The flag `--stats` will also generate the `genomes_statistics.tsv` file desdcribe [here](#genome-statistics-table).
-
-
 
 (gene-presence-absence)=
 #### Gene Presence-Absence Matrix
@@ -134,7 +127,6 @@ ppanggolin write_pangenome -p pangenome.h5 --csv
 ```
 
 
-
 #### Partitions Files
 
 The 'Partitions' files are stored within the `partitions` directory and are named after the specific partition they represent (e.g., 'persistent.txt' for the persistent partition). Each file contains a list of gene family identifiers corresponding to the gene families belonging to that particular partition. The format consists of one family identifier per line, facilitating their usage in downstream analysis workflows.
@@ -142,7 +134,6 @@ The 'Partitions' files are stored within the `partitions` directory and are name
 To generate these files, use the `write_pangenome` subcommand with the `--partitions` flag:
 
 `ppanggolin write_pangenome -p pangenome.h5 --partitions`
-
 
 
 #### Gene Families to Gene Associations
@@ -159,4 +150,3 @@ To generate this file, use the `write_pangenome` subcommand with the `--families
 ```bash
 ppanggolin write_pangenome -p pangenome.h5 --families_tsv
 ```
-
