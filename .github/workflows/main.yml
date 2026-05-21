@@ -81,7 +81,7 @@ jobs:
     - name: Install ppanggolin
       shell: bash -l {0}
       run: |
-        pip install .[test]
+        pip install --no-deps .[test]
         mmseqs version
 
     # Check that it is installed and displays help without error
@@ -94,7 +94,7 @@ jobs:
     # Check that unit tests are all passing
     - name: Unit and functional tests
       shell: bash -l {0}
-      run: pytest --full --cov=ppanggolin --cov-report=term --cpu $NUM_CPUS 
+      run: pytest --full --cov=ppanggolin --cov-report=term --cpu $NUM_CPUS
 
     - name: Archive diff files
       if: always()
@@ -102,5 +102,3 @@ jobs:
       with:
         name: comparison-results_${{ matrix.os }}_python${{ matrix.python-version }}
         path: testingDataset/info_to_test/*
-        
-    
