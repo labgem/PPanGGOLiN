@@ -51,11 +51,15 @@ jobs:
       matrix:
         os: ['ubuntu-latest', 'macos-latest']
         python-version: ['3.9', '3.12']
+    defaults:
+      run:
+        shell: conda run --no-capture-output -n ppanggolin bash -e {0}
     steps:
 
     # Get number of cpu available on the current runner
     - name: Get core number on linux
       if: matrix.os == 'ubuntu-latest'
+      shell: bash
       run: |
         nb_cpu_linux=`nproc`
         echo "Number of cores avalaible on the current linux runner $nb_cpu_linux"
@@ -63,42 +67,43 @@ jobs:
 
     - name: Get core number on macos
       if: matrix.os == 'macos-latest'
+      shell: bash
       run: |
         nb_cpu_macos=`sysctl -n hw.ncpu`
         echo "Number of cores avalaible on the current macos runner $nb_cpu_macos"
         echo "NUM_CPUS=$nb_cpu_macos" >> "$GITHUB_ENV"
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     # Install requirements with miniconda
-    - uses: conda-incubator/setup-miniconda@v3
+    - uses: conda-incubator/setup-miniconda@v4
       with:
         python-version: ${{ matrix.python-version }}
-        channels: conda-forge,bioconda,defaults
+        channels: conda-forge,bioconda
         environment-file: ppanggolin_env.yaml
         activate-environment: ppanggolin
+        conda-remove-defaults: "true"
 
     - name: Install ppanggolin
-      shell: bash -l {0}
       run: |
-        pip install .[test]
-        mmseqs version
+        python -m pip install .[test]
+
 
     # Check that it is installed and displays help without error
     - name: Check that PPanGGOLiN is installed
-      shell: bash -l {0}
       run: |
         ppanggolin --version
         ppanggolin --help
+        mmseqs version
+        python -V
 
     # Check that unit tests are all passing
     - name: Unit and functional tests
-      shell: bash -l {0}
-      run: pytest --full --cov=ppanggolin --cov-report=term --cpu $NUM_CPUS 
+      run: python -m pytest --cov=ppanggolin --cov-report=term --cpu $NUM_CPUS --full
 
     - name: Archive diff files
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: comparison-results_${{ matrix.os }}_python${{ matrix.python-version }}
         path: testingDataset/info_to_test/*
