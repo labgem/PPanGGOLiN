@@ -93,7 +93,7 @@ can use the `--borders` option as follow:
 ppanggolin write_pangenome -p pangenome.h5 --borders -o rgp_outputs
 ```
 
-It will write a .tsv file with 4 columns:
+It will write a `spot_borders.tsv` file with 4 columns:
 
 | Column  | Description                                                             |
 |---------|-------------------------------------------------------------------------|

@@ -39,7 +39,7 @@ While this method installs PPanGGOLiN and its Python dependencies, it does not i
 
 ### Within a Conda Environment
 
-To install PPanGGOLiN from the source code, it is recomended to use a conda environment that includes all the necessary dependencies:
+To install PPanGGOLiN from the source code, it is recommended to use a conda environment that includes all the necessary dependencies:
 
 **1. Clone the PPanGGOLiN Repository**
 
@@ -92,7 +92,7 @@ Next, install the following non-Python software:
 
 ```{note}
 - MMSeqs2 is crucial for gene clustering, while Aragorn and Infernal are used for genome annotation.
-- MAFFT is utilized in the `ppanggolin msa` command for multiple sequence alignment.
+- MAFFT is used in the `ppanggolin msa` command for multiple sequence alignment.
 - Skip installing Aragorn, Infernal, or MAFFT if you do not require their specific features.
 ```
 

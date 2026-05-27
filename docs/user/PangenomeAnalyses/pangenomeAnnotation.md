@@ -43,7 +43,7 @@ If you do not want to predict the RNA (and thus not use Infernal and Aragorn), y
 Otherwise, by default, any CDS overlapping RNA genes will be deleted as they are often false positive calls.
 You can prevent this filtering by using the `--allow_overlap` option.
 
-Additionally, the `--kingdom archaea` option can be utilized when working with archaea genomes 
+Additionally, the `--kingdom archaea` option can be provided when working with archaea genomes
 to specify Infernal's RNA annotation model. 
 
 ### Use annotation files for your pangenome
