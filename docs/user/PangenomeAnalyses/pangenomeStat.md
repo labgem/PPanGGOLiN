@@ -1,6 +1,8 @@
-### Pangenome statistics
+### Pangenome output statistics
 
-The sub-command `ppanggolin write_pangenome` writes 'flat' files that describe the pangenome and its elements. Toggle which of the files below are output by providing the corresponding flags.
+The sub-command `ppanggolin write_pangenome` writes 'flat' files that describe the pangenome and its elements.
+Only two arguments are required : `-p` an input pangenome hdf5 file produced by one of the previously described subcommands; and `-o` or `--output` a directory in which the output files will be written. The force flag `-f` is needed in order to overwrite or add to an existing output directory.
+Toggle which of the files below are output by providing the corresponding flags.
 
 #### Mean Persistent Duplication
 
@@ -29,10 +31,10 @@ K04M1_RS08450	0.698	1.698	False
 The `mean_persistent_duplication.tsv` file, can be generated using the `write_pangenome` subcommand with the `--stats` flag as such:
 
 ```bash
-ppanggolin write_pangenome -p pangenome.h5 --stats
+ppanggolin write_pangenome -p pangenome.h5 -o output_dir --stats
 ```
 
-The `--stats` flag will also generate the `genomes_statistics.tsv` file desdcribed [below](#genome-statistics-table).
+The `--stats` flag will also generate the `genomes_statistics.tsv` file described [below](#genome-statistics-table).
 
 #### Genome statistics table
 
@@ -85,10 +87,10 @@ If you have predicted RGPs, spots or modules in your pangenome, corresponding co
 This table can be generated using the `write_pangenome` subcommand with the `--stats` flag as such:
 
 ```bash
-ppanggolin write_pangenome -p pangenome.h5 --stats
+ppanggolin write_pangenome -p pangenome.h5 -o output_dir --stats
 ```
 
-The `--stats` flag will also generate the `mean_persistent_duplication.tsv` file desdcribed [above](#mean-persistent-duplication).
+The `--stats` flag will also generate the `mean_persistent_duplication.tsv` file described [above](#mean-persistent-duplication).
 
 ##### Genome Metrics Overview
 
@@ -113,7 +115,7 @@ The matrix contains '1' if the gene family is present in a particular genome and
 To generate this file, use the `write_pangenome` subcommand with the `--Rtab` flag as follows:
 
 ```bash
-ppanggolin write_pangenome -p pangenome.h5 --Rtab
+ppanggolin write_pangenome -p pangenome.h5 -o output_dir --Rtab
 ```
 
 
@@ -123,7 +125,7 @@ The `matrix.csv` file, formatted as a .csv file, follows a structure similar to 
 To generate this file, use the `write_pangenome` subcommand with the `--csv` flag:
 
 ```bash
-ppanggolin write_pangenome -p pangenome.h5 --csv
+ppanggolin write_pangenome -p pangenome.h5 -o output_dir --csv
 ```
 
 
@@ -148,5 +150,5 @@ The `gene_families.tsv` file consists of four columns:
 To generate this file, use the `write_pangenome` subcommand with the `--families_tsv` flag:
 
 ```bash
-ppanggolin write_pangenome -p pangenome.h5 --families_tsv
+ppanggolin write_pangenome -p pangenome.h5 -o output_dir --families_tsv
 ```

@@ -13,7 +13,7 @@ The `info` command generates information in YAML format, displaying the results 
 
 #### Overview of `info --content` Output
 
-The `--content` option with the `info` command exhibits general statistical data about your pangenome:
+The `--content` option with the `info` command exposes general statistical data about your pangenome:
 
 1. **General Metrics**:
    - Presents a comprehensive count of genes, genomes, gene families, and edges within the pangenome graph.

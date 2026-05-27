@@ -62,7 +62,7 @@ ppanggolin all --anno genomes.gbff.list
 
 It uses parameters that we found to be generally the best when working with species pangenomes.
 
-The file **genomes.gbff.list** is a tab-separated file with the following organisation :
+The file **genomes.gbff.list** is a tab-separated file with the following organization :
 
 1. The first column contains a unique genome name
 2. The second column the path to the associated annotation file
@@ -77,7 +77,7 @@ You can also give PPanGGOLiN `.fasta` files, as such:
 ppanggolin all --fasta genomes.fasta.list
 ```
 
-Again you must use a tab-separated file but this time with the following organisation:
+Again you must use a tab-separated file but this time with the following organization:
 
 1. The first column contains a unique genome name
 2. The second column the path to the associated FASTA file

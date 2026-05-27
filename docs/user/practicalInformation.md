@@ -115,7 +115,7 @@ annotate:
     allow_overlap: False
     # Use to avoid annotating RNA features.
     norna: False
-    # Kingdom to which the prokaryota belongs to, to know which models to use for rRNA annotation.
+    # Kingdom that the prokaryota belong to, to know which models to use for rRNA annotation.
     # Choices: bacteria, archaea
     kingdom: bacteria
     # Translation table (genetic code) to use.

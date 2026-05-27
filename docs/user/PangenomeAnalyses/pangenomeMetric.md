@@ -34,4 +34,3 @@ Genomes_fluidity:
 ```{note}
 Currently, the `metrics` command only computes fluidity. However, additional metrics may be added in the future. If you have any ideas for metrics that describe the pangenome, please open an issue! 
 ```
-

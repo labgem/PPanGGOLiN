@@ -81,6 +81,6 @@ All the formats provided by PPanGGOLiN are describe [here](../PangenomeAnalyses/
 The `pangenomeGraph_light.gexf` file is a simplified version of the graph, containing gene families as nodes and edges describing their relationships. While not exhaustive, it is easier to manipulate and provides sufficient information for most users.
 
 ```{note}
-Pangenome graphs can be manipulated and visualised through a software called [Gephi](https://gephi.org/). 
+Pangenome graphs can be manipulated and visualized through a software called [Gephi](https://gephi.org/). 
 Find more information on how to use Gephi [here](../PangenomeAnalyses/pangenomeGraph.md#gephi)
 ```
