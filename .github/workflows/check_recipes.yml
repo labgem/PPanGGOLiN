@@ -4,7 +4,7 @@ name: conda recipe
 on:
   # Triggers the workflow on schedule but only for the default branch (which is master)
   schedule:
-   - cron: '0 7 * * 1-5'
+   - cron: '0 7 1 * *'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -17,17 +17,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest','macos-13']
-        python-version: ['3.9','3.10','3.11']
+        os: ['ubuntu-latest','macos-latest']
+        python-version: ['3.9','3.10', '3.11', '3.12']
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
       # Setting up miniconda
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: conda-incubator/setup-miniconda@v4
         with:
           python-version: ${{ matrix.python-version }}
-          channels: bioconda,conda-forge,anaconda,defaults
+          channels: bioconda,conda-forge
           activate-environment: test
       - name: Set up test environment
         shell: bash -l {0}
