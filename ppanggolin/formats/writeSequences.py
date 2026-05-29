@@ -89,6 +89,7 @@ def write_gene_sequences_from_annotations(
             if gene.type == "CDS":
                 file_obj.write(f">{add}{gene.ID}\n")
                 file_obj.write(f"{gene.dna}\n")
+        file_obj.write("\n")
 
 
 def create_mmseqs_db(
