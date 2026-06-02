@@ -36,10 +36,10 @@ The chosen coverage mode in PPanGGOLiN requires both protein sequences to be cov
 ##### How to set the clustering mode
 
 MMseqs provides several different [clustering modes](https://github.com/soedinglab/MMseqs2/wiki#clustering-modes).
-PPanGGOLiN uses the default mode unless you specify one with the `--mode` option.
+PPanGGOLiN uses the _single linkage_  mode unless you specify one with the `--mode` option.
 
-- (default): The _single linkage_ (or _connected component_) algorithm
-- `--mode 1`: The _set cover_ algorithm
+- `--mode 0`: The _set cover_ algorithm
+- `--mode 1`: The _single linkage_ (or _connected component_) algorithm (default)
 - `--mode 2`: MMseqs2 clustering algorithm similar to CD-HIT
 - `--mode 3`: A low-memory version of mode 2
 
