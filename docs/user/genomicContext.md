@@ -2,23 +2,26 @@
 
 The PPanGGOLiN `context` command enables the identification of genomic contexts for query proteins. These contexts consist of genes commonly found in proximity to the proteins of interest in the different genomes.
 
-The analysis can be run on a formerly computed pangenomes and users can query one or multiple genes at once. The search can be conducted either directly with gene/protein sequences in a FASTA file or by utilizing a list of gene family IDs. Both methods are seamlessly integrated within the `context` subcommand.
+The analysis can be run on a formerly computed pangenome and users can query one or multiple genes at once. The search can be conducted either directly with gene/protein sequences in a FASTA file or by providing a list of gene family IDs. Both methods are seamlessly integrated in the `context` subcommand.
 
 
 ## Search Genomic context with sequences
 
 To search your genomic context, you can use a FASTA file containing genes or proteins. The command can be launched as such:
 
-`ppanggolin context -p pangenome.h5 --sequences protein.fasta`
+```bash
+ppanggolin context -p pangenome.h5 --sequences protein.fasta
+```
 
-To utilize this subcommand, ensure that your pangenome contains sequences associated with gene family representatives. This is the case with a pangenome computed with an external clustering (see the [cluster](./PangenomeAnalyses/pangenomeCluster.md) subcommand).
+To use this subcommand, ensure that your pangenome contains sequences associated with gene family representatives. This is the case with a pangenome computed with an external clustering (see the [cluster](./PangenomeAnalyses/pangenomeCluster.md) subcommand).
 
 ## Search with gene family ID.
 
-Another possibility is to give a list of gene families ID used to compute the pangenome. You can run the subcommand like this:
+Another possibility is to give a list of gene family IDs used to compute the pangenome. You can run the subcommand like this:
 
-`ppanggolin context -p pangenome.h5 --family families.txt`
-
+```bash
+ppanggolin context -p pangenome.h5 --family families.txt
+```
 
 In this scenario, you can give a pangenome without gene families representatives sequences. This option is compatible with a pangenome computed with an external clustering (see the [cluster](./PangenomeAnalyses/pangenomeCluster.md) subcommand).
 
@@ -36,7 +39,7 @@ There are 6 columns in `gene_context.tsv`.
 6. **Target_family**: Whether the family is a target family, meaning it matches an input sequence, or a family provided as input.
 
 ```{note}
-In **sequence_ID**, it is possible to find a NA value. This corresponds to cases where a gene family other than the one specified by the user is found in the context.
+In **sequence_ID**, it is possible to find an NA value. This corresponds to cases where a gene family other than the one specified by the user is found in the context.
 ```
 
 

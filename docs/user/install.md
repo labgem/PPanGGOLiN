@@ -39,7 +39,7 @@ While this method installs PPanGGOLiN and its Python dependencies, it does not i
 
 ### Within a Conda Environment
 
-A straightforward method to install PPanGGOLiN from the source code is by utilizing a conda environment that includes all the necessary dependencies.
+To install PPanGGOLiN from the source code, it is recommended to use a conda environment that includes all the necessary dependencies:
 
 **1. Clone the PPanGGOLiN Repository**
 
@@ -66,7 +66,7 @@ pip install .
 
 ### Manual Installation
 
-If you prefer to install PPanGGOLiN without using conda, follow these steps:
+If you prefer to install PPanGGOLiN from the source code without using conda, follow these steps:
 
 ```{warning}
 Please note that this method involves manual installation. While assistance is available, complete troubleshooting support may not be provided. We strongly recommend using the conda installation method whenever possible.
@@ -92,7 +92,7 @@ Next, install the following non-Python software:
 
 ```{note}
 - MMSeqs2 is crucial for gene clustering, while Aragorn and Infernal are used for genome annotation.
-- MAFFT is utilized in the `ppanggolin msa` command for multiple sequence alignment.
+- MAFFT is used in the `ppanggolin msa` command for multiple sequence alignment.
 - Skip installing Aragorn, Infernal, or MAFFT if you do not require their specific features.
 ```
 
@@ -116,7 +116,7 @@ pip install .
 
 ## Development Version
 
-If you wish to utilize the development version of PPanGGOLiN, you can access the 'dev' branch on GitHub. Please note that while its functionality is not guaranteed, it typically works most of the time.
+If you wish to use the development version of PPanGGOLiN, you can access the 'dev' branch on GitHub. Please note that while its functionality is not guaranteed, it typically works most of the time.
 
 Follow these steps to obtain and install the development version:
 

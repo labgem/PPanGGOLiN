@@ -13,7 +13,7 @@ The `info` command generates information in YAML format, displaying the results 
 
 #### Overview of `info --content` Output
 
-The `--content` option with the `info` command exhibits general statistical data about your pangenome:
+The `--content` option with the `info` command exposes general statistical data about your pangenome:
 
 1. **General Metrics**:
    - Presents a comprehensive count of genes, genomes, gene families, and edges within the pangenome graph.
@@ -35,7 +35,7 @@ The `--content` option with the `info` command exhibits general statistical data
 
 #### Overview of `info --parameters` Output
 
-This option displays the PPanGGOLiN parameters used at each analysis step. The output can be utilized as a configuration file for other PPanGGOLiN commands to replicate the same parameters. Refer [here](../practicalInformation.md#configuration-file) for more details on the configuration file .
+This option displays the PPanGGOLiN parameters used at each step of the analysis. The output can be utilized as a configuration file for other PPanGGOLiN commands to replicate the same parameters. Refer [here](../practicalInformation.md#configuration-file) for more details about configuration files.
 
 #### Overview of `info --status` Output
 

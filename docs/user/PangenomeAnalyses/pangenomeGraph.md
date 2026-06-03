@@ -1,4 +1,4 @@
-To partition a pangenome graph, you need to build a said pangenome graph.
+To partition a pangenome graph, you need to build said pangenome graph.
 This can be done through the `graph` subcommand.
 This will take a pangenome .h5 file as input and compute edges to link gene families together based on the genomic neighborhood.
 The graph is constructed using the following subcommand :

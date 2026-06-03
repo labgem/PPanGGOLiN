@@ -8,18 +8,18 @@ If you do so, the provided genomes will be annotated using the following tools:
 - [ARAGORN](http://www.ansikte.se/ARAGORN/) to annotate tRNAs
 - [Infernal](http://eddylab.org/infernal/) coupled with HMM of the bacterial and archaeal rRNAs downloaded from [RFAM](https://rfam.xfam.org/) to annotate rRNAs.
 
-To proceed with this stage of the pipeline, you need to create an **genomes.fasta.list** file. 
+To proceed with this stage of the pipeline, you need to create a **genomes.fasta.list** file.
 This file should be tab-separated with each line depicting an individual genome and
 its pertinent information with the following organization (only the first two columns are mandatory):
 
 - The first column contains a unique genome name
 - The second column contains the path to the associated FASTA file
 - The following columns contain Contig identifiers present in the associated FASTA file that should be analyzed as being circular.
-For the 'circular contig identifiers,' if you do not have access to this information, you can safely ignore this part as it does not have a big impact on the resulting pangenome.
+If you do not have access to the 'circular contig identifiers', you may safely ignore this part as it does not have a big impact on the resulting pangenome.
 
 You can check [this example input file](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.fasta.list).
 
-To run the annotation part, you can use this minimal command:
+To run just the annotation step, you can use this minimal command:
 
 ```
 ppanggolin annotate --fasta genomes.fasta.list
@@ -43,7 +43,7 @@ If you do not want to predict the RNA (and thus not use Infernal and Aragorn), y
 Otherwise, by default, any CDS overlapping RNA genes will be deleted as they are often false positive calls.
 You can prevent this filtering by using the `--allow_overlap` option.
 
-Additionally, the `--kingdom archaea` option can be utilized when working with archaea genomes 
+Additionally, the `--kingdom archaea` option can be provided when working with archaea genomes
 to specify Infernal's RNA annotation model. 
 
 ### Use annotation files for your pangenome
@@ -51,7 +51,7 @@ to specify Infernal's RNA annotation model.
 You can provide annotation files in either gff3 files or .gbk/.gbff files, or a mix of them. They should be provided through as a list in a tab-separated file that follows the same format as described for the fasta files. You can check [this example input file](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.gbff.list).
 
 ```{note}
-Use your own annotation for your genome is highly recommended, particularly if you already
+Using your own annotation for your genome is highly recommended, particularly if you already
 have functional annotations, as they can be added to the pangenome.
 ```
 
@@ -74,4 +74,4 @@ ppanggolin annotate --anno genomes.gbff.list --fasta genomes.fasta.list
 
 By default, PPanGGOLiN will not take pseudogenes into account. 
 However, they could be worth keeping in certain contexts.
-It is possible to include pseudogenes in the pangenome by using the `--use_pseudo`option.
+It is possible to include pseudogenes in the pangenome by using the `--use_pseudo` option.

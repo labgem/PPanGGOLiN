@@ -3,8 +3,7 @@
 After annotating genomes, their genes will be compared to determine similarities and build gene families using this
 information.
 
-If .fasta files or annotation files containing gene sequences were provided, clustering can be executed by using the
-generated .h5 file, as such:
+Clustering can be run on the .h5 file that was generated after the annotation step like so:
 
 ```
 ppanggolin cluster -p pangenome.h5
@@ -36,33 +35,31 @@ The chosen coverage mode in PPanGGOLiN requires both protein sequences to be cov
 
 ##### How to set the clustering mode
 
-MMSeqs provides 3 different [clustering modes](https://github.com/soedinglab/MMseqs2/wiki#clustering-modes).
-By default, the clustering mode used is the _single linkage_ (or _connected component_) algorithm.
+MMseqs provides several different [clustering modes](https://github.com/soedinglab/MMseqs2/wiki#clustering-modes).
+PPanGGOLiN uses the _single linkage_  mode unless you specify one with the `--mode` option.
 
-Another option is the _set cover_ algorithm, which can be employed using `--mode 1`.
+- `--mode 0`: The _set cover_ algorithm
+- `--mode 1`: The _single linkage_ (or _connected component_) algorithm (default)
+- `--mode 2`: MMseqs2 clustering algorithm similar to CD-HIT
+- `--mode 3`: A low-memory version of mode 2
 
-Additionally, the clustering algorithms of MMseqs, similar to CD-Hit,
-can be selected with `--mode 2` or its low-memory version through `--mode 3`.
+These modes change how gene families are defined during clustering, so choose the one that best fits your dataset and available resources.
 
 (read-clustering)=
 
-### Providing your gene families
+### Providing your own gene families
 
-It's possible to provide your own clusters (or gene families); you must have provided the annotations in the first step.
+In order to be able to provide your own clusters (aka gene families), you must have input annotation files for the earlier 'annotation' step.
+This is because you'll need to use gene identifiers in odrer to describe what gene family each gene belongs to.
 For gff3 files, the expected gene identifier is the 'ID' field in the 9<sup>th</sup> column. In the case of gbff or gbk
 files, use 'locus_tag' as a gene identifier unless you are working with files from MaGe/MicroScope or SEED, where the id
 in the 'db_xref' field is used instead.
 
-You can give your clustering result in TSV file with a single gene identifier per line. This file consist of 2 to 4
-columns in function of the information you want to give. See next part to have more information about expected format.
-
-
-You can do this from the command line:
+From the command line, you can give your clustering result in the form of a TSV file of 2 to 4 columns with a single gene identifier per line (see next part for more information about expected format):
 
 `ppanggolin cluster -p pangenome.h5 --clusters clusters.tsv`
 
-
-If one of the gene in the pangenome is missing in your clustering, PPanGGOLiN will raise an error. To assert the gene into its own cluster (singleton) you can use the `--infer_singleton` option as such:
+If one of the genes in the pangenome is missing in your clustering, PPanGGOLiN will raise an error. To force the gene into its own cluster (singleton) you can use the `--infer_singleton` option as such:
 
 `ppanggolin cluster -p pangenome.h5 --clusters clusters.tsv --infer_singleton`
 
@@ -71,11 +68,11 @@ When you provide your clustering, *PPanGGOLiN* will translate the representative
 ```
 
 
-#### Assume the representative gene
+#### Infer gene families' representative genes
 
-The minimum information required is the gene family name (first column) and the constituent gene of the family (second
+The minimum required information in input .tsv file is the gene family name (first column) and one of the family's constituent genes (second
 column). In that case, PPanGGOLiN will consider that the first line of a cluster (first occurrence of a family name) is
-also the line with the representative gene indicated.
+the line that indicates the representative gene.
 
 Here is a minimal example of your clustering file:
 
@@ -96,7 +93,6 @@ align: center
 ---
 
 %%{init: {'theme':'default'}}%%
-
 
 flowchart TD
     subgraph C
@@ -126,7 +122,6 @@ flowchart TD
 
 It's possible to indicate which gene is the representative gene by adding a third column.
 
-
 Here is a minimal example of your clustering file with the third column being the representative gene:
 
 ```
@@ -146,7 +141,6 @@ align: center
 ---
 
 %%{init: {'theme':'default'}}%%
-
 
 flowchart TD
     subgraph C
@@ -216,19 +210,19 @@ If no representative gene column is included, the fragmented status should be pl
 
 Without performing additional steps, most cloud genes in the pangenome are fragments of 'shell' or 'persistent' genes.
 Therefore, they do not provide informative data on the pangenome's diversity.
-To address this, we implemented an additional step to the clustering to reduce the number of gene families and
+To address this, we implemented an additional step during clustering to reduce the number of gene families and
 computational load by associating fragments to their original gene families.
 This step is added to the previously described clustering process by default.
 It compares all representative protein sequences of gene families using the same identity threshold as the one given to
-MMseqs2, through  `--identity`.
+MMseqs2, through `--identity`.
 It also uses the same coverage threshold, but only the smallest of the two protein sequences must be covered by at least
 the value specified by `--coverage`.
 
-We then build a similarity graph, where the edges are the hits given by the comparison, and the nodes are the original
+We then build a similarity graph, where the edges are the hits given by this comparison, and the nodes are the original
 gene families.
-Next, we iterate over all the nodes and compare them to their neighbors.
-If a node's neighbor has more members in its cluster and a longer representative sequence, we associate that node (and
-all the associated genes) with the longer, more numerous neighbor.
+Next, we iterate over all nodes and compare them to their neighbors.
+If a node's neighbor has more members in its cluster and a longer representative sequence, then we associate it (and
+all of its associated genes) with the longer, more numerous neighbor.
 The genes linked to this node are considered as 'fragments' of the longer and more populated gene family represented by
 the neighboring node.
 
@@ -241,5 +235,5 @@ ppanggolin cluster -p pangenome.h5 --no_defrag
 In all cases, whichever pipeline you use, the gene families will end up in the 'pangenome.h5' file you entered as input.
 
 ```{note}
-this is performed only when running the clustering with PPanGGOLiN, and not when providing your own clustering results.
+This step is performed only when running the clustering with PPanGGOLiN, and not when providing your own clustering results.
 ```
