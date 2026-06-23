@@ -90,9 +90,6 @@ A genomic context refers here to a set of genes conserved within similar genomic
 
 The complete method is described in detail by Arnoux *et al* in the PANORAMA paper [@arnoux_panorama_2025]. This feature provides a species-level view of conserved genomic neighborhoods, enabling users to identify functionally related genes and, for example, accurately reconstruct metabolic pathways.
 
-![**Overview of the PPanGGOLiN v2 workflow.** Each rounded box represents a command of the software. Commands marked with * are new in PPanGGOLiN v2. Commands are grouped into two sections. (*i*) *Pangenome construction*: starting from genomic data (with annotations or not), the `annotate`, `cluster`, `graph`, and `partition` commands progressively build the pangenome graph and partition gene families into *persistent*, *shell*, and *cloud* components. Then, two independent analyses can be performed: `rgp` followed by `spot` identify Regions of Genomic Plasticity (RGPs) and their insertion spots, while `module` identifies conserved genomic modules. All results are stored in a single HDF5 file (`pangenome.h5`), which serves as the central data object. Metadata from external sources can be associated with any pangenome element via the `metadata` command (\*), using a tabulated input file. (*ii*) *Pangenome exploitation*: the HDF5 file is used as input for four categories of downstream commands. *Pangenome analysis*: `msa` computes multiple sequence alignments for gene families; `rarefaction` computes the rarefaction curve of the pangenome; `rgp_cluster` (\*) clusters RGPs based on shared gene content. *Pangenome-guided analysis*: `align` maps an external genome or protein set to pangenome families; `context` (\*) extracts conserved genomic neighborhoods around genes of interest; `projection` (\*) annotates a new genome using an existing pangenome. *Pangenome output*: `draw`, `fasta`, `write_pangenome`, and `write_genomes` export results in various formats for downstream analyses and visualization.\label{fig:overview}](./ppanggolin_v2_overview.pdf)
-
-
 
 ## RGP clustering
 
@@ -111,6 +108,11 @@ Combined with RGP clustering, and pangenome projection, metadata association bri
 # Software design
 
 PPanGGOLiN is built around a central data model in which the HDF5 pangenome file serves as the reference data object for the entire system. Analyses can be performed either step by step or through workflow commands that execute the pipeline in a single run, providing both flexibility and convenience (\autoref{fig:overview}). Once executed, the HDF5 pangenome file supports multiple uses: exporting to other file formats for downstream analyses, serving as input for additional PPanGGOLiN commands, and being accessed programmatically through the Python API in custom scripts. This central-object design also enhances reproducibility: parameters are resolved consistently (command line, then configuration file, then defaults), validated across analysis steps, and stored within the pangenome file, enabling analyses to be reliably reproduced and compared.
+
+![**Overview of the PPanGGOLiN v2 workflow.** Each rounded box represents a command of the software. Commands marked with * are new in PPanGGOLiN v2. Commands are grouped into two sections. (*i*) *Pangenome construction*: starting from genomic data (with annotations or not), the `annotate`, `cluster`, `graph`, and `partition` commands progressively build the pangenome graph and partition gene families into *persistent*, *shell*, and *cloud* components. Then, two independent analyses can be performed: `rgp` followed by `spot` identify Regions of Genomic Plasticity (RGPs) and their insertion spots, while `module` identifies conserved genomic modules. All results are stored in a single HDF5 file (`pangenome.h5`), which serves as the central data object. Metadata from external sources can be associated with any pangenome element via the `metadata` command (\*), using a tabulated input file. (*ii*) *Pangenome exploitation*: the HDF5 file is used as input for four categories of downstream commands. *Pangenome analysis*: `msa` computes multiple sequence alignments for gene families; `rarefaction` computes the rarefaction curve of the pangenome; `rgp_cluster` (\*) clusters RGPs based on shared gene content. *Pangenome-guided analysis*: `align` maps an external genome or protein set to pangenome families; `context` (\*) extracts conserved genomic neighborhoods around genes of interest; `projection` (\*) annotates a new genome using an existing pangenome. *Pangenome output*: `draw`, `fasta`, `write_pangenome`, and `write_genomes` export results in various formats for downstream analyses and visualization.\label{fig:overview}](./ppanggolin_v2_overview.pdf)
+
+
+
 
 # Technical enhancements
 
@@ -138,3 +140,4 @@ This research was supported in part by the CFR PhD program of the French Alterna
 
 We are grateful to the PPanGGOLiN user community for their contributions, feedback, and bug reports, which have continuously improved the tool and shaped the development of this new version.
 
+# References
