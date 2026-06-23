@@ -3,7 +3,6 @@
 title: 'PPanGGOLiN V2: technical enhancement and extended functionalities for prokaryotic pangenome analysis'
 
 tags:
-
 - Python
 - Bioinformatics
 - Pangenomic
@@ -13,7 +12,6 @@ tags:
 - Comparative genomics
 
 authors:
-
 - name: Jérôme Arnoux
   orcid: 0000-0003-2769-3006
   affiliation: 1
@@ -39,9 +37,7 @@ authors:
   affiliation: 1
   corresponding: true
 
-
 affiliations:
-
 - name: LABGeM, Genomique Métabolique, CEA, Genoscope, Institut François Jacob, Université d’Évry, Université Paris-Saclay, CNRS, France.
   index: 1
   ror: 00xc55v17
@@ -51,7 +47,6 @@ affiliations:
 - name: Université Paris-Saclay, INRAE, MaIAGE, Jouy-en-Josas, France
   index: 3
   ror: 05qdnns64
-
 
 date: 23 June 2026
 bibliography: references.bib
