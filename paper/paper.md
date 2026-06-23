@@ -53,7 +53,7 @@ affiliations:
   ror: 05qdnns64
 
 
-date: 30 June 2026
+date: 23 June 2026
 bibliography: references.bib
 
 ---
@@ -66,7 +66,7 @@ Here we present PPanGGOLiN v2, which introduces substantial improvements across 
 
 # Statement of need
 
-In the last decade, the number of sequenced microbial genomes has exploded from a few thousand to several millions. While this wealth of data offers immense potential, traditional genome-centric approaches reach their limits when exploring and interpreting variation at this scale [@land_insights_2015] [@parks_standardized_2018]. The pangenome addresses this by condensing all genomic information from a set of genomes into a single structure, capturing not only gene presence/absence but also genetic context, e.g. mobile genetic elements or functional annotations, at the species or clade level [@tettelin_genome_2005].
+In the last decade, the number of sequenced microbial genomes has exploded from a few thousand to several millions. While this wealth of data offers immense potential, traditional genome-centric approaches reach their limits when exploring and interpreting variation at this scale [@land_insights_2015;@parks_standardized_2018]. The pangenome addresses this by condensing all genomic information from a set of genomes into a single structure, capturing not only gene presence/absence but also genetic context, e.g. mobile genetic elements or functional annotations, at the species or clade level [@tettelin_genome_2005].
 
 PPanGGOLiN[@gautreau_ppanggolin_2020] addresses these needs through a graph-based model that clusters genes into families based on sequence similarity and encodes neighborhood information, enabling high compression of genomic diversity into a single data structure. Gene families are then partitioned using a Bernoulli Mixture Model coupled with a Markov Random Field that takes into account both family occurrence and genomic neighborhood. The software suite further integrates PanRGP[@bazin_panrgp_2020], for identification of Regions of Genomic Plasticity (RGPs) as well as their insertion spots, and PanModule[@bazin_panmodule_2021], for their description as conserved modules.
 
