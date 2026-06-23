@@ -17,7 +17,7 @@ authors:
 - name: Jérôme Arnoux
   orcid: 0000-0003-2769-3006
   affiliation: 1
-  equal\_contrib: true
+  equal-contrib: true
 - name: Jean Mainguy
   orcid: 0009-0006-9160-9744
   affiliation: 1
