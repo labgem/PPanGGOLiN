@@ -8,6 +8,7 @@ tags:
 - Microbial genomics
 - Mobile genetic elements
 - Comparative genomics
+- Pangenome graph
 
 authors:
 - name: Jérôme Arnoux
