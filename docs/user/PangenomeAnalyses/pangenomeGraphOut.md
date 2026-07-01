@@ -38,3 +38,49 @@ The json can be generated using the `write_pangenome` subcommand as such :
 ```bash
 ppanggolin write_pangenome -p pangenome.h5 -o output_dir --json
 ```
+
+#### `graph-tools` compressed gt format
+
+The [graph-tools](https://graph-tool.skewed.de/static/docs/stable/) [`.gt` compressed graph format](https://graph-tool.skewed.de/static/docs/stable/gt_format.html) is a binary file format enabling a fast load of large graph structure from disk. 
+
+The gt file can be built from a pangenome with the `write_pangenome` subcommand as such:
+
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --gt
+```
+
+The `ppanggolin` gt export contains the following edges and [vertices property maps]()
+
+##### Node property maps    
+
+- "nid": gene family identifier
+- "partition" ∈ {'P', 'S', 'C'}: gene family partition (persistent, shell, cloud)
+- "strains": gene family strains
+
+Accessible with `graph_tool.Graph.vp` as such:
+
+```python
+import graph_tool
+g = graph_tool.load("pangenomeGraph.gt")
+for v in g.vertices():
+    family = g.vp["nid"][v]
+    partition = g.vp["partition"][v]
+    vertex_strains = g.vp["strains"][v]
+```
+
+
+##### Edge property maps
+
+For edge $(u, v)$
+- "strains": strains having the gene families $(u, v)$ colocalized
+
+
+Accessible with `graph_tool.Graph.ep` as such:
+````python
+import graph_tool
+g = graph_tool.load("pangenomeGraph.gt")
+for e in g.edges():
+    edge_strains = g.vp["strains"][e]
+```
+
+

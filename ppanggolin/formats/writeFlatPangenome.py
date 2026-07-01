@@ -12,10 +12,12 @@ from typing import TextIO
 from importlib.metadata import distribution
 from statistics import median, mean, stdev
 import os
+import sys
 import csv
 
 # installed libraries
 import pandas as pd
+import graph_tool
 from tqdm import tqdm
 
 # local libraries
@@ -440,6 +442,70 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
             f"Done writing the gexf file : '{gexf.name}'"
         )
 
+def pangenome_to_gt(pangenome: Pangenome) -> graph_tool.Graph:
+    """
+    Prepare a graph-tool Graph object from a Pangenome object.
+
+    :param pangenome: Pangenome object to convert
+    :return: a graph-tool undirected graph representing the pangenome
+
+    ## Node property maps    
+    - "nid": gene family identifier
+    - "partition" ∈ {'P', 'S', 'C'}: gene family partition (persistent, shell, cloud)
+    - "strains": gene family strains
+
+    ## Edge property maps
+
+    For edge $(u, v)$
+    - "strains": strains having the gene families $(u, v)$ colocalized
+
+    """
+
+    g = graph_tool.Graph(directed=False)
+    g.vp["nid"] = g.new_vertex_property("string")
+    g.vp["partition"] = g.new_vertex_property("string")
+    g.vp["strains"] = g.new_vertex_property("vector<string>")
+    g.ep["strains"] = g.new_edge_property("vector<string>")
+
+    vmap = {}  # mapping from gene family name to vertex
+
+    named_partition_to_code = {
+        "persistent": "P",
+        "shell": "S",
+        "cloud": "C",
+    }
+
+
+    for fam in pangenome.gene_families:
+        v = g.add_vertex()
+        vmap[fam.ID] = v
+        g.vp["nid"][v] = fam.ID
+        g.vp["partition"][v] = named_partition_to_code[fam.named_partition]
+        g.vp["strains"][v] = {g.organism for g in fam.genes}
+
+    for edge in pangenome.edges:
+        u = vmap[edge.source.ID]
+        v = vmap[edge.target.ID]
+        e = g.add_edge(u, v)
+        g.ep["strains"][e] = {organism for organism in edge._organisms.keys()}
+    
+    return g
+
+
+def write_gt(output: Path, compressed: bool=False):
+    """
+    Write the pangenome graph in graph-tool .gt graph format.
+
+    :param output: Path to output directory
+    :param compressed: Compress the file in .gz
+
+    """
+    logging.getLogger("PPanGGOLiN").info("Writing the .gt file ...")
+    extension = ".gt.gz" if compressed else ".gt" 
+    outname = output / f"pangenomeGraph{extension}"
+    g = pangenome_to_gt(pan)
+    g.save(outname.as_posix())
+    
 
 def write_matrix(
     output: Path,
@@ -1358,6 +1424,7 @@ def write_pangenome_flat_files(
     gene_pa: bool = False,
     gexf: bool = False,
     light_gexf: bool = False,
+    gt: bool = False,
     stats: bool = False,
     json: bool = False,
     partitions: bool = False,
@@ -1383,6 +1450,7 @@ def write_pangenome_flat_files(
     :param gene_pa: write gene presence absence matrix
     :param gexf: write pangenome graph in gexf format
     :param light_gexf: write pangenome graph with only gene families
+    :param gt: write pangenome graph in graph-tool gt format
     :param stats: write statistics about pangenome
     :param json: write pangenome graph in json file
     :param partitions: write the gene families for each partition
@@ -1403,6 +1471,7 @@ def write_pangenome_flat_files(
             gene_pa,
             gexf,
             light_gexf,
+            gt,
             stats,
             json,
             partitions,
@@ -1437,6 +1506,7 @@ def write_pangenome_flat_files(
         or gene_pa
         or gexf
         or light_gexf
+        or gt
         or stats
         or json
         or partitions
@@ -1462,6 +1532,8 @@ def write_pangenome_flat_files(
             metatype = "families"
         else:
             needMetadata = False
+    if gt:
+        needGraph = True
     if spots or borders or spot_modules or regions or regions_families:
         needRegions = True
     if spots or borders or spot_modules:  # or projection:
@@ -1502,6 +1574,10 @@ def write_pangenome_flat_files(
         if light_gexf:
             processes.append(
                 p.apply_async(func=write_gexf, args=(output, True, compress))
+            )
+        if gt:
+            processes.append(
+                p.apply_async(func=write_gt, args=(output, compress))
             )
         if stats:
             processes.append(
@@ -1574,6 +1650,7 @@ def launch(args: argparse.Namespace):
         gene_pa=args.Rtab,
         gexf=args.gexf,
         light_gexf=args.light_gexf,
+        gt=args.gt,
         stats=args.stats,
         json=args.json,
         partitions=args.partitions,
@@ -1649,11 +1726,19 @@ def parser_flat(parser: argparse.ArgumentParser):
         action="store_true",
         help="Generate a detailed GEXF file with all genes and annotations for each family",
     )
+
     optional.add_argument(
         "--light_gexf",
         required=False,
         action="store_true",
         help="Generate a simplified GEXF file with basic gene family information",
+    )
+
+    optional.add_argument(
+        "--gt",
+        required=False,
+        action="store_true",
+        help="Generate a simplified graph-tool GT file with basic gene family and pangenome organism strains information"
     )
 
     optional.add_argument(
@@ -1672,6 +1757,7 @@ def parser_flat(parser: argparse.ArgumentParser):
             "Uses partitions as alternative gene IDs if available."
         ),
     )
+    
     optional.add_argument(
         "--Rtab",
         required=False,
