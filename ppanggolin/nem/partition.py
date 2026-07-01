@@ -43,6 +43,7 @@ def run_partitioning(
     keep_files: bool = False,
     itermax: int = 100,
     just_log_likelihood: bool = False,
+    backend: str = "pynem",
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
     Main function to make partitioning
@@ -57,10 +58,24 @@ def run_partitioning(
     :param keep_files: True if you want to keep the NEM files
     :param itermax: Maximum iteration to compute partitioning
     :param just_log_likelihood: Return only nem parameter result
+    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
 
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
     logging.getLogger("PPanGGOLiN").debug("run_partitioning...")
+    if backend == "pynem":
+        from ppanggolin.nem.pynem_backend import run_partitioning_pynem
+
+        return run_partitioning_pynem(
+            nem_dir_path,
+            nb_org,
+            beta=beta,
+            free_dispersion=free_dispersion,
+            kval=kval,
+            init=init,
+            itermax=itermax,
+            just_log_likelihood=just_log_likelihood,
+        )
     if init == "param_file":
         with open(nem_dir_path / f"nem_file_init_{str(kval)}.m", "w") as m_file:
             m_file.write("1 ")  # 1 to initialize parameter,
@@ -261,6 +276,7 @@ def partition_nem(
     init: str = "param_file",
     tmpdir: Path = None,
     keep_tmp_files: bool = False,
+    backend: str = "pynem",
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
 
@@ -273,6 +289,7 @@ def partition_nem(
     :param seed: seed used to generate random numbers
     :param init: Initiate nem parameters with pangenome parameters or randomly
     :param keep_tmp_files: True if you want to keep the temporary NEM files
+    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
 
     :return:
     """
@@ -291,6 +308,7 @@ def partition_nem(
         seed=seed,
         init=init,
         keep_files=keep_tmp_files,
+        backend=backend,
     )
 
 
@@ -413,6 +431,7 @@ def evaluate_nb_partitions(
     seed: int = 42,
     tmpdir: Path = None,
     disable_bar: bool = False,
+    backend: str = "pynem",
 ) -> int:
     """
     Evaluate the optimal number of partition for the pangenome
@@ -429,6 +448,7 @@ def evaluate_nb_partitions(
     :param cpu: Number of available core
     :param seed: seed used to generate random numbers
     :param disable_bar: Disable progress bar
+    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
 
     :return: Ideal number of partition computed
     """
@@ -456,6 +476,7 @@ def evaluate_nb_partitions(
                 True,
                 10,
                 True,
+                backend,
             )
         )  # follow order run_partitionning args
     all_log_likelihood = []
@@ -631,6 +652,7 @@ def partition(
     keep_tmp_files: bool = False,
     force: bool = False,
     disable_bar: bool = False,
+    backend: str = "pynem",
 ):
     """
     Partitioning the pangenome
@@ -651,6 +673,7 @@ def partition(
     :param keep_tmp_files: True if you want to keep the temporary NEM files
     :param force: Allow to force write on Pangenome file
     :param disable_bar: Disable progress bar
+    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
     """
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     kmm = [3, 20] if krange is None else krange
@@ -718,6 +741,7 @@ def partition(
             seed,
             tmp_path,
             disable_bar,
+            backend,
         )
         logging.getLogger("PPanGGOLiN").info(
             f"The number of partitions has been evaluated at {kval}"
@@ -794,6 +818,7 @@ def partition(
                         init,
                         tmp_path,
                         keep_tmp_files,
+                        backend,
                     )
                 )
 
@@ -839,6 +864,7 @@ def partition(
             seed=seed,
             init=init,
             keep_files=keep_tmp_files,
+            backend=backend,
         )
         if partitioning_results == [{}, None, None]:
             raise Exception(
@@ -890,6 +916,7 @@ def launch(args: argparse.Namespace):
         args.keep_tmp_files,
         args.force,
         disable_bar=args.disable_prog_bar,
+        backend=args.nem_backend,
     )
     logging.getLogger("PPanGGOLiN").debug("Write partition in pangenome")
     write_pangenome(pan, pan.file, args.force, disable_bar=args.disable_prog_bar)
@@ -942,6 +969,14 @@ def parser_partition(parser: argparse.ArgumentParser):
         default=10,
         type=float,
         help="max. degree of the nodes to be included in the smoothing process.",
+    )
+    optional.add_argument(
+        "--nem_backend",
+        required=False,
+        default="pynem",
+        choices=["pynem", "cnem"],
+        help="NEM backend to use for partitioning. 'pynem' (default) uses a pure-Python NEM "
+        "re-implementation; 'cnem' uses the legacy NEM code in C (deprecated, kept as reference).",
     )
     optional.add_argument(
         "-o",
