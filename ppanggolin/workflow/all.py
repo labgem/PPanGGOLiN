@@ -213,6 +213,7 @@ def launch_workflow(
         cpu=args.partition.cpu,
         force=args.force,
         disable_bar=args.disable_prog_bar,
+        backend=getattr(args.partition, "nem_backend", "pynem"),
     )
     part_time = time.time() - start_part
 
