@@ -49,7 +49,7 @@ The gt file can be built from a pangenome with the `write_pangenome` subcommand 
 ppanggolin write_pangenome -p pangenome.h5 --gt
 ```
 
-The `ppanggolin` gt export contains the following edges and [vertices property maps]()
+The `ppanggolin` gt export contains the following edges and vertices [property maps](https://graph-tool.skewed.de/static/docs/stable/autosummary/graph_tool.PropertyMap.html#graph_tool.PropertyMap).
 
 ##### Node property maps    
 
@@ -57,7 +57,7 @@ The `ppanggolin` gt export contains the following edges and [vertices property m
 - "partition" ∈ {'P', 'S', 'C'}: gene family partition (persistent, shell, cloud)
 - "strains": gene family strains
 
-Accessible with `graph_tool.Graph.vp` as such:
+These property maps are accessible with `graph_tool.Graph.vp` as such:
 
 ```python
 import graph_tool
@@ -75,7 +75,7 @@ For edge $(u, v)$
 - "strains": strains having the gene families $(u, v)$ colocalized
 
 
-Accessible with `graph_tool.Graph.ep` as such:
+These property maps are accessible with `graph_tool.Graph.ep` as such:
 ````python
 import graph_tool
 g = graph_tool.load("pangenomeGraph.gt")

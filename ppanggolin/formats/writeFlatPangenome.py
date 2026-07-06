@@ -442,6 +442,7 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
             f"Done writing the gexf file : '{gexf.name}'"
         )
 
+
 def pangenome_to_gt(pangenome: Pangenome) -> graph_tool.Graph:
     """
     Prepare a graph-tool Graph object from a Pangenome object.
@@ -449,7 +450,7 @@ def pangenome_to_gt(pangenome: Pangenome) -> graph_tool.Graph:
     :param pangenome: Pangenome object to convert
     :return: a graph-tool undirected graph representing the pangenome
 
-    ## Node property maps    
+    ## Node property maps
     - "nid": gene family identifier
     - "partition" ∈ {'P', 'S', 'C'}: gene family partition (persistent, shell, cloud)
     - "strains": gene family strains
@@ -475,7 +476,6 @@ def pangenome_to_gt(pangenome: Pangenome) -> graph_tool.Graph:
         "cloud": "C",
     }
 
-
     for fam in pangenome.gene_families:
         v = g.add_vertex()
         vmap[fam.ID] = v
@@ -488,11 +488,11 @@ def pangenome_to_gt(pangenome: Pangenome) -> graph_tool.Graph:
         v = vmap[edge.target.ID]
         e = g.add_edge(u, v)
         g.ep["strains"][e] = {organism for organism in edge._organisms.keys()}
-    
+
     return g
 
 
-def write_gt(output: Path, compressed: bool=False):
+def write_gt(output: Path, compressed: bool = False):
     """
     Write the pangenome graph in graph-tool .gt graph format.
 
@@ -501,11 +501,11 @@ def write_gt(output: Path, compressed: bool=False):
 
     """
     logging.getLogger("PPanGGOLiN").info("Writing the .gt file ...")
-    extension = ".gt.gz" if compressed else ".gt" 
+    extension = ".gt.gz" if compressed else ".gt"
     outname = output / f"pangenomeGraph{extension}"
     g = pangenome_to_gt(pan)
     g.save(outname.as_posix())
-    
+
 
 def write_matrix(
     output: Path,
@@ -1576,9 +1576,7 @@ def write_pangenome_flat_files(
                 p.apply_async(func=write_gexf, args=(output, True, compress))
             )
         if gt:
-            processes.append(
-                p.apply_async(func=write_gt, args=(output, compress))
-            )
+            processes.append(p.apply_async(func=write_gt, args=(output, compress)))
         if stats:
             processes.append(
                 p.apply_async(
@@ -1738,7 +1736,7 @@ def parser_flat(parser: argparse.ArgumentParser):
         "--gt",
         required=False,
         action="store_true",
-        help="Generate a simplified graph-tool GT file with basic gene family and pangenome organism strains information"
+        help="Generate a simplified graph-tool GT file with basic gene family and pangenome organism strains information",
     )
 
     optional.add_argument(
@@ -1757,7 +1755,7 @@ def parser_flat(parser: argparse.ArgumentParser):
             "Uses partitions as alternative gene IDs if available."
         ),
     )
-    
+
     optional.add_argument(
         "--Rtab",
         required=False,
