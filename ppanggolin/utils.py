@@ -1644,8 +1644,9 @@ def check_translation_table_to_use(
     :param user_translation_table: The translation table value provided by the user
                                    (default or explicitly specified)
 
-    :return: The translation table to use for translation
+    :return: The translation table to use for translation, normalized to an int
     """
+
     logger = logging.getLogger("PPanGGOLiN")
 
     pangenome_translation_table = pangenome.status.get("translation_table", None)
@@ -1716,18 +1717,19 @@ def check_translation_table_to_use(
             logger.debug(
                 f"Using user-specified translation table: {user_translation_table}"
             )
-        return user_translation_table
+        return int(user_translation_table)
 
     # Case 2: No user specification, use genetic code from previous steps if available
     if pangenome_translation_table is not None:
         logger.debug(
             f"Using translation table from previous pangenome analysis: {pangenome_translation_table}"
         )
-        return pangenome_translation_table
+
+        return int(pangenome_translation_table)
 
     # Case 3: No user specification and no previous data, use default
     logger.info(
         f"No translation table information found in previous pangenome analysis. "
         f"Using the default translation table: {user_translation_table}."
     )
-    return user_translation_table
+    return int(user_translation_table)
