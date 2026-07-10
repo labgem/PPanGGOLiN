@@ -34,7 +34,6 @@ OUTDIR_COMMANDS_AND_FILES = [
             "partitions/shell.txt",
             "partitions/soft_accessory.txt",
             "partitions/soft_core.txt",
-            
         ],
     ),
     (

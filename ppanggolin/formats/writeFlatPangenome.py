@@ -268,7 +268,7 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
     gexf.write("    </attributes>\n")
     gexf.write("    <meta>\n")
     gexf.write(
-        f'      <creator>PPanGGOLiN {distribution("ppanggolin").version}</creator>\n'
+        f"      <creator>PPanGGOLiN {distribution('ppanggolin').version}</creator>\n"
     )
     gexf.write("    </meta>\n")
 
@@ -465,7 +465,6 @@ def pangenome_to_gt(pangenome: Pangenome):
     except ImportError as exc:
         raise ImportError("This feature requires the optional dependency 'graph_tool'.")
 
-
     g = graph_tool.Graph(directed=False)
     g.vp["nid"] = g.new_vertex_property("string")
     g.vp["partition"] = g.new_vertex_property("string")
@@ -531,7 +530,6 @@ def write_matrix(
     logging.getLogger("PPanGGOLiN").info(f"Writing the .{ext} file ...")
     outname = output / f"matrix.{ext}"
     with write_compressed_or_not(outname, compress) as matrix:
-
         index_org = {}
         default_dat = []
         for index, org in enumerate(pan.organisms):
@@ -943,7 +941,6 @@ def write_stats(
     summaries = []
 
     for organism in pan.organisms:
-
         rgp_count = (
             organism.number_of_regions if pan.status["predictedRGP"] != "No" else None
         )
@@ -1360,7 +1357,6 @@ def write_spot_modules(output: Path, compress: bool = False):
                         curr_mods[fam.module].add(fam)
 
             for module, mod_families_in_spot in curr_mods.items():
-
                 if mod_families_in_spot == set(module.families):
                     # if all the families in the module are found in the spot, write the association
                     fout.write(f"module_{module.ID}\tspot_{spot.ID}\n")
@@ -1541,7 +1537,9 @@ def write_pangenome_flat_files(
         try:
             import graph_tool
         except ImportError as exc:
-            raise ImportError("Export in graph_tool binary .gt format (option --gt) requires the optional dependency 'graph_tool'.")
+            raise ImportError(
+                "Export in graph_tool binary .gt format (option --gt) requires the optional dependency 'graph_tool'."
+            )
         needGraph = True
     if spots or borders or spot_modules or regions or regions_families:
         needRegions = True
