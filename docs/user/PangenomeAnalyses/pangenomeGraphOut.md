@@ -39,9 +39,9 @@ The json can be generated using the `write_pangenome` subcommand as such :
 ppanggolin write_pangenome -p pangenome.h5 -o output_dir --json
 ```
 
-#### `graph-tools` compressed gt format
+#### `graph-tool` compressed gt format
 
-The [graph-tools](https://graph-tool.skewed.de/static/docs/stable/) [`.gt` compressed graph format](https://graph-tool.skewed.de/static/docs/stable/gt_format.html) is a binary file format enabling a fast load of large graph structure from disk. 
+The [graph-tool](https://graph-tool.skewed.de/static/docs/stable/) [`.gt` compressed graph format](https://graph-tool.skewed.de/static/docs/stable/gt_format.html) is a binary file format enabling a fast load of large graph structure from disk. 
 
 The gt file can be built from a pangenome with the `write_pangenome` subcommand as such:
 
@@ -50,6 +50,11 @@ ppanggolin write_pangenome -p pangenome.h5 --gt
 ```
 
 The `ppanggolin` gt export contains the following edges and vertices [property maps](https://graph-tool.skewed.de/static/docs/stable/autosummary/graph_tool.PropertyMap.html#graph_tool.PropertyMap).
+
+```{warning}
+As `graph_tool` is not available from PyPI.org, to benefit from the graph-tool gt file format export feature, you will need to install the graph-tool dependency either from `conda-forge` or via your distribution package manager. See [graph_tool installation instruction](https://graph-tool.skewed.de/installation.html), or use the PPanGGOLiN conda environment file.
+``` 
+
 
 ##### Node property maps    
 
