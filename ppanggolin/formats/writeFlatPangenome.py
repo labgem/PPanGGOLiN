@@ -17,7 +17,6 @@ import csv
 
 # installed libraries
 import pandas as pd
-import graph_tool
 from tqdm import tqdm
 
 # local libraries
@@ -443,7 +442,7 @@ def write_gexf(output: Path, light: bool = True, compress: bool = False):
         )
 
 
-def pangenome_to_gt(pangenome: Pangenome) -> graph_tool.Graph:
+def pangenome_to_gt(pangenome: Pangenome):
     """
     Prepare a graph-tool Graph object from a Pangenome object.
 
@@ -461,6 +460,11 @@ def pangenome_to_gt(pangenome: Pangenome) -> graph_tool.Graph:
     - "strains": strains having the gene families $(u, v)$ colocalized
 
     """
+    try:
+        import graph_tool
+    except ImportError as exc:
+        raise ImportError("This feature requires the optional dependency 'graph_tool'.")
+
 
     g = graph_tool.Graph(directed=False)
     g.vp["nid"] = g.new_vertex_property("string")
@@ -1533,6 +1537,11 @@ def write_pangenome_flat_files(
         else:
             needMetadata = False
     if gt:
+        # Check required graph_tool dependency before loading the pangenome HDF5.
+        try:
+            import graph_tool
+        except ImportError as exc:
+            raise ImportError("Export in graph_tool binary .gt format (option --gt) requires the optional dependency 'graph_tool'.")
         needGraph = True
     if spots or borders or spot_modules or regions or regions_families:
         needRegions = True
