@@ -60,11 +60,14 @@ def run_partitioning(
 
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
-    logging.getLogger("PPanGGOLiN").debug("run_partitioning...")
+    logger = logging.getLogger("PPanGGOLiN")
+    logger.debug("run_partitioning...")
     if init == "param_file":
         with open(nem_dir_path / f"nem_file_init_{str(kval)}.m", "w") as m_file:
             m_file.write("1 ")  # 1 to initialize parameter,
-            m_file.write(" ".join([str(round(1 / float(kval), 2))] * (kval - 1)) + " ")
+            # Keep enough precision so the provided (k-1) proportions never sum above 1.
+            base_proportion = format(1.0 / float(kval), ".12g")
+            m_file.write(" ".join([base_proportion] * (kval - 1)) + " ")
             # 1/K give the initial proportion to each class
             # (the last proportion is automatically determined by subtraction in nem)
             mu = []
@@ -94,8 +97,8 @@ def run_partitioning(
     convergence_th = 0.01
     # (INIT_SORT, init_random, init_param_file, INIT_FILE, INIT_LABEL, INIT_NB) = range(0,6)
     init_random, init_param_file = range(1, 3)
-    logging.getLogger("PPanGGOLiN").debug("Running NEM...")
-    logging.getLogger("PPanGGOLiN").debug(
+    logger.debug("Running NEM...")
+    logger.debug(
         [
             nem_dir_path.as_posix().encode("ascii") + b"/nem_file",
             kval,
@@ -146,20 +149,24 @@ def run_partitioning(
         seed=seed,
     )
 
-    logging.getLogger("PPanGGOLiN").debug("After running NEM...")
+    logger.debug("After running NEM...")
 
     no_nem = False
     nem_out_path = nem_dir_path / f"nem_file_{str(kval)}.uf"
     if nem_out_path.is_file():
-        logging.getLogger("PPanGGOLiN").debug("Reading NEM results...")
+        logger.debug("Reading NEM results...")
     elif not just_log_likelihood:
         # logging.getLogger("PPanGGOLiN").warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(K)+".uf")
         no_nem = True
     else:
-        logging.getLogger("PPanGGOLiN").debug(
-            f"No NEM output file found: {nem_out_path.absolute().as_posix()}"
-        )
+        logger.debug(f"No NEM output file found: {nem_out_path.absolute().as_posix()}")
         no_nem = True
+    if no_nem:
+        logger.debug(
+            "NEM output file is missing after run (run may have failed): "
+            f"expected_uf={nem_out_path.as_posix()}, kval={kval}, nb_org={nb_org}, "
+            f"beta={beta}, seed={seed}, itermax={itermax}, just_log_likelihood={just_log_likelihood}"
+        )
     index_fam = []
 
     with open(nem_dir_path / "nem_file.index") as index_nem_file:
@@ -175,6 +182,7 @@ def run_partitioning(
             open(nem_dir_path / f"nem_file_{str(kval)}.uf") as partitions_nem_file,
             open(nem_dir_path / f"nem_file_{str(kval)}.mf") as parameters_nem_file,
         ):
+
             parameters = parameters_nem_file.readlines()
             log_likelihood = float(parameters[2].split()[3])
 
@@ -221,10 +229,38 @@ def run_partitioning(
                         )
                     else:
                         partitions_list[i] = parti[positions_max_prob.pop()]
-    except OSError:
-        logging.getLogger("PPanGGOLiN").warning(
-            "Partitioning did not work (the number of genomes used is probably too low), "
-            f"see logs here to obtain more details {nem_dir_path.as_posix()}"
+
+    except OSError as error:
+        if just_log_likelihood:
+            logger.warning(
+                "A NEM run failed while estimating the optimal number of partitions "
+                "(testing a candidate K), and this candidate was skipped. "
+                "Final partitioning can still succeed. "
+                f"See temporary files/logs in: {nem_dir_path.as_posix()}"
+            )
+        else:
+            logger.warning(
+                "A NEM run failed for this dataset/chunk and was skipped. "
+                "In chunked mode, other chunks can still complete and final partitioning may still succeed. "
+                f"See temporary files/logs in: {nem_dir_path.as_posix()}"
+            )
+        logger.debug(
+            "NEM failure details: "
+            f"error={repr(error)}, errno={getattr(error, 'errno', None)}, "
+            f"strerror={getattr(error, 'strerror', None)}, filename={getattr(error, 'filename', None)}"
+        )
+        logger.debug(
+            "NEM run context: "
+            f"cwd={Path.cwd().as_posix()}, pid={os.getpid()}, kval={kval}, nb_org={nb_org}, "
+            f"beta={beta}, free_dispersion={free_dispersion}, seed={seed}, init={init}, "
+            f"itermax={itermax}, keep_files={keep_files}, just_log_likelihood={just_log_likelihood}"
+        )
+        logger.debug(
+            "NEM files status: "
+            f"index_exists={(nem_dir_path / 'nem_file.index').is_file()}, "
+            f"uf_exists={(nem_dir_path / f'nem_file_{str(kval)}.uf').is_file()}, "
+            f"mf_exists={(nem_dir_path / f'nem_file_{str(kval)}.mf').is_file()}, "
+            f"init_exists={(nem_dir_path / f'nem_file_init_{str(kval)}.m').is_file()}"
         )
         return {}, None, None  # return empty objects
 
