@@ -14,7 +14,7 @@ dependencies:
   - pandas>=2.0.0,<3.0.0
   - numpy>1.24.0,<2.0.0
   - bokeh>=3.0.0,<4.0.0
-  - graph-tool
+  - graph-tool>=2
   # Tools that are not in Python 
   - infernal=1
   - aragorn=1
