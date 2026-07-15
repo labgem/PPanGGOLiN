@@ -1625,6 +1625,40 @@ def check_tools_availability(
     return availability
 
 
+def check_module(module_name: str) -> bool:
+    try:
+        __import__(module_name)
+    except ImportError:
+        return False
+    return True
+
+
+def check_module_availability(
+    module_to_description: Union[Dict[str, str], List[str]],
+) -> dict[str, bool]:
+    """
+    Check if a python module is available.
+
+    :param module_to_description: A dictionary where keys are module names and values are the description of their purpose, or a list of python module name
+    """
+    if isinstance(module_to_description, list):
+        module_to_description = {module: "" for module in module_to_description}
+    availability = {
+        module: check_module(module) is not None for module in module_to_description
+    }
+    for module, module_decription in module_to_description.items():
+        caller_frame = inspect.stack()[1]
+        caller_module = caller_frame.frame.f_globals["__name__"]
+        caller_function = caller_frame.function
+
+        logging.getLogger("PPanGGOLiN").warning(
+            f"Missing required python module: '{module}' {module_decription}."
+            f"This check was triggered in '{caller_function} inside module '{caller_module}'. "
+            "Please install the missing module to enable the (optional) feature requiring it."
+        )
+    return availability
+
+
 def check_translation_table_to_use(
     pangenome: "Pangenome",
     is_user_specified: bool,

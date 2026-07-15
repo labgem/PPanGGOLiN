@@ -20,6 +20,7 @@ import pandas as pd
 from tqdm import tqdm
 
 # local libraries
+from ppanggolin.utils import check_module_availability
 from ppanggolin.edge import Edge
 from ppanggolin.geneFamily import GeneFamily
 from ppanggolin.genome import Organism
@@ -1534,12 +1535,11 @@ def write_pangenome_flat_files(
             needMetadata = False
     if gt:
         # Check required graph_tool dependency before loading the pangenome HDF5.
-        try:
-            import graph_tool
-        except ImportError as exc:
-            raise ImportError(
-                "Export in graph_tool binary .gt format (option --gt) requires the optional dependency 'graph_tool'."
-            )
+        assert check_module_availability(
+            {
+                "graph_tool": "graph_tool Python module is used to export the PPanGGGOLiN pangenome to a graph-tool binary gt file."
+            }
+        )
         needGraph = True
     if spots or borders or spot_modules or regions or regions_families:
         needRegions = True
