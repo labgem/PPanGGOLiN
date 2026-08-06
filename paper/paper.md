@@ -58,11 +58,11 @@ Here we present PPanGGOLiN v2, which introduces substantial improvements across 
 
 # Statement of need
 
-In the last decade, the number of sequenced microbial genomes has exploded from a few thousand to several million. While this wealth of data offers immense potential, traditional genome-centric approaches reach their limits when exploring and interpreting variation at this scale [@land_insights_2015;@parks_standardized_2018]. A pangenome condenses all genomic information from a set of genomes into a single structure, capturing gene presence/absence and genetic context: e.g. mobile genetic elements or functional annotations, at the species or clade level [@tettelin_genome_2005].
+In the last decade, the number of sequenced microbial genomes has exploded from a few thousand to several million. While this wealth of data offers immense potential, traditional genome-centric approaches reach their limits when exploring and interpreting variation at this scale [@land_insights_2015;@parks_standardized_2018]. A pangenome condenses all genomic information from a set of genomes into a single structure, capturing gene presence/absence and genetic context, such as mobile genetic elements or functional annotations, at the species or clade level [@tettelin_genome_2005].
 
 PPanGGOLiN [@gautreau_ppanggolin_2020] addresses these needs through a graph-based model that clusters genes into families based on sequence similarity and encodes neighborhood information, compressing genomic diversity into a single structure. Gene families are then partitioned using a Bernoulli Mixture Model coupled with a Markov Random Field accounting for both family occurrence and genomic neighborhood. The software suite further integrates PanRGP [@bazin_panrgp_2020], for identification of Regions of Genomic Plasticity (RGPs) and their insertion spots, and PanModule [@bazin_panmodule_2021], for finding conserved modules.
 
-PPanGGOLiN v2 builds on this foundation by adding new analytical features: genomic context search, RGP clustering, pangenome projection and metadata association (\autoref{fig:overview}) together with a full architectural redesign and a modernized development workflow, making the tool more capable, maintainable, and open to community contributions.
+PPanGGOLiN v2 builds on this foundation by adding new analytical features: genomic context search, RGP clustering, pangenome projection, and metadata association (\autoref{fig:overview}) together with a full architectural redesign and a modernized development workflow, making the tool more capable, maintainable, and open to community contributions.
 
 # State of the field
 
@@ -70,7 +70,7 @@ Pangenomics has transformed prokaryotic genome analysis by moving beyond a refer
 
 Most gene-level tools rely on a predefined occurrence threshold to split gene families into different partitions, leading to inconsistent predictions depending on genome quality and diversity. PPanGGOLiN instead uses a statistical method relying on both gene family occurrence patterns and graph topology to partition families into: *persistent*, *shell*, and *cloud* genomes. Among dozens of gene-level pangenomic tools, only mOTUpan [@buck_motupan_2022] and micropan [@snipen_micropan_2015] also use statistical partitioning.
 
-Additionally, PPanGGOLiN builds on its graph-based representation and fine-grained partitioning to identify RGPs, spots and conserved modules; analyses unique to PPanGGOLiN.
+Additionally, PPanGGOLiN builds on its graph-based representation and fine-grained partitioning to identify RGPs, spots, and conserved modules; analyses unique to PPanGGOLiN.
 
 # New features
 ## Projection: pangenome annotation of external genomes
