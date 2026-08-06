@@ -47,7 +47,7 @@ affiliations:
   index: 3
   ror: 05qdnns64
 date: 23 June 2026
-bibliography: references.bib
+bibliography: paper.bib
 ---
 # Summary
 The exponential growth of genomic data, particularly for microbes, has made pangenomic approaches a gold standard for large-scale comparative genomics. By capturing the full genomic diversity of a species rather than relying on a single reference, pangenomics has transformed microbial genomics, revealing the adaptive potential of bacteria and the evolutionary dynamics underlying functional diversity. Among available tools, PPanGGOLiN distinguishes itself through its graph-based model coupled with statistical gene partitioning.
