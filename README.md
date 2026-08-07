@@ -8,6 +8,7 @@
 [![GitHub issues](https://img.shields.io/github/issues/labgem/ppanggolin.svg?style=flat-square&maxAge=600)](https://github.com/labgem/ppanggolin/issues)
 [![Docs](https://img.shields.io/readthedocs/ppanggolin/latest?style=flat-square&maxAge=600)](https://ppanggolin.readthedocs.io)
 [![Downloads](https://anaconda.org/bioconda/ppanggolin/badges/downloads.svg)](https://bioconda.github.io/recipes/ppanggolin/README.html#download-stats)
+[![status](https://joss.theoj.org/papers/0a9d01abf594a27c1687fe4245695ae1/status.svg)](https://joss.theoj.org/papers/0a9d01abf594a27c1687fe4245695ae1)
 
 **PPanGGOLiN**
 ([Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)) is a software suite used to create and manipulate prokaryotic pangenomes from a set of either genomic DNA sequences or provided genome annotations.
