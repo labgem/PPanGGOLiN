@@ -1535,11 +1535,15 @@ def write_pangenome_flat_files(
             needMetadata = False
     if gt:
         # Check required graph_tool dependency before loading the pangenome HDF5.
-        assert check_module_availability(
+        available = check_module_availability(
             {
-                "graph_tool": "graph_tool Python module is used to export the PPanGGGOLiN pangenome to a graph-tool binary gt file."
+                "graph_tool": "which is used to export the PPanGGGOLiN pangenome to a graph-tool binary gt file"
             }
         )
+        if not available["graph_tool"]:
+            raise ImportError(
+                "The graph-tool module is not available. Please install it to use the gt export feature."
+            )
         needGraph = True
     if spots or borders or spot_modules or regions or regions_families:
         needRegions = True

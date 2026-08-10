@@ -1652,7 +1652,7 @@ def check_module_availability(
             caller_function = caller_frame.function
 
             logging.getLogger("PPanGGOLiN").warning(
-                f"Missing required python module: '{module}' {module_decription}."
+                f"Missing required python module: '{module}' {module_decription}. "
                 f"This check was triggered in '{caller_function}' inside module '{caller_module}'. "
                 "Please install the missing module to enable the (optional) feature requiring it."
             )
