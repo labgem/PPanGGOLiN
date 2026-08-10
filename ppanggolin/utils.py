@@ -1643,19 +1643,19 @@ def check_module_availability(
     """
     if isinstance(module_to_description, list):
         module_to_description = {module: "" for module in module_to_description}
-    availability = {
-        module: check_module(module) is not None for module in module_to_description
-    }
-    for module, module_decription in module_to_description.items():
-        caller_frame = inspect.stack()[1]
-        caller_module = caller_frame.frame.f_globals["__name__"]
-        caller_function = caller_frame.function
+    availability = {module: check_module(module) for module in module_to_description}
 
-        logging.getLogger("PPanGGOLiN").warning(
-            f"Missing required python module: '{module}' {module_decription}."
-            f"This check was triggered in '{caller_function} inside module '{caller_module}'. "
-            "Please install the missing module to enable the (optional) feature requiring it."
-        )
+    for module, module_decription in module_to_description.items():
+        if not availability[module]:
+            caller_frame = inspect.stack()[1]
+            caller_module = caller_frame.frame.f_globals["__name__"]
+            caller_function = caller_frame.function
+
+            logging.getLogger("PPanGGOLiN").warning(
+                f"Missing required python module: '{module}' {module_decription}."
+                f"This check was triggered in '{caller_function}' inside module '{caller_module}'. "
+                "Please install the missing module to enable the (optional) feature requiring it."
+            )
     return availability
 
 
