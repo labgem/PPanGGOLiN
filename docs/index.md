@@ -86,7 +86,7 @@ user/metadata
 :caption: 'Developper Guide:'
 :maxdepth: 1
 
-dev/contribute
+dev/contributing
 dev/buildDoc
 api/api_ref
 ```

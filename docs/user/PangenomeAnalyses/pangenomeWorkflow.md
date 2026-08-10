@@ -4,7 +4,6 @@ The command has only one mandatory option, and predefined parameters adapted to 
 This command launches the [annotation](./pangenomeAnalyses.md#annotation), [clustering](./pangenomeCluster.md#cluster-genes-into-gene-families), [graph](./pangenomeAnalyses.md#graph) and [partition](./pangenomeAnalyses.md#partition) commands described below.
 
 
-
 ```{mermaid}
 
 ---
@@ -14,11 +13,9 @@ align: center
 
 %%{init: {'theme':'default'}}%%
 
-
 graph LR
 
     i[input genomes] --> a
-
 
         subgraph Pangenome creation
             a:::workflow
@@ -32,11 +29,9 @@ graph LR
 
     p --> f[pangenome.h5]
 
-        
     classDef panrgp fill:#4066d4
     classDef panmodule fill:#d44066
     classDef workflow fill:#d4ae40
-
 
 ```
 
@@ -48,12 +43,12 @@ You can use the workflow with annotation files as such:
 ppanggolin workflow --anno genomes.gbff.list
 ```
 
-For fasta files, you have to change for: 
+Or use fasta files specified like so:
 ```
 ppanggolin workflow --fasta genomes.fasta.list
 ```
 
-Moreover, as detailed [in the section about providing your gene families](./pangenomeAnalyses.md#read-clustering), 
+Moreover, as detailed in the [section about providing your own gene families](./pangenomeAnalyses.md#read-clustering), 
 if you wish to use different gene clustering methods than those provided by PPanGGOLiN,
 it is also possible to provide your own clustering results with the workflow command as such:
 
@@ -61,14 +56,10 @@ it is also possible to provide your own clustering results with the workflow com
 ppanggolin workflow --anno genomes.gbff.list --clusters clusters.tsv
 ```
 
-All the workflow parameters are obtained from the commands explained below, except for the `--no_flat_files` option, which solely pertains to it. This option prevents the automatic generation of the output files listed and described [in the pangenome output section](./pangenomeAnalyses.md#pangenome-outputs).
-If you are unfamiliar with the output available in PPanGGOLiN, we recommend that you do not use this option, so that all results are automatically generated, even though this may take some time.
+All the workflow parameters are obtained from the commands explained below, except for the `--no_flat_files` option, which solely pertains to the workflow. This option prevents the automatic generation of any of the output files listed and described in the [pangenome output section](./pangenomeAnalyses.md#pangenome-outputs).
+If you are unfamiliar with the outputs available in PPanGGOLiN, we recommend that you do not use this option, so that all results are automatically generated, even though this may take some time.
 
 ```{tip}
-In the workflow CLI, it is not possible to tune all the options available in all the steps. 
-For a fully optimized analysis, you can either launch the subcommands one by one as described below, or you can use the configuration file as described [here](../practicalInformation.md#configuration-file)
+In the workflow CLI, it is not possible to tune every option available at every step.
+For a fully optimized analysis, you can either launch the subcommands one by one as described below, or you can use the configuration file as described [here](../practicalInformation.md#configuration-file).
 ```
-
-
-
-
