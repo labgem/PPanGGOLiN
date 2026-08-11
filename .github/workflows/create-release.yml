@@ -1,0 +1,87 @@
+name: Create Release
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  create-release:
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.title, 'Release ')
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(cat VERSION)
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version '$VERSION' in VERSION file."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release PR version
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [[ ! "$PR_TITLE" =~ ^Release\ [0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid release PR title: '$PR_TITLE'"
+            echo "::error::Expected: 'Release X.Y.Z'"
+            exit 1
+          fi
+
+          PR_VERSION="${PR_TITLE#Release }"
+
+          if [[ "$PR_VERSION" != "$VERSION" ]]; then
+            echo "::error::Release version mismatch."
+            echo "::error::PR title version: $PR_VERSION"
+            echo "::error::VERSION file: $VERSION"
+            exit 1
+          fi
+
+          echo "Release version confirmed: $VERSION"
+
+      - name: Check tag does not exist
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag $VERSION already exists."
+            exit 1
+          fi
+
+      - name: Create tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$VERSION" \
+            --title "PPanGGOLiN $VERSION" \
+            --draft \
+            --generate-notes

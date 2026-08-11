@@ -1,0 +1,175 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 2.5.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Expected X.Y.Z."
+            exit 1
+          fi
+
+      - name: Check tag does not exist
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag $VERSION already exists."
+            exit 1
+          fi
+
+      - name: Check release branch does not exist
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if git ls-remote --exit-code --heads origin "release/$VERSION" >/dev/null 2>&1; then
+            echo "::error::Release branch release/$VERSION already exists."
+            exit 1
+          fi
+
+      - name: Check current VERSION
+        run: |
+          echo "Current VERSION:"
+          cat VERSION
+
+      - name: Update VERSION
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          printf '%s\n' "$VERSION" > VERSION
+
+      - name: Update expected files
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          sed -i \
+            "s/PPanGGOLiN_Version: [0-9]\+\.[0-9]\+\.[0-9]\+/PPanGGOLiN_Version: $VERSION/g" \
+            testingDataset/expected_info_files/*yaml
+
+      - name: Show release changes
+        run: |
+          git status --short
+          git diff -- VERSION testingDataset/expected_info_files/
+
+      - name: Generate PR body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          PREVIOUS_TAG=$(git tag --list \
+            --sort=-version:refname \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+            | head -n 1)
+
+          if [[ -z "$PREVIOUS_TAG" ]]; then
+            echo "::error::Could not find a previous release tag."
+            exit 1
+          fi
+
+          echo "Previous release: $PREVIOUS_TAG"
+          echo "Preparing release: $VERSION"
+
+          COMMITS=$(gh api \
+            "repos/$GH_REPO/compare/$PREVIOUS_TAG...dev" \
+            --paginate \
+            --jq '.commits[].sha')
+
+          PRS=$(mktemp)
+
+          while read -r SHA; do
+            gh api \
+              "repos/$GH_REPO/commits/$SHA/pulls" \
+              --jq '.[] | "\(.number)\t\(.title)"' \
+              >> "$PRS"
+          done <<< "$COMMITS"
+
+          SORTED_PRS=$(mktemp)
+
+          sort -t $'\t' -k1,1n -u "$PRS" > "$SORTED_PRS"
+
+          {
+            echo "## Release $VERSION"
+            echo
+            echo "This PR prepares the **PPanGGOLiN $VERSION** release."
+            echo
+            echo "### Included PRs"
+            echo
+
+            if [[ -s "$SORTED_PRS" ]]; then
+              while IFS=$'\t' read -r NUMBER TITLE; do
+                echo "- #$NUMBER $TITLE"
+              done < "$SORTED_PRS"
+            else
+              echo "No pull requests found."
+            fi
+
+            echo
+            echo "### Release changes"
+            echo
+            echo "- Update \`VERSION\` to \`$VERSION\`"
+            echo "- Update expected files containing the PPanGGOLiN version"
+          } > release-pr-body.md
+
+          echo "Generated release PR body:"
+          cat release-pr-body.md
+
+          rm -f "$PRS" "$SORTED_PRS"
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create release branch
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git switch -c "release/$VERSION"
+
+      - name: Commit release changes
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git add VERSION testingDataset/expected_info_files/
+          git commit -m "Release $VERSION"
+
+      - name: Push release branch
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git push origin "release/$VERSION"
+
+      - name: Create release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "release/$VERSION" \
+            --title "Release $VERSION" \
+            --body-file release-pr-body.md
