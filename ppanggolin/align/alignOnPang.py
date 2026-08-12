@@ -204,6 +204,8 @@ def map_input_gene_to_family_all_aln(
     with open(aln_res) as alnFile, open(aln_file_clean, "w") as aln_outfl:
         for line in alnFile:
             line_splitted = line.split()
+            if not line_splitted:
+                continue
 
             line_splitted[1] = line_splitted[1].replace(
                 "ppanggolin_", ""
@@ -246,6 +248,8 @@ def map_input_gene_to_family_rep_aln(
     with open(aln_res) as alnFile, open(aln_file_clean, "w") as aln_outfl:
         for line in alnFile:
             line_splitted = line.split()
+            if not line_splitted:
+                continue
 
             line_splitted[1] = line_splitted[1].replace(
                 "ppanggolin_", ""

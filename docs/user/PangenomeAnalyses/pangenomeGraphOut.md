@@ -38,3 +38,54 @@ The json can be generated using the `write_pangenome` subcommand as such :
 ```bash
 ppanggolin write_pangenome -p pangenome.h5 -o output_dir --json
 ```
+
+#### `graph-tool` compressed gt format
+
+The [graph-tool](https://graph-tool.skewed.de/static/docs/stable/) [`.gt` compressed graph format](https://graph-tool.skewed.de/static/docs/stable/gt_format.html) is a binary file format enabling a fast load of large graph structure from disk. 
+
+The gt file can be built from a pangenome with the `write_pangenome` subcommand as such:
+
+```bash
+ppanggolin write_pangenome -p pangenome.h5 --gt
+```
+
+The `ppanggolin` gt export contains the following edges and vertices [property maps](https://graph-tool.skewed.de/static/docs/stable/autosummary/graph_tool.PropertyMap.html#graph_tool.PropertyMap).
+
+```{warning}
+As `graph_tool` is not available from PyPI.org, to benefit from the graph-tool gt file format export feature, you will need to install the graph-tool dependency either from `conda-forge` or via your distribution package manager. See [graph_tool installation instruction](https://graph-tool.skewed.de/installation.html), or use the PPanGGOLiN conda environment file.
+``` 
+
+
+##### Node property maps    
+
+- "nid": gene family identifier
+- "partition" ∈ {'P', 'S', 'C'}: gene family partition (persistent, shell, cloud)
+- "strains": gene family strains
+
+These property maps are accessible with `graph_tool.Graph.vp` as such:
+
+```python
+import graph_tool
+g = graph_tool.load("pangenomeGraph.gt")
+for v in g.vertices():
+    family = g.vp["nid"][v]
+    partition = g.vp["partition"][v]
+    vertex_strains = g.vp["strains"][v]
+```
+
+
+##### Edge property maps
+
+For edge $(u, v)$
+- "strains": strains having the gene families $(u, v)$ colocalized
+
+
+These property maps are accessible with `graph_tool.Graph.ep` as such:
+````python
+import graph_tool
+g = graph_tool.load("pangenomeGraph.gt")
+for e in g.edges():
+    edge_strains = g.vp["strains"][e]
+```
+
+
