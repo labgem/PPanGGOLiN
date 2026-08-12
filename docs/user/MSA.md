@@ -22,7 +22,7 @@ for example will compute MSA for all the persistent gene families.
 ppanggolin msa -p pangenome.h5 --partition persistent
 ``` 
 
-Supported partitions are `core`, `persistent`, `shell`, `cloud`, `softcore`, `accessory`. If you need specific filters, you can submit a request in the [issue tracker](https://github.com/labgem/PPanGGOLiN/issues) with your requirements. You can also directly implement the new filter and submit a Pull Request (instructions for contribution can be found [here](../dev/contributing.md)). Most filters should be quite straightforward to add.
+Supported partitions are `core`, `persistent`, `shell`, `cloud`, `softcore`, `accessory`. If you need specific filters, you can submit a request in the [issue tracker](https://github.com/labgem/PPanGGOLiN/issues) with your requirements. You can also directly implement the new filter and submit a Pull Request (instructions for contribution can be found [here](../CONTRIBUTING.md)). Most filters should be quite straightforward to add.
 
 ### Chose to align dna or protein sequences with `--source`
 
