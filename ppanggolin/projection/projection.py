@@ -1711,6 +1711,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "projection", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = 'Annotates external genomes with an existing pangenome.'
+    parser.category = 'Analysis using reference pangenomes'
     parser_projection(parser)
     return parser
 

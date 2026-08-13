@@ -45,60 +45,56 @@ from ppanggolin import (
 )
 
 
+def _build_command_summary(parser: argparse.ArgumentParser) -> str:
+    """Build the human-readable command list from each subparser's own metadata."""
+    category_order = [
+        "Basic",
+        "Expert",
+        "Output",
+        "Regions of Genomic Plasticity",
+        "Analysis using reference pangenomes",
+        "Utility command",
+    ]
+
+    subparser_action = next(
+        (
+            action
+            for action in parser._actions
+            if isinstance(action, argparse._SubParsersAction)
+        ),
+        None,
+    )
+    if subparser_action is None:
+        return ""
+
+    grouped = {category: [] for category in category_order}
+    for command_name, command_parser in subparser_action.choices.items():
+        category = getattr(command_parser, "category", "General")
+        description = (getattr(command_parser, "description", "") or "").strip()
+        grouped.setdefault(category, []).append((command_name, description))
+
+    lines = [
+        "All of the following subcommands have their own set of options. To see them for a given subcommand,",
+        " use it with -h or --help, as such:",
+        "  ppanggolin <subcommand> -h",
+        "",
+    ]
+
+    for category in category_order:
+        if category not in grouped or not grouped[category]:
+            continue
+        lines.append(f"  {category}:")
+        for command_name, description in sorted(
+            grouped[category], key=lambda item: item[0]
+        ):
+            lines.append(f"    {command_name:<15} {description}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the PPanGGOLiN command-line parser without parsing user input."""
-    desc = "\n"
-    desc += (
-        "All of the following subcommands have their own set of options. To see them for a given subcommand,"
-        " use it with -h or --help, as such:\n"
-    )
-    desc += "  ppanggolin <subcommand> -h\n"
-    desc += "\n"
-    desc += "  Basic:\n"
-    desc += "    all           Easy workflow to run all possible analysis\n"
-    desc += "    workflow      Easy workflow to run a pangenome analysis in one go\n"
-    desc += (
-        "    panrgp        Easy workflow to run a pangenome analysis with genomic islands and spots of"
-        " insertion detection\n"
-    )
-    desc += "    panmodule     Easy workflow to run a pangenome analysis with module prediction\n"
-    desc += "  \n"
-    desc += "  Expert:\n"
-    desc += "    annotate      Annotate genomes\n"
-    desc += "    cluster       Cluster genes into gene families\n"
-    desc += "    graph         Create the pangenome graph\n"
-    desc += "    partition     Partition the pangenome graph\n"
-    desc += "    rarefaction   Compute the rarefaction curve of the pangenome\n"
-    desc += "    metadata      Add metadata to elements in yout pangenome\n"
-    desc += "  \n"
-    desc += "  Output:\n"
-    desc += "    draw              Draw figures representing the pangenome through different aspects\n"
-    desc += "    write_pangenome   Writes 'flat' files that represent the pangenome and its elements for use with other software.\n"
-    desc += "    write_genomes     Writes 'flat' files that represent the genomes along with their associated pangenome elements.\n"
-    desc += "    write_metadata    Writes 'TSV' files that represent the metadata associated with elements of the pangenome.\n"
-    desc += "    fasta             Writes fasta files for different elements of the pangenome.\n"
-    desc += (
-        "    info              Prints information about a given pangenome graph file.\n"
-    )
-    desc += "    metrics           Compute several metrics on a given pangenome.\n"
-    desc += "  \n"
-    desc += "  Regions of Genomic Plasticity:\n"
-    desc += "    rgp           Predicts Regions of Genomic Plasticity in the genomes of your pangenome.\n"
-    desc += "    spot          Predicts spots in your pangenome.\n"
-    desc += "    module        Predicts functional modules in your pangenome.\n"
-    desc += "    rgp_cluster   Cluster RGPs based on their gene families.\n"
-    desc += "  \n"
-    desc += "  Analysis using reference pangenomes:\n"
-    desc += "    msa          Compute Multiple Sequence Alignments for pangenome gene families.\n"
-    desc += (
-        "    align        Aligns a genome or a set of proteins to the pangenome gene families and "
-        "predicts information from it.\n"
-    )
-    desc += "    context      Local genomic context analysis.\n"
-    desc += "    projection   Annotates external genomes with an existing pangenome.\n"
-    desc += "  \n"
-    desc += "  Utility command:\n"
-    desc += "    utils      Helper side commands."
 
     parser = argparse.ArgumentParser(
         prog="ppanggolin",
@@ -112,7 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(
-        metavar="", dest="subcommand", title="subcommands", description=desc
+        metavar="", dest="subcommand", title="subcommands", description=None
     )
     subparsers.required = True  # because python3 sent subcommands to hell apparently
 
@@ -135,9 +131,10 @@ def build_parser() -> argparse.ArgumentParser:
             if sub_cmd not in ["rgp", "spot", "rgp_cluster", "panrgp"]:
                 sub.epilog += mod_epilog
 
-    ppanggolin.info.subparser(subparsers)
-    ppanggolin.utility.utils.subparser(subparsers)
+        # if getattr(sub, "description", None):
+        #     sub.help = sub.description
 
+    parser.epilog = _build_command_summary(parser) + parser.epilog
     return parser
 
 
