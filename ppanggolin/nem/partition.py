@@ -943,8 +943,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "partition", formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.description = 'Partition the pangenome graph'
-    parser.category = 'Expert'
+    parser.description = "Partition the pangenome graph"
+    parser.category = "Expert"
     parser_partition(parser)
     return parser
 

@@ -180,7 +180,7 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
         "write_metadata", formatter_class=argparse.RawTextHelpFormatter
     )
     parser.description = "Writes 'TSV' files that represent the metadata associated with elements of the pangenome."
-    parser.category = 'Output'
+    parser.category = "Output"
     parser_flat(parser)
     return parser
 

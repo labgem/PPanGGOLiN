@@ -262,8 +262,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "metadata", formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.description = 'Add metadata to elements in yout pangenome'
-    parser.category = 'Expert'
+    parser.description = "Add metadata to elements in yout pangenome"
+    parser.category = "Expert"
     parser_meta(parser)
     return parser
 
@@ -317,7 +317,7 @@ def parser_meta(parser: argparse.ArgumentParser):
 
 if __name__ == "__main__":
     """To test local change and allow using debugger"""
-    from ppanggolin.utils import check_log, set_verbosity_level
+    from ppanggolin.utils import add_common_arguments, set_verbosity_level
 
     main_parser = argparse.ArgumentParser(
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
@@ -325,30 +325,7 @@ if __name__ == "__main__":
     )
 
     parser_meta(main_parser)
-    common = main_parser.add_argument_group(title="Common argument")
-    common.add_argument(
-        "--verbose",
-        required=False,
-        type=int,
-        default=1,
-        choices=[0, 1, 2],
-        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)",
-    )
-    common.add_argument(
-        "--log",
-        required=False,
-        type=check_log,
-        default="stdout",
-        help="log output file",
-    )
-    common.add_argument(
-        "-d",
-        "--disable_prog_bar",
-        required=False,
-        action="store_true",
-        help="disables the progress bars",
-    )
-    common.add_argument(
+    main_parser.add_argument(
         "-c",
         "--cpu",
         required=False,
@@ -356,11 +333,6 @@ if __name__ == "__main__":
         type=int,
         help="Number of available cpus",
     )
-    common.add_argument(
-        "-f",
-        "--force",
-        action="store_true",
-        help="Force writing in output directory and in pangenome output file.",
-    )
+    add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())
     launch(main_parser.parse_args())

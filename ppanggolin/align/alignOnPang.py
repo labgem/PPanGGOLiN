@@ -859,8 +859,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "align", formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.description = 'Aligns a genome or a set of proteins to the pangenome gene families and predicts information from it.'
-    parser.category = 'Analysis using reference pangenomes'
+    parser.description = "Aligns a genome or a set of proteins to the pangenome gene families and predicts information from it."
+    parser.category = "Analysis using reference pangenomes"
     parser_align(parser)
     return parser
 

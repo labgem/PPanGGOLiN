@@ -1975,8 +1975,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "annotate", formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.description = 'Annotate genomes'
-    parser.category = 'Expert'
+    parser.description = "Annotate genomes"
+    parser.category = "Expert"
     parser_annot(parser)
     return parser
 

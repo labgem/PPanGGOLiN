@@ -108,7 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(
-        metavar="", dest="subcommand", title="subcommands", description=None
+        dest="subcommand", title="subcommands", metavar=""
     )
     subparsers.required = True  # because python3 sent subcommands to hell apparently
 
