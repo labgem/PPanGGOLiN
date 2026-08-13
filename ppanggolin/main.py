@@ -45,12 +45,8 @@ from ppanggolin import (
 )
 
 
-def cmd_line() -> argparse.Namespace:
-    """Manage the command line argument given by user
-
-    :return: arguments given and readable by PPanGGOLiN
-    """
-    # need to manually write the description so that it's displayed into groups of subcommands ....
+def build_parser() -> argparse.ArgumentParser:
+    """Build the PPanGGOLiN command-line parser without parsing user input."""
     desc = "\n"
     desc += (
         "All of the following subcommands have their own set of options. To see them for a given subcommand,"
@@ -105,6 +101,7 @@ def cmd_line() -> argparse.Namespace:
     desc += "    utils      Helper side commands."
 
     parser = argparse.ArgumentParser(
+        prog="ppanggolin",
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=epilog + pan_epilog + rgp_epilog + mod_epilog,
@@ -119,16 +116,8 @@ def cmd_line() -> argparse.Namespace:
     )
     subparsers.required = True  # because python3 sent subcommands to hell apparently
 
-    # print help if no subcommand is specified
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(0)
-
-    # manage command parser to use command arguments
-    subs = []
     for sub_cmd, sub_fct in SUBCOMMAND_TO_SUBPARSER.items():
         sub = sub_fct(subparsers)
-        # add options common to all subcommands
         add_common_arguments(sub)
         sub.epilog = epilog
         if sub_cmd not in ["rgp", "spot", "module", "rgp_cluster"]:
@@ -145,16 +134,29 @@ def cmd_line() -> argparse.Namespace:
                 sub.epilog += rgp_epilog
             if sub_cmd not in ["rgp", "spot", "rgp_cluster", "panrgp"]:
                 sub.epilog += mod_epilog
-        subs.append(sub)
 
-    # manage command without common arguments
-    sub_info = ppanggolin.info.subparser(subparsers)
-    sub_utils = ppanggolin.utility.utils.subparser(subparsers)
-    subs += [sub_info, sub_utils]
+    ppanggolin.info.subparser(subparsers)
+    ppanggolin.utility.utils.subparser(subparsers)
+
+    return parser
+
+
+def cmd_line() -> argparse.Namespace:
+    """Manage the command line argument given by user
+
+    :return: arguments given and readable by PPanGGOLiN
+    """
+    parser = build_parser()
+
+    # print help if no subcommand is specified
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
 
     # print help if only the command is given
-    for sub in subs:
-        if len(sys.argv) == 2 and sub.prog.split()[1] == sys.argv[1]:
+    subcommands = parser._subparsers._group_actions[0].choices
+    for sub_name, sub in subcommands.items():
+        if len(sys.argv) == 2 and sub_name == sys.argv[1]:
             sub.print_help()
             exit(0)
 

@@ -10,7 +10,22 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import subprocess
+import sys
 from pathlib import Path
+
+
+def generate_command_reference(_app):
+    script = (
+        Path(__file__).resolve().parent / "_scripts" / "generate_command_reference.py"
+    )
+    if script.exists():
+        subprocess.check_call([sys.executable, str(script)])
+
+
+def setup(app):
+    app.connect("builder-inited", generate_command_reference)
+
 
 # -- Project information -----------------------------------------------------
 
