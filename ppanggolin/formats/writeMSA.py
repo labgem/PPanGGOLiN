@@ -462,8 +462,10 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :return : parser arguments for align command
     """
     parser = sub_parser.add_parser("msa", formatter_class=argparse.RawTextHelpFormatter)
-    parser.description = 'Compute Multiple Sequence Alignments for pangenome gene families.'
-    parser.category = 'Analysis using reference pangenomes'
+    parser.description = (
+        "Compute Multiple Sequence Alignments for pangenome gene families."
+    )
+    parser.category = "Analysis using reference pangenomes"
     parser_msa(parser)
     return parser
 

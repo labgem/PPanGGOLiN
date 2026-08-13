@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import Iterable, List
@@ -41,6 +42,12 @@ def _format_default(action: argparse.Action) -> str:
     if action.default is True and action.option_strings:
         return "True"
     if isinstance(action.default, Path):
+        value = str(action.default)
+        pattern = r"^(ppanggolin_[A-Za-z0-9_]+)DATE\d{4}-\d{2}-\d{2}_HOUR\d{2}\.\d{2}\.\d{2}_PID\d+$"
+        match = re.match(pattern, value)
+        if match:
+            prefix = match.group(1)
+            return f"`{prefix}<date>_<pid>`"
         return str(action.default)
     if isinstance(action.default, (list, tuple, set)):
         return str(list(action.default))
@@ -52,7 +59,7 @@ def _format_default(action: argparse.Action) -> str:
 def _format_choices(action: argparse.Action) -> str:
     if not action.choices:
         return "—"
-    return ", ".join(str(choice) for choice in action.choices)
+    return ", ".join(f"`{choice}`" for choice in action.choices)
 
 
 def _format_param_name(action: argparse.Action) -> str:
@@ -88,6 +95,38 @@ def _iter_actions(parser: argparse.ArgumentParser) -> Iterable[argparse.Action]:
             yield action
 
 
+def _generate_action_table(
+    title: str, actions: list[argparse.Action], command_name: str | None = None
+) -> list[str]:
+    heading = (
+        title if command_name is None else f"{title} for ppanggolin {command_name}"
+    )
+    lines = [
+        f"#### {heading}",
+        "",
+        "| Parameter | Type | Default | Description |",
+        "|---|---|---|---|",
+    ]
+
+    for action in actions:
+        info = _describe_action(action)
+        description_parts = []
+        help_text = info["help"].strip() if info["help"] else "—"
+        description_parts.append(help_text)
+
+        if info["required"] == "Yes":
+            description_parts.append("Required: Yes")
+        if info["choices"] != "—":
+            description_parts.append(f"Choices: {info['choices']}")
+
+        description = " ".join(part for part in description_parts if part)
+        lines.append(
+            f"| `{info['name']}` | {info['type']} | {info['default']} | {description} |"
+        )
+
+    return lines
+
+
 def _generate_command_section(
     command_name: str, parser: argparse.ArgumentParser
 ) -> str:
@@ -101,10 +140,6 @@ def _generate_command_section(
         "",
         description.strip(),
         "",
-        "#### Parameters",
-        "",
-        "| Parameter | Type | Default | Required | Choices | Description |",
-        "|---|---|---|---|---|---|",
     ]
 
     actions = list(_iter_actions(parser))
@@ -112,16 +147,25 @@ def _generate_command_section(
         lines.append("No parameters are defined for this command.")
         return "\n".join(lines) + "\n"
 
-    for action in actions:
-        info = _describe_action(action)
-        help_text = info["help"]
-        if not help_text:
-            help_text = "—"
-        lines.append(
-            f"| `{info['name']}` | {info['type']} | {info['default']} | {info['required']} | {info['choices']} | {help_text} |"
-        )
+    required_actions = [action for action in actions if action.required]
+    optional_actions = [action for action in actions if not action.required]
 
-    return "\n".join(lines) + "\n"
+    if required_actions:
+        lines.extend(
+            _generate_action_table(
+                "Required parameters", required_actions, command_name
+            )
+        )
+        lines.append("")
+    if optional_actions:
+        lines.extend(
+            _generate_action_table(
+                "Optional parameters", optional_actions, command_name
+            )
+        )
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def _collect_subcommands(

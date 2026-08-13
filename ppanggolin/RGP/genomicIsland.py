@@ -412,8 +412,10 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :return : parser arguments for align command
     """
     parser = sub_parser.add_parser("rgp", formatter_class=argparse.RawTextHelpFormatter)
-    parser.description = 'Predicts Regions of Genomic Plasticity in the genomes of your pangenome.'
-    parser.category = 'Regions of Genomic Plasticity'
+    parser.description = (
+        "Predicts Regions of Genomic Plasticity in the genomes of your pangenome."
+    )
+    parser.category = "Regions of Genomic Plasticity"
     parser_rgp(parser)
     return parser
 
