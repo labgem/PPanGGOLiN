@@ -691,7 +691,7 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
         common.add_argument(
             "--config",
             required=False,
-            type=argparse.FileType(),
+            type=Path,
             help="Specify command arguments through a YAML configuration file.",
         )
     else:
