@@ -599,6 +599,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "fasta", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = 'Writes fasta files for different elements of the pangenome.'
+    parser.category = 'Output'
     parser_seq(parser)
     return parser
 

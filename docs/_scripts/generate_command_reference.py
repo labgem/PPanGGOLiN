@@ -91,9 +91,9 @@ def _iter_actions(parser: argparse.ArgumentParser) -> Iterable[argparse.Action]:
 def _generate_command_section(
     command_name: str, parser: argparse.ArgumentParser
 ) -> str:
-    title = f"## `ppanggolin {command_name}`"
+    title = f"### `ppanggolin {command_name}`"
     description = (
-        parser.description
+        getattr(parser, "description", None)
         or "Command description is not explicitly set in this parser."
     )
     lines = [
@@ -101,7 +101,7 @@ def _generate_command_section(
         "",
         description.strip(),
         "",
-        "### Parameters",
+        "#### Parameters",
         "",
         "| Parameter | Type | Default | Required | Choices | Description |",
         "|---|---|---|---|---|---|",
@@ -115,8 +115,6 @@ def _generate_command_section(
     for action in actions:
         info = _describe_action(action)
         help_text = info["help"]
-        if info["is_flag"] and help_text:
-            help_text = help_text
         if not help_text:
             help_text = "—"
         lines.append(
@@ -163,9 +161,27 @@ def generate_reference(output_path: Path | str | None = None) -> str:
         "",
     ]
 
+    category_order = [
+        "Basic",
+        "Expert",
+        "Output",
+        "Regions of Genomic Plasticity",
+        "Analysis using reference pangenomes",
+        "Utility command",
+    ]
+    grouped_commands: dict[str, List[tuple[str, argparse.ArgumentParser]]] = {}
     for command_name, command_parser in commands:
-        sections.append(_generate_command_section(command_name, command_parser))
+        category = getattr(command_parser, "category", "General")
+        grouped_commands.setdefault(category, []).append((command_name, command_parser))
+
+    for category in category_order:
+        if category not in grouped_commands:
+            continue
+        sections.append(f"## {category}")
         sections.append("")
+        for command_name, command_parser in grouped_commands[category]:
+            sections.append(_generate_command_section(command_name, command_parser))
+            sections.append("")
 
     rendered = "\n".join(sections).strip() + "\n"
 

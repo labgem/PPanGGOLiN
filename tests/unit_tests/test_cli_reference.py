@@ -1,6 +1,8 @@
+import argparse
 import importlib.util
 from pathlib import Path
 
+from ppanggolin import SUBCOMMAND_TO_SUBPARSER
 from ppanggolin.main import build_parser
 
 
@@ -28,6 +30,34 @@ def test_build_parser_does_not_execute_analysis(monkeypatch):
     assert parser is not None
 
 
+def test_subparsers_own_command_metadata():
+    parser = argparse.ArgumentParser(prog="ppanggolin")
+    subparsers = parser.add_subparsers(dest="subcommand")
+
+    all_parser = SUBCOMMAND_TO_SUBPARSER["all"](subparsers)
+    info_parser = SUBCOMMAND_TO_SUBPARSER["info"](subparsers)
+
+    assert all_parser.category == "Basic"
+    assert all_parser.description == "Easy workflow to run all possible analysis"
+    assert info_parser.category == "Output"
+    assert (
+        info_parser.description
+        == "Prints information about a given pangenome graph file."
+    )
+
+
+def test_top_level_help_lists_subcommands():
+    parser = build_parser()
+    help_text = parser.format_help()
+
+    assert "subcommands:" in help_text
+    assert "all" in help_text
+    assert "info" in help_text
+    assert "utils" in help_text
+    assert "All of the following subcommands have their own set of options" in help_text
+    assert "Basic:" in help_text
+
+
 def test_generated_reference_contains_cli_data(tmp_path):
     script_path = (
         Path(__file__).resolve().parents[2]
@@ -48,6 +78,10 @@ def test_generated_reference_contains_cli_data(tmp_path):
     assert "## `ppanggolin all`" in rendered
     assert "## `ppanggolin info`" in rendered
     assert "## `ppanggolin utils`" in rendered
+    assert "## Basic" in rendered
+    assert "Easy workflow to run all possible analysis" in rendered
+    assert "## Utility command" in rendered
+    assert "Helper side commands" in rendered
     assert "--cpu" in rendered
     assert "--pangenome" in rendered
     assert "False" in rendered

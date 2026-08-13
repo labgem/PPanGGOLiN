@@ -335,6 +335,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "spot", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = 'Predicts spots in your pangenome.'
+    parser.category = 'Regions of Genomic Plasticity'
     parser_spot(parser)
     return parser
 

@@ -154,6 +154,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "metrics", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = 'Compute several metrics on a given pangenome.'
+    parser.category = 'Output'
     parser_metrics(parser)
     return parser
 

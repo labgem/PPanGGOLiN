@@ -262,6 +262,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "metadata", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = 'Add metadata to elements in yout pangenome'
+    parser.category = 'Expert'
     parser_meta(parser)
     return parser
 
