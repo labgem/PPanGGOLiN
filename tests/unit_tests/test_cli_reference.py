@@ -86,3 +86,5 @@ def test_generated_reference_contains_cli_data(tmp_path):
     assert "--pangenome" in rendered
     assert "False" in rendered
     assert "Choices" in rendered
+    assert "Optional parameters for ppanggolin all" in rendered
+    assert "Optional parameters for ppanggolin utils" in rendered

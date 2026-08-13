@@ -14,6 +14,7 @@ import ppanggolin.context
 import ppanggolin.workflow
 import ppanggolin.projection
 import ppanggolin.meta
+import ppanggolin.info
 
 SUBCOMMAND_TO_SUBPARSER = {
     "annotate": ppanggolin.annotate.subparser,
@@ -33,6 +34,7 @@ SUBCOMMAND_TO_SUBPARSER = {
     "msa": ppanggolin.formats.writeMSA.subparser,
     "metrics": ppanggolin.metrics.metrics.subparser,
     "align": ppanggolin.align.subparser,
+    "info": ppanggolin.info.subparser,
     "rgp": ppanggolin.RGP.genomicIsland.subparser,
     "spot": ppanggolin.RGP.spot.subparser,
     "module": ppanggolin.mod.subparser,
@@ -41,6 +43,13 @@ SUBCOMMAND_TO_SUBPARSER = {
     "rgp_cluster": ppanggolin.RGP.rgp_cluster.subparser,
     "metadata": ppanggolin.meta.subparser,
 }
+
+# The utility command lives in its own module, so we import it only after the
+# package is initialized and register it here to keep the CLI subcommand registry
+# in one place. This is the canonical list consumed by build_parser().
+import ppanggolin.utility
+
+SUBCOMMAND_TO_SUBPARSER["utils"] = ppanggolin.utility.utils.subparser
 
 
 version = distribution("ppanggolin").version
