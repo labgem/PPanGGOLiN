@@ -83,6 +83,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "draw", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = 'Draw figures representing the pangenome through different aspects'
+    parser.category = 'Output'
     parser_draw(parser)
     return parser
 

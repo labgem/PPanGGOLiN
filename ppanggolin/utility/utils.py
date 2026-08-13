@@ -283,6 +283,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "utils", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = 'Helper side commands.'
+    parser.category = 'Utility command'
     parser_default_config(parser)
     return parser
 
