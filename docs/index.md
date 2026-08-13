@@ -68,7 +68,6 @@ Those RGPs can be further divided in conserved modules by panModule ([Bazin et a
 :maxdepth: 2
 
 user/install
-user/command_reference
 user/QuickUsage/quickAnalyses
 user/practicalInformation
 user/PangenomeAnalyses/pangenomeAnalyses
@@ -81,6 +80,7 @@ user/projection
 user/genomicContext
 user/MSA
 user/metadata
+user/command_reference
 ```
 
 ```{toctree}
