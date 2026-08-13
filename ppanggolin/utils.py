@@ -587,7 +587,7 @@ def check_option_workflow(args):
         )
 
 
-def parse_config_file(yaml_config_file: str) -> dict:
+def parse_config_file(yaml_config_file: Path) -> dict:
     """
     Parse yaml config file.
 
@@ -596,7 +596,7 @@ def parse_config_file(yaml_config_file: str) -> dict:
     :return: dict of config with key the command and as value another dict with param as key and value as value.
     """
 
-    with yaml_config_file as yaml_fh:
+    with open(yaml_config_file) as yaml_fh:
         config = yaml.safe_load(yaml_fh)
 
     if config is None:
@@ -846,7 +846,7 @@ def get_args_differing_from_default(
 
 
 def manage_cli_and_config_args(
-    subcommand: str, config_file: str, subcommand_to_subparser: dict
+    subcommand: str, config_file: Optional[Path], subcommand_to_subparser: dict
 ) -> argparse.Namespace:
     """
     Manage command line and config arguments for the given subcommand.
