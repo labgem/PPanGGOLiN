@@ -18,7 +18,9 @@ def test_build_parser_does_not_execute_analysis(monkeypatch):
     import ppanggolin.workflow.all as workflow_all
 
     def boom(*args, **kwargs):
-        raise AssertionError("analysis launch should not be called while building the parser")
+        raise AssertionError(
+            "analysis launch should not be called while building the parser"
+        )
 
     monkeypatch.setattr(workflow_all, "launch", boom)
 
@@ -27,8 +29,15 @@ def test_build_parser_does_not_execute_analysis(monkeypatch):
 
 
 def test_generated_reference_contains_cli_data(tmp_path):
-    script_path = Path(__file__).resolve().parents[2] / "docs" / "_scripts" / "generate_command_reference.py"
-    spec = importlib.util.spec_from_file_location("generate_command_reference", script_path)
+    script_path = (
+        Path(__file__).resolve().parents[2]
+        / "docs"
+        / "_scripts"
+        / "generate_command_reference.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "generate_command_reference", script_path
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
