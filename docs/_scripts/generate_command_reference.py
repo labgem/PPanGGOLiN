@@ -83,16 +83,26 @@ def _describe_action(action: argparse.Action) -> dict:
     }
 
 
-def _iter_actions(parser: argparse.ArgumentParser) -> Iterable[argparse.Action]:
+def _iter_action_groups(
+    parser: argparse.ArgumentParser,
+) -> Iterable[tuple[str, list[argparse.Action]]]:
     seen = set()
     for action_group in parser._action_groups:
+        group_title = action_group.title or "Arguments"
+        if group_title in {"positional arguments", "options"}:
+            continue
+
+        actions = []
         for action in action_group._group_actions:
             if action.dest == "help":
                 continue
             if action.dest in seen:
                 continue
             seen.add(action.dest)
-            yield action
+            actions.append(action)
+
+        if actions:
+            yield group_title, actions
 
 
 def _generate_action_table(
@@ -117,7 +127,7 @@ def _generate_action_table(
         if info["required"] == "Yes":
             description_parts.append("Required: Yes")
         if info["choices"] != "—":
-            description_parts.append(f"Choices: {info['choices']}")
+            description_parts.append(f"<br>Choices: {info['choices']}")
 
         description = " ".join(part for part in description_parts if part)
         lines.append(
@@ -142,27 +152,13 @@ def _generate_command_section(
         "",
     ]
 
-    actions = list(_iter_actions(parser))
-    if not actions:
+    action_groups = list(_iter_action_groups(parser))
+    if not action_groups:
         lines.append("No parameters are defined for this command.")
         return "\n".join(lines) + "\n"
 
-    required_actions = [action for action in actions if action.required]
-    optional_actions = [action for action in actions if not action.required]
-
-    if required_actions:
-        lines.extend(
-            _generate_action_table(
-                "Required parameters", required_actions, command_name
-            )
-        )
-        lines.append("")
-    if optional_actions:
-        lines.extend(
-            _generate_action_table(
-                "Optional parameters", optional_actions, command_name
-            )
-        )
+    for group_title, actions in action_groups:
+        lines.extend(_generate_action_table(group_title, actions, command_name))
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
