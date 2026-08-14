@@ -93,14 +93,31 @@ jobs:
           echo "Previous release: $PREVIOUS_TAG"
           echo "tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
 
+
+      - name: Get release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr view "$PR_NUMBER" \
+            --json body \
+            --jq '.body' > release-pr-body.md
+
+          awk '
+            /^### Included PRs$/ { in_section=1; next }
+            /^### / && in_section { exit }
+            in_section { print }
+          ' release-pr-body.md > release-notes.md
+
+          echo "Release notes:"
+          cat release-notes.md
+
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
-          PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
         run: |
           gh release create "$VERSION" \
             --title "PPanGGOLiN $VERSION" \
             --draft \
-            --generate-notes \
-            --notes-start-tag "$PREVIOUS_TAG"
+            --notes-file release-notes.md
