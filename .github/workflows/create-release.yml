@@ -84,4 +84,5 @@ jobs:
           gh release create "$VERSION" \
             --title "PPanGGOLiN $VERSION" \
             --draft \
-            --generate-notes
+            --generate-notes \
+            --notes-start-tag 2.3.1
