@@ -1686,6 +1686,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "write_pangenome", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Writes 'flat' files that represent the pangenome and its elements for use with other software."
+    parser.category = "Output"
     parser_flat(parser)
     return parser
 

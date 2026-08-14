@@ -80,6 +80,7 @@ user/projection
 user/genomicContext
 user/MSA
 user/metadata
+user/command_reference
 ```
 
 ```{toctree}

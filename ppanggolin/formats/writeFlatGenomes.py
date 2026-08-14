@@ -859,6 +859,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "write_genomes", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Writes 'flat' files that represent the genomes along with their associated pangenome elements."
+    parser.category = "Output"
     parser_flat(parser)
     return parser
 

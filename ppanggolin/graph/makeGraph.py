@@ -172,6 +172,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "graph", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Create the pangenome graph"
+    parser.category = "Expert"
     parser_graph(parser)
     return parser
 
