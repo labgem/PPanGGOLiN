@@ -4,7 +4,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -204,7 +204,7 @@ def _collect_subcommands(
     return commands
 
 
-def generate_reference(output_path: Optional[Path | str] = None) -> str:
+def generate_reference(output_path: Optional[Union[Path, str]] = None) -> str:
     parser = build_parser()
     commands = _collect_subcommands(parser)
 
