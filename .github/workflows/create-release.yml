@@ -5,7 +5,7 @@ on:
     types:
       - closed
     branches:
-      - main
+      - master
 
 permissions:
   contents: write
@@ -20,10 +20,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout main
+      - name: Checkout master
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: master
           fetch-depth: 0
 
       - name: Get version
