@@ -101,16 +101,8 @@ jobs:
         run: |
           gh pr view "$PR_NUMBER" \
             --json body \
-            --jq '.body' > release-pr-body.md
+            --jq '.body' > release-notes.md
 
-          awk '
-            /^### Included PRs$/ { in_section=1; next }
-            /^### / && in_section { exit }
-            in_section { print }
-          ' release-pr-body.md > release-notes.md
-
-          echo "Release notes:"
-          cat release-notes.md
 
       - name: Create draft release
         env:
