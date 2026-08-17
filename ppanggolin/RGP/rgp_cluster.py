@@ -49,7 +49,7 @@ class RegionProxy:
         self.name: str = name
         self.families: BitMap = families
         self.children: set[RegionProxy] = children
-        self.modules: set[int] = modules
+        self.modules: set[int] = set(modules) if modules is not None else set()
 
         if self.children:
             self.organism: str = next(iter(self.children)).organism
@@ -547,7 +547,9 @@ class RGPClustering:
             if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
                 self.metrics.append(m)
                 self.graph.add_edge(r1.ID, r2.ID, **m.__dict__)
-        logging.info(f"RGP metrics computed for {nb_pairs:,} pairs of RGPs ({len(self.metrics)} selected after GRR cutoff)")
+        logging.info(
+            f"RGP metrics computed for {nb_pairs:,} pairs of RGPs ({len(self.metrics)} selected after GRR cutoff)"
+        )
 
     def _louvain_clustering(self, metric: RGPMetricType):
         logging.info(f"Clustering RGPs using Louvain communities on '{metric}' metric")
@@ -555,14 +557,19 @@ class RGPClustering:
         partitions = nx.algorithms.community.louvain_communities(
             self.graph, weight=metric
         )
-        for i, nodes in enumerate(partitions):
+        ordered_partitions = sorted(
+            partitions,
+            key=lambda nodes: (min(nodes), len(nodes)),
+        )
+
+        for i, nodes in enumerate(ordered_partitions):
             nx.set_node_attributes(
                 self.graph,
                 {node: f"cluster_{i}" for node in nodes},
                 name=f"{metric}_cluster",
             )
 
-        logging.info(f"Graph has {len(partitions)} clusters using '{metric}'")
+        logging.info(f"Graph has {len(ordered_partitions)} clusters using '{metric}'")
 
     def _add_edges_to_identical_rgps(self):
         logging.info("Unmerging identical RGPs in the graph")
@@ -582,20 +589,16 @@ class RGPClustering:
             unmerged += 1
             self.graph.add_nodes_from(
                 (child.ID for child in rgp.children),
-                identical_rcp_group=rgp.name,
+                identical_rgp_group=rgp.name,
             )
 
             edges = [
-                (r1.ID, r2.ID, edge_data)
-                for r1, r2 in combinations(rgp.children, 2)
+                (r1.ID, r2.ID, edge_data) for r1, r2 in combinations(rgp.children, 2)
             ]
 
             for connected in self.graph.neighbors(rgp.ID):
                 data = self.graph[rgp.ID][connected]
-                edges += [
-                    (child.ID, connected, data)
-                    for child in rgp.children
-                ]
+                edges += [(child.ID, connected, data) for child in rgp.children]
 
             self.graph.add_edges_from(edges)
             self.graph.remove_node(rgp.ID)
@@ -608,41 +611,34 @@ class RGPClustering:
         else:
             return "No spot"
 
-    def _add_info_to_identical_rgps(self):
-        logging.info("Adding info to identical RGPs in graph")
+    def _make_info_identical_rgp(self, rgp: RegionProxy) -> dict:
 
-        identical = 0
-        for rgp in self.rgps:
-            if not rgp.is_identical_region:
-                continue
+        spots = {self._spot_id(child) for child in rgp.children}
 
-            identical += 1
-            spots = {self._spot_id(child) for child in rgp.children}
-
-            self.graph.nodes[rgp.ID].update({
-                "identical_rgp_group": True,
-                "name": rgp.name,
-                "families_count": len(rgp.families),
-                "identical_rgp_count": len(rgp.children),
-                "identical_rgp_names": ";".join(child.name for child in rgp.children),
-                "identical_rgp_contig_border_count": len(
-                    [True for child in rgp.children if child.is_contig_border]
-                ),
-                "identical_rgp_whole_contig_count": len(
-                    [True for child in rgp.children if child.is_whole_contig]
-                ),
-                "identical_rgp_spots": ";".join(spots),
-                "spot_id": (
-                    spots.pop()
-                    if len(spots) == 1
-                    else "Multiple spots"
-                ),
-                "modules": ",".join(str(module) for module in rgp.modules),
-            })
-
-        logging.info(f"Added info to {identical} identical RGPs")
+        return {
+            "identical_rgp_group": True,
+            "name": rgp.name,
+            "families_count": len(rgp.families),
+            "identical_rgp_count": len(rgp.children),
+            "identical_rgp_names": ";".join(
+                child.name for child in rgp.children
+            ),
+            "identical_rgp_genomes": ";".join(
+                {child.organism for child in rgp.children}
+            ),
+            "identical_rgp_contig_border_count": len(
+                [True for child in rgp.children if child.is_contig_border]
+            ),
+            "identical_rgp_whole_contig_count": len(
+                [True for child in rgp.children if child.is_whole_contig]
+            ),
+            "identical_rgp_spots": ";".join(spots),
+            "spot_id": (spots.pop() if len(spots) == 1 else "Multiple spots"),
+            "modules": ";".join(f"module_{module}" for module in rgp.modules),
+            }
 
     def _make_info_from_rgp(self, rgp: RegionProxy) -> dict:
+
         return {
             "contig": rgp.contig,
             "genome": rgp.organism,
@@ -651,22 +647,32 @@ class RGPClustering:
             "is_contig_border": rgp.is_contig_border,
             "is_whole_contig": rgp.is_whole_contig,
             "spot_id": self._spot_id(rgp),
-            "modules": ";".join(str(module) for module in rgp.modules),
+            "modules": ";".join(f"module_{module}" for module in rgp.modules),
             "families_count": rgp.nb_families,
         }
 
     def _add_info_to_rgps(self):
+
         logging.info("Adding info to RGPs in graph")
+
         annotated = 0
         for rgp in self.rgps:
+
             if rgp.ID in self.graph:
-                self.graph.nodes[rgp.ID].update(self._make_info_from_rgp(rgp))
+                if rgp.is_identical_region:
+                    self.graph.nodes[rgp.ID].update(self._make_info_identical_rgp(rgp))
+
+                else:
+                    self.graph.nodes[rgp.ID].update(self._make_info_from_rgp(rgp))
+
                 annotated += 1
 
-            if rgp.children:
+            if rgp.children: # in case identical rgp are unmerged
                 for child in rgp.children:
                     if child.ID in self.graph:
-                        self.graph.nodes[child.ID].update(self._make_info_from_rgp(child))
+                        self.graph.nodes[child.ID].update(
+                            self._make_info_from_rgp(child)
+                        )
                         annotated += 1
 
         logging.info(f"Added info to {annotated} RGPs")
@@ -688,8 +694,53 @@ class RGPClustering:
             rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
             logging.info(f"Memory after writing GraphML: RSS peak={rss_peak:.2f} MB")
 
-    def _write_outputs(self, output: Path, basename: str, graph_formats: list[str]):
+    def _write_cluster_table(self, output: Path, basename: str, metric: str):
+        outfile = output / f"{basename}.tsv"
+        rows = []
+
+        for node, attrs in self.graph.nodes(data=True):
+            cluster = attrs.get(f"{metric}_cluster")
+            if cluster is None:
+                raise ValueError(
+                    f"Node {node} does not have a '{metric}_cluster' attribute"
+                )
+
+            name = attrs["name"]
+
+            if name.startswith("identical_rgps_"):
+                identical_rgp_names = attrs["identical_rgp_names"]
+
+                for child_name in identical_rgp_names.split(";"):
+                    rows.append(
+                        {
+                            "RGPs": child_name,
+                            "cluster": cluster,
+                            "spot_id": self._rgp_to_spot.get(child_name, "No spot"),
+                        }
+                    )
+            else:
+
+                rows.append(
+                    {
+                        "RGPs": attrs.get("name", str(node)),
+                        "cluster": cluster,
+                        "spot_id": attrs.get("spot_id", "No spot"),
+                    }
+                )
+
+        rows.sort(key=lambda row: (row["cluster"], row["RGPs"]))
+        pd.DataFrame(rows, columns=["RGPs", "cluster", "spot_id"]).to_csv(
+            outfile,
+            sep="\t",
+            index=False,
+        )
+        logging.info(f"Writing RGP clusters in TSV format to {outfile}")
+
+    def _write_outputs(
+        self, output: Path, basename: str, graph_formats: list[str], metric: str
+    ):
         self._write_graphs(output, basename, graph_formats)
+        self._write_cluster_table(output, basename, metric)
 
     def run(self, options: RGPClusteringOptions):
 
@@ -702,6 +753,12 @@ class RGPClustering:
         with Timer("_construct_regions", logging):
             self._construct_regions()
 
+        # print("NEW", ">" * 40)
+
+        # print(f"Constructed {len(self.rgps)} unique RGPs from pangenome")
+        # print(self.graph.number_of_nodes(), "nodes in graph")
+        # print(self.graph.number_of_edges(), "edges in graph")
+        # print("<" * 40)
         rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         logging.info(f"Memory after _construct_regions: RSS peak={rss_peak:.2f} MB")
 
@@ -717,8 +774,6 @@ class RGPClustering:
 
         if options.unmerge_identical_rgps:
             self._add_edges_to_identical_rgps()
-        else:
-            self._add_info_to_identical_rgps()
 
         rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         logging.info(
@@ -730,7 +785,9 @@ class RGPClustering:
         rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         logging.info(f"Memory after _add_info_to_rgps: RSS peak={rss_peak:.2f} MB")
 
-        self._write_outputs(options.output, options.basename, options.graph_formats)
+        self._write_outputs(
+            options.output, options.basename, options.graph_formats, options.metric
+        )
 
         rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         logging.info(f"Memory after _write_outputs: RSS peak={rss_peak:.2f} MB")
@@ -1068,7 +1125,9 @@ def add_info_to_identical_rgps(
                 if len(spots_of_identical_rgp_obj) == 1
                 else "Multiple spots"
             ),
-            modules=";".join({str(module) for module in identical_rgp_obj.modules}),
+            modules=";".join(
+                f"module_{module.ID}" for module in identical_rgp_obj.modules
+            ),
         )
 
 
@@ -1141,8 +1200,11 @@ def dereplicate_rgp(
     families_to_rgps = defaultdict(list)
 
     for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
-        families_to_rgps[tuple(sorted(f.ID for f in rgp.families))].append(rgp)
+        families_to_rgps[tuple(sorted(set(f.ID for f in rgp.families)))].append(rgp)
 
+    print(
+        f"{len(families_to_rgps)} unique family combinations found in {len(rgps)} RGPs"
+    )
     dereplicated_rgps = []
     identical_region_count = 0
     for rgps in families_to_rgps.values():
@@ -1218,12 +1280,15 @@ def cluster_rgp_on_grr(graph: nx.Graph, clustering_attribute: str = "grr"):
     partitions = nx.algorithms.community.louvain_communities(
         graph, weight=clustering_attribute
     )
+    ordered_partitions = sorted(
+        partitions,
+        key=lambda nodes: (min(nodes), len(nodes)),
+    )
 
-    # Add partition index in node attributes
-    for i, cluster_nodes in enumerate(partitions):
+    for i, nodes in enumerate(ordered_partitions):
         nx.set_node_attributes(
             graph,
-            {node: f"cluster_{i}" for node in cluster_nodes},
+            {node: f"cluster_{i}" for node in nodes},
             name=f"{clustering_attribute}_cluster",
         )
 
@@ -1390,6 +1455,11 @@ def cluster_rgp(
     grr_graph = nx.Graph()
     grr_graph.add_nodes_from(rgp.ID for rgp in dereplicated_rgps)
 
+    print("OLD", ">" * 40)
+    print(f"Constructed {len(dereplicated_rgps)} unique RGPs from pangenome")
+    print(grr_graph.number_of_nodes(), "nodes in graph")
+    print(grr_graph.number_of_edges(), "edges in graph")
+    print("<" * 40)
     # Get all pairs of RGP that share at least one family
 
     family2rgp = defaultdict(set)
@@ -1487,6 +1557,8 @@ def launch(args: argparse.Namespace):
     pangenome = Pangenome()
 
     mk_outdir(args.output, args.force)
+    mk_outdir(args.output / "old", args.force)
+    mk_outdir(args.output / "new", args.force)
 
     pangenome.add_file(args.pangenome)
 
@@ -1497,7 +1569,7 @@ def launch(args: argparse.Namespace):
             cluster_rgp(
                 pangenome,
                 grr_cutoff=args.grr_cutoff,
-                output=args.output,
+                output=args.output / "old",
                 basename=args.basename,
                 ignore_incomplete_rgp=args.ignore_incomplete_rgp,
                 unmerge_identical_rgps=args.no_identical_rgp_merging,
@@ -1516,7 +1588,7 @@ def launch(args: argparse.Namespace):
                     unmerge_identical_rgps=args.no_identical_rgp_merging,
                     grr_cutoff=args.grr_cutoff,
                     metric=args.grr_metric,
-                    output=args.output,
+                    output=args.output / "new",
                     basename=args.basename,
                     graph_formats=args.graph_formats,
                     with_metadata=args.add_metadata,
