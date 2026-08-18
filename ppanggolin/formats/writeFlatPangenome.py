@@ -218,9 +218,9 @@ def write_gexf_header(gexf: TextIO, light: bool = True):
     if not light:
         index = pan.get_org_index()  # has been computed already
     gexf.write(
-        '<?xml version="1.1" encoding="UTF-8"?>\n<gexf xmlns:viz="https://www.gexf.net/1.2draft/viz"'
-        ' xmlns="https://www.gexf.net/1.2draft" version="1.2">\n'
-    )  # TODO update link
+        '<?xml version="1.1" encoding="UTF-8"?>\n<gexf xmlns:viz="http://www.gexf.net/1.2draft/viz"'
+        ' xmlns="http://www.gexf.net/1.2draft" version="1.2">\n'
+    )
     gexf.write('  <graph mode="static" defaultedgetype="undirected">\n')
     gexf.write('    <attributes class="node" mode="static">\n')
     gexf.write('      <attribute id="0" title="nb_genes" type="long" />\n')
