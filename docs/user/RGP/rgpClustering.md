@@ -10,7 +10,7 @@ The ppanggolin `rgp_cluster` command performs the following steps to cluster RGP
 
 There are three modes available for calculating the GRR value: `min_grr`, `max_grr`, or `incomplete_aware_grr`.
 - `min_grr` mode: This mode computes the number of gene families shared between two RGPs and divides it by the smaller number of gene families among the two RGPs.
-- `max_grr` mode: In this mode, the number of gene families shared between two RGPs is calculated and divided by the larger number of gene families among the two RGPs.
+- `max_grr` mode: In this mode, the number of gene families shared between two RGPs is calculated and divided by the larger number of gene families between the two RGPs.
 - `incomplete_aware_grr` (default) mode: If at least one RGP is considered incomplete, which typically happens when it is located at the border of a contig, the `min_grr` mode is used. Otherwise, the `max_grr` mode is applied. This mode is useful to correctly cluster incomplete RGP.
 
 
@@ -18,11 +18,11 @@ By default, the output files are written in a directory named `rgp_clustering` c
 
 The resulting RGP clusters are stored in a tsv file (`rgp_cluster.tsv`) with the following columns:
 
-| column  | description                  |
-|---------|------------------------------|
-|RGP|The unique region identifier.|
-|cluster|The cluster id of the RGP.|
-|spot_id|The spot ID of the RGP.|
+| column  | description                   |
+|---------|-------------------------------|
+| RGP     | The unique region identifier. |
+| cluster | The cluster id of the RGP.    |
+| spot_id | The spot ID of the RGP.       |
 
 
-The command also generates the RGP graph in the gexf format, which can be used to explore the RGP clusters along with their spots of insertion. In this graph, identical RGPs with the same family content and with the same spot are merged into a single node to simplify the graph representation. This feature can be disable with the parameter `--no_identical_rgp_merging`.
+The command also generates the RGP graph in the gexf format, which can be used to explore the RGP clusters along with their spots of insertion. In this graph, identical RGPs with the same family content and with the same spot are merged into a single node to simplify the graph representation. This feature can be disabled with the parameter `--no_identical_rgp_merging`.
