@@ -46,6 +46,7 @@ You can prevent this filtering by using the `--allow_overlap` option.
 Additionally, the `--kingdom archaea` option can be provided when working with archaea genomes
 to specify Infernal's RNA annotation model. 
 
+(annot-gff)=
 ### Use annotation files for your pangenome
 
 You can provide annotation files in either gff3 files or .gbk/.gbff files, or a mix of them. They should be provided through as a list in a tab-separated file that follows the same format as described for the fasta files. You can check [this example input file](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.gbff.list).
