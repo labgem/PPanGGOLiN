@@ -10,6 +10,8 @@ Based on the alignment and partition assignment, Regions of Plasticity (RGPs) wi
 
 This command supports two input modes depending on whether you want to project a single genome or multiple genomes at once:
 
+In both modes, each option accepts only one kind of input: `--fasta` expects genomic sequences in FASTA format, while `--anno` expects annotation files in GFF3 or GBFF format. At least one of the two is required, and they must not be mixed within a single option. These are the same input types as the `annotate` command, described in the [Annotate from fasta files](./PangenomeAnalyses/pangenomeAnnotation.md#annotate-from-fasta-files) and [Use annotation files for your pangenome](./PangenomeAnalyses/pangenomeAnnotation.md#use-annotation-files-for-your-pangenome) sections. Both options can be given together, in which case the annotation files take precedence and the FASTA files provide the genomic sequences when the annotation files do not contain any.
+
 Multiple Files in One TSV:
 - **Options**: `--fasta` or `--anno`
 - **Description**: You can provide a tab-separated file listing genome names alongside their respective FASTA genomic sequences or annotation filepaths, with one line per genome. This mode is suitable when you want to annotate multiple genomes in a single operation. The format of this file is identical to the format used in the annotate and workflow commands; for more details, refer [here](./PangenomeAnalyses/pangenomeAnnotation.md).
@@ -28,9 +30,14 @@ Single File:
 - **Description**: When annotating a single genome, you can directly provide a single FASTA genomic sequence file or an annotation file in GFF/GBFF format. Additionally, specify the name of the genome using the `--genome_name` option. You can also indicate circular contigs using the `--circular_contigs` option when necessary.
 
 **Example Usage:**
-Suppose you have a single fasta file named `genome_A.fasta` of an external genome. To execute the projection, use the following command:
+Suppose you have a single FASTA file named `genome_A.fasta` of an external genome. To execute the projection, use the following command:
 ```bash
-ppanggolin projection -p pangenome.h5 --anno genome_A.fasta --genome_name genome_A
+ppanggolin projection -p pangenome.h5 --fasta genome_A.fasta --genome_name genome_A
+```
+
+If instead you have an annotation file `genome_A.gbff` for that genome, use `--anno`:
+```bash
+ppanggolin projection -p pangenome.h5 --anno genome_A.gbff --genome_name genome_A
 ```
 
 ## Output Files
