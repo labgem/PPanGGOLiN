@@ -1,26 +1,36 @@
 # What's new in PPanGGOLiN v2
 
-This page summarises the changes between PPanGGOLiN v1 (last release `1.2.105`, February 2023) and v2 (first release `2.0.0`, January 2024). It is intended for users coming from v1 who want to know what is new and what has moved. The rationale behind these changes is described in the PPanGGOLiN v2 publication.
+PPanGGOLiN v2 is the result of the work carried out since mid-2021, released under version numbers `2.0.0` and above from January 2024 onwards. This page summarises what changed with respect to PPanGGOLiN as originally published ([Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)), taking release `1.1.136` (February 2021) as the reference point. It is intended for users coming from a v1 release who want to know what is new and what has moved.
 
-## New commands
+The features listed below were released progressively, and some of them are already available in the later `1.2.x` releases. The major version number was raised to `2.0.0` at the point where the redesigned pangenome file broke compatibility with the HDF5 files produced by v1, marking the boundary between the two versions. The rationale behind these changes is described in the PPanGGOLiN v2 publication.
 
-| Command          | Description                                                                                                                                                                                                                | Documentation                                    |
-|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
-| `projection`     | Annotate external genomes using an already computed pangenome, without recomputing it. Genes are assigned to existing gene families and partitions, then RGPs, spots and modules are predicted for the projected genome.   | [Projection](projection.md)                      |
-| `rgp_cluster`    | Cluster RGPs across genomes based on their shared gene families, using a Gene Repertoire Relatedness (GRR) score.                                                                                                          | [RGP clustering](RGP/rgpClustering.md)           |
-| `metadata`       | Attach arbitrary metadata to any pangenome element (genes, contigs, genomes, gene families, edges, RGPs, spots and modules) from a tabulated file. Metadata is stored in the pangenome file and propagated to the outputs. | [Metadata](metadata.md)                          |
-| `write_metadata` | Export the metadata stored in a pangenome.                                                                                                                                                                                 | [Metadata](metadata.md)                          |
-| `utils`          | Generate a default YAML configuration file with `--default_config`.                                                                                                                                                        | [Practical information](practicalInformation.md) |
+## New analyses
+
+| Command | Description | Documentation |
+|---|---|---|
+| `projection` | Annotate external genomes using an already computed pangenome, without recomputing it. Genes are assigned to existing gene families and partitions, then RGPs, spots and modules are predicted for the projected genome. | [Projection](projection.md) |
+| `context` | Extract conserved genomic neighborhoods around genes of interest, using the neighborhood relationships already encoded in the pangenome graph. | [Genomic context](genomicContext.md) |
+| `rgp_cluster` | Cluster RGPs across genomes based on their shared gene families, using a Gene Repertoire Relatedness (GRR) score. | [RGP clustering](RGP/rgpClustering.md) |
+| `metadata` | Attach arbitrary metadata to any pangenome element (genes, contigs, genomes, gene families, edges, RGPs, spots and modules) from a tabulated file. Metadata is stored in the pangenome file and propagated to the outputs. | [Metadata](metadata.md) |
+
+## New utility commands
+
+| Command | Description | Documentation |
+|---|---|---|
+| `all` | Run the complete pipeline, including RGPs, spots and modules, in a single command. | [Workflows](PangenomeAnalyses/pangenomeWorkflow.md) |
+| `metrics` | Compute pangenome metrics such as genomic fluidity. | [Pangenome metrics](PangenomeAnalyses/pangenomeMetric.md) |
+| `write_metadata` | Export the metadata stored in a pangenome. | [Metadata](metadata.md) |
+| `utils` | Generate a default YAML configuration file with `--default_config`. | [Configuration file](practicalInformation.md#configuration-file) |
 
 ## Reorganised commands
 
-The v1 `write` command has been split into three commands with clearer scopes:
+The `write` command has been split into three commands with clearer scopes:
 
-| v1                                                 | v2                                                                                                                           |
-|----------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| `ppanggolin write --regions --spots --modules ...` | `ppanggolin write_pangenome` — pangenome-level outputs (gene families, partitions, RGPs, spots, modules, graphs, statistics) |
-| `ppanggolin write --projection`                    | `ppanggolin write_genomes --table` — genome-level outputs, one file per genome                                               |
-| —                                                  | `ppanggolin write_metadata` — metadata outputs                                                                               |
+| v1 | v2 |
+|---|---|
+| `ppanggolin write --regions --spots ...` | `ppanggolin write_pangenome` — pangenome-level outputs (gene families, partitions, RGPs, spots, modules, graphs, statistics) |
+| `ppanggolin write --projection` | `ppanggolin write_genomes --table` — genome-level outputs, one file per genome |
+| — | `ppanggolin write_metadata` — metadata outputs |
 
 Scripts written for v1 that call `ppanggolin write` need to be updated accordingly.
 
@@ -33,7 +43,7 @@ Scripts written for v1 that call `ppanggolin write` need to be updated according
 
 ## Usability
 
-- **Configuration files.** Every command accepts a `--config` option pointing to a YAML file, so that parameters no longer have to be passed on the command line. This is particularly useful for the workflow commands, which run several steps in a single call, and for integration into computational platforms. A template can be generated with `ppanggolin utils --default_config`.
+- **Configuration files.** Every command accepts a `--config` option pointing to a YAML file, so that parameters no longer have to be passed on the command line. This is particularly useful for the workflow commands, which run several steps in a single call, and for integration into computational platforms. A template can be generated with `ppanggolin utils --default_config`, and the format is described in the [Configuration file](practicalInformation.md#configuration-file) section.
 - **Parameter tracking.** Parameters are resolved consistently (command line, then configuration file, then defaults), checked for consistency across analysis steps, and stored inside the pangenome file, so that an analysis can be inspected and reproduced afterwards with `ppanggolin info --parameters`.
 - **Defragmentation is now enabled by default.** The v1 opt-in `--defrag` option of the `cluster` command has been replaced by the opt-out `--no_defrag` option.
 - **Documentation.** The documentation has been fully rewritten and is now hosted on [ReadTheDocs](https://ppanggolin.readthedocs.io), including a reference of all commands and their options and an API reference for programmatic use.
@@ -48,7 +58,7 @@ Scripts written for v1 that call `ppanggolin write` need to be updated according
 
 ## Compatibility with v1 pangenome files
 
-The HDF5 structure changed between v1 and v2. Pangenome files produced with v1 cannot be read by v2: PPanGGOLiN checks the version stored in the file and raises an explicit error if it was created by a v1 release. Such pangenomes have to be recomputed with v2.
+The redesign of the HDF5 structure is what defines the boundary between v1 and v2: the major version number was raised to `2.0.0` precisely because pangenome files became incompatible at that point. Pangenome files produced with v1 therefore cannot be read by v2. PPanGGOLiN checks the version stored in the file and raises an explicit error if it was created by a v1 release, so such pangenomes have to be recomputed with v2.
 
 ## Citation
 
