@@ -3,6 +3,7 @@
 # default libraries
 import logging
 import argparse
+import json
 import os
 import resource
 from itertools import combinations
@@ -215,7 +216,6 @@ class RGPClusteringOptions:
     graph_formats: list[str] = ("gexf", "graphml")
     with_metadata: bool = False
     metadata_sources: list[str] = field(default_factory=list)
-    metadata_sep: str = "|"
 
 class RGPClustering:
     def __init__(self, pangenome_h5: Path):
@@ -229,6 +229,16 @@ class RGPClustering:
         self._contig_to_organism: dict[str, str] = None
         self._rgp_to_nb_genes: dict[str, int] = None
         self._rgp_to_contig_info: dict[str, RGPGenes] = None
+        self._rgp_to_genes: dict[str, set[str]] = None
+        self._family_id_to_name: dict[int, str] = None
+        self._has_metadata: bool = False
+        self._rgp_metadata_values: Dict[str, Dict[str, list]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        self._family_metadata_sources: Dict[str, set] = defaultdict(set)
+        self._gene_metadata_sources: Dict[str, set] = defaultdict(set)
+        self._spot_metadata_sources: Dict[int, set] = defaultdict(set)
+        self._module_metadata_sources: Dict[int, set] = defaultdict(set)
 
     def _get_rgp_spot(self, reader: H5Reader) -> dict[str, int]:
         rgp_to_spot: dict[str, int] = {}
@@ -374,6 +384,115 @@ class RGPClustering:
 
         return rgp_genes
 
+    def _get_metadata_sources(
+        self, reader: H5Reader, metadata_sources: list[str] = None
+    ) -> dict[str, list[str]]:
+        """
+        Get, per metatype, the list of metadata sources present in the pangenome file,
+        restricted to the requested sources (if any).
+        """
+        status_attrs = reader.handle.root.status._v_attrs
+        if not (hasattr(status_attrs, "metadata") and status_attrs.metadata):
+            return {}
+
+        metastatus = reader.handle.root.status.metastatus._v_attrs
+        metasources = reader.handle.root.status.metasources._v_attrs
+
+        metatype_to_sources: dict[str, list[str]] = {}
+        for metatype in ("RGPs", "genes", "spots", "families", "modules"):
+            if not getattr(metastatus, metatype, False):
+                continue
+
+            sources = list(getattr(metasources, metatype, []))
+            if metadata_sources is not None:
+                sources = [source for source in sources if source in metadata_sources]
+
+            if sources:
+                metatype_to_sources[metatype] = sources
+                logging.info(
+                    f"Metadata for {metatype} found in pangenome with sources {sources}. "
+                    "They will be included in the RGP graph."
+                )
+            elif metadata_sources is not None:
+                logging.info(
+                    f"Metadata for {metatype} found in pangenome, but none match the "
+                    f"specified sources {metadata_sources}."
+                )
+
+        return metatype_to_sources
+
+    def _read_metadata_source(
+        self,
+        reader: H5Reader,
+        metatype: str,
+        source: str,
+        value_target: Dict[str, Dict[str, list]] = None,
+        source_target: Dict[Union[str, int], set] = None,
+    ) -> None:
+        """
+        Read a single metadata source table directly from the H5 file (lightweight, no
+        pangenome object creation), and accumulate either the raw values (for RGPs metadata,
+        which are written as node attributes) and/or the set of sources providing metadata
+        for each identifier (used for family/gene/module/spot presence flags).
+        """
+        table = reader.handle.get_node(f"/metadata/{metatype}/{source}")
+
+        for row in table.iterrows():
+            identifier = row["ID"]
+            if isinstance(identifier, bytes):
+                identifier = identifier.decode("utf-8")
+
+            if source_target is not None:
+                source_target[identifier].add(source)
+
+            if value_target is not None:
+                for field in table.colnames:
+                    if field == "ID":
+                        continue
+                    value = row[field]
+                    if isinstance(value, bytes):
+                        value = value.decode("utf-8")
+                    value_target[identifier][f"{source}_{field}"].append(str(value))
+    def _load_metadata(
+        self, reader: H5Reader, metadata_sources: list[str] = None
+    ) -> None:
+        """
+        Load metadata directly from the H5 file, in the same lightweight way RGP info is
+        loaded (reading tables directly instead of building full pangenome objects).
+        """
+        metatype_to_sources = self._get_metadata_sources(reader, metadata_sources)
+
+        for metatype, sources in metatype_to_sources.items():
+            for source in sources:
+                if metatype == "RGPs":
+                    self._read_metadata_source(
+                        reader, metatype, source, value_target=self._rgp_metadata_values
+                    )
+                elif metatype == "families":
+                    self._read_metadata_source(
+                        reader,
+                        metatype,
+                        source,
+                        source_target=self._family_metadata_sources,
+                    )
+                elif metatype == "genes":
+                    self._read_metadata_source(
+                        reader, metatype, source, source_target=self._gene_metadata_sources
+                    )
+                elif metatype == "spots":
+                    self._read_metadata_source(
+                        reader, metatype, source, source_target=self._spot_metadata_sources
+                    )
+                elif metatype == "modules":
+                    self._read_metadata_source(
+                        reader,
+                        metatype,
+                        source,
+                        source_target=self._module_metadata_sources,
+                    )
+
+        self._has_metadata = bool(metatype_to_sources)
+
     def _get_rgp_info(
         self,
         reader: H5Reader,
@@ -392,6 +511,7 @@ class RGPClustering:
 
         unique_families = set(gene_to_family.values())
         family_ids = {fam: idx for idx, fam in enumerate(unique_families)}
+        self._family_id_to_name = {idx: fam for fam, idx in family_ids.items()}
 
         rgp_infos: list[RGPInfo] = []
 
@@ -502,12 +622,15 @@ class RGPClustering:
         m = RGPMetric(max_grr, min_grr, agrr, len(r1.families & r2.families))
         return m if getattr(m, metric) >= grr_cutoff else None
 
-    def _construct_regions(self):
+    def _construct_regions(
+        self, with_metadata: bool = False, metadata_sources: list[str] = None
+    ):
         logging.info("Loading RGPs from pangenome H5 file")
 
         with H5Reader(self.h5) as reader:
 
             rgp_to_genes = self._get_rgp_genes(reader)
+            self._rgp_to_genes = rgp_to_genes
 
             contigs_with_rgp = {rgp_name.split("_RGP_")[0] for rgp_name in rgp_to_genes}
 
@@ -519,6 +642,9 @@ class RGPClustering:
 
             self._rgp_to_spot = self._get_rgp_spot(reader)
             self._fam_to_modules = self._get_fam_to_modules(reader)
+
+            if with_metadata:
+                self._load_metadata(reader, metadata_sources)
 
             fams_to_rgps: defaultdict[tuple[int], list[RGPInfo]] = defaultdict(list)
 
@@ -611,11 +737,71 @@ class RGPClustering:
         else:
             return "No spot"
 
+    def _add_metadata_info(
+        self,
+        info: dict,
+        rgp_names: List[str],
+        families_ids: BitMap,
+        module_ids: Set[int],
+    ) -> None:
+        """
+        Add metadata-derived attributes to a node info dict: booleans indicating whether
+        family/gene/module/spot metadata is present from a given source, and the RGP's own
+        metadata fields.
+        """
+        if not self._has_metadata:
+            return
+
+        element_to_sources = {
+            "family": set().union(
+                *(
+                    self._family_metadata_sources.get(self._family_id_to_name[fid], set())
+                    for fid in families_ids
+                )
+            )
+            if families_ids
+            else set(),
+            "module": set().union(
+                *(
+                    self._module_metadata_sources.get(module_id, set())
+                    for module_id in module_ids
+                )
+            )
+            if module_ids
+            else set(),
+            "gene": set(),
+            "spot": set(),
+        }
+
+        for rgp_name in rgp_names:
+            for gene_name in self._rgp_to_genes.get(rgp_name, ()):
+                element_to_sources["gene"] |= self._gene_metadata_sources.get(
+                    gene_name, set()
+                )
+
+            spot_id = self._rgp_to_spot.get(rgp_name)
+            if spot_id is not None:
+                element_to_sources["spot"] |= self._spot_metadata_sources.get(
+                    spot_id, set()
+                )
+
+        for element, sources in element_to_sources.items():
+            for source in sources:
+                info[f"has_{element}_with_{source}"] = True
+
+        combined_rgp_metadata: Dict[str, list] = defaultdict(list)
+        for rgp_name in rgp_names:
+            for key, values in self._rgp_metadata_values.get(rgp_name, {}).items():
+                combined_rgp_metadata[key].extend(values)
+
+        for key, values in combined_rgp_metadata.items():
+            info[key] = json.dumps(values)
+
     def _make_info_identical_rgp(self, rgp: RegionProxy) -> dict:
 
         spots = {self._spot_id(child) for child in rgp.children}
 
-        return {
+        info = {
             "identical_rgp_group": True,
             "name": rgp.name,
             "families_count": len(rgp.families),
@@ -637,9 +823,18 @@ class RGPClustering:
             "modules": ";".join(f"module_{module}" for module in rgp.modules),
             }
 
+        self._add_metadata_info(
+            info,
+            [child.name for child in rgp.children],
+            rgp.families,
+            rgp.modules,
+        )
+
+        return info
+
     def _make_info_from_rgp(self, rgp: RegionProxy) -> dict:
 
-        return {
+        info = {
             "contig": rgp.contig,
             "genome": rgp.organism,
             "name": rgp.name,
@@ -650,6 +845,10 @@ class RGPClustering:
             "modules": ";".join(f"module_{module}" for module in rgp.modules),
             "families_count": rgp.nb_families,
         }
+
+        self._add_metadata_info(info, [rgp.name], rgp.families, rgp.modules)
+
+        return info
 
     def _add_info_to_rgps(self):
 
@@ -745,13 +944,16 @@ class RGPClustering:
     def run(self, options: RGPClusteringOptions):
 
         # Get initial memory
-        rss_start = (
-            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        )  # Convert to MB (on Linux, ru_maxrss is in KB)
-        logging.info(f"Memory at start: RSS peak={rss_start:.2f} MB")
+        # rss_start = (
+        #     resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        # )  # Convert to MB (on Linux, ru_maxrss is in KB)
+        # logging.info(f"Memory at start: RSS peak={rss_start:.2f} MB")
 
         with Timer("_construct_regions", logging):
-            self._construct_regions()
+            self._construct_regions(
+                with_metadata=options.with_metadata,
+                metadata_sources=options.metadata_sources or None,
+            )
 
         # print("NEW", ">" * 40)
 
@@ -759,38 +961,38 @@ class RGPClustering:
         # print(self.graph.number_of_nodes(), "nodes in graph")
         # print(self.graph.number_of_edges(), "edges in graph")
         # print("<" * 40)
-        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logging.info(f"Memory after _construct_regions: RSS peak={rss_peak:.2f} MB")
+        # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        # logging.info(f"Memory after _construct_regions: RSS peak={rss_peak:.2f} MB")
+        with Timer("_compute_all_metrics", logging):
+            self._compute_all_metrics(options.grr_cutoff, options.metric)
 
-        self._compute_all_metrics(options.grr_cutoff, options.metric)
-
-        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logging.info(f"Memory after _compute_all_metrics: RSS peak={rss_peak:.2f} MB")
+        # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        # logging.info(f"Memory after _compute_all_metrics: RSS peak={rss_peak:.2f} MB")
 
         self._louvain_clustering(options.metric)
 
-        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logging.info(f"Memory after _louvain_clustering: RSS peak={rss_peak:.2f} MB")
+        # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        # logging.info(f"Memory after _louvain_clustering: RSS peak={rss_peak:.2f} MB")
 
         if options.unmerge_identical_rgps:
             self._add_edges_to_identical_rgps()
 
-        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logging.info(
-            f"Memory after identical_rgps processing: RSS peak={rss_peak:.2f} MB"
-        )
+        # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        # logging.info(
+        #     f"Memory after identical_rgps processing: RSS peak={rss_peak:.2f} MB"
+        # )
 
         self._add_info_to_rgps()
 
-        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logging.info(f"Memory after _add_info_to_rgps: RSS peak={rss_peak:.2f} MB")
+        # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        # logging.info(f"Memory after _add_info_to_rgps: RSS peak={rss_peak:.2f} MB")
 
         self._write_outputs(
             options.output, options.basename, options.graph_formats, options.metric
         )
 
-        rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logging.info(f"Memory after _write_outputs: RSS peak={rss_peak:.2f} MB")
+        # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        # logging.info(f"Memory after _write_outputs: RSS peak={rss_peak:.2f} MB")
 
     @property
     def rgp_count(self) -> int:
@@ -1462,29 +1664,29 @@ def cluster_rgp(
     print("<" * 40)
     # Get all pairs of RGP that share at least one family
 
-    family2rgp = defaultdict(set)
-    for rgp in dereplicated_rgps:
-        for fam in rgp.families:
-            family2rgp[fam].add(rgp)
+    with Timer("OLD compute_all_metrics", logging):
+        family2rgp = defaultdict(set)
+        for rgp in dereplicated_rgps:
+            for fam in rgp.families:
+                family2rgp[fam].add(rgp)
+        rgp_pairs = set()
+        for rgps in family2rgp.values():
+            rgp_pairs |= {tuple(sorted(rgp_pair)) for rgp_pair in combinations(rgps, 2)}
 
-    rgp_pairs = set()
-    for rgps in family2rgp.values():
-        rgp_pairs |= {tuple(sorted(rgp_pair)) for rgp_pair in combinations(rgps, 2)}
+        pairs_count = len(rgp_pairs)
 
-    pairs_count = len(rgp_pairs)
+        logging.getLogger("PPanGGOLiN").info(
+            f"Computing GRR metric for {pairs_count:,} pairs of RGP."
+        )
 
-    logging.getLogger("PPanGGOLiN").info(
-        f"Computing GRR metric for {pairs_count:,} pairs of RGP."
-    )
+        pairs_of_rgps_metrics = []
 
-    pairs_of_rgps_metrics = []
+        for rgp_a, rgp_b in rgp_pairs:
 
-    for rgp_a, rgp_b in rgp_pairs:
+            pair_metrics = compute_rgp_metric(rgp_a, rgp_b, grr_cutoff, grr_metric)
 
-        pair_metrics = compute_rgp_metric(rgp_a, rgp_b, grr_cutoff, grr_metric)
-
-        if pair_metrics:
-            pairs_of_rgps_metrics.append(pair_metrics)
+            if pair_metrics:
+                pairs_of_rgps_metrics.append(pair_metrics)
 
     grr_graph.add_edges_from(pairs_of_rgps_metrics)
     identical_rgps_objects = [
@@ -1554,6 +1756,17 @@ def launch(args: argparse.Namespace):
 
     :param args: All arguments provided by user
     """
+    # Get initial memory
+    rss_start = (
+    resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    )  # Convert to MB (on Linux, ru_maxrss is in KB)
+    logging.info(f"Memory before start: RSS peak={rss_start:.2f} MB")
+
+    if args.metadata_sep is not None:
+        logging.getLogger("PPanGGOLiN").warning(
+            "--metadata_sep is obsolete and ignored; metadata values are JSON-encoded in graphs."
+        )
+
     pangenome = Pangenome()
 
     mk_outdir(args.output, args.force)
@@ -1592,7 +1805,6 @@ def launch(args: argparse.Namespace):
                     basename=args.basename,
                     graph_formats=args.graph_formats,
                     with_metadata=args.add_metadata,
-                    metadata_sep=args.metadata_sep,
                     metadata_sources=args.metadata_sources,
                 )
             )
@@ -1761,6 +1973,5 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
         "--metadata_sep",
         required=False,
         default="|",
-        help="The separator used to join multiple metadata values for elements with multiple metadata"
-        " values from the same source. This character should not appear in metadata values.",
+        help=argparse.SUPPRESS,
     )
