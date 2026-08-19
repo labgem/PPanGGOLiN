@@ -76,12 +76,17 @@ class RegionProxy:
         return self.name
 
     def __hash__(self) -> int:
-        return id(self)
+        # Hash on the stable, deterministically-assigned ID rather than id(self):
+        # object addresses vary between runs and make set/dict iteration order
+        # (and therefore graph construction order) non-reproducible.
+        return hash(self.ID)
 
     def __eq__(self, rhs: "RegionProxy") -> bool:
-        return all(self.families == rhs.families,
-                   self.children == rhs.children,
-                   self.is_contig_border == rhs.is_contig_border)
+        return (
+            self.families == rhs.families
+            and self.children == rhs.children
+            and self.is_contig_border == rhs.is_contig_border
+        )
 
     def __lt__(self, obj):
         return self.ID < obj.ID
@@ -509,7 +514,10 @@ class RGPClustering:
         for table in reader.fetch(GeneFamTable):
             gene_to_family[table.gene] = table.family
 
-        unique_families = set(gene_to_family.values())
+        # Sort before enumerating: iterating a set of strings depends on
+        # PYTHONHASHSEED, which is randomized per process by default and would
+        # make family ID assignment (and therefore node ordering) non-reproducible.
+        unique_families = sorted(set(gene_to_family.values()))
         family_ids = {fam: idx for idx, fam in enumerate(unique_families)}
         self._family_id_to_name = {idx: fam for fam, idx in family_ids.items()}
 
@@ -653,7 +661,7 @@ class RGPClustering:
                 fams_to_rgps[fams_key].append(info)
 
             idx = 0
-            for rgps in fams_to_rgps.values():
+            for _fams, rgps in sorted(fams_to_rgps.items(), key=lambda x: x[0]):
                 self._construct_and_add(idx, rgps)
                 idx += len(rgps) + 1 if len(rgps) > 1 else 1
 
@@ -661,27 +669,69 @@ class RGPClustering:
             f"{len(rgp_infos)} RGPs loaded from pangenome ({len(self.rgps)} unique RGPs after dereplication)"
         )
 
-    def _compute_all_metrics(self, grr_cutoff: float, metric: RGPMetricType):
+    def _compute_all_metrics(
+        self, grr_cutoff: float, metric: RGPMetricType
+    ):
+        """Compute metrics without materializing the set of candidate pairs."""
         logging.info("Computing RGP metrics")
 
-        nb_pairs = 0
-        for r1, r2 in combinations(self.rgps, 2):
-            if len(r1.families & r2.families) == 0:
-                continue
+        memory_before = self._memory_snapshot()
 
-            nb_pairs += 1
-            if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
-                self.metrics.append(m)
-                self.graph.add_edge(r1.ID, r2.ID, **m.__dict__)
+        family_to_rgps = defaultdict(list)
+        for rgp in self.rgps:
+            for family in rgp.families:
+                family_to_rgps[family].append(rgp)
+
+        nb_pairs = 0
+        for family in sorted(family_to_rgps):
+            for r1, r2 in combinations(family_to_rgps[family], 2):
+                shared_families = r1.families & r2.families
+                if family != next(iter(shared_families)):
+                    continue
+
+                nb_pairs += 1
+                if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
+                    self.metrics.append(m)
+                    self.graph.add_edge(r1.ID, r2.ID, **m.__dict__)
+
         logging.info(
-            f"RGP metrics computed for {nb_pairs:,} pairs of RGPs ({len(self.metrics)} selected after GRR cutoff)"
+            f"RGP metrics computed for {nb_pairs:,} pairs of RGPs "
+            f"({len(self.metrics):,} selected after GRR cutoff)"
+        )
+        self._log_memory_usage("_compute_all_metrics_streaming", memory_before)
+
+    @staticmethod
+    def _memory_snapshot() -> tuple[float, float]:
+        current_rss_mb = None
+        with open("/proc/self/status") as status:
+            for line in status:
+                if line.startswith("VmRSS:"):
+                    current_rss_mb = int(line.split()[1]) / 1024
+                    break
+
+        if current_rss_mb is None:
+            raise RuntimeError("VmRSS is unavailable")
+
+        peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        return current_rss_mb, peak_rss_mb
+
+    def _log_memory_usage(
+        self, method_name: str, memory_before: tuple[float, float]
+    ) -> None:
+        current_before, peak_before = memory_before
+        current_after, peak_after = self._memory_snapshot()
+        logging.info(
+            f"Memory for {method_name}: "
+            f"current RSS delta={current_after - current_before:.2f} MB, "
+            f"peak RSS increase={peak_after - peak_before:.2f} MB, "
+            f"peak RSS={peak_after:.2f} MB"
         )
 
     def _louvain_clustering(self, metric: RGPMetricType):
         logging.info(f"Clustering RGPs using Louvain communities on '{metric}' metric")
 
         partitions = nx.algorithms.community.louvain_communities(
-            self.graph, weight=metric
+            self.graph, weight=metric, seed=42
         )
         ordered_partitions = sorted(
             partitions,
@@ -955,19 +1005,15 @@ class RGPClustering:
                 metadata_sources=options.metadata_sources or None,
             )
 
-        # print("NEW", ">" * 40)
+        rss_peak_after_construct_regions = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logging.info(f"Memory after _construct_regions: RSS peak={rss_peak_after_construct_regions:.2f} MB")
 
-        # print(f"Constructed {len(self.rgps)} unique RGPs from pangenome")
-        # print(self.graph.number_of_nodes(), "nodes in graph")
-        # print(self.graph.number_of_edges(), "edges in graph")
-        # print("<" * 40)
-        # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        # logging.info(f"Memory after _construct_regions: RSS peak={rss_peak:.2f} MB")
-        with Timer("_compute_all_metrics", logging):
+
+        with Timer('_compute_all_metrics', logging):
             self._compute_all_metrics(options.grr_cutoff, options.metric)
-
-        # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        # logging.info(f"Memory after _compute_all_metrics: RSS peak={rss_peak:.2f} MB")
+        
+        rss_peak_after_compute_all_metrics = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logging.info(f"Memory after _compute_all_metrics: RSS peak={rss_peak_after_compute_all_metrics:.2f} MB")
 
         self._louvain_clustering(options.metric)
 
@@ -1480,7 +1526,7 @@ def cluster_rgp_on_grr(graph: nx.Graph, clustering_attribute: str = "grr"):
     """
 
     partitions = nx.algorithms.community.louvain_communities(
-        graph, weight=clustering_attribute
+        graph, weight=clustering_attribute, seed=42
     )
     ordered_partitions = sorted(
         partitions,
@@ -1664,7 +1710,8 @@ def cluster_rgp(
     print("<" * 40)
     # Get all pairs of RGP that share at least one family
 
-    with Timer("OLD compute_all_metrics", logging):
+    
+    with Timer("OLD get pair to compute", logging):
         family2rgp = defaultdict(set)
         for rgp in dereplicated_rgps:
             for fam in rgp.families:
@@ -1675,9 +1722,13 @@ def cluster_rgp(
 
         pairs_count = len(rgp_pairs)
 
+        print(f"Computing GRR metric for {pairs_count:,} pairs of RGP.")
+
         logging.getLogger("PPanGGOLiN").info(
             f"Computing GRR metric for {pairs_count:,} pairs of RGP."
         )
+
+    with Timer("OLD compute all metrics", logging):
 
         pairs_of_rgps_metrics = []
 
@@ -1688,7 +1739,8 @@ def cluster_rgp(
             if pair_metrics:
                 pairs_of_rgps_metrics.append(pair_metrics)
 
-    grr_graph.add_edges_from(pairs_of_rgps_metrics)
+        grr_graph.add_edges_from(pairs_of_rgps_metrics)
+
     identical_rgps_objects = [
         rgp for rgp in dereplicated_rgps if isinstance(rgp, IdenticalRegions)
     ]
