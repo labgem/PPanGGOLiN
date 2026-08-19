@@ -221,6 +221,7 @@ class RGPClusteringOptions:
     graph_formats: list[str] = ("gexf", "graphml")
     with_metadata: bool = False
     metadata_sources: list[str] = field(default_factory=list)
+    ignore_incomplete_rgp: bool = False
 
 class RGPClustering:
     def __init__(self, pangenome_h5: Path):
@@ -631,7 +632,7 @@ class RGPClustering:
         return m if getattr(m, metric) >= grr_cutoff else None
 
     def _construct_regions(
-        self, with_metadata: bool = False, metadata_sources: list[str] = None
+        self, with_metadata: bool = False, metadata_sources: list[str] = None, ignore_incomplete_rgp: bool = False
     ):
         logging.info("Loading RGPs from pangenome H5 file")
 
@@ -647,6 +648,16 @@ class RGPClustering:
             )
 
             rgp_infos = self._get_rgp_info(reader, rgp_to_genes)
+
+            if ignore_incomplete_rgp:
+                rgp_infos = [
+                    rgp_info
+                    for rgp_info in rgp_infos
+                    if not rgp_info.is_contig_border
+                ]
+                logging.info(
+                    f"{len(rgp_infos)} RGPs loaded from pangenome after filtering out incomplete RGPs"
+                )
 
             self._rgp_to_spot = self._get_rgp_spot(reader)
             self._fam_to_modules = self._get_fam_to_modules(reader)
@@ -1003,6 +1014,7 @@ class RGPClustering:
             self._construct_regions(
                 with_metadata=options.with_metadata,
                 metadata_sources=options.metadata_sources or None,
+                ignore_incomplete_rgp=options.ignore_incomplete_rgp
             )
 
         rss_peak_after_construct_regions = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
@@ -1858,6 +1870,7 @@ def launch(args: argparse.Namespace):
                     graph_formats=args.graph_formats,
                     with_metadata=args.add_metadata,
                     metadata_sources=args.metadata_sources,
+                    ignore_incomplete_rgp=args.ignore_incomplete_rgp
                 )
             )
     if A == 2:
