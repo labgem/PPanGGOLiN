@@ -1,6 +1,6 @@
-table,# Metadata and Pangenome
+# Metadata and Pangenome
 
-## Associating Metadata to Pangenome Elements
+## Associating Metadata with Pangenome Elements
 
 The `metadata` command allows the addition of metadata linked to various pangenome elements. Metadata can be associated with genes, genomes, families, RGPs, spots, and modules using a simple TSV file. 
 
@@ -25,7 +25,7 @@ Certain information (such as species, strain, and dbx_ref) is extracted from gen
 
 ### Metadata Format
 
-PPanGGOLiN offers a highly flexible metadata file format. Only one column name is mandatory, and it aligns with the assignment argument chosen by the user (ie. families, RGPS...).
+PPanGGOLiN offers a highly flexible metadata file format. Only one column name is mandatory, and it aligns with the assignment argument chosen by the user (*i.e.* families, RGPS...).
 
 For instance, the TSV file used to assign metadata to gene families for functional annotation might resemble the following:
 
@@ -74,12 +74,12 @@ hmmsearch --cut_ga --tblout pfam_hits.txt Pfam-A.hmm MY_PROT/all_protein_familie
 
 The output of the annotation tool has to be turned into a TSV file respecting the rules given above. In practice this means keeping the columns of interest, renaming the column holding the gene family identifiers to `families`, and renaming any column whose name is not a valid identifier.
 
-For instance, an annotation result looking like this:
+For instance, an annotation result looks like this:
 
-| target_name | accession | query_name | E-value | score | description_of_target |
-|-------------|-----------|------------|---------|-------|-----------------------|
-| ABC_tran    | PF00005.30| GF_1       | 1.2e-45 | 152.3 | ABC transporter       |
-| MFS_1       | PF07690.19| GF_2       | 3.4e-30 | 101.7 | Major facilitator superfamily |
+| query_name | accession  | target_name | E-value | score | description_of_target         |
+|------------|------------|-------------|---------|-------|-------------------------------|
+| GF_1       | PF00005.30 | ABC_tran    | 1.2e-45 | 152.3 | ABC transporter               |
+| GF_2       | PF07690.19 | MFS1        | 3.4e-30 | 101.7 | Major facilitator superfamily |
 
 becomes:
 
@@ -91,7 +91,7 @@ becomes:
 Only the column names change: the `query_name` column, which holds the gene family identifiers written at step 1, is renamed to `families`, and `E-value` is renamed to `e_value` so that it is a valid identifier. The remaining columns are free, both in number and in name.
 
 ```{note}
-The order of the columns does not matter. PPanGGOLiN identifies the columns by their name, so the `families` column can be anywhere in the file. It has been moved to the first position in the example above only for readability.
+The order of the columns does not matter. PPanGGOLiN identifies the columns by their name, so the `families` column can be anywhere in the file.
 ```
 
 **4. Add the annotations to the pangenome**
