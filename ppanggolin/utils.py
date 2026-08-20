@@ -1805,6 +1805,8 @@ def check_translation_table_to_use(
         f"Using the default translation table: {user_translation_table}."
     )
     return int(user_translation_table)
+
+
 class Timer:
     def __init__(self, name: str = None, logger: logging.Logger = None):
         """
@@ -1820,7 +1822,7 @@ class Timer:
 
     def __enter__(self):
         self.start_time = time.perf_counter()
-        return self  
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.elapsed = time.perf_counter() - self.start_time
