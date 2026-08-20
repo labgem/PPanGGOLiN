@@ -2,13 +2,15 @@
 
 The ppanggolin projection command allows you to annotate external genomes using an existing pangenome. This process eliminates the need to recompute all components, streamlining the annotation process. Input genomes are expected to belong to the same species.
 
-Genes within the input genome are aligned with genes in the pangenome to determine their gene families and partitions. Genes that do not align with any existing gene in the pangenome are considered specific to the input genome and are assigned to the "Cloud" partition. The number of this specific cloud families are detailed in the summary table.
+Genes within the input genome are aligned with genes in the pangenome to determine their gene families and partitions. Genes that do not align with any existing gene in the pangenome are considered specific to the input genome and are assigned to the "Cloud" partition. The numbers of these specific cloud families are detailed in the summary table.
 
 Based on the alignment and partition assignment, Regions of Plasticity (RGPs) within the input genome are predicted. Each RGP that is not located on a contig border is assigned to a spot of insertion. Finally, conserved modules of the pangenome found in the input genome are reported in the output files.
 
 ## Input files:
 
 This command supports two input modes depending on whether you want to project a single genome or multiple genomes at once:
+
+In both modes, each option accepts only one kind of input: `--fasta` expects genomic sequences in FASTA format, while `--anno` expects annotation files in GFF3 or GBFF format. At least one of the two is required, and they must not be mixed within a single option. These are the same input types as the `annotate` command, described in the [Annotate from fasta files](./PangenomeAnalyses/pangenomeAnnotation.md#annotate-from-fasta-files) and [Use annotation files for your pangenome](./PangenomeAnalyses/pangenomeAnnotation.md#use-annotation-files-for-your-pangenome) sections. Both options can be given together, in which case the annotation files take precedence and the FASTA files provide the genomic sequences when the annotation files do not contain any.
 
 Multiple Files in One TSV:
 - **Options**: `--fasta` or `--anno`
@@ -28,20 +30,25 @@ Single File:
 - **Description**: When annotating a single genome, you can directly provide a single FASTA genomic sequence file or an annotation file in GFF/GBFF format. Additionally, specify the name of the genome using the `--genome_name` option. You can also indicate circular contigs using the `--circular_contigs` option when necessary.
 
 **Example Usage:**
-Suppose you have a single fasta file named `genome_A.fasta` of an external genome. To execute the projection, use the following command:
+Suppose you have a single FASTA file named `genome_A.fasta` of an external genome. To execute the projection, use the following command:
 ```bash
-ppanggolin projection -p pangenome.h5 --anno genome_A.fasta --genome_name genome_A
+ppanggolin projection -p pangenome.h5 --fasta genome_A.fasta --genome_name genome_A
+```
+
+If instead you have an annotation file `genome_A.gbff` for that genome, use `--anno`:
+```bash
+ppanggolin projection -p pangenome.h5 --anno genome_A.gbff --genome_name genome_A
 ```
 
 ## Output Files
 
 Within the Output directory, the `summary_projection.tsv` file provides an overview of the projection, featuring one line per genome. This file includes all the columns described in the [genome-statistics table](./PangenomeAnalyses/pangenomeStat.md#genome-statistics-table) section, along with specific projection-related columns detailed below:
 
-| Column                      | Description                                                                                   |
-|-----------------------------|-----------------------------------------------------------------------------------------------|
-| Cloud_specific_families     | Number of cloud-specific families. These gene families do not match any existing families within the pangenome. |
-| Pangenome_file              | The file path of the pangenome used in the projection.                                           |
-| New_spots                   | Number of newly identified spots in the input genome.                                            |
+| Column                  | Description                                                                                                     |
+|-------------------------|-----------------------------------------------------------------------------------------------------------------|
+| Cloud_specific_families | Number of cloud-specific families. These gene families do not match any existing families within the pangenome. |
+| Pangenome_file          | The file path of the pangenome used in the projection.                                                          |
+| New_spots               | Number of newly identified spots in the input genome.                                                           |
 
 
 
@@ -51,9 +58,9 @@ Additionally, within the Output directory, there is a subdirectory for each inpu
 For Gene Family and Partition of Input Genes:
 
 - `cds_sequences.fasta`: This file contains the sequences of coding regions (CDS) from the input genome.
-- `gene_to_gene_family.tsv`: It provides the mapping of genes to gene families of the pangenome. Its format follows [this output](PangenomeAnalyses/pangenomeAnalyses.md#gene-families-to-genes-associations)
+- `gene_to_gene_family.tsv`: It provides the mapping of genes to gene families of the pangenome. Its format follows [this output](PangenomeAnalyses/pangenomeStat.md#gene-families-to-gene-associations).
 - `sequences_partition_projection.tsv`: This file maps the input genes to its partition (Persistent, Shell or Cloud).
-- `specific_genes.tsv`: This file lists the gene of the input genomes that do not align to any gene of the pangenome. These genes are assigned to Cloud parititon. 
+- `specific_genes.tsv`: This file lists the gene of the input genomes that do not align to any gene of the pangenome. These genes are assigned to Cloud partition. 
 
 For RGPs and Spots:
 
