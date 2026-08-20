@@ -67,7 +67,7 @@ def test_rgp_cluster_with_metadata(pangenome_with_metadata, tmp_path):
 
     cmd = (
         f"ppanggolin rgp_cluster --pangenome {pangenome_with_metadata} "
-        f"--output {outdir} --add_metadata --graph_formats graphml gexf" 
+        f"--output {outdir} --add_metadata --graph_formats graphml gexf"
     )
     run_ppanggolin_command(cmd)
 
