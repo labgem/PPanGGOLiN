@@ -21,7 +21,7 @@ OUTDIR_COMMANDS_AND_FILES = [
     (
         "rgp_cluster_default",
         "ppanggolin rgp_cluster --pangenome {pangenome} --output {outdir}",
-        ["rgp_cluster.gexf", "rgp_cluster.tsv"],
+        ["rgp_cluster.graphml", "rgp_cluster.tsv"],
     ),
     (
         "rgp_cluster_graph_formats",
@@ -67,7 +67,7 @@ def test_rgp_cluster_with_metadata(pangenome_with_metadata, tmp_path):
 
     cmd = (
         f"ppanggolin rgp_cluster --pangenome {pangenome_with_metadata} "
-        f"--output {outdir} --add_metadata"
+        f"--output {outdir} --add_metadata --graph_formats graphml gexf" 
     )
     run_ppanggolin_command(cmd)
 
