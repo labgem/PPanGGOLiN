@@ -1309,7 +1309,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
         type=str,
         choices=["gexf", "graphml"],
         nargs="+",
-        default=["gexf", "graphml"],
+        default=["graphml"],
         help="Format of the output graph.",
     )
 
