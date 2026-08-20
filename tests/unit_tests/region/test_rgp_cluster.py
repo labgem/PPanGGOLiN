@@ -6,7 +6,6 @@ from pyroaring import BitMap
 from ppanggolin.RGP.rgp_cluster import RGPClustering, RegionProxy, RGPInfo, Contig
 
 
-
 @pytest.fixture
 def rgp_a():
     return RegionProxy(
@@ -28,6 +27,7 @@ def rgp_b():
         is_whole_contig=False,
     )
 
+
 @pytest.fixture
 def clustering(tmp_path):
     clustering = RGPClustering(tmp_path / "pangenome.h5")
@@ -42,6 +42,7 @@ def clustering(tmp_path):
         )
     }
     return clustering
+
 
 @pytest.mark.parametrize(
     ("families_a", "families_b", "operation", "expected"),
@@ -64,7 +65,6 @@ def test_grr(clustering, families_a, families_b, operation, expected):
     assert clustering._grr(families_a, families_b, operation) == expected
 
 
-
 def test_rgp_metric(clustering, rgp_a, rgp_b):
     metric = clustering._rgp_metric(
         rgp_a,
@@ -78,6 +78,7 @@ def test_rgp_metric(clustering, rgp_a, rgp_b):
     assert metric.max_grr == 0.5
     assert metric.incomplete_aware_grr == 1.0
     assert metric.shared_family == 5
+
 
 def test_rgp_metric_below_cutoff(clustering, rgp_a, rgp_b):
     metric = clustering._rgp_metric(

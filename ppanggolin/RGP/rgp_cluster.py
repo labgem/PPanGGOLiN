@@ -274,20 +274,6 @@ class RGPClustering:
         self._spot_metadata_sources: Dict[int, set] = defaultdict(set)
         self._module_metadata_sources: Dict[int, set] = defaultdict(set)
 
-    def _check_required_status(
-        self,
-        status: dict,
-        required_statuses: dict[str, str],
-    ):
-        """Check that all required pangenome information is available in the H5 file."""
-
-        for status_name, description in required_statuses.items():
-            if status.get(status_name) != "inFile":
-                raise ValueError(
-                    f"Cannot compute RGP metrics: {description} is not available "
-                    "in the pangenome H5 file."
-                )
-
     def _get_rgp_spot(self, reader: H5Reader) -> dict[str, int]:
         rgp_to_spot: dict[str, int] = {}
         for table in reader.fetch(RGPSpotTable):
@@ -741,7 +727,9 @@ class RGPClustering:
             f"{len(rgp_infos)} RGPs loaded from pangenome ({len(self.rgps)} unique RGPs after dereplication)"
         )
         if len(rgp_infos) == 0:
-            logging.getLogger("PPanGGOLiN").warning("Pangenome contains no RGPs. Output files will be empty.")
+            logging.getLogger("PPanGGOLiN").warning(
+                "Pangenome contains no RGPs. Output files will be empty."
+            )
 
     def _compute_all_metrics(
         self, grr_cutoff: float, metric: RGPMetricType, disable_bar: bool = False
@@ -779,9 +767,10 @@ class RGPClustering:
             f"({len(self.metrics):,} selected after GRR cutoff)"
         )
 
-
     def _louvain_clustering(self, metric: RGPMetricType):
-        logging.getLogger("PPanGGOLiN").info(f"Clustering RGPs using Louvain communities on '{metric}' metric")
+        logging.getLogger("PPanGGOLiN").info(
+            f"Clustering RGPs using Louvain communities on '{metric}' metric"
+        )
 
         partitions = nx.algorithms.community.louvain_communities(
             self.graph, weight=metric, seed=42
@@ -798,7 +787,9 @@ class RGPClustering:
                 name=f"{metric}_cluster",
             )
 
-        logging.getLogger("PPanGGOLiN").info(f"Graph has {len(ordered_partitions)} RGP clusters using '{metric}'")
+        logging.getLogger("PPanGGOLiN").info(
+            f"Graph has {len(ordered_partitions)} RGP clusters using '{metric}'"
+        )
 
     def _add_edges_to_identical_rgps(self):
         logging.getLogger("PPanGGOLiN").info("Unmerging identical RGPs in the graph")
@@ -986,12 +977,16 @@ class RGPClustering:
     def _write_graphs(self, output: Path, basename: str, graph_formats: list[str]):
         if "gexf" in graph_formats:
             graph_filename = output / f"{basename}.gexf"
-            logging.getLogger("PPanGGOLiN").info(f"Writing RGP graph in GEXF format to {graph_filename}")
+            logging.getLogger("PPanGGOLiN").info(
+                f"Writing RGP graph in GEXF format to {graph_filename}"
+            )
             nx.write_gexf(self.graph, graph_filename)
 
         if "graphml" in graph_formats:
             graph_filename = output / f"{basename}.graphml"
-            logging.getLogger("PPanGGOLiN").info(f"Writing RGP graph in GraphML format to {graph_filename}")
+            logging.getLogger("PPanGGOLiN").info(
+                f"Writing RGP graph in GraphML format to {graph_filename}"
+            )
             nx.write_graphml(self.graph, graph_filename)
 
     def _write_cluster_table(self, output: Path, basename: str, metric: str):
@@ -1034,7 +1029,9 @@ class RGPClustering:
             sep="\t",
             index=False,
         )
-        logging.getLogger("PPanGGOLiN").info(f"Writing RGP clusters in TSV format to {outfile}")
+        logging.getLogger("PPanGGOLiN").info(
+            f"Writing RGP clusters in TSV format to {outfile}"
+        )
 
     def _write_outputs(
         self, output: Path, basename: str, graph_formats: list[str], metric: str
@@ -1058,7 +1055,6 @@ class RGPClustering:
             self._add_edges_to_identical_rgps()
 
         self._louvain_clustering(options.metric)
-
 
         self._add_info_to_rgps()
 
@@ -1181,6 +1177,7 @@ class IdenticalRegions:
             modules |= rgp.modules
 
         return modules
+
 
 def launch(args: argparse.Namespace):
     """
