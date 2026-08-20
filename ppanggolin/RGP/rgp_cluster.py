@@ -100,50 +100,78 @@ class RegionProxy:
     def __ge__(self, obj):
         return self.ID >= obj.ID
 
+
 @dataclass
 class RGPTable:
-    rgp: tp.Annotated[str, TableAttribute(name="RGP", transform=lambda x: x.decode('utf-8'))]
-    gene: tp.Annotated[str, TableAttribute(name="gene", transform=lambda x: x.decode('utf-8'))]
+    rgp: tp.Annotated[
+        str, TableAttribute(name="RGP", transform=lambda x: x.decode("utf-8"))
+    ]
+    gene: tp.Annotated[
+        str, TableAttribute(name="gene", transform=lambda x: x.decode("utf-8"))
+    ]
     _table: str = "/RGP"
+
 
 @dataclass
 class GeneFamTable:
-    gene: tp.Annotated[str, TableAttribute(name="gene", transform=lambda x: x.decode('utf-8'))]
-    family: tp.Annotated[str, TableAttribute(name="geneFam", transform=lambda x: x.decode('utf-8'))]
+    gene: tp.Annotated[
+        str, TableAttribute(name="gene", transform=lambda x: x.decode("utf-8"))
+    ]
+    family: tp.Annotated[
+        str, TableAttribute(name="geneFam", transform=lambda x: x.decode("utf-8"))
+    ]
     _table: str = "/geneFamilies"
+
 
 @dataclass
 class AnnotationsGeneTable:
-    name: tp.Annotated[str, TableAttribute(name="ID", transform=lambda x: x.decode('utf-8'))]
+    name: tp.Annotated[
+        str, TableAttribute(name="ID", transform=lambda x: x.decode("utf-8"))
+    ]
     contig: tp.Annotated[int, TableAttribute(name="contig")]
     _table: str = "/annotations/genes"
 
+
 @dataclass
 class RGPSpotTable:
-    rgp: tp.Annotated[str, TableAttribute(name="RGP", transform=lambda x: x.decode('utf-8'))]
+    rgp: tp.Annotated[
+        str, TableAttribute(name="RGP", transform=lambda x: x.decode("utf-8"))
+    ]
     spot: tp.Annotated[int, TableAttribute(name="spot")]
     _table: str = "/spots"
 
+
 @dataclass
 class ModuleTable:
-    fam: tp.Annotated[str, TableAttribute(name="geneFam", transform=lambda x: x.decode('utf-8'))]
+    fam: tp.Annotated[
+        str, TableAttribute(name="geneFam", transform=lambda x: x.decode("utf-8"))
+    ]
     module: tp.Annotated[int, TableAttribute(name="module")]
     _table: str = "/modules"
 
+
 @dataclass
 class ContigTable:
-    genome: tp.Annotated[str, TableAttribute(name="genome", transform=lambda x: x.decode('utf-8'))]
-    contig: tp.Annotated[str, TableAttribute(name="name", transform=lambda x: x.decode('utf-8'))]
+    genome: tp.Annotated[
+        str, TableAttribute(name="genome", transform=lambda x: x.decode("utf-8"))
+    ]
+    contig: tp.Annotated[
+        str, TableAttribute(name="name", transform=lambda x: x.decode("utf-8"))
+    ]
     is_circular: tp.Annotated[bool, TableAttribute(name="is_circular")]
     idx: tp.Annotated[int, TableAttribute(name="ID")]
     _table: str = "/annotations/contigs"
 
+
 @dataclass
 class GenesTable:
-    name: tp.Annotated[str, TableAttribute(name="ID", transform=lambda x: x.decode('utf-8'))]
+    name: tp.Annotated[
+        str, TableAttribute(name="ID", transform=lambda x: x.decode("utf-8"))
+    ]
     genedata: tp.Annotated[int, TableAttribute(name="genedata_id")]
     contig: tp.Annotated[int, TableAttribute(name="contig")]
     _table: str = "/annotations/genes"
+
 
 @dataclass
 class GeneDataTable:
@@ -154,16 +182,18 @@ class GeneDataTable:
     position: tp.Annotated[int, TableAttribute(name="position")]
     _table: str = "/annotations/genedata"
 
+
 @dataclass
 class RGPGeneProxy:
     start: int
     stop: int
     position: int
 
+
 @dataclass
 class RGPGenes:
     contig: int
-    is_circular_contig: bool   
+    is_circular_contig: bool
     genes: list[RGPGeneProxy]
 
 
@@ -211,6 +241,7 @@ class Contig:
 
 RGPMetricType = tp.Literal["max_grr", "min_grr", "incomplete_aware_grr"]
 
+
 @dataclass
 class RGPClusteringOptions:
     grr_cutoff: float = 0.3
@@ -223,7 +254,7 @@ class RGPClusteringOptions:
     metadata_sources: list[str] = field(default_factory=list)
     ignore_incomplete_rgp: bool = False
     disable_prog_bar: bool = False
-    
+
 
 class RGPClustering:
     def __init__(self, pangenome_h5: Path):
@@ -261,7 +292,7 @@ class RGPClustering:
                     f"Cannot compute RGP metrics: {description} is not available "
                     "in the pangenome H5 file."
                 )
-            
+
     def _get_rgp_spot(self, reader: H5Reader) -> dict[str, int]:
         rgp_to_spot: dict[str, int] = {}
         for table in reader.fetch(RGPSpotTable):
@@ -301,7 +332,7 @@ class RGPClustering:
                 )
 
         return contig_to_info
-        
+
     def _fetch_required_table(self, reader: H5Reader, table_type):
         try:
             return reader.fetch(table_type)
@@ -310,7 +341,7 @@ class RGPClustering:
                 f"Required table '{table_type.__name__}' is missing from the "
                 "pangenome H5 file."
             ) from e
-        
+
     def _get_contig_border_genes(
         self, reader: H5Reader
     ) -> dict[str, ContigBorderPosition]:
@@ -484,6 +515,7 @@ class RGPClustering:
                     if isinstance(value, bytes):
                         value = value.decode("utf-8")
                     value_target[identifier][f"{source}_{field}"].append(str(value))
+
     def _load_metadata(
         self, reader: H5Reader, metadata_sources: list[str] = None
     ) -> None:
@@ -508,11 +540,17 @@ class RGPClustering:
                     )
                 elif metatype == "genes":
                     self._read_metadata_source(
-                        reader, metatype, source, source_target=self._gene_metadata_sources
+                        reader,
+                        metatype,
+                        source,
+                        source_target=self._gene_metadata_sources,
                     )
                 elif metatype == "spots":
                     self._read_metadata_source(
-                        reader, metatype, source, source_target=self._spot_metadata_sources
+                        reader,
+                        metatype,
+                        source,
+                        source_target=self._spot_metadata_sources,
                     )
                 elif metatype == "modules":
                     self._read_metadata_source(
@@ -643,7 +681,9 @@ class RGPClustering:
     def _grr(self, b1: BitMap, b2: BitMap, mode: Callable) -> float:
         return len(b1 & b2) / mode(len(b1), len(b2))
 
-    def _rgp_metric(self, r1: RegionProxy, r2: RegionProxy, grr_cutoff: float, metric: RGPMetricType) -> RGPMetric:
+    def _rgp_metric(
+        self, r1: RegionProxy, r2: RegionProxy, grr_cutoff: float, metric: RGPMetricType
+    ) -> RGPMetric:
         if r1.is_contig_border or r2.is_contig_border:
             agrr = self._grr(r1.families, r2.families, min)
             max_grr = self._grr(r1.families, r2.families, max)
@@ -657,7 +697,10 @@ class RGPClustering:
         return m if getattr(m, metric) >= grr_cutoff else None
 
     def _construct_regions(
-        self, with_metadata: bool = False, metadata_sources: list[str] = None, ignore_incomplete_rgp: bool = False
+        self,
+        with_metadata: bool = False,
+        metadata_sources: list[str] = None,
+        ignore_incomplete_rgp: bool = False,
     ):
         logging.info("Loading RGPs from pangenome H5 file")
 
@@ -676,9 +719,7 @@ class RGPClustering:
 
             if ignore_incomplete_rgp:
                 rgp_infos = [
-                    rgp_info
-                    for rgp_info in rgp_infos
-                    if not rgp_info.is_contig_border
+                    rgp_info for rgp_info in rgp_infos if not rgp_info.is_contig_border
                 ]
                 logging.info(
                     f"{len(rgp_infos)} RGPs loaded from pangenome after filtering out incomplete RGPs"
@@ -719,8 +760,13 @@ class RGPClustering:
                 family_to_rgps[family].append(rgp)
 
         nb_pairs = 0
-        
-        with tqdm(total=len(family_to_rgps), desc="Computing metrics", disable=disable_bar, bar_format="{desc}: {percentage:3.0f}%|{bar}") as pbar:
+
+        with tqdm(
+            total=len(family_to_rgps),
+            desc="Computing metrics",
+            disable=disable_bar,
+            bar_format="{desc}: {percentage:3.0f}%|{bar}",
+        ) as pbar:
             for family in sorted(family_to_rgps):
                 for r1, r2 in combinations(family_to_rgps[family], 2):
                     shared_families = r1.families & r2.families
@@ -800,7 +846,7 @@ class RGPClustering:
         for rgp in self.rgps:
             if not rgp.is_identical_region:
                 continue
-            
+
             unmerged += 1
             self.graph.add_nodes_from(
                 (child.ID for child in rgp.children),
@@ -842,22 +888,28 @@ class RGPClustering:
             return
 
         element_to_sources = {
-            "family": set().union(
-                *(
-                    self._family_metadata_sources.get(self._family_id_to_name[fid], set())
-                    for fid in families_ids
+            "family": (
+                set().union(
+                    *(
+                        self._family_metadata_sources.get(
+                            self._family_id_to_name[fid], set()
+                        )
+                        for fid in families_ids
+                    )
                 )
-            )
-            if families_ids
-            else set(),
-            "module": set().union(
-                *(
-                    self._module_metadata_sources.get(module_id, set())
-                    for module_id in module_ids
+                if families_ids
+                else set()
+            ),
+            "module": (
+                set().union(
+                    *(
+                        self._module_metadata_sources.get(module_id, set())
+                        for module_id in module_ids
+                    )
                 )
-            )
-            if module_ids
-            else set(),
+                if module_ids
+                else set()
+            ),
             "gene": set(),
             "spot": set(),
         }
@@ -895,9 +947,7 @@ class RGPClustering:
             "name": rgp.name,
             "families_count": len(rgp.families),
             "identical_rgp_count": len(rgp.children),
-            "identical_rgp_names": ";".join(
-                child.name for child in rgp.children
-            ),
+            "identical_rgp_names": ";".join(child.name for child in rgp.children),
             "identical_rgp_genomes": ";".join(
                 {child.organism for child in rgp.children}
             ),
@@ -910,7 +960,7 @@ class RGPClustering:
             "identical_rgp_spots": ";".join(spots),
             "spot_id": (spots.pop() if len(spots) == 1 else "Multiple spots"),
             "modules": ";".join(f"module_{module}" for module in rgp.modules),
-            }
+        }
 
         self._add_metadata_info(
             info,
@@ -955,7 +1005,7 @@ class RGPClustering:
 
                 annotated += 1
 
-            if rgp.children: # in case identical rgp are unmerged
+            if rgp.children:  # in case identical rgp are unmerged
                 for child in rgp.children:
                     if child.ID in self.graph:
                         self.graph.nodes[child.ID].update(
@@ -1036,19 +1086,27 @@ class RGPClustering:
             self._construct_regions(
                 with_metadata=options.with_metadata,
                 metadata_sources=options.metadata_sources or None,
-                ignore_incomplete_rgp=options.ignore_incomplete_rgp
+                ignore_incomplete_rgp=options.ignore_incomplete_rgp,
             )
 
-        rss_peak_after_construct_regions = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logging.info(f"Memory after _construct_regions: RSS peak={rss_peak_after_construct_regions:.2f} MB")
+        rss_peak_after_construct_regions = (
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        )
+        logging.info(
+            f"Memory after _construct_regions: RSS peak={rss_peak_after_construct_regions:.2f} MB"
+        )
 
+        with Timer("_compute_all_metrics", logging):
+            self._compute_all_metrics(
+                options.grr_cutoff, options.metric, disable_bar=options.disable_prog_bar
+            )
 
-        with Timer('_compute_all_metrics', logging):
-            self._compute_all_metrics(options.grr_cutoff, options.metric, disable_bar=options.disable_prog_bar)
-        
-        rss_peak_after_compute_all_metrics = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logging.info(f"Memory after _compute_all_metrics: RSS peak={rss_peak_after_compute_all_metrics:.2f} MB")
-
+        rss_peak_after_compute_all_metrics = (
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        )
+        logging.info(
+            f"Memory after _compute_all_metrics: RSS peak={rss_peak_after_compute_all_metrics:.2f} MB"
+        )
 
         if options.unmerge_identical_rgps:
             self._add_edges_to_identical_rgps()
@@ -1057,7 +1115,6 @@ class RGPClustering:
 
         # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         # logging.info(f"Memory after _louvain_clustering: RSS peak={rss_peak:.2f} MB")
-
 
         # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         # logging.info(
@@ -1079,6 +1136,7 @@ class RGPClustering:
     @property
     def rgp_count(self) -> int:
         return len(self.rgps)
+
 
 class IdenticalRegions:
     """
@@ -1553,6 +1611,7 @@ def compute_rgp_metric(
     if edge_metrics[grr_metric] >= grr_cutoff:
         return rgp_a.ID, rgp_b.ID, edge_metrics
 
+
 def cluster_rgp_on_grr(graph: nx.Graph, clustering_attribute: str = "grr"):
     """
     Cluster rgp based on grr using louvain communities clustering.
@@ -1746,7 +1805,6 @@ def cluster_rgp(
     print("<" * 40)
     # Get all pairs of RGP that share at least one family
 
-    
     with Timer("OLD get pair to compute", logging):
         family2rgp = defaultdict(set)
         for rgp in dereplicated_rgps:
@@ -1846,7 +1904,7 @@ def launch(args: argparse.Namespace):
     """
     # Get initial memory
     rss_start = (
-    resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
     )  # Convert to MB (on Linux, ru_maxrss is in KB)
     logging.info(f"Memory before start: RSS peak={rss_start:.2f} MB")
 
@@ -1881,7 +1939,7 @@ def launch(args: argparse.Namespace):
                 metadata_sep=args.metadata_sep,
                 metadata_sources=args.metadata_sources,
             )
-    if A == 1 or A == 2: 
+    if A == 1 or A == 2:
         with Timer("NEW", logging):
             clustering = RGPClustering(args.pangenome)
             clustering.run(
@@ -1895,10 +1953,9 @@ def launch(args: argparse.Namespace):
                     with_metadata=args.add_metadata,
                     metadata_sources=args.metadata_sources,
                     ignore_incomplete_rgp=args.ignore_incomplete_rgp,
-                    disable_prog_bar=args.disable_prog_bar
+                    disable_prog_bar=args.disable_prog_bar,
                 )
             )
-
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
