@@ -1,6 +1,6 @@
 # What's new in PPanGGOLiN v2
 
-PPanGGOLiN v2 is the result of the work carried out since mid-2021, released under version numbers `2.0.0` and above from January 2024 onwards. This page summarizes what changed with respect to PPanGGOLiN as originally published ([Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)), taking release `1.1.136` (February 2021) as the reference point. It is intended for users coming from a v1 release who want to know what is new and what has moved.
+PPanGGOLiN v2 is the result of the work carried out since mid-2021, released under version numbers `2.0.0` and above from January 2024 onwards. This page summarizes what changed with respect to PPanGGOLiN as originally published ([Gautreau et al. 2020](https://doi.org/10.1371/journal.pcbi.1007732)), as well as panRGP ([Bazin et al. 2020](https://doi.org/10.1093/bioinformatics/btaa792)) and panModule ([Bazin et al. 2021](https://doi.org/10.1101/2021.12.06.471380)), taking release `1.1.136` (February 2021) as the reference point. It is intended for users coming from a v1 release who want to know what is new and what has moved.
 
 The features listed below were released progressively, and some of them are already available in the later `1.2.x` releases. The major version number was raised to `2.0.0` at the point where the redesigned pangenome file broke compatibility with the HDF5 files produced by v1, marking the boundary between the two versions. The rationale behind these changes is described in the PPanGGOLiN v2 publication.
 
