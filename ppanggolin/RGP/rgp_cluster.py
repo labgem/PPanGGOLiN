@@ -743,6 +743,7 @@ class RGPClustering:
                 family_to_rgps[family].append(rgp)
 
         nb_pairs = 0
+        selected_count = 0
 
         with tqdm(
             total=len(family_to_rgps),
@@ -758,13 +759,13 @@ class RGPClustering:
 
                     nb_pairs += 1
                     if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
-                        self.metrics.append(m)
+                        selected_count += 1
                         self.graph.add_edge(r1.ID, r2.ID, **m.__dict__)
                 pbar.update(1)
 
         logging.getLogger("PPanGGOLiN").info(
             f"RGP metrics computed for {nb_pairs:,} pairs of RGPs "
-            f"({len(self.metrics):,} selected after GRR cutoff)"
+            f"({selected_count:,} selected after GRR cutoff)"
         )
 
     def _louvain_clustering(self, metric: RGPMetricType):
