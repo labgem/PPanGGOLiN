@@ -25,4 +25,4 @@ The resulting RGP clusters are stored in a tsv file (`rgp_cluster.tsv`) with the
 | spot_id | The spot ID of the RGP.       |
 
 
-The command also generates the RGP graph in the gexf format, which can be used to explore the RGP clusters along with their spots of insertion. In this graph, identical RGPs with the same family content and with the same spot are merged into a single node to simplify the graph representation. This feature can be disabled with the parameter `--no_identical_rgp_merging`.
+The command also generates an RGP graph in GEXF or GraphML format, which can be used to explore RGP clusters together with their associated spots of insertion. In this graph, identical RGPs with the same family content are merged into a single node to simplify the graph representation. This feature can be disabled with the parameter `--no_identical_rgp_merging`.
