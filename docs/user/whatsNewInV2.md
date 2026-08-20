@@ -58,6 +58,5 @@ The `write` command has been split into three commands with clearer scopes:
 
 The redesign of the HDF5 structure is what defines the boundary between v1 and v2: the major version number was raised to `2.0.0` precisely because pangenome files became incompatible at that point. Pangenome files produced with v1 therefore cannot be read by v2. PPanGGOLiN checks the version stored in the file and raises an explicit error if it was created by a v1 release, so such pangenomes have to be recomputed with v2.
 
-## Citation
 
 If you use features introduced in v2, please cite the PPanGGOLiN v2 publication in addition to the original PPanGGOLiN, panRGP and panModule papers listed on the [home page](../index.md).
