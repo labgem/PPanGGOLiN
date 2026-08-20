@@ -222,6 +222,8 @@ class RGPClusteringOptions:
     with_metadata: bool = False
     metadata_sources: list[str] = field(default_factory=list)
     ignore_incomplete_rgp: bool = False
+    disable_prog_bar: bool = False
+    
 
 class RGPClustering:
     def __init__(self, pangenome_h5: Path):
@@ -681,7 +683,7 @@ class RGPClustering:
         )
 
     def _compute_all_metrics(
-        self, grr_cutoff: float, metric: RGPMetricType
+        self, grr_cutoff: float, metric: RGPMetricType, disable_bar: bool = False
     ):
         """Compute metrics without materializing the set of candidate pairs."""
         logging.info("Computing RGP metrics")
@@ -694,16 +696,19 @@ class RGPClustering:
                 family_to_rgps[family].append(rgp)
 
         nb_pairs = 0
-        for family in sorted(family_to_rgps):
-            for r1, r2 in combinations(family_to_rgps[family], 2):
-                shared_families = r1.families & r2.families
-                if family != next(iter(shared_families)):
-                    continue
+        
+        with tqdm(total=len(family_to_rgps), desc="Computing metrics", disable=disable_bar, bar_format="{desc}: {percentage:3.0f}%|{bar}") as pbar:
+            for family in sorted(family_to_rgps):
+                for r1, r2 in combinations(family_to_rgps[family], 2):
+                    shared_families = r1.families & r2.families
+                    if family != next(iter(shared_families)):
+                        continue
 
-                nb_pairs += 1
-                if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
-                    self.metrics.append(m)
-                    self.graph.add_edge(r1.ID, r2.ID, **m.__dict__)
+                    nb_pairs += 1
+                    if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
+                        self.metrics.append(m)
+                        self.graph.add_edge(r1.ID, r2.ID, **m.__dict__)
+                pbar.update(1)
 
         logging.info(
             f"RGP metrics computed for {nb_pairs:,} pairs of RGPs "
@@ -772,7 +777,7 @@ class RGPClustering:
         for rgp in self.rgps:
             if not rgp.is_identical_region:
                 continue
-
+            
             unmerged += 1
             self.graph.add_nodes_from(
                 (child.ID for child in rgp.children),
@@ -1022,18 +1027,20 @@ class RGPClustering:
 
 
         with Timer('_compute_all_metrics', logging):
-            self._compute_all_metrics(options.grr_cutoff, options.metric)
+            self._compute_all_metrics(options.grr_cutoff, options.metric, disable_bar=options.disable_prog_bar)
         
         rss_peak_after_compute_all_metrics = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         logging.info(f"Memory after _compute_all_metrics: RSS peak={rss_peak_after_compute_all_metrics:.2f} MB")
+
+
+        if options.unmerge_identical_rgps:
+            self._add_edges_to_identical_rgps()
 
         self._louvain_clustering(options.metric)
 
         # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         # logging.info(f"Memory after _louvain_clustering: RSS peak={rss_peak:.2f} MB")
 
-        if options.unmerge_identical_rgps:
-            self._add_edges_to_identical_rgps()
 
         # rss_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         # logging.info(
@@ -1870,52 +1877,11 @@ def launch(args: argparse.Namespace):
                     graph_formats=args.graph_formats,
                     with_metadata=args.add_metadata,
                     metadata_sources=args.metadata_sources,
-                    ignore_incomplete_rgp=args.ignore_incomplete_rgp
+                    ignore_incomplete_rgp=args.ignore_incomplete_rgp,
+                    disable_prog_bar=args.disable_prog_bar
                 )
             )
-    if A == 2:
-        # comparison of RGP between old and new implementation
-        rgp_name_to_rgp_proxy = {}
-        for rgp_proxy in clustering.rgps:
-            if rgp_proxy.children:
-                for child_rgp_proxy in rgp_proxy.children:
-                    rgp_name_to_rgp_proxy[child_rgp_proxy.name] = child_rgp_proxy
-            else:
-                rgp_name_to_rgp_proxy[rgp_proxy.name] = rgp_proxy
 
-        for region in pangenome.regions:
-            rgp_proxy = rgp_name_to_rgp_proxy[region.name]
-
-            # Log debug info when either region has is_contig_border=True or is_whole_contig=True
-            if region.is_contig_border or rgp_proxy.is_contig_border or region.is_whole_contig or rgp_proxy.is_whole_contig:
-                logging.debug(
-                    f"Comparing RGP: {region.name}\n"
-                    f"  Region object:\n"
-                    f"    - name: {region.name}\n"
-                    f"    - is_contig_border: {region.is_contig_border}\n"
-                    f"    - is_whole_contig: {region.is_whole_contig}\n"
-                    f"    - families count: {region.number_of_families}\n"
-                    f"    - genes count: {len(region)}\n"
-                    f"    - contig: {region.contig.name}\n"
-                    f"    - organism: {region.organism.name}\n"
-                    f"  RegionProxy object:\n"
-                    f"    - name: {rgp_proxy.name}\n"
-                    f"    - is_contig_border: {rgp_proxy.is_contig_border}\n"
-                    f"    - is_whole_contig: {rgp_proxy.is_whole_contig}\n"
-                    f"    - families count: {len(rgp_proxy.families)}\n"
-                    f"    - genes count: {rgp_proxy.length}\n"
-                    f"    - contig: {rgp_proxy.contig}\n"
-                    f"    - organism: {rgp_proxy.organism}"
-                )
-
-            if region.is_contig_border != rgp_proxy.is_contig_border:
-                logging.error(f"Mismatch in is_contig_border for RGP: {region.name}")
-
-            if region.is_whole_contig != rgp_proxy.is_whole_contig:
-                logging.error(f"Mismatch in is_whole_contig for RGP: {region.name}")
-
-            assert region.is_contig_border == rgp_proxy.is_contig_border, region.name
-            assert region.is_whole_contig == rgp_proxy.is_whole_contig, region.name
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
