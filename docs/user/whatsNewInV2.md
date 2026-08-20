@@ -52,7 +52,6 @@ The `write` command has been split into three commands with clearer scopes:
 
 - **Pyrodigal replaces Prodigal.** Gene prediction now uses [Pyrodigal](https://github.com/althonos/pyrodigal), which removes the input/output overhead of calling an external binary during annotation.
 - **Redesigned HDF5 structure.** The internal layout of the pangenome file was reworked, substantially reducing file size and giving faster and more convenient programmatic access.
-- **Faster pangenome loading.** Reading a pangenome file has been optimized, reducing loading times from minutes to seconds on large datasets.
 - **Lower memory usage when writing sequences.** Sequences are read directly from the HDF5 file instead of being loaded into memory beforehand.
 
 ## Compatibility with v1 pangenome files
