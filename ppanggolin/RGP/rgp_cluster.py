@@ -248,6 +248,20 @@ class RGPClustering:
         self._spot_metadata_sources: Dict[int, set] = defaultdict(set)
         self._module_metadata_sources: Dict[int, set] = defaultdict(set)
 
+    def _check_required_status(
+        self,
+        status: dict,
+        required_statuses: dict[str, str],
+    ):
+        """Check that all required pangenome information is available in the H5 file."""
+
+        for status_name, description in required_statuses.items():
+            if status.get(status_name) != "inFile":
+                raise ValueError(
+                    f"Cannot compute RGP metrics: {description} is not available "
+                    "in the pangenome H5 file."
+                )
+            
     def _get_rgp_spot(self, reader: H5Reader) -> dict[str, int]:
         rgp_to_spot: dict[str, int] = {}
         for table in reader.fetch(RGPSpotTable):
@@ -287,7 +301,16 @@ class RGPClustering:
                 )
 
         return contig_to_info
-
+        
+    def _fetch_required_table(self, reader: H5Reader, table_type):
+        try:
+            return reader.fetch(table_type)
+        except KeyError as e:
+            raise ValueError(
+                f"Required table '{table_type.__name__}' is missing from the "
+                "pangenome H5 file."
+            ) from e
+        
     def _get_contig_border_genes(
         self, reader: H5Reader
     ) -> dict[str, ContigBorderPosition]:
@@ -1008,12 +1031,6 @@ class RGPClustering:
         self._write_cluster_table(output, basename, metric)
 
     def run(self, options: RGPClusteringOptions):
-
-        # Get initial memory
-        # rss_start = (
-        #     resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        # )  # Convert to MB (on Linux, ru_maxrss is in KB)
-        # logging.info(f"Memory at start: RSS peak={rss_start:.2f} MB")
 
         with Timer("_construct_regions", logging):
             self._construct_regions(

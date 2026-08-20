@@ -45,7 +45,15 @@ class H5Reader:
             raise ValueError(f"No TableAttributes found in {obj.__name__}.")
         if "_table" not in obj.__dict__:
             raise ValueError(f'Missing required TableAttribute "_table" in {obj.__name__}.')
-        return obj._table, attrs
+        
+        table_name = obj._table
+
+        if table_name not in self.handle:
+            raise ValueError(
+                f"Required table '{table_name}' is missing from the pangenome H5 file: {self.h5_file}"
+            )
+    
+        return table_name, attrs
     
     def _apply_override(self, attrs, override):
         if not override:
@@ -63,7 +71,9 @@ class H5Reader:
             raise RuntimeError("H5 file is not opened. Use 'with' statement or call open() method.")
         
         table_name, attrs = self._check(obj)
+
         h5_table = self.handle.get_node(table_name)
+        
         self._apply_override(attrs, override)
 
         for row in h5_table.iterrows():
