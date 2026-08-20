@@ -740,6 +740,8 @@ class RGPClustering:
         logging.getLogger("PPanGGOLiN").info(
             f"{len(rgp_infos)} RGPs loaded from pangenome ({len(self.rgps)} unique RGPs after dereplication)"
         )
+        if len(rgp_infos) == 0:
+            logging.getLogger("PPanGGOLiN").warning("Pangenome contains no RGPs. Output files will be empty.")
 
     def _compute_all_metrics(
         self, grr_cutoff: float, metric: RGPMetricType, disable_bar: bool = False
@@ -796,7 +798,7 @@ class RGPClustering:
                 name=f"{metric}_cluster",
             )
 
-        logging.getLogger("PPanGGOLiN").info(f"Graph has {len(ordered_partitions)} clusters using '{metric}'")
+        logging.getLogger("PPanGGOLiN").info(f"Graph has {len(ordered_partitions)} RGP clusters using '{metric}'")
 
     def _add_edges_to_identical_rgps(self):
         logging.getLogger("PPanGGOLiN").info("Unmerging identical RGPs in the graph")
