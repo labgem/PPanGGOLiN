@@ -32,7 +32,6 @@ The `write` command has been split into three commands with clearer scopes:
 | `ppanggolin write --projection`          | `ppanggolin write_genomes --table` — genome-level outputs, one file per genome                                               |
 | —                                        | `ppanggolin write_metadata` — metadata outputs                                                                               |
 
-Scripts written for v1 that call `ppanggolin write` need to be updated accordingly.
 
 ## New output formats
 
