@@ -70,7 +70,7 @@ class H5Reader:
             if field_name in override:
                 if "transform" in override[field_name]:
                     attr.transform = override[field_name]["transform"]
-                if "predicate" in override[field_name]["predicate"]:
+                if "predicate" in override[field_name]:
                     attr.predicate = override[field_name]["predicate"]
 
     def fetch(

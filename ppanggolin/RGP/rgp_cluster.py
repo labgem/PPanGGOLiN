@@ -555,8 +555,18 @@ class RGPClustering:
             rgp_name: len(genes) for rgp_name, genes in rgp_with_genes.items()
         }
 
+        genes_to_keep = {gene for genes in rgp_with_genes.values() for gene in genes}
+
         gene_to_family: dict[str, str] = {}
-        for table in reader.fetch(GeneFamTable):
+
+        for table in reader.fetch(
+            GeneFamTable,
+            override={
+                "gene": {
+                    "predicate": lambda x: x.decode("utf-8") in genes_to_keep,
+                }
+            },
+        ):
             gene_to_family[table.gene] = table.family
 
         # Sort before enumerating: iterating a set of strings depends on
@@ -688,7 +698,8 @@ class RGPClustering:
         with H5Reader(self.h5) as reader:
 
             rgp_to_genes = self._get_rgp_genes(reader)
-            self._rgp_to_genes = rgp_to_genes
+            if with_metadata:
+                self._rgp_to_genes = rgp_to_genes
 
             contigs_with_rgp = {rgp_name.split("_RGP_")[0] for rgp_name in rgp_to_genes}
 
