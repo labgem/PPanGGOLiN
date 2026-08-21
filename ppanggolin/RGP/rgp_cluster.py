@@ -249,7 +249,7 @@ class GeneDataTable:
     _table: str = "/annotations/genedata"
 
 
-@dataclass
+@dataclass(slots=True)
 class RGPGeneProxy:
     """Store the coordinate information of a gene within an RGP."""
 
@@ -258,7 +258,7 @@ class RGPGeneProxy:
     position: int
 
 
-@dataclass
+@dataclass(slots=True)
 class RGPGenes:
     """Bundle contig-level information for a set of genes belonging to an RGP."""
 
@@ -267,7 +267,7 @@ class RGPGenes:
     genes: list[RGPGeneProxy]
 
 
-@dataclass
+@dataclass(slots=True)
 class RGPInfo:
     """In-memory summary of an RGP before building graph nodes."""
 
@@ -279,7 +279,7 @@ class RGPInfo:
     contig: str
 
 
-@dataclass
+@dataclass(slots=True)
 class ContigBorderPosition:
     """Store the first and last gene coordinates on a contig."""
 
@@ -290,7 +290,7 @@ class ContigBorderPosition:
     gene_count: int
 
 
-@dataclass
+@dataclass(slots=True)
 class ContigBorderGenes:
     """Store the first and last gene names for a contig used in border checks."""
 
@@ -299,7 +299,7 @@ class ContigBorderGenes:
     gene_count: int
 
 
-@dataclass
+@dataclass(slots=False)
 class RGPMetric:
     """Store the computed similarity metric between two regions."""
 
@@ -309,7 +309,7 @@ class RGPMetric:
     shared_family: int
 
 
-@dataclass
+@dataclass(slots=True)
 class Contig:
     """Basic metadata describing a contig referenced by the clustering analysis."""
 
