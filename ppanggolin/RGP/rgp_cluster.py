@@ -178,21 +178,21 @@ class GeneDataTable:
     _table: str = "/annotations/genedata"
 
 
-@dataclass(slots=True)
+@dataclass
 class RGPGeneProxy:
     start: int
     stop: int
     position: int
 
 
-@dataclass(slots=True)
+@dataclass
 class RGPGenes:
     contig: int
     is_circular_contig: bool
     genes: list[RGPGeneProxy]
 
 
-@dataclass(slots=True)
+@dataclass
 class RGPInfo:
     name: str
     families: set[str]
@@ -202,7 +202,7 @@ class RGPInfo:
     contig: str
 
 
-@dataclass(slots=True)
+@dataclass
 class ContigBorderPosition:
     last_gene_position: int
     last_gene_idx: int
@@ -211,14 +211,14 @@ class ContigBorderPosition:
     gene_count: int
 
 
-@dataclass(slots=True)
+@dataclass
 class ContigBorderGenes:
     first_gene: str
     last_gene: str
     gene_count: int
 
 
-@dataclass(slots=False)
+@dataclass
 class RGPMetric:
     max_grr: float
     min_grr: float
@@ -226,7 +226,7 @@ class RGPMetric:
     shared_family: int
 
 
-@dataclass(slots=True)
+@dataclass
 class Contig:
     organism: str
     is_circular: bool
