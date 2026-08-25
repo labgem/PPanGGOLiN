@@ -181,7 +181,7 @@ def build_nem_input(organisms: set, sm_degree: int = 10) -> tuple:
             neighbours.append(
                 row_of[edge.target if fam == edge.source else edge.source]
             )
-            weights.append(round(distance_score, 4))
+            weights.append(distance_score)
         if neighbours and float(len(neighbours)) < sm_degree:
             total_edges_weight += sum_dist_score
             src = row_of[fam]
