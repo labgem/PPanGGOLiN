@@ -1,59 +1,12 @@
 #!/usr/bin/env python3
 
 # default libraries
-from pathlib import Path
 from typing import Tuple, Union
 
 # installed libraries
 import networkx as nx
 import numpy as np
 from pynem import NEM
-
-
-def _read_family_index(nem_dir_path: Path) -> list:
-    """
-    Read the gene-family names in NEM row order (`nem_file.index` column 2).
-
-    :param nem_dir_path: directory holding the NEM input files
-
-    :return: gene-family names, ordered as the NEM rows
-    """
-    index_fam = []
-    with open(nem_dir_path / "nem_file.index") as index_nem_file:
-        for line in index_nem_file:
-            index_fam.append(line.split("\t")[1].strip())
-    return index_fam
-
-
-def _read_directed_neighbourhood(nei_path: Path, nb_fam: int) -> nx.DiGraph:
-    """
-    Parse `.nei` into a directed graph.
-
-    :param nei_path: path to the NEM `.nei` neighbourhood file
-    :param nb_fam: number of gene families (graph nodes)
-
-    :return: directed neighbourhood graph with edge weights
-    """
-    graph = nx.DiGraph()
-    graph.add_nodes_from(range(nb_fam))
-    with open(nei_path) as nei_file:
-        weighted = int(nei_file.readline().split()[0])
-        for line in nei_file:
-            tokens = line.split()
-            if len(tokens) < 2:
-                continue
-            i = int(tokens[0]) - 1
-            nb_neigh = int(tokens[1])
-            neigh = [int(tokens[2 + j]) - 1 for j in range(nb_neigh)]
-            weights = (
-                [float(tokens[2 + nb_neigh + j]) for j in range(nb_neigh)]
-                if weighted
-                else [1.0] * nb_neigh
-            )
-            for neighbour, weight in zip(neigh, weights):
-                if 0 <= neighbour < nb_fam and weight != 0.0:
-                    graph.add_edge(i, neighbour, weight=weight)
-    return graph
 
 
 def _build_param_init(K, n_org):
@@ -84,8 +37,10 @@ def _build_param_init(K, n_org):
     return centers, dispersions, proportions
 
 
-def run_partitioning_pynem(
-    nem_dir_path: Path,
+def solve(
+    presence: np.ndarray,
+    graph: nx.DiGraph,
+    index_fam: list,
     nb_org: int,
     beta: float = 2.5,
     free_dispersion: bool = False,
@@ -95,24 +50,22 @@ def run_partitioning_pynem(
     just_log_likelihood: bool = False,
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
-    Run NEM with the pynem backend on PPanGGOLiN's nem input files.
+    Run NEM on pre-built inputs
 
-    :param nem_dir_path: directory holding the NEM input files
+    :param presence: (nb_fam, nb_org) presence/absence matrix
+    :param graph: neighbourhood graph, nodes 0..nb_fam-1, edges carrying `weight`
+    :param index_fam: gene-family names in row order of `presence`
     :param nb_org: number of genomes
     :param beta: spatial smoothing coefficient
     :param free_dispersion: whether dispersion is free per genome (`skd`) or shared (`sk_`)
     :param kval: number of partitions
     :param init: initialization mode
     :param itermax: maximum number of iterations
-    :param just_log_likelihood: return only the log-likelihood diagnostics instead of the partition
+    :param just_log_likelihood: return only the log-likelihood diagnostics
 
-    :return: same shapes as the C `run_partitioning` branch
+    :return: partition per family, per-class parameters, log-likelihood --
+        or, with `just_log_likelihood`, (kval, log-likelihood, entropy)
     """
-    index_fam = _read_family_index(nem_dir_path)
-    nb_fam = len(index_fam)
-    presence = np.loadtxt(nem_dir_path / "nem_file.dat").reshape(nb_fam, nb_org)
-    graph = _read_directed_neighbourhood(nem_dir_path / "nem_file.nei", nb_fam)
-
     model = NEM(
         n_clusters=kval,
         beta=beta,
