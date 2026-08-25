@@ -6,39 +6,48 @@ Genes within the input genome are aligned with genes in the pangenome to determi
 
 Based on the alignment and partition assignment, Regions of Plasticity (RGPs) within the input genome are predicted. Each RGP that is not located on a contig border is assigned to a spot of insertion. Finally, conserved modules of the pangenome found in the input genome are reported in the output files.
 
-## Input files:
 
-This command supports two input modes depending on whether you want to project a single genome or multiple genomes at once:
+### Input files
 
-In both modes, each option accepts only one kind of input: `--fasta` expects genomic sequences in FASTA format, while `--anno` expects annotation files in GFF3 or GBFF format. At least one of the two is required, and they must not be mixed within a single option. These are the same input types as the `annotate` command, described in the [Annotate from fasta files](./PangenomeAnalyses/pangenomeAnnotation.md#annotate-from-fasta-files) and [Use annotation files for your pangenome](./PangenomeAnalyses/pangenomeAnnotation.md#use-annotation-files-for-your-pangenome) sections. Both options can be given together, in which case the annotation files take precedence and the FASTA files provide the genomic sequences when the annotation files do not contain any.
+Projection accepts the same genome input formats as the `annotate` and `all` commands. Genomes can be provided either as genomic FASTA files using `--fasta` or as GFF3/GBFF annotation files using `--anno`.
 
-Multiple Files in One TSV:
-- **Options**: `--fasta` or `--anno`
-- **Description**: You can provide a tab-separated file listing genome names alongside their respective FASTA genomic sequences or annotation filepaths, with one line per genome. This mode is suitable when you want to annotate multiple genomes in a single operation. The format of this file is identical to the format used in the annotate and workflow commands; for more details, refer [here](./PangenomeAnalyses/pangenomeAnnotation.md).
+You can project either a single genome or multiple genomes at once.
 
+### Project multiple genomes
 
-**Example Usage:**
-Suppose you have a TSV file named `external_genome_paths.txt` listing multiple annotation files of external genomes.  To execute the projection, use the following command:
+To project multiple genomes, provide `--fasta` or `--anno` with a tab-separated file listing one genome per line. The file format is identical to the input files used to create a pangenome.
+
+Examples with 50 *Chlamydia trachomatis* genomes are available in the [testingDataset](https://github.com/labgem/PPanGGOLiN/tree/master/testingDataset) directory: [`genomes.gbff.list`](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.gbff.list) for annotation files and [`genomes.fasta.list`](https://github.com/labgem/PPanGGOLiN/blob/master/testingDataset/genomes.fasta.list) for FASTA files.
+
 ```bash
-ppanggolin projection -p pangenome.h5 --anno external_genome_paths.txt
+ppanggolin projection -p pangenome.h5 --anno genomes.gbff.list
 ```
 
+or:
 
-
-Single File:
-- **Options**: `--genome_name` with `--fasta` or `--anno` and `--circular_contigs` (optional)
-- **Description**: When annotating a single genome, you can directly provide a single FASTA genomic sequence file or an annotation file in GFF/GBFF format. Additionally, specify the name of the genome using the `--genome_name` option. You can also indicate circular contigs using the `--circular_contigs` option when necessary.
-
-**Example Usage:**
-Suppose you have a single FASTA file named `genome_A.fasta` of an external genome. To execute the projection, use the following command:
 ```bash
-ppanggolin projection -p pangenome.h5 --fasta genome_A.fasta --genome_name genome_A
+ppanggolin projection -p pangenome.h5 --fasta genomes.fasta.list
 ```
 
-If instead you have an annotation file `genome_A.gbff` for that genome, use `--anno`:
+### Project a single genome
+
+For a single genome, provide the file directly and specify its name with `--genome_name`. The input can be either a genomic FASTA file or a GFF3/GBFF annotation file.
+
 ```bash
-ppanggolin projection -p pangenome.h5 --anno genome_A.gbff --genome_name genome_A
+ppanggolin projection -p pangenome.h5 \
+    --fasta genome_A.fasta \
+    --genome_name genome_A
 ```
+
+or:
+
+```bash
+ppanggolin projection -p pangenome.h5 \
+    --anno genome_A.gbff \
+    --genome_name genome_A
+```
+
+The optional `--circular_contigs` argument can be used to specify circular contigs.
 
 ## Output Files
 
