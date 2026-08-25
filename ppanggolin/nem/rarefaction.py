@@ -43,7 +43,6 @@ def raref_nem(
     kval: int = -1,
     krange: list = None,
     seed: int = 42,
-    backend: str = "pynem",
 ) -> Tuple[Dict[str, int], int]:
     """
 
@@ -56,7 +55,6 @@ def raref_nem(
     :param kval: Number of partitions to use
     :param krange: Range of K values to test when detecting K automatically.
     :param seed: seed used to generate random numbers
-    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
 
     :return: Count of each partition and parameters for the given sample index
     """
@@ -76,7 +74,6 @@ def raref_nem(
             krange=kmm,
             seed=seed,
             tmpdir=tmpdir_eval,
-            backend=backend,
         )
 
     if len(samp) <= chunk_size:  # all good, just write stuff.
@@ -91,7 +88,6 @@ def raref_nem(
             kval=kval,
             seed=seed,
             init="param_file",
-            backend=backend,
         )[0]
     else:  # going to need multiple partitioning for this sample...
         families = set()
@@ -163,7 +159,6 @@ def raref_nem(
                         kval=kval,
                         seed=seed,
                         init="param_file",
-                        backend=backend,
                     )
                 )
                 cpt += 1
@@ -558,7 +553,6 @@ def make_rarefaction_curve(
     kestimate: bool = False,
     soft_core: float = 0.95,
     disable_bar: bool = False,
-    backend: str = "pynem",
 ):
     """
     Main function to make the rarefaction curve
@@ -580,7 +574,6 @@ def make_rarefaction_curve(
     :param kestimate: recompute the number of partitions for each sample between the values provided by krange
     :param soft_core: Soft core threshold
     :param disable_bar: Disable progress bar
-    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
     """
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     if krange is None:
@@ -635,7 +628,6 @@ def make_rarefaction_curve(
                 cpu=cpu,
                 seed=seed,
                 tmpdir=tmp_path,
-                backend=backend,
             )
             logging.getLogger("PPanGGOLiN").info(
                 f"The number of partitions has been evaluated at {kval}"
@@ -709,7 +701,6 @@ def make_rarefaction_curve(
                 kval,
                 krange,
                 seed,
-                backend,
             )
         )
 
@@ -760,7 +751,6 @@ def launch(args: argparse.Namespace):
         kestimate=args.reestimate_K,
         soft_core=args.soft_core,
         disable_bar=args.disable_prog_bar,
-        backend=args.nem_backend,
     )
 
 
@@ -835,14 +825,6 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         default=10,
         type=float,
         help="max. degree of the nodes to be included in the smoothing process.",
-    )
-    optional.add_argument(
-        "--nem_backend",
-        required=False,
-        default="pynem",
-        choices=["pynem", "cnem"],
-        help="NEM backend to use for partitioning. 'pynem' (default) uses a pure-Python NEM "
-        "re-implementation; 'cnem' uses the legacy NEM code in C (deprecated, kept as reference).",
     )
     optional.add_argument(
         "-o",
