@@ -127,8 +127,8 @@ def raref_nem(
 
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = list(samp)  # copy select_organisms
-                random.shuffle(shuffled_orgs)  # shuffle the copied list
+                shuffled_orgs = ppp.ordered_organisms(samp)
+                random.shuffle(shuffled_orgs)
                 while len(shuffled_orgs) > chunk_size:
                     org_samples.append(set(shuffled_orgs[:chunk_size]))
                     for org in org_samples[-1]:

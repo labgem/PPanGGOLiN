@@ -129,6 +129,13 @@ def nem_samples(
     return partition_nem(*pack)
 
 
+def ordered_organisms(organisms) -> list:
+    """
+    Genomes in a stable, process-independent order.
+    """
+    return sorted(organisms, key=lambda org: org.name)
+
+
 def build_nem_index():
     """
     Precompute everything about NEM's input that does not depend on the chunk
@@ -136,14 +143,11 @@ def build_nem_index():
     :return: the index, also cached in the module-level `nem_index`
     """
     global nem_index
-    pan.organisms
+    organisms = ordered_organisms(pan.organisms)
     org_index = {org: i for i, org in enumerate(pan.organisms)}
     families = list(pan.gene_families)
     fam_index = {fam: i for i, fam in enumerate(families)}
 
-    # Filled into preallocated arrays rather than Python lists: at genus scale
-    # the lists are tens of millions of boxed ints and their peak dwarfs the
-    # matrix they produce (+358 MB against 14 MB of result, on Wolbachia).
     n_pres = sum(fam.number_of_organisms for fam in families)
     rows = np.empty(n_pres, dtype=np.int32)
     cols = np.empty(n_pres, dtype=np.int32)
@@ -159,8 +163,6 @@ def build_nem_index():
     )
     del rows, cols
 
-    # Gene-pair counts per (edge, genome). int32: a genome can carry the same
-    # adjacency many times, and the per-chunk sum must not overflow.
     n_edges = pan.number_of_edges
     n_cov = sum(edge.number_of_organisms for edge in pan.edges)
     src = np.empty(n_edges, dtype=np.int32)
@@ -289,7 +291,7 @@ def evaluate_nb_partitions(
     """
 
     if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(list(organisms), chunk_size))
+        select_organisms = set(random.sample(ordered_organisms(organisms), chunk_size))
     else:
         select_organisms = set(organisms)
 
@@ -610,8 +612,8 @@ def partition(
             prev = len(samples)  # if we've been sampling already, samples is not empty.
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = list(organisms)  # copy select_organisms
-                random.shuffle(shuffled_orgs)  # shuffle the copied list
+                shuffled_orgs = ordered_organisms(organisms)
+                random.shuffle(shuffled_orgs)
                 while len(shuffled_orgs) > chunk_size:
                     samples.append(set(shuffled_orgs[:chunk_size]))
                     for org in samples[-1]:
