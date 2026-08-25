@@ -16,6 +16,7 @@ from typing import Union, Tuple, List
 
 import networkx as nx
 import numpy as np
+import scipy.sparse as sp
 from tqdm import tqdm
 import plotly.offline as out_plotly
 import plotly.graph_objs as go
@@ -28,6 +29,7 @@ from ppanggolin.nem.pynem_backend import solve
 
 pan = Pangenome()
 samples = []
+nem_index = None
 
 
 def run_partitioning(
@@ -127,62 +129,130 @@ def nem_samples(
     return partition_nem(*pack)
 
 
+def build_nem_index():
+    """
+    Precompute everything about NEM's input that does not depend on the chunk
+
+    :return: the index, also cached in the module-level `nem_index`
+    """
+    global nem_index
+    pan.organisms
+    org_index = {org: i for i, org in enumerate(pan.organisms)}
+    families = list(pan.gene_families)
+    fam_index = {fam: i for i, fam in enumerate(families)}
+
+    # Filled into preallocated arrays rather than Python lists: at genus scale
+    # the lists are tens of millions of boxed ints and their peak dwarfs the
+    # matrix they produce (+358 MB against 14 MB of result, on Wolbachia).
+    n_pres = sum(fam.number_of_organisms for fam in families)
+    rows = np.empty(n_pres, dtype=np.int32)
+    cols = np.empty(n_pres, dtype=np.int32)
+    at = 0
+    for i, fam in enumerate(families):
+        for org in fam.organisms:
+            rows[at] = i
+            cols[at] = org_index[org]
+            at += 1
+    presence = sp.csr_matrix(
+        (np.ones(n_pres, dtype=np.int8), (rows, cols)),
+        shape=(len(families), len(pan.organisms)),
+    )
+    del rows, cols
+
+    # Gene-pair counts per (edge, genome). int32: a genome can carry the same
+    # adjacency many times, and the per-chunk sum must not overflow.
+    n_edges = pan.number_of_edges
+    n_cov = sum(edge.number_of_organisms for edge in pan.edges)
+    src = np.empty(n_edges, dtype=np.int32)
+    tgt = np.empty(n_edges, dtype=np.int32)
+    e_rows = np.empty(n_cov, dtype=np.int32)
+    e_cols = np.empty(n_cov, dtype=np.int32)
+    counts = np.empty(n_cov, dtype=np.int32)
+    at = 0
+    for e, edge in enumerate(pan.edges):
+        src[e] = fam_index[edge.source]
+        tgt[e] = fam_index[edge.target]
+        for org, gene_pairs in edge.get_organisms_dict().items():
+            e_rows[at] = e
+            e_cols[at] = org_index[org]
+            counts[at] = len(gene_pairs)
+            at += 1
+    coverage = sp.csr_matrix(
+        (counts, (e_rows, e_cols)), shape=(n_edges, len(pan.organisms))
+    )
+    del e_rows, e_cols, counts
+
+    nem_index = {
+        "org_index": org_index,
+        "fam_names": [fam.name for fam in families],
+        "presence": presence,
+        "coverage": coverage,
+        "edge_src": src,
+        "edge_tgt": tgt,
+        "pangenome": pan,
+    }
+    return nem_index
+
 def build_nem_input(organisms: set, sm_degree: int = 10) -> tuple:
     """
-    Build input for partitioning with NEM
+    Slice NEM's inputs out of the precomputed index.
 
     :param organisms: genomes in this chunk
     :param sm_degree: maximum degree of a node included in the smoothing
 
     :return: (presence, graph, index_fam, edges_weight, nb_fam)
     """
-    index_org = {org: i for i, org in enumerate(organisms)}
+    idx = (
+        nem_index
+        if nem_index is not None and nem_index["pangenome"] is pan
+        else build_nem_index()
+    )
 
-    cols_per_fam, index_fam, fam_order = [], [], []
-    for fam in pan.gene_families:
-        fam_organisms = set(fam.organisms)
-        if organisms.isdisjoint(fam_organisms):
-            continue
-        cols_per_fam.append([index_org[org] for org in fam_organisms & organisms])
-        fam_order.append(fam)
-        index_fam.append(fam.name)
+    cols = np.sort(
+        np.fromiter(
+            (idx["org_index"][org] for org in organisms),
+            dtype=np.int32,
+            count=len(organisms),
+        )
+    )
 
-    nb_fam = len(fam_order)
-    presence = np.zeros((nb_fam, len(organisms)), dtype=np.float64)
-    for i, cols in enumerate(cols_per_fam):
-        presence[i, cols] = 1.0
-    row_of = {fam: i for i, fam in enumerate(fam_order)}
+    sub_presence = idx["presence"][:, cols]
+    rows_kept = np.flatnonzero(np.diff(sub_presence.indptr))
+    nb_fam = rows_kept.size
+    presence = sub_presence[rows_kept].toarray().astype(np.float64)
+    index_fam = [idx["fam_names"][r] for r in rows_kept]
 
+    local_row = np.full(sub_presence.shape[0], -1, dtype=np.int32)
+    local_row[rows_kept] = np.arange(nb_fam, dtype=np.int32)
+
+    edge_coverage = np.asarray(idx["coverage"][:, cols].sum(axis=1)).ravel()
+    live = edge_coverage > 0
+    src = local_row[idx["edge_src"][live]]
+    tgt = local_row[idx["edge_tgt"][live]]
+    score = edge_coverage[live] / len(organisms)
+
+    loop = src == tgt
+    other = ~loop
+    degree = np.bincount(src, minlength=nb_fam) + np.bincount(
+        tgt[other], minlength=nb_fam
+    )
+    sum_dist = np.bincount(src, weights=score, minlength=nb_fam) + np.bincount(
+        tgt[other], weights=score[other], minlength=nb_fam
+    )
+
+    smoothed = (degree > 0) & (degree < sm_degree)
+    total_edges_weight = sum_dist[smoothed].sum()
+
+    from_src, from_tgt = smoothed[src], smoothed[tgt] & other
     graph = nx.DiGraph()
     graph.add_nodes_from(range(nb_fam))
-    total_edges_weight = 0
-    all_edges = []  # one add_edges_from beats add_edge per edge
-    for fam in fam_order:
-        neighbours, weights, sum_dist_score = [], [], 0
-        for edge in fam.edges:
-            coverage = sum(
-                len(gene_list)
-                for org, gene_list in edge.get_organisms_dict().items()
-                if org in organisms
-            )
-            if coverage == 0:
-                continue  # this edge does not exist within this subset of genomes
-            distance_score = coverage / len(organisms)
-            sum_dist_score += distance_score
-            neighbours.append(
-                row_of[edge.target if fam == edge.source else edge.source]
-            )
-            weights.append(distance_score)
-        # the writer emits a neighbourless line outside this window, so no edges
-        if neighbours and float(len(neighbours)) < sm_degree:
-            total_edges_weight += sum_dist_score
-            src = row_of[fam]
-            all_edges.extend(
-                (src, neighbour, {"weight": weight})
-                for neighbour, weight in zip(neighbours, weights)
-                if weight != 0.0  # the parser dropped zero-weight edges
-            )
-    graph.add_edges_from(all_edges)
+    graph.add_weighted_edges_from(
+        zip(
+            np.concatenate([src[from_src], tgt[from_tgt]]).tolist(),
+            np.concatenate([tgt[from_src], src[from_tgt]]).tolist(),
+            np.concatenate([score[from_src], score[from_tgt]]).tolist(),
+        )
+    )
 
     return presence, graph, index_fam, total_edges_weight / 2, nb_fam
 
@@ -448,6 +518,7 @@ def partition(
         disable_bar=disable_bar,
     )
     organisms = set(pangenome.organisms)
+    build_nem_index()
 
     if len(organisms) <= 10:
         logging.getLogger("PPanGGOLiN").warning(
