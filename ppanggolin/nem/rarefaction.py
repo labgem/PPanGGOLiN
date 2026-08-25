@@ -666,6 +666,8 @@ def make_rarefaction_curve(
     bar.close()
     # done with frequency of each family for each sample.
 
+    ppp.build_nem_index()
+
     global samples
     samples = all_samples
 
