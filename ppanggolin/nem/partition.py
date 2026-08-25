@@ -24,9 +24,7 @@ import plotly.graph_objs as go
 from ppanggolin.pangenome import Pangenome
 from ppanggolin.utils import mk_outdir
 from ppanggolin.formats import check_pangenome_info, write_pangenome, erase_pangenome
-
-# cython library (local)
-import nem_stats
+from ppanggolin.nem.pynem_backend import run_partitioning_pynem
 
 pan = Pangenome()
 samples = []
@@ -43,7 +41,6 @@ def run_partitioning(
     keep_files: bool = False,
     itermax: int = 100,
     just_log_likelihood: bool = False,
-    backend: str = "pynem",
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
     Main function to make partitioning
@@ -58,236 +55,20 @@ def run_partitioning(
     :param keep_files: True if you want to keep the NEM files
     :param itermax: Maximum iteration to compute partitioning
     :param just_log_likelihood: Return only nem parameter result
-    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
 
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
-    logger = logging.getLogger("PPanGGOLiN")
-    logger.debug("run_partitioning...")
-    if backend == "pynem":
-        from ppanggolin.nem.pynem_backend import run_partitioning_pynem
-
-        return run_partitioning_pynem(
-            nem_dir_path,
-            nb_org,
-            beta=beta,
-            free_dispersion=free_dispersion,
-            kval=kval,
-            init=init,
-            itermax=itermax,
-            just_log_likelihood=just_log_likelihood,
-        )
-    if init == "param_file":
-        with open(nem_dir_path / f"nem_file_init_{str(kval)}.m", "w") as m_file:
-            m_file.write("1 ")  # 1 to initialize parameter,
-            # Keep enough precision so the provided (k-1) proportions never sum above 1.
-            base_proportion = format(1.0 / float(kval), ".12g")
-            m_file.write(" ".join([base_proportion] * (kval - 1)) + " ")
-            # 1/K give the initial proportion to each class
-            # (the last proportion is automatically determined by subtraction in nem)
-            mu = []
-            epsilon = []
-            step = 0.5 / (math.ceil(kval / 2))
-            pichenette = 0.1 if kval == 2 else 0
-            for k in range(1, kval + 1):
-                if k <= kval / 2:
-                    mu += ["1"] * nb_org
-                    epsilon += [str((step * k) - pichenette)] * nb_org
-                else:
-                    mu += ["0"] * nb_org
-                    epsilon += [str((step * (kval - k + 1)) - pichenette)] * nb_org
-
-            m_file.write(" ".join(mu) + " " + " ".join(epsilon))
-
-    algo = b"nem"  # fuzzy classification by mean field approximation
-    model = b"bern"  # multivariate Bernoulli mixture model
-    proportion = b"pk"  # equal proportion :  "p_"     varying proportion : "pk"
-
-    variance_model = b"skd" if free_dispersion else b"sk_"
-    # one variance per partition and organism : "sdk"      one variance per partition,
-    # same in all organisms : "sd_"   one variance per organism,
-    # same in all partition : "s_d"    same variance in organisms and partitions : "s__"
-
-    convergence = b"clas"
-    convergence_th = 0.01
-    # (INIT_SORT, init_random, init_param_file, INIT_FILE, INIT_LABEL, INIT_NB) = range(0,6)
-    init_random, init_param_file = range(1, 3)
-    logger.debug("Running NEM...")
-    logger.debug(
-        [
-            nem_dir_path.as_posix().encode("ascii") + b"/nem_file",
-            kval,
-            algo,
-            beta,
-            convergence,
-            convergence_th,
-            b"fuzzy",
-            itermax,
-            True,
-            model,
-            proportion,
-            variance_model,
-            init_param_file if init in ["param_file", "init_from_old"] else init_random,
-            nem_dir_path.as_posix().encode("ascii")
-            + b"/nem_file_init_"
-            + str(kval).encode("ascii")
-            + b".m",
-            nem_dir_path.as_posix().encode("ascii")
-            + b"/nem_file_"
-            + str(kval).encode("ascii"),
-            seed,
-        ]
-    )
-    nem_stats.nem(
-        Fname=nem_dir_path.as_posix().encode("ascii") + b"/nem_file",
-        nk=kval,
-        algo=algo,
+    logging.getLogger("PPanGGOLiN").debug("run_partitioning...")
+    return run_partitioning_pynem(
+        nem_dir_path,
+        nb_org,
         beta=beta,
-        convergence=convergence,
-        convergence_th=convergence_th,
-        format=b"fuzzy",
-        it_max=itermax,
-        dolog=True,
-        model_family=model,
-        proportion=proportion,
-        dispersion=variance_model,
-        init_mode=(
-            init_param_file if init in ["param_file", "init_from_old"] else init_random
-        ),
-        init_file=nem_dir_path.as_posix().encode("ascii")
-        + b"/nem_file_init_"
-        + str(kval).encode("ascii")
-        + b".m",
-        out_file_prefix=nem_dir_path.as_posix().encode("ascii")
-        + b"/nem_file_"
-        + str(kval).encode("ascii"),
-        seed=seed,
+        free_dispersion=free_dispersion,
+        kval=kval,
+        init=init,
+        itermax=itermax,
+        just_log_likelihood=just_log_likelihood,
     )
-
-    logger.debug("After running NEM...")
-
-    no_nem = False
-    nem_out_path = nem_dir_path / f"nem_file_{str(kval)}.uf"
-    if nem_out_path.is_file():
-        logger.debug("Reading NEM results...")
-    elif not just_log_likelihood:
-        # logging.getLogger("PPanGGOLiN").warning("No NEM output file found: "+ nem_dir_path+"/nem_file_"+str(K)+".uf")
-        no_nem = True
-    else:
-        logger.debug(f"No NEM output file found: {nem_out_path.absolute().as_posix()}")
-        no_nem = True
-    if no_nem:
-        logger.debug(
-            "NEM output file is missing after run (run may have failed): "
-            f"expected_uf={nem_out_path.as_posix()}, kval={kval}, nb_org={nb_org}, "
-            f"beta={beta}, seed={seed}, itermax={itermax}, just_log_likelihood={just_log_likelihood}"
-        )
-    index_fam = []
-
-    with open(nem_dir_path / "nem_file.index") as index_nem_file:
-        for line in index_nem_file:
-            index_fam.append(line.split("\t")[1].strip())
-
-    partitions_list = ["U"] * len(index_fam)
-    all_parameters = {}
-    log_likelihood = None
-    entropy = None
-    try:
-        with (
-            open(nem_dir_path / f"nem_file_{str(kval)}.uf") as partitions_nem_file,
-            open(nem_dir_path / f"nem_file_{str(kval)}.mf") as parameters_nem_file,
-        ):
-
-            parameters = parameters_nem_file.readlines()
-            log_likelihood = float(parameters[2].split()[3])
-
-            sum_mu_k = []
-            sum_epsilon_k = []
-
-            for k, line in enumerate(parameters[-kval:]):
-                vector = line.split()
-                mu_k = [bool(float(mu_kj)) for mu_kj in vector[0:nb_org]]
-                epsilon_k = [float(epsilon_kj) for epsilon_kj in vector[nb_org + 1 :]]
-                proportion = float(vector[nb_org])
-                sum_mu_k.append(sum(mu_k))
-                sum_epsilon_k.append(sum(epsilon_k))
-                if k == 0:
-                    all_parameters["persistent"] = (mu_k, epsilon_k, proportion)
-                elif k == kval - 1:
-                    all_parameters["cloud"] = (mu_k, epsilon_k, proportion)
-                else:
-                    all_parameters["shell_" + str(k)] = (mu_k, epsilon_k, proportion)
-
-            parti = {0: "P", kval - 1: "C"}
-
-            for i in range(1, kval - 1):
-                parti[i] = "S" + str(i)
-            entropy = 0
-
-            for i, line in enumerate(partitions_nem_file):
-                elements = [float(el) for el in line.split()]
-                if just_log_likelihood:
-                    entropy += sum(
-                        [
-                            math.log(float(el)) * float(el) if float(el) > 0 else 0
-                            for el in elements
-                        ]
-                    )
-                else:
-                    max_prob = max([float(el) for el in elements])
-                    positions_max_prob = [
-                        pos for pos, prob in enumerate(elements) if prob == max_prob
-                    ]
-                    if len(positions_max_prob) > 1 or max_prob < 0.5:
-                        partitions_list[i] = (
-                            "S_"  # SHELL in case of doubt gene families is attributed to shell
-                        )
-                    else:
-                        partitions_list[i] = parti[positions_max_prob.pop()]
-
-    except OSError as error:
-        if just_log_likelihood:
-            logger.warning(
-                "A NEM run failed while estimating the optimal number of partitions "
-                "(testing a candidate K), and this candidate was skipped. "
-                "Final partitioning can still succeed. "
-                f"See temporary files/logs in: {nem_dir_path.as_posix()}"
-            )
-        else:
-            logger.warning(
-                "A NEM run failed for this dataset/chunk and was skipped. "
-                "In chunked mode, other chunks can still complete and final partitioning may still succeed. "
-                f"See temporary files/logs in: {nem_dir_path.as_posix()}"
-            )
-        logger.debug(
-            "NEM failure details: "
-            f"error={repr(error)}, errno={getattr(error, 'errno', None)}, "
-            f"strerror={getattr(error, 'strerror', None)}, filename={getattr(error, 'filename', None)}"
-        )
-        logger.debug(
-            "NEM run context: "
-            f"cwd={Path.cwd().as_posix()}, pid={os.getpid()}, kval={kval}, nb_org={nb_org}, "
-            f"beta={beta}, free_dispersion={free_dispersion}, seed={seed}, init={init}, "
-            f"itermax={itermax}, keep_files={keep_files}, just_log_likelihood={just_log_likelihood}"
-        )
-        logger.debug(
-            "NEM files status: "
-            f"index_exists={(nem_dir_path / 'nem_file.index').is_file()}, "
-            f"uf_exists={(nem_dir_path / f'nem_file_{str(kval)}.uf').is_file()}, "
-            f"mf_exists={(nem_dir_path / f'nem_file_{str(kval)}.mf').is_file()}, "
-            f"init_exists={(nem_dir_path / f'nem_file_init_{str(kval)}.m').is_file()}"
-        )
-        return {}, None, None  # return empty objects
-
-    except ValueError:
-        # return the default partitions_list which correspond to undefined
-        pass
-
-    if just_log_likelihood:
-        return kval, log_likelihood, entropy
-    else:
-        return dict(zip(index_fam, partitions_list)), all_parameters, log_likelihood
-
 
 def nem_single(
     args: List[Tuple[Path, int, float, bool, int, int, str, bool, int, bool]]
@@ -312,7 +93,6 @@ def partition_nem(
     init: str = "param_file",
     tmpdir: Path = None,
     keep_tmp_files: bool = False,
-    backend: str = "pynem",
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
     """
 
@@ -325,8 +105,6 @@ def partition_nem(
     :param seed: seed used to generate random numbers
     :param init: Initiate nem parameters with pangenome parameters or randomly
     :param keep_tmp_files: True if you want to keep the temporary NEM files
-    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
-
     :return:
     """
     currtmpdir = tmpdir / f"{str(index)}"  # unique directory name
@@ -344,7 +122,6 @@ def partition_nem(
         seed=seed,
         init=init,
         keep_files=keep_tmp_files,
-        backend=backend,
     )
 
 
@@ -477,7 +254,6 @@ def evaluate_nb_partitions(
     seed: int = 42,
     tmpdir: Path = None,
     disable_bar: bool = False,
-    backend: str = "pynem",
 ) -> int:
     """
     Evaluate the optimal number of partition for the pangenome
@@ -494,7 +270,6 @@ def evaluate_nb_partitions(
     :param cpu: Number of available core
     :param seed: seed used to generate random numbers
     :param disable_bar: Disable progress bar
-    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
 
     :return: Ideal number of partition computed
     """
@@ -523,7 +298,6 @@ def evaluate_nb_partitions(
                 True,
                 10,
                 True,
-                backend,
             )
         )  # follow order run_partitionning args
     all_log_likelihood = []
@@ -699,7 +473,6 @@ def partition(
     keep_tmp_files: bool = False,
     force: bool = False,
     disable_bar: bool = False,
-    backend: str = "pynem",
 ):
     """
     Partitioning the pangenome
@@ -720,7 +493,6 @@ def partition(
     :param keep_tmp_files: True if you want to keep the temporary NEM files
     :param force: Allow to force write on Pangenome file
     :param disable_bar: Disable progress bar
-    :param backend: NEM backend, "pynem" (default) or "cnem" (legacy)
     """
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     kmm = [3, 20] if krange is None else krange
@@ -788,7 +560,6 @@ def partition(
             seed,
             tmp_path,
             disable_bar,
-            backend,
         )
         logging.getLogger("PPanGGOLiN").info(
             f"The number of partitions has been evaluated at {kval}"
@@ -865,7 +636,6 @@ def partition(
                         init,
                         tmp_path,
                         keep_tmp_files,
-                        backend,
                     )
                 )
 
@@ -911,7 +681,6 @@ def partition(
             seed=seed,
             init=init,
             keep_files=keep_tmp_files,
-            backend=backend,
         )
         if partitioning_results == [{}, None, None]:
             raise Exception(
@@ -963,7 +732,6 @@ def launch(args: argparse.Namespace):
         args.keep_tmp_files,
         args.force,
         disable_bar=args.disable_prog_bar,
-        backend=args.nem_backend,
     )
     logging.getLogger("PPanGGOLiN").debug("Write partition in pangenome")
     write_pangenome(pan, pan.file, args.force, disable_bar=args.disable_prog_bar)
@@ -1022,14 +790,6 @@ def parser_partition(parser: argparse.ArgumentParser):
         default=10,
         type=float,
         help="max. degree of the nodes to be included in the smoothing process.",
-    )
-    optional.add_argument(
-        "--nem_backend",
-        required=False,
-        default="pynem",
-        choices=["pynem", "cnem"],
-        help="NEM backend to use for partitioning. 'pynem' (default) uses a pure-Python NEM "
-        "re-implementation; 'cnem' uses the legacy NEM code in C (deprecated, kept as reference).",
     )
     optional.add_argument(
         "-o",
