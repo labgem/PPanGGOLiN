@@ -9,12 +9,13 @@ OUTDIR_COMMANDS_AND_FILES = [
     (
         "write_pangenome_outdir",
         "ppanggolin write_pangenome -p {pangenome} --output {outdir} -f "
-        "--soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --csv --Rtab --stats "
+        "--soft_core 0.9 --dup_margin 0.06 --gexf --light_gexf --gt --csv --Rtab --stats "
         "--partitions --compress --json --spots --regions --borders --families_tsv --cpu 1",
         [
             "border_protein_genes.fasta.gz",
             "genomes_statistics.tsv.gz",
             "pangenomeGraph.gexf.gz",
+            "pangenomeGraph.gt.gz",
             "gene_families.tsv.gz",
             "matrix.csv.gz",
             "pangenomeGraph.json.gz",

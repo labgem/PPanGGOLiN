@@ -56,7 +56,9 @@ def run_partitioning(
 
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
-    logging.getLogger("PPanGGOLiN").debug("run_partitioning...")
+
+    logger = logging.getLogger("PPanGGOLiN")
+    logger.debug("run_partitioning...")
     presence, graph, index_fam, _, _ = nem_input
     return solve(
         presence,
@@ -526,7 +528,7 @@ def partition(
     build_nem_index()
 
     if len(organisms) <= 10:
-        logging.getLogger("PPanGGOLiN").warning(
+        logger.warning(
             f"The number of selected genomes is too low ({len(organisms)} "
             f"genomes used) to robustly partition the graph"
         )
@@ -545,7 +547,7 @@ def partition(
     pangenome.parameters["partition"]["nb_of_partitions"] = kval
     if kval < 2:
         pangenome.parameters["partition"]["# computed nb of partitions"] = True
-        logging.getLogger("PPanGGOLiN").info(
+        logger.info(
             "Estimating the optimal number of partitions..."
         )
         kval = evaluate_nb_partitions(
@@ -561,7 +563,7 @@ def partition(
             seed,
             disable_bar,
         )
-        logging.getLogger("PPanGGOLiN").info(
+        logger.info(
             f"The number of partitions has been evaluated at {kval}"
         )
 
@@ -582,7 +584,7 @@ def partition(
             cpt_partition[fam.name] = {"P": 0, "S": 0, "C": 0, "U": 0}
 
     start_partitioning = time.time()
-    logging.getLogger("PPanGGOLiN").info("Partitioning...")
+    logger.info("Partitioning...")
     pansize = len(families)
     if chunk_size < len(organisms):
         validated = set()
@@ -626,7 +628,7 @@ def partition(
             for i, _ in enumerate(samples[prev:], start=prev):
                 args.append((i, kval, beta, sm_degree, free_dispersion, seed, init))
 
-            logging.getLogger("PPanGGOLiN").info("Launching NEM")
+            logger.info("Launching NEM")
             with get_context("fork").Pool(processes=cpu) as p:
                 # launch partitioning
                 bar = tqdm(
@@ -640,7 +642,7 @@ def partition(
                 condition += (
                     1  # if len(validated) < pan_size, we will want to resample more.
                 )
-                logging.getLogger("PPanGGOLiN").debug(
+                logger.debug(
                     f"There are {len(validated)} validated families out of {pansize} families."
                 )
                 p.close()
@@ -651,7 +653,7 @@ def partition(
         # need to compute the median vectors of each partition ???
         partitioning_results = [partitioning_results, []]  # introduces a 'non feature'.
 
-        logging.getLogger("PPanGGOLiN").info(
+        logger.info(
             f"Did {len(samples)} partitioning with chunks of size {chunk_size} among "
             f"{len(organisms)} genomes in {round(time.time() - start_partitioning, 2)} seconds."
         )
@@ -671,7 +673,7 @@ def partition(
                 "This usually happens because you used very few (<15) genomes."
             )
         cpt += 1
-        logging.getLogger("PPanGGOLiN").info(
+        logger.info(
             f"Partitioned {len(organisms)} genomes in "
             f"{round(time.time() - start_partitioning, 2)} seconds."
         )
@@ -710,9 +712,9 @@ def launch(args: argparse.Namespace):
         args.force,
         disable_bar=args.disable_prog_bar,
     )
-    logging.getLogger("PPanGGOLiN").debug("Write partition in pangenome")
+    logger.debug("Write partition in pangenome")
     write_pangenome(pan, pan.file, args.force, disable_bar=args.disable_prog_bar)
-    logging.getLogger("PPanGGOLiN").debug("Partitioning is finished")
+    logger.debug("Partitioning is finished")
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:

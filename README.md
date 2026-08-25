@@ -108,6 +108,13 @@ PPanGGOLiN offers additional workflow commands that perform more specialized fun
 
 These commands utilize the same type of file input as the `all` command.
 
+# Contributing
+
+We welcome contributions to **PPanGGOLiN**! If you would like to report a bug,
+suggest an improvement, contribute code or documentation, or help with testing,
+please see our [contributing guide](https://ppanggolin.readthedocs.io/en/latest/dev/contributing.html)
+for information about the development workflow, setting up the development
+environment, testing, and creating pull requests.
 
 # Issues, Questions, Remarks
 If you have any questions or issues with installing,
