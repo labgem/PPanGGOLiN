@@ -34,7 +34,6 @@ nem_index = None
 
 def run_partitioning(
     nem_input: tuple,
-    nem_dir_path: Path,
     nb_org: int,
     beta: float = 2.5,
     free_dispersion: bool = False,
@@ -72,6 +71,7 @@ def run_partitioning(
         just_log_likelihood=just_log_likelihood,
     )
 
+
 def nem_single(
     args: Tuple[tuple, int, float, bool, int, str, int, bool]
 ) -> Union[Tuple[dict, None, None], Tuple[int, float, float], Tuple[dict, dict, float]]:
@@ -80,6 +80,7 @@ def nem_single(
 
     :param args: {nem_input: tuple, nb_org: int, beta: float, free_dispersion: bool,
                   kval: int, init: str, itermax: int, just_log_likelihood: bool}
+
     :return: Result of run partitioning
     """
     return run_partitioning(*args)
@@ -131,7 +132,7 @@ def nem_samples(
 
 def ordered_organisms(organisms) -> list:
     """
-    Genomes in a stable, process-independent order.
+    Genomes in a stable, process-independent order
     """
     return sorted(organisms, key=lambda org: org.name)
 
@@ -144,7 +145,7 @@ def build_nem_index():
     """
     global nem_index
     organisms = ordered_organisms(pan.organisms)
-    org_index = {org: i for i, org in enumerate(pan.organisms)}
+    org_index = {org: i for i, org in enumerate(organisms)}
     families = list(pan.gene_families)
     fam_index = {fam: i for i, fam in enumerate(families)}
 
@@ -159,7 +160,7 @@ def build_nem_index():
             at += 1
     presence = sp.csr_matrix(
         (np.ones(n_pres, dtype=np.int8), (rows, cols)),
-        shape=(len(families), len(pan.organisms)),
+        shape=(len(families), len(organisms)),
     )
     del rows, cols
 
@@ -180,7 +181,7 @@ def build_nem_index():
             counts[at] = len(gene_pairs)
             at += 1
     coverage = sp.csr_matrix(
-        (counts, (e_rows, e_cols)), shape=(n_edges, len(pan.organisms))
+        (counts, (e_rows, e_cols)), shape=(n_edges, len(organisms))
     )
     del e_rows, e_cols, counts
 
@@ -195,9 +196,10 @@ def build_nem_index():
     }
     return nem_index
 
+
 def build_nem_input(organisms: set, sm_degree: int = 10) -> tuple:
     """
-    Slice NEM's inputs out of the precomputed index.
+    Slice NEM's inputs out of the precomputed index
 
     :param organisms: genomes in this chunk
     :param sm_degree: maximum degree of a node included in the smoothing

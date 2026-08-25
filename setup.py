@@ -2,6 +2,4 @@
 
 from setuptools import setup
 
-NEM_DIR_PATH = "ppanggolin/nem/NEM/"
-
 setup()

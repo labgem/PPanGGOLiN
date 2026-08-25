@@ -77,7 +77,6 @@ def raref_nem(
             beta * (nb_fam / edges_weight),
             free_dispersion,
             kval=kval,
-            seed=seed,
             init="param_file",
         )[0]
     else:  # going to need multiple partitioning for this sample...
@@ -146,7 +145,6 @@ def raref_nem(
                         beta * (nb_fam / edges_weight),
                         free_dispersion,
                         kval=kval,
-                        seed=seed,
                         init="param_file",
                     )
                 )
