@@ -13,6 +13,7 @@ import argparse
 # local modules
 import ppanggolin.pangenome
 from ppanggolin.utils import (
+    RawTextHelpFormatterWithDefaults,
     check_input_files,
     set_verbosity_level,
     add_common_arguments,
@@ -96,10 +97,12 @@ def _build_command_summary(parser: argparse.ArgumentParser) -> str:
 def build_parser() -> argparse.ArgumentParser:
     """Build the PPanGGOLiN command-line parser without parsing user input."""
 
+    argparse.RawTextHelpFormatter = RawTextHelpFormatterWithDefaults
+
     parser = argparse.ArgumentParser(
         prog="ppanggolin",
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-        formatter_class=argparse.RawTextHelpFormatter,
+        formatter_class=RawTextHelpFormatterWithDefaults,
         epilog=epilog + pan_epilog + rgp_epilog + mod_epilog,
     )
 
