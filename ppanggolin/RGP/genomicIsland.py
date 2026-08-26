@@ -431,7 +431,11 @@ def parser_rgp(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")

@@ -205,14 +205,18 @@ def parser_flat(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     required.add_argument(
         "-o",
         "--output",
         required=True,
         type=Path,
-        help="Output directory where the file(s) will be written",
+        help="Output directory where the file(s) will be written.",
     )
     optional = parser.add_argument_group(title="Optional arguments")
 
