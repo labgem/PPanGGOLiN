@@ -30,6 +30,7 @@ from ppanggolin.nem.pynem_backend import solve
 pan = Pangenome()
 samples = []
 nem_index = None
+logger = logging.getLogger("PPanGGOLiN")
 
 
 def run_partitioning(
@@ -57,7 +58,6 @@ def run_partitioning(
     :return: Nem parameters and if not just log likelihood the families associated to partition
     """
 
-    logger = logging.getLogger("PPanGGOLiN")
     logger.debug("run_partitioning...")
     presence, graph, index_fam, _, _ = nem_input
     return solve(
@@ -547,9 +547,7 @@ def partition(
     pangenome.parameters["partition"]["nb_of_partitions"] = kval
     if kval < 2:
         pangenome.parameters["partition"]["# computed nb of partitions"] = True
-        logger.info(
-            "Estimating the optimal number of partitions..."
-        )
+        logger.info("Estimating the optimal number of partitions...")
         kval = evaluate_nb_partitions(
             organisms,
             output,
@@ -563,9 +561,7 @@ def partition(
             seed,
             disable_bar,
         )
-        logger.info(
-            f"The number of partitions has been evaluated at {kval}"
-        )
+        logger.info(f"The number of partitions has been evaluated at {kval}")
 
     pangenome.parameters["partition"]["# final nb of partitions"] = kval
     pangenome.parameters["partition"]["krange"] = kmm
