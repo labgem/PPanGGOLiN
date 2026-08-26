@@ -803,6 +803,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "rgp_cluster", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Cluster RGPs based on their gene families."
+    parser.category = "Regions of Genomic Plasticity"
     parser_cluster_rgp(parser)
     return parser
 

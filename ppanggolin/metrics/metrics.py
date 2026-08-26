@@ -28,7 +28,7 @@ def check_already_computed_metric(
     :param print_metric: Print metrics if already computed
     :param recompute: Are metrics going to be recompute
     """
-    with tables.open_file(pangenome.file, "a") as h5f:
+    with tables.open_file(pangenome.file, "r") as h5f:
         info_group = h5f.root.info
         if genomes_fluidity and "genomes_fluidity" in info_group._v_attrs._f_list():
             logging.getLogger("PPanGGOLiN").warning(
@@ -154,6 +154,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "metrics", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Compute several metrics on a given pangenome."
+    parser.category = "Output"
     parser_metrics(parser)
     return parser
 

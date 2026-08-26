@@ -29,6 +29,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "panrgp", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Easy workflow to run a pangenome analysis with genomic islands and spots of insertion detection"
+    parser.category = "Basic"
 
     add_workflow_args(parser)
 

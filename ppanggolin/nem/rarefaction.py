@@ -746,6 +746,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
         description="Compute the rarefaction curve of the pangenome",
         formatter_class=argparse.RawTextHelpFormatter,
     )
+    parser.description = "Compute the rarefaction curve of the pangenome"
+    parser.category = "Expert"
     parser_rarefaction(parser)
     return parser
 

@@ -809,6 +809,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "context", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Local genomic context analysis."
+    parser.category = "Analysis using reference pangenomes"
     parser_context(parser)
     return parser
 

@@ -587,7 +587,7 @@ def check_option_workflow(args):
         )
 
 
-def parse_config_file(yaml_config_file: str) -> dict:
+def parse_config_file(yaml_config_file: Path) -> dict:
     """
     Parse yaml config file.
 
@@ -596,7 +596,7 @@ def parse_config_file(yaml_config_file: str) -> dict:
     :return: dict of config with key the command and as value another dict with param as key and value as value.
     """
 
-    with yaml_config_file as yaml_fh:
+    with open(yaml_config_file) as yaml_fh:
         config = yaml.safe_load(yaml_fh)
 
     if config is None:
@@ -623,44 +623,82 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
     :param subparser: A subparser object from any subcommand.
     """
 
+    existing_options = {
+        option for action in subparser._actions for option in action.option_strings
+    }
+
     common = subparser._action_groups.pop(
         1
     )  # get the 'optional arguments' action group.
     common.title = "Common arguments"
-    common.add_argument(
-        "--verbose",
-        required=False,
-        type=int,
-        default=1,
-        choices=[0, 1, 2],
-        help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)",
-    )
-    common.add_argument(
-        "--log",
-        required=False,
-        type=check_log,
-        default="stdout",
-        help="log output file",
-    )
-    common.add_argument(
-        "-d",
-        "--disable_prog_bar",
-        required=False,
-        action="store_true",
-        help="disables the progress bars",
-    )
-    common.add_argument(
-        "-f",
-        "--force",
-        action="store_true",
-        help="Force writing in output directory and in pangenome output file.",
-    )
-    common.add_argument(
-        "--config",
-        required=False,
-        type=argparse.FileType(),
-        help="Specify command arguments through a YAML configuration file.",
-    )
+
+    if "--verbose" not in existing_options:
+        common.add_argument(
+            "--verbose",
+            required=False,
+            type=int,
+            default=1,
+            choices=[0, 1, 2],
+            help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --verbose argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
+
+    if "--log" not in existing_options:
+        common.add_argument(
+            "--log",
+            required=False,
+            type=check_log,
+            default="stdout",
+            help="log output file",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --log argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
+
+    if "-d" not in existing_options and "--disable_prog_bar" not in existing_options:
+        common.add_argument(
+            "-d",
+            "--disable_prog_bar",
+            required=False,
+            action="store_true",
+            help="disables the progress bars",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --disable_prog_bar argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
+
+    if "-f" not in existing_options and "--force" not in existing_options:
+        common.add_argument(
+            "-f",
+            "--force",
+            action="store_true",
+            help="Force writing in output directory and in pangenome output file.",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --force argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
+    if "--config" not in existing_options:
+        common.add_argument(
+            "--config",
+            required=False,
+            type=Path,
+            help="Specify command arguments through a YAML configuration file.",
+        )
+    else:
+        logging.getLogger("PPanGGOLiN").warning(
+            "The --config argument is already defined in the subcommand. "
+            "Please remove it from the subcommand to avoid conflicts."
+        )
     subparser._action_groups.append(common)
 
 
@@ -808,7 +846,7 @@ def get_args_differing_from_default(
 
 
 def manage_cli_and_config_args(
-    subcommand: str, config_file: str, subcommand_to_subparser: dict
+    subcommand: str, config_file: Optional[Path], subcommand_to_subparser: dict
 ) -> argparse.Namespace:
     """
     Manage command line and config arguments for the given subcommand.

@@ -909,6 +909,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "cluster", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Cluster genes into gene families"
+    parser.category = "Expert"
     parser_clust(parser)
     return parser
 

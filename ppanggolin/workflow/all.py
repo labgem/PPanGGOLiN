@@ -483,6 +483,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     :return : parser arguments for all command
     """
     parser = sub_parser.add_parser("all", formatter_class=argparse.RawTextHelpFormatter)
+    parser.description = "Easy workflow to run all possible analysis"
+    parser.category = "Basic"
 
     add_workflow_args(parser)
 

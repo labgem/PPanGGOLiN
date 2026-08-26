@@ -206,6 +206,8 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
     parser = sub_parser.add_parser(
         "module", formatter_class=argparse.RawTextHelpFormatter
     )
+    parser.description = "Predicts functional modules in your pangenome."
+    parser.category = "Regions of Genomic Plasticity"
     parser_module(parser)
     return parser
 
