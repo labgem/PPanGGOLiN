@@ -10,15 +10,14 @@ The features listed below were released progressively, and some of them are alre
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------|
 | `projection`  | Annotate external genomes using an already computed pangenome, without recomputing it. Genes are assigned to existing gene families and partitions, then RGPs, spots and modules are predicted for the projected genome.   | [Projection](projection.md)            |
 | `context`     | Extract conserved genomic neighborhoods around genes of interest, using the neighborhood relationships already encoded in the pangenome graph.                                                                             | [Genomic context](genomicContext.md)   |
-| `rgp_cluster` | Cluster RGPs across genomes based on their shared gene families, using a Gene Repertoire Relatedness (GRR) score.                                                                                                          | [RGP clustering](RGP/rgpClustering.md) |
+| `rgp_cluster` | Cluster RGPs across genomes based on their shared gene families, using a Gene Repertoire Relatedness (GRR) score.                                                                                                          | [RGP clustering](./RGP/rgpAnalyses.md#rgp-clustering) |
 | `metadata`    | Attach arbitrary metadata to any pangenome element (genes, contigs, genomes, gene families, edges, RGPs, spots and modules) from a tabulated file. Metadata is stored in the pangenome file and propagated to the outputs. | [Metadata](metadata.md)                |
 
 ## New utility commands
 
 | Command          | Description                                                                        | Documentation                                                    |
 |------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------|
-| `all`            | Run the complete pipeline, including RGPs, spots and modules, in a single command. | [Workflows](PangenomeAnalyses/pangenomeWorkflow.md)              |
-| `metrics`        | Compute pangenome metrics such as genomic fluidity.                                | [Pangenome metrics](PangenomeAnalyses/pangenomeMetric.md)        |
+| `metrics`        | Compute pangenome metrics such as genomic fluidity.                                | [Pangenome metrics](./PangenomeAnalyses/pangenomeAnalyses.md#pangenome-metrics)        |
 | `write_metadata` | Export the metadata stored in a pangenome.                                         | [Metadata](metadata.md)                                          |
 | `utils`          | Generate a default YAML configuration file with `--default_config`.                | [Configuration file](practicalInformation.md#configuration-file) |
 
