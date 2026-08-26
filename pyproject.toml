@@ -45,6 +45,7 @@ dependencies = [
     "plotly>=5.0.0,<6.0.0",
     "gmpy2>=2.0.0,<3.0.0",
     "bokeh>=3.0.0,<4.0.0",
+    "pynem[fast]>=0.6",
 ]
 
 license = {file="LICENSE.txt"}
