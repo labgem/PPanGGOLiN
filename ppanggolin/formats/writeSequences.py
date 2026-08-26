@@ -635,14 +635,18 @@ def parser_seq(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     required.add_argument(
         "-o",
         "--output",
         required=True,
         type=Path,
-        help="Output directory where the file(s) will be written",
+        help="Output directory where the file(s) will be written.",
     )
 
     context = parser.add_argument_group(
@@ -653,14 +657,14 @@ def parser_seq(parser: argparse.ArgumentParser):
         "--fasta",
         required=False,
         type=Path,
-        help="A tab-separated file listing the genome names, and the fasta filepath of its genomic "
+        help="A tab-separated file listing genome names and the FASTA file paths of their genomic "
         "sequence(s) (the fastas can be compressed with gzip). One line per genome.",
     )
     context.add_argument(
         "--anno",
         required=False,
         type=Path,
-        help="A tab-separated file listing the genome names, and the gff/gbff filepath of its "
+        help="A tab-separated file listing genome names and the GFF/GBFF file paths of their annotations "
         "annotations (the files can be compressed with gzip). One line per genome. "
         "If this is provided, those annotations will be used.",
     )
@@ -730,14 +734,18 @@ def parser_seq(parser: argparse.ArgumentParser):
         "This can be accessed using 'ppanggolin info'.",
     )
     optional.add_argument(
-        "--cpu", required=False, default=1, type=int, help="Number of available threads"
+        "--cpu",
+        required=False,
+        default=1,
+        type=int,
+        help="Number of available threads.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=Path,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
     optional.add_argument(
         "--keep_tmp",

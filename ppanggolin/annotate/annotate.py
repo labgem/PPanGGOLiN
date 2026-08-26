@@ -1996,16 +1996,15 @@ def parser_annot(parser: argparse.ArgumentParser):
         "--fasta",
         required=False,
         type=Path,
-        help="A tab-separated file listing the genome names, and the fasta filepath of its genomic "
-        "sequence(s) (the fastas can be compressed with gzip). One line per genome.",
+        help="A tab-separated file listing genome names and the FASTA file paths of their genomic sequences "
+        "(the FASTA files can be compressed with gzip). One line per genome.",
     )
     required.add_argument(
         "--anno",
         required=False,
         type=Path,
-        help="A tab-separated file listing the genome names, and the gff/gbff filepath of its "
-        "annotations (the files can be compressed with gzip). One line per genome. "
-        "If this is provided, those annotations will be used.",
+        help="A tab-separated file listing genome names and the GFF/GBFF file paths of their annotations "
+        "(the files can be compressed with gzip). One line per genome. If this is provided, those annotations will be used.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")
@@ -2015,21 +2014,21 @@ def parser_annot(parser: argparse.ArgumentParser):
         required=False,
         type=Path,
         default=Path(f"ppanggolin_output{date}_PID{str(os.getpid())}"),
-        help="Output directory",
+        help="Output directory.",
     )
     optional.add_argument(
         "--allow_overlap",
         required=False,
         action="store_true",
         default=False,
-        help="Use to not remove genes overlapping with RNA features.",
+        help="Use this option to keep genes overlapping with RNA features.",
     )
     optional.add_argument(
         "--norna",
         required=False,
         action="store_true",
         default=False,
-        help="Use to avoid annotating RNA features.",
+        help="Use this option to avoid annotating RNA features.",
     )
     optional.add_argument(
         "--kingdom",
@@ -2037,8 +2036,7 @@ def parser_annot(parser: argparse.ArgumentParser):
         type=str.lower,
         default="bacteria",
         choices=["bacteria", "archaea"],
-        help="Kingdom to which the prokaryota belongs to, "
-        "to know which models to use for rRNA annotation.",
+        help="Kingdom to which the prokaryote belongs, to determine which models to use for rRNA annotation.",
     )
     optional.add_argument(
         "--translation_table",
@@ -2054,14 +2052,14 @@ def parser_annot(parser: argparse.ArgumentParser):
         "--basename",
         required=False,
         default="pangenome",
-        help="basename for the output file",
+        help="Basename for the output file.",
     )
     optional.add_argument(
         "--use_pseudo",
         required=False,
         action="store_true",
         help="In the context of provided annotation, use this option to read pseudogenes. "
-        "(Default behavior is to ignore them)",
+        "(Default behavior is to ignore them).",
     )
     optional.add_argument(
         "-p",
@@ -2070,8 +2068,7 @@ def parser_annot(parser: argparse.ArgumentParser):
         type=str.lower,
         choices=["single", "meta"],
         default=None,
-        help="Allow to force the prodigal procedure. "
-        "If nothing given, PPanGGOLiN will decide in function of contig length",
+        help="Allow forcing the Prodigal procedure. If not specified, PPanGGOLiN will decide based on contig length.",
     )
     optional.add_argument(
         "-c",
@@ -2079,14 +2076,14 @@ def parser_annot(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=str,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
 
 

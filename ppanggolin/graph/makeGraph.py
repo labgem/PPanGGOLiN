@@ -188,7 +188,11 @@ def parser_graph(parser: argparse.ArgumentParser):
         title="Required arguments", description="Following arguments is required:"
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument(

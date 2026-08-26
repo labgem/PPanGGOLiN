@@ -784,7 +784,11 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
 
     optional = parser.add_argument_group(title="Optional arguments")
@@ -837,7 +841,7 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
             f"ppanggolin_output{time.strftime('DATE%Y-%m-%d_HOUR%H.%M.%S', time.localtime())}"
             f"_PID{str(os.getpid())}"
         ),
-        help="Output directory",
+        help="Output directory.",
     )
     optional.add_argument(
         "-fd",
@@ -905,14 +909,14 @@ def parser_rarefaction(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=str,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
 
 

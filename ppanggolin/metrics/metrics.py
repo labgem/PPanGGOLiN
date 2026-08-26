@@ -174,7 +174,7 @@ def parser_metrics(parser: argparse.ArgumentParser):
         "--pangenome",
         required=False,
         type=Path,
-        help="Path to the pangenome .h5 file",
+        help="Path to the pangenome .h5 file.",
     )
 
     onereq = parser.add_argument_group(

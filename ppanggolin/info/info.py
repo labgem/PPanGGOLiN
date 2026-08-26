@@ -146,7 +146,7 @@ def parser_info(parser: argparse.ArgumentParser):
         "--pangenome",
         required=True,
         type=Path,
-        help="Path to the pangenome .h5 file",
+        help="Path to the pangenome .h5 file.",
     )
 
     options = parser.add_argument_group(

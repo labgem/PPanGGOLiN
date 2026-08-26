@@ -639,7 +639,7 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
             type=int,
             default=1,
             choices=[0, 1, 2],
-            help="Indicate verbose level (0 for warning and errors only, 1 for info, 2 for debug)",
+            help="Verbose level: 0 = warnings and errors only, 1 = info, 2 = debug.",
         )
     else:
         logging.getLogger("PPanGGOLiN").warning(
@@ -653,7 +653,7 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
             required=False,
             type=check_log,
             default="stdout",
-            help="log output file",
+            help="Log output file.",
         )
     else:
         logging.getLogger("PPanGGOLiN").warning(
@@ -667,7 +667,7 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
             "--disable_prog_bar",
             required=False,
             action="store_true",
-            help="disables the progress bars",
+            help="Disable the progress bars.",
         )
     else:
         logging.getLogger("PPanGGOLiN").warning(
@@ -680,7 +680,7 @@ def add_common_arguments(subparser: argparse.ArgumentParser):
             "-f",
             "--force",
             action="store_true",
-            help="Force writing in output directory and in pangenome output file.",
+            help="Force overwrite in the output directory and pangenome output file.",
         )
     else:
         logging.getLogger("PPanGGOLiN").warning(
