@@ -335,8 +335,6 @@ class RGPClustering:
         }
         genedata_to_contig_ids: dict[int, list[int]] = defaultdict(list)
 
-        # contig_genedata_id_to_gene_name: dict[tuple[int, int], str] = {}
-
         # Map gene name with genetadata id
         # and contig id with genmetadata id in annotations/genes table
 
@@ -918,9 +916,9 @@ class RGPClustering:
             "name": rgp.name,
             "families_count": len(rgp.families),
             "identical_rgp_count": len(rgp.children),
-            "identical_rgp_names": ";".join(child.name for child in rgp.children),
+            "identical_rgp_names": ";".join(sorted(child.name for child in rgp.children)),
             "identical_rgp_genomes": ";".join(
-                {child.organism for child in rgp.children}
+                ";".join(sorted({child.organism for child in rgp.children}))
             ),
             "identical_rgp_contig_border_count": len(
                 [True for child in rgp.children if child.is_contig_border]
@@ -928,14 +926,14 @@ class RGPClustering:
             "identical_rgp_whole_contig_count": len(
                 [True for child in rgp.children if child.is_whole_contig]
             ),
-            "identical_rgp_spots": ";".join(spots),
+            "identical_rgp_spots": ";".join(sorted(spots)),
             "spot_id": (spots.pop() if len(spots) == 1 else "Multiple spots"),
-            "modules": ";".join(f"module_{module}" for module in rgp.modules),
+            "modules": ";".join(sorted(f"module_{module}" for module in rgp.modules)),
         }
 
         self._add_metadata_info(
             info,
-            [child.name for child in rgp.children],
+            sorted([child.name for child in rgp.children]),
             rgp.families,
             rgp.modules,
         )
@@ -1077,118 +1075,6 @@ class RGPClustering:
     @property
     def rgp_count(self) -> int:
         return len(self.rgps)
-
-
-class IdenticalRegions:
-    """
-    Represents a group of Identical Regions within a pangenome.
-
-    :param name: The name of the identical region group.
-    :param identical_rgps: A set of Region objects representing the identical regions.
-    :param families: A set of GeneFamily objects associated with the identical regions.
-    :param is_contig_border: A boolean indicating if the identical regions span across contig borders.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        identical_rgps: Set[Region],
-        families: Set[GeneFamily],
-        is_contig_border: bool,
-    ):
-        if not isinstance(identical_rgps, set):
-            raise TypeError("Expected 'identical_rgps' to be a set")
-        else:
-            if len(identical_rgps) == 0:
-                raise ValueError("Set of identical_rgps must not be empty")
-            if not all(isinstance(region, Region) for region in identical_rgps):
-                raise TypeError("All element in identical_rgps must be `Region`")
-        if not isinstance(families, set):
-            raise TypeError("Expected 'families' to be a set")
-        else:
-            if len(families) == 0:
-                raise ValueError("Set of families must not be empty")
-            if not all(isinstance(family, GeneFamily) for family in families):
-                raise TypeError("All element in families must be `GeneFamilies`")
-        self.name = name
-        self.families = families
-        self.rgps = identical_rgps
-        self.is_contig_border = is_contig_border
-        self.ID = Region.id_counter
-
-        Region.id_counter += 1
-
-    def __eq__(self, other: "IdenticalRegions") -> bool:
-        """
-        Check if two IdenticalRegions objects are equal based on their families,
-        identical regions, and contig border status.
-
-        :param other: The IdenticalRegions object to compare.
-        :return: True if the objects are equal, False otherwise.
-        """
-        if not isinstance(other, IdenticalRegions):
-            # don't attempt to compare against unrelated types
-            raise TypeError(
-                "'IdenticalRegions' type object was expected, "
-                f"but '{type(other)}' type object was provided."
-            )
-
-        return (
-            self.families == other.families
-            and self.rgps == other.rgps
-            and self.is_contig_border == other.is_contig_border
-        )
-
-    def __repr__(self):
-        return (
-            f"IdenticalRegions(name='{self.name}', num_rgps={len(self.rgps)}, num_families={len(self.families)},"
-            f" is_contig_border={self.is_contig_border})"
-        )
-
-    def __str__(self):
-        return self.name
-
-    def __hash__(self):
-        return id(self)
-
-    def __lt__(self, obj):
-        return self.ID < obj.ID
-
-    def __gt__(self, obj):
-        return self.ID > obj.ID
-
-    def __le__(self, obj):
-        return self.ID <= obj.ID
-
-    def __ge__(self, obj):
-        return self.ID >= obj.ID
-
-    @property
-    def genes(self):
-        """
-        Return iterable of genes from all RGPs that are identical in families
-        """
-        for rgp in self.rgps:
-            yield from rgp.genes
-
-    @property
-    def spots(self) -> Set[Spot]:
-        """
-        Return spots from all RGPs that are identical in families
-        """
-        spots = {rgp.spot for rgp in self.rgps if rgp.spot is not None}
-        return spots
-
-    @property
-    def modules(self) -> Set[Module]:
-        """
-        Return iterable of genes from all RGPs that are identical in families
-        """
-        modules = set()
-        for rgp in self.rgps:
-            modules |= rgp.modules
-
-        return modules
 
 
 def launch(args: argparse.Namespace):
