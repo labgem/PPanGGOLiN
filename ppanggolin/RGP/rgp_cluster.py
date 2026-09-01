@@ -1,32 +1,33 @@
 #!/usr/bin/env python3
 
 # default libraries
-import logging
 import argparse
 import json
-from itertools import combinations
-from collections.abc import Callable
+import logging
+import typing as tp
 from collections import defaultdict
-from typing import Dict, List, Set, Union
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from itertools import combinations
 from pathlib import Path
+from typing import Dict, List, Set, Union
+
+import networkx as nx
+import pandas as pd
+from pyroaring import BitMap
 
 # installed libraries
 from tqdm import tqdm
-import networkx as nx
-import pandas as pd
 
-# local libraries
-from ppanggolin.region import Region, Spot, Module
-from ppanggolin.utils import restricted_float, mk_outdir
+from ppanggolin.formats.h5reader import H5Reader, TableAttribute
 from ppanggolin.geneFamily import GeneFamily
 
-import typing as tp
-from dataclasses import dataclass, field
-from pyroaring import BitMap
-from ppanggolin.formats.h5reader import H5Reader, TableAttribute
+# local libraries
+from ppanggolin.utils import mk_outdir, restricted_float
 
 
 class RegionProxy:
+    """Represent a single RGP or a merged group of identical RGPs in the clustering graph."""
 
     def __init__(
         self,
@@ -41,6 +42,19 @@ class RegionProxy:
         organism=None,
         length=0,
     ):
+        """Initialize the proxy with the RGP identity and family content.
+
+        :param ID: Stable identifier used in the graph and output tables.
+        :param name: Name of the region or identical-group label.
+        :param families: BitMap of family identifiers present in the RGP.
+        :param is_contig_border: Whether the region touches a contig border.
+        :param is_whole_contig: Whether the region spans the whole contig.
+        :param children: Child RGP proxies for merged identical regions.
+        :param modules: Module identifiers associated with the RGP.
+        :param contig: Contig name associated with the region.
+        :param organism: Organism name associated with the region.
+        :param length: Number of genes in the region.
+        """
         self.ID: int = ID
         self.name: str = name
         self.families: BitMap = families
@@ -62,21 +76,42 @@ class RegionProxy:
 
     @property
     def is_identical_region(self) -> bool:
+        """Whether this region proxy represents a merged group of identical RGPs.
+
+        :return: True when the proxy stores multiple child regions.
+        """
         return self.children is not None and len(self.children) > 0
 
     def __repr__(self):
+        """Return a compact representation of the proxy for debugging.
+
+        :return: Debug-friendly representation of the region proxy.
+        """
         return f"RegionProxy2(ID={self.ID}, name='{self.name}')"
 
     def __str__(self):
+        """Return the region name.
+
+        :return: Human-readable name of the region.
+        """
         return self.name
 
     def __hash__(self) -> int:
+        """Hash the proxy using a stable region identifier.
+
+        :return: Hash value derived from the region ID.
+        """
         # Hash on the stable, deterministically-assigned ID rather than id(self):
         # object addresses vary between runs and make set/dict iteration order
         # (and therefore graph construction order) non-reproducible.
         return hash(self.ID)
 
     def __eq__(self, rhs: "RegionProxy") -> bool:
+        """Check whether two region proxies describe the same content.
+
+        :param rhs: Other region proxy to compare against.
+        :return: Whether the two proxies are equivalent.
+        """
         return (
             self.families == rhs.families
             and self.children == rhs.children
@@ -84,20 +119,42 @@ class RegionProxy:
         )
 
     def __lt__(self, obj):
+        """Compare regions by their stable identifier.
+
+        :param obj: Other region proxy.
+        :return: Whether this region comes before the other one.
+        """
         return self.ID < obj.ID
 
     def __gt__(self, obj):
+        """Compare regions by their stable identifier.
+
+        :param obj: Other region proxy.
+        :return: Whether this region comes after the other one.
+        """
         return self.ID > obj.ID
 
     def __le__(self, obj):
+        """Compare regions by their stable identifier.
+
+        :param obj: Other region proxy.
+        :return: Whether this region is less than or equal to the other one.
+        """
         return self.ID <= obj.ID
 
     def __ge__(self, obj):
+        """Compare regions by their stable identifier.
+
+        :param obj: Other region proxy.
+        :return: Whether this region is greater than or equal to the other one.
+        """
         return self.ID >= obj.ID
 
 
 @dataclass
 class RGPTable:
+    """Schema for the RGP membership table stored in the HDF5 file."""
+
     rgp: tp.Annotated[
         str, TableAttribute(name="RGP", transform=lambda x: x.decode("utf-8"))
     ]
@@ -109,6 +166,8 @@ class RGPTable:
 
 @dataclass
 class GeneFamTable:
+    """Schema for the gene-to-family table stored in the HDF5 file."""
+
     gene: tp.Annotated[
         str, TableAttribute(name="gene", transform=lambda x: x.decode("utf-8"))
     ]
@@ -120,6 +179,8 @@ class GeneFamTable:
 
 @dataclass
 class AnnotationsGeneTable:
+    """Schema for the annotations gene table used to map genes to contigs."""
+
     name: tp.Annotated[
         str, TableAttribute(name="ID", transform=lambda x: x.decode("utf-8"))
     ]
@@ -129,6 +190,8 @@ class AnnotationsGeneTable:
 
 @dataclass
 class RGPSpotTable:
+    """Schema for the RGP-to-spot assignment table."""
+
     rgp: tp.Annotated[
         str, TableAttribute(name="RGP", transform=lambda x: x.decode("utf-8"))
     ]
@@ -138,6 +201,8 @@ class RGPSpotTable:
 
 @dataclass
 class ModuleTable:
+    """Schema for the family-to-module membership table."""
+
     fam: tp.Annotated[
         str, TableAttribute(name="geneFam", transform=lambda x: x.decode("utf-8"))
     ]
@@ -147,6 +212,8 @@ class ModuleTable:
 
 @dataclass
 class ContigTable:
+    """Schema for contig metadata stored in the HDF5 pangenome."""
+
     genome: tp.Annotated[
         str, TableAttribute(name="genome", transform=lambda x: x.decode("utf-8"))
     ]
@@ -160,6 +227,8 @@ class ContigTable:
 
 @dataclass
 class GenesTable:
+    """Schema for the gene annotations table used to resolve contig membership."""
+
     name: tp.Annotated[
         str, TableAttribute(name="ID", transform=lambda x: x.decode("utf-8"))
     ]
@@ -170,6 +239,8 @@ class GenesTable:
 
 @dataclass
 class GeneDataTable:
+    """Schema for the per-gene coordinate table used in contig border logic."""
+
     # gene_type: tp.Annotated[str, TableAttribute(name="gene_type", transform=lambda x: x.decode('utf-8'))]
     idx: tp.Annotated[int, TableAttribute(name="genedata_id")]
     start: tp.Annotated[int, TableAttribute(name="start")]
@@ -180,6 +251,8 @@ class GeneDataTable:
 
 @dataclass
 class RGPGeneProxy:
+    """Store the coordinate information of a gene within an RGP."""
+
     start: int
     stop: int
     position: int
@@ -187,6 +260,8 @@ class RGPGeneProxy:
 
 @dataclass
 class RGPGenes:
+    """Bundle contig-level information for a set of genes belonging to an RGP."""
+
     contig: int
     is_circular_contig: bool
     genes: list[RGPGeneProxy]
@@ -194,6 +269,8 @@ class RGPGenes:
 
 @dataclass
 class RGPInfo:
+    """In-memory summary of an RGP before building graph nodes."""
+
     name: str
     families: set[str]
     families_ids: BitMap
@@ -204,6 +281,8 @@ class RGPInfo:
 
 @dataclass
 class ContigBorderPosition:
+    """Store the first and last gene coordinates on a contig."""
+
     last_gene_position: int
     last_gene_idx: int
     first_gene_idx: int
@@ -213,6 +292,8 @@ class ContigBorderPosition:
 
 @dataclass
 class ContigBorderGenes:
+    """Store the first and last gene names for a contig used in border checks."""
+
     first_gene: str
     last_gene: str
     gene_count: int
@@ -220,6 +301,8 @@ class ContigBorderGenes:
 
 @dataclass
 class RGPMetric:
+    """Store the computed similarity metric between two regions."""
+
     max_grr: float
     min_grr: float
     incomplete_aware_grr: float
@@ -228,6 +311,8 @@ class RGPMetric:
 
 @dataclass
 class Contig:
+    """Basic metadata describing a contig referenced by the clustering analysis."""
+
     organism: str
     is_circular: bool
     idx: int
@@ -239,6 +324,8 @@ RGPMetricType = tp.Literal["max_grr", "min_grr", "incomplete_aware_grr"]
 
 @dataclass
 class RGPClusteringOptions:
+    """Configuration values controlling the RGP clustering workflow."""
+
     grr_cutoff: float = 0.3
     metric: RGPMetricType = "incomplete_aware_grr"
     unmerge_identical_rgps: bool = True
@@ -252,7 +339,13 @@ class RGPClusteringOptions:
 
 
 class RGPClustering:
+    """Load RGP data from an HDF5 pangenome and cluster regions by family content."""
+
     def __init__(self, pangenome_h5: Path):
+        """Initialize an RGP clustering analysis for a pangenome file.
+
+        :param pangenome_h5: Path to the pangenome HDF5 file.
+        """
         self.h5 = Path(pangenome_h5)
         self.rgps: set[RegionProxy] = set()
         self.metrics: list[RGPMetric] = []
@@ -275,24 +368,44 @@ class RGPClustering:
         self._module_metadata_sources: Dict[int, set] = defaultdict(set)
 
     def _get_rgp_spot(self, reader: H5Reader) -> dict[str, int]:
+        """Load the mapping between each RGP and its associated spot.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Dictionary mapping every RGP name to its spot identifier.
+        """
         rgp_to_spot: dict[str, int] = {}
         for table in reader.fetch(RGPSpotTable):
             rgp_to_spot[table.rgp] = table.spot
         return rgp_to_spot
 
     def _get_fam_to_modules(self, reader: H5Reader) -> dict[str, set[str]]:
+        """Load the mapping from each gene family to the modules containing it.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Dictionary from family name to set of module identifiers.
+        """
         fam_to_modules: dict[str, set[str]] = defaultdict(set)
         for table in reader.fetch(ModuleTable):
             fam_to_modules[table.fam].add(table.module)
         return fam_to_modules
 
     def _get_contig_to_organism(self, reader: H5Reader) -> dict[str, str]:
+        """Map contig names to their associated genome names.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Dictionary mapping each contig name to its organism name.
+        """
         contig_to_organism: dict[str, str] = {}
         for table in reader.fetch(ContigTable):
             contig_to_organism[table.contig] = table.genome
         return contig_to_organism
 
     def _get_contig_to_is_circular(self, reader: H5Reader) -> dict[str, bool]:
+        """Map contig identifiers to their circularity metadata.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Dictionary mapping each contig identifier to whether it is circular.
+        """
         circular_contig_ids: dict[str, bool] = {}
         for table in reader.fetch(ContigTable):
             circular_contig_ids[table.idx] = table.is_circular
@@ -301,6 +414,12 @@ class RGPClustering:
     def _get_contig_to_info(
         self, reader: H5Reader, contigs_to_keep: set[str] = None
     ) -> dict[str, Contig]:
+        """Load contig metadata for the contigs involved in RGP analysis.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param contigs_to_keep: Optional subset of contig names to keep.
+        :return: Mapping from contig name to Contig metadata records.
+        """
 
         contig_to_info: dict[str, Contig] = {}
         for table in reader.fetch(ContigTable):
@@ -315,6 +434,13 @@ class RGPClustering:
         return contig_to_info
 
     def _fetch_required_table(self, reader: H5Reader, table_type):
+        """Fetch a required table from the HDF5 file and convert missing-table errors.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param table_type: Dataclass schema describing the table to read.
+        :raises ValueError: If the table does not exist in the file.
+        :return: Iterator over rows from the requested table.
+        """
         try:
             return reader.fetch(table_type)
         except KeyError as e:
@@ -326,8 +452,10 @@ class RGPClustering:
     def _get_contig_border_genes(
         self, reader: H5Reader
     ) -> dict[str, ContigBorderPosition]:
-        """
-        Get contig information such as if it is circular, last gene position and last gene idx.
+        """Identify the first and last genes of each contig carrying RGPs.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Mapping from contig name to its border gene information.
         """
 
         contig_ids_with_rgp = {
@@ -418,6 +546,11 @@ class RGPClustering:
         return contig_name_to_border_genes
 
     def _get_rgp_genes(self, reader: H5Reader) -> dict[str, set[str]]:
+        """Load the gene membership of each RGP from the HDF5 file.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Mapping from each RGP name to the set of genes it contains.
+        """
         rgp_genes: dict[str, set[str]] = defaultdict(set)
 
         for table in reader.fetch(RGPTable):
@@ -428,9 +561,11 @@ class RGPClustering:
     def _get_metadata_sources(
         self, reader: H5Reader, metadata_sources: list[str] = None
     ) -> dict[str, list[str]]:
-        """
-        Get, per metatype, the list of metadata sources present in the pangenome file,
-        restricted to the requested sources (if any).
+        """List metadata sources available for each element type in the pangenome.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param metadata_sources: Optional subset of allowed metadata sources.
+        :return: Mapping of metatype names to the filtered source list.
         """
         status_attrs = reader.handle.root.status._v_attrs
         if not (hasattr(status_attrs, "metadata") and status_attrs.metadata):
@@ -470,11 +605,14 @@ class RGPClustering:
         value_target: Dict[str, Dict[str, list]] = None,
         source_target: Dict[Union[str, int], set] = None,
     ) -> None:
-        """
-        Read a single metadata source table directly from the H5 file (lightweight, no
-        pangenome object creation), and accumulate either the raw values (for RGPs metadata,
-        which are written as node attributes) and/or the set of sources providing metadata
-        for each identifier (used for family/gene/module/spot presence flags).
+        """Read one metadata source table and accumulate its values or source flags.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param metatype: Metadata element type, such as RGPs, genes, or families.
+        :param source: Name of the metadata source to read.
+        :param value_target: Optional mapping of identifiers to metadata value lists.
+        :param source_target: Optional mapping of identifiers to metadata source sets.
+        :return: None. The data is stored in the instance dictionaries.
         """
         table = reader.handle.get_node(f"/metadata/{metatype}/{source}")
 
@@ -498,9 +636,11 @@ class RGPClustering:
     def _load_metadata(
         self, reader: H5Reader, metadata_sources: list[str] = None
     ) -> None:
-        """
-        Load metadata directly from the H5 file, in the same lightweight way RGP info is
-        loaded (reading tables directly instead of building full pangenome objects).
+        """Load metadata from the HDF5 file into the clustering graph metadata stores.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param metadata_sources: Optional subset of metadata sources to include.
+        :return: None. The metadata caches are updated on the instance.
         """
         metatype_to_sources = self._get_metadata_sources(reader, metadata_sources)
 
@@ -546,6 +686,12 @@ class RGPClustering:
         reader: H5Reader,
         rgp_with_genes: dict[str, set[str]],
     ) -> list[RGPInfo]:
+        """Build a compact RGP summary from each gene collection.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param rgp_with_genes: Mapping of each RGP name to the genes it contains.
+        :return: List of RGPInfo objects describing family content and contig status.
+        """
 
         contig_to_border_genes = self._get_contig_border_genes(reader)
 
@@ -615,6 +761,12 @@ class RGPClustering:
         return rgp_infos
 
     def _construct_single(self, idx: int, rgp: RGPInfo):
+        """Create a RegionProxy for a single RGP.
+
+        :param idx: Stable graph node identifier.
+        :param rgp: Summary of the RGP to transform into a proxy.
+        :return: RegionProxy for the single RGP.
+        """
         return RegionProxy(
             ID=idx,
             name=rgp.name,
@@ -632,10 +784,22 @@ class RGPClustering:
         )
 
     def _construct_single_and_add(self, idx: int, rgp: RGPInfo):
+        """Create and register a single-region node in the graph.
+
+        :param idx: Stable graph node identifier.
+        :param rgp: Summary of the RGP to add.
+        :return: None. The graph and rgps set are updated.
+        """
         self.graph.add_node(idx)
         self.rgps.add(self._construct_single(idx, rgp))
 
     def _construct_multiple(self, idx: int, rgps: list[RGPInfo]):
+        """Create a merged RegionProxy for identical RGPs.
+
+        :param idx: Stable graph node identifier for the merged region.
+        :param rgps: RGP summaries that share the same family content.
+        :return: RegionProxy representing the identical-group node.
+        """
         return RegionProxy(
             ID=idx,
             name=f"identical_rgps_{self.identical_regions}",
@@ -657,22 +821,49 @@ class RGPClustering:
         )
 
     def _construct_multiple_and_add(self, idx: int, rgps: list[RGPInfo]):
+        """Create and register a merged identical-region node.
+
+        :param idx: Stable graph node identifier.
+        :param rgps: Identical RGP summaries to merge.
+        :return: None. The graph and rgps collection are updated.
+        """
         self.rgps.add(self._construct_multiple(idx, rgps))
         self.graph.add_node(idx)
         self.identical_regions += 1
 
     def _construct_and_add(self, idx: int, rgps: list[RGPInfo]):
+        """Register a region as either a single node or a merged identical-group node.
+
+        :param idx: Stable graph node identifier.
+        :param rgps: One or more RGP summaries to add.
+        :return: None.
+        """
         if len(rgps) == 1:
             self._construct_single_and_add(idx, rgps[0])
         else:
             self._construct_multiple_and_add(idx, rgps)
 
     def _grr(self, b1: BitMap, b2: BitMap, mode: Callable) -> float:
+        """Compute the gene repertoire relatedness between two family sets.
+
+        :param b1: BitMap of families in the first region.
+        :param b2: BitMap of families in the second region.
+        :param mode: Callable used to choose the denominator (min or max).
+        :return: Jaccard-style similarity value between the two family sets.
+        """
         return len(b1 & b2) / mode(len(b1), len(b2))
 
     def _rgp_metric(
         self, r1: RegionProxy, r2: RegionProxy, grr_cutoff: float, metric: RGPMetricType
     ) -> RGPMetric:
+        """Compute the similarity metric used to connect two RGPs in the graph.
+
+        :param r1: First region proxy.
+        :param r2: Second region proxy.
+        :param grr_cutoff: Minimum required metric value for an edge to be retained.
+        :param metric: Name of the metric to evaluate.
+        :return: RGPMetric if the similarity exceeds the cutoff, otherwise None.
+        """
         if r1.is_contig_border or r2.is_contig_border:
             agrr = self._grr(r1.families, r2.families, min)
             max_grr = self._grr(r1.families, r2.families, max)
@@ -691,6 +882,13 @@ class RGPClustering:
         metadata_sources: list[str] = None,
         ignore_incomplete_rgp: bool = False,
     ):
+        """Load all RGPs from disk and assemble graph nodes before clustering.
+
+        :param with_metadata: Whether metadata should be attached to the graph.
+        :param metadata_sources: Optional list of metadata sources to include.
+        :param ignore_incomplete_rgp: Whether edge-border RGPs should be filtered out.
+        :return: None. The graph content and RGP cache are populated.
+        """
         logging.getLogger("PPanGGOLiN").info("Loading RGPs from pangenome H5 file")
 
         with H5Reader(self.h5) as reader:
@@ -743,7 +941,13 @@ class RGPClustering:
     def _compute_all_metrics(
         self, grr_cutoff: float, metric: RGPMetricType, disable_bar: bool = False
     ):
-        """Compute metrics without materializing the set of candidate pairs."""
+        """Compute RGP-to-RGP similarity metrics and retain edges above the threshold.
+
+        :param grr_cutoff: Minimum similarity required to keep an edge.
+        :param metric: Metric name used to decide edge retention.
+        :param disable_bar: Whether to silence the progress bar.
+        :return: None. The graph edges are updated in place.
+        """
         logging.getLogger("PPanGGOLiN").info("Computing RGP metrics")
 
         family_to_rgps = defaultdict(list)
@@ -778,6 +982,11 @@ class RGPClustering:
         )
 
     def _louvain_clustering(self, metric: RGPMetricType):
+        """Cluster the RGP graph using the Louvain method.
+
+        :param metric: Similarity metric to use as the graph edge weight.
+        :return: None. Cluster labels are attached to graph nodes.
+        """
         logging.getLogger("PPanGGOLiN").info(
             f"Clustering RGPs using Louvain communities on '{metric}' metric"
         )
@@ -802,6 +1011,10 @@ class RGPClustering:
         )
 
     def _add_edges_to_identical_rgps(self):
+        """Expand merged identical-region nodes into their child RGP nodes and edges.
+
+        :return: None. The graph is updated to include both children and the original group.
+        """
         logging.getLogger("PPanGGOLiN").info("Unmerging identical RGPs in the graph")
 
         unmerged = 0
@@ -836,6 +1049,11 @@ class RGPClustering:
         logging.getLogger("PPanGGOLiN").info(f"Unmerged {unmerged} identical RGPs")
 
     def _spot_id(self, rgp: RegionProxy) -> str:
+        """Return the human-readable spot identifier for an RGP.
+
+        :param rgp: Region proxy to inspect.
+        :return: Spot label in the form 'spot_X' or 'No spot'.
+        """
         if rgp.name in self._rgp_to_spot:
             return f"spot_{self._rgp_to_spot[rgp.name]}"
         else:
@@ -848,10 +1066,13 @@ class RGPClustering:
         families_ids: BitMap,
         module_ids: Set[int],
     ) -> None:
-        """
-        Add metadata-derived attributes to a node info dict: booleans indicating whether
-        family/gene/module/spot metadata is present from a given source, and the RGP's own
-        metadata fields.
+        """Append metadata-derived attributes to an RGP node description.
+
+        :param info: Dictionary storing node attributes to enrich.
+        :param rgp_names: Names of the RGPs to inspect for metadata.
+        :param families_ids: Family identifiers contributing to the metadata summary.
+        :param module_ids: Module identifiers contributing to the metadata summary.
+        :return: None. The info dictionary is modified in place.
         """
         if not self._has_metadata:
             return
@@ -908,6 +1129,11 @@ class RGPClustering:
             info[key] = json.dumps(values)
 
     def _make_info_identical_rgp(self, rgp: RegionProxy) -> dict:
+        """Build the attribute dictionary for a merged identical-RGP group node.
+
+        :param rgp: Region proxy representing identical child RGPs.
+        :return: Dictionary of node attributes for output tables and graph exports.
+        """
 
         spots = {self._spot_id(child) for child in rgp.children}
 
@@ -916,7 +1142,9 @@ class RGPClustering:
             "name": rgp.name,
             "families_count": len(rgp.families),
             "identical_rgp_count": len(rgp.children),
-            "identical_rgp_names": ";".join(sorted(child.name for child in rgp.children)),
+            "identical_rgp_names": ";".join(
+                sorted(child.name for child in rgp.children)
+            ),
             "identical_rgp_genomes": ";".join(
                 ";".join(sorted({child.organism for child in rgp.children}))
             ),
@@ -941,6 +1169,11 @@ class RGPClustering:
         return info
 
     def _make_info_from_rgp(self, rgp: RegionProxy) -> dict:
+        """Build the attribute dictionary for a single RGP node.
+
+        :param rgp: Region proxy representing a single RGP.
+        :return: Dictionary of node attributes for output tables and graph exports.
+        """
 
         info = {
             "contig": rgp.contig,
@@ -959,6 +1192,10 @@ class RGPClustering:
         return info
 
     def _add_info_to_rgps(self):
+        """Attach metadata and summary attributes to each graph node.
+
+        :return: None. Each node in the graph is updated with annotation fields.
+        """
 
         logging.getLogger("PPanGGOLiN").info("Adding info to RGPs in graph")
 
@@ -985,6 +1222,13 @@ class RGPClustering:
         logging.getLogger("PPanGGOLiN").info(f"Added info to {annotated} RGPs")
 
     def _write_graphs(self, output: Path, basename: str, graph_formats: list[str]):
+        """Write the computed graph to the selected output formats.
+
+        :param output: Output directory for the graph files.
+        :param basename: Basename used for the exported files.
+        :param graph_formats: Graph output formats to generate.
+        :return: None. Files are written on disk.
+        """
         if "gexf" in graph_formats:
             graph_filename = output / f"{basename}.gexf"
             logging.getLogger("PPanGGOLiN").info(
@@ -1000,6 +1244,13 @@ class RGPClustering:
             nx.write_graphml(self.graph, graph_filename)
 
     def _write_cluster_table(self, output: Path, basename: str, metric: str):
+        """Write cluster assignments to a TSV table.
+
+        :param output: Output directory for the TSV file.
+        :param basename: Basename used for the output file.
+        :param metric: Metric name used in the cluster attribute labels.
+        :return: None. The cluster table is written to disk.
+        """
         outfile = output / f"{basename}.tsv"
         rows = []
 
@@ -1046,10 +1297,23 @@ class RGPClustering:
     def _write_outputs(
         self, output: Path, basename: str, graph_formats: list[str], metric: str
     ):
+        """Write all clustering outputs for the current analysis.
+
+        :param output: Output directory for the exported files.
+        :param basename: Basename used for all generated files.
+        :param graph_formats: Output graph formats to generate.
+        :param metric: Metric name used in cluster labels.
+        :return: None. Output tables and graphs are written on disk.
+        """
         self._write_graphs(output, basename, graph_formats)
         self._write_cluster_table(output, basename, metric)
 
     def run(self, options: RGPClusteringOptions):
+        """Run the full RGP clustering workflow from HDF5 loading to output writing.
+
+        :param options: Configuration parameters for the clustering process.
+        :return: None. The graph and output files are generated in place.
+        """
 
         self._construct_regions(
             with_metadata=options.with_metadata,
@@ -1074,14 +1338,18 @@ class RGPClustering:
 
     @property
     def rgp_count(self) -> int:
+        """Return the number of unique RGP proxies held in memory.
+
+        :return: Count of loaded RGP entries.
+        """
         return len(self.rgps)
 
 
 def launch(args: argparse.Namespace):
-    """
-    Command launcher
+    """Command launcher for the RGP clustering workflow.
 
-    :param args: All arguments provided by user
+    :param args: All arguments provided by the user on the command line.
+    :return: None. The clustering workflow is executed in place.
     """
 
     mk_outdir(args.output, args.force)
@@ -1109,12 +1377,10 @@ def launch(args: argparse.Namespace):
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    """
-    Subparser to launch PPanGGOLiN in Command line
+    """Create the command-line subparser for the RGP clustering command.
 
-    :param sub_parser : Sub_parser for cluster_rgp command
-
-    :return : Parser arguments for cluster_rgp command
+    :param sub_parser: Argument parser collection that receives the new subcommand.
+    :return: The configured argument parser for the RGP clustering command.
     """
     parser = sub_parser.add_parser(
         "rgp_cluster", formatter_class=argparse.RawTextHelpFormatter
@@ -1126,10 +1392,10 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
 
 def parser_cluster_rgp(parser: argparse.ArgumentParser):
-    """
-    Parser for specific argument of rgp command
+    """Define all CLI arguments for the RGP clustering command.
 
-    :param parser: Parser for cluster_rgp argument
+    :param parser: Argument parser instance to enrich with clustering options.
+    :return: None. The passed parser is updated in place.
     """
     required = parser.add_argument_group(
         title="Required arguments",
