@@ -1,804 +1,1386 @@
 #!/usr/bin/env python3
 
 # default libraries
-import logging
 import argparse
-import os
-from itertools import combinations
-from collections.abc import Callable
+import json
+import logging
+import typing as tp
 from collections import defaultdict
-from typing import Dict, List, Tuple, Set, Union, Any
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from itertools import combinations
 from pathlib import Path
+from typing import Dict, List, Set, Union
+
+import networkx as nx
+import pandas as pd
+from pyroaring import BitMap
 
 # installed libraries
 from tqdm import tqdm
-import networkx as nx
-import pandas as pd
 
-# local libraries
-from ppanggolin.pangenome import Pangenome
-from ppanggolin.region import Region, Spot, Module
-from ppanggolin.formats import check_pangenome_info
-from ppanggolin.utils import restricted_float, mk_outdir
+from ppanggolin.formats.h5reader import H5Reader, TableAttribute
 from ppanggolin.geneFamily import GeneFamily
 
+# local libraries
+from ppanggolin.utils import mk_outdir, restricted_float
 
-class IdenticalRegions:
-    """
-    Represents a group of Identical Regions within a pangenome.
 
-    :param name: The name of the identical region group.
-    :param identical_rgps: A set of Region objects representing the identical regions.
-    :param families: A set of GeneFamily objects associated with the identical regions.
-    :param is_contig_border: A boolean indicating if the identical regions span across contig borders.
-    """
+class RegionProxy:
+    """Represent a single RGP or a merged group of identical RGPs in the clustering graph."""
 
     def __init__(
         self,
+        ID: int,
         name: str,
-        identical_rgps: Set[Region],
-        families: Set[GeneFamily],
+        families: BitMap,
         is_contig_border: bool,
+        is_whole_contig: bool,
+        children=None,
+        modules=None,
+        contig=None,
+        organism=None,
+        length=0,
     ):
-        if not isinstance(identical_rgps, set):
-            raise TypeError("Expected 'identical_rgps' to be a set")
-        else:
-            if len(identical_rgps) == 0:
-                raise ValueError("Set of identical_rgps must not be empty")
-            if not all(isinstance(region, Region) for region in identical_rgps):
-                raise TypeError("All element in identical_rgps must be `Region`")
-        if not isinstance(families, set):
-            raise TypeError("Expected 'families' to be a set")
-        else:
-            if len(families) == 0:
-                raise ValueError("Set of families must not be empty")
-            if not all(isinstance(family, GeneFamily) for family in families):
-                raise TypeError("All element in families must be `GeneFamilies`")
-        self.name = name
-        self.families = families
-        self.rgps = identical_rgps
-        self.is_contig_border = is_contig_border
-        self.ID = Region.id_counter
+        """Initialize the proxy with the RGP identity and family content.
 
-        Region.id_counter += 1
-
-    def __eq__(self, other: "IdenticalRegions") -> bool:
+        :param ID: Stable identifier used in the graph and output tables.
+        :param name: Name of the region or identical-group label.
+        :param families: BitMap of family identifiers present in the RGP.
+        :param is_contig_border: Whether the region touches a contig border.
+        :param is_whole_contig: Whether the region spans the whole contig.
+        :param children: Child RGP proxies for merged identical regions.
+        :param modules: Module identifiers associated with the RGP.
+        :param contig: Contig name associated with the region.
+        :param organism: Organism name associated with the region.
+        :param length: Number of genes in the region.
         """
-        Check if two IdenticalRegions objects are equal based on their families,
-        identical regions, and contig border status.
+        self.ID: int = ID
+        self.name: str = name
+        self.families: BitMap = families
+        self.children: set[RegionProxy] = children
+        self.modules: set[int] = set(modules) if modules is not None else set()
 
-        :param other: The IdenticalRegions object to compare.
-        :return: True if the objects are equal, False otherwise.
+        if self.children:
+            self.organism: str = next(iter(self.children)).organism
+            self.contig: str = next(iter(self.children)).contig
+        else:
+            self.organism: str = organism
+            self.contig: str = contig
+
+        self.length: int = length
+        self.nb_families: int = len(self.families)
+
+        self.is_contig_border: bool = is_contig_border
+        self.is_whole_contig: bool = is_whole_contig
+
+    @property
+    def is_identical_region(self) -> bool:
+        """Whether this region proxy represents a merged group of identical RGPs.
+
+        :return: True when the proxy stores multiple child regions.
         """
-        if not isinstance(other, IdenticalRegions):
-            # don't attempt to compare against unrelated types
-            raise TypeError(
-                "'IdenticalRegions' type object was expected, "
-                f"but '{type(other)}' type object was provided."
-            )
-
-        return (
-            self.families == other.families
-            and self.rgps == other.rgps
-            and self.is_contig_border == other.is_contig_border
-        )
+        return self.children is not None and len(self.children) > 0
 
     def __repr__(self):
-        return (
-            f"IdenticalRegions(name='{self.name}', num_rgps={len(self.rgps)}, num_families={len(self.families)},"
-            f" is_contig_border={self.is_contig_border})"
-        )
+        """Return a compact representation of the proxy for debugging.
+
+        :return: Debug-friendly representation of the region proxy.
+        """
+        return f"RegionProxy2(ID={self.ID}, name='{self.name}')"
 
     def __str__(self):
+        """Return the region name.
+
+        :return: Human-readable name of the region.
+        """
         return self.name
 
-    def __hash__(self):
-        return id(self)
+    def __hash__(self) -> int:
+        """Hash the proxy using a stable region identifier.
+
+        :return: Hash value derived from the region ID.
+        """
+        # Hash on the stable, deterministically-assigned ID rather than id(self):
+        # object addresses vary between runs and make set/dict iteration order
+        # (and therefore graph construction order) non-reproducible.
+        return hash(self.ID)
+
+    def __eq__(self, rhs: "RegionProxy") -> bool:
+        """Check whether two region proxies describe the same content.
+
+        :param rhs: Other region proxy to compare against.
+        :return: Whether the two proxies are equivalent.
+        """
+        return (
+            self.families == rhs.families
+            and self.children == rhs.children
+            and self.is_contig_border == rhs.is_contig_border
+        )
 
     def __lt__(self, obj):
+        """Compare regions by their stable identifier.
+
+        :param obj: Other region proxy.
+        :return: Whether this region comes before the other one.
+        """
         return self.ID < obj.ID
 
     def __gt__(self, obj):
+        """Compare regions by their stable identifier.
+
+        :param obj: Other region proxy.
+        :return: Whether this region comes after the other one.
+        """
         return self.ID > obj.ID
 
     def __le__(self, obj):
+        """Compare regions by their stable identifier.
+
+        :param obj: Other region proxy.
+        :return: Whether this region is less than or equal to the other one.
+        """
         return self.ID <= obj.ID
 
     def __ge__(self, obj):
+        """Compare regions by their stable identifier.
+
+        :param obj: Other region proxy.
+        :return: Whether this region is greater than or equal to the other one.
+        """
         return self.ID >= obj.ID
 
-    @property
-    def genes(self):
+
+@dataclass
+class RGPTable:
+    """Schema for the RGP membership table stored in the HDF5 file."""
+
+    rgp: tp.Annotated[
+        str, TableAttribute(name="RGP", transform=lambda x: x.decode("utf-8"))
+    ]
+    gene: tp.Annotated[
+        str, TableAttribute(name="gene", transform=lambda x: x.decode("utf-8"))
+    ]
+    _table: str = "/RGP"
+
+
+@dataclass
+class GeneFamTable:
+    """Schema for the gene-to-family table stored in the HDF5 file."""
+
+    gene: tp.Annotated[
+        str, TableAttribute(name="gene", transform=lambda x: x.decode("utf-8"))
+    ]
+    family: tp.Annotated[
+        str, TableAttribute(name="geneFam", transform=lambda x: x.decode("utf-8"))
+    ]
+    _table: str = "/geneFamilies"
+
+
+@dataclass
+class AnnotationsGeneTable:
+    """Schema for the annotations gene table used to map genes to contigs."""
+
+    name: tp.Annotated[
+        str, TableAttribute(name="ID", transform=lambda x: x.decode("utf-8"))
+    ]
+    contig: tp.Annotated[int, TableAttribute(name="contig")]
+    _table: str = "/annotations/genes"
+
+
+@dataclass
+class RGPSpotTable:
+    """Schema for the RGP-to-spot assignment table."""
+
+    rgp: tp.Annotated[
+        str, TableAttribute(name="RGP", transform=lambda x: x.decode("utf-8"))
+    ]
+    spot: tp.Annotated[int, TableAttribute(name="spot")]
+    _table: str = "/spots"
+
+
+@dataclass
+class ModuleTable:
+    """Schema for the family-to-module membership table."""
+
+    fam: tp.Annotated[
+        str, TableAttribute(name="geneFam", transform=lambda x: x.decode("utf-8"))
+    ]
+    module: tp.Annotated[int, TableAttribute(name="module")]
+    _table: str = "/modules"
+
+
+@dataclass
+class ContigTable:
+    """Schema for contig metadata stored in the HDF5 pangenome."""
+
+    genome: tp.Annotated[
+        str, TableAttribute(name="genome", transform=lambda x: x.decode("utf-8"))
+    ]
+    contig: tp.Annotated[
+        str, TableAttribute(name="name", transform=lambda x: x.decode("utf-8"))
+    ]
+    is_circular: tp.Annotated[bool, TableAttribute(name="is_circular")]
+    idx: tp.Annotated[int, TableAttribute(name="ID")]
+    _table: str = "/annotations/contigs"
+
+
+@dataclass
+class GenesTable:
+    """Schema for the gene annotations table used to resolve contig membership."""
+
+    name: tp.Annotated[
+        str, TableAttribute(name="ID", transform=lambda x: x.decode("utf-8"))
+    ]
+    genedata: tp.Annotated[int, TableAttribute(name="genedata_id")]
+    contig: tp.Annotated[int, TableAttribute(name="contig")]
+    _table: str = "/annotations/genes"
+
+
+@dataclass
+class GeneDataTable:
+    """Schema for the per-gene coordinate table used in contig border logic."""
+
+    # gene_type: tp.Annotated[str, TableAttribute(name="gene_type", transform=lambda x: x.decode('utf-8'))]
+    idx: tp.Annotated[int, TableAttribute(name="genedata_id")]
+    start: tp.Annotated[int, TableAttribute(name="start")]
+    stop: tp.Annotated[int, TableAttribute(name="stop")]
+    position: tp.Annotated[int, TableAttribute(name="position")]
+    _table: str = "/annotations/genedata"
+
+
+@dataclass
+class RGPGeneProxy:
+    """Store the coordinate information of a gene within an RGP."""
+
+    start: int
+    stop: int
+    position: int
+
+
+@dataclass
+class RGPGenes:
+    """Bundle contig-level information for a set of genes belonging to an RGP."""
+
+    contig: int
+    is_circular_contig: bool
+    genes: list[RGPGeneProxy]
+
+
+@dataclass
+class RGPInfo:
+    """In-memory summary of an RGP before building graph nodes."""
+
+    name: str
+    families: set[str]
+    families_ids: BitMap
+    is_contig_border: bool
+    is_whole_contig: bool
+    contig: str
+
+
+@dataclass
+class ContigBorderPosition:
+    """Store the first and last gene coordinates on a contig."""
+
+    last_gene_position: int
+    last_gene_idx: int
+    first_gene_idx: int
+    first_gene_position: int
+    gene_count: int
+
+
+@dataclass
+class ContigBorderGenes:
+    """Store the first and last gene names for a contig used in border checks."""
+
+    first_gene: str
+    last_gene: str
+    gene_count: int
+
+
+@dataclass
+class RGPMetric:
+    """Store the computed similarity metric between two regions."""
+
+    max_grr: float
+    min_grr: float
+    incomplete_aware_grr: float
+    shared_family: int
+
+
+@dataclass
+class Contig:
+    """Basic metadata describing a contig referenced by the clustering analysis."""
+
+    organism: str
+    is_circular: bool
+    idx: int
+    name: str
+
+
+RGPMetricType = tp.Literal["max_grr", "min_grr", "incomplete_aware_grr"]
+
+
+@dataclass
+class RGPClusteringOptions:
+    """Configuration values controlling the RGP clustering workflow."""
+
+    grr_cutoff: float = 0.3
+    metric: RGPMetricType = "incomplete_aware_grr"
+    unmerge_identical_rgps: bool = True
+    output: Path = Path("rgp_clustering")
+    basename: str = "rgp_cluster"
+    graph_formats: list[str] = ("gexf", "graphml")
+    with_metadata: bool = False
+    metadata_sources: list[str] = field(default_factory=list)
+    ignore_incomplete_rgp: bool = False
+    disable_prog_bar: bool = False
+
+
+class RGPClustering:
+    """Load RGP data from an HDF5 pangenome and cluster regions by family content."""
+
+    def __init__(self, pangenome_h5: Path):
+        """Initialize an RGP clustering analysis for a pangenome file.
+
+        :param pangenome_h5: Path to the pangenome HDF5 file.
         """
-        Return iterable of genes from all RGPs that are identical in families
+        self.h5 = Path(pangenome_h5)
+        self.rgps: set[RegionProxy] = set()
+        self.metrics: list[RGPMetric] = []
+        self.identical_regions: int = 0
+        self.graph: nx.Graph = nx.Graph()
+        self._rgp_to_spot: dict[str, int] = None
+        self._fam_to_modules: dict[str, set[str]] = None
+        self._contig_to_organism: dict[str, str] = None
+        self._rgp_to_nb_genes: dict[str, int] = None
+        self._rgp_to_contig_info: dict[str, RGPGenes] = None
+        self._rgp_to_genes: dict[str, set[str]] = None
+        self._family_id_to_name: dict[int, str] = None
+        self._has_metadata: bool = False
+        self._rgp_metadata_values: Dict[str, Dict[str, list]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+        self._family_metadata_sources: Dict[str, set] = defaultdict(set)
+        self._gene_metadata_sources: Dict[str, set] = defaultdict(set)
+        self._spot_metadata_sources: Dict[int, set] = defaultdict(set)
+        self._module_metadata_sources: Dict[int, set] = defaultdict(set)
+
+    def _get_rgp_spot(self, reader: H5Reader) -> dict[str, int]:
+        """Load the mapping between each RGP and its associated spot.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Dictionary mapping every RGP name to its spot identifier.
         """
-        for rgp in self.rgps:
-            yield from rgp.genes
+        rgp_to_spot: dict[str, int] = {}
+        for table in reader.fetch(RGPSpotTable):
+            rgp_to_spot[table.rgp] = table.spot
+        return rgp_to_spot
 
-    @property
-    def spots(self) -> Set[Spot]:
+    def _get_fam_to_modules(self, reader: H5Reader) -> dict[str, set[str]]:
+        """Load the mapping from each gene family to the modules containing it.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Dictionary from family name to set of module identifiers.
         """
-        Return spots from all RGPs that are identical in families
+        fam_to_modules: dict[str, set[str]] = defaultdict(set)
+        for table in reader.fetch(ModuleTable):
+            fam_to_modules[table.fam].add(table.module)
+        return fam_to_modules
+
+    def _get_contig_to_organism(self, reader: H5Reader) -> dict[str, str]:
+        """Map contig names to their associated genome names.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Dictionary mapping each contig name to its organism name.
         """
-        spots = {rgp.spot for rgp in self.rgps if rgp.spot is not None}
-        return spots
+        contig_to_organism: dict[str, str] = {}
+        for table in reader.fetch(ContigTable):
+            contig_to_organism[table.contig] = table.genome
+        return contig_to_organism
 
-    @property
-    def modules(self) -> Set[Module]:
+    def _get_contig_to_is_circular(self, reader: H5Reader) -> dict[str, bool]:
+        """Map contig identifiers to their circularity metadata.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Dictionary mapping each contig identifier to whether it is circular.
         """
-        Return iterable of genes from all RGPs that are identical in families
+        circular_contig_ids: dict[str, bool] = {}
+        for table in reader.fetch(ContigTable):
+            circular_contig_ids[table.idx] = table.is_circular
+        return circular_contig_ids
+
+    def _get_contig_to_info(
+        self, reader: H5Reader, contigs_to_keep: set[str] = None
+    ) -> dict[str, Contig]:
+        """Load contig metadata for the contigs involved in RGP analysis.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param contigs_to_keep: Optional subset of contig names to keep.
+        :return: Mapping from contig name to Contig metadata records.
         """
-        modules = set()
-        for rgp in self.rgps:
-            modules |= rgp.modules
 
-        return modules
+        contig_to_info: dict[str, Contig] = {}
+        for table in reader.fetch(ContigTable):
+            if contigs_to_keep is None or table.contig in contigs_to_keep:
+                contig_to_info[table.contig] = Contig(
+                    organism=table.genome,
+                    is_circular=table.is_circular,
+                    idx=table.idx,
+                    name=table.contig,
+                )
 
+        return contig_to_info
 
-def compute_grr(
-    rgp_a_families: Set[GeneFamily], rgp_b_families: Set[GeneFamily], mode: Callable
-) -> float:
-    """
-    Compute gene repertoire relatedness (GRR) between two rgp.
-    Mode can be the function min to compute min GRR or max to compute max_grr
+    def _fetch_required_table(self, reader: H5Reader, table_type):
+        """Fetch a required table from the HDF5 file and convert missing-table errors.
 
-    :param rgp_a_families: Rgp A
-    :param rgp_b_families: rgp B
-    :param mode: min or max function
+        :param reader: H5Reader opened on the pangenome file.
+        :param table_type: Dataclass schema describing the table to read.
+        :raises ValueError: If the table does not exist in the file.
+        :return: Iterator over rows from the requested table.
+        """
+        try:
+            return reader.fetch(table_type)
+        except KeyError as e:
+            raise ValueError(
+                f"Required table '{table_type.__name__}' is missing from the "
+                "pangenome H5 file."
+            ) from e
 
-    :return: GRR value between 0 and 1
-    """
+    def _get_contig_border_genes(
+        self, reader: H5Reader
+    ) -> dict[str, ContigBorderPosition]:
+        """Identify the first and last genes of each contig carrying RGPs.
 
-    grr = len(rgp_a_families & rgp_b_families) / mode(
-        len(rgp_a_families), len(rgp_b_families)
-    )
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Mapping from contig name to its border gene information.
+        """
 
-    return grr
+        contig_ids_with_rgp = {
+            contig_info.idx for contig_info in self._rgp_contig_to_info.values()
+        }
+        genedata_to_contig_ids: dict[int, list[int]] = defaultdict(list)
 
+        # Map gene name with genetadata id
+        # and contig id with genmetadata id in annotations/genes table
 
-def compute_jaccard_index(rgp_a_families: set, rgp_b_families: set) -> float:
-    """
-    Compute jaccard index between two rgp based on their families.
+        for table in reader.fetch(GenesTable):
+            if table.contig not in contig_ids_with_rgp:
+                continue
+            genedata_to_contig_ids[table.genedata].append(table.contig)
+            # contig_genedata_id_to_gene_name[(table.contig, table.genedata)] = table.name
 
-    :param rgp_a_families: Rgp A
-    :param rgp_b_families: rgp B
+        # Create a contig info dictionary to store contig information
+        contig_to_info: dict[int, ContigBorderPosition] = {}
 
-    :return : Jaccard index
-    """
+        for table in reader.fetch(GeneDataTable):
+            # Problem with RNA genes that are not in GenesTable
+            # We could filter based on gene_type columns but need to retrieve this column
+            # and convert it to string when parsing GeneDataTable which takes time
+            # quick and dirty solution for now:
+            try:
+                contig_ids = genedata_to_contig_ids[table.idx]
+            except KeyError:
+                continue
+            for contig_id in contig_ids:
+                if contig_id not in contig_to_info:
+                    contig_to_info[contig_id] = ContigBorderPosition(
+                        last_gene_position=table.position,
+                        last_gene_idx=table.idx,
+                        first_gene_position=table.position,
+                        first_gene_idx=table.idx,
+                        gene_count=0,
+                    )
+                contig_to_info[contig_id].gene_count += 1
 
-    jaccard_index = len(rgp_a_families & rgp_b_families) / len(
-        rgp_a_families | rgp_b_families
-    )
+                if table.position > contig_to_info[contig_id].last_gene_position:
+                    contig_to_info[contig_id].last_gene_position = table.position
+                    contig_to_info[contig_id].last_gene_idx = table.idx
 
-    return jaccard_index
+                if table.position < contig_to_info[contig_id].first_gene_position:
+                    contig_to_info[contig_id].first_gene_position = table.position
+                    contig_to_info[contig_id].first_gene_idx = table.idx
 
+        assert all(
+            info.first_gene_position == 0 for info in contig_to_info.values()
+        ), "Some contigs have no gene at position 0"
 
-def add_info_to_rgp_nodes(graph, regions: List[Region], region_to_spot: dict):
-    """
-    Format RGP information into a dictionary for adding to the graph.
-
-    This function takes a list of RGPs and a dictionary mapping each RGP to its corresponding spot ID,
-    and formats the RGP information into a dictionary for further processing or addition to a graph.
-
-    :param graph: RGPs graph
-    :param regions: A list of RGPs.
-    :param region_to_spot: A dictionary mapping each RGP to its corresponding spot ID.
-    :return: A dictionary with RGP id as the key and a dictionary containing information on the corresponding RGP as value.
-    """
-
-    region_attributes = {}
-    for region in regions:
-        region_info = {
-            "contig": region.contig.name,
-            "genome": region.organism.name,
-            "name": region.name,
-            "genes_count": len(region),
-            "is_contig_border": region.is_contig_border,
-            "is_whole_contig": region.is_whole_contig,
-            "spot_id": get_spot_id(region, region_to_spot),
-            "modules": ";".join({str(module) for module in region.modules}),
-            "families_count": region.number_of_families,
+        contig_id_to_name = {
+            contig_info.idx: contig_info.name
+            for contig_info in self._rgp_contig_to_info.values()
         }
 
-        region_attributes[region.ID] = region_info
+        # compute mapping (contig_id, genedata_id) to gene_name info only for border genes
+        # need to go through GenesTable again to get gene names
+        contig_genedata_id_to_gene_name = {
+            (contig_id, info.first_gene_idx): None
+            for contig_id, info in contig_to_info.items()
+        }
+        contig_genedata_id_to_gene_name.update(
+            {
+                (contig_id, info.last_gene_idx): None
+                for contig_id, info in contig_to_info.items()
+            }
+        )
+        for table in reader.fetch(GenesTable):
+            if (table.contig, table.genedata) in contig_genedata_id_to_gene_name:
+                contig_genedata_id_to_gene_name[(table.contig, table.genedata)] = (
+                    table.name
+                )
 
-        node_attributes = graph.nodes[region.ID]
-        node_attributes.update(region_info)
+        contig_name_to_border_genes = {
+            contig_id_to_name[contig_id]: ContigBorderGenes(
+                first_gene=contig_genedata_id_to_gene_name[
+                    contig_id, info.first_gene_idx
+                ],
+                last_gene=contig_genedata_id_to_gene_name[
+                    contig_id, info.last_gene_idx
+                ],
+                gene_count=info.gene_count,
+            )
+            for contig_id, info in contig_to_info.items()
+        }
 
-    return region_attributes
+        return contig_name_to_border_genes
 
+    def _get_rgp_genes(self, reader: H5Reader) -> dict[str, set[str]]:
+        """Load the gene membership of each RGP from the HDF5 file.
 
-def join_dicts(dicts: List[Dict[str, Any]], delimiter: str = ";") -> Dict[str, Any]:
-    """
-    Join dictionaries by concatenating the values with a custom delimiter for common keys.
+        :param reader: H5Reader opened on the pangenome file.
+        :return: Mapping from each RGP name to the set of genes it contains.
+        """
+        rgp_genes: dict[str, set[str]] = defaultdict(set)
 
-    Given a list of dictionaries, this function creates a new dictionary where the values for common keys
-    are concatenated with the specified delimiter.
+        for table in reader.fetch(RGPTable):
+            rgp_genes[table.rgp].add(table.gene)
 
-    :param dicts: A list of dictionaries to be joined.
-    :param delimiter: The delimiter to use for joining values. Default is ';'.
-    :return: A dictionary with joined values for common keys.
-    """
-    final_dict = defaultdict(list)
-    for dict_obj in dicts:
-        for k, v in dict_obj.items():
-            final_dict[k].append(str(v))
-    return {k: delimiter.join(v) for k, v in final_dict.items()}
+        return rgp_genes
 
+    def _get_metadata_sources(
+        self, reader: H5Reader, metadata_sources: list[str] = None
+    ) -> dict[str, list[str]]:
+        """List metadata sources available for each element type in the pangenome.
 
-def format_rgp_metadata(rgp: Region) -> Dict[str, str]:
-    """
-    Format RGP metadata by combining source and field values.
+        :param reader: H5Reader opened on the pangenome file.
+        :param metadata_sources: Optional subset of allowed metadata sources.
+        :return: Mapping of metatype names to the filtered source list.
+        """
+        status_attrs = reader.handle.root.status._v_attrs
+        if not (hasattr(status_attrs, "metadata") and status_attrs.metadata):
+            return {}
 
-    Given an RGP object with metadata, this function creates a new dictionary where the keys
-    are formatted as 'source_field' and the values are concatenated with '|' as the delimiter.
+        metastatus = reader.handle.root.status.metastatus._v_attrs
+        metasources = reader.handle.root.status.metasources._v_attrs
 
-    :param rgp: The RGP object with metadata.
-    :return: A dictionary with formatted metadata.
-    """
-    source_field_2_value = defaultdict(list)
-    for rgp_metadata in rgp.metadata:
-        source = rgp_metadata.source
-        for field in rgp_metadata.fields:
-            source_field_2_value[f"{source}_{field}"].append(
-                str(rgp_metadata.get(field))
+        metatype_to_sources: dict[str, list[str]] = {}
+        for metatype in ("RGPs", "genes", "spots", "families", "modules"):
+            if not getattr(metastatus, metatype, False):
+                continue
+
+            sources = list(getattr(metasources, metatype, []))
+            if metadata_sources is not None:
+                sources = [source for source in sources if source in metadata_sources]
+
+            if sources:
+                metatype_to_sources[metatype] = sources
+                logging.getLogger("PPanGGOLiN").info(
+                    f"Metadata for {metatype} found in pangenome with sources {sources}. "
+                    "They will be included in the RGP graph."
+                )
+            elif metadata_sources is not None:
+                logging.getLogger("PPanGGOLiN").info(
+                    f"Metadata for {metatype} found in pangenome, but none match the "
+                    f"specified sources {metadata_sources}."
+                )
+
+        return metatype_to_sources
+
+    def _read_metadata_source(
+        self,
+        reader: H5Reader,
+        metatype: str,
+        source: str,
+        value_target: Dict[str, Dict[str, list]] = None,
+        source_target: Dict[Union[str, int], set] = None,
+    ) -> None:
+        """Read one metadata source table and accumulate its values or source flags.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param metatype: Metadata element type, such as RGPs, genes, or families.
+        :param source: Name of the metadata source to read.
+        :param value_target: Optional mapping of identifiers to metadata value lists.
+        :param source_target: Optional mapping of identifiers to metadata source sets.
+        :return: None. The data is stored in the instance dictionaries.
+        """
+        table = reader.handle.get_node(f"/metadata/{metatype}/{source}")
+
+        for row in table.iterrows():
+            identifier = row["ID"]
+            if isinstance(identifier, bytes):
+                identifier = identifier.decode("utf-8")
+
+            if source_target is not None:
+                source_target[identifier].add(source)
+
+            if value_target is not None:
+                for field in table.colnames:
+                    if field == "ID":
+                        continue
+                    value = row[field]
+                    if isinstance(value, bytes):
+                        value = value.decode("utf-8")
+                    value_target[identifier][f"{source}_{field}"].append(str(value))
+
+    def _load_metadata(
+        self, reader: H5Reader, metadata_sources: list[str] = None
+    ) -> None:
+        """Load metadata from the HDF5 file into the clustering graph metadata stores.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param metadata_sources: Optional subset of metadata sources to include.
+        :return: None. The metadata caches are updated on the instance.
+        """
+        metatype_to_sources = self._get_metadata_sources(reader, metadata_sources)
+
+        for metatype, sources in metatype_to_sources.items():
+            for source in sources:
+                if metatype == "RGPs":
+                    self._read_metadata_source(
+                        reader, metatype, source, value_target=self._rgp_metadata_values
+                    )
+                elif metatype == "families":
+                    self._read_metadata_source(
+                        reader,
+                        metatype,
+                        source,
+                        source_target=self._family_metadata_sources,
+                    )
+                elif metatype == "genes":
+                    self._read_metadata_source(
+                        reader,
+                        metatype,
+                        source,
+                        source_target=self._gene_metadata_sources,
+                    )
+                elif metatype == "spots":
+                    self._read_metadata_source(
+                        reader,
+                        metatype,
+                        source,
+                        source_target=self._spot_metadata_sources,
+                    )
+                elif metatype == "modules":
+                    self._read_metadata_source(
+                        reader,
+                        metatype,
+                        source,
+                        source_target=self._module_metadata_sources,
+                    )
+
+        self._has_metadata = bool(metatype_to_sources)
+
+    def _get_rgp_info(
+        self,
+        reader: H5Reader,
+        rgp_with_genes: dict[str, set[str]],
+    ) -> list[RGPInfo]:
+        """Build a compact RGP summary from each gene collection.
+
+        :param reader: H5Reader opened on the pangenome file.
+        :param rgp_with_genes: Mapping of each RGP name to the genes it contains.
+        :return: List of RGPInfo objects describing family content and contig status.
+        """
+
+        contig_to_border_genes = self._get_contig_border_genes(reader)
+
+        self._rgp_to_nb_genes: dict[str, int] = {
+            rgp_name: len(genes) for rgp_name, genes in rgp_with_genes.items()
+        }
+
+        genes_to_keep = {gene for genes in rgp_with_genes.values() for gene in genes}
+
+        gene_to_family: dict[str, str] = {}
+
+        for table in reader.fetch(
+            GeneFamTable,
+            override={
+                "gene": {
+                    "predicate": lambda x: x.decode("utf-8") in genes_to_keep,
+                }
+            },
+        ):
+            gene_to_family[table.gene] = table.family
+
+        # Sort before enumerating: iterating a set of strings depends on
+        # PYTHONHASHSEED, which is randomized per process by default and would
+        # make family ID assignment (and therefore node ordering) non-reproducible.
+        unique_families = sorted(set(gene_to_family.values()))
+        family_ids = {fam: idx for idx, fam in enumerate(unique_families)}
+        self._family_id_to_name = {idx: fam for fam, idx in family_ids.items()}
+
+        rgp_infos: list[RGPInfo] = []
+
+        for rgp_name, genes in rgp_with_genes.items():
+
+            rgp_families_ids: BitMap = BitMap()
+            rgp_families: set[str] = set()
+            contig_name = rgp_name.split("_RGP_")[0]
+            for gene in genes:
+
+                fam = gene_to_family[gene]
+                fam_id = family_ids[fam]
+                rgp_families.add(fam)
+                rgp_families_ids.add(fam_id)
+
+            contig_border_info = contig_to_border_genes[contig_name]
+            is_contig_circular = self._rgp_contig_to_info[contig_name].is_circular
+
+            is_contig_border = False
+            if not is_contig_circular and (
+                contig_border_info.first_gene in genes
+                or contig_border_info.last_gene in genes
+            ):
+                is_contig_border = True
+
+            is_whole_contig = False
+            if len(genes) == contig_border_info.gene_count:
+                is_whole_contig = True
+
+            info = RGPInfo(
+                name=rgp_name,
+                families=rgp_families,
+                families_ids=rgp_families_ids,
+                is_contig_border=is_contig_border,
+                is_whole_contig=is_whole_contig,
+                contig=contig_name,
+            )
+            rgp_infos.append(info)
+
+        return rgp_infos
+
+    def _construct_single(self, idx: int, rgp: RGPInfo):
+        """Create a RegionProxy for a single RGP.
+
+        :param idx: Stable graph node identifier.
+        :param rgp: Summary of the RGP to transform into a proxy.
+        :return: RegionProxy for the single RGP.
+        """
+        return RegionProxy(
+            ID=idx,
+            name=rgp.name,
+            families=rgp.families_ids,
+            modules=BitMap(
+                module_id
+                for fam in rgp.families
+                for module_id in self._fam_to_modules.get(fam, [])
+            ),
+            contig=rgp.contig,
+            organism=self._rgp_contig_to_info[rgp.contig].organism,
+            length=self._rgp_to_nb_genes[rgp.name],
+            is_contig_border=rgp.is_contig_border,
+            is_whole_contig=rgp.is_whole_contig,
+        )
+
+    def _construct_single_and_add(self, idx: int, rgp: RGPInfo):
+        """Create and register a single-region node in the graph.
+
+        :param idx: Stable graph node identifier.
+        :param rgp: Summary of the RGP to add.
+        :return: None. The graph and rgps set are updated.
+        """
+        self.graph.add_node(idx)
+        self.rgps.add(self._construct_single(idx, rgp))
+
+    def _construct_multiple(self, idx: int, rgps: list[RGPInfo]):
+        """Create a merged RegionProxy for identical RGPs.
+
+        :param idx: Stable graph node identifier for the merged region.
+        :param rgps: RGP summaries that share the same family content.
+        :return: RegionProxy representing the identical-group node.
+        """
+        return RegionProxy(
+            ID=idx,
+            name=f"identical_rgps_{self.identical_regions}",
+            families=rgps[0].families_ids,
+            children=set(
+                self._construct_single(i, rgp)
+                for i, rgp in enumerate(rgps, start=idx + 1)
+            ),
+            modules=BitMap(
+                module_id
+                for fam in rgps[0].families
+                for module_id in self._fam_to_modules.get(fam, [])
+            ),
+            contig=self._contig_to_organism,
+            # identical regions object is considered on a contig border if all rgp are contig border
+            is_contig_border=all(rgp.is_contig_border for rgp in rgps),
+            # identical regions object is considered as whole contig if all rgp are whole contig
+            is_whole_contig=all(rgp.is_whole_contig for rgp in rgps),
+        )
+
+    def _construct_multiple_and_add(self, idx: int, rgps: list[RGPInfo]):
+        """Create and register a merged identical-region node.
+
+        :param idx: Stable graph node identifier.
+        :param rgps: Identical RGP summaries to merge.
+        :return: None. The graph and rgps collection are updated.
+        """
+        self.rgps.add(self._construct_multiple(idx, rgps))
+        self.graph.add_node(idx)
+        self.identical_regions += 1
+
+    def _construct_and_add(self, idx: int, rgps: list[RGPInfo]):
+        """Register a region as either a single node or a merged identical-group node.
+
+        :param idx: Stable graph node identifier.
+        :param rgps: One or more RGP summaries to add.
+        :return: None.
+        """
+        if len(rgps) == 1:
+            self._construct_single_and_add(idx, rgps[0])
+        else:
+            self._construct_multiple_and_add(idx, rgps)
+
+    def _grr(self, b1: BitMap, b2: BitMap, mode: Callable) -> float:
+        """Compute the gene repertoire relatedness between two family sets.
+
+        :param b1: BitMap of families in the first region.
+        :param b2: BitMap of families in the second region.
+        :param mode: Callable used to choose the denominator (min or max).
+        :return: Jaccard-style similarity value between the two family sets.
+        """
+        return len(b1 & b2) / mode(len(b1), len(b2))
+
+    def _rgp_metric(
+        self, r1: RegionProxy, r2: RegionProxy, grr_cutoff: float, metric: RGPMetricType
+    ) -> RGPMetric:
+        """Compute the similarity metric used to connect two RGPs in the graph.
+
+        :param r1: First region proxy.
+        :param r2: Second region proxy.
+        :param grr_cutoff: Minimum required metric value for an edge to be retained.
+        :param metric: Name of the metric to evaluate.
+        :return: RGPMetric if the similarity exceeds the cutoff, otherwise None.
+        """
+        if r1.is_contig_border or r2.is_contig_border:
+            agrr = self._grr(r1.families, r2.families, min)
+            max_grr = self._grr(r1.families, r2.families, max)
+            min_grr = agrr
+        else:
+            agrr = self._grr(r1.families, r2.families, max)
+            min_grr = self._grr(r1.families, r2.families, min)
+            max_grr = agrr
+
+        m = RGPMetric(max_grr, min_grr, agrr, len(r1.families & r2.families))
+        return m if getattr(m, metric) >= grr_cutoff else None
+
+    def _construct_regions(
+        self,
+        with_metadata: bool = False,
+        metadata_sources: list[str] = None,
+        ignore_incomplete_rgp: bool = False,
+    ):
+        """Load all RGPs from disk and assemble graph nodes before clustering.
+
+        :param with_metadata: Whether metadata should be attached to the graph.
+        :param metadata_sources: Optional list of metadata sources to include.
+        :param ignore_incomplete_rgp: Whether edge-border RGPs should be filtered out.
+        :return: None. The graph content and RGP cache are populated.
+        """
+        logging.getLogger("PPanGGOLiN").info("Loading RGPs from pangenome H5 file")
+
+        with H5Reader(self.h5) as reader:
+
+            rgp_to_genes = self._get_rgp_genes(reader)
+            if with_metadata:
+                self._rgp_to_genes = rgp_to_genes
+
+            contigs_with_rgp = {rgp_name.split("_RGP_")[0] for rgp_name in rgp_to_genes}
+
+            self._rgp_contig_to_info = self._get_contig_to_info(
+                reader, contigs_with_rgp
             )
 
-    return {
-        col_name: "|".join(values) for col_name, values in source_field_2_value.items()
-    }
+            rgp_infos = self._get_rgp_info(reader, rgp_to_genes)
 
+            if ignore_incomplete_rgp:
+                rgp_infos = [
+                    rgp_info for rgp_info in rgp_infos if not rgp_info.is_contig_border
+                ]
+                logging.getLogger("PPanGGOLiN").info(
+                    f"{len(rgp_infos)} RGPs loaded from pangenome after filtering out incomplete RGPs"
+                )
 
-def add_rgp_metadata_to_graph(
-    graph: nx.Graph, rgps: List[Union[Region, IdenticalRegions]]
-) -> None:
-    """
-    Add metadata from Region or IdenticalRegions objects to the graph.
+            self._rgp_to_spot = self._get_rgp_spot(reader)
+            self._fam_to_modules = self._get_fam_to_modules(reader)
 
-    :param graph: The graph to which the metadata will be added.
-    :param rgps: A set of Region or IdenticalRegions objects containing the metadata to be added.
+            if with_metadata:
+                self._load_metadata(reader, metadata_sources)
 
-    """
-    for rgp in rgps:
-        element_to_metadata_sources = {
-            "family": set(),
+            fams_to_rgps: defaultdict[tuple[int], list[RGPInfo]] = defaultdict(list)
+
+            for info in rgp_infos:
+                fams_key = tuple(sorted(fam_id for fam_id in info.families_ids))
+                fams_to_rgps[fams_key].append(info)
+
+            idx = 0
+            for _fams, rgps in sorted(fams_to_rgps.items(), key=lambda x: x[0]):
+                self._construct_and_add(idx, rgps)
+                idx += len(rgps) + 1 if len(rgps) > 1 else 1
+
+        logging.getLogger("PPanGGOLiN").info(
+            f"{len(rgp_infos)} RGPs loaded from pangenome ({len(self.rgps)} unique RGPs after dereplication)"
+        )
+        if len(rgp_infos) == 0:
+            logging.getLogger("PPanGGOLiN").warning(
+                "Pangenome contains no RGPs. Output files will be empty."
+            )
+
+    def _compute_all_metrics(
+        self, grr_cutoff: float, metric: RGPMetricType, disable_bar: bool = False
+    ):
+        """Compute RGP-to-RGP similarity metrics and retain edges above the threshold.
+
+        :param grr_cutoff: Minimum similarity required to keep an edge.
+        :param metric: Metric name used to decide edge retention.
+        :param disable_bar: Whether to silence the progress bar.
+        :return: None. The graph edges are updated in place.
+        """
+        logging.getLogger("PPanGGOLiN").info("Computing RGP metrics")
+
+        family_to_rgps = defaultdict(list)
+        for rgp in self.rgps:
+            for family in rgp.families:
+                family_to_rgps[family].append(rgp)
+
+        nb_pairs = 0
+        selected_count = 0
+
+        with tqdm(
+            total=len(family_to_rgps),
+            desc="Computing metrics",
+            disable=disable_bar,
+            bar_format="{desc}: {percentage:3.0f}%|{bar}",
+        ) as pbar:
+            for family in sorted(family_to_rgps):
+                for r1, r2 in combinations(family_to_rgps[family], 2):
+                    shared_families = r1.families & r2.families
+                    if family != next(iter(shared_families)):
+                        continue
+
+                    nb_pairs += 1
+                    if m := self._rgp_metric(r1, r2, grr_cutoff, metric):
+                        selected_count += 1
+                        self.graph.add_edge(r1.ID, r2.ID, **m.__dict__)
+                pbar.update(1)
+
+        logging.getLogger("PPanGGOLiN").info(
+            f"RGP metrics computed for {nb_pairs:,} pairs of RGPs "
+            f"({selected_count:,} selected after GRR cutoff)"
+        )
+
+    def _louvain_clustering(self, metric: RGPMetricType):
+        """Cluster the RGP graph using the Louvain method.
+
+        :param metric: Similarity metric to use as the graph edge weight.
+        :return: None. Cluster labels are attached to graph nodes.
+        """
+        logging.getLogger("PPanGGOLiN").info(
+            f"Clustering RGPs using Louvain communities on '{metric}' metric"
+        )
+
+        partitions = nx.algorithms.community.louvain_communities(
+            self.graph, weight=metric, seed=42
+        )
+        ordered_partitions = sorted(
+            partitions,
+            key=lambda nodes: (min(nodes), len(nodes)),
+        )
+
+        for i, nodes in enumerate(ordered_partitions):
+            nx.set_node_attributes(
+                self.graph,
+                {node: f"cluster_{i}" for node in nodes},
+                name=f"{metric}_cluster",
+            )
+
+        logging.getLogger("PPanGGOLiN").info(
+            f"Graph has {len(ordered_partitions)} RGP clusters using '{metric}'"
+        )
+
+    def _add_edges_to_identical_rgps(self):
+        """Expand merged identical-region nodes into their child RGP nodes and edges.
+
+        :return: None. The graph is updated to include both children and the original group.
+        """
+        logging.getLogger("PPanGGOLiN").info("Unmerging identical RGPs in the graph")
+
+        unmerged = 0
+        edge_data = {
+            "max_grr": 1.0,
+            "min_grr": 1.0,
+            "grr": 1.0,
+            "identical_famillies": True,
+        }
+
+        for rgp in self.rgps:
+            if not rgp.is_identical_region:
+                continue
+
+            unmerged += 1
+            self.graph.add_nodes_from(
+                (child.ID for child in rgp.children),
+                identical_rgp_group=rgp.name,
+            )
+
+            edges = [
+                (r1.ID, r2.ID, edge_data) for r1, r2 in combinations(rgp.children, 2)
+            ]
+
+            for connected in self.graph.neighbors(rgp.ID):
+                data = self.graph[rgp.ID][connected]
+                edges += [(child.ID, connected, data) for child in rgp.children]
+
+            self.graph.add_edges_from(edges)
+            self.graph.remove_node(rgp.ID)
+
+        logging.getLogger("PPanGGOLiN").info(f"Unmerged {unmerged} identical RGPs")
+
+    def _spot_id(self, rgp: RegionProxy) -> str:
+        """Return the human-readable spot identifier for an RGP.
+
+        :param rgp: Region proxy to inspect.
+        :return: Spot label in the form 'spot_X' or 'No spot'.
+        """
+        if rgp.name in self._rgp_to_spot:
+            return f"spot_{self._rgp_to_spot[rgp.name]}"
+        else:
+            return "No spot"
+
+    def _add_metadata_info(
+        self,
+        info: dict,
+        rgp_names: List[str],
+        families_ids: BitMap,
+        module_ids: Set[int],
+    ) -> None:
+        """Append metadata-derived attributes to an RGP node description.
+
+        :param info: Dictionary storing node attributes to enrich.
+        :param rgp_names: Names of the RGPs to inspect for metadata.
+        :param families_ids: Family identifiers contributing to the metadata summary.
+        :param module_ids: Module identifiers contributing to the metadata summary.
+        :return: None. The info dictionary is modified in place.
+        """
+        if not self._has_metadata:
+            return
+
+        element_to_sources = {
+            "family": (
+                set().union(
+                    *(
+                        self._family_metadata_sources.get(
+                            self._family_id_to_name[fid], set()
+                        )
+                        for fid in families_ids
+                    )
+                )
+                if families_ids
+                else set()
+            ),
+            "module": (
+                set().union(
+                    *(
+                        self._module_metadata_sources.get(module_id, set())
+                        for module_id in module_ids
+                    )
+                )
+                if module_ids
+                else set()
+            ),
             "gene": set(),
-            "module": set(),
             "spot": set(),
         }
 
-        for family in rgp.families:
-            element_to_metadata_sources["family"] |= {
-                metadata.source for metadata in family.metadata
-            }
-            if family.module:
-                element_to_metadata_sources["module"] |= {
-                    metadata.source for metadata in family.module.metadata
-                }
-
-        for gene in rgp.genes:
-            element_to_metadata_sources["gene"] |= {
-                metadata.source for metadata in gene.metadata
-            }
-
-        if isinstance(rgp, Region):
-            rgp_metadata = rgp.formatted_metadata_dict_to_string()
-            if rgp.spot is not None:
-                element_to_metadata_sources["spot"] = {
-                    metadata.source for metadata in rgp.spot.metadata
-                }
-
-        elif isinstance(rgp, IdenticalRegions):
-            rgp_metadata_dicts = [
-                ident_rgp.formatted_metadata_dict_to_string() for ident_rgp in rgp.rgps
-            ]
-            rgp_metadata = join_dicts(rgp_metadata_dicts)
-
-            element_to_metadata_sources["spot"] |= {
-                metadata.source for spot in rgp.spots for metadata in spot.metadata
-            }
-
-        else:
-            raise TypeError(
-                f"Expect Region or IdenticalRegions object, not {type(rgp)}"
-            )
-
-        for element, metadata_sources in element_to_metadata_sources.items():
-            for source in metadata_sources:
-                graph.nodes[rgp.ID][f"has_{element}_with_{source}"] = True
-
-        for metadata_name, value in rgp_metadata.items():
-            graph.nodes[rgp.ID][metadata_name] = value
-
-
-def add_info_to_identical_rgps(
-    rgp_graph: nx.Graph,
-    identical_rgps_objects: List[IdenticalRegions],
-    rgp_to_spot: Dict[Region, int],
-):
-    """
-    Add identical rgps info in the graph as node attributes.
-
-    :params rgp_graph: Graph with rgp id as node and grr value as edges
-    :params rgp_to_identical_rgps: dict with uniq RGP as the key and set of identical rgps as value
-    """
-
-    for identical_rgp_obj in identical_rgps_objects:
-        spots_of_identical_rgp_obj = {
-            get_spot_id(i_rgp, rgp_to_spot) for i_rgp in identical_rgp_obj.rgps
-        }
-
-        rgp_graph.add_node(
-            identical_rgp_obj.ID,
-            identical_rgp_group=True,
-            name=identical_rgp_obj.name,
-            families_count=len(identical_rgp_obj.families),
-            identical_rgp_count=len(identical_rgp_obj.rgps),
-            identical_rgp_names=";".join(
-                i_rgp.name for i_rgp in identical_rgp_obj.rgps
-            ),
-            identical_rgp_genomes=";".join(
-                {i_rgp.organism.name for i_rgp in identical_rgp_obj.rgps}
-            ),
-            identical_rgp_contig_border_count=len(
-                [True for i_rgp in identical_rgp_obj.rgps if i_rgp.is_contig_border]
-            ),
-            identical_rgp_whole_contig_count=len(
-                [True for i_rgp in identical_rgp_obj.rgps if i_rgp.is_whole_contig]
-            ),
-            identical_rgp_spots=";".join(spots_of_identical_rgp_obj),
-            spot_id=(
-                spots_of_identical_rgp_obj.pop()
-                if len(spots_of_identical_rgp_obj) == 1
-                else "Multiple spots"
-            ),
-            modules=";".join({str(module) for module in identical_rgp_obj.modules}),
-        )
-
-
-def add_edges_to_identical_rgps(
-    rgp_graph: nx.Graph, identical_rgps_objects: List[IdenticalRegions]
-):
-    """
-    Replace identical rgp objects by all identical RGPs it contains.
-
-    :param rgp_graph: The RGP graph to add edges to.
-    :param identical_rgps_objects: A dictionary mapping RGPs to sets of identical RGPs.
-    """
-
-    identical_edge_data = {
-        "grr": 1.0,
-        "max_grr": 1.0,
-        "min_grr": 1.0,
-        "identical_famillies": True,
-    }
-
-    added_identical_rgps = []
-
-    for identical_rgp_obj in identical_rgps_objects:
-
-        rgp_graph.add_nodes_from(
-            [ident_rgp.ID for ident_rgp in identical_rgp_obj.rgps],
-            identical_rgp_group=identical_rgp_obj.name,
-        )
-
-        # add edge between identical rgp with metrics at one (perfect score)
-        edges_to_add = [
-            (rgp_a.ID, rgp_b.ID, identical_edge_data)
-            for rgp_a, rgp_b in combinations(identical_rgp_obj.rgps, 2)
-        ]
-
-        # replicate all edges that connect identical rgp object to other rgps
-        for connected_rgp in rgp_graph.neighbors(identical_rgp_obj.ID):
-            edge_data = rgp_graph[identical_rgp_obj.ID][connected_rgp]
-            edges_to_add += [
-                (identical_rgp.ID, connected_rgp, edge_data)
-                for identical_rgp in identical_rgp_obj.rgps
-            ]
-
-        rgp_graph.add_edges_from(edges_to_add)
-
-        # remove node of the identical rgp object
-        rgp_graph.remove_node(identical_rgp_obj.ID)
-
-        added_identical_rgps += list(identical_rgp_obj.rgps)
-
-    return added_identical_rgps
-
-
-def dereplicate_rgp(
-    rgps: Set[Union[Region, IdenticalRegions]], disable_bar: bool = False
-) -> List[Union[Region, IdenticalRegions]]:
-    """
-    Dereplicate RGPs that have the same families.
-
-    Given a list of Region or IdenticalRegions objects representing RGPs, this function groups together
-    RGPs with the same families into IdenticalRegions objects and returns a list of dereplicated RGPs.
-
-    :param rgps: A set of Region or IdenticalRegions objects representing the RGPs to be dereplicated.
-    :param disable_bar: If True, disable the progress bar.
-
-    :return: A list of dereplicated RGPs (Region or IdenticalRegions objects). For RGPs with the same families,
-             they will be grouped together in IdenticalRegions objects.
-    """
-    logging.getLogger("PPanGGOLiN").info(f"Dereplicating {len(rgps)} RGPs")
-    families_to_rgps = defaultdict(list)
-
-    for rgp in tqdm(rgps, total=len(rgps), unit="RGP", disable=disable_bar):
-        families_to_rgps[tuple(sorted(f.ID for f in rgp.families))].append(rgp)
-
-    dereplicated_rgps = []
-    identical_region_count = 0
-    for rgps in families_to_rgps.values():
-        if len(rgps) == 1:
-            dereplicated_rgps.append(rgps[0])
-        else:
-            families = set(rgps[0].families)
-
-            # identical regions object is considered on a contig border if all rgp are contig border
-            is_contig_border = all(rgp.is_contig_border for rgp in rgps)
-
-            # create a new object that will represent the identical rgps
-            identical_rgp = IdenticalRegions(
-                name=f"identical_rgps_{identical_region_count}",
-                identical_rgps=set(rgps),
-                families=families,
-                is_contig_border=is_contig_border,
-            )
-            identical_region_count += 1
-            dereplicated_rgps.append(identical_rgp)
-
-    logging.getLogger("PPanGGOLiN").info(f"{len(dereplicated_rgps)} unique RGPs")
-    return dereplicated_rgps
-
-
-def compute_rgp_metric(
-    rgp_a: Region, rgp_b: Region, grr_cutoff: float, grr_metric: str
-) -> Union[Tuple[int, int, dict], None]:
-    """
-    Compute GRR metric between two RGPs.
-
-    :param rgp_a: A rgp
-    :param rgp_b: another rgp
-    :param grr_cutoff: Cutoff filter
-    :param grr_metric: grr mode between min_grr, max_grr and incomplete_aware_grr
-
-    :returns: Tuple containing the IDs of the two RGPs and the computed metrics as a dictionary
-    """
-
-    edge_metrics = {}
-
-    # RGP at a contig border are seen as incomplete and min GRR is used instead of max GRR
-    if rgp_a.is_contig_border or rgp_b.is_contig_border:
-        edge_metrics["incomplete_aware_grr"] = compute_grr(
-            set(rgp_a.families), set(rgp_b.families), min
-        )
-    else:
-        edge_metrics["incomplete_aware_grr"] = compute_grr(
-            set(rgp_a.families), set(rgp_b.families), max
-        )
-
-    # Compute max and min GRR metrics
-    edge_metrics["max_grr"] = compute_grr(set(rgp_a.families), set(rgp_b.families), max)
-    edge_metrics["min_grr"] = compute_grr(set(rgp_a.families), set(rgp_b.families), min)
-
-    # The number of shared families can be useful when visualizing the graph
-    edge_metrics["shared_family"] = len(
-        set(rgp_a.families).intersection(set(rgp_b.families))
-    )
-
-    # Only return the metrics if the GRR value is above the cutoff
-    if edge_metrics[grr_metric] >= grr_cutoff:
-        return rgp_a.ID, rgp_b.ID, edge_metrics
-
-
-def cluster_rgp_on_grr(graph: nx.Graph, clustering_attribute: str = "grr"):
-    """
-    Cluster rgp based on grr using louvain communities clustering.
-
-    :param graph: NetworkX graph object representing the RGPs and their relationship
-    :param clustering_attribute: Attribute of the graph to use for clustering (default is "grr")
-    """
-
-    partitions = nx.algorithms.community.louvain_communities(
-        graph, weight=clustering_attribute
-    )
-
-    # Add partition index in node attributes
-    for i, cluster_nodes in enumerate(partitions):
-        nx.set_node_attributes(
-            graph,
-            {node: f"cluster_{i}" for node in cluster_nodes},
-            name=f"{clustering_attribute}_cluster",
-        )
-
-    logging.getLogger("PPanGGOLiN").info(
-        f"Graph has {len(partitions)} clusters using {clustering_attribute}"
-    )
-
-
-def get_spot_id(rgp: Region, rgp_to_spot: Dict[Region, int]) -> str:
-    """
-    Return Spot ID associated to an RGP.
-    It adds the prefix "spot" to the spot ID. When no spot is associated with the RGP,
-    then the string "No spot" is return
-
-    :param rgp: RGP id
-    :param rgp_to_spot: A dictionary mapping an RGP to its spot.
-
-    :return: Spot ID of the given RGP with the prefix spot or "No spot".
-    """
-    if rgp in rgp_to_spot:
-        return f"spot_{rgp_to_spot[rgp]}"
-    else:
-        return "No spot"
-
-
-def write_rgp_cluster_table(
-    outfile: str,
-    grr_graph: nx.Graph,
-    rgps_in_graph: List[Union[Region, IdenticalRegions]],
-    grr_metric: str,
-    rgp_to_spot: Dict[Region, int],
-) -> None:
-    """
-    Writes RGP cluster info to a TSV file using pandas.
-
-    :param outfile: Name of the tsv file
-    :param grr_graph: The GRR graph.
-    :param rgps_in_graph: A dictionary mapping an RGP to a set of identical RGPs.
-    :param grr_metric: The GRR metric used for clustering.
-    :param rgp_to_spot: A dictionary mapping an RGP to its spot.
-    :return: None
-    """
-
-    all_rgps_infos = []
-    for rgp_in_graph in rgps_in_graph:
-        cluster = grr_graph.nodes[rgp_in_graph.ID][f"{grr_metric}_cluster"]
-
-        identical_rgps = (
-            [rgp_in_graph] if isinstance(rgp_in_graph, Region) else rgp_in_graph.rgps
-        )
-
-        all_rgps_infos += [
-            {"RGPs": r.name, "cluster": cluster, "spot_id": get_spot_id(r, rgp_to_spot)}
-            for r in identical_rgps
-        ]
-
-    df = pd.DataFrame(all_rgps_infos)
-    df.to_csv(outfile, sep="\t", index=False)
-
-
-def cluster_rgp(
-    pangenome,
-    grr_cutoff: float,
-    output: str,
-    basename: str,
-    ignore_incomplete_rgp: bool,
-    unmerge_identical_rgps: bool,
-    grr_metric: str,
-    disable_bar: bool,
-    graph_formats: Set[str],
-    add_metadata: bool = False,
-    metadata_sep: str = "|",
-    metadata_sources: List[str] = None,
-):
-    """
-    Main function to cluster regions of genomic plasticity based on their GRR
-
-    :param pangenome: pangenome object
-    :param grr_cutoff: GRR cutoff value for clustering
-    :param output: Directory where the output files will be saved
-    :param basename: Basename for the output files
-    :param ignore_incomplete_rgp: Whether to ignore incomplete RGPs located at a contig border
-    :param unmerge_identical_rgps: Whether to unmerge identical RGPs into separate nodes in the graph
-    :param grr_metric: GRR metric to use for clustering
-    :param disable_bar: Whether to disable the progress bar
-    :param graph_formats: Set of graph file formats to save the output
-    :param add_metadata: Add metadata to cluster files
-    :param metadata_sep: The separator used to join multiple metadata values
-    :param metadata_sources: Sources of the metadata to use and write in the outputs. None means all sources are used.
-    """
-
-    metatypes = set()
-    need_metadata = False
-    if add_metadata:
-        for element in ["RGPs", "genes", "spots", "families", "modules"]:
-            if pangenome.status["metadata"][element] == "inFile":
-
-                sources_to_use = set(pangenome.status["metasources"][element])
-
-                if metadata_sources is not None:
-                    if (
-                        len(
-                            set(pangenome.status["metasources"][element])
-                            & set(metadata_sources)
-                        )
-                        == 0
-                    ):
-                        logging.getLogger("PPanGGOLiN").info(
-                            f"Metadata for {element} found in pangenome, but none match the specified sources {metadata_sources}. "
-                            f"Current source for {element}: {sources_to_use}."
-                        )
-                        continue
-                    else:
-                        sources_to_use = set(
-                            pangenome.status["metasources"][element]
-                        ) & set(metadata_sources)
-
-                need_metadata = True
-                metatypes.add(element)
-                logging.getLogger("PPanGGOLiN").info(
-                    f"Metadata for {element} found in pangenome with sources {sources_to_use}. They will be included in the RGP graph."
+        for rgp_name in rgp_names:
+            for gene_name in self._rgp_to_genes.get(rgp_name, ()):
+                element_to_sources["gene"] |= self._gene_metadata_sources.get(
+                    gene_name, set()
                 )
 
-    # check statuses and load info
-    check_pangenome_info(
-        pangenome,
-        need_families=True,
-        need_annotations=True,
-        disable_bar=disable_bar,
-        need_rgp=True,
-        need_spots=True,
-        need_modules=True,
-        need_metadata=need_metadata,
-        sources=metadata_sources,
-        metatypes=metatypes,
-    )
+            spot_id = self._rgp_to_spot.get(rgp_name)
+            if spot_id is not None:
+                element_to_sources["spot"] |= self._spot_metadata_sources.get(
+                    spot_id, set()
+                )
 
-    if pangenome.regions == 0:
-        raise Exception(
-            "The pangenome has no RGPs. The clustering of RGP is then not possible."
+        for element, sources in element_to_sources.items():
+            for source in sources:
+                info[f"has_{element}_with_{source}"] = True
+
+        combined_rgp_metadata: Dict[str, list] = defaultdict(list)
+        for rgp_name in rgp_names:
+            for key, values in self._rgp_metadata_values.get(rgp_name, {}).items():
+                combined_rgp_metadata[key].extend(values)
+
+        for key, values in combined_rgp_metadata.items():
+            info[key] = json.dumps(values)
+
+    def _make_info_identical_rgp(self, rgp: RegionProxy) -> dict:
+        """Build the attribute dictionary for a merged identical-RGP group node.
+
+        :param rgp: Region proxy representing identical child RGPs.
+        :return: Dictionary of node attributes for output tables and graph exports.
+        """
+
+        spots = {self._spot_id(child) for child in rgp.children}
+
+        info = {
+            "identical_rgp_group": True,
+            "name": rgp.name,
+            "families_count": len(rgp.families),
+            "identical_rgp_count": len(rgp.children),
+            "identical_rgp_names": ";".join(
+                sorted(child.name for child in rgp.children)
+            ),
+            "identical_rgp_genomes": ";".join(
+                ";".join(sorted({child.organism for child in rgp.children}))
+            ),
+            "identical_rgp_contig_border_count": len(
+                [True for child in rgp.children if child.is_contig_border]
+            ),
+            "identical_rgp_whole_contig_count": len(
+                [True for child in rgp.children if child.is_whole_contig]
+            ),
+            "identical_rgp_spots": ";".join(sorted(spots)),
+            "spot_id": (spots.pop() if len(spots) == 1 else "Multiple spots"),
+            "modules": ";".join(sorted(f"module_{module}" for module in rgp.modules)),
+        }
+
+        self._add_metadata_info(
+            info,
+            sorted([child.name for child in rgp.children]),
+            rgp.families,
+            rgp.modules,
         )
 
-    # add all rgp as node
-    if ignore_incomplete_rgp:
-        valid_rgps = [rgp for rgp in pangenome.regions if not rgp.is_contig_border]
+        return info
 
-        ignored_rgp_count = pangenome.number_of_rgp - len(valid_rgps)
-        total_rgp_count = pangenome.number_of_rgp
+    def _make_info_from_rgp(self, rgp: RegionProxy) -> dict:
+        """Build the attribute dictionary for a single RGP node.
 
-        logging.getLogger("PPanGGOLiN").info(
-            f"Ignoring {ignored_rgp_count}/{total_rgp_count} ({100 * ignored_rgp_count / total_rgp_count:.2f}%) "
-            "RGPs that are located at a contig border and are likely incomplete."
-        )
+        :param rgp: Region proxy representing a single RGP.
+        :return: Dictionary of node attributes for output tables and graph exports.
+        """
 
-        if len(valid_rgps) == 0:
-            raise Exception(
-                "The pangenome has no complete RGPs. The clustering of RGP is then not possible."
+        info = {
+            "contig": rgp.contig,
+            "genome": rgp.organism,
+            "name": rgp.name,
+            "genes_count": rgp.length,
+            "is_contig_border": rgp.is_contig_border,
+            "is_whole_contig": rgp.is_whole_contig,
+            "spot_id": self._spot_id(rgp),
+            "modules": ";".join(f"module_{module}" for module in rgp.modules),
+            "families_count": rgp.nb_families,
+        }
+
+        self._add_metadata_info(info, [rgp.name], rgp.families, rgp.modules)
+
+        return info
+
+    def _add_info_to_rgps(self):
+        """Attach metadata and summary attributes to each graph node.
+
+        :return: None. Each node in the graph is updated with annotation fields.
+        """
+
+        logging.getLogger("PPanGGOLiN").info("Adding info to RGPs in graph")
+
+        annotated = 0
+        for rgp in self.rgps:
+
+            if rgp.ID in self.graph:
+                if rgp.is_identical_region:
+                    self.graph.nodes[rgp.ID].update(self._make_info_identical_rgp(rgp))
+
+                else:
+                    self.graph.nodes[rgp.ID].update(self._make_info_from_rgp(rgp))
+
+                annotated += 1
+
+            if rgp.children:  # in case identical rgp are unmerged
+                for child in rgp.children:
+                    if child.ID in self.graph:
+                        self.graph.nodes[child.ID].update(
+                            self._make_info_from_rgp(child)
+                        )
+                        annotated += 1
+
+        logging.getLogger("PPanGGOLiN").info(f"Added info to {annotated} RGPs")
+
+    def _write_graphs(self, output: Path, basename: str, graph_formats: list[str]):
+        """Write the computed graph to the selected output formats.
+
+        :param output: Output directory for the graph files.
+        :param basename: Basename used for the exported files.
+        :param graph_formats: Graph output formats to generate.
+        :return: None. Files are written on disk.
+        """
+        if "gexf" in graph_formats:
+            graph_filename = output / f"{basename}.gexf"
+            logging.getLogger("PPanGGOLiN").info(
+                f"Writing RGP graph in GEXF format to {graph_filename}"
             )
-    else:
-        valid_rgps = set(pangenome.regions)
+            nx.write_gexf(self.graph, graph_filename)
 
-    dereplicated_rgps = dereplicate_rgp(valid_rgps, disable_bar=disable_bar)
+        if "graphml" in graph_formats:
+            graph_filename = output / f"{basename}.graphml"
+            logging.getLogger("PPanGGOLiN").info(
+                f"Writing RGP graph in GraphML format to {graph_filename}"
+            )
+            nx.write_graphml(self.graph, graph_filename)
 
-    grr_graph = nx.Graph()
-    grr_graph.add_nodes_from(rgp.ID for rgp in dereplicated_rgps)
+    def _write_cluster_table(self, output: Path, basename: str, metric: str):
+        """Write cluster assignments to a TSV table.
 
-    # Get all pairs of RGP that share at least one family
+        :param output: Output directory for the TSV file.
+        :param basename: Basename used for the output file.
+        :param metric: Metric name used in the cluster attribute labels.
+        :return: None. The cluster table is written to disk.
+        """
+        outfile = output / f"{basename}.tsv"
+        rows = []
 
-    family2rgp = defaultdict(set)
-    for rgp in dereplicated_rgps:
-        for fam in rgp.families:
-            family2rgp[fam].add(rgp)
+        for node, attrs in self.graph.nodes(data=True):
+            cluster = attrs.get(f"{metric}_cluster")
+            if cluster is None:
+                raise ValueError(
+                    f"Node {node} does not have a '{metric}_cluster' attribute"
+                )
 
-    rgp_pairs = set()
-    for rgps in family2rgp.values():
-        rgp_pairs |= {tuple(sorted(rgp_pair)) for rgp_pair in combinations(rgps, 2)}
+            name = attrs["name"]
 
-    pairs_count = len(rgp_pairs)
+            if name.startswith("identical_rgps_"):
+                identical_rgp_names = attrs["identical_rgp_names"]
 
-    logging.getLogger("PPanGGOLiN").info(
-        f"Computing GRR metric for {pairs_count:,} pairs of RGP."
-    )
+                for child_name in identical_rgp_names.split(";"):
+                    rows.append(
+                        {
+                            "RGPs": child_name,
+                            "cluster": cluster,
+                            "spot_id": self._rgp_to_spot.get(child_name, "No spot"),
+                        }
+                    )
+            else:
 
-    pairs_of_rgps_metrics = []
+                rows.append(
+                    {
+                        "RGPs": attrs.get("name", str(node)),
+                        "cluster": cluster,
+                        "spot_id": attrs.get("spot_id", "No spot"),
+                    }
+                )
 
-    for rgp_a, rgp_b in rgp_pairs:
-
-        pair_metrics = compute_rgp_metric(rgp_a, rgp_b, grr_cutoff, grr_metric)
-
-        if pair_metrics:
-            pairs_of_rgps_metrics.append(pair_metrics)
-
-    grr_graph.add_edges_from(pairs_of_rgps_metrics)
-
-    identical_rgps_objects = [
-        rgp for rgp in dereplicated_rgps if isinstance(rgp, IdenticalRegions)
-    ]
-    rgp_objects_in_graph = [rgp for rgp in dereplicated_rgps if isinstance(rgp, Region)]
-
-    if unmerge_identical_rgps:
-        rgp_objects_in_graph += add_edges_to_identical_rgps(
-            grr_graph, identical_rgps_objects
+        rows.sort(key=lambda row: (row["cluster"], row["RGPs"]))
+        pd.DataFrame(rows, columns=["RGPs", "cluster", "spot_id"]).to_csv(
+            outfile,
+            sep="\t",
+            index=False,
         )
-
-    # cluster rgp based on grr value
-    logging.getLogger("PPanGGOLiN").info(
-        f"Louvain_communities clustering of RGP  based on {grr_metric} on {grr_graph}."
-    )
-
-    cluster_rgp_on_grr(grr_graph, grr_metric)
-
-    rgp_to_spot = {
-        region: int(spot.ID) for spot in pangenome.spots for region in spot.regions
-    }
-
-    if not unmerge_identical_rgps:
         logging.getLogger("PPanGGOLiN").info(
-            "Add info on identical RGPs merged in the graph"
+            f"Writing RGP clusters in TSV format to {outfile}"
         )
-        add_info_to_identical_rgps(grr_graph, identical_rgps_objects, rgp_to_spot)
 
-    rgps_in_graph = (
-        rgp_objects_in_graph if unmerge_identical_rgps else dereplicated_rgps
-    )
+    def _write_outputs(
+        self, output: Path, basename: str, graph_formats: list[str], metric: str
+    ):
+        """Write all clustering outputs for the current analysis.
 
-    # add some attribute to the graph nodes.
-    logging.getLogger("PPanGGOLiN").info("Add RGP information to the graph")
-    add_info_to_rgp_nodes(grr_graph, rgp_objects_in_graph, rgp_to_spot)
+        :param output: Output directory for the exported files.
+        :param basename: Basename used for all generated files.
+        :param graph_formats: Output graph formats to generate.
+        :param metric: Metric name used in cluster labels.
+        :return: None. Output tables and graphs are written on disk.
+        """
+        self._write_graphs(output, basename, graph_formats)
+        self._write_cluster_table(output, basename, metric)
 
-    if need_metadata:
-        add_rgp_metadata_to_graph(grr_graph, rgps_in_graph)
+    def run(self, options: RGPClusteringOptions):
+        """Run the full RGP clustering workflow from HDF5 loading to output writing.
 
-    if "gexf" in graph_formats:
-        # writing graph in gexf format
-        graph_file_name = os.path.join(output, f"{basename}.gexf")
-        logging.getLogger("PPanGGOLiN").info(
-            f"Writing graph in gexf format in {graph_file_name}."
+        :param options: Configuration parameters for the clustering process.
+        :return: None. The graph and output files are generated in place.
+        """
+
+        self._construct_regions(
+            with_metadata=options.with_metadata,
+            metadata_sources=options.metadata_sources or None,
+            ignore_incomplete_rgp=options.ignore_incomplete_rgp,
         )
-        nx.readwrite.gexf.write_gexf(grr_graph, graph_file_name)
 
-    if "graphml" in graph_formats:
-        graph_file_name = os.path.join(output, f"{basename}.graphml")
-        logging.getLogger("PPanGGOLiN").info(
-            f"Writing graph in graphml format in {graph_file_name}."
+        self._compute_all_metrics(
+            options.grr_cutoff, options.metric, disable_bar=options.disable_prog_bar
         )
-        nx.readwrite.graphml.write_graphml(grr_graph, graph_file_name)
 
-    outfile = os.path.join(output, f"{basename}.tsv")
-    logging.getLogger("PPanGGOLiN").info(
-        f"Writing rgp clusters in tsv format in {outfile}"
-    )
+        if options.unmerge_identical_rgps:
+            self._add_edges_to_identical_rgps()
 
-    write_rgp_cluster_table(outfile, grr_graph, rgps_in_graph, grr_metric, rgp_to_spot)
+        self._louvain_clustering(options.metric)
+
+        self._add_info_to_rgps()
+
+        self._write_outputs(
+            options.output, options.basename, options.graph_formats, options.metric
+        )
+
+    @property
+    def rgp_count(self) -> int:
+        """Return the number of unique RGP proxies held in memory.
+
+        :return: Count of loaded RGP entries.
+        """
+        return len(self.rgps)
 
 
 def launch(args: argparse.Namespace):
-    """
-    Command launcher
+    """Command launcher for the RGP clustering workflow.
 
-    :param args: All arguments provided by user
+    :param args: All arguments provided by the user on the command line.
+    :return: None. The clustering workflow is executed in place.
     """
-    pangenome = Pangenome()
 
     mk_outdir(args.output, args.force)
 
-    pangenome.add_file(args.pangenome)
+    if args.metadata_sep is not None:
+        logging.getLogger("PPanGGOLiN").warning(
+            "--metadata_sep is obsolete and ignored; metadata values are JSON-encoded in graphs."
+        )
 
-    cluster_rgp(
-        pangenome,
-        grr_cutoff=args.grr_cutoff,
-        output=args.output,
-        basename=args.basename,
-        ignore_incomplete_rgp=args.ignore_incomplete_rgp,
-        unmerge_identical_rgps=args.no_identical_rgp_merging,
-        grr_metric=args.grr_metric,
-        disable_bar=args.disable_prog_bar,
-        graph_formats=args.graph_formats,
-        add_metadata=args.add_metadata,
-        metadata_sep=args.metadata_sep,
-        metadata_sources=args.metadata_sources,
+    clustering = RGPClustering(args.pangenome)
+    clustering.run(
+        RGPClusteringOptions(
+            unmerge_identical_rgps=args.no_identical_rgp_merging,
+            grr_cutoff=args.grr_cutoff,
+            metric=args.grr_metric,
+            output=args.output,
+            basename=args.basename,
+            graph_formats=args.graph_formats,
+            with_metadata=args.add_metadata,
+            metadata_sources=args.metadata_sources,
+            ignore_incomplete_rgp=args.ignore_incomplete_rgp,
+            disable_prog_bar=args.disable_prog_bar,
+        )
     )
 
 
 def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    """
-    Subparser to launch PPanGGOLiN in Command line
+    """Create the command-line subparser for the RGP clustering command.
 
-    :param sub_parser : Sub_parser for cluster_rgp command
-
-    :return : Parser arguments for cluster_rgp command
+    :param sub_parser: Argument parser collection that receives the new subcommand.
+    :return: The configured argument parser for the RGP clustering command.
     """
     parser = sub_parser.add_parser(
         "rgp_cluster", formatter_class=argparse.RawTextHelpFormatter
@@ -810,10 +1392,10 @@ def subparser(sub_parser: argparse._SubParsersAction) -> argparse.ArgumentParser
 
 
 def parser_cluster_rgp(parser: argparse.ArgumentParser):
-    """
-    Parser for specific argument of rgp command
+    """Define all CLI arguments for the RGP clustering command.
 
-    :param parser: Parser for cluster_rgp argument
+    :param parser: Argument parser instance to enrich with clustering options.
+    :return: None. The passed parser is updated in place.
     """
     required = parser.add_argument_group(
         title="Required arguments",
@@ -888,7 +1470,7 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
         type=str,
         choices=["gexf", "graphml"],
         nargs="+",
-        default=["gexf", "graphml"],
+        default=["graphml"],
         help="Format of the output graph.",
     )
 
@@ -911,7 +1493,6 @@ def parser_cluster_rgp(parser: argparse.ArgumentParser):
     optional.add_argument(
         "--metadata_sep",
         required=False,
-        default="|",
-        help="The separator used to join multiple metadata values for elements with multiple metadata"
-        " values from the same source. This character should not appear in metadata values.",
+        default=None,
+        help=argparse.SUPPRESS,
     )
