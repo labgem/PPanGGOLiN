@@ -44,6 +44,8 @@ class Metadata:
         for attr, value in kwargs.items():
             if isinstance(value, list):
                 value = self._join_list(value)
+            if isinstance(value, str): # for gb_io
+                value = value.replace("\n", " ")
             if value is not None and not isna(value):
                 setattr(self, attr, value)
 
