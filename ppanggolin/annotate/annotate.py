@@ -155,7 +155,8 @@ def create_gene(
     new_gene.fill_parents(org, contig)
     return new_gene
 
-def extract_positions(location:gb_io.Complement|gb_io.Join|gb_io.Range) -> tuple[list[tuple[int, int]], bool, bool, bool]:
+
+def extract_positions(location:gb_io.Complement|gb_io.Join|gb_io.Range|gb_io.Order) -> tuple[list[tuple[int, int]], bool, bool, bool]:
     """
     Extracts start and stop positions from a location Class from gb.io (Complement, Join, Range) and returns a tuple containing the coordinates, whether it is a complement, and whether it has partial start or end.
 
@@ -173,129 +174,38 @@ def extract_positions(location:gb_io.Complement|gb_io.Join|gb_io.Range) -> tuple
     has_partial_start = False
     has_partial_end = False
     coordinates = []
-    
-    if isinstance(location, str): # for pytest, TODO
-        return extract_positions_from_string(location)
 
     if isinstance(location, gb_io.Complement):
         is_complement = True
         location = location.location
-                
-    if isinstance(location, gb_io.Join):
-        for part in location.locations:
-            if isinstance(part, gb_io.Range):
-                if part.after :
-                    has_partial_end = True
-                if part.before :
-                    has_partial_start = True
-                coordinates.append((int(part.start ) + 1, int(part.end)))
 
+    if isinstance(location, (gb_io.Join, gb_io.Order)): # process them the same for now
+        parts = location.locations
     elif isinstance(location, gb_io.Range):
-        if location.after :
-            has_partial_end = True
-        if location.before :
-            has_partial_start = True
-        coordinates.append((int(location.start + 1), int(location.end)))
-    else :
-        try :
-            new_location = int(location)
-            coordinates.append((new_location, new_location))
-            
-        except ValueError:
+        parts = [location]
+    else:
+        try:
+            position = int(location)
+        except (TypeError, ValueError):
             raise ValueError(f"Gene position {location} is not formatted as expected. It currently is of type {type(location)}.")
+
+        coordinates.append((position, position))
+        parts = []
+
+    for part in parts:
+        if not isinstance(part, gb_io.Range):
+            continue
+
+        has_partial_start |= getattr(part, "before", False)
+        has_partial_end |= getattr(part, "after", False)
+
+        try:
+            coordinates.append((int(part.start) + 1, int(part.end)))
+        except (TypeError, ValueError):
+            raise ValueError(f"Gene range {part} is not formatted as expected. It should contain integer start and end positions and before/after bools.")
 
     return coordinates, is_complement, has_partial_start, has_partial_end
 
-
-
-
-def extract_positions_from_string(string: str) -> Tuple[List[Tuple[int, int]], bool, bool, bool]:
-    """
-    Extracts start and stop positions from a string and determines whether it is complement and pseudogene.
-
-    Example of strings that the function is able to process:
-
-    "join(190..7695,7695..12071)",
-    "complement(join(4359800..4360707,4360707..4360962))",
-    "join(6835405..6835731,1..1218)",
-    "join(1375484..1375555,1375557..1376579)",
-    "complement(6815492..6816265)",
-    "6811501..6812109",
-    "complement(6792573..>6795461)",
-    "join(1038313,1..1016)"
-
-
-    :param string: The input string containing position information.
-
-    :return: A tuple containing a list of tuples representing start and stop positions,
-             a boolean indicating whether it is complement,
-             a boolean indicating whether it is a partial gene at start position and
-             a boolean indicating whether it is a partial gene at end position.
-
-    :raises ValueError: If the string is not formatted as expected or if positions cannot be parsed as integers.
-    """
-    complement = False
-    coordinates = []
-    has_partial_start = False
-    has_partial_end = False
-
-    # Check if 'complement' exists in the string
-    if "complement" in string:
-        complement = True
-
-    if "(" in string:
-        # Extract positions found inside the parenthesis
-        inner_parentheses_regex = r"\(([^()]+)\)"
-        inner_matches = re.findall(inner_parentheses_regex, string)
-
-        try:
-            positions = inner_matches[-1]
-        except IndexError:
-            raise ValueError(f"Gene position {string} is not formatted as expected.")
-    else:
-        positions = string.rstrip()
-
-    # Check if '>' or '<' exists in the positions to identify partial genes
-
-    if ">" in positions or "<" in positions:
-        if "<" in positions.split(",")[0]:
-            has_partial_start = True
-
-        if ">" in positions.split(",")[-1]:
-            has_partial_end = True
-
-        inner_positions = ",".join(positions.split(",")[1:-1])
-
-        if (
-            ">" in inner_positions
-            or "<" in inner_positions
-            or (not has_partial_end and not has_partial_start)
-        ):
-            raise ValueError(
-                f"Error parsing positions '{positions}' extracted from GBFF string '{string}'. "
-                f"Chevrons are found in the inner position. This case is unexpected and not handle."
-            )
-
-    for position in positions.split(","):
-
-        try:
-            start, stop = position.replace(">", "").replace("<", "").split("..")
-        except ValueError:
-            # in some case there is only one position meaning that the gene is long of only one nt in this piece.
-            # for instance : join(1038313,1..1016)
-            start = position.replace(">", "").replace("<", "")
-            stop = start
-        try:
-            start, stop = int(start), int(stop)
-        except ValueError:
-            raise ValueError(
-                f"Error parsing position '{position}' extracted from GBFF string '{string}'. "
-                f"Start position ({start}) and/or stop position ({stop}) are not valid integers."
-            )
-
-        coordinates.append((start, stop))
-
-    return coordinates, complement, has_partial_start, has_partial_end
 
 
 def parse_gbff_by_contig(
