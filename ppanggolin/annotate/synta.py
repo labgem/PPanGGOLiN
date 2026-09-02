@@ -40,7 +40,7 @@ def reverse_complement(seq: str):
 
     :return: reverse sequence
     """
-
+    seq = seq.upper()
     complement = {
         "A": "T",
         "C": "G",

@@ -1,5 +1,6 @@
 import pytest
 from pathlib import Path
+import gb_io
 
 from ppanggolin.genome import Contig
 from ppanggolin.annotate.annotate import (
@@ -23,54 +24,90 @@ from ppanggolin.annotate.synta import check_sequence_tuple, parse_fasta
     "input_string, expected_positions, expected_complement, expected_partialgene_start, expected_partialgene_end",
     [
         (
-            "join(190..7695,7695..12071)",
+            gb_io.Join(
+                [
+                    gb_io.Range(189, 7695),
+                    gb_io.Range(7694, 12071),
+                ]
+            ),
             [(190, 7695), (7695, 12071)],
             False,
             False,
             False,
         ),
         (
-            "order(190..7695,7995..12071)",
+            gb_io.Order(
+                [
+                    gb_io.Range(189, 7695),
+                    gb_io.Range(7994, 12071),
+                ]
+            ),
             [(190, 7695), (7995, 12071)],
             False,
             False,
             False,
         ),
         (
-            "complement(join(4359800..4360707,4360707..4360962,1..100))",
+            gb_io.Complement(
+                gb_io.Join(
+                    [
+                        gb_io.Range(4359799, 4360707),
+                        gb_io.Range(4360706, 4360962),
+                        gb_io.Range(0, 100),
+                    ]
+                )
+            ),
             [(4359800, 4360707), (4360707, 4360962), (1, 100)],
             True,
             False,
             False,
         ),
         (
-            "complement(order(4359800..4360707,4360707..4360962,1..100))",
+            gb_io.Complement(
+                gb_io.Join(
+                    [
+                        gb_io.Range(4359799, 4360707),
+                        gb_io.Range(4360706, 4360962),
+                        gb_io.Range(0, 100),
+                    ]
+                )
+            ),
             [(4359800, 4360707), (4360707, 4360962), (1, 100)],
             True,
             False,
             False,
         ),
         (
-            "join(6835405..6835731,1..1218)",
+            gb_io.Join(
+                [
+                    gb_io.Range(6835404, 6835731),
+                    gb_io.Range(0, 1218),
+                ]
+            ),
             [(6835405, 6835731), (1, 1218)],
             False,
             False,
             False,
         ),
         (
-            "join(1375484..1375555,1375557..1376579)",
+            gb_io.Join(
+                [
+                    gb_io.Range(1375483, 1375555),
+                    gb_io.Range(1375556, 1376579),
+                ]
+            ),
             [(1375484, 1375555), (1375557, 1376579)],
             False,
             False,
             False,
         ),
-        ("complement(6815492..6816265)", [(6815492, 6816265)], True, False, False),
-        ("6811501..6812109", [(6811501, 6812109)], False, False, False),
-        ("complement(6792573..>6795461)", [(6792573, 6795461)], True, False, True),
-        ("complement(<6792573..6795461)", [(6792573, 6795461)], True, True, False),
-        ("complement(<6792573..>6795461)", [(6792573, 6795461)], True, True, True),
-        ("join(1038313,1..1016)", [(1038313, 1038313), (1, 1016)], False, False, False),
-        ("1038313", [(1038313, 1038313)], False, False, False),
+        (gb_io.Complement(gb_io.Range(6815491, 6816265)), [(6815492, 6816265)], True, False, False),
+        (gb_io.Range(6811500, 6812109), [(6811501, 6812109)], False, False, False),
+        (gb_io.Complement(gb_io.Range(6792572, 6795461, after=True)), [(6792573, 6795461)], True, False, True),
+        (gb_io.Complement(gb_io.Range(6792572, 6795461, before=True)), [(6792573, 6795461)], True, True, False),
+        (gb_io.Complement(gb_io.Range(6792572, 6795461,before=True, after=True)), [(6792573, 6795461)], True, True, True),
+        (gb_io.Join([gb_io.Range(1038312, 1038313), gb_io.Range(0, 1016)]), [(1038313, 1038313), (1, 1016)], False, False, False),
+        (gb_io.Range(1038312, 1038313), [(1038313, 1038313)], False, False, False),
     ],
 )
 def test_extract_positions(
@@ -91,39 +128,12 @@ def test_extract_positions(
 
 def test_extract_positions_with_wrong_positions_format():
     with pytest.raises(ValueError):
-        extract_positions("join(1038313,1..1016")  # string misses a closing parenthesis
-
-
-def test_extract_positions_with_strange_chevrons():
+        extract_positions("join(1038313..1016")  # string instead of object
     with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(4359800..>4360707,1..100))"
-        )  # chevron in inner position
+            extract_positions(None)  # None instead of object
     with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(4359800..4360707,<1..100))"
-        )  # chevron in inner position
-
-    with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(4359800..4360707,1..<100))"
-        )  # start chevron in ending position
-
-
-def test_extract_positions_with_wrong_positions_format2():
-    with pytest.raises(ValueError):
-        extract_positions("start..stop")  # start and stop are not integer
-    with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(start..6816265, 1..stop))"
-        )  # start and stop are not integer
-    with pytest.raises(ValueError):
-        extract_positions("start..stop")  # start and stop are not integer
-    with pytest.raises(ValueError):
-        extract_positions(
-            "complement(join(start..6816265, 1..stop))"
-        )  # start and stop are not integer
-
+            extract_positions([1,4])  # list instead of object
+    
 
 @pytest.fixture
 def genome_data():
