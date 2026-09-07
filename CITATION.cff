@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+title: 'PPanGGOLiN V2: technical enhancement and extended functionalities for prokaryotic pangenome analysis'
+type: software
+authors:
+- given-names: Jérôme
+  family-names: Arnoux
+  orcid: https://orcid.org/0000-0003-2769-3006
+- given-names: Jean
+  family-names: Mainguy
+  orcid: https://orcid.org/0009-0006-9160-9744
+- given-names: Adelme
+  family-names: Bazin
+  orcid: https://orcid.org/0000-0002-5656-4708
+- given-names: Guillaume
+  family-names: Gautreau
+  orcid: https://orcid.org/0000-0002-0970-9361
+- given-names: Téo
+  family-names: Lemane
+  orcid: https://orcid.org/0000-0002-7210-3178
+- given-names: David
+  family-names: Vallenet
+  orcid: https://orcid.org/0000-0001-6648-0332
+- given-names: Alexandra
+  family-names: Calteau
+  orcid: https://orcid.org/0000-0002-5871-9347
+repository-code: https://github.com/labgem/PPanGGOLiN
+license: CECILL-2.1
