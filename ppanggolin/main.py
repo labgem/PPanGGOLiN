@@ -1,47 +1,37 @@
-#!/usr/bin/env python3
-
 # default libraries
+import argparse
 import sys
 
-if sys.version_info < (3, 9):  # minimum is python3.9
-    raise AssertionError(
-        "Minimum python version to run PPanGGOLiN is 3.9. Your current python version is "
-        + ".".join(map(str, sys.version_info))
-    )
-import argparse
-
-# local modules
-import ppanggolin.pangenome
-from ppanggolin.utils import (
-    check_input_files,
-    set_verbosity_level,
-    add_common_arguments,
-    manage_cli_and_config_args,
-)
-import ppanggolin.nem.partition
-import ppanggolin.nem.rarefaction
-import ppanggolin.graph
+import ppanggolin.align
 import ppanggolin.annotate
 import ppanggolin.cluster
+import ppanggolin.context
 import ppanggolin.figures
 import ppanggolin.formats
+import ppanggolin.graph
 import ppanggolin.info
-import ppanggolin.metrics
-import ppanggolin.align
-import ppanggolin.RGP
-import ppanggolin.mod
-import ppanggolin.context
-import ppanggolin.workflow
 import ppanggolin.meta
+import ppanggolin.metrics
+import ppanggolin.mod
+import ppanggolin.nem.partition
+import ppanggolin.nem.rarefaction
+import ppanggolin.RGP
 import ppanggolin.utility
-
+import ppanggolin.workflow
 from ppanggolin import (
     SUBCOMMAND_TO_SUBPARSER,
     epilog,
+    mod_epilog,
     pan_epilog,
     rgp_epilog,
-    mod_epilog,
     version,
+)
+from ppanggolin.utils import (
+    RawTextHelpFormatterWithDefaults,
+    add_common_arguments,
+    check_input_files,
+    manage_cli_and_config_args,
+    set_verbosity_level,
 )
 
 
@@ -96,10 +86,12 @@ def _build_command_summary(parser: argparse.ArgumentParser) -> str:
 def build_parser() -> argparse.ArgumentParser:
     """Build the PPanGGOLiN command-line parser without parsing user input."""
 
+    argparse.RawTextHelpFormatter = RawTextHelpFormatterWithDefaults
+
     parser = argparse.ArgumentParser(
         prog="ppanggolin",
         description="Depicting microbial species diversity via a Partitioned PanGenome Graph Of Linked Neighbors",
-        formatter_class=argparse.RawTextHelpFormatter,
+        formatter_class=RawTextHelpFormatterWithDefaults,
         epilog=epilog + pan_epilog + rgp_epilog + mod_epilog,
     )
 
