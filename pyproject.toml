@@ -33,7 +33,7 @@ classifiers=[
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Bio-Informatics"]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 
 dependencies = [
     "numpy>1.24.0,<2.0.0",

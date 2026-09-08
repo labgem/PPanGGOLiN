@@ -49,8 +49,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest'] #['ubuntu-latest', 'macos-latest']
-        python-version: [3.14] # ['3.10', '3.12', '3.14']
+        os: ['ubuntu-latest', 'macos-latest']
+        python-version: ['3.10', '3.13']
     defaults:
       run:
         shell: conda run --no-capture-output -n ppanggolin bash -e {0}
