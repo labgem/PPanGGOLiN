@@ -69,6 +69,26 @@ preferred-citation:
 
 references:
   - type: article
+    title: "panRGP: a pangenome-based method to predict genomic islands and explore their diversity"
+    authors:
+      - family-names: Bazin
+        given-names: Adelme
+      - family-names: Gautreau
+        given-names: Guillaume
+      - family-names: Médigue
+        given-names: Claudine
+      - family-names: Vallenet
+        given-names: David
+      - family-names: Calteau
+        given-names: Alexandra
+    journal: "Bioinformatics"
+    volume: 36
+    pages: "i651–i658"
+    date-released: 2020-12
+    doi: "10.1093/bioinformatics/btaa792"
+    url: "https://doi.org/10.1093/bioinformatics/btaa792"
+    
+  - type: article
     title: "panModule: detecting conserved modules in the variable regions of a pangenome graph"
     authors:
       - family-names: Bazin
@@ -84,19 +104,3 @@ references:
     date-released: 2021-12-07
     doi: "10.1101/2021.12.06.471380"
     url: "https://doi.org/10.1101/2021.12.06.471380"
-
-  - type: article
-    title: "panRGP: a pangenome-based method to predict genomic islands and explore their diversity"
-    authors:
-      - family-names: Bazin
-        given-names: Adelme
-      - family-names: Gautreau
-        given-names: Guillaume
-      - family-names: Médigue
-        given-names: Claudine
-      - family-names: Vallenet
-        given-names: David
-      - family-names: Calteau
-        given-names: Alexandra
-    doi: "10.1093/bioinformatics/btaa792"
-    url: "https://doi.org/10.1093/bioinformatics/btaa792"
