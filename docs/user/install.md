@@ -1,7 +1,7 @@
 # Installation
 
 ```{note}
-Supported Python versions are 3.9, 3.10, 3.11 and 3.12
+Supported Python versions are 3.10, 3.11, 3.12, 3.13 and 3.14
 ```
 
 ## Installing PPanGGOLiN with Conda (Recommended)
