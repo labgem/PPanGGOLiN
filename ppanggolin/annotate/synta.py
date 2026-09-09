@@ -40,7 +40,7 @@ def reverse_complement(seq: str):
 
     :return: reverse sequence
     """
-
+    seq = seq.upper()
     complement = {
         "A": "T",
         "C": "G",
@@ -303,7 +303,7 @@ def check_sequence_tuple(name: str, sequence: str):
 
 
 def parse_fasta(
-    fna_file: Union[TextIOWrapper, list]
+    fna_file: Union[TextIOWrapper, list],
 ) -> Generator[Tuple[str, str], None, None]:
     """Yields each sequence name and sequence from a FASTA file or stream as a tuple.
 
