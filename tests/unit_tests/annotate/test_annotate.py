@@ -101,12 +101,42 @@ from ppanggolin.annotate.synta import check_sequence_tuple, parse_fasta
             False,
             False,
         ),
-        (gb_io.Complement(gb_io.Range(6815491, 6816265)), [(6815492, 6816265)], True, False, False),
+        (
+            gb_io.Complement(gb_io.Range(6815491, 6816265)),
+            [(6815492, 6816265)],
+            True,
+            False,
+            False,
+        ),
         (gb_io.Range(6811500, 6812109), [(6811501, 6812109)], False, False, False),
-        (gb_io.Complement(gb_io.Range(6792572, 6795461, after=True)), [(6792573, 6795461)], True, False, True),
-        (gb_io.Complement(gb_io.Range(6792572, 6795461, before=True)), [(6792573, 6795461)], True, True, False),
-        (gb_io.Complement(gb_io.Range(6792572, 6795461,before=True, after=True)), [(6792573, 6795461)], True, True, True),
-        (gb_io.Join([gb_io.Range(1038312, 1038313), gb_io.Range(0, 1016)]), [(1038313, 1038313), (1, 1016)], False, False, False),
+        (
+            gb_io.Complement(gb_io.Range(6792572, 6795461, after=True)),
+            [(6792573, 6795461)],
+            True,
+            False,
+            True,
+        ),
+        (
+            gb_io.Complement(gb_io.Range(6792572, 6795461, before=True)),
+            [(6792573, 6795461)],
+            True,
+            True,
+            False,
+        ),
+        (
+            gb_io.Complement(gb_io.Range(6792572, 6795461, before=True, after=True)),
+            [(6792573, 6795461)],
+            True,
+            True,
+            True,
+        ),
+        (
+            gb_io.Join([gb_io.Range(1038312, 1038313), gb_io.Range(0, 1016)]),
+            [(1038313, 1038313), (1, 1016)],
+            False,
+            False,
+            False,
+        ),
         (gb_io.Range(1038312, 1038313), [(1038313, 1038313)], False, False, False),
     ],
 )
@@ -130,10 +160,10 @@ def test_extract_positions_with_wrong_positions_format():
     with pytest.raises(ValueError):
         extract_positions("join(1038313..1016")  # string instead of object
     with pytest.raises(ValueError):
-            extract_positions(None)  # None instead of object
+        extract_positions(None)  # None instead of object
     with pytest.raises(ValueError):
-            extract_positions([1,4])  # list instead of object
-    
+        extract_positions([1, 4])  # list instead of object
+
 
 @pytest.fixture
 def genome_data():
