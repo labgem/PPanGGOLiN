@@ -20,6 +20,7 @@ import warnings
 from tqdm import tqdm
 from tables.path import check_name_validity, NaturalNameWarning
 import gb_io
+
 # local libraries
 from ppanggolin.annotate.synta import (
     annotate_organism,
@@ -156,7 +157,9 @@ def create_gene(
     return new_gene
 
 
-def extract_positions(location:gb_io.Complement|gb_io.Join|gb_io.Range|gb_io.Order) -> tuple[list[tuple[int, int]], bool, bool, bool]:
+def extract_positions(
+    location: gb_io.Complement | gb_io.Join | gb_io.Range | gb_io.Order,
+) -> tuple[list[tuple[int, int]], bool, bool, bool]:
     """
     Extracts start and stop positions from a location Class from gb.io (Complement, Join, Range) and returns a tuple containing the coordinates, whether it is a complement, and whether it has partial start or end.
 
@@ -179,7 +182,7 @@ def extract_positions(location:gb_io.Complement|gb_io.Join|gb_io.Range|gb_io.Ord
         is_complement = True
         location = location.location
 
-    if isinstance(location, (gb_io.Join, gb_io.Order)): # process them the same for now
+    if isinstance(location, (gb_io.Join, gb_io.Order)):  # process them the same for now
         parts = location.locations
     elif isinstance(location, gb_io.Range):
         parts = [location]
@@ -187,7 +190,9 @@ def extract_positions(location:gb_io.Complement|gb_io.Join|gb_io.Range|gb_io.Ord
         try:
             position = int(location)
         except (TypeError, ValueError):
-            raise ValueError(f"Gene position {location} is not formatted as expected. It currently is of type {type(location)}.")
+            raise ValueError(
+                f"Gene position {location} is not formatted as expected. It currently is of type {type(location)}."
+            )
 
         coordinates.append((position, position))
         parts = []
@@ -202,10 +207,11 @@ def extract_positions(location:gb_io.Complement|gb_io.Join|gb_io.Range|gb_io.Ord
         try:
             coordinates.append((int(part.start) + 1, int(part.end)))
         except (TypeError, ValueError):
-            raise ValueError(f"Gene range {part} is not formatted as expected. It should contain integer start and end positions and before/after bools.")
+            raise ValueError(
+                f"Gene range {part} is not formatted as expected. It should contain integer start and end positions and before/after bools."
+            )
 
     return coordinates, is_complement, has_partial_start, has_partial_end
-
 
 
 def parse_gbff_by_contig(
@@ -324,7 +330,7 @@ def parse_feature_lines(
     """
 
     def stringify_feature_values(
-        feature: Dict[str, List[str]]
+        feature: Dict[str, List[str]],
     ) -> Dict[str, Union[str, Set[str]]]:
         """
         All value of the returned dict are str except for db_xref that is a list.
@@ -398,7 +404,7 @@ def parse_dna_seq_lines(sequence_lines: List[str]) -> str:
 
 
 def combine_contigs_metadata(
-    contig_to_metadata: Dict[Contig, Dict[str, str]]
+    contig_to_metadata: Dict[Contig, Dict[str, str]],
 ) -> Tuple[Dict[str, str], Dict[Contig, Dict[str, str]]]:
     """
     Combine contig metadata to identify shared and unique metadata tags and values.
@@ -436,7 +442,9 @@ def combine_contigs_metadata(
             invalid_tag_names.append(tag)
 
     all_tag_to_value = [
-        (tag, value.replace("\n"," ")) for tag, value in all_tag_to_value if tag not in invalid_tag_names
+        (tag, value.replace("\n", " "))
+        for tag, value in all_tag_to_value
+        if tag not in invalid_tag_names
     ]
 
     contig_count = len(contig_to_metadata)
@@ -467,7 +475,7 @@ def combine_contigs_metadata(
 
 
 def reverse_complement_coordinates(
-    coordinates: List[Tuple[int, int]]
+    coordinates: List[Tuple[int, int]],
 ) -> List[Tuple[int, int]]:
     """
     Reverses and inverts the given list of coordinates. Each coordinate pair (start, end) is transformed into
@@ -628,10 +636,10 @@ def read_org_gbff(
     gene_counter = 0
     rna_counter = 0
     contig_to_metadata = {}
-    
+
     with gzip.open(gbff_file_path, "r") as reader:
         for record in gb_io.iter(reader):
-            
+
             contig_id = record.version if record.version else record.name
             contig_len = record.length
             is_circ = record.circular
@@ -650,7 +658,7 @@ def read_org_gbff(
                 contig.length = contig_len
 
             for feature in record.features:
-            
+
                 db_xref_for_metadata = {}
 
                 if feature.kind == "source":
@@ -671,9 +679,10 @@ def read_org_gbff(
                     contig_to_metadata[contig] = {
                         qualifier.key: qualifier.value
                         for qualifier in feature.qualifiers
-                        if isinstance(qualifier.value, str) and qualifier.key != "db_xref"
+                        if isinstance(qualifier.value, str)
+                        and qualifier.key != "db_xref"
                     }
-                    
+
                     contig_to_metadata[contig].update(db_xref_for_metadata)
 
                 genetic_code = ""
@@ -681,19 +690,22 @@ def read_org_gbff(
                 if feature.kind not in ["CDS", "rRNA", "tRNA"]:
                     continue
 
-                coordinates, is_complement, has_partial_start, has_partial_end = (extract_positions(feature.location))
-                
+                coordinates, is_complement, has_partial_start, has_partial_end = (
+                    extract_positions(feature.location)
+                )
+
                 feature_qualifiers = defaultdict(
                     str,
                     {
                         qualifier.key: qualifier.value
                         for qualifier in feature.qualifiers
-                    },)
-                
+                    },
+                )
+
                 if "pseudo" in feature_qualifiers and not use_pseudogenes:
                     continue
 
-                elif ("transl_except" in feature_qualifiers and not use_pseudogenes):
+                elif "transl_except" in feature_qualifiers and not use_pseudogenes:
                     # that's probably a 'stop' codon into selenocystein.
                     logging.getLogger("PPanGGOLiN").info(
                         f"CDS '{feature['locus_tag']}' contains a 'transl_except' annotation ({feature['transl_except']}) "
@@ -703,13 +715,17 @@ def read_org_gbff(
                     )
 
                 for field in ["product", "gene", "db_xref"]:
-                    if (field in feature_qualifiers and has_non_ascii(feature_qualifiers[field])):
+                    if field in feature_qualifiers and has_non_ascii(
+                        feature_qualifiers[field]
+                    ):
                         logging.getLogger("PPanGGOLiN").warning(
                             f"In genome '{organism}', the '{field}' field of gene '{feature_qualifiers['locus_tag']}' contains non-ASCII characters: '{feature_qualifiers[field]}'. "
                             "These characters cannot be stored in the HDF5 file and will be replaced by underscores."
                         )
 
-                        feature_qualifiers[field] = replace_non_ascii(feature_qualifiers[field])
+                        feature_qualifiers[field] = replace_non_ascii(
+                            feature_qualifiers[field]
+                        )
 
                 if feature.kind == "CDS":
                     genetic_code = 0
@@ -729,7 +745,7 @@ def read_org_gbff(
                             start_shift=start_shift,
                         )
 
-                strand = "-" if is_complement else "+"                      
+                strand = "-" if is_complement else "+"
                 gene = create_gene(
                     org=organism,
                     contig=contig,
@@ -742,13 +758,15 @@ def read_org_gbff(
                     gene_type=feature.kind,
                     position=contig.number_of_genes,
                     gene_name=feature_qualifiers["gene"],
-                    product=feature_qualifiers["product"].replace('\n', ' '),
+                    product=feature_qualifiers["product"].replace("\n", " "),
                     genetic_code=genetic_code,
                     protein_id=feature_qualifiers["protein_id"],
                 )
-               
-                gene.add_sequence(get_dna_sequence(record.sequence.decode("ascii").upper(), gene))
- 
+
+                gene.add_sequence(
+                    get_dna_sequence(record.sequence.decode("ascii").upper(), gene)
+                )
+
                 if feature.kind == "CDS":
                     gene_counter += 1
                 else:
@@ -763,10 +781,8 @@ def read_org_gbff(
         )
 
     for contig, metadata_dict in contig_to_uniq_metadata.items():
-        contig.add_metadata(
-            Metadata(source="annotation_file", **metadata_dict)
-        )
-        
+        contig.add_metadata(Metadata(source="annotation_file", **metadata_dict))
+
     return organism, True
 
 
@@ -843,7 +859,7 @@ def read_org_gff(
         attributes_get = {}
         for att in attributes_field:
             try:
-                (key, value) = att.strip().split("=")
+                key, value = att.strip().split("=")
                 attributes_get[key.upper()] = value
             except ValueError:
                 pass  # we assume that it is a strange, but useless field for our analysis
