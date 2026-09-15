@@ -5,14 +5,12 @@ import argparse
 import logging
 from concurrent.futures import ProcessPoolExecutor
 from itertools import chain
-import gzip
 from multiprocessing import get_context
 import os
 from pathlib import Path
 import tempfile
 import time
 from typing import List, Set, Tuple, Iterable, Dict, Generator, Union
-import re
 from collections import defaultdict, Counter
 import warnings
 
@@ -212,195 +210,6 @@ def extract_positions(
             )
 
     return coordinates, is_complement, has_partial_start, has_partial_end
-
-
-def parse_gbff_by_contig(
-    gbff_file_path: Path,
-) -> Generator[
-    Tuple[Dict[str, str], Generator[Dict[str, Union[str, Set[str]]], None, None], str],
-    None,
-    None,
-]:
-    """
-    Parse a GBFF file by contig and yield tuples containing header, feature, and sequence info for each contig.
-
-    :param gbff_file_path: Path to the GBFF file.
-    :return: A generator that yields tuples containing header lines, feature lines, and sequence info for each contig.
-    """
-    header_lines = []
-    feature_lines = []
-    sequence_lines = []
-
-    current_section = None
-
-    with read_compressed_or_not(gbff_file_path) as fl:
-        for i, line in enumerate(fl):
-            # Skip blank lines
-            if not line.strip():
-                continue
-
-            if line.startswith("LOCUS") or line.startswith("CONTIG"):
-                # CONTIG line are found between FEATURES and ORIGIN and are put in header section here for simplicity
-                current_section = "header"
-
-            elif line.startswith("FEATURES"):
-                current_section = "feature"
-                continue
-
-            elif line.startswith("ORIGIN"):
-                current_section = "sequence"
-                continue
-
-            if line.strip() == "//":
-                # Check that each section has some lines
-                assert header_lines and feature_lines and sequence_lines, (
-                    "Missing section in GBFF file. "
-                    f"Contig ending at line {i + 1} has an empty section. It has "
-                    f"{len(header_lines)} header lines, "
-                    f"{len(header_lines)} feature lines, "
-                    f"and {len(sequence_lines)} sequence lines."
-                )
-                yield (
-                    parse_contig_header_lines(header_lines),
-                    parse_feature_lines(feature_lines),
-                    parse_dna_seq_lines(sequence_lines),
-                )
-
-                header_lines = []
-                feature_lines = []
-                sequence_lines = []
-                current_section = None
-                continue
-
-            if current_section == "header":
-                header_lines.append(line)
-
-            elif current_section == "feature":
-                feature_lines.append(line)
-
-            elif current_section == "sequence":
-                sequence_lines.append(line)
-
-            else:
-                raise ValueError(
-                    f"Unexpected structure in GBFF file: {gbff_file_path}. {line}"
-                )
-
-    # In case the last // is missing, return the last contig
-    if header_lines or feature_lines or sequence_lines:
-        yield (
-            parse_contig_header_lines(header_lines),
-            parse_feature_lines(feature_lines),
-            parse_dna_seq_lines(sequence_lines),
-        )
-
-
-def parse_contig_header_lines(header_lines: List[str]) -> Dict[str, str]:
-    """
-    Parse required information from header lines of a contig from a GBFF file.
-
-    :param header_lines: List of strings representing header lines of a contig from a GBFF file.
-    :return: A dict with keys representing different fields and values representing their corresponding values joined by new line.
-    """
-    field = ""  # Initialize field
-    field_to_value = defaultdict(
-        list
-    )  # Initialize defaultdict to store field-value pairs
-
-    for line in header_lines:
-        field_of_line = line[:12].strip()  # Extract field from the first 12 characters
-
-        if len(field_of_line) > 1 and field_of_line.isupper():
-            field = field_of_line  # Update current field
-
-        # Append value to the current field in the defaultdict
-        field_to_value[field].append(line[12:].strip())
-
-    return {field: "\n".join(value) for field, value in field_to_value.items()}
-
-
-def parse_feature_lines(
-    feature_lines: List[str],
-) -> Generator[Dict[str, Union[str, Set[str]]], None, None]:
-    """
-    Parse feature lines from a GBFF file and yield dictionaries representing each feature.
-
-    :param feature_lines: List of strings representing feature lines from a GBFF file.
-    :return: A generator that yields dictionaries, each representing a feature with its type, location, and qualifiers.
-    """
-
-    def stringify_feature_values(
-        feature: Dict[str, List[str]],
-    ) -> Dict[str, Union[str, Set[str]]]:
-        """
-        All value of the returned dict are str except for db_xref that is a list.
-        When multiple values exist for the same tag only the first one is kept.
-        """
-        stringify_feature = {}
-        for tag, val in feature.items():
-            if tag == "db_xref":
-                stringify_feature[tag] = set(val)
-            elif isinstance(val, list):
-                stringify_feature[tag] = val[0]
-            else:
-                stringify_feature[tag] = val
-        return defaultdict(str, stringify_feature)
-
-    current_feature = {}
-    current_qualifier = None
-
-    for line in feature_lines:
-        # Check if the line starts a new feature
-        if len(line[:21].strip()) > 0:
-            if current_feature:
-                # yield last feature
-                yield stringify_feature_values(current_feature)
-
-            current_feature = {
-                "feature_type": line[:21].strip(),
-                "location": [line[21:].strip()],
-            }
-            current_qualifier = "location"
-
-        elif line.strip().startswith("/"):
-            qualifier_line = line.strip()[1:]  # [1:] used to remove /
-
-            if "=" in qualifier_line:
-                current_qualifier, value = qualifier_line.split("=", 1)
-            else:
-                current_qualifier, value = qualifier_line, qualifier_line
-            # clean value from quote
-            value = value[1:] if value.startswith('"') else value
-            value = value[:-1] if value.endswith('"') else value
-
-            if current_qualifier in current_feature:
-                current_feature[current_qualifier].append(value)
-
-            else:
-                current_feature[current_qualifier] = [value]
-
-        else:
-            # the line does not start a qualifier so it's the continuation of the last qualifier value.
-            value = line.strip()
-            value = value[:-1] if value.endswith('"') else value
-            current_feature[current_qualifier][-1] += f" {value}"
-
-    # Append the last feature
-    if current_feature:
-        yield stringify_feature_values(current_feature)
-
-
-def parse_dna_seq_lines(sequence_lines: List[str]) -> str:
-    """
-    Parse sequence_lines from a GBFF file and return dna sequence
-
-    :param sequence_lines: List of strings representing sequence lines from a GBFF file.
-    :return: a string in upper case of the DNA sequences that have been cleaned
-    """
-    sequence = ""
-    for line in sequence_lines:
-        sequence += line[10:].replace(" ", "").strip().upper()
-    return sequence
 
 
 def combine_contigs_metadata(
@@ -637,7 +446,7 @@ def read_org_gbff(
     rna_counter = 0
     contig_to_metadata = {}
 
-    with gzip.open(gbff_file_path, "r") as reader:
+    with read_compressed_or_not(gbff_file_path) as reader:
         for record in gb_io.iter(reader):
 
             contig_id = record.version if record.version else record.name
