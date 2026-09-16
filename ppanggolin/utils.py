@@ -107,6 +107,12 @@ WRITE_GENOME_FLAG_DEFAULT_IN_WF = ["table", "proksee", "gff"]
 DRAW_FLAG_DEFAULT_IN_WF = ["tile_plot", "ucurve", "draw_spots"]
 
 
+class RawTextHelpFormatterWithDefaults(
+    argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter
+):
+    """Preserve multiline formatting while appending default values to help text."""
+
+
 def check_log(log_file: str) -> TextIO:
     """
     Check if the output log is writable
