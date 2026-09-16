@@ -198,7 +198,6 @@ def launch_workflow(
     start_part = time.time()
     partition(
         pangenome,
-        tmpdir=args.tmpdir,
         output=args.output,
         beta=args.partition.beta,
         sm_degree=args.partition.max_degree_smoothing,
@@ -209,7 +208,6 @@ def launch_workflow(
         icl_margin=args.partition.ICL_margin,
         draw_icl=args.partition.draw_ICL,
         seed=args.partition.seed,
-        keep_tmp_files=args.partition.keep_tmp_files,
         cpu=args.partition.cpu,
         force=args.force,
         disable_bar=args.disable_prog_bar,

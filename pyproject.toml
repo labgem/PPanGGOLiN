@@ -1,8 +1,7 @@
 [build-system]
 requires = [
     "setuptools",
-    "setuptools-scm",
-    "cython"
+    "setuptools-scm"
 ]
 build-backend = "setuptools.build_meta"
 
@@ -45,7 +44,8 @@ dependencies = [
     "scipy>=1.0.0,<2.0.0",
     "plotly>=5.0.0,<6.0.0",
     "gmpy2>=2.0.0,<3.0.0",
-    "bokeh>=3.0.0,<3.4.0"
+    "bokeh>=3.0.0,<4.0.0",
+    "pynem[fast]>=0.6",
 ]
 
 license = {file="LICENSE.txt"}
