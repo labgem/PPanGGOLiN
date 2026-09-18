@@ -1726,7 +1726,11 @@ def parser_projection(parser: argparse.ArgumentParser):
     required = parser.add_argument_group(title="Required arguments")
 
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome.h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
 
     required.add_argument(
@@ -1734,7 +1738,8 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         type=Path,
         help="Specify a FASTA file containing the genomic sequences of the genome(s) you wish to annotate, "
-        "or provide a tab-separated file listing genome names alongside their respective FASTA filepaths, with one line per genome.",
+        "or provide a tab-separated file listing genome names alongside their respective FASTA file paths, "
+        "with one line per genome.",
     )
 
     required.add_argument(
@@ -1742,7 +1747,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         type=Path,
         help="Specify an annotation file in GFF/GBFF format for the genome you wish to annotate. "
-        "Alternatively, you can provide a tab-separated file listing genome names alongside their respective annotation filepaths, "
+        "Alternatively, you can provide a tab-separated file listing genome names alongside their respective annotation file paths, "
         "with one line per genome. If both an annotation file and a FASTA file are provided, the annotation file will take precedence.",
     )
 
@@ -1757,7 +1762,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         type=str,
         default="input_genome",
-        help="Specify the name of the genome whose genome you want to annotate when providing a single FASTA or annotation file.",
+        help="Specify the name of the genome to annotate when providing a single FASTA or annotation file.",
     )
 
     required_single.add_argument(
@@ -1779,7 +1784,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         + time.strftime("_DATE%Y-%m-%d_HOUR%H.%M.%S", time.localtime())
         + "_PID"
         + str(os.getpid()),
-        help="Output directory",
+        help="Output directory.",
     )
 
     optional.add_argument(
@@ -1796,8 +1801,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         "--no_defrag",
         required=False,
         action="store_true",
-        help="DO NOT Realign gene families to link fragments with "
-        "their non-fragmented gene family. (default: False)",
+        help="Do not realign gene families to link fragments with their non-fragmented gene family. (Default: False)",
     )
 
     optional.add_argument(
@@ -1813,7 +1817,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.8,
-        help="min identity percentage threshold",
+        help="Minimum identity percentage threshold.",
     )
 
     optional.add_argument(
@@ -1821,7 +1825,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.8,
-        help="min coverage percentage threshold",
+        help="Minimum coverage percentage threshold.",
     )
 
     optional.add_argument(
@@ -1829,7 +1833,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         action="store_true",
         help="In the context of provided annotation, use this option to read pseudogenes. "
-        "(Default behavior is to ignore them)",
+        "(Default behavior is to ignore them).",
     )
 
     optional.add_argument(
@@ -1837,9 +1841,8 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.05,
-        help="minimum ratio of genomes in which the family must have multiple genes "
-        "for it to be considered 'duplicated'. "
-        "This metric is used to compute completeness and duplication of the input genomes",
+        help="Minimum ratio of genomes in which the family must have multiple genes for it to be considered 'duplicated'. "
+        "This metric is used to compute completeness and duplication of the input genomes.",
     )
 
     optional.add_argument(
@@ -1847,7 +1850,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.95,
-        help="Soft core threshold used when generating general statistics on the projected genome. "
+        help="Soft-core threshold used when generating general statistics on the projected genome. "
         "This threshold does not influence PPanGGOLiN's partitioning. "
         "The value determines the minimum fraction of genomes that must possess a gene family "
         "for it to be considered part of the soft core.",
@@ -1857,8 +1860,8 @@ def parser_projection(parser: argparse.ArgumentParser):
         "--spot_graph",
         required=False,
         action="store_true",
-        help="Write the spot graph to a file, with pairs of blocks of single copy markers flanking RGPs "
-        "as nodes. This graph can be used to visualize nodes that have RGPs from the input genome.",
+        help="Write the spot graph to a file, with pairs of blocks of single-copy markers flanking RGPs as nodes. "
+        "This graph can be used to visualize nodes that have RGPs from the input genome.",
     )
 
     optional.add_argument(
@@ -1889,14 +1892,14 @@ def parser_projection(parser: argparse.ArgumentParser):
         "--table",
         required=False,
         action="store_true",
-        help="Generate a tsv file for each input genome with pangenome annotations.",
+        help="Generate a TSV file for each input genome with pangenome annotations.",
     )
 
     optional.add_argument(
         "--compress",
         required=False,
         action="store_true",
-        help="Compress the files in .gz",
+        help="Compress the files in .gz.",
     )
 
     optional.add_argument(
@@ -1912,7 +1915,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
 
     optional.add_argument(
@@ -1920,7 +1923,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         type=Path,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
 
     optional.add_argument(
@@ -1928,7 +1931,7 @@ def parser_projection(parser: argparse.ArgumentParser):
         required=False,
         default=False,
         action="store_true",
-        help="Keeping temporary files (useful for debugging).",
+        help="Keep temporary files (useful for debugging).",
     )
 
     optional.add_argument(

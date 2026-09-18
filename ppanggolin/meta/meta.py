@@ -279,7 +279,11 @@ def parser_meta(parser: argparse.ArgumentParser):
         description="All of the following arguments are required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     required.add_argument(
         "-m",
@@ -331,7 +335,7 @@ if __name__ == "__main__":
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     add_common_arguments(main_parser)
     set_verbosity_level(main_parser.parse_args())

@@ -480,14 +480,18 @@ def parser_msa(parser: argparse.ArgumentParser):
         title="Required arguments", description="The following arguments are required :"
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     required.add_argument(
         "-o",
         "--output",
         required=True,
         type=Path,
-        help="Output directory where the file(s) will be written",
+        help="Output directory where the file(s) will be written.",
     )
 
     optional = parser.add_argument_group(
@@ -508,7 +512,7 @@ def parser_msa(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.05,
-        help="minimum ratio of genomes in which the family must have multiple genes "
+        help="Minimum ratio of genomes in which the family must have multiple genes "
         "for it to be considered 'duplicated'",
     )
     optional.add_argument(
@@ -569,14 +573,14 @@ def parser_msa(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=str,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
 
 
