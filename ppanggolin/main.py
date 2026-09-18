@@ -15,6 +15,8 @@ import ppanggolin.metrics
 import ppanggolin.mod
 import ppanggolin.nem.partition
 import ppanggolin.nem.rarefaction
+
+# local modules
 import ppanggolin.RGP
 import ppanggolin.utility
 import ppanggolin.workflow
