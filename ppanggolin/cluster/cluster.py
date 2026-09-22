@@ -926,7 +926,11 @@ def parser_clust(parser: argparse.ArgumentParser):
         description="One of the following arguments is required :",
     )
     required.add_argument(
-        "-p", "--pangenome", required=False, type=Path, help="The pangenome .h5 file"
+        "-p",
+        "--pangenome",
+        required=False,
+        type=Path,
+        help="Path to the pangenome .h5 file.",
     )
     clust = parser.add_argument_group(title="Clustering arguments")
     clust.add_argument(
@@ -934,30 +938,29 @@ def parser_clust(parser: argparse.ArgumentParser):
         required=False,
         type=restricted_float,
         default=0.8,
-        help="Minimal identity percent for two proteins to be in the same cluster",
+        help="Minimum identity percentage for two proteins to be in the same cluster.",
     )
     clust.add_argument(
         "--coverage",
         required=False,
         type=restricted_float,
         default=0.8,
-        help="Minimal coverage of the alignment for two proteins to be in the same cluster",
+        help="Minimum coverage of the alignment for two proteins to be in the same cluster.",
     )
     clust.add_argument(
         "--mode",
         required=False,
         default="1",
         choices=["0", "1", "2", "3"],
-        help="the cluster mode of MMseqs2. 0: Setcover, 1: single linkage (or connected component),"
-        " 2: CD-HIT-like, 3: CD-HIT-like (lowmem)",
+        help="MMseqs2 clustering mode: 0 = Setcover, 1 = single linkage (or connected component), "
+        "2 = CD-HIT-like, 3 = CD-HIT-like (lowmem).",
     )
     clust.add_argument(
         "--no_defrag",
         required=False,
         default=False,
         action="store_true",
-        help="DO NOT Use the defragmentation strategy to link potential fragments "
-        "with their original gene family.",
+        help="Do not use the defragmentation strategy to link potential fragments with their original gene family.",
     )
 
     read = parser.add_argument_group(title="Read clustering arguments")
@@ -966,14 +969,14 @@ def parser_clust(parser: argparse.ArgumentParser):
         required=False,
         type=Path,
         help="A tab-separated list containing the result of a clustering. One line per gene. "
-        "First column is cluster ID, and second is gene ID",
+        "The first column is the cluster ID and the second is the gene ID.",
     )
     read.add_argument(
         "--infer_singletons",
         required=False,
         action="store_true",
-        help="When reading a clustering result with --clusters, if a gene is not in the provided file"
-        " it will be placed in a cluster where the gene is the only member.",
+        help="When reading a clustering result with --clusters, if a gene is not in the provided file, "
+        "it will be placed in a cluster where the gene is the only member.",
     )
     optional = parser.add_argument_group(title="Optional arguments")
     optional.add_argument(
@@ -991,21 +994,21 @@ def parser_clust(parser: argparse.ArgumentParser):
         required=False,
         default=1,
         type=int,
-        help="Number of available cpus",
+        help="Number of available CPUs.",
     )
     optional.add_argument(
         "--tmpdir",
         required=False,
         type=Path,
         default=Path(tempfile.gettempdir()),
-        help="directory for storing temporary files",
+        help="Directory for storing temporary files.",
     )
     optional.add_argument(
         "--keep_tmp",
         required=False,
         default=False,
         action="store_true",
-        help="Keeping temporary files (useful for debugging).",
+        help="Keep temporary files (useful for debugging).",
     )
 
 
