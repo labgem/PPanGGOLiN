@@ -7,6 +7,7 @@ dependencies:
   - tqdm>=4.0.0,<5.0.0
   - pytables>=3.8.0,<4.0.0
   - pyrodigal>=3.0.0,<4.0.0
+  - pyaragorn>=0.3.0
   - networkx>=3.0.0,<4.0.0
   - scipy>=1.0.0,<2.0.0
   - plotly>=5.0.0,<6.0.0
@@ -18,6 +19,5 @@ dependencies:
   - gb-io>=0.4.0
   # Tools that are not in Python 
   - infernal=1
-  - aragorn=1
   - mmseqs2=15
   - mafft=7
