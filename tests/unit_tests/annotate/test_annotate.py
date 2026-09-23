@@ -13,7 +13,7 @@ from ppanggolin.annotate.annotate import (
     shift_end_coordinates,
 )
 
-from ppanggolin.annotate.synta import check_sequence_tuple, parse_fasta
+from ppanggolin.annotate.synta import parse_fasta
 
 
 @pytest.mark.parametrize(
@@ -407,22 +407,6 @@ def test_shift_end_coordinates(coordinates, shift, expected):
     assert result == expected
 
 
-def test_check_sequence_tuple_valid():
-    name, sequence = check_sequence_tuple("seq1", "ATGC")
-    assert name == "seq1"
-    assert sequence == "ATGC"
-
-
-def test_check_sequence_tuple_empty_name():
-    with pytest.raises(ValueError):
-        check_sequence_tuple("", "ATGC")
-
-
-def test_check_sequence_tuple_empty_sequence():
-    with pytest.raises(ValueError):
-        check_sequence_tuple("seq1", "")
-
-
 def test_parse_fasta_valid():
     fasta_data = ">seq1\nATGC\n>seq2\nGCTA"
 
@@ -433,11 +417,32 @@ def test_parse_fasta_valid():
 
 def test_parse_fasta_empty_sequence():
     fasta_data = ">seq1\n>seq2\nGCTA"
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Malformed FASTA record for contig 'seq1'|empty sequence"
+    ):
         list(parse_fasta(fasta_data.split("\n")))
 
 
 def test_parse_fasta_no_header():
     fasta_data = "seq1\nATGC\nseq2\nGCTA".split("\n")
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Malformed FASTA content|header line starting with '>'"
+    ):
         list(parse_fasta(fasta_data))
+
+
+def test_parse_fasta_empty_header_name():
+    fasta_data = ">\nATGC\n".split("\n")
+    with pytest.raises(
+        ValueError, match="Malformed FASTA header|contains no contig name"
+    ):
+        list(parse_fasta(fasta_data))
+
+
+def test_parse_fasta_includes_source_path_in_error(tmp_path: Path):
+    fasta_path = tmp_path / "bad_contigs.fa"
+    fasta_path.write_text(">seq1\n>seq2\nGCTA\n", encoding="utf-8")
+
+    with open(fasta_path, "r", encoding="utf-8") as handle:
+        with pytest.raises(ValueError, match=str(fasta_path)):
+            list(parse_fasta(handle))

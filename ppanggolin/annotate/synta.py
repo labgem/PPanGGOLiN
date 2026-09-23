@@ -269,30 +269,6 @@ def launch_infernal(
     return gene_objs
 
 
-def check_sequence_tuple(name: str, sequence: str):
-    """
-    Checks and validates a sequence name and its corresponding sequence.
-
-    :param name: The name (header) of the sequence, typically extracted from the FASTA file header.
-    :param sequence: The sequence string corresponding to the name, containing the nucleotide or protein sequence.
-
-    :return: A tuple containing the validated name and sequence.
-
-    :raises ValueError:
-        - If the sequence is empty, a ValueError is raised with a message containing the header name.
-        - If the name is empty, a ValueError is raised with a message containing a preview of the sequence.
-    """
-    if not sequence:
-        raise ValueError(f"Found an empty sequence with header '{name}'")
-
-    if not name:
-        raise ValueError(
-            f"Found a sequence with empty name (sequence starts as '{sequence[:60]}')"
-        )
-
-    return name, sequence
-
-
 def parse_fasta(
     fna_file: Union[TextIOWrapper, list],
 ) -> Generator[Tuple[str, str], None, None]:
@@ -302,35 +278,98 @@ def parse_fasta(
     :yield: Tuple with contig header (without '>') and sequence.
     :raises ValueError: If the file does not contain valid FASTA format.
     """
+    source_name = getattr(fna_file, "name", None)
+
+    def validate_sequence(name: str, sequence: str):
+        if not name:
+            if source_name:
+                raise ValueError(
+                    f"Malformed FASTA header in '{source_name}': a contig name is empty. "
+                    "Each FASTA header must start with '>' and contain a contig name."
+                )
+            raise ValueError(
+                "Malformed FASTA header: a contig name is empty. "
+                "Each FASTA header must start with '>' and contain a contig name."
+            )
+
+        if not sequence:
+            if source_name:
+                raise ValueError(
+                    f"Malformed FASTA record for contig '{name}' in '{source_name}': the sequence is empty. "
+                    "Each contig entry must contain at least one nucleotide or amino-acid base."
+                )
+            raise ValueError(
+                f"Malformed FASTA record for contig '{name}': the sequence is empty. "
+                "Each contig entry must contain at least one nucleotide or amino-acid base."
+            )
+
+        return name, sequence
+
     name = None
     sequence = ""
+    saw_header = False
 
-    for line in fna_file:
+    for line_number, line in enumerate(fna_file, start=1):
         line = line.strip()
 
-        if line.startswith(">"):  # New header
-            if name:  # Yield previous header and sequence if available
-                yield check_sequence_tuple(name, sequence)
+        if not line:
+            continue
 
-            name = line[1:].split()[
-                0
-            ]  # Strip '>' and extract the first word as the name
+        if line.startswith(">"):
+            if name is not None:
+                yield validate_sequence(name, sequence)
+            raw_name = line[1:].strip()
+            if not raw_name:
+                if source_name:
+                    raise ValueError(
+                        f"Malformed FASTA header in '{source_name}' on line {line_number}: header is empty. "
+                        "Each record must start with '>' followed by a contig name."
+                    )
+                raise ValueError(
+                    f"Malformed FASTA header on line {line_number}: header is empty. "
+                    "Each record must start with '>' followed by a contig name."
+                )
+            name = raw_name.split()[0]
+            if not name:
+                if source_name:
+                    raise ValueError(
+                        f"Malformed FASTA header in '{source_name}' on line {line_number}: the contig name is empty or blank. "
+                        "Please provide a valid header such as '>contig_1'."
+                    )
+                raise ValueError(
+                    f"Malformed FASTA header on line {line_number}: the contig name is empty or blank. "
+                    "Please provide a valid header such as '>contig_1'."
+                )
+            saw_header = True
             sequence = ""
+            continue
 
-        elif line:  # Only append non-empty lines
-            sequence += line
+        if name is None:
+            if source_name:
+                raise ValueError(
+                    f"Malformed FASTA content in '{source_name}' on line {line_number}: found sequence data before any '>' header. "
+                    "FASTA records must begin with a header such as '>contig_1'."
+                )
+            raise ValueError(
+                f"Malformed FASTA content on line {line_number}: found sequence data before any '>' header. "
+                "FASTA records must begin with a header such as '>contig_1'."
+            )
 
-        else:
-            # You can skip or handle empty lines here if required
-            pass
+        sequence += line
 
-    # Yield the final contig if exists
-    if name:
-        yield check_sequence_tuple(name, sequence)
+    if name is not None:
+        yield validate_sequence(name, sequence)
 
-    # Check if there was any valid data (at least one header and sequence)
-    if not name:
-        raise ValueError("The file does not contain any valid FASTA content.")
+    if not saw_header:
+        if source_name:
+            raise ValueError(
+                f"The file '{source_name}' does not contain any valid FASTA content. "
+                "Expected at least one header line starting with '>'."
+            )
+        raise ValueError(
+            f"The file '{source_name}' does not contain any valid FASTA content. "
+            "Expected at least one header line starting with '>'."
+        )
 
 
 def get_contigs_from_fasta_file(

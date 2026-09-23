@@ -36,6 +36,7 @@ from ppanggolin.utils import (
     check_input_files,
     has_non_ascii,
     replace_non_ascii,
+    parse_input_paths_file,
 )
 from ppanggolin.formats import write_pangenome
 from ppanggolin.metadata import Metadata
@@ -1394,20 +1395,10 @@ def read_annotations(
     pangenome.status["geneSequences"] = "Computed"
     # we assume there are gene sequences in the annotation files,
     # unless a gff file without fasta is met (which is the only case where sequences can be absent)
+    genome_paths = parse_input_paths_file(organisms_file)
     args = []
-    for line in read_compressed_or_not(organisms_file):
-        if not line.strip() or line.strip().startswith("#"):
-            continue
-        elements = [el.strip() for el in line.split("\t")]
-        org_path = Path(elements[1])
-        name = elements[0]
-        circular_contigs = elements[2:]
-        if (
-            not org_path.exists()
-        ):  # Check tsv sanity test if it's not one it's the other
-            org_path = organisms_file.parent.joinpath(org_path)
-
-        args.append((name, org_path, circular_contigs, pseudo))
+    for name, path_info in genome_paths.items():
+        args.append((name, path_info["path"], path_info["circular_contigs"], pseudo))
 
     with ProcessPoolExecutor(
         mp_context=get_context("fork"),
@@ -1487,22 +1478,17 @@ def get_gene_sequences_from_fastas(
     :param disable_bar: Flag to disable progress bar
     """
     fasta_dict = {}
-    for line in read_compressed_or_not(fasta_files):
-        elements = [el.strip() for el in line.split("\t")]
-        if len(elements) <= 1:
-            logging.getLogger("PPanGGOLiN").error(
-                "No tabulation separator found in genome file"
-            )
-            exit(1)
+    genome_paths = parse_input_paths_file(fasta_files)
+    for genome_name, path_info in genome_paths.items():
         try:
-            org = pangenome.get_organism(elements[0])
+            org = pangenome.get_organism(genome_name)
         except KeyError:
             raise KeyError(
                 f"One of the genome in your '{fasta_files}' was not found in the pan."
                 f" This might mean that the genome names between your annotation file and "
                 f"your fasta file are different."
             )
-        with read_compressed_or_not(Path(elements[1])) as currFastaFile:
+        with read_compressed_or_not(path_info["path"]) as currFastaFile:
             fasta_dict[org] = get_contigs_from_fasta_file(org, currFastaFile)
 
             # When dealing with GFF files, some genes may have coordinates extending beyond the actual
@@ -1591,22 +1577,14 @@ def annotate_pangenome(
         f"Reading {fasta_list} the list of genome files"
     )
 
+    genome_paths = parse_input_paths_file(fasta_list)
     arguments = []  # Argument given to annotate organism in same order than prototype
-    for line in read_compressed_or_not(fasta_list):
-
-        elements = [el.strip() for el in line.split("\t")]
-        org_path = Path(elements[1])
-
-        if (
-            not org_path.exists()
-        ):  # Check tsv sanity test if it's not one it's the other
-            org_path = fasta_list.parent.joinpath(org_path)
-
+    for genome_name, path_info in genome_paths.items():
         arguments.append(
             (
-                elements[0],
-                org_path,
-                elements[2:],
+                genome_name,
+                path_info["path"],
+                path_info["circular_contigs"],
                 tmpdir,
                 translation_table,
                 norna,
@@ -1615,9 +1593,6 @@ def annotate_pangenome(
                 procedure,
             )
         )
-
-    if len(arguments) == 0:
-        raise Exception("There are no genomes in the provided file")
 
     logging.getLogger("PPanGGOLiN").info(
         f"Annotating {len(arguments)} genomes using {cpu} cpus..."
