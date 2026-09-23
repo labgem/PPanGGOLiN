@@ -2,8 +2,8 @@
 
 ### RGP
 
-The `regions_of_genomic_plasticity.tsv` is a tsv file that lists all the detected Regions of Genome Plasticity. This
-requires to have run the RGP detection analysis by either using the `panrgp` command or the `rgp` command.
+The `regions_of_genomic_plasticity.tsv` is a TSV file that lists all the detected Regions of Genome Plasticity. This
+requires having run the RGP detection analysis by either using the `panrgp` command or the `rgp` command.
 
 It can be written with the following command:
 
@@ -48,7 +48,7 @@ ppanggolin write_pangenome -p pangenome.h5 --regions_families -o rgp_outputs
 
 ### Spots
 
-The `spots.tsv` is a tsv file that links the spots in `summarize_spots.tsv` with the RGPs
+The `spots.tsv` is a TSV file that links the spots in `summarize_spots.tsv` with the RGPs
 in `regions_of_genomic_plasticity.tsv`.
 
 It can be created with the following command:
@@ -64,7 +64,7 @@ ppanggolin write_pangenome -p pangenome.h5 --spots -o rgp_outputs
 
 ### Summarize spots
 
-The `summarize_spots.tsv` file is a tsv file that will associate each spot with multiple metrics that can indicate the
+The `summarize_spots.tsv` file is a TSV file that will associate each spot with multiple metrics that can indicate the
 dynamic of the spot.
 
 It can be created with the following command:
