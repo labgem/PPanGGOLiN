@@ -16,7 +16,7 @@ There are three modes available for calculating the GRR value: `min_grr`, `max_g
 
 By default, the output files are written in a directory named `rgp_clustering` created in the working directory, which can be changed with the `--output` parameter. The files themselves are named after the `--basename` parameter (`rgp_cluster` by default).
 
-The resulting RGP clusters are stored in a tsv file (`rgp_cluster.tsv`) with the following columns:
+The resulting RGP clusters are stored in a TSV file (`rgp_cluster.tsv`) with the following columns:
 
 | column  | description                   |
 |---------|-------------------------------|
