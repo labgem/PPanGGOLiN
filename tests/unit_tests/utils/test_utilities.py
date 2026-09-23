@@ -13,6 +13,7 @@ from ppanggolin.utils import (
     write_compressed_or_not,
     has_non_ascii,
     replace_non_ascii,
+    parse_input_paths_file,
 )
 
 
@@ -197,3 +198,86 @@ def test_has_non_ascii(input_string, expected):
 )
 def test_replace_non_ascii(input_string, replacement, expected):
     assert replace_non_ascii(input_string, replacement) == expected
+
+
+def test_parse_input_paths_file_valid_file(tmp_path: Path):
+    fasta = tmp_path / "genome1.fa"
+    fasta.write_text(">seq\nACGT\n")
+
+    path_list = tmp_path / "genomes.tsv"
+    path_list.write_text(
+        "# comment\n"
+        "genome1\tgenome1.fa\tcontig_1\n"
+        "\n"
+        "genome2\tgenome2.fa\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "genome2.fa").write_text(">seq\nACGT\n")
+
+    parsed = parse_input_paths_file(path_list)
+
+    assert list(parsed) == ["genome1", "genome2"]
+    assert parsed["genome1"]["path"] == fasta
+    assert parsed["genome1"]["circular_contigs"] == ["contig_1"]
+    assert parsed["genome2"]["circular_contigs"] == []
+
+
+def test_parse_input_paths_file_rejects_missing_field(tmp_path: Path):
+    path_list = tmp_path / "genomes.tsv"
+    path_list.write_text("genome1\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="at least 2 tab-separated columns"):
+        parse_input_paths_file(path_list)
+
+
+def test_parse_input_paths_file_rejects_duplicate_names(tmp_path: Path):
+    (tmp_path / "genome1.fa").write_text(">seq\nACGT\n")
+    path_list = tmp_path / "genomes.tsv"
+    path_list.write_text(
+        "genome1\tgenome1.fa\n"
+        "genome1\tgenome1.fa\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Duplicate genome name"):
+        parse_input_paths_file(path_list)
+
+
+def test_parse_input_paths_file_rejects_trimmed_duplicate_names(tmp_path: Path):
+    (tmp_path / "genome1.fa").write_text(">seq\nACGT\n")
+    path_list = tmp_path / "genomes.tsv"
+    path_list.write_text(
+        "genome1 \tgenome1.fa\n"
+        "genome1\tgenome1.fa\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Duplicate genome name 'genome1'.*after trimming"):
+        parse_input_paths_file(path_list)
+
+
+def test_parse_input_paths_file_rejects_space_in_name(tmp_path: Path):
+    (tmp_path / "genome1.fa").write_text(">seq\nACGT\n")
+    path_list = tmp_path / "genomes.tsv"
+    path_list.write_text("genome 1\tgenome1.fa\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must not contain whitespace"):
+        parse_input_paths_file(path_list)
+
+
+def test_parse_input_paths_file_rejects_directory_path(tmp_path: Path):
+    directory = tmp_path / "genome_dir"
+    directory.mkdir()
+    path_list = tmp_path / "genomes.tsv"
+    path_list.write_text("genome1\tgenome_dir\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="resolves to a directory, not a file"):
+        parse_input_paths_file(path_list)
+
+
+def test_parse_input_paths_file_rejects_missing_file(tmp_path: Path):
+    path_list = tmp_path / "genomes.tsv"
+    path_list.write_text("genome1\tmissing.fa\n", encoding="utf-8")
+
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        parse_input_paths_file(path_list)

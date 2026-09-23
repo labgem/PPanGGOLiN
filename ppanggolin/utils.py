@@ -160,44 +160,7 @@ def check_tsv_sanity(tsv_file: Path):
     :param tsv: Path to the TSV containing organism information.
     :raises ValueError: If the file format is incorrect or contains invalid genome names.
     """
-    with read_compressed_or_not(tsv_file) as input_file:
-        name_set = set()
-        duplicated_names = set()
-        non_existing_files = set()
-
-        for line in input_file:
-            elements = [el.strip() for el in line.split("\t")]
-
-            if len(elements) <= 1:
-                raise ValueError(f"No tabulation separator found in file: {tsv_file}")
-
-            genome_name, genome_path = elements[0], elements[1]
-
-            if " " in genome_name:
-                raise ValueError(
-                    f"Genome names cannot contain spaces (first encountered: '{genome_name}'). "
-                    "Please remove spaces to ensure compatibility with PPanGGOLiN dependencies."
-                )
-
-            if genome_name in name_set:
-                duplicated_names.add(genome_name)
-            name_set.add(genome_name)
-
-            org_path = Path(genome_path)
-            if (
-                not org_path.exists()
-                and not tsv_file.parent.joinpath(org_path).exists()
-            ):
-                non_existing_files.add(genome_path)
-
-        if non_existing_files:
-            raise ValueError(
-                f"Some specified genome files do not exist: {', '.join(non_existing_files)}"
-            )
-        if duplicated_names:
-            raise ValueError(
-                f"Some genome names are duplicated: {', '.join(duplicated_names)}"
-            )
+    parse_input_paths_file(tsv_file)
 
 
 def check_input_files(file: Path, check_tsv: bool = False):
@@ -1370,41 +1333,90 @@ def parse_input_paths_file(
     This function reads an input paths file, which is in TSV format, and extracts genome information
     including file paths and putative circular contigs.
 
+    Each non-commented line must have at least two tab-separated columns:
+    genome_name<TAB>genome_file_path<TAB>[optional circular contig identifiers].
+
     :param path_list_file: The path to the input paths file.
-    :return: A dictionary where keys are genome names and values are dictionaries containing path information and
-             putative circular contigs.
-    :raises FileNotFoundError: If a specified genome file path does not exist.
-    :raises Exception: If there are no genomes in the provided file.
+    :return: A dictionary mapping each genome name to its path and circular contigs.
+    :raises ValueError: If the TSV is malformed, has missing fields, duplicate names,
+                        blank names or whitespace in names.
+    :raises FileNotFoundError: If a genome file path does not exist.
+    :raises ValueError: If the file contains no valid genomes.
     """
     logging.getLogger("PPanGGOLiN").info(
         f"Reading {path_list_file} to process genome files"
     )
     genome_name_to_genome_path = {}
 
-    for line in read_compressed_or_not(path_list_file):
-        elements = [el.strip() for el in line.split("\t")]
-        genome_file_path = Path(elements[1])
-        genome_name = elements[0]
-        putative_circular_contigs = elements[2:]
+    with read_compressed_or_not(path_list_file) as input_file:
+        for line_number, line in enumerate(input_file, start=1):
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
 
-        if not genome_file_path.exists():
-            # Check if the file path doesn't exist and try an alternative path.
-            genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
-
-            if not genome_file_path_alt.exists():
-                raise FileNotFoundError(
-                    f"The file path '{genome_file_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist."
+            elements = [el.strip() for el in line.rstrip("\n").split("\t")]
+            if len(elements) < 2:
+                raise ValueError(
+                    f"Malformed genome list line {line_number} in '{path_list_file}': "
+                    "expected at least 2 tab-separated columns (genome name and genome file path), "
+                    f"but found {len(elements)} column(s): '{line.rstrip()}'."
                 )
-            else:
+
+            genome_name = elements[0]
+            genome_path = elements[1]
+
+            if not genome_name:
+                raise ValueError(
+                    f"Malformed genome list line {line_number} in '{path_list_file}': "
+                    "the genome name is empty."
+                )
+
+            if any(ch.isspace() for ch in genome_name):
+                raise ValueError(
+                    f"Genome name '{genome_name}' on line {line_number} in '{path_list_file}' "
+                    "must not contain whitespace. Please use names without spaces."
+                )
+
+            trimmed_genome_name = genome_name.strip()
+            if trimmed_genome_name != genome_name:
+                genome_name = trimmed_genome_name
+
+            if genome_name in genome_name_to_genome_path:
+                raise ValueError(
+                    f"Duplicate genome name '{genome_name}' found in '{path_list_file}' on line {line_number} "
+                    "after trimming whitespace. Genome names must be unique."
+                )
+
+            if not genome_path:
+                raise ValueError(
+                    f"Malformed genome list line {line_number} in '{path_list_file}': "
+                    f"the genome file path for genome '{genome_name}' is empty."
+                )
+
+            genome_file_path = Path(genome_path)
+            if not genome_file_path.exists():
+                genome_file_path_alt = path_list_file.parent.joinpath(genome_file_path)
+                if not genome_file_path_alt.exists():
+                    raise FileNotFoundError(
+                        f"The file path '{genome_path}' for genome '{genome_name}' specified in '{path_list_file}' does not exist."
+                    )
                 genome_file_path = genome_file_path_alt
 
-        genome_name_to_genome_path[genome_name] = {
-            "path": genome_file_path,
-            "circular_contigs": putative_circular_contigs,
-        }
+            if genome_file_path.is_dir():
+                raise ValueError(
+                    f"The genome file path '{genome_path}' for genome '{genome_name}' specified in '{path_list_file}' "
+                    "resolves to a directory, not a file."
+                )
+
+            genome_name_to_genome_path[genome_name] = {
+                "path": genome_file_path,
+                "circular_contigs": elements[2:],
+            }
 
     if len(genome_name_to_genome_path) == 0:
-        raise Exception(f"There are no genomes in the provided file: {path_list_file} ")
+        raise ValueError(
+            f"There are no valid genomes in the provided file: {path_list_file}"
+        )
 
     return genome_name_to_genome_path
 
