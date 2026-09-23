@@ -417,19 +417,25 @@ def test_parse_fasta_valid():
 
 def test_parse_fasta_empty_sequence():
     fasta_data = ">seq1\n>seq2\nGCTA"
-    with pytest.raises(ValueError, match="Malformed FASTA record for contig 'seq1'|empty sequence"):
+    with pytest.raises(
+        ValueError, match="Malformed FASTA record for contig 'seq1'|empty sequence"
+    ):
         list(parse_fasta(fasta_data.split("\n")))
 
 
 def test_parse_fasta_no_header():
     fasta_data = "seq1\nATGC\nseq2\nGCTA".split("\n")
-    with pytest.raises(ValueError, match="Malformed FASTA content|header line starting with '>'"):
+    with pytest.raises(
+        ValueError, match="Malformed FASTA content|header line starting with '>'"
+    ):
         list(parse_fasta(fasta_data))
 
 
 def test_parse_fasta_empty_header_name():
     fasta_data = ">\nATGC\n".split("\n")
-    with pytest.raises(ValueError, match="Malformed FASTA header|contains no contig name"):
+    with pytest.raises(
+        ValueError, match="Malformed FASTA header|contains no contig name"
+    ):
         list(parse_fasta(fasta_data))
 
 

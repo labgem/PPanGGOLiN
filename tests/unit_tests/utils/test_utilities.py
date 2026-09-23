@@ -206,10 +206,7 @@ def test_parse_input_paths_file_valid_file(tmp_path: Path):
 
     path_list = tmp_path / "genomes.tsv"
     path_list.write_text(
-        "# comment\n"
-        "genome1\tgenome1.fa\tcontig_1\n"
-        "\n"
-        "genome2\tgenome2.fa\n",
+        "# comment\n" "genome1\tgenome1.fa\tcontig_1\n" "\n" "genome2\tgenome2.fa\n",
         encoding="utf-8",
     )
     (tmp_path / "genome2.fa").write_text(">seq\nACGT\n")
@@ -234,8 +231,7 @@ def test_parse_input_paths_file_rejects_duplicate_names(tmp_path: Path):
     (tmp_path / "genome1.fa").write_text(">seq\nACGT\n")
     path_list = tmp_path / "genomes.tsv"
     path_list.write_text(
-        "genome1\tgenome1.fa\n"
-        "genome1\tgenome1.fa\n",
+        "genome1\tgenome1.fa\n" "genome1\tgenome1.fa\n",
         encoding="utf-8",
     )
 
@@ -247,12 +243,13 @@ def test_parse_input_paths_file_rejects_trimmed_duplicate_names(tmp_path: Path):
     (tmp_path / "genome1.fa").write_text(">seq\nACGT\n")
     path_list = tmp_path / "genomes.tsv"
     path_list.write_text(
-        "genome1 \tgenome1.fa\n"
-        "genome1\tgenome1.fa\n",
+        "genome1 \tgenome1.fa\n" "genome1\tgenome1.fa\n",
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Duplicate genome name 'genome1'.*after trimming"):
+    with pytest.raises(
+        ValueError, match="Duplicate genome name 'genome1'.*after trimming"
+    ):
         parse_input_paths_file(path_list)
 
 
