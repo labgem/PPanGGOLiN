@@ -445,6 +445,7 @@ def evaluate_nb_partitions(
     tmpdir = Path(tempfile.gettempdir()) if tmpdir is None else tmpdir
     newtmpdir = tmpdir / "eval_partitions"
 
+    random.seed(seed)  # Seeded before forking
     if len(organisms) > chunk_size:
         select_organisms = set(random.sample(ordered_organisms(organisms), chunk_size))
     else:
@@ -507,7 +508,7 @@ def evaluate_nb_partitions(
     best_k = chosen_k
 
     if len(all_bics) > 3:
-        max_icl_k = max(all_icls, key=all_icls.get)
+        max_icl_k = max(sorted(all_icls), key=all_icls.get)
         delta_icl = (all_icls[max_icl_k] - min(all_icls.values())) * icl_margin
         best_k = min(
             {
