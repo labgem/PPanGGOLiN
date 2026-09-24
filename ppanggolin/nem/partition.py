@@ -305,6 +305,15 @@ def nem_samples(
     return partition_nem(*pack)
 
 
+def ordered_organisms(organisms) -> list:
+    """
+    Genomes in a stable, process-independent order.
+    :param organisms: genomes to order
+    :return: the genomes sorted by name
+    """
+    return sorted(organisms, key=lambda org: org.name)
+
+
 def write_nem_input_files(
     tmpdir: Path, organisms: set, sm_degree: int = 10
 ) -> Tuple[float, int]:
@@ -319,6 +328,7 @@ def write_nem_input_files(
     """
     mk_outdir(tmpdir, force=False)
     total_edges_weight = 0
+    organisms = ordered_organisms(organisms)
 
     with open(tmpdir / "column_org_file", "w") as org_file:
         org_file.write(" ".join([f'"{org.name}"' for org in organisms]) + "\n")
@@ -436,7 +446,7 @@ def evaluate_nb_partitions(
     newtmpdir = tmpdir / "eval_partitions"
 
     if len(organisms) > chunk_size:
-        select_organisms = set(random.sample(list(organisms), chunk_size))
+        select_organisms = set(random.sample(ordered_organisms(organisms), chunk_size))
     else:
         select_organisms = set(organisms)
 
@@ -773,8 +783,8 @@ def partition(
             prev = len(samples)  # if we've been sampling already, samples is not empty.
             while not all(val >= condition for val in org_nb_sample.values()):
                 # each family must be tested at least len(select_organisms)/chunk_size times.
-                shuffled_orgs = list(organisms)  # copy select_organisms
-                random.shuffle(shuffled_orgs)  # shuffle the copied list
+                shuffled_orgs = ordered_organisms(organisms)
+                random.shuffle(shuffled_orgs)  # seeded shuffle
                 while len(shuffled_orgs) > chunk_size:
                     samples.append(set(shuffled_orgs[:chunk_size]))
                     for org in samples[-1]:
