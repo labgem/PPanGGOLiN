@@ -328,10 +328,10 @@ def write_nem_input_files(
     """
     mk_outdir(tmpdir, force=False)
     total_edges_weight = 0
-    organisms = ordered_organisms(organisms)
+    ordered_organisms = ordered_organisms(organisms)
 
     with open(tmpdir / "column_org_file", "w") as org_file:
-        org_file.write(" ".join([f'"{org.name}"' for org in organisms]) + "\n")
+        org_file.write(" ".join([f'"{org.name}"' for org in ordered_organisms]) + "\n")
 
     logging.getLogger("PPanGGOLiN").debug(
         "Writing nem_file.str nem_file.index nem_file.nei and nem_file.dat files"
@@ -348,7 +348,7 @@ def write_nem_input_files(
 
         index_org = {}
         default_dat = []
-        for index, org in enumerate(organisms):
+        for index, org in enumerate(ordered_organisms):
             default_dat.append("0")
             index_org[org] = index
 
