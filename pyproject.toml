@@ -1,8 +1,7 @@
 [build-system]
 requires = [
     "setuptools",
-    "setuptools-scm",
-    "cython"
+    "setuptools-scm"
 ]
 build-backend = "setuptools.build_meta"
 
@@ -47,6 +46,7 @@ dependencies = [
     "plotly>=5.0.0,<6.0.0",
     "gmpy2>=2.0.0,<3.0.0",
     "bokeh>=3.0.0,<3.4.0",
+    "pynem[fast]>=0.6",
     "gb-io>=0.4.0",
 ]
 
